@@ -8,6 +8,7 @@ import {
   createAdr,
   exitCodeForFindings,
   lintCorpus,
+  migrateMadr,
   resolveAffects,
   renderDotGraph,
   renderJsonGraph,
@@ -28,9 +29,12 @@ function usage(message?: string): number {
   if (message) writeStderr(`${message}\n`);
   writeStderr(`Usage:
   adr lint [paths...] [--json] [--dir docs/adr]
+  adr migrate --from madr [--dir docs/adr] [--dry-run] [--json]
   adr new <title> [--status draft] [--dir docs/adr] [--json]
   adr graph [--dir docs/adr] [--format dot|json]
   adr explain <path> [--dir docs/adr] [--json]
+
+Round-trip sync is explicitly unsupported (ADR-0008); migrate is one-way and non-destructive.
 `);
   return 2;
 }
@@ -98,6 +102,78 @@ async function runLint(args: string[]): Promise<number> {
   }
 
   return exitCodeForFindings(findings);
+}
+
+function renderHumanMigrate(result: Awaited<ReturnType<typeof migrateMadr>>): string {
+  const counts = {
+    migrated: 0,
+    updated: 0,
+    unchanged: 0,
+    diverged: 0,
+    skipped: 0,
+  };
+
+  let output = '';
+  for (const item of result.results) {
+    counts[item.outcome] += 1;
+    output += `${item.outcome}  ${item.path}\n`;
+  }
+
+  output += `summary: migrated ${counts.migrated}, updated ${counts.updated}, unchanged ${counts.unchanged}, diverged ${counts.diverged}, skipped ${counts.skipped}\n`;
+  output += 'Divergence (report only):\n';
+  if (result.divergence.length === 0) {
+    output += '  none\n';
+  } else {
+    for (const item of result.divergence) {
+      output += `  ${item.path}  sourceRef=${item.sourceRef}\n`;
+    }
+  }
+
+  if (result.findings.length > 0) {
+    output += 'Findings:\n';
+    for (const finding of result.findings) {
+      output += renderFinding(finding);
+    }
+  }
+
+  return output;
+}
+
+async function runMigrate(args: string[]): Promise<number> {
+  let parsed: ReturnType<typeof parseArgs>;
+  try {
+    parsed = parseCommandArgs(args, {
+      from: { type: 'string' },
+      dir: { type: 'string', default: 'docs/adr' },
+      'dry-run': { type: 'boolean', default: false },
+      json: { type: 'boolean', default: false },
+    });
+  } catch (error) {
+    return usage(error instanceof Error ? error.message : String(error));
+  }
+
+  if (parsed.positionals.length > 0) return usage('adr migrate does not accept positional arguments');
+  const from = parsed.values.from;
+  if (from !== 'madr') {
+    return usage(
+      from
+        ? `adr migrate --from ${String(from)} is not supported yet; only --from madr is available, and round-trip sync is unsupported (ADR-0008)`
+        : 'adr migrate requires --from madr; non-MADR sources and round-trip sync are unsupported in this phase (ADR-0008)',
+    );
+  }
+
+  const result = await migrateMadr({
+    dir: String(parsed.values.dir),
+    write: parsed.values['dry-run'] !== true,
+  });
+
+  if (parsed.values.json) {
+    writeStdout(`${JSON.stringify(result, null, 2)}\n`);
+  } else {
+    writeStdout(renderHumanMigrate(result));
+  }
+
+  return 0;
 }
 
 async function runNew(args: string[]): Promise<number> {
@@ -224,6 +300,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
   try {
     if (command === 'lint') return await runLint(args);
+    if (command === 'migrate') return await runMigrate(args);
     if (command === 'new') return await runNew(args);
     if (command === 'graph') return await runGraph(args);
     if (command === 'explain') return await runExplain(args);

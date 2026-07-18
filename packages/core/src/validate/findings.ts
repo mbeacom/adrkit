@@ -1,3 +1,11 @@
+export const IMPORT_FINDING_RULES = [
+  'import-incomplete',
+  'import-status-unrecognized',
+  'import-not-madr',
+] as const;
+
+export type ImportFindingRule = (typeof IMPORT_FINDING_RULES)[number];
+
 export type FindingSeverity = 'error' | 'warn' | 'info';
 
 export interface Finding {

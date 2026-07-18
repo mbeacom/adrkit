@@ -3,6 +3,7 @@ import type { Adr } from '../schema/adr.schema.ts';
 import { FrontmatterError } from '../parse/frontmatter.ts';
 import { validateParsedAdr } from './contract.ts';
 import { validateCorpusInvariants } from './corpus-invariants.ts';
+import { validateImportIncomplete } from './import-incomplete.ts';
 import { sortFindings, type Finding } from './findings.ts';
 
 export interface LintCorpusOptions {
@@ -56,6 +57,7 @@ export async function lintCorpus(options: LintCorpusOptions = {}): Promise<LintC
     }
   }
 
+  findings.push(...validateImportIncomplete(records));
   findings.push(...validateCorpusInvariants(records));
 
   return {
