@@ -1,0 +1,11 @@
+The contents of this directory are dedicated to the public domain under
+CC0 1.0 Universal.
+
+To the extent possible under law, the authors have waived all copyright and
+related or neighboring rights to the adrkit decision record schema.
+
+Full text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+Rationale: the schema is intended to function as a shared contract. Competing
+and independent implementations should be able to adopt it with no license
+consideration whatsoever. See ADR-0006.

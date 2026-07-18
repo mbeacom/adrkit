@@ -1,0 +1,16 @@
+# ADR-0010. The linker setting is load-bearing, not a preference.
+#
+# The default "hoisted" linker mimics npm and permits phantom dependencies — a
+# package importing something it never declared, resolved from the hoisted root.
+# Under it, ADR-0007's `core-has-no-adapter-deps` check can pass while the core
+# imports an adapter. "isolated" mimics pnpm's symlinked layout and removes the
+# class entirely. Do not change this to unblock an install.
+linker = "isolated"
+
+# ADR-0001/0004 make this a git-native, review-centric project. The lockfile is
+# reviewed like any other file, so it must stay text.
+save-text-lockfile = true
+
+[install]
+exact = false
+frozen-lockfile = false  # CI passes --frozen-lockfile explicitly
