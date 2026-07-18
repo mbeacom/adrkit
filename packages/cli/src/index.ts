@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -50,7 +50,12 @@ function renderHumanLint(findings: readonly Finding[]): string {
   const grouped = new Map<string, Finding[]>();
   for (const finding of findings) {
     const group = finding.path ?? '(corpus)';
-    grouped.set(group, [...(grouped.get(group) ?? []), finding]);
+    let list = grouped.get(group);
+    if (!list) {
+      list = [];
+      grouped.set(group, list);
+    }
+    list.push(finding);
   }
 
   let output = '';

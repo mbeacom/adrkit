@@ -126,6 +126,8 @@ export async function checkDependencyRules(root = process.cwd()): Promise<Depend
     for (const section of DEPENDENCY_SECTIONS) {
       const dependencies = workspace.packageJson[section] ?? {};
       for (const [dependency, version] of Object.entries(dependencies)) {
+        // TODO(phase: adapters): Resolve `npm:` aliases and `file:` specifiers to workspace identities,
+        // and extend the allowlist model to every workspace once adapter packages exist.
         if (!adapterPackage && (adapterNames.has(dependency) || version.includes('packages/adapters/'))) {
           violations.push({
             packageName,

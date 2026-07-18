@@ -4,21 +4,29 @@
   "type": "module",
   "license": "Apache-2.0",
   "bin": {
-    "adr": "./src/index.ts"
+    "adr": "./dist/index.js"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
     "adr": "bun ./src/index.ts",
-    "build": "bun build ./src/index.ts --target=node --outdir=dist --packages=external",
+    "build": "rm -rf dist && bun build ./src/index.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist && chmod +x dist/index.js",
     "lint": "bun run typecheck",
-    "typecheck": "tsc --noEmit --project ../../tsconfig.json"
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
   },
   "dependencies": {
     "@adrkit/core": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

@@ -39,4 +39,14 @@ describe('adr lint CLI', () => {
     expect(result.stdout).toContain('checked 1 records, 1 errors');
     expect(result.stderr).toContain('superseded-requires-supersededBy');
   });
+
+  test('reports a missing explicit path as a finding instead of crashing', async () => {
+    const root = await resetTestDir(DIR_NAME);
+
+    const result = await runAdr(['lint', './does-not-exist.md'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('checked 1 records, 1 errors');
+    expect(result.stderr).toContain('file-read');
+    expect(result.stderr).toContain('does-not-exist.md');
+  });
 });

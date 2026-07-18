@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createAdr, ScaffoldError, slugifyTitle } from '../src/scaffold/new.ts';
 import { parseAdrFile } from '../src/load/corpus.ts';
@@ -32,6 +32,21 @@ describe('ADR scaffold', () => {
 
     const lint = await lintCorpus({ cwd: root, paths: [result.path] });
     expect(lint.findings).toEqual([]);
+  });
+
+  test('refuses to overwrite an existing target path', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, 'docs/adr/.keep'), '');
+    await symlink('already-there.md', join(root, 'docs/adr/0001-adopt-example-decision.md'));
+
+    await expect(
+      createAdr({
+        title: 'Adopt example decision',
+        cwd: root,
+        dir: 'docs/adr',
+        date: '2026-07-18',
+      }),
+    ).rejects.toThrow(ScaffoldError);
   });
 
   test('slugifies title and enforces title bounds', async () => {

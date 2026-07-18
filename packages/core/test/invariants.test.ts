@@ -88,4 +88,19 @@ describe('intra-record contract invariants', () => {
     expect(rulesFor(base())).toEqual([]);
     expect(rulesFor(base({ unexpectedField: true }))).toContain('strict-unknown-key');
   });
+
+  test('unknown nested keys are rejected by the strict contract', () => {
+    const findings = validateAdrFrontmatter(
+      base({ provenance: { authoredBy: 'human', ratified_by: '@mbeacom' } }),
+      'record.md',
+    ).findings;
+    expect(
+      findings.some(
+        (finding) =>
+          finding.rule === 'strict-unknown-key' &&
+          finding.severity === 'error' &&
+          finding.field === 'provenance.ratified_by',
+      ),
+    ).toBe(true);
+  });
 });

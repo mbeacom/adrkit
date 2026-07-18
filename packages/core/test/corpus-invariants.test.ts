@@ -48,6 +48,41 @@ describe('corpus invariants', () => {
     expect(findings).toMatchObject([{ rule: 'dangling-conflictsWith', severity: 'warn' }]);
   });
 
+
+  test('resolved supersedes references yield no error', () => {
+    const findings = validateCorpusInvariants([
+      record('0001'),
+      record('0002', { supersedes: ['0001'] }),
+    ]);
+    expect(findings.filter((finding) => finding.rule === 'dangling-supersedes')).toHaveLength(0);
+    expect(findings.filter((finding) => finding.severity === 'error')).toHaveLength(0);
+  });
+
+  test('conflictsWith on a non-accepted record yields no warning when resolved', () => {
+    const findings = validateCorpusInvariants([
+      record('0001'),
+      record('0002', { status: 'proposed', conflictsWith: ['0001'] }),
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  test('accepted conflictsWith on a resolved record yields the conflict warning', () => {
+    const findings = validateCorpusInvariants([
+      record('0001'),
+      record('0002', { status: 'accepted', deciders: ['@mbeacom'], conflictsWith: ['0001'] }),
+    ]);
+    expect(findings).toEqual([
+      {
+        rule: 'accepted-conflictsWith',
+        severity: 'warn',
+        message: 'Accepted ADR declares a known conflict with "0001"',
+        path: 'docs/adr/0002-test.md',
+        id: '0002',
+        field: 'conflictsWith',
+      },
+    ]);
+  });
+
   test('clean corpus yields zero errors', () => {
     const findings = validateCorpusInvariants([
       record('0001'),

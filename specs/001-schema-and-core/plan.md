@@ -51,7 +51,7 @@ retained.
 |---|---|
 | **I. Git is the source of truth** | PASS — `lint`/`graph` are read-only; `new` writes a single markdown file the author commits via PR. No database; no in-place machine mutation of existing records. |
 | **II. Clean clone builds green** | PASS — deps are public packages; no credentials, services, or runtime network. `clean-clone-builds` CI job enforces it. |
-| **III. Core depends on no adapter** | PASS — `@adrkit/core` imports only `zod`, `yaml`, and `node:*`; `@adrkit/cli` imports `@adrkit/core`. No `packages/adapters/*` exists yet; `core-has-no-adapter-deps` guards it. `isolated` linker retained. |
+| **III. Core depends on no adapter** | PASS — amended Principle III permits vetted deterministic, network-free, credential-free libraries (`zod`, `yaml`) plus workspace packages; `@adrkit/core` imports only those and `node:*`, and `@adrkit/cli` imports `@adrkit/core`. No adapter deps exist; `core-has-no-adapter-deps` guards the boundary. `isolated` linker retained. |
 | **IV. Deterministic before probabilistic** | PASS — parsing and validation are pure and model-free; no evaluator/model path in this phase. |
 | **V. The schema is the contract** | PASS — Zod source is authoritative; `schema:emit` regenerates the JSON Schema; `schema-emit-matches` fails on drift; invariants enforced in code with per-invariant tests. |
 

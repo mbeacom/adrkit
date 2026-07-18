@@ -53,10 +53,14 @@ export async function expandRecordInputs(
   const expanded: string[] = [];
   for (const inputPath of paths) {
     const absolutePath = toAbsolutePath(inputPath, cwd);
-    const inputStat = await stat(absolutePath);
-    if (inputStat.isDirectory()) {
-      expanded.push(...(await discoverAdrFiles(absolutePath, cwd)));
-    } else if (inputStat.isFile()) {
+    try {
+      const inputStat = await stat(absolutePath);
+      if (inputStat.isDirectory()) {
+        expanded.push(...(await discoverAdrFiles(absolutePath, cwd)));
+      } else if (inputStat.isFile()) {
+        expanded.push(absolutePath);
+      }
+    } catch {
       expanded.push(absolutePath);
     }
   }

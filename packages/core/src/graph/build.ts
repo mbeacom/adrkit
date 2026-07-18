@@ -66,7 +66,11 @@ export function buildAdrGraph(records: readonly Adr[]): AdrGraph {
 }
 
 function dotString(value: string): string {
-  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  return `"${value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r/g, '\\n')
+    .replace(/\n/g, '\\n')
+    .replace(/"/g, '\\"')}"`;
 }
 
 export function renderDotGraph(graph: AdrGraph): string {

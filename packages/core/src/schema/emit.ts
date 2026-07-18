@@ -38,7 +38,7 @@ function sortJson(value: unknown): JsonValue {
 }
 
 export function emitJsonSchema(): JsonValue {
-  const schema = z.toJSONSchema(AdrFrontmatter);
+  const schema = z.toJSONSchema(AdrFrontmatter, { io: 'input' });
   const withMetadata = {
     ...schema,
     $id: ADR_SCHEMA_ID,

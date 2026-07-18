@@ -10,9 +10,11 @@ describe('emitted schema shape', () => {
     expect(properties.schemaVersion?.default).toBe('0.1.0');
   });
 
-  test('requires the top-level contract fields', () => {
-    for (const field of ['id', 'title', 'status', 'date']) {
-      expect(schema.required).toContain(field);
+  test('requires exactly the top-level fields that have no defaults', () => {
+    const required = schema.required as string[];
+    expect(required).toEqual(['id', 'title', 'status', 'date']);
+    for (const defaultedField of ['schemaVersion', 'deciders', 'affects']) {
+      expect(required).not.toContain(defaultedField);
     }
     expect(schema.additionalProperties).toBe(false);
   });

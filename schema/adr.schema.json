@@ -37,8 +37,7 @@
         },
         "required": [
           "type",
-          "pattern",
-          "negate"
+          "pattern"
         ],
         "type": "object"
       },
@@ -95,7 +94,6 @@
         "required": [
           "id",
           "engine",
-          "input",
           "severity"
         ],
         "type": "object"
@@ -243,10 +241,6 @@
           "type": "object"
         }
       },
-      "required": [
-        "escalationReasons",
-        "deterministicFindings"
-      ],
       "type": "object"
     },
     "externalRefs": {
@@ -367,9 +361,6 @@
           "type": "string"
         }
       },
-      "required": [
-        "authoredBy"
-      ],
       "type": "object"
     },
     "relatesTo": {
@@ -429,8 +420,7 @@
               }
             },
             "required": [
-              "by",
-              "resolved"
+              "by"
             ],
             "type": "object"
           },
@@ -463,10 +453,6 @@
           "type": "string"
         }
       },
-      "required": [
-        "approvals",
-        "objections"
-      ],
       "type": "object"
     },
     "reviewBy": {
@@ -528,25 +514,10 @@
     }
   },
   "required": [
-    "schemaVersion",
     "id",
     "title",
     "status",
-    "date",
-    "deciders",
-    "consulted",
-    "informed",
-    "tags",
-    "scope",
-    "reversibility",
-    "blastRadius",
-    "supersedes",
-    "relatesTo",
-    "conflictsWith",
-    "affects",
-    "assertions",
-    "externalRefs",
-    "complianceControls"
+    "date"
   ],
   "title": "Architecture Decision Record",
   "type": "object"

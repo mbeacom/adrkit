@@ -71,14 +71,17 @@ function ruleForIssue(issue: z.core.$ZodIssue): string {
 
 function issueFindings(issue: z.core.$ZodIssue, path: string, id?: string): Finding[] {
   if (issue.code === 'unrecognized_keys') {
-    return issue.keys.map((key) => ({
-      rule: 'strict-unknown-key',
-      severity: 'error' as const,
-      message: `Unknown frontmatter field "${key}" is not allowed`,
-      path,
-      id,
-      field: key,
-    }));
+    return issue.keys.map((key) => {
+      const field = fieldPath([...issue.path, key]) ?? key;
+      return {
+        rule: 'strict-unknown-key',
+        severity: 'error' as const,
+        message: `Unknown frontmatter field "${field}" is not allowed`,
+        path,
+        id,
+        field,
+      };
+    });
   }
 
   return [

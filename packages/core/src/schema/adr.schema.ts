@@ -40,6 +40,8 @@ const IsoDateTime = z.string().datetime({ offset: true });
 
 const Slug = z.string().regex(/^[a-z0-9][a-z0-9-]*$/);
 
+const strictObject = <T extends z.ZodRawShape>(shape: T) => z.strictObject(shape);
+
 /**
  * Array whose items must be unique. Mirrors JSON Schema `uniqueItems: true`
  * so TS and non-TS consumers reject duplicate entries identically.
@@ -107,7 +109,7 @@ export const AffectsType = z.enum([
   'data', // dataset / table identifier
 ]);
 
-export const AffectsMatcher = z.object({
+export const AffectsMatcher = strictObject({
   type: AffectsType,
   pattern: z.string().min(1),
   /** Qualifier for federated logs. Omit for same-repo. */
@@ -121,7 +123,7 @@ export const AffectsMatcher = z.object({
  * assertions — optional executable guardrails
  * ------------------------------------------------------------------ */
 
-export const Assertion = z.object({
+export const Assertion = strictObject({
   id: Slug,
   description: z.string().optional(),
   engine: z.enum(['rego', 'jsonpath', 'grep', 'custom']),
@@ -137,17 +139,15 @@ export const Assertion = z.object({
  * provenance — capture from day one; cannot be backfilled
  * ------------------------------------------------------------------ */
 
-export const Provenance = z.object({
+export const Provenance = strictObject({
   authoredBy: z.enum(['human', 'agent', 'agent-drafted']).default('human'),
-  agent: z
-    .object({
-      name: z.string().optional(),
-      model: z.string().optional(),
-      /** e.g. spec-kit, claude-code, copilot */
-      harness: z.string().optional(),
-      runId: z.string().optional(),
-    })
-    .optional(),
+  agent: strictObject({
+    name: z.string().optional(),
+    model: z.string().optional(),
+    /** e.g. spec-kit, claude-code, copilot */
+    harness: z.string().optional(),
+    runId: z.string().optional(),
+  }).optional(),
   ratifiedBy: Identity.optional(),
   /** Path/URI of the plan or spec this record was derived from. */
   sourceArtifact: z.string().optional(),
@@ -157,29 +157,27 @@ export const Provenance = z.object({
    * decision was made elsewhere, and fabricating a decider from git blame is
    * worse than an empty field.
    */
-  importedFrom: z
-    .object({
-      sourceKind: z.enum(['madr', 'agent-log', 'plan-artifact', 'other']),
-      /** Source-local identifier: file path, entry id, or URI. */
-      sourceRef: z.string(),
-      /** Content hash of the source entry at import time; drives re-import classification. */
-      fingerprint: z.string(),
-      importedAt: IsoDateTime.optional(),
-    })
-    .optional(),
+  importedFrom: strictObject({
+    sourceKind: z.enum(['madr', 'agent-log', 'plan-artifact', 'other']),
+    /** Source-local identifier: file path, entry id, or URI. */
+    sourceRef: z.string(),
+    /** Content hash of the source entry at import time; drives re-import classification. */
+    fingerprint: z.string(),
+    importedAt: IsoDateTime.optional(),
+  }).optional(),
 });
 
 /* ------------------------------------------------------------------ *
  * review — ARB routing state
  * ------------------------------------------------------------------ */
 
-export const Objection = z.object({
+export const Objection = strictObject({
   by: Identity,
   summary: z.string().optional(),
   resolved: z.boolean().default(false),
 });
 
-export const Review = z.object({
+export const Review = strictObject({
   tier: ReviewTier.optional(),
   /** Required when a human overrides the router's tier. */
   tierReason: z.string().optional(),
@@ -196,14 +194,14 @@ export const Review = z.object({
  * evaluation — written by tooling, never by hand
  * ------------------------------------------------------------------ */
 
-export const DeterministicFinding = z.object({
+export const DeterministicFinding = strictObject({
   rule: z.string(),
   severity: Severity,
   message: z.string().optional(),
   adr: AdrRef.optional(),
 });
 
-export const Evaluation = z.object({
+export const Evaluation = strictObject({
   ranAt: IsoDateTime.optional(),
   evaluatorVersion: z.string().optional(),
   rubricVersion: z.string().optional(),
@@ -215,7 +213,7 @@ export const Evaluation = z.object({
   deterministicFindings: z.array(DeterministicFinding).default([]),
 });
 
-export const ExternalRef = z.object({
+export const ExternalRef = strictObject({
   type: z.enum(['issue', 'pr', 'rfc', 'incident', 'doc', 'meeting', 'control', 'other']),
   id: z.string().optional(),
   url: z.string().url(),
@@ -226,51 +224,49 @@ export const ExternalRef = z.object({
  * The record
  * ------------------------------------------------------------------ */
 
-export const AdrFrontmatter = z
-  .object({
-    schemaVersion: z
-      .string()
-      .regex(/^\d+\.\d+\.\d+$/)
-      .default(SCHEMA_VERSION),
+export const AdrFrontmatter = strictObject({
+  schemaVersion: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .default(SCHEMA_VERSION),
 
-    id: z.string().regex(/^([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$/),
-    /** Imperative phrase naming the decision, not the problem. */
-    title: z.string().min(3).max(120),
-    status: Status,
-    date: IsoDate,
-    created: IsoDate.optional(),
+  id: z.string().regex(/^([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$/),
+  /** Imperative phrase naming the decision, not the problem. */
+  title: z.string().min(3).max(120),
+  status: Status,
+  date: IsoDate,
+  created: IsoDate.optional(),
 
-    deciders: z.array(Identity).default([]),
-    consulted: z.array(Identity).default([]),
-    informed: z.array(Identity).default([]),
+  deciders: z.array(Identity).default([]),
+  consulted: z.array(Identity).default([]),
+  informed: z.array(Identity).default([]),
 
-    tags: uniqueArray(Slug).default([]),
-    scope: Scope.default('component'),
-    domain: z.string().optional(),
+  tags: uniqueArray(Slug).default([]),
+  scope: Scope.default('component'),
+  domain: z.string().optional(),
 
-    reversibility: Reversibility.default('unknown'),
-    blastRadius: BlastRadius.default('component'),
+  reversibility: Reversibility.default('unknown'),
+  blastRadius: BlastRadius.default('component'),
 
-    supersedes: uniqueArray(AdrRef).default([]),
-    supersededBy: AdrRef.optional(),
-    relatesTo: uniqueArray(AdrRef).default([]),
-    /** Knowingly-held tension. A lint warning on accepted records, not an error. */
-    conflictsWith: z.array(AdrRef).default([]),
+  supersedes: uniqueArray(AdrRef).default([]),
+  supersededBy: AdrRef.optional(),
+  relatesTo: uniqueArray(AdrRef).default([]),
+  /** Knowingly-held tension. A lint warning on accepted records, not an error. */
+  conflictsWith: z.array(AdrRef).default([]),
 
-    affects: z.array(AffectsMatcher).default([]),
-    assertions: z.array(Assertion).default([]),
+  affects: z.array(AffectsMatcher).default([]),
+  assertions: z.array(Assertion).default([]),
 
-    provenance: Provenance.optional(),
-    review: Review.optional(),
-    evaluation: Evaluation.optional(),
+  provenance: Provenance.optional(),
+  review: Review.optional(),
+  evaluation: Evaluation.optional(),
 
-    externalRefs: z.array(ExternalRef).default([]),
-    /** e.g. SOC2 CC8.1, ISO 27001 A.8.25 — audit evidence as a byproduct. */
-    complianceControls: uniqueArray(z.string()).default([]),
-    /** Decisions with an expiry get maintained. Decisions without one rot. */
-    reviewBy: IsoDate.optional(),
+  externalRefs: z.array(ExternalRef).default([]),
+  /** e.g. SOC2 CC8.1, ISO 27001 A.8.25 — audit evidence as a byproduct. */
+  complianceControls: uniqueArray(z.string()).default([]),
+  /** Decisions with an expiry get maintained. Decisions without one rot. */
+  reviewBy: IsoDate.optional(),
   })
-  .strict()
   /* --- cross-field invariants ------------------------------------- */
   .refine((a) => (a.status === 'superseded' ? Boolean(a.supersededBy) : true), {
     message: 'status "superseded" requires supersededBy',

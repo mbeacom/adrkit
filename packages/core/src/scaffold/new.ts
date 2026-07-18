@@ -1,7 +1,7 @@
-import { mkdir, stat, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { basename, dirname, resolve } from 'node:path';
 import { Status, SCHEMA_VERSION, AdrFrontmatter } from '../schema/adr.schema.ts';
-import { discoverAdrFiles, loadAdrFile, normalizeDisplayPath } from '../load/corpus.ts';
+import { discoverAdrFiles, normalizeDisplayPath } from '../load/corpus.ts';
 
 export interface NewAdrOptions {
   title: string;
@@ -67,16 +67,9 @@ async function nextSequentialId(dir: string, cwd: string): Promise<string> {
   const files = await discoverAdrFiles(dir, cwd).catch(() => []);
   let max = 0;
   for (const file of files) {
-    try {
-      const record = await loadAdrFile(file, cwd);
-      if (/^[0-9]+$/.test(record.frontmatter.id)) {
-        max = Math.max(max, Number(record.frontmatter.id));
-      }
-    } catch {
-      const match = /(^|\/)([0-9]{4,})-/.exec(file);
-      if (match?.[2]) {
-        max = Math.max(max, Number(match[2]));
-      }
+    const match = /^([0-9]+)-/.exec(basename(file));
+    if (match?.[1]) {
+      max = Math.max(max, Number(match[1]));
     }
   }
   return String(max + 1).padStart(4, '0');
@@ -180,18 +173,6 @@ a decision whose chosen option has no listed downsides is not a decision.
 `;
 }
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-      return false;
-    }
-    throw error;
-  }
-}
-
 export async function createAdr(options: NewAdrOptions): Promise<NewAdrResult> {
   const cwd = options.cwd ?? process.cwd();
   const dir = options.dir ?? 'docs/adr';
@@ -211,13 +192,16 @@ export async function createAdr(options: NewAdrOptions): Promise<NewAdrResult> {
   const displayPath = normalizeDisplayPath(path, cwd);
   const content = renderAdrRecord({ id, title, status, date: options.date ?? todayIsoDate() });
 
-  if (await pathExists(path)) {
-    throw new ScaffoldError('exists', `Refusing to overwrite existing ADR file ${displayPath}`);
-  }
-
   if (options.write !== false) {
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content, 'utf8');
+    try {
+      await writeFile(path, content, { encoding: 'utf8', flag: 'wx' });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST') {
+        throw new ScaffoldError('exists', `Refusing to overwrite existing ADR file ${displayPath}`);
+      }
+      throw error;
+    }
   }
 
   return { id, path: displayPath, content };

@@ -1,25 +1,16 @@
 <!--
 SYNC IMPACT REPORT
-Version change: (template placeholder) → 1.0.0
-Ratification: initial adoption of a concrete constitution derived from docs/adr/.
-Modified principles: all five template placeholders replaced with concrete,
-  ADR-derived principles:
-  - [PRINCIPLE_1] → I. Git Is the Source of Truth
-  - [PRINCIPLE_2] → II. Clean Clone Builds Green
-  - [PRINCIPLE_3] → III. Core Depends on No Adapter
-  - [PRINCIPLE_4] → IV. Deterministic Before Probabilistic
-  - [PRINCIPLE_5] → V. The Schema Is the Contract
-Added sections:
-  - Additional Constraints (toolchain, resolution purity, provenance)
-  - Development Workflow & Quality Gates
+Version change: 1.0.0 → 1.0.1
+Ratification: PATCH clarification reconciling adapter isolation with vetted deterministic public libraries and correcting the authored schema path.
+Modified principles:
+  - III. Core Depends on No Adapter — clarified that `zod` and `yaml` are permitted vetted, deterministic, network-free, credential-free libraries, while adapter and authenticated/network/service dependencies remain forbidden.
+  - V. The Schema Is the Contract — corrected the authored Zod source path to `packages/core/src/schema/adr.schema.ts` and documented the root schema file as a compatibility re-export.
+Added sections: none.
 Removed sections: none.
 Templates reviewed:
-  ✅ .specify/templates/plan-template.md — Constitution Check gate references
-     this file; principle IDs below are the gate checklist.
-  ✅ .specify/templates/spec-template.md — no change required; spec stays
-     implementation-agnostic.
-  ✅ .specify/templates/tasks-template.md — no change required; tests remain
-     opt-in per feature, consistent with Principle IV/V verification tasks.
+  ✅ .specify/templates/plan-template.md — no change required; Principle III/V gate wording remains applicable.
+  ✅ .specify/templates/spec-template.md — no change required; spec stays implementation-agnostic.
+  ✅ .specify/templates/tasks-template.md — no change required; tests remain opt-in per feature, consistent with Principle IV/V verification tasks.
 Deferred TODOs: none.
 Source of authority: docs/adr/0001, 0002, 0004, 0005, 0007, 0008, 0009, 0010.
 The ADRs are normative. If this file and an accepted ADR disagree, the ADR wins
@@ -70,12 +61,15 @@ boundary between this Apache-2.0 project and any employer-internal IP. (ADR-0007
 
 ### III. Core Depends on No Adapter
 
-`@adrkit/core`, `@adrkit/cli`, and the schema MUST depend only on the filesystem
-and their own workspace packages.
+`@adrkit/core`, `@adrkit/cli`, and the schema MUST depend only on the
+filesystem, their own workspace packages, and a small set of vetted,
+deterministic, network-free, credential-free public libraries. For Phase 0,
+`zod` and `yaml` are explicitly permitted.
 
 - No package outside `packages/adapters/**` may depend on an adapter package, and
-  no package may depend on a source requiring authenticated access. This is
-  enforced by the `core-has-no-adapter-deps` dependency-graph check in CI.
+  no package may depend on any source requiring authenticated access, network
+  access, or external services at build, test, or run time. This is enforced by
+  the `core-has-no-adapter-deps` dependency-graph check in CI.
 - Adapters live under `packages/adapters/*`, depend on the core, and are
   permitted to break on upstream churn. The core MUST NOT learn that any adapter
   exists; discovery is by runtime configuration.
@@ -109,8 +103,9 @@ ADR-0008, ADR-0009)
 
 ### V. The Schema Is the Contract
 
-The typed frontmatter schema is authored once in Zod (`schema/adr.schema.ts`) and
-is the single source of truth for the record contract.
+The typed frontmatter schema is authored once in Zod
+(`packages/core/src/schema/adr.schema.ts`) and is the single source of truth for
+the record contract. `schema/adr.schema.ts` is only a compatibility re-export.
 
 - The published JSON Schema (`schema/adr.schema.json`) MUST be generated from the
   Zod source via `bun run schema:emit`. CI MUST fail if the committed JSON Schema
@@ -178,4 +173,4 @@ governs and this file MUST be amended to match.
 - **Compliance.** PRs and reviews verify compliance with Principles I–V. Added
   complexity must be justified against the simpler alternative it displaces.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
+**Version**: 1.0.1 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18

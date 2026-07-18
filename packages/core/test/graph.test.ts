@@ -38,6 +38,15 @@ describe('ADR graph', () => {
     expect(graph.edges).toEqual([]);
   });
 
+
+  test('escapes newlines in DOT labels', () => {
+    const graph = buildAdrGraph([record('0001', { title: 'Use graph\nrecord 0001' })]);
+    const dot = renderDotGraph(graph);
+    const nodeLine = dot.split('\n').find((line) => line.includes('"0001" [label='));
+    expect(nodeLine).toBeDefined();
+    expect(nodeLine).toContain('label="0001: Use graph\\nrecord 0001"');
+  });
+
   test('DOT and JSON renderers agree on the node and edge set', () => {
     const graph = buildAdrGraph([record('0001'), record('0002', { relatesTo: ['0001'] })]);
     const dot = renderDotGraph(graph);
