@@ -1,4 +1,9 @@
-# ADR-0010. The linker setting is load-bearing, not a preference.
+# ADR-0010 install settings. These MUST live under [install]; Bun silently
+# ignores install keys placed at the top level of bunfig.toml, so a top-level
+# `linker`/`saveTextLockfile` reads as a preference the tool never applies.
+[install]
+
+# The linker setting is load-bearing, not a preference.
 #
 # The default "hoisted" linker mimics npm and permits phantom dependencies — a
 # package importing something it never declared, resolved from the hoisted root.
@@ -8,9 +13,11 @@
 linker = "isolated"
 
 # ADR-0001/0004 make this a git-native, review-centric project. The lockfile is
-# reviewed like any other file, so it must stay text.
-save-text-lockfile = true
+# reviewed like any other file, so it must stay text (bun.lock, never bun.lockb).
+saveTextLockfile = true
 
-[install]
 exact = false
-frozen-lockfile = false  # CI passes --frozen-lockfile explicitly
+frozenLockfile = false  # CI passes --frozen-lockfile explicitly
+
+# Install only packages of 3 days or older
+minimumReleaseAge = 259200

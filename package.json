@@ -1,0 +1,38 @@
+{
+  "name": "adrkit",
+  "version": "0.1.0",
+  "description": "Decision memory for human and agent-authored plans — machine-readable, CI-enforceable architecture decision records.",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": "Mark Beacom (@mbeacom)",
+  "homepage": "https://github.com/mbeacom/adrkit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "workspaces": [
+    "packages/*",
+    "packages/adapters/*"
+  ],
+  "engines": {
+    "node": ">=22",
+    "bun": ">=1.2"
+  },
+  "scripts": {
+    "build": "bun run --filter='*' build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "bun run --filter='*' lint",
+    "schema:emit": "bun run --filter='@adrkit/core' schema:emit",
+    "check:deps": "bun run scripts/check-deps.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^6",
+    "zod": "^4"
+  }
+}
