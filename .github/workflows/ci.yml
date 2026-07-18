@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  clean-clone-builds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Test
+        run: bun test
+      - name: Verify schema emit matches
+        run: bun run schema:emit && git diff --exit-code schema/adr.schema.json
+      - name: Verify core has no adapter deps
+        run: bun run check:deps
+      - name: Lint ADR corpus
+        run: bun run adr lint

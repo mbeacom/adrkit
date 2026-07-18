@@ -1,0 +1,24 @@
+{
+  "name": "@adrkit/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "adr": "./src/index.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "adr": "bun ./src/index.ts",
+    "build": "bun build ./src/index.ts --target=node --outdir=dist --packages=external",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
