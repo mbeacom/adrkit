@@ -10,6 +10,7 @@ bun install
 bun run adr migrate --from madr --dir path/to/madr
 bun run adr migrate --from madr --dir path/to/madr --dry-run   # preview, no writes
 bun run adr migrate --from madr --dir path/to/madr --json
+# Round-trip sync is not supported; re-import is one-way with a divergence report (ADR-0008).
 
 # Re-run to prove idempotency (no diff on already-migrated files)
 bun run adr migrate --from madr --dir path/to/madr

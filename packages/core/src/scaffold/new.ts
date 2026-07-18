@@ -63,7 +63,7 @@ function statusForInput(input: string | undefined): string {
   return status;
 }
 
-async function nextSequentialId(dir: string, cwd: string): Promise<string> {
+export async function nextSequentialId(dir: string, cwd: string): Promise<string> {
   const files = await discoverAdrFiles(dir, cwd).catch(() => []);
   let max = 0;
   for (const file of files) {
