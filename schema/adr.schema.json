@@ -1,0 +1,563 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json",
+  "title": "Architecture Decision Record",
+  "description": "Typed frontmatter for a decision record. A superset of MADR: every MADR field is present or derivable, plus governance, routing, provenance, and enforcement metadata. The markdown body below the frontmatter carries the prose.",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "status",
+    "date"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Semver of the ADR schema this record conforms to. Absent means latest at parse time.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "default": "0.1.0"
+    },
+    "id": {
+      "type": "string",
+      "description": "Stable identifier, unique within a log. Zero-padded ordinal by convention; ULIDs are permitted for federated logs where ordinal collisions are likely.",
+      "pattern": "^([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+      "examples": [
+        "0042",
+        "01J8XQ2K3M4N5P6Q7R8S9T0V1W"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "description": "Imperative phrase naming the decision, not the problem. 'Use Postgres for the index', not 'Database choice'.",
+      "minLength": 3,
+      "maxLength": 120
+    },
+    "status": {
+      "type": "string",
+      "description": "Lifecycle state. 'proposed' is in review; 'accepted' is binding; 'rejected' is a decision NOT to do the thing and is deliberately retained; 'superseded' points forward; 'deprecated' means no longer binding with no successor.",
+      "enum": [
+        "draft",
+        "proposed",
+        "accepted",
+        "rejected",
+        "superseded",
+        "deprecated"
+      ]
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the record reached its current status."
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Date first drafted."
+    },
+    "deciders": {
+      "type": "array",
+      "description": "Accountable parties. Identity refs: email, GitHub handle (@name), or team (team:platform).",
+      "items": {
+        "$ref": "#/$defs/identity"
+      }
+    },
+    "consulted": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      }
+    },
+    "informed": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]*$"
+      },
+      "uniqueItems": true
+    },
+    "scope": {
+      "type": "string",
+      "description": "Breadth of applicability. Drives default review tier and inheritance: a 'component' ADR may not contradict an 'org' ADR.",
+      "enum": [
+        "component",
+        "domain",
+        "org"
+      ],
+      "default": "component"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Owning domain or bounded context. Free text, but conventionally matches an IDP catalog domain."
+    },
+    "reversibility": {
+      "type": "string",
+      "description": "One-way doors warrant sync review regardless of size. Two-way doors are candidates for the fast path.",
+      "enum": [
+        "two-way-door",
+        "one-way-door",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "blastRadius": {
+      "type": "string",
+      "enum": [
+        "component",
+        "team",
+        "cross-team",
+        "org"
+      ],
+      "default": "component"
+    },
+    "supersedes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/adr_ref"
+      },
+      "uniqueItems": true
+    },
+    "supersededBy": {
+      "$ref": "#/$defs/adr_ref"
+    },
+    "relatesTo": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/adr_ref"
+      },
+      "uniqueItems": true
+    },
+    "conflictsWith": {
+      "type": "array",
+      "description": "Explicitly acknowledged tension with another accepted decision. Populated by hand or by the evaluator; a non-empty value on an 'accepted' record is a lint warning, not an error, because real orgs hold tensions knowingly.",
+      "items": {
+        "$ref": "#/$defs/adr_ref"
+      }
+    },
+    "affects": {
+      "type": "array",
+      "description": "What this decision governs. The hinge of the whole system: turns a document into a constraint that CI can locate. Empty means advisory-only.",
+      "items": {
+        "$ref": "#/$defs/affects_matcher"
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "description": "Optional machine-checkable expressions of the decision. Most ADRs have none; the ones that do become guardrails rather than aspirations.",
+      "items": {
+        "$ref": "#/$defs/assertion"
+      }
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "review": {
+      "$ref": "#/$defs/review"
+    },
+    "evaluation": {
+      "$ref": "#/$defs/evaluation"
+    },
+    "externalRefs": {
+      "type": "array",
+      "description": "Links to the surrounding record: RFC, ticket, PR, incident, meeting notes, compliance control.",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "issue",
+              "pr",
+              "rfc",
+              "incident",
+              "doc",
+              "meeting",
+              "control",
+              "other"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "complianceControls": {
+      "type": "array",
+      "description": "Control identifiers this decision provides evidence for (e.g. SOC2 CC8.1, ISO 27001 A.8.25, PCI-DSS 6.5). Makes audit evidence a byproduct of engineering hygiene rather than a parallel workflow.",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "reviewBy": {
+      "type": "string",
+      "format": "date",
+      "description": "Date this decision should be revisited. Decisions with an expiry are far likelier to be maintained than decisions without one."
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "pattern": "^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$"
+    },
+    "adr_ref": {
+      "type": "string",
+      "description": "Reference to another record. Bare id for same-log, 'log:id' for federated logs.",
+      "pattern": "^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+      "examples": [
+        "0007",
+        "payments:0012"
+      ]
+    },
+    "affects_matcher": {
+      "type": "object",
+      "required": [
+        "type",
+        "pattern"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "path: repo-relative glob (picomatch). entity: IDP catalog ref (Backstage-compatible). package: dependency name, optionally with a semver range. resource: IaC resource type. api: OpenAPI/AsyncAPI operation or path. data: dataset/table identifier.",
+          "enum": [
+            "path",
+            "entity",
+            "package",
+            "resource",
+            "api",
+            "data"
+          ]
+        },
+        "pattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repo": {
+          "type": "string",
+          "description": "Optional repo qualifier for federated logs. Omit for same-repo."
+        },
+        "negate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Exclusion. Evaluated after includes."
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "examples": [
+        {
+          "type": "path",
+          "pattern": "packages/core/**"
+        },
+        {
+          "type": "entity",
+          "pattern": "component:default/payments-api"
+        },
+        {
+          "type": "package",
+          "pattern": "react@>=19"
+        },
+        {
+          "type": "resource",
+          "pattern": "azurerm_storage_account"
+        }
+      ]
+    },
+    "assertion": {
+      "type": "object",
+      "required": [
+        "id",
+        "engine",
+        "severity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string",
+          "description": "rego: OPA policy. jsonpath: predicate over a supplied document. grep: forbidden/required pattern in affected files. custom: named plugin resolved from config.",
+          "enum": [
+            "rego",
+            "jsonpath",
+            "grep",
+            "custom"
+          ]
+        },
+        "expression": {
+          "type": "string"
+        },
+        "expressionFile": {
+          "type": "string"
+        },
+        "input": {
+          "type": "string",
+          "description": "What the assertion runs against.",
+          "enum": [
+            "source",
+            "iac-plan",
+            "sbom",
+            "openapi",
+            "catalog",
+            "custom"
+          ],
+          "default": "source"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info"
+          ]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Who or what produced this record. Cannot be backfilled later; capture it from day one.",
+      "additionalProperties": false,
+      "properties": {
+        "authoredBy": {
+          "type": "string",
+          "enum": [
+            "human",
+            "agent",
+            "agent-drafted"
+          ],
+          "description": "agent-drafted means a model produced the draft and a named human ratified it. Fully autonomous 'agent' records should never reach 'accepted' without ratified_by.",
+          "default": "human"
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "harness": {
+              "type": "string",
+              "description": "e.g. spec-kit, claude-code, copilot"
+            },
+            "runId": {
+              "type": "string"
+            }
+          }
+        },
+        "ratifiedBy": {
+          "$ref": "#/$defs/identity"
+        },
+        "sourceArtifact": {
+          "type": "string",
+          "description": "Path or URI of the plan/spec this record was derived from, e.g. specs/007-billing/plan.md"
+        },
+        "importedFrom": {
+          "type": "object",
+          "description": "Present when the record was created by an importer rather than authored here. Its presence exempts the record from the deciders-required invariant: the decision was made elsewhere, and fabricating a decider is worse than an empty field.",
+          "additionalProperties": false,
+          "properties": {
+            "sourceKind": {
+              "type": "string",
+              "enum": [
+                "madr",
+                "agent-log",
+                "plan-artifact",
+                "other"
+              ]
+            },
+            "sourceRef": {
+              "type": "string",
+              "description": "Source-local identifier: file path, entry id, or URI."
+            },
+            "fingerprint": {
+              "type": "string",
+              "description": "Content hash of the source entry at import time. Drives the re-import classifier."
+            },
+            "importedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tier": {
+          "type": "string",
+          "description": "auto: fast path, notification only. async: lazy consensus over a window. arb: synchronous board agenda item.",
+          "enum": [
+            "auto",
+            "async",
+            "arb"
+          ]
+        },
+        "tierReason": {
+          "type": "string",
+          "description": "Why this tier. Required when the router is overridden by a human."
+        },
+        "queuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "slaDays": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "escalatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "decidedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "quorum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          }
+        },
+        "objections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "by"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "by": {
+                "$ref": "#/$defs/identity"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "resolved": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "description": "Result of the last evaluator run. Written by tooling, not by hand. Advisory input to humans \u2014 never an approval.",
+      "additionalProperties": false,
+      "properties": {
+        "ranAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evaluatorVersion": {
+          "type": "string"
+        },
+        "rubricVersion": {
+          "type": "string"
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4
+          }
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "escalate": {
+          "type": "boolean"
+        },
+        "escalationReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "one-way-door",
+              "cost-threshold",
+              "security-surface",
+              "data-residency",
+              "regulatory",
+              "contradicts-accepted-adr",
+              "low-confidence",
+              "pass-disagreement",
+              "agent-authored-production",
+              "novel-no-precedent",
+              "human-requested"
+            ]
+          }
+        },
+        "deterministicFindings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "rule",
+              "severity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warn",
+                  "info"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "adr": {
+                "$ref": "#/$defs/adr_ref"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
