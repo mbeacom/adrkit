@@ -14,6 +14,29 @@ describe('core-has-no-adapter-deps', () => {
     await expect(checkDependencyRules()).resolves.toEqual({ ok: true, violations: [] });
   });
 
+  test('allows only vetted deterministic core dependencies', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/core/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/core',
+          version: '0.1.0',
+          dependencies: { picomatch: '^4', semver: '^7', yaml: 'latest', zod: '^4' },
+          devDependencies: {
+            '@types/bun': 'latest',
+            '@types/picomatch': '^4',
+            '@types/semver': '^7',
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
   test('fails on a synthetic non-adapter dependency on an adapter', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeText(

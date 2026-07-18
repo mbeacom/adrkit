@@ -7,6 +7,7 @@ export interface Finding {
   path?: string;
   id?: string;
   field?: string;
+  pattern?: string;
 }
 
 function compareOptional(a: string | undefined, b: string | undefined): number {
@@ -16,8 +17,9 @@ function compareOptional(a: string | undefined, b: string | undefined): number {
 export function sortFindings(findings: readonly Finding[]): Finding[] {
   return [...findings].sort(
     (a, b) =>
-      compareOptional(a.id, b.id) ||
       a.rule.localeCompare(b.rule) ||
+      compareOptional(a.id, b.id) ||
+      compareOptional(a.pattern, b.pattern) ||
       compareOptional(a.path, b.path) ||
       compareOptional(a.field, b.field) ||
       a.message.localeCompare(b.message),

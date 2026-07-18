@@ -8,6 +8,7 @@ import {
   createAdr,
   exitCodeForFindings,
   lintCorpus,
+  resolveAffects,
   renderDotGraph,
   renderJsonGraph,
   ScaffoldError,
@@ -29,6 +30,7 @@ function usage(message?: string): number {
   adr lint [paths...] [--json] [--dir docs/adr]
   adr new <title> [--status draft] [--dir docs/adr] [--json]
   adr graph [--dir docs/adr] [--format dot|json]
+  adr explain <path> [--dir docs/adr] [--json]
 `);
   return 2;
 }
@@ -43,7 +45,8 @@ function parseCommandArgs(
 function renderFinding(finding: Finding): string {
   const field = finding.field ? ` ${finding.field}` : '';
   const id = finding.id ? ` ${finding.id}` : '';
-  return `  ${finding.severity} ${finding.rule}${id}${field}: ${finding.message}\n`;
+  const pattern = finding.pattern ? ` ${finding.pattern}` : '';
+  return `  ${finding.severity} ${finding.rule}${id}${field}${pattern}: ${finding.message}\n`;
 }
 
 function renderHumanLint(findings: readonly Finding[]): string {
@@ -154,6 +157,68 @@ async function runGraph(args: string[]): Promise<number> {
   return 0;
 }
 
+async function runExplain(args: string[]): Promise<number> {
+  let parsed: ReturnType<typeof parseArgs>;
+  try {
+    parsed = parseCommandArgs(args, {
+      json: { type: 'boolean', default: false },
+      dir: { type: 'string', default: 'docs/adr' },
+    });
+  } catch (error) {
+    return usage(error instanceof Error ? error.message : String(error));
+  }
+
+  if (parsed.positionals.length !== 1) return usage('adr explain requires exactly one path');
+  const path = parsed.positionals[0];
+  if (!path) return usage('adr explain requires exactly one path');
+
+  const corpus = await lintCorpus({ dir: String(parsed.values.dir) });
+  const corpusFindings = sortFindings(corpus.findings);
+  if (exitCodeForFindings(corpusFindings) !== 0) {
+    if (parsed.values.json) {
+      writeStdout(`${JSON.stringify({ path, governedBy: [], findings: corpusFindings }, null, 2)}\n`);
+    } else {
+      const humanFindings = renderHumanLint(corpusFindings);
+      if (humanFindings) writeStderr(humanFindings);
+    }
+    return 1;
+  }
+
+  const recordsById = new Map(corpus.records.map((record) => [record.frontmatter.id, record]));
+  const resolution = resolveAffects({ records: corpus.records, changedFiles: [path] });
+  const governedBy = resolution.matches.map((match) => ({
+    recordId: match.recordId,
+    title: recordsById.get(match.recordId)?.frontmatter.title ?? '',
+    firedMatchers: match.firedMatchers,
+  }));
+  const findings = sortFindings(resolution.findings);
+
+  if (parsed.values.json) {
+    writeStdout(`${JSON.stringify({ path, governedBy, findings }, null, 2)}\n`);
+    return 0;
+  }
+
+  if (governedBy.length === 0) {
+    writeStdout(`No decision governs ${path}.\n`);
+  } else {
+    for (const match of governedBy) {
+      writeStdout(`${match.recordId}  ${match.title}\n`);
+      for (const matcher of match.firedMatchers) {
+        writeStdout(`  via ${matcher.type}: ${matcher.pattern}\n`);
+      }
+    }
+  }
+
+  if (findings.length > 0) {
+    writeStdout('Findings:\n');
+    for (const finding of findings) {
+      writeStdout(renderFinding(finding));
+    }
+  }
+
+  return 0;
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const [command, ...args] = argv;
 
@@ -161,6 +226,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command === 'lint') return await runLint(args);
     if (command === 'new') return await runNew(args);
     if (command === 'graph') return await runGraph(args);
+    if (command === 'explain') return await runExplain(args);
     return usage(command ? `Unknown command "${command}"` : undefined);
   } catch (error) {
     writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);

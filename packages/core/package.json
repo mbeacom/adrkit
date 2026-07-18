@@ -36,11 +36,15 @@
     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
   },
   "dependencies": {
+    "picomatch": "^4",
+    "semver": "^7",
     "yaml": "latest",
     "zod": "^4"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/picomatch": "^4",
+    "@types/semver": "^7"
   },
   "files": [
     "dist"

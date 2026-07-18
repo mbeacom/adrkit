@@ -1,0 +1,18 @@
+{
+  "matchers": [
+    {
+      "type": "path",
+      "pattern": "packages/core/**"
+    },
+    {
+      "type": "path",
+      "pattern": "packages/core/test/**",
+      "negate": true
+    }
+  ],
+  "changedFiles": ["packages/core/test/affects-path.test.ts"],
+  "expected": {
+    "matches": [],
+    "findings": []
+  }
+}
