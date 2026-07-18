@@ -1,0 +1,30 @@
+{
+  "records": [
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "path",
+          "pattern": "docs/**/*.md"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    "docs/adr/0009-affects-resolution-and-catalog-binding.md"
+  ],
+  "expected": {
+    "matches": [
+      {
+        "recordId": "0001",
+        "firedMatchers": [
+          {
+            "type": "path",
+            "pattern": "docs/**/*.md"
+          }
+        ]
+      }
+    ],
+    "findings": []
+  }
+}

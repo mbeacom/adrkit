@@ -1,0 +1,30 @@
+{
+  "records": [
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "package",
+          "pattern": "react@>=19"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    "bun.lock"
+  ],
+  "expected": {
+    "matches": [],
+    "findings": [
+      {
+        "rule": "affects-unresolvable",
+        "severity": "info",
+        "message": "Package matcher \"react@>=19\" requires a changed-dependency snapshot and is inert.",
+        "id": "0001",
+        "path": "docs/adr/0001-case.md",
+        "field": "affects.package",
+        "pattern": "react@>=19"
+      }
+    ]
+  }
+}

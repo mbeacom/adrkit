@@ -6,7 +6,7 @@ const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const DIR_NAME = 'cli-lint';
 
 async function runAdr(args: string[], cwd = process.cwd()) {
-  const proc = Bun.spawn(['bun', CLI_PATH, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+  const proc = Bun.spawn([process.execPath, CLI_PATH, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),

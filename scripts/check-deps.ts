@@ -88,8 +88,8 @@ function isAdapterPackage(workspace: WorkspacePackage, root: string): boolean {
 function allowedDependenciesFor(packageName: string): Record<DependencySection, Set<string>> | undefined {
   if (packageName === '@adrkit/core') {
     return {
-      dependencies: new Set(['zod', 'yaml']),
-      devDependencies: new Set(['@types/bun']),
+      dependencies: new Set(['picomatch', 'semver', 'zod', 'yaml']),
+      devDependencies: new Set(['@types/bun', '@types/picomatch', '@types/semver']),
       peerDependencies: new Set(),
       optionalDependencies: new Set(),
     };

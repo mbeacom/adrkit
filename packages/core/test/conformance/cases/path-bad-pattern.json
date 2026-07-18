@@ -1,0 +1,30 @@
+{
+  "records": [
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "path",
+          "pattern": "/packages/core/**"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    "packages/core/src/index.ts"
+  ],
+  "expected": {
+    "matches": [],
+    "findings": [
+      {
+        "rule": "affects-bad-pattern",
+        "severity": "warn",
+        "message": "Path matcher \"/packages/core/**\" must be repo-relative and must not start with \"/\".",
+        "id": "0001",
+        "path": "docs/adr/0001-case.md",
+        "field": "affects.path",
+        "pattern": "/packages/core/**"
+      }
+    ]
+  }
+}

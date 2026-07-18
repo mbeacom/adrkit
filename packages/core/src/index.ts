@@ -7,3 +7,4 @@ export * from './validate/corpus-invariants.ts';
 export * from './validate/index.ts';
 export * from './scaffold/new.ts';
 export * from './graph/build.ts';
+export * from './affects/index.ts';

@@ -1,0 +1,20 @@
+{
+  "records": [
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "path",
+          "pattern": "packages/core/**"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    "packages/cli/src/index.ts"
+  ],
+  "expected": {
+    "matches": [],
+    "findings": []
+  }
+}

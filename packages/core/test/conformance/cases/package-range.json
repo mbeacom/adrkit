@@ -1,0 +1,38 @@
+{
+  "records": [
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "package",
+          "pattern": "react@>=19"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    "bun.lock"
+  ],
+  "snapshots": {
+    "changedDependencies": [
+      {
+        "name": "react",
+        "version": "19.1.0"
+      }
+    ]
+  },
+  "expected": {
+    "matches": [
+      {
+        "recordId": "0001",
+        "firedMatchers": [
+          {
+            "type": "package",
+            "pattern": "react@>=19"
+          }
+        ]
+      }
+    ],
+    "findings": []
+  }
+}

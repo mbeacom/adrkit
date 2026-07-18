@@ -23,7 +23,7 @@ jobs:
         run: bun run build
       - name: Lint
         run: bun run lint
-      - name: Test
+      - name: Test (includes resolution-is-pure)
         run: bun test
       - name: Verify schema emit matches
         run: bun run schema:emit && git diff --exit-code schema/adr.schema.json

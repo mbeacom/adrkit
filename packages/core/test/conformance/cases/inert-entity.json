@@ -1,0 +1,30 @@
+{
+  "records": [
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "entity",
+          "pattern": "component:default/payments"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    "packages/payments/src/index.ts"
+  ],
+  "expected": {
+    "matches": [],
+    "findings": [
+      {
+        "rule": "affects-unresolvable",
+        "severity": "info",
+        "message": "Entity matcher \"component:default/payments\" has no catalog snapshot and is inert.",
+        "id": "0001",
+        "path": "docs/adr/0001-case.md",
+        "field": "affects.entity",
+        "pattern": "component:default/payments"
+      }
+    ]
+  }
+}
