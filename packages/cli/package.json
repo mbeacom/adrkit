@@ -1,0 +1,32 @@
+{
+  "name": "@adrkit/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "adr": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "adr": "bun ./src/index.ts",
+    "build": "rm -rf dist && bun build ./src/index.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist && chmod +x dist/index.js",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "files": [
+    "dist"
+  ]
+}

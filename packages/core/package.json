@@ -1,0 +1,48 @@
+{
+  "name": "@adrkit/core",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "bun": "./src/schema/index.ts",
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js",
+      "default": "./dist/schema/index.js"
+    },
+    "./schema/adr.schema": {
+      "bun": "./src/schema/adr.schema.ts",
+      "types": "./dist/schema/adr.schema.d.ts",
+      "import": "./dist/schema/adr.schema.js",
+      "default": "./dist/schema/adr.schema.js"
+    },
+    "./schema/emit": {
+      "bun": "./src/schema/emit.ts",
+      "types": "./dist/schema/emit.d.ts",
+      "import": "./dist/schema/emit.js",
+      "default": "./dist/schema/emit.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build ./src/index.ts ./src/schema/index.ts ./src/schema/adr.schema.ts ./src/schema/emit.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist",
+    "lint": "bun run typecheck",
+    "schema:emit": "bun ./src/schema/emit.cli.ts",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "yaml": "latest",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "files": [
+    "dist"
+  ]
+}

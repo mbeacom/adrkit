@@ -25,10 +25,11 @@
   "scripts": {
     "build": "bun run --filter='*' build",
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --customConditions bun",
     "lint": "bun run --filter='*' lint",
     "schema:emit": "bun run --filter='@adrkit/core' schema:emit",
-    "check:deps": "bun run scripts/check-deps.ts"
+    "check:deps": "bun run scripts/check-deps.ts",
+    "adr": "bun packages/cli/src/index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
