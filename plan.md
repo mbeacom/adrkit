@@ -25,9 +25,9 @@ sync.
 
 | Phase | Feature dir | Status |
 |---|---|---|
-| 0 — Schema and core | `specs/001-schema-and-core/` | in review (PR #5) |
-| 1 — Affects resolution | `specs/002-affects-resolution/` | **scoping** (spec landed) |
-| 2 — Migration | _(unopened)_ | queued |
+| 0 — Schema and core | `specs/001-schema-and-core/` | landed (PR #5 merged) |
+| 1 — Affects resolution | `specs/002-affects-resolution/` | landed (PR #6 merged) |
+| 2 — Migration | `specs/003-migration/` | **scoping** (spec cycle landed) |
 | 3 — CI surface | _(unopened)_ | queued |
 | 4 — Deterministic evaluator | _(unopened)_ | queued |
 | 5 — MCP server | _(unopened)_ | queued |
