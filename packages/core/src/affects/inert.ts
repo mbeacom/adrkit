@@ -8,15 +8,16 @@ export interface EntityMatcherResult {
   unresolvable?: boolean;
 }
 
-function matchesPattern(pattern: string, candidate: string): boolean {
-  return picomatch(pattern, { dot: false, nocase: false })(candidate);
+function compilePattern(pattern: string): (candidate: string) => boolean {
+  return picomatch(pattern, { dot: false, nocase: false, nonegate: true });
 }
 
 function resolveEntityIds(pattern: string, catalog: CatalogSnapshot): Set<EntityId> {
   const ids = new Set<EntityId>();
+  const isMatch = compilePattern(pattern);
   for (const entity of catalog.entities) {
     const refs = [entity.id, ...(entity.refs ?? [])];
-    if (refs.some((ref) => matchesPattern(pattern, ref))) {
+    if (refs.some((ref) => isMatch(ref))) {
       ids.add(entity.id);
     }
   }
@@ -27,7 +28,8 @@ function entitiesForPaths(changedFiles: readonly string[], catalog: CatalogSnaps
   const ids = new Set<EntityId>();
   for (const entity of catalog.entities) {
     for (const entityPath of entity.paths ?? []) {
-      if (changedFiles.some((path) => matchesPattern(entityPath, path))) {
+      const isMatch = compilePattern(entityPath);
+      if (changedFiles.some((path) => isMatch(path))) {
         ids.add(entity.id);
         break;
       }

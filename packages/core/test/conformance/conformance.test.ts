@@ -4,19 +4,24 @@ import { basename, join } from 'node:path';
 import { resolveAffects, type ResolutionSnapshots, type ResolveAffectsResult } from '../../src/affects/index.ts';
 import { AdrFrontmatter, type Adr } from '../../src/schema/adr.schema.ts';
 
+interface ConformanceRecord {
+  id: string;
+  affects: Record<string, unknown>[];
+}
+
 interface ConformanceCase {
-  matchers: Record<string, unknown>[];
+  records: ConformanceRecord[];
   changedFiles: string[];
   snapshots?: ResolutionSnapshots;
   expected: ResolveAffectsResult;
 }
 
-function record(matchers: Record<string, unknown>[]): Adr {
+function record(entry: ConformanceRecord): Adr {
   return {
     frontmatter: AdrFrontmatter.parse({
       schemaVersion: '0.1.0',
-      id: '0001',
-      title: 'Use conformance record',
+      id: entry.id,
+      title: `Use conformance record ${entry.id}`,
       status: 'draft',
       date: '2026-07-18',
       deciders: [],
@@ -24,11 +29,11 @@ function record(matchers: Record<string, unknown>[]): Adr {
       scope: 'component',
       reversibility: 'unknown',
       blastRadius: 'component',
-      affects: matchers,
+      affects: entry.affects,
       provenance: { authoredBy: 'human' },
     }),
     body: '',
-    path: 'docs/adr/0001-case.md',
+    path: `docs/adr/${entry.id}-case.md`,
   };
 }
 
@@ -40,7 +45,7 @@ describe('affects conformance fixtures', () => {
     test(basename(file, '.json'), async () => {
       const testCase = JSON.parse(await readFile(join(CASES_DIR, file), 'utf8')) as ConformanceCase;
       const result = resolveAffects({
-        records: [record(testCase.matchers)],
+        records: testCase.records.map(record),
         changedFiles: testCase.changedFiles,
         snapshots: testCase.snapshots,
       });

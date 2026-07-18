@@ -135,6 +135,16 @@ describe('path affects resolution', () => {
     ]);
   });
 
+  test('treats leading exclamation marks as literal pattern text, not picomatch negation', () => {
+    const result = resolveAffects({
+      records: [record('0001', [{ type: 'path', pattern: '!packages/core/**' }])],
+      changedFiles: ['src/unrelated.ts'],
+    });
+
+    expect(result.matches).toEqual([]);
+    expect(result.findings).toEqual([]);
+  });
+
   test('rejects leading-slash path patterns as bad-pattern warnings', () => {
     const result = resolveAffects({
       records: [record('0001', [{ type: 'path', pattern: '/packages/core/**' }])],

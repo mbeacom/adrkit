@@ -1,0 +1,39 @@
+{
+  "records": [
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "path",
+          "pattern": "**/*"
+        }
+      ]
+    },
+    {
+      "id": "0002",
+      "affects": [
+        {
+          "type": "path",
+          "pattern": ".github/**"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    ".github/workflows/ci.yml"
+  ],
+  "expected": {
+    "matches": [
+      {
+        "recordId": "0002",
+        "firedMatchers": [
+          {
+            "type": "path",
+            "pattern": ".github/**"
+          }
+        ]
+      }
+    ],
+    "findings": []
+  }
+}

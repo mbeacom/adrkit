@@ -1,0 +1,48 @@
+{
+  "records": [
+    {
+      "id": "0002",
+      "affects": [
+        {
+          "type": "path",
+          "pattern": "packages/core/src/**"
+        }
+      ]
+    },
+    {
+      "id": "0001",
+      "affects": [
+        {
+          "type": "path",
+          "pattern": "packages/core/**"
+        }
+      ]
+    }
+  ],
+  "changedFiles": [
+    "packages/core/src/affects/index.ts"
+  ],
+  "expected": {
+    "matches": [
+      {
+        "recordId": "0001",
+        "firedMatchers": [
+          {
+            "type": "path",
+            "pattern": "packages/core/**"
+          }
+        ]
+      },
+      {
+        "recordId": "0002",
+        "firedMatchers": [
+          {
+            "type": "path",
+            "pattern": "packages/core/src/**"
+          }
+        ]
+      }
+    ],
+    "findings": []
+  }
+}

@@ -4,31 +4,23 @@
       "id": "0001",
       "affects": [
         {
-          "type": "package",
-          "pattern": "react@>=19"
+          "type": "path",
+          "pattern": "docs/**/*.md"
         }
       ]
     }
   ],
   "changedFiles": [
-    "bun.lock"
+    "docs/adr/0009-affects-resolution-and-catalog-binding.md"
   ],
-  "snapshots": {
-    "changedDependencies": [
-      {
-        "name": "react",
-        "version": "19.1.0"
-      }
-    ]
-  },
   "expected": {
     "matches": [
       {
         "recordId": "0001",
         "firedMatchers": [
           {
-            "type": "package",
-            "pattern": "react@>=19"
+            "type": "path",
+            "pattern": "docs/**/*.md"
           }
         ]
       }

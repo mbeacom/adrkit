@@ -23,7 +23,7 @@ export function matchPathPattern(pattern: string, changedFiles: readonly string[
   }
 
   try {
-    const isMatch = picomatch(pattern, { dot: false, nocase: false });
+    const isMatch = picomatch(pattern, { dot: false, nocase: false, nonegate: true });
     const allowsDot = patternAllowsDotSegment(pattern);
     return {
       matched: changedFiles.some((path) => {

@@ -52,14 +52,26 @@ describe('resolution-is-pure', () => {
     expect(process.env).toEqual(envBefore);
   });
 
-  test('affects resolver sources import no filesystem, process, network, or clock modules', async () => {
+  test('affects resolver sources import or use no filesystem, process, network, or clock APIs', async () => {
     const sourceRoot = resolve(process.cwd(), 'packages/core/src/affects');
     const files = await listSourceFiles(sourceRoot);
     const sources = await Promise.all(files.map((file) => readFile(file, 'utf8')));
     const combined = sources.join('\n');
+    const forbiddenBuiltins =
+      'fs|fs\\/promises|child_process|http|https|net|tls|dgram|dns|worker_threads|perf_hooks|os|process';
+    const forbiddenBuiltinSpecifier = new RegExp(
+      String.raw`(?:\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s*)?|\brequire\(\s*|\bimport\(\s*)['"](?:node:)?(?:${forbiddenBuiltins})['"]`,
+    );
 
-    expect(combined).not.toMatch(/node:(fs|child_process|http|https|net|tls|dgram|dns|worker_threads)/);
-    expect(combined).not.toMatch(/\bDate\./);
+    expect(combined).not.toMatch(forbiddenBuiltinSpecifier);
+    expect(combined).not.toMatch(/\bnew\s+Date\s*\(/);
+    expect(combined).not.toMatch(/\bDate\.now\s*\(/);
+    expect(combined).not.toMatch(/\bperformance\./);
+    expect(combined).not.toMatch(/\bMath\.random\s*\(/);
+    expect(combined).not.toMatch(/\bfetch\s*\(/);
+    expect(combined).not.toMatch(/\bWebSocket\b/);
+    expect(combined).not.toMatch(/\bXMLHttpRequest\b/);
     expect(combined).not.toMatch(/\bprocess\./);
+    expect(combined).not.toMatch(/\bBun\./);
   });
 });

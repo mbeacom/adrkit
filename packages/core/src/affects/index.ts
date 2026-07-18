@@ -180,6 +180,9 @@ function evaluateMatcher(
     };
   }
 
+  // TODO(phase: schema-evolution): Allow unknown affects `type` values to pass
+  // validation as a warning so this forward-compat branch is reachable for real records.
+  // Requires an ADR-0002/0009 schema decision.
   return {
     matched: false,
     findings: [
@@ -202,7 +205,7 @@ export function resolveAffects(input: ResolveAffectsInput): ResolveAffectsResult
     const firedMatchers: FiredMatcher[] = [];
     let suppressed = false;
 
-    for (const matcher of record.frontmatter.affects as readonly Matcher[]) {
+    for (const matcher of (record.frontmatter.affects ?? []) as readonly Matcher[]) {
       if (!matcherAppliesToLog(matcher, input.log)) continue;
 
       const result = evaluateMatcher(record, matcher, input.changedFiles, input.snapshots);

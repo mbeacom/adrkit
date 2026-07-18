@@ -4,14 +4,14 @@
       "id": "0001",
       "affects": [
         {
-          "type": "entity",
-          "pattern": "component:default/payments"
+          "type": "package",
+          "pattern": "react@>=19"
         }
       ]
     }
   ],
   "changedFiles": [
-    "packages/payments/src/index.ts"
+    "bun.lock"
   ],
   "expected": {
     "matches": [],
@@ -19,11 +19,11 @@
       {
         "rule": "affects-unresolvable",
         "severity": "info",
-        "message": "Entity matcher \"component:default/payments\" has no catalog snapshot and is inert.",
+        "message": "Package matcher \"react@>=19\" requires a changed-dependency snapshot and is inert.",
         "id": "0001",
         "path": "docs/adr/0001-case.md",
-        "field": "affects.entity",
-        "pattern": "component:default/payments"
+        "field": "affects.package",
+        "pattern": "react@>=19"
       }
     ]
   }

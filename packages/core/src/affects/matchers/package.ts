@@ -37,13 +37,13 @@ export function matchPackagePattern(
   pattern: string,
   changedDependencies: readonly ChangedDependency[] | undefined,
 ): PackageMatcherResult {
-  if (!changedDependencies) {
-    return { matched: false, unresolvable: true };
-  }
-
   const parsed = parsePackagePattern(pattern);
   if (!parsed) {
     return { matched: false, badPattern: true };
+  }
+
+  if (!changedDependencies) {
+    return { matched: false, unresolvable: true };
   }
 
   return {
@@ -95,8 +95,8 @@ export function deriveChangedDependenciesFromBunLockDiff(diff: string): ChangedD
   const changedNames = new Set([...added.keys(), ...removed.keys()]);
   return [...changedNames]
     .flatMap((name) => {
-      const versions = added.get(name) ?? removed.get(name);
-      return [...(versions ?? [])].map((version) => ({ name, version }));
+      const versions = new Set([...(added.get(name) ?? []), ...(removed.get(name) ?? [])]);
+      return [...versions].map((version) => ({ name, version }));
     })
     .sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
 }
