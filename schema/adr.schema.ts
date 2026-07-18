@@ -30,14 +30,26 @@ export const Identity = z
 export const AdrRef = z
   .string()
   .regex(
-    /^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Z]{26})$/,
+    /^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$/,
     'Expected an ADR id, optionally prefixed with a log name',
   );
 
-const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
+/** Calendar-correct `YYYY-MM-DD`; rejects impossible dates like `2026-02-31`. */
+const IsoDate = z.string().date();
 const IsoDateTime = z.string().datetime({ offset: true });
 
 const Slug = z.string().regex(/^[a-z0-9][a-z0-9-]*$/);
+
+/**
+ * Array whose items must be unique. Mirrors JSON Schema `uniqueItems: true`
+ * so TS and non-TS consumers reject duplicate entries identically.
+ */
+const uniqueArray = <T extends z.ZodTypeAny>(item: T) =>
+  z
+    .array(item)
+    .refine((xs) => new Set(xs.map((x) => JSON.stringify(x))).size === xs.length, {
+      message: 'Items must be unique',
+    });
 
 /* ------------------------------------------------------------------ *
  * Enums
@@ -220,7 +232,7 @@ export const AdrFrontmatter = z
       .regex(/^\d+\.\d+\.\d+$/)
       .default(SCHEMA_VERSION),
 
-    id: z.string().regex(/^([0-9]{4,}|[0-9A-HJKMNP-TV-Z]{26})$/),
+    id: z.string().regex(/^([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$/),
     /** Imperative phrase naming the decision, not the problem. */
     title: z.string().min(3).max(120),
     status: Status,
@@ -231,16 +243,16 @@ export const AdrFrontmatter = z
     consulted: z.array(Identity).default([]),
     informed: z.array(Identity).default([]),
 
-    tags: z.array(Slug).default([]),
+    tags: uniqueArray(Slug).default([]),
     scope: Scope.default('component'),
     domain: z.string().optional(),
 
     reversibility: Reversibility.default('unknown'),
     blastRadius: BlastRadius.default('component'),
 
-    supersedes: z.array(AdrRef).default([]),
+    supersedes: uniqueArray(AdrRef).default([]),
     supersededBy: AdrRef.optional(),
-    relatesTo: z.array(AdrRef).default([]),
+    relatesTo: uniqueArray(AdrRef).default([]),
     /** Knowingly-held tension. A lint warning on accepted records, not an error. */
     conflictsWith: z.array(AdrRef).default([]),
 
@@ -253,7 +265,7 @@ export const AdrFrontmatter = z
 
     externalRefs: z.array(ExternalRef).default([]),
     /** e.g. SOC2 CC8.1, ISO 27001 A.8.25 — audit evidence as a byproduct. */
-    complianceControls: z.array(z.string()).default([]),
+    complianceControls: uniqueArray(z.string()).default([]),
     /** Decisions with an expiry get maintained. Decisions without one rot. */
     reviewBy: IsoDate.optional(),
   })

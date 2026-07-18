@@ -72,4 +72,4 @@ changes are minor. See
 ## Changing the evaluator rubric
 
 Rubric changes are decisions, not tweaks. They ship as an ADR with calibration
-deltas attached — see [ADR-0005](docs/adr/0005-two-stage-evaluator-with-declarative-escalation.md).
+deltas attached — see [ADR-0005](docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md).
