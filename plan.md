@@ -9,6 +9,33 @@ spec-driven shape (`spec` → `plan` → `tasks`) because ADR-0003 positions the
 project as an extension of that workflow, and shipping a governance tool that
 doesn't dogfood its own integration target would be self-refuting.
 
+This plan is now backed by concrete spec-kit machinery. The binding constraints
+below are ratified as enforceable project law in
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (Principles
+I–V), and each phase is realized as a spec-kit feature under
+`specs/NNN-<short-name>/` (`spec.md` → `plan.md` → `tasks.md`). The constitution
+restates the ADR constraints as CI-testable gates and is subordinate to the
+ADRs; the ADRs remain normative above both it and this file.
+
+## Spec-kit realization
+
+Each phase becomes one spec-kit feature. The mapping — and where the phase
+currently stands — is tracked here so the ledger and the `specs/` tree stay in
+sync.
+
+| Phase | Feature dir | Status |
+|---|---|---|
+| 0 — Schema and core | `specs/001-schema-and-core/` | **active** |
+| 1 — Affects resolution | _(unopened)_ | queued |
+| 2 — Migration | _(unopened)_ | queued |
+| 3 — CI surface | _(unopened)_ | queued |
+| 4 — Deterministic evaluator | _(unopened)_ | queued |
+| 5 — MCP server | _(unopened)_ | queued |
+
+Do not open a feature for a phase before the one below it has landed and has a
+real user (the outcome ladder is strict). Run each feature through the spec-kit
+loop; the Constitution Check in every `plan.md` gates against Principles I–V.
+
 ---
 
 ## Outcome ladder
@@ -62,19 +89,24 @@ Named explicitly so the orchestrator doesn't helpfully build them:
 ### Phase 0 — Schema and core (rungs 1)
 
 Deliverables: `schema/` published, `@adrkit/core` parsing and validating, `@adrkit/cli`
-with `new`, `lint`, `graph`.
+with `new`, `lint`, `graph`, and the CI workflow (`.github/workflows/ci.yml`)
+carrying the three gate assertions. **The workflow file does not exist yet** —
+`MANIFEST.md` references it as though it does; creating it is part of this phase.
 
 Exit criteria:
 
 - Every record in `docs/adr/` validates against the published schema.
-- The nine seed records' cross-field invariants are enforced by code, not by the
-  ad-hoc validation script used during drafting.
+- The ten seed records' (`0001`–`0010`) cross-field invariants are enforced by
+  code, not by the ad-hoc validation script used during drafting.
 - `bun run schema:emit` regenerates `adr.schema.json` from the Zod source and CI
   fails if the committed file differs. *(This is ADR-0002's `schema-emit-matches`
   assertion. It was violated during drafting — the two files disagreed on
   property casing — which is the argument for making it a build gate rather than
   a promise.)*
-- Clean-clone CI job green.
+- CI green on all three gate assertions from the constitution and ADR-0007/0002:
+  `clean-clone-builds`, `schema-emit-matches`, `core-has-no-adapter-deps`.
+- Constitution Check (Principles I–V) recorded green in
+  `specs/001-schema-and-core/plan.md`.
 
 ### Phase 1 — Affects resolution (rung 3, prerequisite)
 
@@ -151,7 +183,10 @@ and web UI, catalog adapters.
 
 ## Task seeds
 
-Small enough to delegate, ordered by dependency.
+Small enough to delegate, ordered by dependency. Once a phase is opened as a
+spec-kit feature, its seeds are elaborated into the authoritative, dependency-
+ordered checklist in `specs/NNN-<short-name>/tasks.md`; the seeds here stay as
+the coarse map.
 
 **Phase 0**
 
