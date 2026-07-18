@@ -1,6 +1,17 @@
 {
-  "files.associations": {
-    "LICENSE": "plaintext",
-    "NOTICE": "plaintext"
-  }
+    "files.associations": {
+        "LICENSE": "plaintext",
+        "NOTICE": "plaintext"
+    },
+    "chat.promptFilesRecommendations": {
+        "speckit.constitution": true,
+        "speckit.specify": true,
+        "speckit.plan": true,
+        "speckit.tasks": true,
+        "speckit.implement": true
+    },
+    "chat.tools.terminal.autoApprove": {
+        ".specify/scripts/bash/": true,
+        ".specify/scripts/powershell/": true
+    }
 }
