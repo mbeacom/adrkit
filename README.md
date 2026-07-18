@@ -96,8 +96,8 @@ consideration at all.
 Built with [Bun](https://bun.com) — see
 [ADR-0010](docs/adr/0010-bun-toolchain.md). **Bun is a development dependency
 only.** Nothing published by this project requires it: the CLI, the GitHub
-Action, and the MCP server are Node-targeted and smoke-tested under Node 22 and
-24 in CI.
+Action, and the MCP server are Node-targeted, and will be smoke-tested under
+Node 22 and 24 in CI once the publish pipeline lands (see [`plan.md`](./plan.md)).
 
 ## Contributing
 

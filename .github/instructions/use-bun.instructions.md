@@ -21,7 +21,7 @@ Default to using Bun instead of Node.js.
 - `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
 - `WebSocket` is built-in. Don't use `ws`.
 - Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+- ``Bun.$`ls` `` instead of execa.
 
 ## Testing
 
