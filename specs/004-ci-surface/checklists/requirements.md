@@ -33,15 +33,26 @@
 
 - **Upstream gate is the headline.** Phase 2 (rung 2) landed its *code* (PR #7) but
   its rung-2 *outcome* — `adr migrate` round-tripping a **real public MADR corpus** —
-  is met only by a **synthetic** fixture (see research.md §R0). Per the strict outcome
-  ladder, **scoping proceeds but Phase 3 implementation is blocked** until the gate
-  clears. **Resolved (maintainer decision; reviewer may override):** the gate clears by
-  vendoring a subset of a real, permissively-licensed public MADR corpus as an offline
-  fixture (attribution + provenance) and round-tripping it — a live external human user
-  is a higher rung, *not* a Phase-3 precondition (tasks.md T000/T00A).
+  is met only by a **synthetic** fixture (see research.md §R0). Per the outcome ladder,
+  **scoping proceeds but Phase 3 implementation is blocked** until the gate clears.
+  **Resolved (maintainer decision; reviewer may override):** the ladder permits advance
+  scoping while gating implementation; the gate clears by vendoring a subset of a real,
+  permissively-licensed public MADR corpus as an offline fixture (attribution +
+  provenance) and round-tripping it via `adr migrate` — and that maintainer dogfood
+  round-trip **is** the required "real user" (no external human adopter needed, tasks.md
+  T000/T00A).
 - **Placement resolved.** `@adrkit/ci` is a first-party surface package under
   `packages/ci/` (peer of `@adrkit/cli`), not an adapter and not core; `check-deps`
   asserts the boundary and that the GitHub toolkit never reaches core/schema (R2/R3).
+- **Shared logic lives in core (RC3).** The neutral `checkChanges` is in `@adrkit/core`,
+  takes the **full lint result** (so dropped-malformed-file errors count) + snapshots,
+  and is called by both `adr check` and the Action — neither surface imports the other.
+- **Complete inputs & robust idempotency (RC4/RC5).** Changed files come from a
+  paginated PR-files listing or merge-base diff (never the truncating compare API); the
+  comment is located by marker **and** author across all pages, with tests for a foreign
+  marker and a paged marker.
+- **Distribution (RC6/RC7).** The Action ships a committed self-contained Node bundle
+  (drift + Node-24 smoke checks) and declares `runs.using: node24`.
 - **Selectivity (SC-003) and idempotency (SC-004) are load-bearing.** Exit criterion
   (b): a comment that lists everything means the `affects` matchers or the renderer
   are wrong — the comment reflects the resolver's union verbatim, never a padded or
@@ -53,7 +64,7 @@
 - **No new schema/record contract.** This phase consumes the Phase 0/1/2 schema,
   resolver, and validators; it writes only a PR comment (ADR-0004) and imports no
   adapter (ADR-0007).
-- Open engineering choices captured as Assumptions A1–A6 (changed-file extraction,
+- Open engineering choices captured as Assumptions A1–A7 (changed-file extraction,
   comment identity, selectivity source, backing snapshots, validation scope, GitHub
-  client) — none is a one-way door; ADR-0009/0007/0004 fix the semantics they
-  implement.
+  client, packaged bundle) — none is a one-way door; ADR-0009/0007/0004 fix the
+  semantics they implement.

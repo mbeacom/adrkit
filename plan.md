@@ -32,16 +32,30 @@ sync.
 | 4 — Deterministic evaluator | _(unopened)_ | queued |
 | 5 — MCP server | _(unopened)_ | queued |
 
-Do not open a feature for a phase before the one below it has landed and has a
-real user (the outcome ladder is strict). Run each feature through the spec-kit
-loop; the Constitution Check in every `plan.md` gates against Principles I–V.
+Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
+and encouraged, so a design is review-ready when its turn comes; **implementation** of
+a phase, however, MUST NOT begin until the phase below it has **landed and has a real
+user**. This scoping-vs-implementation split is deliberate: writing `specs/NNN-*/`
+early is cheap and reversible, whereas shipping code against an unmet lower rung is
+not. Run each feature through the spec-kit loop; the Constitution Check in every
+`plan.md` gates against Principles I–V. *(Maintainer decision; reviewer may override.)*
+
+The "real user" a rung requires is satisfied by **maintainer dogfooding** — the ladder
+already says "even if that user is only you". For rung 2 specifically, the required
+real user is the maintainer running `adr migrate --from madr` against a **real public
+MADR corpus** (see the outcome ladder); a third-party human adopter is **not** a
+precondition for opening Phase 3 *implementation*.
 
 ---
 
 ## Outcome ladder
 
 Each rung is independently valuable and independently shippable. Do not start a
-rung before the one below it has a real user — even if that user is only you.
+rung's **implementation** before the one below it has a real user — **even if that
+user is only you** (maintainer dogfooding counts; advance scoping is exempt, per the
+Spec-kit realization note above). For rung 2, that dogfood is the maintainer running
+`adr migrate --from madr` against a real public MADR corpus — which *is* the required
+"real user"; no external human adopter is required to proceed to rung 3.
 
 | # | Outcome | Shipped when |
 |---|---|---|

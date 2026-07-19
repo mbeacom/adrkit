@@ -2,14 +2,13 @@
 
 > **⚠️ Implementation is gated.** Do not build this feature until the rung-2 gate
 > clears — a subset of a real, permissively-licensed public MADR corpus vendored as
-> an **offline fixture** and round-tripped by `adr migrate` (a live external human
-> user is *not* required). See [research.md §R0](./research.md) and tasks.md
-> **T000/T00A**. The commands below describe the *intended* surface for the future
-> implement thread.
+> an **offline fixture** and round-tripped by `adr migrate` (that maintainer dogfood
+> round-trip **is** the required "real user"; no external human adopter needed). See
+> [research.md §R0](./research.md) and tasks.md **T000/T00A**. The commands below
+> describe the *intended* surface for the future implement thread.
 
-Prerequisites: a **published stable Bun** (CI pins `1.3.14`) — not the canary that
-self-reports 1.4.0 (it writes an unreadable lockfile). Clean clone, no network, no
-credentials.
+Prerequisites: **stable Bun 1.3.14** (CI pins it) — not the canary that self-reports
+1.4.0 (it writes an unreadable lockfile). Clean clone, no network, no credentials.
 
 ## `adr check` — the deterministic CLI (any provider)
 
@@ -26,7 +25,9 @@ echo $?
 
 ## The GitHub Action — `@adrkit/ci`
 
-Add to a consuming repo's workflow. It needs only the default `GITHUB_TOKEN`:
+Add to a consuming repo's workflow. It needs only the default `GITHUB_TOKEN`, runs on
+the `node24` runner, and executes a committed self-contained bundle (no install in the
+consumer checkout):
 
 ```yaml
 # .github/workflows/adr.yml (in a repo that adopts adrkit)
@@ -40,8 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }   # base…head diff for changed-file extraction
-      - uses: mbeacom/adrkit/packages/ci@v0     # @adrkit/ci Action
+        with: { fetch-depth: 0 }   # full history for the merge-base changed-file diff
+      - uses: mbeacom/adrkit/packages/ci@v0     # @adrkit/ci Action (runs.using: node24)
         with:
           dir: docs/adr
           # token defaults to ${{ github.token }} — no other secret required
@@ -64,7 +65,8 @@ validates the changed records, and posts (or updates) a single comment.
   (not the check) on a read-only fork token (SC-006).
 - Clean clone builds/tests/lints green with the new `@adrkit/ci` package;
   `clean-clone-builds` and `core-has-no-adapter-deps` stay green and now also cover
-  `@adrkit/ci` (SC-007).
+  `@adrkit/ci` (incl. the toolkit→core boundary), plus the **bundle-drift** check and a
+  **Node-24 smoke** of the committed bundle pass (SC-007, RC6/RC7).
 
 ## Self-dogfood
 

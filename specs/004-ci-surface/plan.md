@@ -6,12 +6,13 @@
 **Normative sources**: [ADR-0009](../../docs/adr/0009-affects-resolution-and-catalog-binding.md), [ADR-0007](../../docs/adr/0007-adapter-isolation-and-public-surface-build.md), [ADR-0004](../../docs/adr/0004-git-is-source-of-truth-database-is-an-index.md).
 
 > **⚠️ Gate status — implementation blocked.** This plan is authored during
-> scoping. Per the strict outcome ladder, Phase 3 code MUST NOT start until the
-> **rung-2** gate clears. **Resolved (maintainer decision; reviewer may override):**
-> the gate clears when a subset of a genuinely real, permissively-licensed public
-> MADR corpus is vendored as an **offline fixture** (attribution + provenance) and
-> round-tripped by `adr migrate` — a live external human user is a higher rung, *not*
-> a Phase-3 precondition. Today it is met only by a **synthetic** fixture — see
+> scoping (which the ladder permits). Per the outcome ladder, Phase 3 code MUST NOT
+> start until the **rung-2** gate clears. **Resolved (maintainer decision; reviewer may
+> override):** the gate clears when a subset of a genuinely real, permissively-licensed
+> public MADR corpus is vendored as an **offline fixture** (attribution + provenance) and
+> round-tripped by `adr migrate` — that maintainer dogfood round-trip **is** the required
+> "real user"; a live external human adopter is a higher rung, *not* a Phase-3
+> precondition. Today it is met only by a **synthetic** fixture — see
 > [research.md §R0](./research.md) and `tasks.md` **T000** / **T00A**. Scoping
 > proceeds; building does not.
 
@@ -32,29 +33,33 @@ place on each push, using only the default token.
 ## Technical Context
 
 **Language/Version**: TypeScript (ESNext), Bun for development; the CLI (`adr check`)
-ships as a Node-targeted artifact (`node >=22`, ADR-0010). The Action runs on the
-GitHub-hosted Node runner.
+ships as a Node-targeted artifact (`node >=22`, ADR-0010). The Action ships a committed
+`bun build` bundle and declares `runs.using: node24` (RC6/RC7).
 
-**Primary Dependencies**: `@adrkit/core` (`workspace:*`) for resolution + validation;
-the public GitHub Action toolkit (`@actions/core`, `@actions/github`/Octokit) in
-`@adrkit/ci` only. No new dependency in core. Changed-dependency snapshots reuse the
-existing `deriveChangedDependenciesFromBunLockDiff` export.
+**Primary Dependencies**: `@adrkit/core` (`workspace:*`) for the neutral `checkChanges`
+(resolution + validation); the public GitHub Action toolkit (`@actions/core`,
+`@actions/github`/Octokit) in `@adrkit/ci` only, **bundled** into the committed `dist/`.
+No new dependency in core. Changed-dependency snapshots reuse the existing
+`deriveChangedDependenciesFromBunLockDiff` export.
 
 **Storage**: Git working tree + the PR itself only. **No database, no index** — the
-Action never calls the ADR-0004 projection; comment identity is a hidden marker in
-the PR, not stored state.
+Action never calls the ADR-0004 projection; comment identity is a hidden marker + author,
+matched over paginated PR comments, not stored state.
 
 **Testing**: `bun test`. Deterministic `adr check` tests (governing list + validation
 + exit codes per severity, `--json` shape); comment-renderer tests (selectivity,
 empty state, idempotent marker); an injected fake GitHub client for the Action
-(create-vs-update, read-only-token degradation) — **no network, no token in CI**. An
-end-to-end selectivity assertion on a fixture corpus with more than ten records.
+(create-vs-update, **foreign marker ignored, marker on a later page found**,
+read-only-token degradation) — **no network, no token in CI**. An end-to-end selectivity
+assertion on a fixture corpus with more than ten records, plus a **bundle-drift** check
+and a **Node-24 smoke** of the committed bundle.
 
-**Target Platform**: GitHub Actions (Node runner) for the Action; portable CLI for
+**Target Platform**: GitHub Actions (`node24` runner) for the Action; portable CLI for
 any provider.
 
-**Project Type**: Bun-workspace monorepo — adds a `@adrkit/ci` surface package and an
-`adr check` subcommand to `@adrkit/cli`.
+**Project Type**: Bun-workspace monorepo — adds the neutral `checkChanges` to
+`@adrkit/core`, a `@adrkit/ci` surface package, and an `adr check` subcommand to
+`@adrkit/cli`.
 
 **Performance Goals**: Resolution is linear in `records × matchers × changed-files`;
 a PR comment renders in well under a second for hundreds of changed files.
@@ -109,38 +114,46 @@ specs/004-ci-surface/
 ### Source Code (repository root — extends merged Phase 0/1/2)
 
 ```text
+packages/core/src/
+├── check/
+│   └── index.ts             # NEW neutral checkChanges(): full lintCorpus result + files + snapshots → CheckOutcome (RC3/R1)
+└── (existing schema/ parse/ load/ validate/ affects/ import/ …)
+
 packages/cli/src/
 ├── index.ts                 # add `check` to dispatch: adr check <files...> [--dir] [--json]
-└── (check rendering: governing list like `adr explain` + changed-record findings; --json)
+└── (build lintCorpus result → core checkChanges; render governing list + findings; --json)
 
 packages/ci/                 # NEW first-party surface package @adrkit/ci (peer of cli)
 ├── package.json             # deps: @adrkit/core workspace:*, @actions/core, @actions/github
-├── action.yml               # GitHub Action metadata (inputs: dir, token; runs: node20/node-dist)
+├── action.yml               # Action metadata: inputs dir, token; runs.using node24; runs.main → committed dist bundle (RC6/RC7)
+├── dist/                    # COMMITTED self-contained bun-build bundle (core + toolkit) (RC6/FR-015)
 ├── tsconfig.json
 ├── tsconfig.build.json
 ├── src/
-│   ├── index.ts             # Action entrypoint: extract files → check → render → comment
-│   ├── changed-files.ts     # PR base…head changed-file extraction (impure; not in core)
-│   ├── github.ts            # thin GitHub client port (find/create/update marker comment)
-│   ├── comment.ts           # comment renderer (selective; hidden marker; empty/error states)
-│   └── check.ts             # shared: run resolveAffects + validate over the file list
+│   ├── index.ts             # Action entrypoint: extract files → checkChanges → render → comment
+│   ├── changed-files.ts     # COMPLETE paginated PR-files listing OR merge-base diff; handles GitHub cap (RC4)
+│   ├── github.ts            # GitHub client port: paginate comments; match marker AND author (RC5)
+│   └── comment.ts           # comment renderer (selective; hidden marker; empty/error states)
 └── test/
     ├── check.test.ts            # governing list + validation + exit codes per severity; --json
     ├── comment-render.test.ts   # selectivity (>10 records), empty state, marker present
-    ├── comment-idempotent.test.ts # fake client: create then update same comment
+    ├── comment-idempotent.test.ts # fake client: create/update; foreign marker ignored; marker on later page (RC5)
     ├── token-degrade.test.ts    # read-only token → check runs, comment skipped, job not failed
     └── fixtures/                # a >10-record corpus + changed-file lists
 
 scripts/check-deps.ts             # extend: assert @adrkit/ci has no adapter dep AND the github toolkit never reaches core/schema
-.github/workflows/ci.yml          # add adr check job (self-dogfood); gate set otherwise unchanged
+.github/workflows/ci.yml          # add adr check self-dogfood + bundle-drift + node24 smoke; gate set otherwise unchanged
 ```
 
-**Structure Decision**: `adr check` is a new subcommand on the existing `@adrkit/cli`
-dispatch, reusing `resolveAffects` and the corpus validators — no new resolution
-logic. `@adrkit/ci` is a **new surface package** under `packages/ci/` (not
-`packages/adapters/*`), holding the only impure code (changed-file extraction, GitHub
-API) behind small ports so the deterministic core stays pure and offline-testable.
-The GitHub client is injected in tests; nothing in the default build needs a token.
+**Structure Decision**: the neutral resolve+validate function (`checkChanges`) lives in
+**`@adrkit/core`** (not `@adrkit/ci`), takes the **full `lintCorpus` result** + snapshots,
+and is called by both `adr check` and the Action so neither surface depends on the other
+(RC3/R1/R2). `adr check` is a new subcommand on the existing `@adrkit/cli` dispatch.
+`@adrkit/ci` is a **new surface package** under `packages/ci/` (not `packages/adapters/*`),
+holding the only impure code (complete changed-file extraction, GitHub API) behind small
+ports, and ships a **committed self-contained bundle** (`dist/`) that `action.yml`
+(`runs.using: node24`) points at. The GitHub client is injected in tests; nothing in the
+default build needs a token.
 
 ## Complexity Tracking
 

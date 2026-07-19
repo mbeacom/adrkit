@@ -47,7 +47,7 @@ Pre-existing errors on **unchanged** records do not fail the job (A5).
 
 The stable structure `adr check --json` emits and the Action consumes:
 
-```
+```ts
 {
   changedFiles: string[];
   governedBy: { recordId: string; title: string; firedMatchers: FiredMatcher[] }[];
@@ -59,7 +59,29 @@ The stable structure `adr check --json` emits and the Action consumes:
 
 - **Exit code**: `0` when `ok`, non-zero when a changed record has an `error` finding
   (FR-002). Usage errors exit `2` (mirrors the other subcommands).
-- Deterministic and pure: identical `(corpus, changedFiles)` → identical output.
+- Deterministic and pure: identical `(lintResult, changedFiles, snapshots)` → identical
+  output.
+
+## Entity: Neutral check input (`checkChanges`, R1/RC3)
+
+The shared core entrypoint takes the **full lint result** (not just `records`) plus the
+optional resolution snapshots, so it sees the findings `lintCorpus` keeps for malformed
+files that it drops from `records`, and so `package` matching has its snapshot:
+
+```ts
+checkChanges(input: {
+  lint: { records: Adr[]; findings: Finding[]; checked: number };  // full lintCorpus result
+  changedFiles: string[];
+  dir?: string;                              // corpus dir, to identify changed records
+  snapshots?: {
+    changedDependencies?: ChangedDependency[];  // from the Action's lockfile diff (T007)
+    catalog?: CatalogSnapshot;                  // inert in this phase
+  };
+}): CheckOutcome
+```
+
+Both `adr check` (CLI) and the Action build this input and call the same function; neither
+surface imports the other (R2/RC3).
 
 ## Entity: PR comment
 

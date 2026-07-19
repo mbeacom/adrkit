@@ -175,23 +175,38 @@ and comments end-to-end with no other secret present.
 ### Functional Requirements
 
 - **FR-001**: `adr check <changed-files...> [--dir docs/adr] [--json]` MUST, for the
-  supplied changed-file list, (a) resolve the governing decisions using the
-  existing **pure** resolver (ADR-0009) and (b) validate any changed records via
-  the existing validators — deterministically, with no clock, no network, and no
-  filesystem traversal beyond the corpus load and the supplied list.
+  supplied changed-file list, (a) resolve the governing decisions using the existing
+  **pure** resolver (ADR-0009) and (b) validate the changed records via the existing
+  validators — deterministically, with no clock, no network, and no filesystem
+  traversal beyond the corpus load and the supplied list. This logic MUST be a
+  **single neutral function in `@adrkit/core`** (`checkChanges`) that both `adr check`
+  and the Action call; it MUST accept the **full `lintCorpus` result**
+  (`{ records, findings, checked }`) — not only `records` — so findings that
+  `lintCorpus` keeps for malformed files it dropped from `records` are not lost, plus
+  the optional resolution `snapshots` (`changedDependencies`, `catalog`). Neither
+  surface may import the other (RC3, ADR-0007/Principle III).
 - **FR-002**: `adr check` MUST exit **non-zero** when a **changed record** has an
   **error**-severity finding, and `0` when findings are only `info`/`warn` — mirroring
   `adr lint` exit semantics.
-- **FR-003**: The Action MUST derive the PR's changed-file list (base…head) and pass
-  it to the resolver/`adr check`. File-list extraction is the **Action's**
-  responsibility; the resolver MUST remain pure (ADR-0009) and MUST NOT traverse the
-  working tree to discover changes.
+- **FR-003**: The Action MUST derive the PR's **complete** changed-file list and pass
+  it to `checkChanges`. It MUST obtain the full list via a **fully paginated PR-files
+  listing** (all pages) **or** a local **merge-base (`base…head`) diff** on the
+  checkout — **not** the compare API's file list, which GitHub **caps** (e.g. 300
+  files) and silently truncates. The Action MUST **explicitly handle** the provider's
+  hard limit (paginate to completion, or fall back to the local diff) rather than
+  evaluating a truncated list, and MUST surface a notice if it cannot obtain the
+  complete list. File-list extraction is the **Action's** responsibility; the resolver
+  MUST remain pure (ADR-0009) and MUST NOT traverse the working tree to discover
+  changes.
 - **FR-004**: The Action MUST post a single PR comment listing the governing
   decisions for the changed files, each with `id`, `title`, and the matcher(s) that
   fired (mirroring `adr explain`). Records are a **union**; ordering is stable.
 - **FR-005**: The comment MUST be **idempotent**: subsequent runs on the same PR
-  update the same comment (located by a stable hidden HTML marker) rather than
-  posting a new one.
+  update the same comment rather than posting a new one. To locate it the Action MUST
+  **paginate the PR's comments** (all pages) and match on **both** the stable hidden
+  adrkit marker **and** the Action's own author identity (the bot/app user), so it
+  never edits a human's comment that happens to contain the marker and never misses
+  its own comment on a later page. Absent a match, it creates one.
 - **FR-006**: The comment MUST be **selective** — only records whose matchers fire
   on the changed files appear. A record that governs no changed file MUST NOT
   appear. On a corpus of more than ten records touched by a subset diff, the comment
@@ -227,18 +242,37 @@ and comments end-to-end with no other secret present.
   deterministic check and **degrade** commenting to a non-fatal notice rather than
   failing the job on a permissions error (FR-008 clean-degradation, consistent with
   ADR-0009's "degrade, never fail" posture).
+- **FR-015**: **Packaged distribution.** As a JavaScript Action, `@adrkit/ci` runs
+  directly from the referenced repo and does **not** install this package's
+  dependencies in the consumer's checkout. The Action MUST therefore ship a
+  **self-contained, committed Node bundle** (bundling `@adrkit/core` **and** the
+  GitHub toolkit) with `action.yml`'s `runs.main` pointing at that bundle. CI MUST
+  include a **drift check** (rebuild the bundle and fail if the committed artifact
+  differs, mirroring `schema-emit-matches`) plus a **smoke test** that the bundle runs
+  under the target Node.
+- **FR-016**: **Runtime.** The Action MUST declare a supported Node runtime. This
+  project requires Node `>=22` and smoke-tests 22/24 (ADR-0010), so the Action MUST use
+  **`runs.using: node24`** (a supported runner) rather than an unsupported/older
+  runtime, unless a runtime is deliberately targeted **and** added to the Node smoke
+  matrix.
 
 ### Key Entities
 
-- **Changed-file set**: the list of repo-relative paths the PR touches (base…head),
-  produced by the Action from the GitHub event/API or a git range; the input to the
-  pure resolver.
+- **Changed-file set**: the **complete** list of repo-relative paths the PR touches,
+  produced by the Action via a fully paginated PR-files listing or a local merge-base
+  diff (never the truncation-prone compare API — FR-003); the input to the pure
+  resolver.
 - **Governing-decision result**: reuse of the Phase 1 resolver output —
   `{ recordId, title, firedMatchers[] }` per governing record (a union).
+- **Neutral check function** (`checkChanges`, in `@adrkit/core`): the single shared
+  entrypoint both `adr check` and the Action call; takes the full `lintCorpus` result +
+  changed files + optional snapshots, returns the check outcome (RC3).
 - **Changed-record / validation set**: the ADR files under the corpus dir that
-  appear in the diff, plus their reused Phase 0/2 `Finding`s.
+  appear in the diff, plus their reused Phase 0/2 `Finding`s (including findings kept
+  for malformed files `lintCorpus` dropped from `records`).
 - **PR comment**: rendered markdown carrying a stable hidden marker for idempotent
-  update; a **derived projection** of git, never a record.
+  update, located by marker **and** author identity across all comment pages (FR-005);
+  a **derived projection** of git, never a record.
 - **Check outcome**: `pass | fail` (fail iff a changed record has an error finding),
   plus the human/`--json` payload the Action consumes.
 
@@ -268,13 +302,18 @@ and comments end-to-end with no other secret present.
 
 Documented, ADR-consistent choices (revisit at plan stage):
 
-- **A1 — Changed-file extraction**: the Action derives the changed-file list from the
-  PR (the `pull_request` event payload and/or the compare API, or a `base…head` git
-  range on the checkout). The list is the resolver's input; resolution never walks
-  the tree (ADR-0009). Extraction lives in `@adrkit/ci`, not in core.
-- **A2 — Comment identity**: idempotency is achieved with a stable hidden HTML
-  marker (e.g. `<!-- adrkit:ci -->`) the Action searches for among PR comments; the
-  first run creates, later runs edit. No state is stored outside the PR (ADR-0004).
+- **A1 — Changed-file extraction**: the Action derives the **complete** changed-file
+  list via a **fully paginated PR-files listing** or a local **merge-base diff** on the
+  checkout — **not** the compare API's file list (GitHub caps it and truncates). The
+  provider's hard limit is handled explicitly (paginate to completion or fall back to
+  the local diff; surface a notice if the full list cannot be obtained). The list is
+  the resolver's input; resolution never walks the tree (ADR-0009). Extraction lives in
+  `@adrkit/ci`, not in core (FR-003).
+- **A2 — Comment identity**: idempotency uses a stable hidden HTML marker (e.g.
+  `<!-- adrkit:ci -->`) **and** the Action's author identity, matched across a **fully
+  paginated** listing of PR comments; the first run creates, later runs edit its own
+  comment. A foreign comment that happens to contain the marker is never edited, and a
+  match on a later page is not missed. No state is stored outside the PR (ADR-0004).
 - **A3 — Selectivity is resolver-driven**: the comment contains exactly the resolver's
   union output for the changed files — nothing is added. "Lists everything" can only
   happen if a record's matchers are genuinely over-broad (e.g. `**`), which is a
@@ -291,6 +330,10 @@ Documented, ADR-consistent choices (revisit at plan stage):
   `@actions/github`/Octokit) is an acceptable dependency of the **surface** package
   `@adrkit/ci` (like `@adrkit/cli`'s own deps), never of core, and is stubbed in
   tests so `clean-clone-builds` needs no token (ADR-0007).
+- **A7 — Packaged bundle**: because a JavaScript Action does not `bun/npm install` in
+  the consumer checkout, `@adrkit/ci` ships a **committed, self-contained Node bundle**
+  (core + toolkit) that `action.yml` points at, guarded by a build-drift check and a
+  Node smoke test (FR-015). The bundler is Bun (`bun build`, ADR-0010).
 
 ## Out of Scope
 
