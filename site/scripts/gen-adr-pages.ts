@@ -98,7 +98,9 @@ function firstParagraph(body: string): string | undefined {
 }
 
 function escapeCell(text: string): string {
-  return text.replace(/\|/g, '\\|');
+  // Escape backslashes first, then pipes, so a literal backslash in the source
+  // frontmatter is not mis-escaped (js/incomplete-sanitization).
+  return text.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 
 function metadataTable(fm: Frontmatter, file: string): string {
