@@ -1,0 +1,106 @@
+---
+title: adrkit
+description: Decision memory for human- and agent-authored plans — machine-readable ADRs, enforceable in CI, legible to agents, without leaving git.
+template: splash
+hero:
+  tagline: Decision memory for human- and agent-authored plans. Machine-readable ADRs, enforceable in CI, legible to agents — without leaving git.
+  actions:
+    - text: Quickstart
+      link: /quickstart/
+      icon: right-arrow
+    - text: JSON Schema
+      link: /schema/
+      icon: document
+      variant: minimal
+    - text: View on GitHub
+      link: https://github.com/mbeacom/adrkit
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, Aside, LinkCard } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Status: pre-alpha">
+	The schema and the decision corpus exist, and the CLI (`adr lint`, `new`,
+	`graph`, `explain`, `migrate`) works today. The CI comment surface, the
+	evaluator, and the MCP server described below are planned, not yet built.
+</Aside>
+
+## The problem
+
+Your organization decides something. Six months later nobody remembers, the
+decision gets re-litigated, and the code drifts from what was agreed. Now agents
+write plans too — faster than anyone can review them, with no memory of what was
+already decided and rejected.
+
+Most ADR tooling is a markdown template and a static site generator. That
+records decisions. It doesn't make them *do* anything.
+
+## The idea
+
+Treat a decision record as **typed data with a markdown body**, and give it one
+field that changes everything — `affects`, declaring what the decision governs:
+
+```yaml
+---
+id: "0042"
+title: Use server-side rendering for authenticated routes
+status: accepted
+reversibility: one-way-door
+blastRadius: cross-team
+affects:
+  - type: path
+    pattern: "apps/web/app/(authed)/**"
+  - type: package
+    pattern: "next@>=16"
+---
+```
+
+Now a tool can answer *"which decisions govern this pull request?"* — and put the
+answer where the next decision is actually being made.
+
+## What works today
+
+<CardGrid>
+	<Card title="Typed, validated records" icon="approve-check">
+		A strict [JSON Schema](/schema/) — a superset of MADR — that editors and
+		CI in any language can validate against.
+	</Card>
+	<Card title="adr lint" icon="error">
+		Validate records against the schema, enforce unique ids, and flag dangling
+		references or an accepted record that declares a conflict.
+	</Card>
+	<Card title="adr migrate --from madr" icon="random">
+		Adopt an existing MADR corpus in place, additively, without breaking your
+		current tooling.
+	</Card>
+	<Card title="adr explain / graph" icon="puzzle">
+		Print every decision governing a file and the matcher that fired, or emit
+		the decision graph as DOT or JSON.
+	</Card>
+</CardGrid>
+
+## On the roadmap
+
+<CardGrid>
+	<Card title="CI comment" icon="comment">
+		Surface governing decisions on the pull requests that touch them.
+	</Card>
+	<Card title="MCP server" icon="seti:default">
+		Let agents retrieve prior decisions — including the rejected ones — before
+		proposing something already tried.
+	</Card>
+	<Card title="Evaluator" icon="rocket">
+		Score proposals against a published rubric and route them; deterministic
+		checks first, humans on the conditions that warrant them.
+	</Card>
+</CardGrid>
+
+It never approves anything. It routes, and humans decide.
+
+## Design commitments
+
+These are enforced, not aspirational — and the project governs itself with them.
+Each links to the record that decided it.
+
+<LinkCard title="Browse the decision records" href="/adr/" description="adrkit's first commit is its own decision corpus. Every choice here is a typed ADR." />

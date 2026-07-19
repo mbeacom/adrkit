@@ -27,5 +27,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "exclude": ["node_modules", "dist", "**/dist"]
+  "exclude": ["node_modules", "dist", "**/dist", "site"]
 }

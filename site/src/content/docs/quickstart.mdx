@@ -1,0 +1,121 @@
+---
+title: Quickstart
+description: Install the adrkit CLI and run adr lint, new, graph, explain, and migrate.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+The `adr` CLI validates a decision corpus, scaffolds new records, explains which
+decisions govern a file, renders the decision graph, and migrates an existing
+MADR corpus in place.
+
+<Aside type="note" title="Pre-alpha">
+	adrkit is not yet published to a registry. Today you run the CLI from a clone.
+	A published `@adrkit/cli` (runnable with `npx adr …`) is planned — see
+	[ADR-0010](/adr/0010-bun-toolchain/), which commits to Node-targeted published
+	artifacts.
+</Aside>
+
+## Install
+
+adrkit is built with [Bun](https://bun.com) ([ADR-0010](/adr/0010-bun-toolchain/)).
+Install Bun, then clone the repository and install dependencies.
+
+<Steps>
+
+1. Install Bun:
+
+   ```sh
+   curl -fsSL https://bun.sh/install | bash
+   ```
+
+2. Clone and install:
+
+   ```sh
+   git clone https://github.com/mbeacom/adrkit.git
+   cd adrkit
+   bun install
+   ```
+
+3. Validate the bundled corpus to confirm the CLI works:
+
+   ```sh
+   bun run adr lint
+   ```
+
+</Steps>
+
+The examples below use `bun run adr <command>`. Once a published binary lands,
+the same commands run as `adr <command>` (or `npx adr <command>`).
+
+## Validate a corpus — `adr lint`
+
+Validate every record under `docs/adr/` against the schema, enforce unique ids,
+flag dangling references between records (`supersedes` / `supersededBy` /
+`relatesTo` / `conflictsWith`), and warn when an accepted record declares a
+conflict via `conflictsWith`.
+
+```sh
+bun run adr lint
+# lint a specific directory or files
+bun run adr lint --dir docs/adr
+bun run adr lint docs/adr/0001-record-architecture-decisions-in-git.md
+# machine-readable output for CI
+bun run adr lint --json
+```
+
+`adr lint` exits non-zero when it finds errors, so it drops straight into a CI
+gate.
+
+## Create a record — `adr new`
+
+Scaffold a new record with the next sequential id and valid frontmatter.
+
+```sh
+bun run adr new "Use server-side rendering for authenticated routes"
+# choose a starting status (accepted/superseded need extra fields and are refused)
+bun run adr new "Adopt OpenTelemetry" --status proposed
+```
+
+Fill in `affects` — it is what makes a decision locatable by CI and agents. A
+record with no `affects` is advisory only. See the
+[JSON Schema reference](/schema/) for every field.
+
+## Explain what governs a file — `adr explain`
+
+Print every decision governing a path, and the matcher that fired.
+
+```sh
+bun run adr explain packages/core/src/schema/adr.schema.ts
+bun run adr explain package.json --json
+```
+
+## Render the decision graph — `adr graph`
+
+Emit the decision graph — supersession and relationships — as Graphviz DOT or
+JSON.
+
+```sh
+# Graphviz DOT (pipe into `dot -Tsvg`)
+bun run adr graph --format dot
+# structured JSON
+bun run adr graph --format json
+```
+
+## Adopt an existing MADR corpus — `adr migrate`
+
+Migrate a MADR corpus in place, additively and non-destructively. The migration
+is one-way; round-trip sync is deliberately unsupported
+([ADR-0008](/adr/0008-import-and-migration-semantics/)).
+
+```sh
+# preview without writing
+bun run adr migrate --from madr --dry-run
+# apply
+bun run adr migrate --from madr --dir docs/adr
+```
+
+## Next steps
+
+- Reference the schema from your editor and CI — see the [JSON Schema](/schema/).
+- Read how adrkit governs itself in the [decision records](/adr/).

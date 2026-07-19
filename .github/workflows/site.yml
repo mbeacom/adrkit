@@ -1,0 +1,85 @@
+name: Deploy site
+
+# Builds the Astro/Starlight docs site with Bun. On pull requests it runs a
+# build-only check (the site is excluded from every root gate, so this is the
+# only thing that catches a broken site change before merge). On push to main it
+# also deploys to GitHub Pages at the custom apex domain adrkit.dev.
+#
+# Kept separate from ci.yml on purpose: the project's build/test/lint gates and
+# the site deploy are independent concerns and should not block or entangle each
+# other.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'schema/adr.schema.json'
+      - 'docs/adr/**'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'schema/adr.schema.json'
+      - 'docs/adr/**'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+# Least-privilege token for the Pages deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialize per ref; never cancel an in-flight deploy.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Serve canonical schema at its $id
+        run: bun run sync:schema
+
+      - name: Guard — served schema byte-identical to canonical + no stale doc versions
+        run: bun run check:schema
+
+      - name: Build site
+        run: bun run build
+
+      # Only publish an artifact for real deployments (push to main / manual run).
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Path is relative to the repository root, not the job working dir.
+          path: site/dist
+
+  deploy:
+    needs: build
+    # Deploy only on push to main or a manual dispatch — never on pull requests.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,117 @@
+---
+title: JSON Schema
+description: The adrkit decision-record JSON Schema — hosted at its $id, and how to validate records against it.
+---
+
+import { Aside, Code } from '@astrojs/starlight/components';
+import { SCHEMA_ID, SCHEMA_VERSION, SCHEMA_PATH } from '../../generated/schema-meta';
+
+export const ajvExample = `import Ajv2020 from 'ajv/dist/2020.js';
+import matter from 'gray-matter';
+import { readFileSync } from 'node:fs';
+
+// Fetch the published schema and compile it.
+const schema = await (await fetch('${SCHEMA_ID}')).json();
+const validate = new Ajv2020({ strict: false }).compile(schema);
+
+// Extract a record's frontmatter as a plain object and validate it.
+const { data } = matter(readFileSync('docs/adr/0001-record-architecture-decisions-in-git.md', 'utf8'));
+if (!validate(data)) console.error(validate.errors);`;
+
+adrkit records are **typed data with a markdown body**. The typed half —
+everything in the YAML frontmatter — is described by a single
+[JSON Schema 2020-12](https://json-schema.org/) document: a strict superset of
+[MADR](https://adr.github.io/madr/), with governance, routing, provenance, and
+enforcement metadata added.
+
+## Canonical URL
+
+The schema is served, byte-for-byte, at the URL baked into its own `$id`:
+
+<p><code>{SCHEMA_ID}</code></p>
+
+<Aside type="tip" title="The URL is the contract">
+	This site serves the schema at exactly the path in its `$id`. That is what
+	makes JSON-Schema `$ref` resolution and validator associations that reference
+	it resolve correctly. The version segment (<code>v{SCHEMA_VERSION}</code>)
+	tracks the schema's version, and a build-time guard asserts the served bytes
+	match the canonical source (`schema/adr.schema.json`) — they cannot drift.
+</Aside>
+
+<p><a href={SCHEMA_PATH}>Open the raw schema →</a></p>
+
+## Validate your records
+
+The schema is enforceable — but *how* you validate depends on the tool, and one
+common assumption does not hold, so it is worth being precise.
+
+### `adr lint` — the first-party path
+
+The adrkit CLI validates every record's frontmatter against this schema (the CLI
+and the JSON Schema are generated from the same Zod source of truth). It
+understands Markdown frontmatter directly, so it is the recommended way to
+validate a corpus:
+
+```sh
+bun run adr lint
+```
+
+<Aside type="caution" title="Editor YAML extensions do not validate Markdown frontmatter">
+	The YAML language server — `# yaml-language-server:` modelines and
+	`yaml.schemas` mappings — operates on `.yaml`/`.yml` files. It does **not**
+	parse the YAML frontmatter embedded in Markdown (`.md`) records, so pointing
+	it at `docs/adr/*.md` will not validate them. Use `adr lint`, or a
+	genuinely frontmatter-aware validator, for in-place validation.
+</Aside>
+
+### Any JSON Schema validator — programmatic
+
+Because the schema is a standard JSON Schema published at a stable URL, any
+validator in any language can check a record's frontmatter (extracted to a JSON
+object) against it. Associate the schema with the data on the **validator side**
+(config, CLI flag, or `compile(schema)`); do **not** add a `$schema` key inside
+the record — the schema is `additionalProperties: false`, so an in-record
+`$schema` is rejected as an unknown field. For example, with
+[Ajv](https://ajv.js.org/):
+
+<Code code={ajvExample} lang="js" title="validate-record.mjs" />
+
+## Required fields
+
+Every record must declare at least these four. Everything else has a schema
+default or is optional.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | `0042` (same log) or a 26-char ULID. |
+| `title` | string | 3–120 characters. |
+| `status` | enum | `draft`, `proposed`, `accepted`, `rejected`, `superseded`, `deprecated`. |
+| `date` | date | `YYYY-MM-DD`. |
+
+## Governance fields that do the work
+
+These are what make a record enforceable and routable rather than advisory.
+
+| Field | Purpose |
+| --- | --- |
+| `affects` | Typed matchers (`path`, `package`, `entity`, `resource`, `api`, `data`) declaring what the decision governs. This is what lets CI and agents answer *"which decisions govern this change?"* |
+| `reversibility` | `two-way-door`, `one-way-door`, or `unknown`. A `one-way-door` decision may not take the auto-approve fast path. |
+| `blastRadius` | `component`, `team`, `cross-team`, or `org`. |
+| `supersedes` / `supersededBy` | Links the supersession graph. |
+| `provenance` | Who (or what agent) authored the record, and who ratified it. An agent-authored record cannot reach `accepted` without a named human ratifier. |
+
+The schema is `additionalProperties: false` — unknown frontmatter keys are a hard
+error, so a typo fails validation instead of silently doing nothing.
+
+## Versioning and stability
+
+- The schema is generated from a Zod source of truth (`schema/adr.schema.ts`) and
+  emitted to `schema/adr.schema.json`; CI fails if they diverge.
+- The `$id` **origin and path are fixed for the life of the major version** —
+  see [ADR-0011](/adr/0011-host-the-canonical-json-schema-at-its-id-on-adrkit-dev/).
+  Each published version is served at its own immutable path
+  (<code>/schema/adr/v{SCHEMA_VERSION}/adr.schema.json</code>); a version bump
+  adds a **new** path and must retain the prior ones, so references pinned to an
+  older version keep resolving.
+- The schema is released under [CC0](https://github.com/mbeacom/adrkit/blob/main/schema/LICENSE)
+  so competing implementations can adopt it with no license consideration at all.
