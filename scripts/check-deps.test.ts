@@ -37,6 +37,25 @@ describe('core-has-no-adapter-deps', () => {
     await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
   });
 
+  test('allows the ci surface to depend on core and the GitHub toolkit', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/ci/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/ci',
+          version: '0.1.0',
+          dependencies: { '@adrkit/core': 'workspace:*', '@actions/core': '^1.11.1', '@actions/github': '^6.0.1' },
+          devDependencies: { '@types/bun': 'latest' },
+        },
+        null,
+        2,
+      ),
+    );
+
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
   test('fails on a synthetic non-adapter dependency on an adapter', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeText(
@@ -60,6 +79,42 @@ describe('core-has-no-adapter-deps', () => {
     expect(result.ok).toBe(false);
     expect(result.violations.map((violation) => violation.reason)).toContain(
       'non-adapter workspace depends on an adapter package',
+    );
+  });
+
+  test('fails when the GitHub toolkit reaches core', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/core/package.json'),
+      JSON.stringify(
+        { name: '@adrkit/core', version: '0.1.0', dependencies: { zod: '^4', yaml: 'latest', '@actions/github': '^6' } },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(
+      'GitHub Action toolkit must stay confined to @adrkit/ci and never reach core/schema/cli',
+    );
+  });
+
+  test('fails when the CLI pulls in the GitHub toolkit', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/cli/package.json'),
+      JSON.stringify(
+        { name: '@adrkit/cli', version: '0.1.0', dependencies: { '@adrkit/core': 'workspace:*', '@actions/core': '^1' } },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(
+      'GitHub Action toolkit must stay confined to @adrkit/ci and never reach core/schema/cli',
     );
   });
 });

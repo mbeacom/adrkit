@@ -1,11 +1,10 @@
 # Quickstart: CI Surface (Phase 3)
 
-> **⚠️ Implementation is gated.** Do not build this feature until the rung-2 gate
-> clears — a subset of a real, permissively-licensed public MADR corpus vendored as
-> an **offline fixture** and round-tripped by `adr migrate` (that maintainer dogfood
-> round-trip **is** the required "real user"; no external human adopter needed). See
-> [research.md §R0](./research.md) and tasks.md **T000/T00A**. The commands below
-> describe the *intended* surface for the future implement thread.
+> **✅ Gate cleared; implemented.** The rung-2 gate closed when a subset of the real,
+> permissively-licensed [adr/madr](https://github.com/adr/madr) MADR corpus was vendored
+> as an **offline fixture** and round-tripped by `adr migrate` (see
+> [research.md §R0](./research.md), tasks.md **T000/T00A**, and the fixture PROVENANCE).
+> `adr check` and the `@adrkit/ci` Action described below are implemented.
 
 Prerequisites: **stable Bun 1.3.14** (CI pins it) — not the canary that self-reports
 1.4.0 (it writes an unreadable lockfile). Clean clone, no network, no credentials.
@@ -39,6 +38,11 @@ permissions:
 jobs:
   adr:
     runs-on: ubuntu-latest
+    env:
+      # Exposing the default token here lets the Action confirm its own comment
+      # identity (github-actions[bot]) so it updates one comment in place. Without
+      # it, an unidentifiable token safely posts a fresh comment each run.
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # full history for the merge-base changed-file diff
@@ -70,5 +74,25 @@ validates the changed records, and posts (or updates) a single comment.
 
 ## Self-dogfood
 
-This repo can run `adr check` on its own PRs (an added CI job) so the CI surface
+This repo runs `adr check` on its own PRs (the `self-dogfood` CI job) so the CI surface
 governs the project that ships it — the same dogfooding stance as `adr lint`.
+
+## Owner-run exit check (T018 — cannot be automated in CI)
+
+The rung-3 exit criterion is a **manual** verification on a **second** repository (not
+this one), which CI cannot perform. Run it once as the owner:
+
+1. In a separate repo with a **>10-record** ADR corpus, add the workflow above
+   (`mbeacom/adrkit/packages/ci@<ref>`), granting `pull-requests: write`.
+2. Open a PR that touches a **subset** of governed paths. Confirm the posted comment
+   names **exactly** the governing subset (id + title + fired matcher) — not the whole
+   corpus (SC-001/003).
+3. Push a second commit to the same PR. Confirm the **same** comment updates in place
+   rather than a new one being added (SC-004).
+4. Confirm it ran with only the default `GITHUB_TOKEN` (no PAT/secret) (SC-006), and
+   that a fork PR (read-only token) still runs the check and degrades commenting to a
+   job-log notice without failing the job.
+
+This is the owner-run equivalent of the site's DNS cutover: everything up to it is
+green in CI; this last step needs a real second repo and is left unchecked in
+`tasks.md` until performed.

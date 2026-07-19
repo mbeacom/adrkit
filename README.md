@@ -56,7 +56,13 @@ answer where the next decision is actually being made.
   additively, without breaking your current tooling
 - **`adr explain <path>`** — print every decision governing a file, and the
   matcher that fired
-- **CI comment** — surface governing decisions on the PRs that touch them
+- **`adr check <files...>`** — validate the changed records and list the decisions
+  governing a changed-file set; deterministic, provider-agnostic, `--json` for tools
+- **CI comment** — the `@adrkit/ci` GitHub Action surfaces the governing decisions
+  on the PRs that touch them. Read-only and comment-only — no database, no approval
+  ([0004](docs/adr/)); runs with only the default `GITHUB_TOKEN` on the `node24`
+  runner from a committed self-contained bundle, and degrades (never fails the job)
+  on a read-only fork token
 - **MCP server** — let agents retrieve prior decisions, including the rejected
   ones, before proposing something already tried
 - **Evaluator** — score proposals against a published rubric and route them;
