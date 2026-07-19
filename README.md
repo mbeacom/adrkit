@@ -7,8 +7,11 @@
 Architecture decision records that are machine-readable, enforceable in CI, and
 legible to agents — without leaving git.
 
-> Status: pre-alpha. The schema and decision records exist; the implementation
-> does not yet. See [`plan.md`](./plan.md).
+> Status: early, under active development. The schema, `@adrkit/core`, and
+> `@adrkit/cli` are implemented — `adr lint`, `new`, `graph`, `explain`, and
+> `migrate --from madr` all work, including `affects` resolution and additive,
+> in-place MADR migration. Not yet built: the CI surface (GitHub Action), the
+> deterministic evaluator, and the MCP server. See [`plan.md`](./plan.md).
 
 ---
 

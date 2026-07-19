@@ -2,7 +2,10 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: pre-alpha (see [`plan.md`](./plan.md)).
+Status: early — phases 0–2 landed. `@adrkit/core` and `@adrkit/cli` (`lint`,
+`new`, `graph`, `explain`, `migrate --from madr`) exist, with `affects`
+resolution and MADR migration; the CI Action, evaluator, and MCP server are not
+yet built (see [`plan.md`](./plan.md)).
 
 ## Toolchain
 
