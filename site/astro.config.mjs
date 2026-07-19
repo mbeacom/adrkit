@@ -12,6 +12,11 @@ export default defineConfig({
 			title: 'adrkit',
 			description:
 				'Decision memory for human- and agent-authored plans — machine-readable ADRs, enforceable in CI, legible to agents, without leaving git.',
+			customCss: ['./src/styles/custom.css'],
+			components: {
+				Hero: './src/components/Hero.astro',
+				SiteTitle: './src/components/SiteTitle.astro',
+			},
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/mbeacom/adrkit' },
 			],
@@ -22,7 +27,7 @@ export default defineConfig({
 				{
 					label: 'Start here',
 					items: [
-						{ label: 'Overview', link: '/' },
+						{ label: 'Why adrkit', link: '/' },
 						{ label: 'Quickstart', slug: 'quickstart' },
 					],
 				},

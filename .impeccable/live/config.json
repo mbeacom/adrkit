@@ -1,0 +1,6 @@
+{
+  "files": ["site/dist/**/*.html"],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}

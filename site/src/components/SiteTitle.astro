@@ -1,0 +1,14 @@
+---
+const { siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="adr-site-title" aria-label="adrkit home">
+	<svg viewBox="0 0 28 28" aria-hidden="true">
+		<path d="M5 7h8v5h10M5 21h8v-5h10" />
+		<circle cx="5" cy="7" r="2.25" />
+		<circle cx="5" cy="21" r="2.25" />
+		<circle cx="23" cy="12" r="2.25" />
+		<circle cx="23" cy="16" r="2.25" />
+	</svg>
+	<span translate="no">adrkit</span>
+</a>
