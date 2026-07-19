@@ -28,8 +28,8 @@ sync.
 | 0 — Schema and core | `specs/001-schema-and-core/` | landed (PR #5 merged) |
 | 1 — Affects resolution | `specs/002-affects-resolution/` | landed (PR #6 merged) |
 | 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
-| 3 — CI surface | `specs/004-ci-surface/` | **implemented** (PR open; lands on merge) |
-| 4 — Deterministic evaluator | _(unopened)_ | queued |
+| 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
+| 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | scoped; implementation blocked on Phase 3 T018 |
 | 5 — MCP server | _(unopened)_ | queued |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
@@ -39,6 +39,11 @@ user**. This scoping-vs-implementation split is deliberate: writing `specs/NNN-*
 early is cheap and reversible, whereas shipping code against an unmet lower rung is
 not. Run each feature through the spec-kit loop; the Constitution Check in every
 `plan.md` gates against Principles I–V. *(Maintainer decision; reviewer may override.)*
+
+Phase 4's spec-kit artifacts are scoped, but **no Phase 4 implementation may begin** while
+`specs/004-ci-surface/tasks.md` T018 remains unchecked. T018 must prove the Action on another
+repository with more than ten ADRs, selective governing-record comments, same-comment update
+on a second push, and only the default `GITHUB_TOKEN`.
 
 The "real user" a rung requires is satisfied by **maintainer dogfooding** — the ladder
 already says "even if that user is only you". For rung 2 specifically, the required
