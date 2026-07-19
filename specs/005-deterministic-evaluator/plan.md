@@ -94,9 +94,13 @@ nothing; the returned `evaluationPatch` is data the caller may later propose via
 schema-invalid short-circuit + prerequisite `not-evaluated`; **byte-for-byte** ordering /
 canonical-serialization reproduction; `evaluationPatch` validation against the **current
 committed schema**; input-immutability / no-mutation assertions; assertion-engine port
-behavior (registered vs missing); routing-trigger, target-fallback, `unresolved`, and
-non-escalated `not-required` routing; CLI exit codes `0 / 1 / 2`; rubric-rule-id mapping
-with **no duplicates**; and the
+behavior (registered vs missing, engine-owned opaque compile payload passed directly to
+evaluate); same-id/same-log collision and same-id/different-log pass; ADR-0009 negation and
+`repo` matching against an explicit target-resolution log distinct from record source logs;
+semantic-array order preservation; routing-trigger, exact
+decider/CODEOWNERS/catalog owner order, team-ambiguity barrier, `unresolved`, and non-escalated
+`not-required` routing; non-proposal input rejection; CLI exit codes `0 / 1 / 2`;
+rubric-rule-id mapping with **no duplicates**; and the
 `clean-clone-builds` + dependency-graph gates extended to the evaluator. **No live external
 service, model, network, clock, or filesystem read enters any test's evaluator path.**
 
@@ -171,13 +175,13 @@ packages/evaluator/                 # NEW first-party surface package @adrkit/ev
 ├── tsconfig.build.json
 ├── src/
 │   ├── index.ts                    # public exports: evaluatePass0(), types, engine/target/identity port interfaces
-│   ├── pass0.ts                    # PURE orchestrator: Pass0Input → { report: Pass0Report; patch: EvaluationPatch }
+│   ├── pass0.ts                    # PURE orchestrator: Pass0Input → evaluated {report,patch} | typed input-error
 │   ├── rules/                      # one module per rubric rule, keyed by rubric rule id (FR-002/FR-010)
 │   │   ├── schema-valid.ts         #   reuses core parse/contract findings; short-circuit → 10× not-evaluated (C11)
 │   │   ├── id-unique.ts            #   reuses core `unique-id` finding over the corpus snapshot
 │   │   ├── supersession-consistent.ts  # NEW reciprocity + cycle detection (buildAdrGraph gives EDGES only — R3)
 │   │   ├── no-orphan-refs.ts       #   reuses `dangling-supersedes`/`dangling-relatesTo`; federated ref w/o log = inert (C2)
-│   │   ├── affects-resolvable.ts   #   TargetResolutionRegistry (NOT diff resolveAffects) — R4; backing-absent = inert (C3)
+│   │   ├── affects-resolvable.ts   #   TargetResolutionRegistry (NOT diff resolveAffects) — R4; backing/resolver absent = inert (C3)
 │   │   ├── affects-overlap.ts      #   finite canonical target-id intersection vs accepted ADRs, once per pair (R4)
 │   │   ├── scope-hierarchy.ts      #   base/proposed contradiction evidence vs accepted org assertion — R5
 │   │   ├── assertions-compile.ts   #   one-source-declaration enforcement + engine-registry compile — R6/R7
@@ -185,7 +189,7 @@ packages/evaluator/                 # NEW first-party surface package @adrkit/ev
 │   │   ├── decider-resolvable.ts   #   identity snapshot; zero/ambiguous → warn — R9
 │   │   └── expiry-sane.ts          #   caller `evaluationDate`, strict future; NO clock read
 │   ├── targets/                    # TargetResolutionRegistry, TargetResolverPort, canonical target-id normalization (R4)
-│   ├── assertions/                 # AssertionEngineRegistry, AssertionEnginePort, assertion input-snapshot model (R6/R7)
+│   ├── assertions/                 # generic typed registry/ports; opaque immutable compile payload passed directly to evaluate (R6/R7)
 │   ├── identity/                   # identity-directory snapshot model + named-human resolution (R9/C7)
 │   ├── routing/                    # escalation-trigger evaluation (C4) + route-target resolution/unresolved (C7) — R10
 │   ├── report/                     # Pass0Report assembly, total ordering, canonical serialization, reason-code catalog (R11)
@@ -196,7 +200,8 @@ packages/evaluator/                 # NEW first-party surface package @adrkit/ev
 packages/cli/src/
 └── index.ts                        # add `evaluate` to dispatch: adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json]
                                     #   IMPURE boundary: builds LintCorpusResult + proposal identity from disk/git, loads snapshot bundle,
-                                    #   calls @adrkit/evaluator, prints Pass0Report / evaluationPatch; NO --write. Exit 0/1/2 per FR-013.
+                                    #   rejects schema-valid non-proposal status, calls @adrkit/evaluator, prints Pass0Report / evaluationPatch;
+                                    #   NO --write. Exit 0/1/2 per FR-013.
 
 scripts/check-deps.ts               # extend allow-list: @adrkit/evaluator may depend on @adrkit/core + vetted engine libs (R1) only;
                                     #   assert no adapter/model/toolkit dependency ever reaches it (extends core-has-no-adapter-deps)
@@ -209,14 +214,14 @@ ADR-0005 already anticipates with `affects: packages/evaluator/**`). It takes on
 **immutable caller inputs** and performs no I/O. All impurity — reading the proposal file,
 building the full `lintCorpus` result, deriving the proposal's identity in that result,
 loading the caller's snapshot bundle, resolving `evaluationDate` — lives in the thin
-**`adr evaluate`** subcommand on `@adrkit/cli`, the **composition boundary**. Neither
-surface depends on the other; both depend on core. The engine, target, and identity ports
-are **caller-supplied interfaces** so the deterministic technology choices (R1) are
-replaceable without touching the rule logic. The dependency direction is
-`@adrkit/cli` → `@adrkit/evaluator` → `@adrkit/core`; the evaluator never depends on the CLI
-or CI packages. `@adrkit/evaluator` sits inside the Principle III isolation boundary exactly
-as `@adrkit/cli` and `@adrkit/ci` do: a consumer surface with its own vetted public deps,
-never an adapter and never core.
+**`adr evaluate`** subcommand on `@adrkit/cli`, the **composition boundary**. The CLI
+depends on the evaluator and core; the evaluator depends on core and remains independent of
+both CLI and CI. The engine, target, and identity ports are **caller-supplied interfaces** so
+the deterministic technology choices (R1) are replaceable without touching the rule logic.
+The dependency direction is `@adrkit/cli` → `@adrkit/evaluator` → `@adrkit/core`; no reverse
+edge exists. `@adrkit/evaluator` sits inside the Principle III isolation boundary exactly as
+`@adrkit/cli` and `@adrkit/ci` do: a consumer surface with its own vetted public deps, never
+an adapter and never core.
 
 ## Constitution Check (post-design re-check)
 

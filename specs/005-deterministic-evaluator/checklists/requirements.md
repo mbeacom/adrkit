@@ -57,8 +57,10 @@
   (Principle II).
 - **Deterministic ordering + byte reproducibility.** Rubric-rule order first, then stable
   per-rule keys; identical inputs → byte-for-byte identical output apart from
-  caller-supplied run metadata. No clock/network/fs read, no internal timestamp/duration
-  in the deterministic payload.
+  caller-supplied run metadata. Only set-like collections are canonical-sorted; fixed
+  rubric/trigger and declaration-ordered decider/CODEOWNERS/catalog/matcher/assertion arrays
+  retain semantic order. No clock/network/fs read, no internal timestamp/duration in the
+  deterministic payload.
 - **Contract tensions resolved (Clarifications C1–C11, Session 2026-07-19).** The tensions
   previously surfaced as Gated Contract Decisions GC-1…GC-6 are now **resolved** decisions
   in the spec's `## Clarifications` section; none adds/renames/re-severities a rubric rule
@@ -71,8 +73,10 @@
     `dangling-supersedes`/`dangling-relatesTo` map **only** to `no-orphan-refs`; a missing
     reference is reported **once**, by one rubric rule (no reciprocity/cycle double-report).
   - **C3** — `affects-resolvable` (**warn**) fires on **zero real targets with backing
-    present**; **backing absent** yields an ADR-0009 **operational inert** result via the
-    `affects-unresolvable` reason code and **no** `affects-resolvable` finding.
+    present**; **backing absent** yields operational inert reason
+    `affects-resolvable.backing-absent`, and a missing port yields
+    `affects-resolvable.resolver-absent`. The lower-level ADR-0009
+    `affects-unresolvable` finding maps to the former; neither emits a deterministic finding.
   - **C4** — the Pass-0-provable escalation subset is fixed as **routing conditions after
     the eleven rules** (not a twelfth rule): `one-way-door`, `cost-threshold`,
     `security-surface`, `data-residency`, `regulatory`, `contradicts-accepted-adr`,
@@ -83,13 +87,17 @@
     via registered deterministic ports; missing engine/input is **inert**; no
     shell/network/service/command/model. `rego`/`jsonpath` are required conformance engines;
     `grep`/`custom` are inert unless registered. T002 chooses a source or fixed
-    compiled-artifact profile per required engine.
+    compiled-artifact profile per required engine. Each typed port carries its engine-owned
+    opaque immutable payload directly from compile/artifact validation into evaluate, with
+    no hidden mutable registry, recompile, or unsafe cast.
   - **C6** — **no schema change**; Pass 0 **never persists or mutates** — it **returns** a
     schema-compatible `evaluationPatch` that a later caller may propose through a git PR.
   - **C7** — routing an escalation to a **named human is in scope**: resolve in ADR-0005
     order (`deciders` → CODEOWNERS of resolved paths → catalog owners of resolved entities)
-    to a named active human with stable total ordering, else emit an explicit `unresolved`
-    route state. `decider-resolvable` stays the fixed **warn** rule; fallback routing is
+    using declaration-ordered deciders, canonical path/entity ordering, CODEOWNERS
+    last-matching-rule semantics, and declared owner order. The first team candidate with
+    zero/multiple active humans is an immediate `unresolved` barrier; it is not skipped for a
+    later owner. `decider-resolvable` stays the fixed **warn** rule; fallback routing is
     operational behavior, not a twelfth rule.
   - **C8** — project **Phase 4 = outcome ladder rung 5 (partial)**, not rung 4 (rung 4 is
     the MCP server / project Phase 5).
@@ -107,18 +115,32 @@
   `affects-unresolvable`, parse/contract findings) are mapped explicitly, with no
   duplicate/conflicting finding for the same underlying issue (FR-010, SC-009).
 - **Exit semantics.** `1` = returned (error); `0` = completed on warn/info **even when
-  escalation is recommended**; `2` = usage/input-contract error. Exit `0` never means
-  "approved."
+  escalation is recommended**; `2` = usage/input-contract error, including a schema-valid
+  selected ADR whose status is not `draft`/`proposed`. Exit `0` never means "approved."
+- **Log and matcher scope are explicit.** `id-unique` compares `[record.log ?? "", id]`, so
+  equal ids in different named source logs pass. Target resolution preserves ADR-0009
+  positive, negation-after-positive, negation-only-empty, and `repo` qualification against
+  the caller's explicit current target-resolution log, never inferred from record source logs.
+- **Overlap pass reasons are distinct.** No accepted ADRs selects
+  `affects-overlap.no-accepted-corpus`; accepted ADRs with fully evaluated no-intersection
+  selects `affects-overlap.none`, after failure/inert precedence.
 - **Caller owns all I/O.** Every input (proposal path + corpus lint/load result including
-  malformed-file findings, target inventories, federated-log snapshots, assertion ports +
-  input snapshots, optional identity snapshot, optional scope/routing evidence, and
-  `evaluationDate`) is supplied to the pure library; run metadata stays in the outer caller
+  malformed-file findings, optional target-resolution log, target inventories, federated-log
+  snapshots, assertion ports + input snapshots, optional identity snapshot, optional
+  scope/routing evidence, and `evaluationDate`) is supplied to the pure library; run metadata
+  stays in the outer caller
   envelope. Pass 0 does no filesystem traversal, clock read, or network access
   (FR-001/FR-016; ADR-0009 purity).
 - **Wire/runtime separation is fixed.** `adrkit.pass0.snapshot/v1` is the strict JSON DTO;
-  assertion keys are canonical `[log-id-or-empty, record-path, assertion-id]` tuples so
-  duplicate ADR ids cannot alias inputs; malformed present data exits 2, optional omission
-  is inert, and ports are injected separately by trusted composition code.
+  assertion keys are byte-exact compact
+  `JSON.stringify([record.log ?? "", record.path, assertion.id])` strings so duplicate ADR
+  ids cannot alias inputs; noncanonical whitespace variants and malformed present data exit
+  2, optional omission is inert, and ports are injected separately by trusted composition
+  code.
+- **Runtime findings are projection-safe.** `RuleFinding` has explicit report-only
+  candidate/related ADR, matcher/assertion key, target, record-path, field, source, and
+  lower-level evidence fields; its `adr` field is strictly `AdrRef`, so patch projection
+  cannot emit a filesystem path.
 - **Assumptions A1–A8** capture ADR-consistent choices (caller-owned I/O, Phase 0/1 reuse,
   rubric-id public contract, resolvable-vs-inert distinction, assertion ports,
   schema-compatible returned patch, first-party non-adapter placement, Bun/Node-22

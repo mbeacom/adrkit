@@ -32,7 +32,8 @@ type AdrFrontmatter;         // id, title, status, date, deciders[], scope, doma
 // The Zod values already exist; adding aliases changes no schema.
 type Assertion;              // { id; description?; engine: 'rego'|'jsonpath'|'grep'|'custom';
                              //   expression?; expressionFile?; input; severity }
-type AffectsMatcher;         // { type: 'path'|'entity'|'package'|'resource'|'api'|'data'; pattern; repo? }
+type AffectsMatcher;         // { type: 'path'|'entity'|'package'|'resource'|'api'|'data'; pattern; repo?; negate? }
+type AdrRef;                 // local id or `<log>:<id>`; never a filesystem path
 type EscalationReason;       // 'one-way-door'|'cost-threshold'|'security-surface'|'data-residency'|'regulatory'|
                              //   'contradicts-accepted-adr'|'low-confidence'|'pass-disagreement'|
                              //   'agent-authored-production'|'novel-no-precedent'|'human-requested'
@@ -58,7 +59,7 @@ refs/hashes, snapshot ids, or reason codes. All such evidence lives on the runti
 ```ts
 /** (new — runtime only) The complete, immutable input to the pure Pass 0 function.
  *  Assembled by the impure CLI boundary (adr evaluate); the library reads nothing else. */
-interface Pass0Input {
+interface Pass0Input<RegoPayload, JsonPathPayload, GrepPayload, CustomPayload> {
   /** Full corpus lint result INCLUDING the candidate and any malformed-file findings.
    *  The proposal is identified by `proposalPath` within this result; the typed record
    *  MAY be absent here when the proposal file failed to parse (see §3, C11). (reused) */
@@ -71,13 +72,22 @@ interface Pass0Input {
   /** Optional immutable snapshots for cross-log refs. Missing required log ⇒ orphan rule inert. */
   readonly federatedLogs?: readonly FederatedLogSnapshot[];
 
+  /** Optional current repo/log identity for ADR-0009 `repo` matcher qualification.
+   *  This is target-resolution context, not a record's source `Adr.log`. */
+  readonly resolutionLog?: string;
+
   /** Immutable target-resolution backing (§4). Missing per-type backing ⇒ inert, never fail. */
   readonly targets: TargetInventorySnapshots;
   readonly targetRegistry: TargetResolutionRegistry;
 
   /** Immutable assertion evaluation backing (§5). Missing engine/content/input ⇒ inert. */
   readonly assertionInputs: AssertionInputSnapshot;
-  readonly assertionEngines: AssertionEngineRegistry;
+  readonly assertionEngines: AssertionEngineRegistry<
+    RegoPayload,
+    JsonPathPayload,
+    GrepPayload,
+    CustomPayload
+  >;
 
   /** Immutable identity/decider directory (§6). Missing ⇒ decider-resolvable inert; routing unresolved. */
   readonly identity?: IdentityDirectorySnapshot;
@@ -117,6 +127,8 @@ type IdentityDirectorySnapshotJson = IdentityDirectorySnapshot;
 interface SnapshotBundleJsonV1 {
   readonly schemaVersion: 'adrkit.pass0.snapshot/v1';
   readonly federatedLogs?: readonly FederatedLogSnapshot[];
+  /** Current repo/log identity for target resolution; omitted means unnamed local context. */
+  readonly log?: string;
   readonly targets?: TargetInventorySnapshotsJson;
   readonly assertionInputs?: {
     readonly sources?: Readonly<Record<AssertionKey, {
@@ -146,13 +158,18 @@ array, and object fields as their runtime counterparts, but contain no `Map`, `S
 function, module name, or port selector. The CLI:
 
 1. requires the exact `schemaVersion` and rejects unknown keys, duplicate object keys,
-   non-JSON values, malformed assertion keys, invalid canonical target keys, duplicate
-   unique identities, and wrong field types as **exit 2**;
+   non-JSON values, malformed or noncanonical assertion keys, invalid canonical target keys,
+   duplicate unique identities, and wrong field types as **exit 2**. An assertion key is
+   canonical only when parsing it yields exactly three strings and the original key is
+   byte-equal to compact standard
+   `JSON.stringify([record.log ?? "", record.path, assertion.id])`; whitespace variants are
+   rejected rather than normalized;
 2. interprets an omitted optional backing field as unavailable/inert, never as a malformed
    bundle and never as an invented empty authoritative source;
-3. converts set-like target-key arrays to immutable runtime sets after validation, preserves
-   declared order only where the contract uses it (for example CODEOWNERS rules), and
-   normalizes all other collections by their documented canonical key;
+3. converts set-like target-key arrays to immutable runtime sets after validation and sorts
+   only set-like collections by their documented canonical comparator. Fixed-order rubric
+   results/routing evidence/reasons and declaration-ordered deciders, CODEOWNERS rules/owners,
+   catalog owners, matchers, and assertions preserve semantic order;
 4. constructs `TargetResolutionRegistry` and `AssertionEngineRegistry` from trusted,
    T002-approved composition code — never from a JSON value; and
 5. if T002 approves a `compiled-artifact` engine profile, accepts only the fixed
@@ -178,15 +195,23 @@ interface ProposalResolution {
    *  When schema-valid FAILS this is undefined and the other 10 rules are `not-evaluated` (C11). */
   readonly proposed?: Adr;
 }
+type ProposalStatus = 'draft' | 'proposed';
+interface Pass0InputContractError {
+  readonly code: 'candidate-status-not-proposal';
+  readonly proposalPath: string;
+  readonly actualStatus: 'accepted' | 'rejected' | 'superseded' | 'deprecated';
+}
 ```
 
 **Rule of resolution (research [§R12](./research.md), C11)**:
 - `schema-valid` reads only `schemaFindings` for `proposalPath`. Any parse/contract finding ⇒
   **fail (error)** ⇒ the report has **exactly 11** results: `schema-valid` fail + **10
   `not-evaluated`**. Later passes never run.
-- On success, `proposed` is the typed draft/proposed ADR; the remaining ten rules run over it
-  plus the corpus snapshot (which **includes the candidate**). Plan→ADR conversion is **out of
-  scope**.
+- On schema success, a typed `draft`/`proposed` ADR proceeds and the remaining ten rules run
+  over it plus the corpus snapshot (which **includes the candidate**). A typed `accepted`,
+  `rejected`, `superseded`, or `deprecated` record is **not a proposal**: evaluation returns
+  `Pass0InputContractError`, no `Pass0Report`/patch, and the CLI exits `2`. This is an input
+  precondition, not a twelfth rule. Plan→ADR conversion is **out of scope**.
 - For **non-schema** errors, evaluation **continues** for all still-evaluable rules; only the
   **direct dependents** of the failed rule become `not-evaluated` (e.g. `assertions-pass` when
   `assertions-compile` failed). Later passes never run after **any** error.
@@ -194,6 +219,8 @@ interface ProposalResolution {
   proven: eight ordered `not-proven` trigger statuses, `escalate=false`, no reasons, and
   `target=route.target.not-required`. The patch contains only the schema violation and
   non-escalated routing fields.
+- `id-unique` scopes identity by `[record.log ?? "", record.frontmatter.id]`; equal ids in
+  different named logs are distinct, while duplicates inside one normalized log collide.
 
 ---
 
@@ -228,14 +255,20 @@ interface DataDescriptor     { readonly id: string; readonly residency?: string;
 /** A deterministic, pure resolver for one AffectsType. Registered per type; no I/O. */
 interface TargetResolverPort {
   readonly type: AffectsType;
-  /** Pure: matcher + inventory → finite canonical id set. MUST NOT read clock/network/fs. */
+  /** Pure: matcher + explicit current-log context + inventory → finite canonical id set.
+   *  MUST NOT infer log context from the record or read clock/network/fs. */
   resolve(
     matcher: AffectsMatcher,
-    inventory: TargetInventorySnapshots,
+    context: TargetResolutionContext,
   ): TargetResolution;
 }
+interface TargetResolutionContext {
+  /** Caller-supplied ADR-0009 current repo/log identity; undefined is unnamed local context. */
+  readonly log?: string;
+  readonly inventory: TargetInventorySnapshots;
+}
 interface TargetResolution {
-  readonly status: 'resolved' | 'inert';    // inert when backing/port absent
+  readonly status: 'resolved' | 'inert';    // backing absent; registry miss is handled before port invocation
   readonly ids: readonly CanonicalTargetId[];   // may be empty even when resolved ⇒ affects-resolvable warn (C3)
   readonly reason: ReasonCode;
 }
@@ -248,20 +281,37 @@ interface TargetResolutionRegistry {
 ```
 
 **Resolvability / overlap semantics**:
+- Every record resolves against the same caller-supplied current `resolutionLog` for the
+  inventory being evaluated; `record.log` remains only the record's federated source identity
+  and assertion-key component. An unqualified matcher applies in the current resolution
+  context; a `repo`-qualified matcher applies only when its qualifier equals
+  `resolutionLog`. A different-repo qualifier contributes no local match. The evaluator
+  passes the context to the port explicitly; no resolver infers it.
+- Per ADR-0009, target resolution unions non-negated matches and then subtracts any targets
+  matched by applicable negated matchers. At least one non-negated matcher must match;
+  negation-only does not mean "all except" and resolves to an empty set. Negation is scoped
+  to the ADR that declares it.
 - `affects-resolvable`: for each proposal matcher, resolve via the registry. Backing/port
-  absent ⇒ **inert**; backing present + **zero** ids ⇒ **warn**; ≥1 id ⇒ pass.
+  absent ⇒ **inert**, using `affects-resolvable.backing-absent` for a missing inventory and
+  `affects-resolvable.resolver-absent` for a registry miss; backing present + **zero** ids ⇒
+  **warn**; ≥1 id ⇒ pass.
 - `affects-overlap`: **finite intersection by `CanonicalTargetKey`** of the proposal's
   canonical id set with each
-  **accepted** ADR's canonical id set, computed **once per (proposal, accepted-ADR) pair**;
-  non-empty intersection ⇒ **warn**. No accepted ADRs / no intersection ⇒ pass (no guess).
+  **accepted** ADR's canonical id set, computed **once per (proposal, accepted-ADR) pair**.
+  Primary outcome/reason precedence is: any non-empty intersection ⇒ **warn** /
+  `affects-overlap.accepted-intersection`; otherwise no accepted ADRs ⇒ pass /
+  `affects-overlap.no-accepted-corpus` (no pair backing is required); otherwise missing
+  required pair backing ⇒ inert; otherwise a fully evaluated accepted corpus with no
+  intersection ⇒ pass / `affects-overlap.none`.
 
 ---
 
 ## 5. Assertion evaluation model (research [§R6](./research.md), [§R7](./research.md))
 
 ```ts
-/** Canonical JSON tuple string `[log-id-or-empty, record-path, assertion-id]`.
- *  Record path, not ADR id, prevents aliasing when `id-unique` fails but evaluation continues. */
+/** Compact standard JSON.stringify([record.log ?? "", record.path, assertion.id]).
+ *  No added whitespace. Record path, not ADR id, prevents aliasing when `id-unique` fails
+ *  but evaluation continues. The CLI rejects keys not byte-equal to this canonical form. */
 type AssertionKey = string;
 
 /** (new — runtime only) Caller-resolved backing for assertions. The evaluator NEVER reads
@@ -280,7 +330,7 @@ interface ResolvedAssertionSource {
   /** Present only for an engine whose T002-approved profile consumes compiled artifacts. */
   readonly compiledArtifact?: CompiledAssertionArtifact;
 }
-interface ResolvedAssertionInput { readonly document?: unknown }   // resolved input data; absent ⇒ inert
+interface ResolvedAssertionInput { readonly document?: JsonValue }   // resolved input data; absent ⇒ inert
 
 interface CompiledAssertionArtifact {
   readonly mediaType: string;
@@ -289,28 +339,50 @@ interface CompiledAssertionArtifact {
   readonly sourceRef: string;
 }
 
-/** A deterministic assertion engine port. Exactly one profile is approved per engine in T002. */
-type AssertionEnginePort = SourceAssertionEnginePort | CompiledArtifactEnginePort;
-interface SourceAssertionEnginePort {
-  readonly engine: 'rego' | 'jsonpath' | 'grep' | 'custom';
+type AssertionEngineName = 'rego' | 'jsonpath' | 'grep' | 'custom';
+
+/** A deterministic assertion engine port. Payload is engine-owned and opaque to the evaluator.
+ *  Exactly one profile is approved per engine in T002. */
+type AssertionEnginePort<E extends AssertionEngineName, Payload> =
+  | SourceAssertionEnginePort<E, Payload>
+  | CompiledArtifactEnginePort<E, Payload>;
+interface SourceAssertionEnginePort<E extends AssertionEngineName, Payload> {
+  readonly engine: E;
   readonly profile: 'source';
-  compile(effectiveSource: string): CompileOutcome;             // deterministic
-  evaluate(compiled: CompiledAssertion, input: unknown): EvalOutcome;  // deterministic boolean-ish
+  compile(effectiveSource: string, sourceRef?: string): CompileOutcome<E, Payload>;
+  evaluate(compiled: CompiledAssertion<E, Payload>, input: JsonValue): EvalOutcome;
 }
-interface CompiledArtifactEnginePort {
-  readonly engine: 'rego' | 'jsonpath' | 'grep' | 'custom';
+interface CompiledArtifactEnginePort<E extends AssertionEngineName, Payload> {
+  readonly engine: E;
   readonly profile: 'compiled-artifact';
-  validateArtifact(artifact: CompiledAssertionArtifact): CompileOutcome;
-  evaluate(compiled: CompiledAssertion, input: unknown): EvalOutcome;
+  validateArtifact(artifact: CompiledAssertionArtifact): CompileOutcome<E, Payload>;
+  evaluate(compiled: CompiledAssertion<E, Payload>, input: JsonValue): EvalOutcome;
 }
-type CompileOutcome = { readonly ok: true; readonly compiled: CompiledAssertion }
-                    | { readonly ok: false; readonly reason: ReasonCode };   // ⇒ assertions-compile error
+type CompileOutcome<E extends AssertionEngineName, Payload> =
+  | { readonly ok: true; readonly compiled: CompiledAssertion<E, Payload> }
+  | { readonly ok: false; readonly reason: ReasonCode };   // ⇒ assertions-compile error
 type EvalOutcome    = { readonly ok: true; readonly pass: boolean }          // pass=false ⇒ assertions-pass warn
                     | { readonly ok: false; readonly reason: ReasonCode };
-interface CompiledAssertion { readonly engine: string; readonly ref?: string }
+interface CompiledAssertion<E extends AssertionEngineName, Payload> {
+  readonly engine: E;
+  /** Deeply immutable by engine contract; only the owning port knows this type or inspects it. */
+  readonly payload: Payload;
+  readonly sourceRef?: string;
+}
 
-interface AssertionEngineRegistry { get(engine: string): AssertionEnginePort | undefined }
+interface AssertionEngineRegistry<RegoPayload, JsonPathPayload, GrepPayload, CustomPayload> {
+  readonly rego?: AssertionEnginePort<'rego', RegoPayload>;
+  readonly jsonpath?: AssertionEnginePort<'jsonpath', JsonPathPayload>;
+  readonly grep?: AssertionEnginePort<'grep', GrepPayload>;
+  readonly custom?: AssertionEnginePort<'custom', CustomPayload>;
+}
 ```
+
+The evaluator dispatches on `assertion.engine` to the corresponding registry property, then
+passes the successful `CompiledAssertion<E, Payload>` directly back to that same property's
+`evaluate`. The four registry properties preserve each payload's static type; no
+`any`/`unknown` cast, hidden mutable `ref` lookup, or recompilation is permitted. Payload
+immutability and one compile/validate per evaluated assertion are conformance-test obligations.
 
 **Effective-source rule (R6)**: source validity is based on what the ADR **declares**, not on
 whether backing happened to arrive. Declared inline `expression` only ⇒ compile inline;
@@ -363,9 +435,20 @@ principal through the snapshot; no declared decider, a zero match, or an ambiguo
 **warn**; snapshot absent ⇒ **inert**.
 **Named-human routing target (C7)** resolves in fixed order — (1) proposal `deciders`,
 (2) CODEOWNERS owners for resolved paths (§4), (3) catalog owners for resolved entities —
-ordered by source priority, then declared/normalized owner order, then canonical id; a **team**
-must resolve through membership to **exactly one active human** or the target is
-**`unresolved`** (§8).
+with these exact source-local rules:
+
+1. deciders preserve proposal declaration order;
+2. unique paths are sorted by canonical path key; for each path, the **last matching**
+   CODEOWNERS rule in declaration order wins and its owners preserve declaration order;
+3. unique entity ids are sorted by canonical target key; each entity's catalog-owner array
+   preserves snapshot declaration order.
+
+Candidates are stable-deduplicated on first occurrence, never globally identity-sorted. A
+missing/inactive direct human is skipped. A **team** must resolve through membership to
+**exactly one active human**. The first ordered team with zero or multiple active human
+members is an ambiguity barrier: target resolution immediately returns **`unresolved`** and
+does not consider later candidates/sources. Exhausting all candidates also returns
+`unresolved` (§8).
 
 ---
 
@@ -391,10 +474,25 @@ interface RuleResult {
 interface RuleFinding {
   readonly reason: ReasonCode;
   readonly message?: string;
-  readonly adr?: string;                     // related ADR id/path where applicable
+  /** The only identity field eligible for patch projection; MUST validate as core AdrRef.
+   *  A filesystem path is never stored here. */
+  readonly adr?: AdrRef;
+  readonly candidateAdr?: AdrRef;             // report-only ordering/identity
+  readonly relatedAdr?: AdrRef;               // report-only ordering/identity
+  readonly matcherKey?: string;               // report-only canonical matcher identity
+  readonly assertionKey?: AssertionKey;       // report-only canonical assertion identity
   readonly target?: CanonicalTargetId;       // report-only
-  readonly assertionId?: string;             // report-only
+  readonly recordPath?: string;               // report-only path; never projected as `adr`
+  readonly field?: string;                    // report-only lower-level field evidence
   readonly sourceRef?: string;               // report-only
+  readonly lowerLevel?: LowerLevelFindingEvidence; // preserved source Finding evidence
+}
+interface LowerLevelFindingEvidence {
+  readonly rule: string;
+  readonly path?: string;
+  readonly id?: string;
+  readonly field?: string;
+  readonly pattern?: string;
 }
 interface RuleEvidence {
   readonly resolvedTargets?: readonly CanonicalTargetId[];
@@ -418,6 +516,11 @@ for schema-invalid results and `assertions-pass` after a compile failure. A defi
 violation therefore remains visible even when another sub-check lacks backing. The primary
 `reason` is the first code for the winning status in the normative per-rule catalog order
 below; all sub-findings remain in `findings`.
+
+`RuleFinding` ordering uses `candidateAdr`, `relatedAdr`, `matcherKey`/`assertionKey`,
+canonical target key, `recordPath`, `field`, then `message`. The richer identity and
+`lowerLevel` fields are report-only. Patch projection may copy only a valid `adr: AdrRef`;
+it cannot reinterpret `recordPath` or lower-level `path` as an ADR reference.
 
 ---
 
@@ -488,11 +591,15 @@ caller may propose this patch via PR; the evaluator persists nothing (FR-014).
 ## 10. Result envelope & run metadata (FR-005)
 
 ```ts
-/** (new — runtime only) What the pure library returns. */
+/** (new — runtime only) Successful evaluated payload. */
 interface Pass0Result {
   readonly report: Pass0Report;              // deterministic payload (byte-reproducible)
   readonly patch: EvaluationPatch;           // deterministic payload (byte-reproducible)
 }
+/** Total pure-library outcome. Input errors are not rubric findings and produce no patch. */
+type Pass0Evaluation =
+  | { readonly kind: 'evaluated'; readonly result: Pass0Result }
+  | { readonly kind: 'input-error'; readonly error: Pass0InputContractError };
 
 /** Caller run metadata — carried in the CLI envelope, OUTSIDE the deterministic payload,
  *  so byte-for-byte reproduction of report+patch holds regardless of version/time (FR-005). */
@@ -501,7 +608,9 @@ interface RunMetadata {
   readonly ranAt?: string;                   // wall clock — NOT part of the hashed/compared payload
   readonly runId?: string;
 }
-interface Pass0Envelope { readonly result: Pass0Result; readonly metadata?: RunMetadata }
+type Pass0Envelope =
+  | { readonly result: Pass0Result; readonly metadata?: RunMetadata }
+  | { readonly error: Pass0InputContractError; readonly metadata?: RunMetadata };
 ```
 
 ---
@@ -527,8 +636,8 @@ type ReasonCode =
   | 'affects-resolvable.ok' | 'affects-resolvable.zero-targets'
   | 'affects-resolvable.backing-absent' | 'affects-resolvable.resolver-absent'
   // affects-overlap
-  | 'affects-overlap.none' | 'affects-overlap.accepted-intersection'
-  | 'affects-overlap.backing-absent' | 'affects-overlap.no-accepted-corpus'
+  | 'affects-overlap.accepted-intersection' | 'affects-overlap.no-accepted-corpus'
+  | 'affects-overlap.backing-absent' | 'affects-overlap.none'
   // scope-hierarchy
   | 'scope-hierarchy.ok' | 'scope-hierarchy.contradicts-org-assertion'
   | 'scope-hierarchy.evidence-absent' | 'scope-hierarchy.engine-absent'
@@ -567,8 +676,14 @@ type ReasonCode =
   | 'route.target.catalog-owner' | 'route.target.unresolved';
 ```
 
-`affects-overlap.none` is intentionally the pass reason: it states the evaluated fact (no
-accepted-target intersection) rather than introducing an `ok` alias.
+`affects-overlap` primary reason precedence is:
+
+1. `accepted-intersection` for any failure;
+2. `no-accepted-corpus` when there are no accepted ADRs;
+3. the applicable inert reason when accepted pairs cannot all be evaluated; and
+4. `none` only when accepted ADRs exist and the fully evaluated pairs have no intersection.
+
+Thus `none` states an evaluated fact and `no-accepted-corpus` states that no pair existed.
 
 ---
 
@@ -581,13 +696,16 @@ Pass0Input
 │                              ├── schemaFindings ──► RuleResult(schema-valid)
 │                              └── proposed?: Adr ──► the other 10 rules (only if schema-valid passed)
 ├── federatedLogs? ─────────────────────────► no-orphan-refs cross-log resolution
-├── targets + targetRegistry ─► CanonicalTargetId sets ─► affects-resolvable / affects-overlap / routing target sets
+├── resolutionLog? + targets + targetRegistry
+│                                  └────────► CanonicalTargetId sets ─► affects-resolvable / affects-overlap / routing target sets
 ├── assertionInputs + assertionEngines ─────► assertions-compile / assertions-pass / accepted-assertion checks
 ├── identity? ──────────────────────────────► decider-resolvable / routing named-human target
 ├── scopeEvidence? ─────────────────────────► scope-hierarchy
 ├── routingEvidence? ───────────────────────► RoutingDecision triggers
 └── evaluationDate ──────────────────────────► expiry-sane (strict future; no clock)
 
-evaluatePass0(input) ► Pass0Result { report: Pass0Report(11 RuleResults + RoutingDecision), patch: EvaluationPatch }
-                        └── returned only; the evaluator writes nothing (Principle I/IV; FR-014)
+evaluatePass0(input) ► Pass0Evaluation
+                        ├── evaluated: Pass0Result { report: 11 RuleResults + RoutingDecision, patch }
+                        └── input-error: candidate-status-not-proposal (no report/patch)
+                            The evaluator writes nothing (Principle I/IV; FR-014).
 ```

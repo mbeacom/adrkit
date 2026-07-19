@@ -22,15 +22,20 @@ codes, the total ordering + canonical serialization, escalation routing, the sch
 ### 1.1 Signature
 
 ```ts
-function evaluatePass0(input: Pass0Input): Pass0Result;
-// Pass0Result = { report: Pass0Report; patch: EvaluationPatch }   (data-model §7, §9, §10)
+function evaluatePass0<R, J, G, C>(
+  input: Pass0Input<R, J, G, C>,
+): Pass0Evaluation;
+// Pass0Evaluation =
+//   | { kind: 'evaluated'; result: { report: Pass0Report; patch: EvaluationPatch } }
+//   | { kind: 'input-error'; error: Pass0InputContractError }
 ```
 
 ### 1.2 Purity contract (FR-006; Principle IV) — CI-asserted
 
 The function **MUST**:
-- be a **pure, total function of `input`** — same input ⇒ **byte-identical** `report` + `patch`
-  (excluding the caller `runMetadata` envelope, which is outside the deterministic payload);
+- be a **pure, total function of `input`** — same input ⇒ either the same typed input error or
+  **byte-identical** `report` + `patch` (excluding the caller `runMetadata` envelope, which is
+  outside the deterministic payload);
 - perform **no** clock read, **no** network, **no** database/index access, **no** filesystem
   traversal or read (including **never** reading `Assertion.expressionFile` — the caller
   resolves it into `assertionInputs`, research [§R6](../research.md));
@@ -58,9 +63,10 @@ adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json]
 
 - `<proposal-path>` — path to the proposal ADR file (draft/proposed) under evaluation.
 - `--snapshot <bundle.json>` — path to the caller **snapshot bundle** (JSON) supplying the
-  immutable target inventories, optional federated-log snapshots, resolved assertion
-  sources/inputs, optional identity directory, optional scope-contradiction evidence, and
-  optional routing-trigger evidence (data-model §2).
+  optional current target-resolution `log`, immutable target inventories, optional
+  federated-log snapshots, resolved assertion sources/inputs, optional identity directory,
+  optional scope-contradiction evidence, and optional routing-trigger evidence (data-model
+  §2). Bundle `log` is ADR-0009's current repo/log context, not an ADR record's source log.
 - `--date YYYY-MM-DD` — **required** evaluation date for `expiry-sane` (no clock is read).
 - `--json` — emit the machine envelope (`report` + `patch` + `metadata`) as canonical JSON;
   default (no `--json`) emits a human-readable rendering of the same content.
@@ -73,14 +79,18 @@ adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json]
    **`LintCorpusResult`** via `@adrkit/core` `lintCorpus` (this result **includes** malformed
    files and the candidate; the candidate's typed record MAY be absent when it failed to parse).
 2. Identify the proposal within that result by `proposalPath`.
-3. Load + validate the `--snapshot` bundle into immutable **data snapshots only**. Snapshot
+3. If that candidate is schema-valid, require status `draft` or `proposed`. A selected
+   `accepted`, `rejected`, `superseded`, or `deprecated` ADR is the typed
+   `candidate-status-not-proposal` input-contract error: emit no report/patch and exit `2`.
+   A schema-invalid candidate still proceeds to the evaluator's `schema-valid` rule.
+4. Load + validate the `--snapshot` bundle into immutable **data snapshots only**. Snapshot
    JSON MUST NOT identify, import, or execute code.
-4. Construct the vetted in-process target/assertion registries at the composition boundary.
+5. Construct the vetted in-process target/assertion registries at the composition boundary.
    A resolver/engine unavailable in that registry yields the specified inert result; the CLI
    never loads executable ports from the bundle.
-5. Resolve `--date` into `evaluationDate`.
-6. Call `evaluatePass0(input)`.
-7. Serialize the result canonically (with `--json`) or render it; set the process exit code
+6. Resolve `--date` into `evaluationDate`.
+7. Call `evaluatePass0(input)`.
+8. Serialize the result canonically (with `--json`) or render it; set the process exit code
    per §7.
 
 The CLI **MUST** treat malformed usage or a **malformed snapshot-bundle contract** as an
@@ -94,6 +104,10 @@ malformed canonical assertion/target keys, non-JSON values, and invalid identity
 are malformed-bundle **exit 2** errors. Omitted optional backing is valid and normalizes to
 an unavailable/empty runtime container so the affected rule reports inert. Set-like JSON
 arrays normalize to validated immutable sets; declared CODEOWNERS order is preserved.
+An assertion object key is canonical only if it parses as exactly three strings and is
+byte-equal to compact standard
+`JSON.stringify([record.log ?? "", record.path, assertion.id])`; whitespace-equivalent or
+otherwise noncanonical spellings are rejected, not normalized.
 
 No JSON field may select/import a registry, module, command, or executable port. The CLI
 injects trusted registries separately. If T002 approves a compiled-artifact profile, the
@@ -111,16 +125,25 @@ underlying findings. Severity is **fixed per rule** (never inferred) and present
 | # | Rule (public id) | Fixed sev. | Pass | Fail | Inert / not-evaluated |
 |---|---|---|---|---|---|
 | 1 | `schema-valid` | error | proposal parses + contract-valid | any parse/contract finding on `proposalPath` ⇒ **fail**, then **10× `not-evaluated`** (C11) | — |
-| 2 | `id-unique` | error | id unique in corpus | corpus `unique-id` collision | `not-evaluated.schema-invalid` |
+| 2 | `id-unique` | error | id unique inside `record.log ?? ""`; same id in a different named log passes | same-log `unique-id` collision | `not-evaluated.schema-invalid` |
 | 3 | `supersession-consistent` | error | reciprocal + acyclic `supersedes` | dangling `supersededBy` (reported here once), non-reciprocal pair, or cycle (**new** checks — `buildAdrGraph` gives edges only, research [§R3](../research.md)) | `not-evaluated.schema-invalid` |
 | 4 | `no-orphan-refs` | error | all refs resolve | `dangling-supersedes` / `dangling-relatesTo` | federated ref with **no external-log snapshot** ⇒ **inert** (`no-orphan-refs.federated-log-absent`, C2); `not-evaluated.schema-invalid` |
-| 5 | `affects-resolvable` | warn | ≥1 target resolves | backing present + **zero** targets ⇒ **warn** (`affects-resolvable.zero-targets`, C3) | backing/port absent ⇒ **inert** (`affects-resolvable.backing-absent`); `not-evaluated.schema-invalid` |
-| 6 | `affects-overlap` | warn | no accepted ADRs, or no canonical intersection | non-empty **canonical target-key intersection** with an accepted ADR ⇒ **warn** (once per pair, research [§R4](../research.md)) | required resolution backing absent ⇒ **inert**; `not-evaluated.schema-invalid` |
+| 5 | `affects-resolvable` | warn | ≥1 target resolves | backing present + **zero** targets ⇒ **warn** (`affects-resolvable.zero-targets`, C3) | inventory absent ⇒ **inert** (`affects-resolvable.backing-absent`); resolver port absent ⇒ **inert** (`affects-resolvable.resolver-absent`); `not-evaluated.schema-invalid` |
+| 6 | `affects-overlap` | warn | no accepted ADRs ⇒ `no-accepted-corpus`; accepted ADRs fully evaluated with no canonical intersection ⇒ `none` | non-empty **canonical target-key intersection** with an accepted ADR ⇒ **warn** (once per pair, research [§R4](../research.md)) | accepted corpus exists but required resolution backing is absent ⇒ **inert**; `not-evaluated.schema-invalid` |
 | 7 | `scope-hierarchy` | error | no attributable contradiction | component proposal overlapping an **applicable accepted `org` ADR** whose assertion was **green on base, fails on proposed** ⇒ **fail** (research [§R5](../research.md)) | missing base/proposed input, assertion source, or engine ⇒ **inert**; non-component/no-overlap ⇒ pass; `not-evaluated.schema-invalid` |
 | 8 | `assertions-compile` | error | each assertion declares exactly one source and the T002-approved source or compiled-artifact profile validates it | ADR declares **neither** source (`no-source`) / **both** (`ambiguous-source`) / present source or artifact fails validation (`parse-error`) ⇒ **fail** (research [§R6](../research.md)) | required resolved file content, compiled artifact, or engine absent ⇒ **inert**; missing evaluation input does not affect compile; no assertions ⇒ pass (`assertions-compile.none`); `not-evaluated.schema-invalid` |
 | 9 | `assertions-pass` | warn | compiled evaluation true | compiled evaluation **false** or deterministic engine evaluation error ⇒ **warn** | missing engine/input ⇒ **inert**; **compile failed ⇒ `not-evaluated.prereq-failed`** (C11); no assertions ⇒ pass |
 | 10 | `decider-resolvable` | warn | every declared decider resolves unambiguously to one active principal | none declared (`none-declared`), zero (`zero-match`), or ambiguous (`ambiguous-match`) ⇒ **warn** (research [§R9](../research.md)) | identity directory absent ⇒ **inert**; `not-evaluated.schema-invalid` |
 | 11 | `expiry-sane` | info | `reviewBy` absent, or **strictly after** `evaluationDate` | `reviewBy` ≤ `evaluationDate` ⇒ **info** (`expiry-sane.past-or-equal`); **no clock read** | `not-evaluated.schema-invalid` |
+
+Target-set rules preserve ADR-0009 semantics: the evaluator passes the bundle's optional
+current target-resolution `log` explicitly to every target resolver; it never infers that
+context from `record.log`. They require at least one positive matcher, apply matching
+negations after positive matching, make negation-only resolve empty, and make a
+different-`repo` qualifier contribute no local match. Assertion compile/artifact validation
+carries the engine-owned generic opaque
+immutable payload directly into the same typed port's `evaluate` call. No recompile, hidden
+mutable registry lookup, or unsafe cast may bridge the two rules.
 
 ### 3.1 Aggregate status and primary reason
 
@@ -136,6 +159,11 @@ All underlying sub-findings remain in `findings`. The aggregate `reason` is sele
 deterministically from the winning status using the per-rule order in the exhaustive reason
 catalog (data-model §11). This makes mixed fail/inert fixtures byte-stable rather than
 dependent on discovery order.
+
+For `affects-overlap`, the primary sequence is binding: any
+`accepted-intersection` failure wins; otherwise an empty accepted corpus passes as
+`no-accepted-corpus`; otherwise absent required pair backing is inert; otherwise a fully
+evaluated accepted corpus with no intersection passes as `none`.
 
 ### 3.2 Short-circuit & continuation (C11; research [§R12](../research.md))
 
@@ -169,18 +197,23 @@ rubric rule** with **no duplicate aggregate result** (mapping table in research
 - **Primary order**: the eleven `RuleResult`s appear in **fixed rubric order** (the table in
   §3), always length 11 (C11).
 - **Secondary order** (within a rule's findings, and for the patch `deterministicFindings`):
-  stable keys in this precedence — candidate id, related ADR id, matcher/assertion id,
-  canonical target id, path, field, message.
+  stable keys in this precedence — candidate `AdrRef`, related `AdrRef`,
+  `matcherKey`/`assertionKey`, canonical target key, `recordPath`, `field`, `message`.
+  `RuleFinding.adr`, when present, is strictly an `AdrRef`; paths and lower-level evidence use
+  separate report-only fields and can never be projected into `adr`.
 - **Routing** events (§6) follow the eleven rule events in a **separate section** — routing is
   **not** a twelfth rule.
 - **Routing trigger order** is the §6.1 table order. `evidenceStatus` contains exactly one
   `proven`/`not-proven` entry for each of the eight Pass 0 triggers in that order; the proven
   `reasons` array is the stable subset in the same order. The target event follows those
   eight statuses.
-- **Canonical bytes**: sorted object keys; arrays sorted by the stable keys above; LF newlines;
-  **no timestamps, run ids, or insertion-order dependence** in the deterministic payload. Caller
-  `runMetadata` (version, `ranAt`, `runId`) lives in the **envelope**, excluded from the hashed
-  / compared payload, so `report` + `patch` reproduce **byte-for-byte** across runs and machines.
+- **Canonical bytes**: sorted object keys; only set-like arrays sorted by their documented
+  stable comparator; fixed arrays (rubric results, routing evidence/reasons) and
+  declaration-ordered arrays (deciders, CODEOWNERS rules/owners, catalog owners, matchers,
+  assertions) preserved; LF newlines; **no timestamps, run ids, or accidental
+  insertion-order dependence** in the deterministic payload. Caller `runMetadata` (version,
+  `ranAt`, `runId`) lives in the **envelope**, excluded from the hashed / compared payload,
+  so `report` + `patch` reproduce **byte-for-byte** across runs and machines.
 
 ---
 
@@ -212,10 +245,19 @@ When `escalate=false`, routing stops with `target.kind='not-required'` and
 `route.target.not-required`. When escalation is proven, resolve a single active human in
 fixed order: **(1)** proposal `deciders` → **(2)** normalized
 CODEOWNERS owners for the proposal's **resolved paths** → **(3)** catalog owners for the
-proposal's **resolved entities**. Ordered by source priority, then declared/normalized owner
-order, then canonical identity. A **team** must resolve through snapshot membership to **exactly
-one active human**; zero or many ⇒ **`unresolved`** (an explicit route state/event, code
-`route.target.unresolved`) — never an arbitrary pick.
+proposal's **resolved entities**. Exact source-local ordering is:
+
+1. deciders in proposal declaration order;
+2. unique paths sorted by canonical path key; for each path, select the **last matching**
+   CODEOWNERS rule in declaration order and append that rule's owners in declaration order;
+3. unique entities sorted by canonical target key; for each entity, append catalog owners in
+   snapshot declaration order.
+
+Stable-deduplicate candidates at first occurrence; do not globally sort identities. Skip a
+missing/inactive direct human. A **team** resolves only with **exactly one active human**.
+The first ordered team with zero or multiple active humans is an ambiguity barrier:
+immediately emit **`unresolved`** (`route.target.unresolved`) and do not inspect later
+candidates or sources. Exhausting the ordered candidates also emits `unresolved`.
 
 Routing (escalation and/or an unresolved route) **does not** change the exit code by itself
 (§7): a warn/info/inert-only proposal exits **0** even when it escalates or routes to
@@ -233,6 +275,10 @@ Routing (escalation and/or an unresolved route) **does not** change the exit cod
 
 Exit selection is a pure function of the returned `report.outcome` plus CLI usage/bundle
 validity; escalation and unresolved routing **never** raise the exit code.
+
+A schema-valid selected record with status `accepted`, `rejected`, `superseded`, or
+`deprecated` is specifically a broken proposal-input contract
+(`candidate-status-not-proposal`): no report/patch is emitted and the CLI exits `2`.
 
 ---
 
@@ -254,7 +300,8 @@ EvaluationPatch = {
 - **Map** each violation onto the four committed `DeterministicFinding` fields. **No** reason
   code, canonical target id, source ref, snapshot id, or evidence field is added to the patch —
   that richness stays on the `Pass0Report` (the schema `DeterministicFinding` cannot carry it,
-  research [§R8](../research.md)).
+  research [§R8](../research.md)). `adr`, when emitted, must already be a valid core `AdrRef`;
+  `RuleFinding.recordPath` and lower-level `path` evidence are never reinterpreted as `adr`.
 - `escalate` + `escalationReasons` come from §6.
 - The patch **MUST validate against the current committed schema** (a test task asserts this);
   `schema:emit` stays byte-clean (no schema change).
@@ -285,8 +332,15 @@ For each of the eleven rules: a **pass**, a **fail**, and (where applicable) an 
 fixture, all **model-free**. Plus: `schema-valid` short-circuit ⇒ 10× `not-evaluated`;
 `assertions-pass` `not-evaluated` after compile fail; **byte-for-byte** ordering / canonical
 reproduction; `evaluationPatch` validates against the **current** schema; input immutability /
-no mutation; engine-port present vs absent; target fallback + overlap; routing triggers +
-`unresolved` route; CLI exits **0/1/2**; rubric-id mapping with **no duplicates**; and the
-`clean-clone-builds` + dependency-graph + purity gates extended to `@adrkit/evaluator`. **No
-live external service, model, network, clock, or filesystem read** enters any test's evaluator
-path.
+no mutation; same-id/same-log collision plus same-id/different-log pass; affects
+include+negation, negation-only, same-`repo`, and different-`repo` against an explicit current
+target-resolution log distinct from record source logs; exact `affects-overlap`
+pass reasons; compact canonical assertion-key acceptance plus whitespace/noncanonical
+rejection; one compile/validate whose opaque payload is passed directly to evaluate; only
+set-like arrays sorted while semantic arrays preserve order; target fallback + overlap;
+last-match CODEOWNERS plus team-ambiguity barrier routing; all four non-proposal statuses as
+input-error exit `2`; report-only matcher/assertion/path/field/lower-level evidence with
+`adr: AdrRef`; routing triggers + `unresolved` route; CLI exits **0/1/2**; rubric-id mapping
+with **no duplicates**; and the `clean-clone-builds` + dependency-graph + purity gates extended
+to `@adrkit/evaluator`. **No live external service, model, network, clock, or filesystem read**
+enters any test's evaluator path.

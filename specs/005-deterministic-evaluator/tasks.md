@@ -68,8 +68,9 @@ The exhaustive reason-code groups to freeze in code and snapshots are:
 - `no-orphan-refs`: `ok`, `dangling-supersedes`, `dangling-relates-to`,
   `federated-log-absent`
 - `affects-resolvable`: `ok`, `zero-targets`, `backing-absent`, `resolver-absent`
-- `affects-overlap`: `none`, `accepted-intersection`, `backing-absent`,
-  `no-accepted-corpus`
+- `affects-overlap`: `accepted-intersection`, `no-accepted-corpus`, `backing-absent`,
+  `none` (primary selection follows failure → empty accepted corpus → inert backing →
+  fully evaluated no-intersection)
 - `scope-hierarchy`: `ok`, `contradicts-org-assertion`, `evidence-absent`,
   `engine-absent`, `source-absent`, `base-input-absent`, `proposed-input-absent`,
   `not-applicable-scope`
@@ -92,6 +93,8 @@ The exhaustive reason-code groups to freeze in code and snapshots are:
 Status aggregation is always `fail > inert > pass`; `not-evaluated` is reserved for
 schema-invalid results and `assertions-pass` after compile failure. The primary reason is the
 first reason for the winning status in the catalog order, never discovery order.
+`candidate-status-not-proposal` is a typed input-contract error, not a rule reason: it emits
+no report/patch and maps to CLI exit 2.
 
 ---
 
@@ -117,7 +120,7 @@ T002. T002 is a maintainer decision, not permission to add dependencies by itsel
 **Blocked by**: T001 and T002.
 
 - [ ] T003 After T001 and T002, scaffold `packages/evaluator/package.json`, `packages/evaluator/tsconfig.json`, and `packages/evaluator/tsconfig.build.json` as the `@adrkit/evaluator` first-party surface with `@adrkit/core` as `workspace:*`; add only dependencies approved by T002 (or none for caller-supplied compiled snapshots), run any manifest/lockfile work with Bun 1.3.14, and preserve dependency direction `@adrkit/cli -> @adrkit/evaluator -> @adrkit/core` in `packages/cli/package.json` and `bun.lock`
-- [ ] T004 [P] After T001 and T002, define the offline fixture layout and provenance rules in `packages/evaluator/test/fixtures/README.md`, including strict `adrkit.pass0.snapshot/v1` JSON bundles, explicit `evaluationDate`, optional federated logs, canonical assertion keys `[log-id-or-empty, record-path, assertion-id]`, separate base/current-proposed assertion inputs, the approved source/compiled-artifact engine profiles, and a ban on network, credentials, model calls, clocks, arbitrary port/module selection, and evaluator-side filesystem reads
+- [ ] T004 [P] After T001 and T002, define the offline fixture layout and provenance rules in `packages/evaluator/test/fixtures/README.md`, including strict `adrkit.pass0.snapshot/v1` JSON bundles, explicit `evaluationDate`, optional current target-resolution `log` distinct from record source logs, optional federated logs, compact canonical assertion keys produced exactly by `JSON.stringify([record.log ?? "", record.path, assertion.id])` with noncanonical spellings rejected, separate base/current-proposed assertion inputs, the approved source/compiled-artifact engine profiles, and a ban on network, credentials, model calls, clocks, arbitrary port/module selection, and evaluator-side filesystem reads
 
 **Checkpoint**: The package and fixture contract exist, but no rule implementation starts
 before the foundational tests below are failing.
@@ -128,14 +131,16 @@ before the foundational tests below are failing.
 
 **Purpose**: Freeze shared types, catalogs, ports, and core matcher reuse before any story.
 
-**Blocked by**: T001; T003 is required. T005–T011 must not add or import adapters.
+**Blocked by**: T001. T005–T006 are intentionally core-only and may run after T001 before
+T002/T003; T003 is required only for evaluator tasks T007–T011. T005–T011 must not add or
+import adapters.
 
 - [ ] T005 After T001, write failing reuse tests in `packages/core/test/affects-target-primitives.test.ts` for the existing repo-relative path glob semantics (including dot segments and invalid/leading-slash patterns) and `parsePackagePattern` semantics over complete dependency inventories, proving the evaluator can reuse the grammar instead of duplicating it
 - [ ] T006 After T001 and T005, expose only the required neutral path/package matcher primitives from `packages/core/src/affects/index.ts` and `packages/core/src/affects/matchers/path.ts`, preserving existing `resolveAffects` behavior and keeping evaluator-specific target registry concepts out of core
-- [ ] T007 After T001 and T003, write failing public-contract tests in `packages/evaluator/test/contracts.test.ts` that assert exactly eleven rule ids in fixed order/severity, the exhaustive reason-code catalog and per-rule ordering above, exactly eight routing triggers, collision-safe canonical assertion keys `[log-id-or-empty, record-path, assertion-id]`, strict `SnapshotBundleJsonV1` DTO separation from executable ports, deeply readonly input shapes, and no duplicate public finding ids
-- [ ] T008 [P] After T001 and T007, add type-only `z.infer` aliases beside the existing `AffectsMatcher`, `Assertion`, `DeterministicFinding`, `Evaluation`, `EscalationReason`, and `Severity` Zod values in `packages/core/src/schema/adr.schema.ts` and export them through `packages/core/src/index.ts` without changing any Zod/JSON schema; then implement immutable Pass 0 input/result, versioned JSON wire DTO, target, assertion, identity, routing, report, patch, and envelope types in `packages/evaluator/src/types.ts`, reusing those aliases plus existing `Adr` and `LintCorpusResult` instead of redefining contract shapes
+- [ ] T007 After T001 and T003, write failing public-contract tests in `packages/evaluator/test/contracts.test.ts` that assert exactly eleven rule ids in fixed order/severity, the exhaustive reason-code catalog and per-rule ordering above, exactly eight routing triggers, compact collision-safe assertion keys exactly equal to `JSON.stringify([record.log ?? "", record.path, assertion.id])` with whitespace/noncanonical variants rejected, an explicit current target-resolution log input separate from record source logs, strict `SnapshotBundleJsonV1` DTO separation from executable ports, typed `candidate-status-not-proposal` input outcomes, generic engine-owned opaque compile payloads paired directly with the same port's evaluate method without unsafe casts, report-only `RuleFinding` identity/evidence fields with `adr: AdrRef`, deeply readonly input shapes, and no duplicate public finding ids
+- [ ] T008 [P] After T001 and T007, add type-only `z.infer` aliases beside the existing `AdrRef`, `AffectsMatcher`, `Assertion`, `DeterministicFinding`, `Evaluation`, `EscalationReason`, and `Severity` Zod values in `packages/core/src/schema/adr.schema.ts` and export them through `packages/core/src/index.ts` without changing any Zod/JSON schema; then implement immutable Pass 0 input/result/input-error, versioned JSON wire DTO, target, generic assertion-engine payload, identity, routing, report finding/evidence, patch, and envelope types in `packages/evaluator/src/types.ts`, reusing those aliases plus existing `Adr` and `LintCorpusResult` instead of redefining contract shapes
 - [ ] T009 [P] After T001 and T007, implement the fixed rule/severity catalog, exhaustive `ReasonCode` union, per-rule reason precedence, and eight-trigger routing order in `packages/evaluator/src/catalog.ts`
-- [ ] T010 [P] After T001 and T007, implement pure caller-supplied interfaces and registries in `packages/evaluator/src/targets/registry.ts`, `packages/evaluator/src/assertions/registry.ts`, and `packages/evaluator/src/identity/directory.ts`; ports accept immutable data and expose no filesystem, network, clock, shell, command, or model capability
+- [ ] T010 [P] After T001 and T007, implement pure caller-supplied interfaces and registries in `packages/evaluator/src/targets/registry.ts`, `packages/evaluator/src/assertions/registry.ts`, and `packages/evaluator/src/identity/directory.ts`; assertion registry properties are generic per engine and preserve the engine-owned opaque immutable payload from compile/artifact validation directly into the same typed port's evaluate call with no hidden mutable ref cache, recompile, or unsafe cast; all ports accept immutable data and expose no filesystem, network, clock, shell, command, or model capability
 - [ ] T011 After T001 and T008–T010, export only `evaluatePass0`, immutable contract types, catalogs, and port interfaces from `packages/evaluator/src/index.ts`; add a build/typecheck assertion in `packages/evaluator/test/contracts.test.ts` that the public surface contains no CLI, CI, adapter, or executable snapshot-bundle loader
 
 **Checkpoint**: Shared contracts are fixed and matcher grammar is reused from core.
@@ -157,19 +162,19 @@ are untouched, and `adr evaluate` exits 1.
 ### Tests for User Story 1 — write and observe failing first
 
 - [ ] T012 [P] [US1] After T001, write failing schema/orchestrator tests and pass/fail fixtures in `packages/evaluator/test/schema-valid.test.ts` and `packages/evaluator/test/fixtures/schema-valid/` for parse, file-read, and contract findings on `proposalPath`, asserting one `schema-valid` failure plus exactly ten `not-evaluated.schema-invalid` results, eight ordered `not-proven` routing statuses, `escalate=false`, target `not-required`, a schema-violation-only patch, and no typed-rule execution
-- [ ] T013 [P] [US1] After T001, write failing pass/fail fixtures and tests in `packages/evaluator/test/id-unique.test.ts` and `packages/evaluator/test/fixtures/id-unique/` for local corpus collisions and collisions visible through supplied federated-log data
+- [ ] T013 [P] [US1] After T001, write failing pass/fail fixtures and tests in `packages/evaluator/test/id-unique.test.ts` and `packages/evaluator/test/fixtures/id-unique/` proving uniqueness is scoped by `[record.log ?? "", id]`: duplicate ids in one local or named log fail, while the same id in two different named logs passes
 - [ ] T014 [P] [US1] After T001, write failing tests in `packages/evaluator/test/supersession-consistent.test.ts` and fixtures in `packages/evaluator/test/fixtures/supersession-consistent/` for reciprocal acyclic pass, non-reciprocal fail, cycle fail, and `dangling-supersededBy` ownership without duplicate orphan findings
 - [ ] T015 [P] [US1] After T001, write failing tests in `packages/evaluator/test/no-orphan-refs.test.ts` and fixtures in `packages/evaluator/test/fixtures/no-orphan-refs/` for local pass/fail, `dangling-supersedes`, `dangling-relatesTo`, a supplied optional federated-log snapshot, and missing federated-log backing as inert rather than orphan failure
-- [ ] T016 [P] [US1] After T001 and T002, write failing CLI tests in `packages/cli/test/evaluate.test.ts` for malformed-proposal exit 1, invalid invocation/snapshot-contract exit 2, no `--write` option, and proof that no model or later pass is invoked on a structural error
+- [ ] T016 [P] [US1] After T001 and T002, write failing CLI tests in `packages/cli/test/evaluate.test.ts` for malformed-proposal exit 1, invalid invocation/snapshot-contract exit 2, each schema-valid non-proposal status (`accepted`, `rejected`, `superseded`, `deprecated`) producing `candidate-status-not-proposal`, no report/patch, and exit 2, no `--write` option, and proof that no model or later pass is invoked on a structural error
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] After T001 and T012, implement proposal lookup and explicit mapping of proposal-path parse/contract findings onto `schema-valid` in `packages/evaluator/src/rules/schema-valid.ts`, preserving lower-level evidence only on the runtime report
-- [ ] T018 [US1] After T001 and T013, implement `id-unique` in `packages/evaluator/src/rules/id-unique.ts` over the candidate-inclusive corpus plus optional federated-log snapshots, emitting one rubric-keyed aggregate result
+- [ ] T017 [US1] After T001 and T012, implement proposal lookup and explicit mapping of proposal-path parse/contract findings onto `schema-valid` in `packages/evaluator/src/rules/schema-valid.ts`, preserving lower-level rule/path/id/field/pattern evidence in report-only `RuleFinding.lowerLevel`/`recordPath` fields and keeping `RuleFinding.adr` strictly an `AdrRef`
+- [ ] T018 [US1] After T001 and T013, implement `id-unique` in `packages/evaluator/src/rules/id-unique.ts` over the candidate-inclusive corpus plus optional federated-log snapshots, comparing `[record.log ?? "", id]`, allowing equal ids across different logs, and emitting one rubric-keyed aggregate result
 - [ ] T019 [US1] After T001 and T014, implement deterministic reciprocity and cycle detection in `packages/evaluator/src/rules/supersession-consistent.ts`, reusing `buildAdrGraph` for edges only and mapping `dangling-supersededBy` exclusively to this rule
 - [ ] T020 [US1] After T001 and T015, implement local and optional federated reference checks in `packages/evaluator/src/rules/no-orphan-refs.ts`, mapping `dangling-supersedes`/`dangling-relatesTo` only here and returning `no-orphan-refs.federated-log-absent` when required external-log data is missing
-- [ ] T021 [US1] After T001 and T017–T020, implement the schema-invalid short-circuit and non-schema-error continuation skeleton in `packages/evaluator/src/pass0.ts`, guaranteeing exactly eleven ordered result slots, deterministic schema-invalid routing (`8x not-proven`, no escalation, `not-required`), `returned` iff an error rule fails, and no invocation point for Passes 1–3
-- [ ] T022 [US1] After T001, T002, T016, and T021, add `adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json]` dispatch in `packages/cli/src/index.ts` with composition helpers in `packages/cli/src/evaluate.ts` and `packages/cli/src/evaluate-snapshot.ts`; load the full `lintCorpus` result including malformed findings, strictly validate `adrkit.pass0.snapshot/v1` JSON with unknown/duplicate-key and canonical-key rejection, normalize omitted optional backing to inert runtime containers and set-like arrays deterministically, inject executable registries separately, call `@adrkit/evaluator`, print without mutation, and implement structural-error exit 1 versus usage/input-contract exit 2
+- [ ] T021 [US1] After T001 and T017–T020, implement the schema-invalid short-circuit, typed `candidate-status-not-proposal` input outcome for schema-valid non-`draft`/`proposed` records, and non-schema-error continuation skeleton in `packages/evaluator/src/pass0.ts`, guaranteeing exactly eleven ordered result slots only for evaluated proposal candidates, deterministic schema-invalid routing (`8x not-proven`, no escalation, `not-required`), no report/patch for the input-error branch, `returned` iff an error rule fails, and no invocation point for Passes 1–3
+- [ ] T022 [US1] After T001, T002, T016, and T021, add `adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json]` dispatch in `packages/cli/src/index.ts` with composition helpers in `packages/cli/src/evaluate.ts` and `packages/cli/src/evaluate-snapshot.ts`; load the full `lintCorpus` result including malformed findings, reject schema-valid non-`draft`/`proposed` candidates as `candidate-status-not-proposal`, strictly validate `adrkit.pass0.snapshot/v1` JSON with unknown/duplicate-key and compact `JSON.stringify` assertion-key rejection, pass the optional bundle `log` as current target-resolution context without conflating it with record source logs, normalize omitted optional backing to inert runtime containers and only set-like arrays deterministically while preserving semantic declaration arrays, inject executable registries separately, call `@adrkit/evaluator`, print without mutation, and implement structural-error exit 1 versus usage/input-contract exit 2
 
 **Checkpoint**: US1's malformed and structural-error paths are independently testable
 offline and never reach a model-bearing pass.
@@ -188,14 +193,14 @@ identical LF-terminated bytes for `report` and `patch`, with run metadata exclud
 ### Tests for User Story 2 — write and observe failing first
 
 - [ ] T023 [P] [US2] After T001, write failing aggregate-result tests in `packages/evaluator/test/aggregate-result.test.ts` for multiple sub-findings, `fail > inert > pass`, fixed primary-reason selection, retained subordinate findings, and `assertions-pass` prerequisite `not-evaluated` outside ordinary aggregation
-- [ ] T024 [P] [US2] After T001, write failing ordering snapshots in `packages/evaluator/test/report-order.test.ts` and `packages/evaluator/test/fixtures/report-order/expected.json` for rubric order first and secondary keys in candidate id, related ADR id, matcher/assertion id, canonical target id, path, field, and message order, with routing after the eleven rules
-- [ ] T025 [P] [US2] After T001, write failing canonical-byte tests in `packages/evaluator/test/canonical-bytes.test.ts` for sorted object keys/arrays, LF newlines, reordered maps/sets/input arrays, no insertion-order dependence, and no timestamp/run id/duration inside the deterministic payload
+- [ ] T024 [P] [US2] After T001, write failing ordering snapshots in `packages/evaluator/test/report-order.test.ts` and `packages/evaluator/test/fixtures/report-order/expected.json` for rubric order first and `RuleFinding` secondary keys in candidate `AdrRef`, related `AdrRef`, matcher/assertion key, canonical target key, `recordPath`, `field`, and message order; preserve lower-level evidence; prove `adr` never contains a path; and place routing after the eleven rules
+- [ ] T025 [P] [US2] After T001, write failing canonical-byte tests in `packages/evaluator/test/canonical-bytes.test.ts` for sorted object keys, canonical comparators on set-like maps/sets/arrays only, preservation of rubric/trigger/declaration order for rule results, routing reasons/evidence, deciders, CODEOWNERS rules/owners, catalog owners, matchers, and assertions, LF newlines, no accidental insertion-order dependence, and no timestamp/run id/duration inside the deterministic payload
 
 ### Implementation for User Story 2
 
 - [ ] T026 [US2] After T001 and T023, implement deterministic finding aggregation and primary-reason selection in `packages/evaluator/src/report/aggregate.ts`
 - [ ] T027 [US2] After T001, T024, and T026, implement exactly-eleven `Pass0Report` assembly and stable secondary comparators in `packages/evaluator/src/report/assemble.ts` and `packages/evaluator/src/report/order.ts`
-- [ ] T028 [US2] After T001, T025, and T027, implement canonical JSON serialization for report/patch payloads in `packages/evaluator/src/report/serialize.ts`, excluding caller metadata and emitting sorted keys, content-sorted arrays, and LF termination
+- [ ] T028 [US2] After T001, T025, and T027, implement canonical JSON serialization for report/patch payloads in `packages/evaluator/src/report/serialize.ts`, excluding caller metadata and emitting sorted object keys, documented sorting only for set-like arrays, preserved fixed/declaration order for semantic arrays, and LF termination
 - [ ] T029 [US2] After T001 and T028, update `packages/cli/src/evaluate.ts` so `--json` wraps deterministic `{ report, patch }` bytes with optional caller metadata outside the result and the human renderer consumes the same ordered content
 
 **Checkpoint**: US2 reproduces identical deterministic bytes across input order and machine
@@ -216,22 +221,22 @@ decision.
 
 ### Tests for User Story 3 — write and observe failing first
 
-- [ ] T030 [P] [US3] After T001, write failing target-resolution tests in `packages/evaluator/test/affects-rules.test.ts` and fixtures in `packages/evaluator/test/fixtures/affects/` for path/package grammar reuse, caller-registered entity/resource/api/data resolvers, backing-absent and resolver-absent inert results, present backing with zero targets as warn, canonical ids, accepted-only overlap, no-accepted pass, and one warn per proposal/accepted-ADR pair
+- [ ] T030 [P] [US3] After T001, write failing target-resolution tests in `packages/evaluator/test/affects-rules.test.ts` and fixtures in `packages/evaluator/test/fixtures/affects/` for path/package grammar reuse, caller-registered entity/resource/api/data resolvers, ADR-0009 include+negation subtraction, negation-only empty resolution, same-`repo` match and different-`repo` local non-match against an explicit current target-resolution log distinct from record source logs, backing-absent and resolver-absent inert results, present backing with zero targets as warn, canonical ids, accepted-only overlap, `affects-overlap.no-accepted-corpus` when no accepted ADRs, `affects-overlap.none` when accepted ADRs exist without intersection, fail/inert/pass primary precedence, and one warn per proposal/accepted-ADR pair
 - [ ] T031 [P] [US3] After T001, write failing scope tests in `packages/evaluator/test/scope-hierarchy.test.ts` and fixtures in `packages/evaluator/test/fixtures/scope-hierarchy/` for component-only applicability, accepted org overlap, org-without-domain global behavior, exact domain matching, evaluator-computed base-green to current/proposed-red assertion transitions, rejection of precomputed contradiction verdicts, and every missing source/artifact/engine/base/proposed prerequisite as inert
-- [ ] T032 [P] [US3] After T001 and T002, write failing assertion tests in `packages/evaluator/test/assertions.test.ts` and fixtures in `packages/evaluator/test/fixtures/assertions/` for canonical `[log-id-or-empty, record-path, assertion-id]` keys that remain distinct under duplicate ADR ids, inline versus caller-resolved file content, both/neither source errors, missing engine/source/artifact/input inertness, approved Rego/JSONPath source or compiled-artifact conformance, registered grep/custom behavior, compile failure causing only `assertions-pass` to be `not-evaluated.prereq-failed`, and false/evaluation-error warn outcomes
+- [ ] T032 [P] [US3] After T001 and T002, write failing assertion tests in `packages/evaluator/test/assertions.test.ts` and fixtures in `packages/evaluator/test/fixtures/assertions/` for compact `JSON.stringify([record.log ?? "", record.path, assertion.id])` keys that remain distinct under duplicate ADR ids and reject whitespace/noncanonical variants, inline versus caller-resolved file content, both/neither source errors, missing engine/source/artifact/input inertness, approved Rego/JSONPath source or compiled-artifact conformance, registered grep/custom behavior, one compile/artifact-validation whose engine-owned opaque immutable payload is passed directly into evaluate without ref lookup/recompile/unsafe cast, compile failure causing only `assertions-pass` to be `not-evaluated.prereq-failed`, and false/evaluation-error warn outcomes
 - [ ] T033 [P] [US3] After T001, write failing identity/date tests in `packages/evaluator/test/identity-expiry.test.ts` and fixtures in `packages/evaluator/test/fixtures/identity-expiry/` for every decider resolving once, none/zero/ambiguous warnings, absent directory inertness, absent `reviewBy` pass, and `reviewBy` strictly after versus equal/before an explicitly supplied `evaluationDate` without reading the clock
 - [ ] T034 [P] [US3] After T001, write the failing complete matrix and purity tests in `packages/evaluator/test/pass0-matrix.test.ts` and `packages/evaluator/test/purity.test.ts`: pass/fail/inert where applicable for all eleven rules, mixed fail+inert aggregate precedence, exact reason codes, deep-frozen input immutability, current/proposed assertion input separation, and traps that fail on evaluator clock/network/filesystem/model access
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] After T001, T006, and T030, implement canonical target normalization plus pure path/package built-ins and caller-supplied entity/resource/api/data ports in `packages/evaluator/src/targets/canonical.ts`, `packages/evaluator/src/targets/path.ts`, and `packages/evaluator/src/targets/package.ts`, reusing core matcher primitives without copying their grammar
+- [ ] T035 [US3] After T001, T006, and T030, implement canonical target normalization plus pure path/package built-ins and caller-supplied entity/resource/api/data ports in `packages/evaluator/src/targets/canonical.ts`, `packages/evaluator/src/targets/path.ts`, and `packages/evaluator/src/targets/package.ts`, reusing core matcher primitives without copying their grammar and passing the caller's current target-resolution log explicitly to each port
 - [ ] T036 [US3] After T001, T030, and T035, implement `affects-resolvable` and accepted-only once-per-pair `affects-overlap` in `packages/evaluator/src/rules/affects-resolvable.ts` and `packages/evaluator/src/rules/affects-overlap.ts`
-- [ ] T037 [US3] After T001, T002, and T032, implement the approved Rego/JSONPath option and deterministic registry behavior in `packages/evaluator/src/assertions/rego.ts`, `packages/evaluator/src/assertions/jsonpath.ts`, and `packages/evaluator/src/assertions/registry.ts`: either truthfully compile/evaluate source in-process with vetted engines or validate/evaluate only the fixed caller-supplied compiled-artifact DTO through the trusted registered port; never shell out, import/select arbitrary snapshot modules, or describe `opa-wasm` as a raw-Rego compiler
-- [ ] T038 [US3] After T001, T032, and T037, implement exactly-one-source compilation and evaluation in `packages/evaluator/src/rules/assertions-compile.ts` and `packages/evaluator/src/rules/assertions-pass.ts`, reading resolved content/input only from immutable snapshots and keeping compile failure distinct from evaluate-false
+- [ ] T037 [US3] After T001, T002, and T032, implement the approved Rego/JSONPath option and generic deterministic registry behavior in `packages/evaluator/src/assertions/rego.ts`, `packages/evaluator/src/assertions/jsonpath.ts`, and `packages/evaluator/src/assertions/registry.ts`: each engine owns an opaque immutable payload type shared by its compile/validate and evaluate methods; either truthfully compile/evaluate source in-process with vetted engines or validate/evaluate only the fixed caller-supplied compiled-artifact DTO through the trusted registered port; never shell out, import/select arbitrary snapshot modules, use hidden mutable compiled-state registries, recompile during evaluate, require unsafe casts, or describe `opa-wasm` as a raw-Rego compiler
+- [ ] T038 [US3] After T001, T032, and T037, implement exactly-one-source compilation and evaluation in `packages/evaluator/src/rules/assertions-compile.ts` and `packages/evaluator/src/rules/assertions-pass.ts`, reading resolved content/input only from immutable snapshots, passing each successful `CompiledAssertion<E, Payload>` directly to the same typed port's evaluate method, and keeping compile failure distinct from evaluate-false
 - [ ] T039 [US3] After T001, T031, T035, and T038, implement attributable scope contradiction evaluation in `packages/evaluator/src/rules/scope-hierarchy.ts`, using accepted org assertions with explicit base versus current/proposed inputs and never inferring contradiction from prose or overlap alone
 - [ ] T040 [US3] After T001 and T033, implement immutable directory decider resolution and explicit-date expiry checks in `packages/evaluator/src/rules/decider-resolvable.ts` and `packages/evaluator/src/rules/expiry-sane.ts`
 - [ ] T041 [US3] After T001 and T034–T040, wire all eleven real rule modules into `packages/evaluator/src/pass0.ts`, continue independent rules after non-schema errors, enforce only direct prerequisite suppression, return new values without mutating input, and perform no runtime I/O
-- [ ] T042 [US3] After T001, T002, and T041, complete strict `SnapshotBundleJsonV1` validation and normalization in `packages/cli/src/evaluate-snapshot.ts` for optional federated logs/per-type target inventories, assertion sources or approved compiled artifacts, current/proposed inputs, identity, scope/routing evidence, canonical tuple/target keys, immutable set conversion, and required `--date`, while preventing JSON from selecting modules/ports and constructing trusted target/assertion ports in `packages/cli/src/evaluate.ts`
+- [ ] T042 [US3] After T001, T002, and T041, complete strict `SnapshotBundleJsonV1` validation and normalization in `packages/cli/src/evaluate-snapshot.ts` for optional current target-resolution `log`, optional federated logs/per-type target inventories, assertion sources or approved compiled artifacts, current/proposed inputs, identity, scope/routing evidence, canonical tuple/target keys, immutable set conversion, and required `--date`, while preventing JSON from selecting modules/ports and constructing trusted target/assertion ports in `packages/cli/src/evaluate.ts`
 
 **Checkpoint**: US3 is a complete, useful, offline Pass 0 with all eleven rules and no model.
 
@@ -252,13 +257,13 @@ T002/T037.
 ### Tests for User Story 4 — write and observe failing first
 
 - [ ] T043 [P] [US4] After T001, write failing routing-trigger tests in `packages/evaluator/test/routing-triggers.test.ts` and fixtures in `packages/evaluator/test/fixtures/routing/` for exactly eight ordered evidence statuses, each proven trigger, missing evidence as not-proven, later-pass-only reasons absent, non-escalated `route.target.not-required`, and `contradicts-accepted-adr` based on overlap plus accepted-assertion failure against current/proposed input without the org/domain/base-green requirements of `scope-hierarchy`
-- [ ] T044 [P] [US4] After T001, write failing routing-target tests in `packages/evaluator/test/routing-target.test.ts` for fallback order `deciders -> CODEOWNERS(resolved paths) -> catalog owners(resolved entities)`, source/declaration/canonical ordering, inactive principals, teams resolving to exactly one active human, and zero/many-member teams producing `route.target.unresolved`
+- [ ] T044 [P] [US4] After T001, write failing routing-target tests in `packages/evaluator/test/routing-target.test.ts` for source order `deciders -> CODEOWNERS(resolved paths) -> catalog owners(resolved entities)`; decider declaration order; canonical unique-path order with the last matching CODEOWNERS rule winning per path and its owners preserving declaration order; canonical unique-entity order with catalog owners preserving snapshot order; stable first-occurrence deduplication without global identity sorting; inactive direct-human skipping; teams resolving to exactly one active human; the first zero/many-active-member team immediately producing `route.target.unresolved` without later fallback; and exhausted candidates producing unresolved
 - [ ] T045 [P] [US4] After T001 and T002, write failing CLI boundary/exit tests in `packages/cli/test/evaluate-routing.test.ts` proving snapshot JSON cannot select/import modules or ports, any approved compiled artifact is consumed only by its trusted fixed-profile engine, registries come from composition code, exit 0 covers pass/warn/info/inert results even when escalated or unresolved, exit 1 only covers rubric errors, exit 2 only covers usage/malformed bundle, and no path approves or persists
 
 ### Implementation for User Story 4
 
 - [ ] T046 [US4] After T001 and T043, implement the declarative OR and ordered trigger evidence in `packages/evaluator/src/routing/triggers.ts`, using only the eight existing Pass 0 escalation reasons and evaluating routing after all eleven rule results
-- [ ] T047 [US4] After T001 and T044, implement stable named-human fallback and explicit unresolved/not-required targets in `packages/evaluator/src/routing/target.ts`
+- [ ] T047 [US4] After T001 and T044, implement the exact decider/CODEOWNERS/catalog candidate construction, CODEOWNERS last-matching-rule semantics, declaration-order preservation, stable first-occurrence dedupe, direct-human skipping, team ambiguity barrier, and explicit unresolved/not-required targets in `packages/evaluator/src/routing/target.ts`
 - [ ] T048 [US4] After T001, T037, T043, T046, and T047, implement accepted-ADR assertion routing in `packages/evaluator/src/routing/accepted-assertion.ts` and integrate it in `packages/evaluator/src/pass0.ts`, keeping its current/proposed failure condition distinct from the narrower scope-hierarchy base-green transition
 - [ ] T049 [US4] After T001, T002, T045, and T048, complete human/JSON rendering and exit selection in `packages/cli/src/evaluate.ts` and `packages/cli/src/index.ts`, preserving the data-snapshot versus trusted executable-port boundary and exact exit codes 0/1/2
 
@@ -278,13 +283,13 @@ assert no extra fields or inert/not-evaluated findings, and prove schema emit is
 
 ### Tests for User Story 5 — write and observe failing first
 
-- [ ] T050 [P] [US5] After T001, write failing patch-projection tests in `packages/evaluator/test/evaluation-patch.test.ts` for violations only, exact `{ rule, severity, message?, adr? }` finding keys, rubric-id mapping without duplicate lower-level findings, report-only reason/evidence/target/source fields, and escalation reasons copied in fixed trigger order
-- [ ] T051 [P] [US5] After T001, write failing current-schema and drift tests in `packages/evaluator/test/evaluation-patch-schema.test.ts` using the committed `packages/core/src/schema/adr.schema.ts`, and extend `packages/core/test/schema-emit.test.ts` to prove evaluator output requires no Zod or JSON Schema edit and `schema/adr.schema.json` emits byte-clean
+- [ ] T050 [P] [US5] After T001, T027, T041, and T048, write failing patch-projection tests in `packages/evaluator/test/evaluation-patch.test.ts` for violations only, exact `{ rule, severity, message?, adr? }` finding keys with `adr` validating strictly as `AdrRef`, rubric-id mapping without duplicate lower-level findings, report-only candidate/related ADR, matcher/assertion key, target, `recordPath`, field, source, and lower-level evidence fields, proof that no path can be projected into `adr`, and escalation reasons copied in fixed trigger order
+- [ ] T051 [P] [US5] After T001, T027, T041, and T048, write failing current-schema and drift tests in `packages/evaluator/test/evaluation-patch-schema.test.ts` using the committed `packages/core/src/schema/adr.schema.ts`, and extend `packages/core/test/schema-emit.test.ts` to prove evaluator output requires no Zod or JSON Schema edit and `schema/adr.schema.json` emits byte-clean
 
 ### Implementation for User Story 5
 
-- [ ] T052 [US5] After T001 and T050, implement the schema-minimal violations-only projection in `packages/evaluator/src/patch/project.ts`, stripping all operational-only fields and returning data without writing any ADR, review state, database, or index
-- [ ] T053 [US5] After T001, T051, and T052, integrate `{ report, patch }` return assembly in `packages/evaluator/src/pass0.ts` and `packages/cli/src/evaluate.ts`, preserving canonical bytes and keeping caller run metadata outside both deterministic artifacts
+- [ ] T052 [US5] After T001, T027, T041, T048, and T050, implement the schema-minimal violations-only projection in `packages/evaluator/src/patch/project.ts`, stripping all operational-only fields and returning data without writing any ADR, review state, database, or index
+- [ ] T053 [US5] After T001, T027–T029, T041, T048, T051, and T052, integrate `{ report, patch }` return assembly in `packages/evaluator/src/pass0.ts` and `packages/cli/src/evaluate.ts`, preserving canonical bytes and keeping caller run metadata outside both deterministic artifacts
 
 **Checkpoint**: US5 validates against the existing schema with no schema change or persistence.
 
@@ -299,7 +304,7 @@ assert no extra fields or inert/not-evaluated findings, and prove schema emit is
 - [ ] T054 [P] After T001 and T002, write failing dependency-boundary cases in `scripts/check-deps.test.ts` for the allowed chain `@adrkit/cli -> @adrkit/evaluator -> @adrkit/core`, conditional T002-approved deterministic engine dependencies only, and rejection of evaluator imports from `packages/adapters/*`, model/prompt/embedding/retrieval packages, GitHub toolkits, network clients, filesystem traversal helpers, or undeclared engine/tool binaries
 - [ ] T055 After T001, T002, and T054, extend `scripts/check-deps.ts` to enforce the evaluator allow-list and the one-way package graph, then verify `packages/evaluator/package.json`, `packages/cli/package.json`, and `bun.lock` contain only the T002-approved dependencies installed with Bun 1.3.14
 - [ ] T056 [P] After T001 and T053, add evaluator/CLI Node 22 and 24 smoke coverage plus an offline no-model fixture invocation to `scripts/smoke-node.mjs` and `.github/workflows/ci.yml`, preserving the existing `clean-clone-builds`, dependency, schema-emit, ADR lint, and Action bundle gates without adding credentials, services, or network runtime requirements
-- [ ] T057 [P] After T001 and T053, update `README.md` and `specs/005-deterministic-evaluator/quickstart.md` with the final offline `adr evaluate` invocation, immutable snapshot-data contract, executable-port boundary, explicit date, exit codes 0/1/2, named-human/unresolved routing, no `--write`, and the approved T002 Rego/JSONPath semantics without claiming raw Rego compilation when only compiled snapshots are supported
+- [ ] T057 [P] After T001, T002, and T053, update `README.md` and `specs/005-deterministic-evaluator/quickstart.md` with the final offline `adr evaluate` invocation, immutable snapshot-data contract, executable-port boundary, explicit date, exit codes 0/1/2, named-human/unresolved routing, no `--write`, and the approved T002 Rego/JSONPath semantics without claiming raw Rego compilation when only compiled snapshots are supported
 - [ ] T058 After T001 and T055–T057, run and record final evidence in `specs/005-deterministic-evaluator/quickstart.md` using stable Bun 1.3.14: frozen clean-clone install, typecheck, all offline tests including the 11-rule pass/fail/inert matrix, build, lint, dependency checks, Node 22/24 smoke, canonical-byte repetition, input immutability, no-model/no-I/O proof, and `bun run schema:emit` followed by a byte-clean `schema/adr.schema.json` diff
 
 ---
@@ -310,7 +315,7 @@ assert no extra fields or inert/not-evaluated findings, and prove schema emit is
 
 - **T001 blocks every task T002–T058.** T001 may be checked only after feature 004 T018 itself
   is checked with linked evidence for all five required observations.
-- **T002 is the second gate.** It blocks T003, T016, T022, T032, T037, T042, T045, T048,
+- **T002 is the second gate.** It blocks T003–T004, T016, T022, T032, T037, T042, T045, T048,
   T049, T054, T055, T057, and T058. No engine dependency, manifest, lockfile, conformance
   implementation, or CLI registry composition may precede the approved decision.
 - Scoping stops after creating this file while T001 remains unchecked.
@@ -318,8 +323,9 @@ assert no extra fields or inert/not-evaluated findings, and prove schema emit is
 ### Phase Dependencies
 
 - **Setup (T003–T004)**: Depends on T001 and T002.
-- **Foundational (T005–T011)**: Depends on T001; evaluator tasks depend on T003. T006 follows
-  failing T005; implementations T008–T010 follow failing T007; T011 follows T008–T010.
+- **Foundational (T005–T011)**: Depends on T001. Core-only T005–T006 intentionally may run
+  before T002/T003; T006 follows failing T005. T003 is a prerequisite only for evaluator
+  tasks T007–T011; implementations T008–T010 follow failing T007; T011 follows T008–T010.
 - **US1 (T012–T022)**: Depends on Foundation. Tests T012–T016 precede implementations
   T017–T022. T021 follows all structural rules; T022 follows T002, T016, and T021.
 - **US2 (T023–T029)**: Depends on Foundation and T021. Tests T023–T025 precede T026–T029.
@@ -336,8 +342,10 @@ assert no extra fields or inert/not-evaluated findings, and prove schema emit is
 
 ```text
 T001 upstream evidence
-  -> T002 engine decision
-  -> Setup + Foundation
+  ├──> T005 -> T006 neutral core matcher reuse (may precede T002/T003)
+  └──> T002 engine decision
+       -> T003-T004 Setup
+       -> T007-T011 evaluator Foundation
   -> US1 structural return (MVP path)
   -> US2 canonical report
   -> US3 complete eleven-rule offline Pass 0
@@ -374,7 +382,8 @@ consume target/assertion evidence. US5 projects the completed report and routing
 
 ## Parallel Execution Examples
 
-Parallel work never bypasses T001 or T002.
+Parallel work never bypasses T001. Only neutral core tasks T005–T006 may proceed before T002;
+all setup, evaluator, CLI, engine, dependency, and verification work waits for T002.
 
 ### User Story 1
 
@@ -425,8 +434,9 @@ Then: T052 -> T053
 
 1. Leave all implementation unchecked while feature 004 T018 lacks evidence.
 2. Check T001 only after reviewing the second-repository evidence, not merely a merged PR.
-3. Resolve T002 with a written maintainer decision and conformance evidence.
-4. Only then permit package, dependency, test, or source work.
+3. After T001, permit only neutral core matcher reuse tasks T005–T006 before T002.
+4. Resolve T002 with a written maintainer decision and conformance evidence.
+5. Only then permit package, evaluator, CLI, engine, dependency, or verification work.
 
 ### MVP First
 

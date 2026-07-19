@@ -42,8 +42,8 @@ bun install --frozen-lockfile
 bun run build
 
 # 1) Evaluate a proposal against an OFFLINE snapshot bundle + a required date.
-#    <bundle.json> supplies target inventories, resolved assertion sources/inputs,
-#    the identity directory, and any scope / routing evidence — all immutable.
+#    <bundle.json> supplies the optional current target-resolution log, target inventories,
+#    resolved assertion sources/inputs, identity, and scope/routing evidence — all immutable.
 bun run adr evaluate packages/evaluator/test/fixtures/proposal-0042.md \
   --snapshot packages/evaluator/test/fixtures/snapshot.clean.json \
   --date 2026-07-19 \
@@ -94,7 +94,9 @@ The command **prints** the `Pass0Report` + `evaluationPatch` (canonical JSON wit
 Note **exactly eleven** `results`, always in the fixed rubric order (C11); `routing` follows the
 eleven (it is **not** a twelfth rule); and `metadata` sits **outside** the deterministic payload
 so `report` + `patch` reproduce **byte-for-byte** (FR-005). The abbreviated routing block
-contains exactly eight ordered trigger-evidence statuses in the full output.
+contains exactly eight ordered trigger-evidence statuses in the full output. This example
+assumes accepted ADRs exist and none intersects, hence `affects-overlap.none`; an empty
+accepted corpus uses `affects-overlap.no-accepted-corpus`.
 
 ### An inert (degraded, still useful) result
 
@@ -122,7 +124,13 @@ A fixture/run is **green** when the observed behavior matches the contract deter
   and target `not-required`; a post-`assertions-compile` failure makes **only**
   `assertions-pass` `not-evaluated` (C11).
 - **Byte-for-byte reproduction**: two runs of the same input produce identical `report` + `patch`
-  bytes (metadata excluded) — canonical key/array ordering holds (FR-005; [research §R11](./research.md)).
+  bytes (metadata excluded) — object keys and set-like collections canonicalize, while fixed
+  rubric/trigger and declaration-ordered matcher/assertion/owner arrays preserve their
+  semantic order (FR-005; [research §R11](./research.md)).
+- **Log-scoped identity and ADR-0009 matching hold**: duplicate ids fail only within one
+  normalized record-source log; the same id across named source logs passes. Positive+negated,
+  negation-only, same-`repo`, and different-`repo` affects fixtures use the bundle's explicit
+  current target-resolution `log`, which is not inferred from a record's source log.
 - **`evaluationPatch` validates against the CURRENT committed schema** — violations only, using
   existing `EscalationReason` values, **no schema change** (`schema:emit` byte-clean; Principle V; C6).
 - **Purity holds**: no clock/network/fs read in the evaluator path; **inputs are not mutated**;
@@ -131,14 +139,24 @@ A fixture/run is **green** when the observed behavior matches the contract deter
 - **Model-free**: every fixture runs with **no model configured** and is fully useful — the
   load-bearing ADR-0005 property (US3; SC-006).
 - **Routing is honest**: escalation is an OR over **proven** triggers (existing enum only);
-  missing evidence is **not proven** (recorded); a team that can't resolve to one active human is
-  **`unresolved`**, never an arbitrary pick (C4/C7; [research §R10](./research.md)).
+  missing evidence is **not proven** (recorded). Deciders preserve declaration order;
+  canonical-sorted paths use the last matching CODEOWNERS rule and its owner order; canonical
+  entities preserve catalog-owner order. The first team candidate that does not resolve to
+  exactly one active human is an immediate **`unresolved`** barrier — fallback does not bypass
+  it (C4/C7; [research §R10](./research.md)).
 - **The bundle boundary is explicit**: `adrkit.pass0.snapshot/v1` is strict JSON data;
   malformed present data exits 2, omitted optional backing degrades to inert, and JSON cannot
   select/import an engine or resolver port. Any T002-approved compiled artifact uses only the
-  fixed media-type/base64/hash/source-ref DTO.
+  fixed media-type/base64/hash/source-ref DTO. Assertion keys must be byte-equal to compact
+  `JSON.stringify([record.log ?? "", record.path, assertion.id])`; whitespace variants are
+  rejected.
+- **Assertion payload handoff is direct**: one compile/artifact-validation produces an
+  engine-owned opaque immutable payload that is passed to the same typed port's evaluate
+  method — no hidden mutable registry, recompile, or unsafe cast.
 - **Exit codes**: malformed usage/bundle ⇒ **2**; any rubric `error` ⇒ **1**; warn/info/inert-only
-  ⇒ **0** even when it escalates or routes `unresolved` (FR-013/C10).
+  ⇒ **0** even when it escalates or routes `unresolved`. Selecting a schema-valid
+  `accepted`/`rejected`/`superseded`/`deprecated` record is
+  `candidate-status-not-proposal`, emits no report/patch, and exits **2** (FR-013/C10).
 
 Green does **not** mean "approved." Pass 0 **routes**; acceptance is a human decision recorded in
 git later (Principle I; ADR-0004).

@@ -105,9 +105,10 @@ rubric order), emits eight `not-proven` routing statuses with `escalate=false` a
    records the other ten rules as `not-evaluated` in rubric order (a well-formed
    eleven-result event stream, not a bare early-exit payload), emits no escalation and a
    `not-required` target, does **not** run any later pass, and the CLI exits `1`.
-2. **Given** a proposal whose `id` collides with an id in the supplied corpus/log
-   snapshot, **When** Pass 0 runs, **Then** it reports an `id-unique` **error** and the
-   proposal is `returned`.
+2. **Given** a proposal whose `id` collides with another record in the **same normalized
+   log** (`record.log ?? ""`), **When** Pass 0 runs, **Then** it reports an `id-unique`
+   **error** and the proposal is `returned`; the same id in a different named log is not a
+   collision.
 3. **Given** a proposal with a non-reciprocal `supersedes`/`supersededBy` pair or a
    supersession cycle, **When** Pass 0 runs, **Then** it reports a
    `supersession-consistent` **error**.
@@ -146,6 +147,11 @@ caller-supplied metadata (e.g. a run id or timestamp the caller passed in).
 4. **Given** no clock, network, or filesystem access inside the pure library, **When**
    Pass 0 runs, **Then** it produces its report without reading any of them — any time
    value comes from a caller-supplied `evaluationDate` / run metadata only.
+5. **Given** the same set-like inputs in different orders, **When** Pass 0 serializes both
+   runs, **Then** those set-like collections use their documented canonical comparator;
+   fixed rubric/trigger arrays and declaration-ordered decider, CODEOWNERS, catalog-owner,
+   matcher, and assertion arrays preserve their contract order rather than being globally
+   sorted.
 
 ### User Story 3 — Pass 0 is independently useful with no model, offline, in a clean clone (Priority: P1)
 
@@ -218,9 +224,11 @@ run.
    caller-supplied immutable data (proposal `deciders`, then normalized CODEOWNERS
    candidates for resolved affected paths, then catalog owners for resolved affected
    entities, in that order), **Then** it emits the first named active human as the route
-   target; if none resolves, it emits an explicit `unresolved` route state and reason
-   event — the escalation stays true, the absent target is **not** approval, and the exit
-   code is unchanged.
+   target using the exact source/declaration order in FR-013a; encountering a team candidate
+   with zero or multiple active human members is an **ambiguity barrier** that immediately
+   returns `unresolved` without falling through to a later candidate or source. If no
+   candidate resolves, it likewise emits `unresolved`; the escalation stays true, the absent
+   target is **not** approval, and the exit code is unchanged.
 
 ### User Story 5 — The returned evaluation patch stays schema-compatible (Priority: P2)
 
@@ -277,10 +285,14 @@ the separate `Pass0Report` channel.
   channel, never a fabricated pass/fail and never a declared orphan (ADR-0009).
 - **`affects-resolvable` vs backing absent**: backing source **present** with **zero real
   resolved targets** → `affects-resolvable` **warn**; backing source **absent** → an
-  operational **inert** result using the ADR-0009 `affects-unresolvable` reason code/event,
-  and **no** `affects-resolvable` deterministic finding (Clarification C3).
-- **`affects-overlap` with no accepted ADRs**: no pair to compare, no finding — never a
-  probabilistic or prose guess.
+  operational **inert** result using `affects-resolvable.backing-absent`; a missing resolver
+  port uses `affects-resolvable.resolver-absent`. The lower-level ADR-0009
+  `affects-unresolvable` finding maps to this inert status, and neither path emits an
+  `affects-resolvable` deterministic finding (Clarification C3).
+- **`affects-overlap` pass reasons**: with no accepted ADRs, no pair exists and the pass
+  reason is `affects-overlap.no-accepted-corpus`; when accepted ADRs exist and every
+  applicable pair is fully evaluated with no intersection, the pass reason is
+  `affects-overlap.none`. Neither path makes a probabilistic or prose guess.
 - **`assertions-compile` vs `assertions-pass`**: a compile failure is an **error**; a
   compiled assertion that evaluates non-green is a **warn**. A missing engine/input is
   inert, not either.
@@ -294,8 +306,13 @@ the separate `Pass0Report` channel.
   emits an explicit `unresolved` route state and reason event. The escalation stays true;
   the missing target is **not** approval and does not change the exit code (Clarification
   C7).
+- **Ambiguous team routing candidate**: when the next candidate in exact routing order is a
+  team with zero or multiple active human members, resolution stops as `unresolved`; it does
+  not skip the higher-priority team and route to a later owner.
 - **Usage / input-contract error** (a required snapshot is malformed, or arguments are
-  invalid): the CLI wrapper exits `2` — distinct from a `returned` proposal (exit `1`).
+  invalid, or the selected schema-valid ADR has status `accepted`, `rejected`, `superseded`,
+  or `deprecated`): the CLI wrapper exits `2` without a `Pass0Report`/patch — distinct from a
+  structurally invalid proposal that is `returned` by `schema-valid` (exit `1`).
 - **Run with no failing rule**: Pass 0 completes, emits `pass`/`inert` events, exits `0`.
 - **Escalation recommended on warn/info only**: Pass 0 completes and exits `0` even though
   it recommends escalation (routing ≠ failing).
@@ -323,11 +340,11 @@ the separate `Pass0Report` channel.
   | Rule | Severity | Deterministic check (this spec's binding of the rubric) |
   |---|---|---|
   | `schema-valid` | error | Proposal frontmatter parses and validates. Reuses parse/schema findings. If the proposal is malformed, Pass 0 returns immediately for it, but the report stays ordered. |
-  | `id-unique` | error | Proposal `id` is unique within the supplied corpus/log snapshot. |
+  | `id-unique` | error | Proposal `id` is unique within its normalized log (`record.log ?? ""`). The same id in a different named log is valid; only same-log duplicates collide. |
   | `supersession-consistent` | error | `supersedes`/`supersededBy` are reciprocal and acyclic. A missing `supersededBy` target is reported here once; missing `supersedes` targets belong to `no-orphan-refs`. |
   | `no-orphan-refs` | error | Every `relatesTo` / `supersedes` target exists in the supplied corpus. A missing `supersededBy` target is handled by `supersession-consistent`, not here. Federated refs require supplied log snapshots; a missing external log snapshot is **inert/degraded**, not a declared orphan. |
   | `affects-resolvable` | warn | Each matcher resolves to ≥1 real target in the supplied snapshots. `path` uses the complete tracked-path inventory; `package` uses the dependency/lock snapshot; `entity`/`resource`/`api`/`data` use caller snapshots. A **missing backing source** is **inert/degraded** (ADR-0009), not a warn. |
-  | `affects-overlap` | warn | Compare **finite resolved target identities** against **accepted** ADRs only. Warn **once per proposal/accepted pair** with stable evidence. No probabilistic overlap, no prose analysis. |
+  | `affects-overlap` | warn | Compare **finite resolved target identities** against **accepted** ADRs only. Warn **once per proposal/accepted pair** with stable evidence. With no accepted ADRs, pass as `no-accepted-corpus`; with accepted ADRs but no intersection, pass as `none`. No probabilistic overlap, no prose analysis. |
   | `scope-hierarchy` | error | A `component` proposal errors **only** on **deterministic contradiction evidence** against an accepted `org` ADR assertion in the same applicable domain/overlap, drawn from supplied pure assertion/scope evidence ports/snapshots. No semantic prose inference. Missing evidence is **inert/degraded** and surfaced. |
   | `assertions-compile` | error | Each assertion must declare exactly one source, and that source parses via the caller-supplied deterministic engine registry. A declared `expressionFile` whose supplied content is absent is inert. |
   | `assertions-pass` | warn | Compiled assertions evaluate green against the supplied immutable input snapshot; missing input is inert. |
@@ -341,10 +358,13 @@ the separate `Pass0Report` channel.
   continue through every still-evaluable deterministic rule even after an error so the
   caller receives complete Pass 0 feedback. A rule whose prerequisite failed (for example,
   `assertions-pass` after `assertions-compile` failed) MUST be `not-evaluated`. The
-  `Pass0Report` always carries **exactly eleven** rule results in rubric order (FR-011). A
-  proposal with only `warn`/`info` findings MUST NOT be `returned`; Pass 0 completes. In all
-  cases the evaluator **routes** and computes a disposition: it MUST NOT approve, accept,
-  merge, persist, or change any acceptance/`review` state (ADR-0005; Principle IV). On
+  `Pass0Report` for an evaluated candidate always carries **exactly eleven** rule results in
+  rubric order (FR-011). A schema-valid non-proposal status is rejected by the input
+  contract before rule evaluation and produces no report/patch (FR-013). A
+  proposal with only `warn`/`info` findings MUST NOT be `returned`; Pass 0 completes. For
+  every evaluated candidate, the evaluator **routes** and computes a disposition: it MUST
+  NOT approve, accept, merge, persist, or change any acceptance/`review` state (ADR-0005;
+  Principle IV). On
   `schema-valid` failure, no trigger can be proven from a typed proposal: the routing block
   therefore contains eight ordered `not-proven` statuses, `escalate=false`, no escalation
   reasons, and target `not-required`; the patch carries only the schema violation.
@@ -352,7 +372,10 @@ the separate `Pass0Report` channel.
 - **FR-004 — Deterministic ordering.** All findings and reason-code events MUST be ordered
   **rubric-rule order first**, then by stable per-rule secondary keys (candidate ADR,
   related ADR, assertion/matcher id, path/message). Ordering MUST be total and stable so
-  output is diffable.
+  output is diffable. Canonicalization MUST sort only **set-like** collections by their
+  documented comparator. Contract-ordered arrays — including rubric results, routing
+  evidence/reasons, proposal deciders, CODEOWNERS rules and owners, catalog owners, matchers,
+  and assertions — MUST preserve fixed or declaration order.
 
 - **FR-005 — Byte-for-byte reproducibility.** Two runs over identical inputs MUST produce
   byte-for-byte identical serialized reports and reason-code streams, apart from
@@ -400,7 +423,8 @@ the separate `Pass0Report` channel.
   or conflicting** finding emitted for the same underlying issue. The mapping is spelled
   out in Clarifications C2 and C3.
 
-- **FR-011 — Eleven-result reason-code event log from day one.** Every Pass 0 run MUST emit
+- **FR-011 — Eleven-result reason-code event log from day one.** Every evaluated
+  `draft`/`proposed` Pass 0 run MUST emit
   an **ordered** stream of declarative reason-code events — **exactly one per rubric rule,
   eleven total, in rubric order** — each carrying: the rule id, a status of `pass` /
   `fail` / `inert` / `not-evaluated`, the rule's **fixed** violation severity when `fail`,
@@ -432,7 +456,10 @@ the separate `Pass0Report` channel.
 - **FR-013 — Exit-code contract.** The CLI wrapper MUST exit: **`1`** when Pass 0 returns a
   proposal (any `error` finding); **`0`** when Pass 0 completes with only `warn`/`info`
   findings — **even if escalation is recommended**; and **`2`** on a usage / input-contract
-  error (invalid arguments or a malformed required snapshot). An `unresolved` routing target
+  error (invalid arguments, a malformed required snapshot, or a schema-valid selected ADR
+  whose status is not `draft`/`proposed`). `accepted`, `rejected`, `superseded`, and
+  `deprecated` candidates produce the typed `candidate-status-not-proposal` input error,
+  no report/patch, and exit `2`; this is not a twelfth rule. An `unresolved` routing target
   after escalation does **not** silently approve and does **not** change these exit codes
   absent a rubric `error`. Exit `0` never means "approved."
 
@@ -440,14 +467,21 @@ the separate `Pass0Report` channel.
   (FR-012), Pass 0 MUST deterministically resolve the routing target from caller-supplied
   immutable data, in ADR-0005 order: proposal `deciders`, then normalized CODEOWNERS
   candidates for the **resolved affected paths**, then catalog owners for the **resolved
-  affected entities**. Resolution MUST yield a **named active human** using a stable,
-  total ordering; if none resolves, Pass 0 MUST emit an explicit `unresolved` route state
-  and reason event. The escalation remains true; lack of a target is **not** approval and
-  does **not** invent an escalation reason. `decider-resolvable` remains the fixed **warn**
-  rule for zero/ambiguous decider identity resolution; this fallback routing is
-  **operational routing behavior, not a twelfth rule** (ADR-0005). **Resolved:
-  Clarification C7.** When escalation is not proven, named-human resolution does not run and
-  the target state is explicitly `not-required`.
+  affected entities**. Within those sources: deciders preserve proposal declaration order;
+  unique resolved paths are sorted by canonical path key, each path uses the **last matching
+  CODEOWNERS rule** in declaration order, and that rule's owners preserve declaration order;
+  unique resolved entity ids are sorted by canonical target key and each entity's catalog
+  owners preserve snapshot declaration order. Candidate principals are stable-deduplicated by
+  first occurrence — they are never globally identity-sorted. A direct inactive/missing human
+  is skipped. A team candidate resolves only when it has exactly one active human member;
+  zero or multiple active human members are an **ambiguity barrier** that immediately returns
+  `unresolved` without considering later candidates or sources. If the ordered candidates are
+  exhausted, Pass 0 likewise emits `unresolved`. The escalation remains true; lack of a target
+  is **not** approval and does **not** invent an escalation reason. `decider-resolvable`
+  remains the fixed **warn** rule for zero/ambiguous decider identity resolution; this
+  fallback routing is **operational routing behavior, not a twelfth rule** (ADR-0005).
+  **Resolved: Clarification C7.** When escalation is not proven, named-human resolution does
+  not run and the target state is explicitly `not-required`.
 
 - **FR-014 — No mutation, no database, no index, no network.** Pass 0 MUST NOT write,
   mutate, or delete any ADR file, acceptance state, or `review` field; MUST NOT require or
@@ -464,15 +498,23 @@ the separate `Pass0Report` channel.
   registered** and are otherwise **inert** — Pass 0 MUST NOT invent semantics for them. A
   missing engine or input is inert; a compile failure is an `assertions-compile` **error**;
   a green-failing evaluation is an `assertions-pass` **warn**. **Resolved: Clarification
-  C5.**
+  C5.** Each engine port MUST own a generic, opaque compiled-payload type. A successful
+  compile/artifact-validation result carries that immutable payload directly into the same
+  port's `evaluate` call; the evaluator MUST NOT inspect it, recompile it, or recover it from
+  hidden mutable registry state, and the public type design MUST require no `any`/`unknown`
+  cast to pair compile with evaluate.
 
 - **FR-016 — Concrete input contract.** Pass 0 MUST accept, as caller-supplied inputs: one
   proposal path identifying a candidate within the full corpus lint/load result
   **including** malformed-file findings (the typed `draft`/`proposed` exists only after
-  `schema-valid`; plan→ADR conversion is out of scope); the
+  `schema-valid`; a schema-valid non-`draft`/`proposed` record is the
+  `candidate-status-not-proposal` input-contract error from FR-013; plan→ADR conversion is
+  out of scope); the
   optional immutable federated-log snapshots needed to resolve cross-log references; the
   complete caller-supplied snapshots for repo tracked-path / package-lock / catalog /
-  resource / API / data target inventories **as applicable**; the assertion engine ports
+  resource / API / data target inventories **as applicable**, plus the optional current
+  target-resolution log identity used by ADR-0009 `repo` qualification (distinct from each
+  corpus record's source `log`); the assertion engine ports
   plus immutable assertion input snapshots; the identity directory snapshot; the optional
   scope-contradiction evidence snapshot; and the caller-supplied `evaluationDate`. Any run
   timestamp/metadata belongs to the outer caller envelope, not `Pass0Input`. Pass 0 MUST NOT
@@ -481,14 +523,19 @@ the separate `Pass0Report` channel.
   versioned `adrkit.pass0.snapshot/v1` JSON DTO containing data only; it MUST reject malformed
   or unknown present data with exit `2`, normalize omitted optional backing to inert runtime
   containers, and inject executable resolver/assertion ports separately. Assertion snapshot
-  keys MUST use the canonical JSON tuple `[log-id-or-empty, record-path, assertion-id]`, not
-  ADR id, so duplicate ADR ids cannot alias inputs while independent rules continue.
+  keys MUST be the compact standard
+  `JSON.stringify([record.log ?? "", record.path, assertion.id])` result with no added
+  whitespace, not ADR id. A supplied key that parses to the same tuple but is not byte-equal
+  to that canonical string is malformed input (exit `2`), so duplicate ADR ids cannot alias
+  inputs while independent rules continue.
 
 ### Key Entities
 
 - **Proposal candidate**: one path selected from the full corpus lint/load result. It becomes
   a typed `draft`/`proposed` ADR only after `schema-valid`; Pass 0 can therefore report a
-  malformed candidate without pretending it parsed. It is never mutated.
+  malformed candidate without pretending it parsed. A schema-valid `accepted`, `rejected`,
+  `superseded`, or `deprecated` selection is rejected as an input-contract error (exit `2`),
+  not evaluated as a proposal. It is never mutated.
 - **Pass 0 rule catalog**: the eleven fixed rules and severities of FR-002 — the rule
   contract, keyed by rubric rule id.
 - **Input snapshot bundle**: the caller-supplied, immutable **data** inputs of FR-016
@@ -531,8 +578,12 @@ the separate `Pass0Report` channel.
   exits `0`, even when escalation is recommended.
 - **SC-003**: Each of the eleven rules has offline fixtures exercising **pass**, **fail**,
   and — where applicable — **inert** outcomes, all runnable with **no model configured**.
+  The matrix includes same-id/same-log collision and same-id/different-log pass cases, plus
+  `affects` include+negation, negation-only, same-`repo`, and different-`repo` cases against
+  an explicitly supplied target-resolution log using ADR-0009 semantics.
 - **SC-004**: Two runs over identical inputs produce byte-for-byte identical serialized
-  reports and reason-code streams (excluding caller-supplied run metadata).
+  reports and reason-code streams (excluding caller-supplied run metadata), with only
+  set-like arrays canonical-sorted and every fixed/declaration-ordered array preserved.
 - **SC-005**: Findings and events are ordered rubric-rule-first then by stable per-rule
   keys, verified against a fixed expected ordering fixture.
 - **SC-006**: The pure Pass 0 library imports **no** model/prompt/embedding/retrieval
@@ -569,8 +620,10 @@ the separate `Pass0Report` channel.
 - **SC-014**: On a proven escalation, Pass 0 resolves the routing target from
   caller-supplied immutable data in ADR-0005 order (`deciders` → CODEOWNERS candidates for
   resolved affected paths → catalog owners for resolved affected entities), emitting either
-  a named active human or an explicit `unresolved` route state/reason event — with a stable,
-  reproducible ordering and no change to the exit code (Clarification C7).
+  a named active human or an explicit `unresolved` route state/reason event — with exact
+  decider/CODEOWNERS/catalog ordering, last-matching-rule CODEOWNERS semantics, and an
+  immediate `unresolved` ambiguity barrier for a team with zero or multiple active humans;
+  no change to the exit code (Clarification C7).
 - **SC-015**: A malformed proposal (`schema-valid` fails) still yields a well-formed
   `Pass0Report` of **exactly eleven** rule results in rubric order — `schema-valid` `fail`
   and the other ten `not-evaluated` — plus eight `not-proven` routing statuses,
@@ -589,7 +642,10 @@ ADRs and rubric fix the semantics they implement):
 - **A2 — Reuse Phase 0/1 machinery.** Pass 0 reuses the existing parser, schema validator,
   corpus-invariant checks, graph builder (for supersession reciprocity/cycles), and pure
   `affects` resolver, mapping their lower-level `Finding`s to rubric rule ids (FR-010).
-  It adds no second parser or resolver.
+  It adds no second parser or resolver. Target-set resolution preserves ADR-0009's per-ADR
+  semantics: at least one positive matcher is required, matching negations subtract/suppress
+  after positive matching, and `repo` qualifiers are evaluated only against the caller's
+  target-resolution log context, not the ADR record's source-log identity.
 - **A3 — Rubric rule ids are the public contract.** Consumers see the eleven rubric ids,
   not internal lint rule names; the mapping layer is an implementation seam, made explicit
   in Clarifications C2 and C3.
@@ -597,8 +653,9 @@ ADRs and rubric fix the semantics they implement):
   resolves to **zero** targets **when its backing source is present** is an
   `affects-resolvable` **warn**; a matcher whose backing source is **absent** is
   **inert/info** per ADR-0009. The existing `affects-unresolvable` (info) finding maps to
-  the **operational inert** concept, not to the `affects-resolvable` warn — this
-  distinction is load-bearing and resolved in Clarification C3.
+  the evaluator's `affects-resolvable.backing-absent` operational reason, while a registry
+  miss uses `affects-resolvable.resolver-absent`; neither becomes an
+  `affects-resolvable` warn. This distinction is load-bearing and resolved in C3.
 - **A5 — Assertion engines are ports.** All four schema engines (`rego`, `jsonpath`,
   `grep`, `custom`) participate only through registered deterministic caller-supplied
   ports; `rego`/`jsonpath` are required conformance engines, `grep`/`custom` are inert
@@ -637,11 +694,12 @@ renames, or re-severities a rubric rule, and none changes the schema.
   **only** to `no-orphan-refs`. No double report: a missing target is **not** also a
   reciprocity/cycle failure, and a reciprocity/cycle failure is **not** also an orphan
   finding (FR-010, US1 AC4).
-- **C3 — `affects-resolvable` (warn) vs `affects-unresolvable` (inert) (was GC-3).** Backing
-  source **present** with **zero real resolved targets** ⇒ `affects-resolvable` **warn**.
-  Backing source **absent** ⇒ an **operational inert** result using the ADR-0009
-  `affects-unresolvable` reason code/event, and **no** `affects-resolvable` deterministic
-  finding. `affects-unresolvable` maps to **operational inert status only**; it is never an
+- **C3 — `affects-resolvable` warn vs inert backing/port (was GC-3).** Backing source
+  **present** with **zero real resolved targets** ⇒ `affects-resolvable` **warn**. Backing
+  source **absent** ⇒ operational reason `affects-resolvable.backing-absent`; resolver port
+  absent ⇒ operational reason `affects-resolvable.resolver-absent`. Both are **inert** and
+  emit no deterministic finding. The lower-level ADR-0009 `affects-unresolvable` finding
+  maps to `backing-absent`; it is not itself the evaluator reason code and never becomes an
   `affects-resolvable` violation (FR-008, SC-009, A4).
 - **C4 — Exact Pass-0 escalation subset, as routing conditions (was GC-4).** Escalation
   triggers are evaluated as **routing conditions after the eleven rules — not extra rubric
@@ -672,7 +730,9 @@ renames, or re-severities a rubric rule, and none changes the schema.
   engine ports; a missing engine/input is **inert**; no shell, network, service, arbitrary
   command, or model. `rego` and `jsonpath` are **required conformance engines** for
   completion; `grep` and `custom` are supported **only when registered** and are otherwise
-  inert (FR-015, A5).
+  inert. Compile/artifact validation returns the engine's generic opaque immutable payload
+  and evaluation receives that exact value through the same typed port — no recompile,
+  hidden mutable registry cache, or unsafe cast (FR-015, A5).
 - **C6 — No schema change; Pass 0 never persists (was GC-6).** This feature makes **no**
   schema change. The evaluator **never persists or mutates** records; it **returns** a
   schema-compatible `evaluationPatch` that a **later caller may propose through a git PR**.
@@ -682,12 +742,16 @@ renames, or re-severities a rubric rule, and none changes the schema.
   scope**. After escalation, Pass 0 deterministically resolves the target in ADR-0005 order
   from caller-supplied immutable data: proposal `deciders`, then normalized CODEOWNERS
   candidates for the resolved affected paths, then catalog owners for the resolved affected
-  entities. Directory resolution must yield a **named active human** via a stable, total
-  ordering; if none resolves, Pass 0 emits an explicit `unresolved` route state and reason
-  event. The escalation remains true; a missing target is **not** approval and does **not**
-  invent an escalation reason. `decider-resolvable` stays the fixed **warn** rule for
-  zero/ambiguous decider identity resolution; fallback routing is **operational routing
-  behavior, not a twelfth rule** (FR-013a, SC-014).
+  entities. Deciders preserve declaration order. CODEOWNERS paths are canonical-sorted,
+  each path uses its last matching declared rule, and owners preserve that rule's declaration
+  order. Catalog entities are canonical-sorted and their owner arrays preserve declaration
+  order; both source lists stable-deduplicate on first occurrence. A team with anything other
+  than exactly one active human is an ambiguity barrier: return `unresolved` immediately and
+  do not continue fallback. If ordered candidates exhaust, Pass 0 also emits `unresolved`.
+  The escalation remains true; a missing target is **not** approval and does **not** invent an
+  escalation reason. `decider-resolvable` stays the fixed **warn** rule for zero/ambiguous
+  decider identity resolution; fallback routing is **operational routing behavior, not a
+  twelfth rule** (FR-013a, SC-014).
 - **C8 — Phase metadata: rung 5 (partial).** Project **Phase 4** corresponds to outcome
   ladder **rung 5 (partial)**, not rung 4 (per `plan.md`). Rung 4 is the MCP server
   (project Phase 5). Internal task/phase headings within this feature are distinct from the
@@ -697,9 +761,10 @@ renames, or re-severities a rubric rule, and none changes the schema.
   evaluator "decides whether ready" is replaced throughout.
 - **C10 — Exit semantics preserved.** An `error` finding ⇒ `returned` / exit `1`;
   `warn`/`info`-only ⇒ `ok` / exit `0` **even when escalation is recommended**; a
-  malformed invocation or snapshot-contract violation ⇒ exit `2`. An `unresolved` routing
-  target does **not** silently approve and does **not** change these exit codes absent a
-  rubric `error` (FR-013).
+  malformed invocation, snapshot-contract violation, or schema-valid non-proposal candidate
+  (`accepted`/`rejected`/`superseded`/`deprecated`) ⇒ input-contract exit `2` with no
+  report/patch. An `unresolved` routing target does **not** silently approve and does **not**
+  change these exit codes absent a rubric `error` (FR-013).
 - **C11 — Well-formed event stream on schema-invalid return.** Pass 0 evaluates
   `schema-valid` first; on failure it records the remaining ten rules as `not-evaluated`,
   so the `Pass0Report` always carries **exactly eleven** rule results in rubric order. The

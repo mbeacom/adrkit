@@ -166,11 +166,25 @@ ids with those of each **accepted** ADR, **once per (proposal, accepted-ADR) pai
   to expose the current internal path primitive and reuse `parsePackagePattern`; the existing
   diff-oriented package matcher takes changed-dependency transitions and is not itself a
   full-inventory resolver.
+- **ADR-0009 set semantics remain binding**: an ADR contributes targets only when at least
+  one non-negated matcher resolves; matching negated matchers subtract/suppress after positive
+  matching; a negation-only matcher set resolves to the empty set rather than "everything
+  except"; and a `repo` qualifier participates only in the matching normalized log context.
+  The caller supplies that current target-resolution log separately from each ADR record's
+  source `log`; the evaluator passes it explicitly to every resolver port. Unqualified
+  matchers apply in that context, same-`repo` qualifiers resolve normally, and a
+  different-`repo` qualifier contributes no local match.
 - **`entity` / `resource` / `api` / `data`** resolve via **caller-supplied immutable
   snapshots + registered deterministic resolver ports**.
-- **Missing snapshot/port ⇒ operational inert** (never a violation). **Backing present +
-  zero resolved target ids ⇒ `affects-resolvable` warn.** No accepted ADRs / no overlapping
-  pair ⇒ no finding (pass), never a guess (C3).
+- **Missing snapshot/port ⇒ operational inert** (never a violation): a missing inventory uses
+  `affects-resolvable.backing-absent`, while a missing registered port uses
+  `affects-resolvable.resolver-absent`. **Backing present + zero resolved target ids ⇒
+  `affects-resolvable` warn.** For `affects-overlap`, primary
+  reason precedence is explicit: any intersection wins as
+  `affects-overlap.accepted-intersection`; otherwise, zero accepted ADRs passes as
+  `affects-overlap.no-accepted-corpus` without requiring pair resolution; with accepted ADRs,
+  absent required backing is inert; and only a fully evaluated accepted corpus with no
+  intersection passes as `affects-overlap.none`.
 
 **Rationale**: **the existing `resolveAffects` is diff-oriented** — it answers "does this
 matcher match this changed-file list?" It **cannot prove all-target resolvability** (that
@@ -271,21 +285,31 @@ than editing the schema (Principle V; C6).
 ## R7 — Assertion engines through a deterministic `AssertionEngineRegistry` of ports
 
 **Decision**: all assertion evaluation flows through a deterministic
-**`AssertionEngineRegistry`** keyed by engine name (`rego`, `jsonpath`, `grep`, `custom`),
-each an **`AssertionEnginePort`** with pure `compile` + `evaluate` operations over
-caller-supplied content + input snapshots. **No engine may shell out, open a socket, read the
-filesystem, run an arbitrary command, or call a model.** **Rego and JSONPath are required
-conformance engines** (behind R1's gate); `grep` / `custom` evaluate **only when a
-deterministic port is registered**, otherwise the assertion is **inert**.
+**`AssertionEngineRegistry`** with one typed optional property per engine (`rego`,
+`jsonpath`, `grep`, `custom`). Each property pairs an **`AssertionEnginePort<E, Payload>`**
+with its engine-owned opaque immutable compiled-payload type. `compile` (or artifact
+validation) returns `CompiledAssertion<E, Payload>` and the evaluator passes that exact value
+directly to the **same port's** `evaluate`; it never inspects the payload, recompiles, or uses
+a hidden registry cache keyed by a ref. The registry and `Pass0Input` are generic over the
+four payload types so a switch on `assertion.engine` keeps compile/evaluate paired without
+`any` or `unknown` casts. Operations consume caller-supplied content + input snapshots.
+**No engine may shell out, open a socket, read the filesystem, run an arbitrary command, or
+call a model.** **Rego and JSONPath are required conformance engines** (behind R1's gate);
+`grep` / `custom` evaluate **only when a deterministic port is registered**, otherwise the
+assertion is **inert**.
 
 **Rationale**: ports invert the dependency so the deterministic-engine technology choice (R1)
-is replaceable and testable with in-memory fakes; the registry gives a single, auditable
-enforcement point for "deterministic, offline, no-shell" (Principle II/IV; FR-015/C5). A
-missing engine being **inert** (not fail) preserves ADR-0009 degradation.
+is replaceable and testable with in-memory fakes; the typed payload handoff makes the compile
+result executable without hidden mutable state or a second compile; and the registry gives a
+single, auditable enforcement point for "deterministic, offline, no-shell" (Principle II/IV;
+FR-015/C5). A missing engine being **inert** (not fail) preserves ADR-0009 degradation.
 
 **Alternatives rejected**:
 - *Hard-code one engine implementation in the rule module* — rejected: couples rule logic to
   a specific (unresolved, R1) library and blocks in-memory test doubles.
+- *Return only an engine/ref token and look up compiled state later* — rejected: requires
+  hidden mutable registry state or recompilation, breaks purity/reproducibility, and loses
+  compile/evaluate type pairing.
 - *Allow a `custom` engine to run a shell command* — rejected: non-deterministic, unsafe,
   breaks clean-clone; forbidden by Principle II/IV and FR-006.
 
@@ -328,14 +352,26 @@ resolve unambiguously to one active principal; none declared, zero match, or amb
 resolution ⇒ **warn** (never an arbitrary pick). Named-human **escalation-target** resolution
 (C7) is in scope and deterministic, in **ADR-0005 order**: (1) proposal `deciders`, (2)
 normalized CODEOWNERS candidates for the proposal's **resolved paths** (R4), (3) catalog
-owners for the proposal's **resolved entities**. **Stable ordering**: source priority
-(1→2→3), then declared/normalized owner order within a source, then canonical identity.
-**Teams resolve through snapshot membership to exactly one named active human**; if a team
-resolves to zero or many active humans, the target is **`unresolved`** (an explicit route
-state/event), never an arbitrary human.
+owners for the proposal's **resolved entities**. **Exact ordering**:
+
+1. proposal deciders in declaration order;
+2. unique resolved paths sorted by canonical path key; for each path, select the **last**
+   matching CODEOWNERS rule in declaration order and append that rule's owners in declaration
+   order;
+3. unique resolved entity ids sorted by canonical target key; for each entity, append its
+   catalog owners in snapshot declaration order.
+
+Each source stable-deduplicates principals at first occurrence; identities are not globally
+sorted. A missing/inactive direct human is skipped. A team resolves through snapshot
+membership only when it has **exactly one named active human**. The first ordered team with
+zero or multiple active human members is an **ambiguity barrier**: routing immediately returns
+`unresolved` and does not fall through to any later candidate or source. Exhausting all
+candidates also returns `unresolved`.
 
 **Rationale**: routing to a *human* must be reproducible and defensible; picking arbitrarily
-from an ambiguous set is non-deterministic and unfair. A snapshot of normalized principals +
+from an ambiguous set is non-deterministic and unfair, while silently skipping an ambiguous
+higher-priority team bypasses declared authority. CODEOWNERS last-match semantics and
+owner-declaration order must survive normalization. A snapshot of normalized principals +
 memberships makes membership resolution pure and total-ordered; the explicit `unresolved`
 state is the honest output when the snapshot cannot name exactly one active human (Principle
 IV; ADR-0009 degradation).
@@ -345,6 +381,8 @@ IV; ADR-0009 degradation).
   non-reproducible; must be a caller snapshot.
 - *Pick the first human from an ambiguous team* — rejected: non-deterministic outcome for the
   affected human; must **warn / `unresolved`**.
+- *Skip an ambiguous team and continue fallback* — rejected: bypasses a higher-priority
+  declared owner; the safe deterministic result is immediate `unresolved`.
 - *Skip named-human resolution (route to a team)* — rejected: C7 puts named-human target
   resolution in scope with a defined order.
 
@@ -405,10 +443,15 @@ only existing enum values keeps the patch schema-compatible (R12/Principle V).
   (**violations only**), `escalate`, `escalationReasons[]`.
 
 **Ordering**: rubric-rule order first (the eleven, fixed), then within a rule a stable
-secondary key (candidate id, related id, matcher/assertion id, canonical target id,
-path/field, message). **Routing events** follow the eleven rule events in a separate section.
-**Canonical serialization**: sorted object keys, sorted arrays by the stable keys, LF
-newlines, **no timestamps or insertion-order dependence** in the deterministic payload.
+secondary key (candidate `AdrRef`, related `AdrRef`, canonical matcher/assertion key,
+canonical target key, report-only `recordPath`, field, message). `RuleFinding.adr` is
+strictly an `AdrRef`; lower-level paths remain separate evidence and cannot enter patch
+projection. **Routing events** follow the eleven rule events in a separate section.
+**Canonical serialization**: sorted object keys; only set-like arrays sorted by their
+documented stable comparator; fixed-order arrays (rubric results and routing triggers/reasons)
+and declaration-ordered arrays (deciders, CODEOWNERS rules/owners, catalog owners, matchers,
+assertions) preserved exactly; LF newlines; **no timestamps or accidental insertion-order
+dependence** in the deterministic payload.
 `rubricVersion` is content and lives exactly once on `Pass0Report`; it participates in
 canonical bytes. **Caller run metadata** (evaluator version, run id, wall-clock) lives in an
 **envelope OUTSIDE** the deterministic payload so byte-reproduction holds (FR-005). The
@@ -440,11 +483,11 @@ exactly one rubric rule** with **no duplicate** aggregate result:
 | Existing core finding(s) | Rubric rule (public id) | Result kind |
 |---|---|---|
 | `frontmatter-parse` / `frontmatter-fence` / `file-read`; contract findings (`strict-unknown-key`, `required-field`, `invalid-type`, `invalid-enum-value`, `contract-refinement`, `superseded-requires-supersededBy`, …) | `schema-valid` | fail (error) → then 10× `not-evaluated` (C11) |
-| `unique-id` | `id-unique` | fail (error) |
+| `unique-id` | `id-unique` | fail (error) only for a duplicate within the same normalized log; same id in different named logs passes |
 | *(new)* reciprocity / cycle (R3) | `supersession-consistent` | fail (error) |
 | `dangling-supersededBy` | `supersession-consistent` | fail (error), reported once (C2) |
 | `dangling-supersedes` / `dangling-relatesTo` | `no-orphan-refs` | fail (error); federated ref w/o log snapshot ⇒ inert (C2) |
-| `affects-unresolvable` (ADR-0009; backing absent) | `affects-resolvable` operational result only | inert; never a deterministic violation (C3) |
+| `affects-unresolvable` (ADR-0009 lower-level finding; backing absent) | `affects-resolvable.backing-absent` operational reason | inert; never a deterministic violation (C3) |
 | registry resolves against present backing with zero targets (R4) | `affects-resolvable` | fail (warn) |
 | *(new)* canonical target-id intersection (R4) | `affects-overlap` | warn / pass / inert |
 | *(new)* base→proposed org-assertion transition (R5) | `scope-hierarchy` | fail (error) / inert |
@@ -462,6 +505,16 @@ The **`evaluationPatch` projection** keeps **violations only** (`error`/`warn`/`
 findings that represent an actual rule failure), drops `pass` / `inert` / `not-evaluated`,
 maps each to `{ rule, severity, message?, adr? }`, and attaches `escalate` +
 `escalationReasons[]` from R10.
+
+**Proposal eligibility is an input contract, not a rubric rule**: the rubric evaluates only
+`draft`/`proposed` records. A schema-valid selected record with status `accepted`, `rejected`,
+`superseded`, or `deprecated` yields the typed `candidate-status-not-proposal` input error,
+no report/patch, and CLI exit `2`. A schema-invalid candidate still enters `schema-valid` and
+returns the complete eleven-result shape at exit `1`.
+
+**`affects-overlap` pass precedence is fixed**: `accepted-intersection` wins as a failure;
+otherwise an empty accepted corpus selects `no-accepted-corpus`; otherwise missing pair
+backing selects the inert reason; otherwise fully evaluated no-intersection selects `none`.
 
 **Rationale**: rubric ids as public finding ids give one stable, documented vocabulary across
 CLI, report, and patch; mapping the pre-existing lower-level findings **onto** rules (rather
@@ -487,12 +540,12 @@ downstream consumers (CI comment, MCP) able to switch on codes deterministically
 | R1 | Rego/JSONPath engines = **gated** vetted-offline-lib **or** compiled-snapshot; no `opa-wasm` raw compile, no shell-out; port-based | Principle II/IV; FR-015/C5 |
 | R2 | `@adrkit/evaluator` first-party surface package; not core, not adapter | Principle III; ADR-0005/0007; A7 |
 | R3 | **New** reciprocity + cycle checks; `buildAdrGraph` = edges only | FR-002; core reality |
-| R4 | `TargetResolutionRegistry` + canonical target ids; reuse matchers for path/package; inject ports for entity/resource/api/data | ADR-0009; C3 |
+| R4 | `TargetResolutionRegistry` + canonical target ids; preserve positive/negation and `repo` log semantics; explicit overlap reason precedence | ADR-0009; C3 |
 | R5 | scope-hierarchy = base→proposed org-assertion green→red, domain-explicit; no prose | Principle IV; C-scope |
 | R6 | Exactly one source declaration; engine never reads files; both/neither ⇒ compile error | FR-006; Principle IV |
-| R7 | `AssertionEngineRegistry` ports; Rego+JSONPath required; grep/custom inert unless registered | FR-015/C5 |
+| R7 | Generic typed `AssertionEngineRegistry` ports carry opaque immutable compile payload directly to evaluate; Rego+JSONPath required; grep/custom inert unless registered | FR-015/C5 |
 | R8 | Surface finding-evidence + one-source limits as **gated decisions**, no schema edit | Principle V; C6 |
-| R9 | Immutable identity snapshot; ambiguity warns; named-human order deciders→CODEOWNERS→catalog | C7; ADR-0005 |
+| R9 | Immutable identity snapshot; exact decider/CODEOWNERS/catalog order; ambiguous team is an immediate unresolved barrier | C7; ADR-0005 |
 | R10 | Declarative escalation OR over proven triggers, after the 11 rules; existing enum only | ADR-0005; C4 |
-| R11 | Two channels (`Pass0Report` + `evaluationPatch`); total order + canonical bytes; metadata in envelope | C1/C6; FR-005 |
-| R12 | Enumerated reason-code catalog; rubric ids = public finding ids; map existing findings, no duplicates | FR-010; C11 |
+| R11 | Two channels (`Pass0Report` + `evaluationPatch`); total order + canonical bytes; only set-like arrays sorted; metadata in envelope | C1/C6; FR-005 |
+| R12 | Enumerated reason-code catalog; rubric ids = public finding ids; map existing findings, no duplicates; non-proposal status is input error | FR-010; C10/C11 |
