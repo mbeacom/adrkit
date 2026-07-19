@@ -25,7 +25,7 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 1: Setup
 
-- [ ] T001 [P] Create the `packages/core/src/import/` module skeleton
+- [x] T001 [P] Create the `packages/core/src/import/` module skeleton
   (`index.ts`, `madr.ts`, `merge.ts`, `fingerprint.ts`, `status.ts`, `classify.ts`)
   with typed signatures per `contracts/migrate-and-reimport.md`, exported from
   `packages/core/src/index.ts`. No new third-party dep (uses `yaml`, `zod`,
@@ -33,16 +33,16 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 2: Foundational (blocking)
 
-- [ ] T002 Implement `import/madr.ts` — MADR recognition (leading `---` fence
+- [x] T002 Implement `import/madr.ts` — MADR recognition (leading `---` fence
   and/or top-level `# title`, per A1) and read via the existing Phase 0
   frontmatter parser, returning `{ frontmatter, body, path }` with body bytes
   preserved. Non-MADR files → a typed "not madr" result (no throw).
-- [ ] T003 Implement `import/fingerprint.ts` — `sha256(normalize(sourceBody))`
+- [x] T003 Implement `import/fingerprint.ts` — `sha256(normalize(sourceBody))`
   via `node:crypto` (normalize line endings to `\n`, single trailing newline).
   Deterministic; hashes the source body, NOT adrkit frontmatter (R4).
-- [ ] T004 Implement `import/status.ts` — map source status per R3
+- [x] T004 Implement `import/status.ts` — map source status per R3
   (recognized→same; unknown→`proposed` + `import-status-unrecognized` finding).
-- [ ] T005 Extend `packages/core/src/validate/findings.ts` with rule ids
+- [x] T005 Extend `packages/core/src/validate/findings.ts` with rule ids
   `import-incomplete` (info), `import-status-unrecognized` (info/warn),
   `import-not-madr` (warn); keep deterministic sort.
 
@@ -50,25 +50,25 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 3: User Story 1 — Migrate in place (Priority: P1) 🎯 MVP
 
-- [ ] T006 [US1] Implement `import/merge.ts` — compute adrkit frontmatter (fill
+- [x] T006 [US1] Implement `import/merge.ts` — compute adrkit frontmatter (fill
   only missing required fields; preserve present valid values), emit canonical
   key order + deterministic YAML, and produce the full file text as
   `<frontmatter>\n<original body bytes>` (R1/R2). No `importedAt` written (R2).
-- [ ] T007 [US1] Implement `import/index.ts` `migrateMadr({dir, files?, ...})`
+- [x] T007 [US1] Implement `import/index.ts` `migrateMadr({dir, files?, ...})`
   first pass (no re-import yet): discover MADR files, migrate each in place,
   collect per-file outcomes + findings; non-MADR → skipped + `import-not-madr`.
   Deterministic id assignment for files lacking an id (A2, reuse scaffold's
   next-id logic).
-- [ ] T008 [US1] Add `migrate` to `packages/cli/src/index.ts` dispatch:
+- [x] T008 [US1] Add `migrate` to `packages/cli/src/index.ts` dispatch:
   `adr migrate --from madr [--dir] [--dry-run] [--json]`; `--from` other than
   `madr` → usage error (exit 2); `--dry-run` computes without writing; human +
   `--json` output per contract; exit 0 even with diverged entries.
-- [ ] T009 [P] [US1] Tests `packages/core/test/migrate-inplace.test.ts`: body
+- [x] T009 [P] [US1] Tests `packages/core/test/migrate-inplace.test.ts`: body
   bytes byte-identical after migrate; frontmatter added; `adr lint`/contract
   accepts result; a later `---` in the body is preserved; non-MADR file skipped.
-- [ ] T010 [P] [US1] Tests `packages/core/test/migrate-idempotent.test.ts`: second
+- [x] T010 [P] [US1] Tests `packages/core/test/migrate-idempotent.test.ts`: second
   `migrateMadr` run yields byte-identical files (no diff) (SC-002).
-- [ ] T011 [P] [US1] Tests `packages/core/test/migrate-status.test.ts`: each
+- [x] T011 [P] [US1] Tests `packages/core/test/migrate-status.test.ts`: each
   recognized status preserved; an unrecognized status → `proposed` +
   `import-status-unrecognized` finding (SC-003).
 
@@ -77,33 +77,33 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 4: User Story 2 — Provenance & import-incomplete (Priority: P1)
 
-- [ ] T012 [US2] In `merge.ts`, populate `provenance.importedFrom`
+- [x] T012 [US2] In `merge.ts`, populate `provenance.importedFrom`
   (`sourceKind:'madr'`, `sourceRef`, `fingerprint`) for every migrated record
   (R4/FR-004).
-- [ ] T013 [US2] Implement `packages/core/src/validate/import-incomplete.ts` — the
+- [x] T013 [US2] Implement `packages/core/src/validate/import-incomplete.ts` — the
   `import-incomplete` lint rule (info) for records with `importedFrom` present but
   missing same-status required fields (e.g. accepted w/o deciders); wire it into
   `adr lint`'s finding set.
-- [ ] T014 [P] [US2] Tests `packages/core/test/migrate-provenance.test.ts`:
+- [x] T014 [P] [US2] Tests `packages/core/test/migrate-provenance.test.ts`:
   `importedFrom` + stable `fingerprint` (same across runs for unchanged source,
   SC-004); an `accepted` record with no deciders validates (no error) and yields
   exactly one `import-incomplete` info (SC-005).
-- [ ] T015 [P] [US2] Tests `packages/core/test/import-incomplete.test.ts`: rule
+- [x] T015 [P] [US2] Tests `packages/core/test/import-incomplete.test.ts`: rule
   fires on the gap, is silent when the record is complete, and never errors.
 
 **Checkpoint**: imported records are honest about provenance; gaps are visible, not blocking.
 
 ## Phase 5: User Story 3 — Re-import classifier (Priority: P2)
 
-- [ ] T016 [US3] Implement `import/classify.ts` `classifyReimport(sourceEntries,
+- [x] T016 [US3] Implement `import/classify.ts` `classifyReimport(sourceEntries,
   existingRecords, recordEdited)` — pure; returns a bucket per entry per the
   ADR-0008 table (R5); `diverged` = source changed AND record edited since import.
-- [ ] T017 [US3] Wire re-import into `migrateMadr`: when a record already carries a
+- [x] T017 [US3] Wire re-import into `migrateMadr`: when a record already carries a
   matching `importedFrom`, classify and act — `updated` writes in place,
   `unchanged` no-op, `diverged` is report-only (leave file untouched, add to
   `divergence`), `new` creates (FR-007/FR-008). Surface the divergence report in
   the CLI output.
-- [ ] T018 [P] [US3] Tests `packages/core/test/reimport-classify.test.ts`: the full
+- [x] T018 [P] [US3] Tests `packages/core/test/reimport-classify.test.ts`: the full
   new/updated/diverged/unchanged matrix; a diverged record is left byte-identical
   on disk; classifier purity (identical inputs → identical output) (SC-006).
 
@@ -111,19 +111,19 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 6: Real corpus & Polish
 
-- [ ] T019 [P] Vendor a small real-world MADR sample under
+- [x] T019 [P] Vendor a small real-world MADR sample under
   `packages/core/test/fixtures/madr-corpus/` (respect source license/attribution;
   varied statuses, block scalars) and add a test migrating it in place + asserting
   body-preservation and `adr lint` clean (SC-007). If licensing blocks vendoring,
   use a realistic synthetic corpus and document the external command.
-- [ ] T020 Document round-trip as explicitly unsupported (FR-010) — a short note in
+- [x] T020 Document round-trip as explicitly unsupported (FR-010) — a short note in
   the CLI help/`--from` error and in the feature quickstart, citing ADR-0008.
-- [ ] T021 Run the full gate with **stable Bun 1.3.14**: `bun install`,
+- [x] T021 Run the full gate with **stable Bun 1.3.14**: `bun install`,
   `bun run typecheck`, `bun test` (incl. real-corpus + classifier), `bun run
   build`, `bun run lint`, `bun run check:deps`, `bun run schema:emit && git diff
   --exit-code schema/adr.schema.json` (must be clean — no schema change), and the
   Node smoke. All green.
-- [ ] T022 [P] Manually run `adr migrate --from madr --dry-run` then a real run and
+- [x] T022 [P] Manually run `adr migrate --from madr --dry-run` then a real run and
   a second run per quickstart; confirm idempotency (empty `git diff` on run 2) and
   the divergence report shape; clean up any scratch fixtures.
 

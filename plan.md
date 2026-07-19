@@ -27,7 +27,7 @@ sync.
 |---|---|---|
 | 0 — Schema and core | `specs/001-schema-and-core/` | landed (PR #5 merged) |
 | 1 — Affects resolution | `specs/002-affects-resolution/` | landed (PR #6 merged) |
-| 2 — Migration | `specs/003-migration/` | **scoping** (spec cycle landed) |
+| 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
 | 3 — CI surface | _(unopened)_ | queued |
 | 4 — Deterministic evaluator | _(unopened)_ | queued |
 | 5 — MCP server | _(unopened)_ | queued |
