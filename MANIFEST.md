@@ -48,11 +48,13 @@ adrkit/
 - CI references `bun run schema:emit`, `bun run check:deps`, `bun run adr lint` —
   none exist yet. Phase 0 task seeds 2, 3, 6, 7. CI failing until they land is
   the correct state for a repo whose first commit is its decisions.
-- Schema `$id` is `https://adrkit.dev/...`. Register the domain **before** first
-  publish, or accept the hostname is fixed for the life of the major version.
-  Do *not* point it at `mbeacom.github.io` — ADR-0006 publishes under a personal
+- Schema `$id` is `https://adrkit.dev/...`. Now recorded and hosted — see
+  ADR-0011: the docs site serves the schema byte-for-byte at its `$id` on the
+  apex domain via GitHub Pages, and the hostname is fixed for the life of the
+  major version. Not `mbeacom.github.io` — ADR-0006 publishes under a personal
   namespace that may later transfer to an org, and a namespace-encoded `$id`
-  breaks every pinned reference on transfer.
+  breaks every pinned reference on transfer. Remaining owner action: the apex
+  DNS records in Cloudflare (see `site/DEPLOYMENT.md`).
 - ADR-0006 action item 5 — outside-OSS participation obligations — is a gate on
   going public, not on committing locally.
 - Three open questions at the foot of `plan.md`. Do not let an implementer
@@ -67,7 +69,7 @@ independent of the GitHub namespace and unaffected either way.
 
 ## Verification
 
-10 records, ids 0001–0010, no gaps. All at schema 0.1.0. No dangling `relatesTo`.
+11 records, ids 0001–0011, no gaps. All at schema 0.1.0. No dangling `relatesTo`.
 No one-way door on the auto tier. No accepted record without a decider or an
 import provenance. JSON Schema and Zod agree on property casing. No `@adr/`
 references remain — the scope is `@adrkit/*` throughout.
