@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { runAction, type ActionDeps } from '../src/action.ts';
 import { CI_COMMENT_MARKER } from '../src/comment.ts';
-import { findOwnComment, type GitHubClient } from '../src/github.ts';
+import { fallbackSelfLogin, findOwnComment, type GitHubClient } from '../src/github.ts';
 import { makeFakeClient, makeLogger } from './fake-github.ts';
 
 function deps(client: GitHubClient): ActionDeps {
@@ -81,11 +81,36 @@ describe('findOwnComment (pure)', () => {
     expect(findOwnComment(comments, marker, 'github-actions[bot]')).toBeUndefined();
   });
 
-  test('without a known identity, only adopts a bot-authored marker comment', () => {
+  test('without a known identity, does not adopt any comment (safe for custom tokens)', () => {
     const comments = [
       { id: 1, body: `${marker} human`, user: { login: 'human', type: 'User' } },
       { id: 2, body: `${marker} bot`, user: { login: 'x[bot]', type: 'Bot' } },
     ];
-    expect(findOwnComment(comments, marker, undefined)?.id).toBe(2);
+    expect(findOwnComment(comments, marker, undefined)).toBeUndefined();
+  });
+});
+
+describe('fallbackSelfLogin (token identity guard)', () => {
+  test('assumes github-actions[bot] only for the default token', () => {
+    expect(fallbackSelfLogin(true)).toBe('github-actions[bot]');
+  });
+
+  test('yields no identity for a non-default token, so no comment is adopted', () => {
+    expect(fallbackSelfLogin(false)).toBeUndefined();
+  });
+
+  test("a custom token that cannot resolve its identity does not update the default bot's comment", async () => {
+    // selfLogin undefined models a custom/App token whose /user lookup failed and is
+    // not the default GITHUB_TOKEN.
+    const client = makeFakeClient({
+      comments: [{ id: 7, body: `${CI_COMMENT_MARKER}\nby the default bot`, login: 'github-actions[bot]', type: 'Bot' }],
+      selfLogin: undefined,
+    });
+
+    const result = await runAction(deps(client));
+
+    expect(result.comment).toBe('created');
+    expect(client.updated).toHaveLength(0);
+    expect(client.store.find((comment) => comment.id === 7)?.body).toContain('by the default bot');
   });
 });

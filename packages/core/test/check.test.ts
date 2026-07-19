@@ -66,4 +66,36 @@ describe('checkChanges (core)', () => {
     expect(outcome.changedRecords).toEqual([]);
     expect(outcome.ok).toBe(true);
   });
+
+  test('a root corpus (".") matches repo-root record files', () => {
+    const lint = emptyLint([
+      { rule: 'frontmatter-parse', severity: 'error', message: 'boom', path: '0003-broken.md' },
+    ]);
+
+    const outcome = checkChanges({ lint, changedFiles: ['0003-broken.md', 'src/x.ts'], dir: '.' });
+
+    expect(outcome.changedRecords).toEqual(['0003-broken.md']);
+    expect(outcome.ok).toBe(false);
+  });
+
+  test('an empty dir yields an empty prefix, not "/"', () => {
+    const outcome = checkChanges({ lint: emptyLint(), changedFiles: ['0001-x.md', 'sub/0002-y.md'], dir: '' });
+    // Only the root-level record is a changed record; the nested one is not (flat corpus).
+    expect(outcome.changedRecords).toEqual(['0001-x.md']);
+  });
+
+  test('a trailing slash on dir is normalized', () => {
+    const outcome = checkChanges({ lint: emptyLint(), changedFiles: ['docs/adr/0001-x.md'], dir: 'docs/adr/' });
+    expect(outcome.changedRecords).toEqual(['docs/adr/0001-x.md']);
+  });
+
+  test('Windows-style backslash changed paths are normalized to forward slashes', () => {
+    const outcome = checkChanges({
+      lint: emptyLint(),
+      changedFiles: ['docs\\adr\\0001-x.md'],
+      dir: 'docs/adr',
+    });
+    expect(outcome.changedFiles).toEqual(['docs/adr/0001-x.md']);
+    expect(outcome.changedRecords).toEqual(['docs/adr/0001-x.md']);
+  });
 });

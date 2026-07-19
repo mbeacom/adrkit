@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { cp, readdir, readFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { migrateMadr } from '../src/import/index.ts';
 import { parseFrontmatter } from '../src/parse/frontmatter.ts';
@@ -26,6 +26,7 @@ describe('real MADR corpus fixture migration', () => {
   test('migrates the real vendored adr/madr corpus with body preservation and clean lint', async () => {
     const root = await resetTestDir(DIR_NAME);
     const dir = join(root, 'docs/adr');
+    await mkdir(dir, { recursive: true });
     const fixtureRecords = await recordFileNames(FIXTURE_DIR);
     for (const name of fixtureRecords) {
       await cp(join(FIXTURE_DIR, name), join(dir, name));

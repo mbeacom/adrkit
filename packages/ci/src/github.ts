@@ -49,15 +49,26 @@ export function findOwnComment(
   marker: string,
   selfLogin: string | undefined,
 ): IssueComment | undefined {
-  const marked = comments.filter((comment) => typeof comment.body === 'string' && comment.body.includes(marker));
-  if (marked.length === 0) return undefined;
+  // Without a resolved own identity we must NOT adopt any marker comment: a custom or
+  // GitHub-App token could otherwise edit a comment authored by a different bot,
+  // breaking the marker-AND-own-author rule (R5). Create a fresh comment instead.
+  if (!selfLogin) return undefined;
+  return comments.find(
+    (comment) => typeof comment.body === 'string' && comment.body.includes(marker) && comment.user?.login === selfLogin,
+  );
+}
 
-  if (selfLogin) {
-    return marked.find((comment) => comment.user?.login === selfLogin);
-  }
-  // Without a known identity, only adopt a bot-authored marker comment rather than
-  // risk editing a human's comment that quoted the marker.
-  return marked.find((comment) => comment.user?.type === 'Bot');
+/** The default GITHUB_TOKEN posts as this bot and cannot call `users.getAuthenticated`. */
+export const DEFAULT_TOKEN_LOGIN = 'github-actions[bot]';
+
+/**
+ * The author identity to assume when `users.getAuthenticated` is not callable (an
+ * installation token). Only the default `GITHUB_TOKEN` may be assumed to be
+ * `github-actions[bot]`; any other token yields `undefined` so no existing comment
+ * is adopted (R5, RC5).
+ */
+export function fallbackSelfLogin(isDefaultToken: boolean): string | undefined {
+  return isDefaultToken ? DEFAULT_TOKEN_LOGIN : undefined;
 }
 
 export type UpsertOutcome = 'created' | 'updated';
@@ -90,7 +101,7 @@ export async function upsertMarkedComment(
  * confined to this factory (and the entrypoint) — the pure logic above never
  * imports the toolkit.
  */
-export function createOctokitClient(token: string): GitHubClient {
+export function createOctokitClient(token: string, isDefaultToken: boolean): GitHubClient {
   const octokit = getOctokit(token);
   const { owner, repo } = context.repo;
   const pullNumber = context.issue.number;
@@ -101,9 +112,11 @@ export function createOctokitClient(token: string): GitHubClient {
         const { data } = await octokit.rest.users.getAuthenticated();
         return data.login;
       } catch {
-        // The default GITHUB_TOKEN cannot call users.getAuthenticated; it posts as
-        // github-actions[bot], which is the identity to match against.
-        return 'github-actions[bot]';
+        // An installation token (incl. the default GITHUB_TOKEN) cannot call
+        // users.getAuthenticated. Only the default token is safe to assume is
+        // github-actions[bot]; any other token yields undefined so we do not adopt
+        // a foreign bot's comment.
+        return fallbackSelfLogin(isDefaultToken);
       }
     },
     async listPullFiles() {

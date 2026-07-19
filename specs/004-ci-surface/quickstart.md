@@ -38,6 +38,11 @@ permissions:
 jobs:
   adr:
     runs-on: ubuntu-latest
+    env:
+      # Exposing the default token here lets the Action confirm its own comment
+      # identity (github-actions[bot]) so it updates one comment in place. Without
+      # it, an unidentifiable token safely posts a fresh comment each run.
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # full history for the merge-base changed-file diff

@@ -13,7 +13,9 @@ import { createOctokitClient } from './github.ts';
  */
 async function main(): Promise<void> {
   const dir = core.getInput('dir') || 'docs/adr';
-  const token = core.getInput('token') || process.env.GITHUB_TOKEN || '';
+  const providedToken = core.getInput('token');
+  const runnerToken = process.env.GITHUB_TOKEN ?? '';
+  const token = providedToken || runnerToken;
 
   if (!context.payload.pull_request) {
     core.info('adrkit: not a pull_request event; nothing to check.');
@@ -24,8 +26,14 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Only treat the token as the default GITHUB_TOKEN (whose comments are authored by
+  // github-actions[bot]) when it matches the runner's GITHUB_TOKEN. Absent that signal
+  // we do not assume the bot identity, so a custom/App token never adopts a foreign
+  // comment (it creates its own instead).
+  const isDefaultToken = runnerToken !== '' && token === runnerToken;
+
   await runAction({
-    client: createOctokitClient(token),
+    client: createOctokitClient(token, isDefaultToken),
     dir,
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
     extract: extractChanges,

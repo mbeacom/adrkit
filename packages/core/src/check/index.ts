@@ -51,7 +51,14 @@ function normalizeDir(dir: string | undefined): string {
   // pathological input — the changed-file paths are attacker-controlled).
   let end = forward.length;
   while (end > 0 && forward.charCodeAt(end - 1) === 47 /* '/' */) end -= 1;
-  return forward.slice(0, end);
+  const stripped = forward.slice(0, end);
+  // A root corpus ("." or now-empty) is the repo root — no path prefix, so
+  // repo-relative changed files (which never start with "./") still match.
+  return stripped === '.' ? '' : stripped;
+}
+
+function toForwardSlash(path: string): string {
+  return path.replace(/\\/g, '/');
 }
 
 /**
@@ -61,7 +68,8 @@ function normalizeDir(dir: string | undefined): string {
  * recognized as a changed record and its `error` findings count toward `ok`.
  */
 function isCorpusRecordPath(file: string, dir: string): boolean {
-  const prefix = `${dir}/`;
+  // An empty dir (root corpus) yields an empty prefix, not "/".
+  const prefix = dir ? `${dir}/` : '';
   if (!file.startsWith(prefix)) return false;
   const rest = file.slice(prefix.length);
   if (rest.length === 0 || rest.includes('/')) return false;
@@ -80,7 +88,7 @@ function uniqueSorted(values: readonly string[]): string[] {
  */
 export function checkChanges(input: CheckChangesInput): CheckOutcome {
   const dir = normalizeDir(input.dir);
-  const changedFiles = uniqueSorted(input.changedFiles);
+  const changedFiles = uniqueSorted(input.changedFiles.map(toForwardSlash));
   const changedRecords = changedFiles.filter((file) => isCorpusRecordPath(file, dir));
   const changedRecordSet = new Set(changedRecords);
 

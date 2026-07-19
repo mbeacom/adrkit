@@ -1,6 +1,6 @@
 import { checkChanges, type CheckLintResult, type CheckOutcome } from '@adrkit/core';
 import { extractChanges, type ExtractedChanges } from './changed-files.ts';
-import { CI_COMMENT_MARKER, renderComment } from './comment.ts';
+import { CI_COMMENT_MARKER, renderComment, renderTruncatedNotice } from './comment.ts';
 import { isPermissionError, upsertMarkedComment, type GitHubClient, type UpsertOutcome } from './github.ts';
 
 /** Minimal logger port so the orchestrator can be driven with a fake in tests. */
@@ -20,9 +20,30 @@ export interface ActionDeps {
 }
 
 export interface ActionResult {
-  outcome: CheckOutcome;
+  /** `null` when the diff was too large to list completely, so it was not evaluated. */
+  outcome: CheckOutcome | null;
   comment: UpsertOutcome | 'skipped';
   failed: boolean;
+  truncated: boolean;
+}
+
+/** Post or update the comment, degrading (not failing) on a comment-permission error. */
+async function comment(deps: ActionDeps, body: string): Promise<UpsertOutcome | 'skipped'> {
+  try {
+    const result = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body);
+    deps.log.info(`adrkit: ${result} the governing-decisions comment.`);
+    return result;
+  } catch (error) {
+    if (isPermissionError(error)) {
+      // Fork PRs get a read-only GITHUB_TOKEN. Surface the result in the job log
+      // instead of failing the job for a permission we cannot have (FR-014).
+      deps.log.notice(
+        `adrkit: no permission to comment on this PR (read-only token); posting the result to the job log instead.\n\n${body}`,
+      );
+      return 'skipped';
+    }
+    throw error;
+  }
 }
 
 /**
@@ -36,11 +57,15 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
   const extract = deps.extract ?? extractChanges;
   const changes = await extract(deps.client);
 
+  // Never evaluate a truncated changed-file list — that would silently miss governed
+  // files (FR-003). Post an actionable notice and stop before checkChanges.
   if (changes.truncated) {
     deps.log.warning(
-      'adrkit: the PR changed-file list hit the provider cap and may be incomplete; ' +
-        'some governing decisions could be missed.',
+      'adrkit: the PR changed-file list exceeded the provider cap and could not be obtained ' +
+        'completely; governing decisions were not computed for this PR.',
     );
+    const result = await comment(deps, renderTruncatedNotice());
+    return { outcome: null, comment: result, failed: false, truncated: true };
   }
 
   const lint = await deps.loadLint(deps.dir);
@@ -51,23 +76,7 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
     snapshots: { changedDependencies: changes.changedDependencies },
   });
 
-  const body = renderComment(outcome);
-
-  let comment: UpsertOutcome | 'skipped' = 'skipped';
-  try {
-    comment = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body);
-    deps.log.info(`adrkit: ${comment} the governing-decisions comment.`);
-  } catch (error) {
-    if (isPermissionError(error)) {
-      // Fork PRs get a read-only GITHUB_TOKEN. Surface the result in the job log
-      // instead of failing the job for a permission we cannot have (FR-014).
-      deps.log.notice(
-        `adrkit: no permission to comment on this PR (read-only token); posting the result to the job log instead.\n\n${body}`,
-      );
-    } else {
-      throw error;
-    }
-  }
+  const result = await comment(deps, renderComment(outcome));
 
   const changedRecordErrors = outcome.findings.filter(
     (finding) =>
@@ -80,5 +89,5 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
     );
   }
 
-  return { outcome, comment, failed };
+  return { outcome, comment: result, failed, truncated: false };
 }

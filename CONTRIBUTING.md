@@ -73,3 +73,24 @@ changes are minor. See
 
 Rubric changes are decisions, not tweaks. They ship as an ADR with calibration
 deltas attached — see [ADR-0005](docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md).
+
+## Changing the CI Action (`packages/ci`)
+
+The `@adrkit/ci` Action ships a committed, self-contained bundle at
+`packages/ci/dist/index.js`, and CI enforces it matches source with a
+`git diff --exit-code packages/ci/dist` gate (mirroring `schema-emit-matches`).
+
+**Rebuild the bundle under `linux/amd64` bun 1.3.14** (the CI toolchain) — not on a
+Mac. bun's CJS-interop codegen differs between the macOS-arm64 and linux-x64 builds
+of the same bun version, so a Mac-built bundle drifts and fails the gate. Use the
+pinned container:
+
+```bash
+docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work oven/bun:1.3.14 \
+  bash -c "bun install --frozen-lockfile && bun run --filter='@adrkit/ci' build"
+bun install --frozen-lockfile   # restore your local (host) install afterward
+```
+
+Then commit `packages/ci/dist`. Any change to `packages/ci/src` **or** `@adrkit/core`
+(which is bundled in) requires regenerating it.
+

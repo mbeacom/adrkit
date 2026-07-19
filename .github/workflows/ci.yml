@@ -78,7 +78,9 @@ jobs:
       - name: adr check on the PR's changed files
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
-          mapfile -t changed < <(git diff --name-only --diff-filter=d "origin/${{ github.base_ref }}...HEAD")
+          # Include deletions: a decision may govern a removed path, so deleted files
+          # must stay in the changed set for path matchers to fire.
+          mapfile -t changed < <(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "Changed files:"
           printf '  %s\n' "${changed[@]}"
           if [ "${#changed[@]}" -eq 0 ]; then

@@ -48275,10 +48275,14 @@ function normalizeDir(dir) {
   let end = forward.length;
   while (end > 0 && forward.charCodeAt(end - 1) === 47)
     end -= 1;
-  return forward.slice(0, end);
+  const stripped = forward.slice(0, end);
+  return stripped === "." ? "" : stripped;
+}
+function toForwardSlash(path) {
+  return path.replace(/\\/g, "/");
 }
 function isCorpusRecordPath(file2, dir) {
-  const prefix = `${dir}/`;
+  const prefix = dir ? `${dir}/` : "";
   if (!file2.startsWith(prefix))
     return false;
   const rest = file2.slice(prefix.length);
@@ -48291,7 +48295,7 @@ function uniqueSorted(values) {
 }
 function checkChanges(input) {
   const dir = normalizeDir(input.dir);
-  const changedFiles = uniqueSorted(input.changedFiles);
+  const changedFiles = uniqueSorted(input.changedFiles.map(toForwardSlash));
   const changedRecords = changedFiles.filter((file2) => isCorpusRecordPath(file2, dir));
   const changedRecordSet = new Set(changedRecords);
   const resolution = resolveAffects({
@@ -48344,12 +48348,25 @@ function pathsForFile(file2) {
 function isLockfile(filename) {
   return filename === LOCKFILE || filename.endsWith(`/${LOCKFILE}`);
 }
+function deriveChangedDependencies(files) {
+  const lockfiles = files.filter((file2) => isLockfile(file2.filename));
+  if (lockfiles.length === 0)
+    return [];
+  if (lockfiles.some((file2) => file2.patch === undefined))
+    return;
+  const byKey = new Map;
+  for (const lockfile of lockfiles) {
+    for (const dependency of deriveChangedDependenciesFromBunLockDiff(lockfile.patch)) {
+      byKey.set(`${dependency.name}\x00${dependency.version}`, dependency);
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+}
 async function extractChanges(client) {
   const files = await client.listPullFiles();
   const truncated = files.length >= LIST_FILES_CAP;
   const changedFiles = [...new Set(files.flatMap(pathsForFile))].sort((a, b) => a.localeCompare(b));
-  const lockfile = files.find((file2) => isLockfile(file2.filename));
-  const changedDependencies = lockfile?.patch ? deriveChangedDependenciesFromBunLockDiff(lockfile.patch) : [];
+  const changedDependencies = deriveChangedDependencies(files);
   return { changedFiles, changedDependencies, truncated };
 }
 
@@ -48402,18 +48419,29 @@ function renderComment(outcome) {
 `)}
 `;
 }
+function renderTruncatedNotice() {
+  return [
+    CI_COMMENT_MARKER,
+    "",
+    HEADING,
+    "",
+    "This pull request changes more files than the GitHub API can list completely, " + "so the governing decisions could not be computed reliably for it. Split the " + "change into smaller PRs, or run `adr check` locally against the full diff."
+  ].join(`
+`) + `
+`;
+}
 
 // src/github.ts
 var core2 = __toESM(require_core(), 1);
 var import_github = __toESM(require_github(), 1);
 function findOwnComment(comments, marker, selfLogin) {
-  const marked = comments.filter((comment) => typeof comment.body === "string" && comment.body.includes(marker));
-  if (marked.length === 0)
+  if (!selfLogin)
     return;
-  if (selfLogin) {
-    return marked.find((comment) => comment.user?.login === selfLogin);
-  }
-  return marked.find((comment) => comment.user?.type === "Bot");
+  return comments.find((comment) => typeof comment.body === "string" && comment.body.includes(marker) && comment.user?.login === selfLogin);
+}
+var DEFAULT_TOKEN_LOGIN = "github-actions[bot]";
+function fallbackSelfLogin(isDefaultToken) {
+  return isDefaultToken ? DEFAULT_TOKEN_LOGIN : undefined;
 }
 async function upsertMarkedComment(client, marker, body) {
   const [comments, selfLogin] = await Promise.all([
@@ -48428,7 +48456,7 @@ async function upsertMarkedComment(client, marker, body) {
   await client.createComment(body);
   return "created";
 }
-function createOctokitClient(token) {
+function createOctokitClient(token, isDefaultToken) {
   const octokit = import_github.getOctokit(token);
   const { owner, repo } = import_github.context.repo;
   const pullNumber = import_github.context.issue.number;
@@ -48438,7 +48466,7 @@ function createOctokitClient(token) {
         const { data } = await octokit.rest.users.getAuthenticated();
         return data.login;
       } catch {
-        return "github-actions[bot]";
+        return fallbackSelfLogin(isDefaultToken);
       }
     },
     async listPullFiles() {
@@ -48488,11 +48516,28 @@ function isPermissionError(error51) {
 }
 
 // src/action.ts
+async function comment(deps, body) {
+  try {
+    const result = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body);
+    deps.log.info(`adrkit: ${result} the governing-decisions comment.`);
+    return result;
+  } catch (error51) {
+    if (isPermissionError(error51)) {
+      deps.log.notice(`adrkit: no permission to comment on this PR (read-only token); posting the result to the job log instead.
+
+${body}`);
+      return "skipped";
+    }
+    throw error51;
+  }
+}
 async function runAction(deps) {
   const extract = deps.extract ?? extractChanges;
   const changes = await extract(deps.client);
   if (changes.truncated) {
-    deps.log.warning("adrkit: the PR changed-file list hit the provider cap and may be incomplete; " + "some governing decisions could be missed.");
+    deps.log.warning("adrkit: the PR changed-file list exceeded the provider cap and could not be obtained " + "completely; governing decisions were not computed for this PR.");
+    const result2 = await comment(deps, renderTruncatedNotice());
+    return { outcome: null, comment: result2, failed: false, truncated: true };
   }
   const lint = await deps.loadLint(deps.dir);
   const outcome = checkChanges({
@@ -48501,32 +48546,21 @@ async function runAction(deps) {
     dir: deps.dir,
     snapshots: { changedDependencies: changes.changedDependencies }
   });
-  const body = renderComment(outcome);
-  let comment = "skipped";
-  try {
-    comment = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body);
-    deps.log.info(`adrkit: ${comment} the governing-decisions comment.`);
-  } catch (error51) {
-    if (isPermissionError(error51)) {
-      deps.log.notice(`adrkit: no permission to comment on this PR (read-only token); posting the result to the job log instead.
-
-${body}`);
-    } else {
-      throw error51;
-    }
-  }
+  const result = await comment(deps, renderComment(outcome));
   const changedRecordErrors = outcome.findings.filter((finding) => finding.severity === "error" && finding.path !== undefined && outcome.changedRecords.includes(finding.path));
   const failed = changedRecordErrors.length > 0;
   if (failed) {
     deps.log.setFailed(`adrkit: ${changedRecordErrors.length} changed ADR record(s) failed validation.`);
   }
-  return { outcome, comment, failed };
+  return { outcome, comment: result, failed, truncated: false };
 }
 
 // src/index.ts
 async function main() {
   const dir = core3.getInput("dir") || "docs/adr";
-  const token = core3.getInput("token") || process.env.GITHUB_TOKEN || "";
+  const providedToken = core3.getInput("token");
+  const runnerToken = process.env.GITHUB_TOKEN ?? "";
+  const token = providedToken || runnerToken;
   if (!import_github3.context.payload.pull_request) {
     core3.info("adrkit: not a pull_request event; nothing to check.");
     return;
@@ -48535,8 +48569,9 @@ async function main() {
     core3.setFailed("adrkit: no token available; set the `token` input or GITHUB_TOKEN.");
     return;
   }
+  const isDefaultToken = runnerToken !== "" && token === runnerToken;
   await runAction({
-    client: createOctokitClient(token),
+    client: createOctokitClient(token, isDefaultToken),
     dir,
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
     extract: extractChanges,

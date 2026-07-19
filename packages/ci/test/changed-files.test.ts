@@ -55,6 +55,38 @@ describe('extractChanges', () => {
     expect(changes.changedDependencies).toEqual([{ name: 'yaml', version: '2.5.1' }]);
   });
 
+  test('aggregates dependencies across multiple changed lockfiles', async () => {
+    const client = clientWithFiles([
+      { filename: 'bun.lock', patch: '+    "left-pad": ["left-pad@1.3.0", "", {}, "sha512-a"],' },
+      { filename: 'sub/bun.lock', patch: '+    "yaml": ["yaml@2.5.1", "", {}, "sha512-b"],' },
+    ]);
+
+    const changes = await extractChanges(client);
+
+    expect(changes.changedDependencies).toEqual([
+      { name: 'left-pad', version: '1.3.0' },
+      { name: 'yaml', version: '2.5.1' },
+    ]);
+  });
+
+  test('a changed lockfile with an omitted patch yields no snapshot (inert), not empty', async () => {
+    // The API omits `patch` for large files; treating that as "nothing changed" would
+    // silently miss real dependency changes, so package matchers must go inert.
+    const client = clientWithFiles([{ filename: 'bun.lock' }, { filename: 'src/a.ts' }]);
+
+    const changes = await extractChanges(client);
+
+    expect(changes.changedDependencies).toBeUndefined();
+  });
+
+  test('no changed lockfile yields an empty (resolvable) snapshot', async () => {
+    const client = clientWithFiles([{ filename: 'src/a.ts' }, { filename: 'src/b.ts' }]);
+
+    const changes = await extractChanges(client);
+
+    expect(changes.changedDependencies).toEqual([]);
+  });
+
   test('flags truncation when the file listing hits the provider cap', async () => {
     const files: PrFile[] = Array.from({ length: LIST_FILES_CAP }, (_, index) => ({ filename: `src/file-${index}.ts` }));
     const client = clientWithFiles(files);

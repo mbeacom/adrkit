@@ -62,4 +62,27 @@ describe('runAction (end to end with a fake client)', () => {
     expect(client.created[0]).toContain('Validation errors on changed records');
     expect(client.created[0]).toContain('0002-broken.md');
   });
+
+  test('never evaluates a truncated changed-file list; posts a notice and does not fail', async () => {
+    const client = makeFakeClient();
+    const logger = makeLogger();
+
+    const result = await runAction({
+      client,
+      dir: 'docs/adr',
+      // If the truncation guard works, the corpus is never loaded/evaluated.
+      loadLint: async () => {
+        throw new Error('lint must not run on a truncated diff');
+      },
+      extract: async () => ({ changedFiles: ['a.ts'], changedDependencies: [], truncated: true }),
+      log: logger.log,
+    });
+
+    expect(result.truncated).toBe(true);
+    expect(result.outcome).toBeNull();
+    expect(result.failed).toBe(false);
+    expect(client.created).toHaveLength(1);
+    expect(client.created[0]).toContain('more files than the GitHub API can list');
+    expect(logger.warning.join('\n')).toContain('exceeded the provider cap');
+  });
 });

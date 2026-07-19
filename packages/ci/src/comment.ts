@@ -68,3 +68,22 @@ export function renderComment(outcome: CheckOutcome): string {
 
   return `${lines.join('\n')}\n`;
 }
+
+/**
+ * Render the notice posted when the PR's changed-file list exceeded the provider cap
+ * and a complete list could not be obtained. The Action does NOT compute governing
+ * decisions from a partial list (FR-003); it says so instead.
+ */
+export function renderTruncatedNotice(): string {
+  return (
+    [
+      CI_COMMENT_MARKER,
+      '',
+      HEADING,
+      '',
+      'This pull request changes more files than the GitHub API can list completely, ' +
+        'so the governing decisions could not be computed reliably for it. Split the ' +
+        'change into smaller PRs, or run `adr check` locally against the full diff.',
+    ].join('\n') + '\n'
+  );
+}

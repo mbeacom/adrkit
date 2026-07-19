@@ -37,7 +37,7 @@ class PermissionError extends Error {
  * record the writes the Action performed.
  */
 export function makeFakeClient(options: FakeClientOptions = {}): FakeGitHubClient {
-  const selfLogin = options.selfLogin === undefined ? DEFAULT_SELF : options.selfLogin;
+  const selfLogin = 'selfLogin' in options ? options.selfLogin : DEFAULT_SELF;
   const rejectStatus =
     options.rejectWrites === true ? 403 : typeof options.rejectWrites === 'number' ? options.rejectWrites : undefined;
 
