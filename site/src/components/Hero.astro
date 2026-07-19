@@ -66,13 +66,26 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 				<div class="adr-record__data" aria-hidden="true">
 					<span><b>reversibility:</b> one-way-door</span>
 					<span><b>blastRadius:</b> cross-team</span>
-					<span class="adr-record__affects"><b>affects:</b></span>
+					<span class="adr-record__affects" data-route-origin><b>affects:</b></span>
 				</div>
 			</div>
 
-			<svg class="adr-instrument__routes" viewBox="0 0 680 410" aria-hidden="true">
-				<path class="adr-route adr-route--first" d="M307 286 C 382 286, 376 171, 463 171" />
-				<path class="adr-route adr-route--second" d="M307 286 C 394 286, 387 284, 463 284" />
+			<svg
+				class="adr-instrument__routes"
+				viewBox="0 0 680 410"
+				preserveAspectRatio="none"
+				aria-hidden="true"
+			>
+				<path
+					class="adr-route adr-route--first"
+					pathLength="1"
+					d="M307 286 C 382 286, 376 171, 463 171"
+				/>
+				<path
+					class="adr-route adr-route--second"
+					pathLength="1"
+					d="M307 286 C 394 286, 387 284, 463 284"
+				/>
 				<circle class="adr-route-node adr-route-node--origin" cx="307" cy="286" r="6" />
 				<circle class="adr-route-node adr-route-node--first" cx="463" cy="171" r="6" />
 				<circle class="adr-route-node adr-route-node--second" cx="463" cy="284" r="6" />
@@ -80,11 +93,11 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 
 			<div class="adr-targets" aria-hidden="true">
 				<span class="adr-targets__label">resolved targets</span>
-				<div class="adr-target">
+				<div class="adr-target" data-route-target>
 					<span>path</span>
 					<code>apps/web/app/(authed)/**</code>
 				</div>
-				<div class="adr-target">
+				<div class="adr-target" data-route-target>
 					<span>package</span>
 					<code>next@&gt;=16</code>
 				</div>
@@ -97,3 +110,57 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 		</div>
 	</div>
 </section>
+
+<script>
+	const connectDecisionRoutes = (instrument: Element) => {
+		const body = instrument.querySelector('.adr-instrument__body');
+		const svg = instrument.querySelector<SVGSVGElement>('.adr-instrument__routes');
+		const origin = instrument.querySelector('[data-route-origin]');
+		const targets = [...instrument.querySelectorAll('[data-route-target]')];
+		const paths = [...instrument.querySelectorAll<SVGPathElement>('.adr-route')];
+		const originNode = instrument.querySelector<SVGCircleElement>('.adr-route-node--origin');
+		const targetNodes = [
+			instrument.querySelector<SVGCircleElement>('.adr-route-node--first'),
+			instrument.querySelector<SVGCircleElement>('.adr-route-node--second'),
+		];
+
+		if (!body || !svg || !origin || !originNode || targets.length !== paths.length) return;
+
+		const update = () => {
+			const bodyRect = body.getBoundingClientRect();
+			const originRect = origin.getBoundingClientRect();
+			const targetRects = targets.map((target) => target.getBoundingClientRect());
+			if (!bodyRect.width || !bodyRect.height) return;
+
+			const start = {
+				x: originRect.right - bodyRect.left + 8,
+				y: originRect.top + originRect.height / 2 - bodyRect.top,
+			};
+			const ends = targetRects.map((target) => ({
+				x: target.left - bodyRect.left,
+				y: target.top + target.height / 2 - bodyRect.top,
+			}));
+
+			svg.setAttribute('viewBox', `0 0 ${bodyRect.width} ${bodyRect.height}`);
+			originNode.setAttribute('cx', String(start.x));
+			originNode.setAttribute('cy', String(start.y));
+
+			paths.forEach((path, index) => {
+				const end = ends[index];
+				const bend = Math.max(48, (end.x - start.x) * 0.42);
+				path.setAttribute(
+					'd',
+					`M ${start.x} ${start.y} C ${start.x + bend} ${start.y}, ${end.x - bend} ${end.y}, ${end.x} ${end.y}`,
+				);
+				targetNodes[index]?.setAttribute('cx', String(end.x));
+				targetNodes[index]?.setAttribute('cy', String(end.y));
+			});
+		};
+
+		update();
+		new ResizeObserver(update).observe(body);
+		document.fonts.ready.then(update);
+	};
+
+	document.querySelectorAll('.adr-instrument').forEach(connectDecisionRoutes);
+</script>

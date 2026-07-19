@@ -405,11 +405,11 @@ main > .content-panel:first-child > .sl-container {
 .adr-instrument__body {
 	position: relative;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.82fr);
+	grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.92fr);
 	flex: 1;
 	align-items: center;
 	min-height: 32rem;
-	padding: clamp(1.5rem, 4vw, 3.5rem);
+	padding: clamp(1.5rem, 5%, 3.5rem);
 }
 
 .adr-record {
@@ -478,7 +478,7 @@ main > .content-panel:first-child > .sl-container {
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
-	padding-inline-start: clamp(2rem, 5vw, 4.5rem);
+	padding-inline-start: clamp(1.5rem, 8%, 3.5rem);
 }
 
 .adr-targets__label {
@@ -523,8 +523,8 @@ main > .content-panel:first-child > .sl-container {
 	fill: none;
 	stroke: oklch(1 0 0 / 0.88);
 	stroke-width: 2;
-	stroke-dasharray: 220;
-	stroke-dashoffset: 220;
+	stroke-dasharray: 1;
+	stroke-dashoffset: 1;
 	animation: adr-route-draw 900ms var(--adr-ease-out) forwards;
 }
 
@@ -931,7 +931,8 @@ main > .content-panel:first-child > .sl-container {
 	background: transparent;
 	color: var(--adr-coral-deep);
 	font-size: 0.78em;
-	white-space: nowrap;
+	overflow-wrap: anywhere;
+	white-space: normal;
 }
 
 :root[data-theme='dark'] .sl-heading-wrapper code {
@@ -1172,9 +1173,9 @@ tbody tr:nth-child(even) {
 	*::before,
 	*::after {
 		scroll-behavior: auto;
-		transition-duration: 0.01ms;
-		animation-duration: 0.01ms;
-		animation-iteration-count: 1;
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
 	}
 
 	.adr-route {
