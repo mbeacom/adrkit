@@ -1,0 +1,31 @@
+{
+  "name": "@adrkit/ci",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build ./src/index.ts --target=node --conditions bun --outfile=dist/index.js",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "@adrkit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "files": [
+    "action.yml",
+    "dist"
+  ]
+}

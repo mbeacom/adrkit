@@ -27,6 +27,14 @@ export interface DependencyViolation {
   reason: string;
 }
 
+/**
+ * The GitHub Action toolkit (and its Octokit tree) is permitted only in the
+ * `@adrkit/ci` surface; it must never reach `@adrkit/core`, the schema, or the CLI
+ * (ADR-0007 / R2 / R3). Matched by dependency name prefix on declared deps.
+ */
+const TOOLKIT_DEPENDENCY = /^(@actions\/|@octokit\/|octokit$)/;
+const CI_SURFACE_PACKAGE = '@adrkit/ci';
+
 export interface DependencyCheckResult {
   ok: boolean;
   violations: DependencyViolation[];
@@ -104,6 +112,17 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
     };
   }
 
+  if (packageName === CI_SURFACE_PACKAGE) {
+    // The first-party CI surface may depend on core and the public GitHub Action
+    // toolkit only — never an adapter (enforced separately below).
+    return {
+      dependencies: new Set(['@adrkit/core', '@actions/core', '@actions/github']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
   return undefined;
 }
 
@@ -135,6 +154,16 @@ export async function checkDependencyRules(root = process.cwd()): Promise<Depend
             dependency,
             section,
             reason: 'non-adapter workspace depends on an adapter package',
+          });
+        }
+
+        if (packageName !== CI_SURFACE_PACKAGE && TOOLKIT_DEPENDENCY.test(dependency)) {
+          violations.push({
+            packageName,
+            packagePath,
+            dependency,
+            section,
+            reason: 'GitHub Action toolkit must stay confined to @adrkit/ci and never reach core/schema/cli',
           });
         }
 

@@ -1,0 +1,27 @@
+name: adrkit governing-decisions
+description: >-
+  Comment on a pull request with the architecture decisions that govern its
+  changed files, and validate the changed ADR records. Read-only and
+  comment-only — no database, no approval (ADR-0004). Runs with only the
+  default GITHUB_TOKEN.
+author: adrkit
+branding:
+  icon: git-pull-request
+  color: purple
+
+inputs:
+  dir:
+    description: ADR corpus directory (repo-relative).
+    required: false
+    default: docs/adr
+  token:
+    description: >-
+      Token used to read the PR's changed files and post the comment. The
+      default GITHUB_TOKEN is sufficient; pull-requests write permission is
+      needed to comment (the Action degrades to a log notice without it).
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: node24
+  main: dist/index.js

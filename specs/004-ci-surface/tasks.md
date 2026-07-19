@@ -55,20 +55,20 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 1: Setup
 
-- [ ] T001 [P] [SETUP] Scaffold the `@adrkit/ci` surface package at `packages/ci/`
+- [x] T001 [P] [SETUP] Scaffold the `@adrkit/ci` surface package at `packages/ci/`
   (peer of `@adrkit/cli`): `package.json` (deps `@adrkit/core` `workspace:*`,
   `@actions/core`, `@actions/github`), `tsconfig.json`, `tsconfig.build.json`,
   `action.yml` with **`runs.using: node24`** (FR-016/R11) and `runs.main` pointing at the
   committed bundle (T00B). Inputs `dir`, `token`. Install with **stable Bun 1.3.14**;
   confirm `bun.lock` stays lockfileVersion 1.
-- [ ] T00B [SETUP] **Committed self-contained bundle (FR-015/R10).** Add a `bun build`
+- [x] T00B [SETUP] **Committed self-contained bundle (FR-015/R10).** Add a `bun build`
   step that bundles the Action entrypoint **plus `@adrkit/core` and the GitHub toolkit**
   into a single committed `packages/ci/dist/` artifact, and point `action.yml`'s
   `runs.main` at it. Add a **bundle drift check** to `.github/workflows/ci.yml` (rebuild
   and `git diff --exit-code` the committed bundle, mirroring `schema-emit-matches`) and a
   **Node smoke test** that the bundle runs under Node 24 (extend `scripts/smoke-node.mjs`
   or add a sibling). Commit the built bundle.
-- [ ] T002 [SETUP] Extend `scripts/check-deps.ts` so `core-has-no-adapter-deps` also
+- [x] T002 [SETUP] Extend `scripts/check-deps.ts` so `core-has-no-adapter-deps` also
   asserts (a) `@adrkit/ci` imports nothing from `packages/adapters/*` and (b) the
   GitHub toolkit (`@actions/*`, Octokit) never reaches `@adrkit/core` or the schema —
   it stays confined to the `@adrkit/ci` surface (FR-013, R2/R3); confirm the check
@@ -87,7 +87,7 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
   toward `ok` (RC3/R1). Pure; no GitHub, no adapter import, no fs traversal beyond the
   supplied lint result. (Placing it in core lets both `adr check` and the Action call it
   without the CLI depending on `@adrkit/ci` or its GitHub deps — R2.)
-- [ ] T004 [FOUND] Implement `packages/ci/src/comment.ts` — render the comment from a
+- [x] T004 [FOUND] Implement `packages/ci/src/comment.ts` — render the comment from a
   `Check outcome`: hidden marker `<!-- adrkit:ci -->`, governing list (`id — title`
   + `via <type>: <pattern>`), concise empty state (FR-007), and a validation notice
   when a changed record has an `error` finding (R7). Selective by construction —
@@ -111,7 +111,7 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 4: User Story 1 — Governing-decisions PR comment (Priority: P1) 🎯 MVP
 
-- [ ] T007 [US1] Implement `packages/ci/src/changed-files.ts` — extract the PR's
+- [x] T007 [US1] Implement `packages/ci/src/changed-files.ts` — extract the PR's
   **complete** changed-file list via a **fully paginated `pulls.listFiles`** (all pages)
   or a local **merge-base (`base…head`) `git diff`** on the checkout; **do not** use the
   compare API's file list (GitHub caps it, e.g. 300 files, and truncates). Handle the
@@ -119,17 +119,17 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
   notice if a complete list cannot be obtained (impure; Action-only, R4/FR-003). Derive
   `changedDependencies` from the lockfile diff via the existing
   `deriveChangedDependenciesFromBunLockDiff` for `package` matchers.
-- [ ] T008 [US1] Implement `packages/ci/src/github.ts` — a thin injectable client port:
+- [x] T008 [US1] Implement `packages/ci/src/github.ts` — a thin injectable client port:
   **paginate all PR comments** and find the Action's prior comment by matching **both**
   the `<!-- adrkit:ci -->` marker **and** the Action's own author identity; create or
   update accordingly (R5/FR-005). Real impl uses `@actions/github`; tests inject a fake.
-- [ ] T009 [US1] Implement `packages/ci/src/index.ts` — the Action entrypoint: read
+- [x] T009 [US1] Implement `packages/ci/src/index.ts` — the Action entrypoint: read
   inputs (`dir`, `token` default `${{ github.token }}`), extract the complete file list
   (T007), build the lint result + snapshots and run the core `checkChanges` (T003),
   render (T004), create/update the comment (T008), and set job outcome — **fail iff** a
   changed record has an `error` finding (FR-002), succeed otherwise regardless of
   governing-list size.
-- [ ] T010 [P] [US1] Tests `packages/ci/test/comment-render.test.ts`: governing entry
+- [x] T010 [P] [US1] Tests `packages/ci/test/comment-render.test.ts`: governing entry
   shape (id + title + fired matcher); union of multiple records; inert matchers
   (entity/resource/api/data) absent from the list but present as `info` findings
   (FR-009).
@@ -138,13 +138,13 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 5: User Story 3 — Selective & idempotent (Priority: P2)
 
-- [ ] T011 [P] [US3] Tests `packages/ci/test/comment-idempotent.test.ts` (fake client):
+- [x] T011 [P] [US3] Tests `packages/ci/test/comment-idempotent.test.ts` (fake client):
   first run creates a marker comment; second run **edits the same** comment, not a new
   one (SC-004). Plus RC5 coverage: (a) a **foreign/pre-existing comment bearing the
   marker** (different author) is **not** edited — the Action creates/edits only its own;
   (b) the Action's **own marker comment on a later page** is found and edited, not
   duplicated (requires the client to paginate).
-- [ ] T012 [P] [US3] Tests `packages/ci/test/selectivity.test.ts`: a **>10-record**
+- [x] T012 [P] [US3] Tests `packages/ci/test/selectivity.test.ts`: a **>10-record**
   fixture corpus with a subset diff yields a comment listing **only** the governing
   subset (SC-003); a diff nothing governs yields the concise empty note (SC-005), not
   a corpus dump.
@@ -153,11 +153,11 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 6: User Story 4 — Default-token-only & degradation (Priority: P1)
 
-- [ ] T013 [US4] In the Action, detect a read-only/insufficient token and **degrade**:
+- [x] T013 [US4] In the Action, detect a read-only/insufficient token and **degrade**:
   still run the check, skip commenting with a job-log notice, and **do not** fail the
   job on a comment-permission error (FR-014/R8). Require no secret beyond `token`
   (default `GITHUB_TOKEN`).
-- [ ] T014 [P] [US4] Tests `packages/ci/test/token-degrade.test.ts` (fake client that
+- [x] T014 [P] [US4] Tests `packages/ci/test/token-degrade.test.ts` (fake client that
   rejects writes): the check still runs and the job is not failed by the comment
   failure (SC-006).
 
