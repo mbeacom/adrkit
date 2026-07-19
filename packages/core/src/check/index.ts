@@ -46,7 +46,12 @@ const RECORD_BASENAME = /^\d{4,}-.+\.md$/;
 const TEMPLATE_BASENAME = '0000-template.md';
 
 function normalizeDir(dir: string | undefined): string {
-  return (dir ?? 'docs/adr').replace(/\\/g, '/').replace(/\/+$/, '');
+  const forward = (dir ?? 'docs/adr').replace(/\\/g, '/');
+  // Strip trailing slashes without a regex (avoids super-linear scanning on
+  // pathological input — the changed-file paths are attacker-controlled).
+  let end = forward.length;
+  while (end > 0 && forward.charCodeAt(end - 1) === 47 /* '/' */) end -= 1;
+  return forward.slice(0, end);
 }
 
 /**

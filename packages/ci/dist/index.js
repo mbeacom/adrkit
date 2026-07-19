@@ -48271,7 +48271,11 @@ function resolveAffects(input) {
 var RECORD_BASENAME = /^\d{4,}-.+\.md$/;
 var TEMPLATE_BASENAME = "0000-template.md";
 function normalizeDir(dir) {
-  return (dir ?? "docs/adr").replace(/\\/g, "/").replace(/\/+$/, "");
+  const forward = (dir ?? "docs/adr").replace(/\\/g, "/");
+  let end = forward.length;
+  while (end > 0 && forward.charCodeAt(end - 1) === 47)
+    end -= 1;
+  return forward.slice(0, end);
 }
 function isCorpusRecordPath(file2, dir) {
   const prefix = `${dir}/`;
