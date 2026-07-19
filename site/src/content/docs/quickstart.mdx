@@ -37,10 +37,10 @@ Install Bun, then clone the repository and install dependencies.
    bun install
    ```
 
-3. Run the CLI through the repo's `adr` script:
+3. Validate the bundled corpus to confirm the CLI works:
 
    ```sh
-   bun run adr --help
+   bun run adr lint
    ```
 
 </Steps>
@@ -50,8 +50,10 @@ the same commands run as `adr <command>` (or `npx adr <command>`).
 
 ## Validate a corpus — `adr lint`
 
-Validate every record under `docs/adr/`, catch supersession cycles, and surface
-decisions that silently contradict each other.
+Validate every record under `docs/adr/` against the schema, enforce unique ids,
+flag dangling references between records (`supersedes` / `supersededBy` /
+`relatesTo` / `conflictsWith`), and warn when an accepted record declares a
+conflict via `conflictsWith`.
 
 ```sh
 bun run adr lint

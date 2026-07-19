@@ -25,3 +25,4 @@ pnpm-debug.log*
 # scripts/gen-adr-pages.ts.
 public/schema/
 src/content/docs/adr/
+src/generated/

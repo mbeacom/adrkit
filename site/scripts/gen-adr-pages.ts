@@ -23,15 +23,10 @@ const repoRoot = resolve(siteDir, '..');
 const sourceDir = join(repoRoot, 'docs', 'adr');
 const outDir = join(siteDir, 'src', 'content', 'docs', 'adr');
 const GITHUB_BLOB = 'https://github.com/mbeacom/adrkit/blob/main/docs/adr';
+const GITHUB_EDIT = 'https://github.com/mbeacom/adrkit/edit/main/docs/adr';
+const GITHUB_TREE = 'https://github.com/mbeacom/adrkit/tree/main/docs/adr';
 
 type Frontmatter = Record<string, unknown>;
-
-interface Affect {
-  type?: string;
-  pattern?: string;
-  repo?: string;
-  negate?: boolean;
-}
 
 interface AdrDoc {
   file: string;
@@ -66,6 +61,26 @@ function str(value: unknown): string | undefined {
 
 function strArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+function obj(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function objArray(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value)
+    ? value.filter((v): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v))
+    : [];
+}
+
+function numOrBool(value: unknown): string | undefined {
+  return typeof value === 'number' || typeof value === 'boolean' ? String(value) : undefined;
+}
+
+function collapse(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 /** Pull the first markdown H1 out of the body, returning the heading text and the rest. */
@@ -109,32 +124,124 @@ function metadataTable(fm: Frontmatter, file: string): string {
     if (value) rows.push([label, value]);
   };
   const code = (value: string): string => `\`${escapeCell(value)}\``;
-  const codeList = (values: string[]): string =>
-    values.length ? values.map(code).join(', ') : '';
+  const codeList = (values: string[]): string => (values.length ? values.map(code).join(', ') : '');
+  const codeOf = (value: unknown): string | undefined => {
+    const s = str(value);
+    return s ? code(s) : undefined;
+  };
+  const link = (label: string, url: string): string => `[${escapeCell(label)}](${url})`;
 
-  push('Status', str(fm['status']));
-  push('Date', str(fm['date']));
-  push('Reversibility', str(fm['reversibility']));
-  push('Blast radius', str(fm['blastRadius']));
-  push('Scope', str(fm['scope']));
-  push('Deciders', codeList(strArray(fm['deciders'])));
+  // Lifecycle
+  push('Status', codeOf(fm['status']));
+  push('Date', codeOf(fm['date']));
+  push('Created', codeOf(fm['created']));
+  push('Review by', codeOf(fm['reviewBy']));
+  push('Schema version', codeOf(fm['schemaVersion']));
+
+  // Classification
+  push('Reversibility', codeOf(fm['reversibility']));
+  push('Blast radius', codeOf(fm['blastRadius']));
+  push('Scope', codeOf(fm['scope']));
+  push('Domain', codeOf(fm['domain']));
   push('Tags', codeList(strArray(fm['tags'])));
-  push('Supersedes', codeList(strArray(fm['supersedes'])));
-  push('Superseded by', str(fm['supersededBy']) ? code(str(fm['supersededBy']) as string) : undefined);
-  push('Relates to', codeList(strArray(fm['relatesTo'])));
+  push('Compliance controls', codeList(strArray(fm['complianceControls'])));
 
-  const affects = Array.isArray(fm['affects']) ? (fm['affects'] as Affect[]) : [];
-  const affectsRendered = affects
-    .filter((a) => a && typeof a === 'object')
+  // People (RACI)
+  push('Deciders', codeList(strArray(fm['deciders'])));
+  push('Consulted', codeList(strArray(fm['consulted'])));
+  push('Informed', codeList(strArray(fm['informed'])));
+
+  // Provenance
+  const provenance = obj(fm['provenance']);
+  if (provenance) {
+    push('Authored by', codeOf(provenance['authoredBy']));
+    push('Ratified by', codeOf(provenance['ratifiedBy']));
+    const agent = obj(provenance['agent']);
+    if (agent) {
+      const parts = (['name', 'model', 'harness', 'runId'] as const)
+        .map((k) => (str(agent[k]) ? `${k}: ${str(agent[k])}` : undefined))
+        .filter((p): p is string => Boolean(p));
+      push('Agent', parts.length ? escapeCell(parts.join(' · ')) : undefined);
+    }
+    push('Source artifact', codeOf(provenance['sourceArtifact']));
+    const importedFrom = obj(provenance['importedFrom']);
+    if (importedFrom) {
+      const sk = str(importedFrom['sourceKind']) ?? '?';
+      const sr = str(importedFrom['sourceRef']) ?? '?';
+      push('Imported from', code(`${sk}:${sr}`));
+    }
+  }
+
+  // Review / routing
+  const review = obj(fm['review']);
+  if (review) {
+    push('Review tier', codeOf(review['tier']));
+    push('Review reason', str(review['tierReason']) ? escapeCell(collapse(str(review['tierReason']) as string)) : undefined);
+    push('Quorum', numOrBool(review['quorum']));
+    push('SLA (days)', numOrBool(review['slaDays']));
+    push('Approvals', codeList(strArray(review['approvals'])));
+    push('Decided at', codeOf(review['decidedAt']));
+    push('Queued at', codeOf(review['queuedAt']));
+    push('Escalated at', codeOf(review['escalatedAt']));
+    const objections = objArray(review['objections'])
+      .map((o) => {
+        const by = str(o['by']) ?? '?';
+        const state = o['resolved'] === true ? 'resolved' : 'open';
+        return code(`${by} (${state})`);
+      })
+      .join(', ');
+    push('Objections', objections || undefined);
+  }
+
+  // Enforcement
+  const assertions = objArray(fm['assertions'])
     .map((a) => {
-      const prefix = a.negate ? '!' : '';
-      const scope = a.repo ? `${a.repo}:` : '';
-      return code(`${prefix}${scope}${a.type ?? '?'}:${a.pattern ?? ''}`);
+      const id = str(a['id']) ?? '?';
+      const meta = [str(a['engine']), str(a['severity'])].filter(Boolean).join(', ');
+      return code(meta ? `${id} (${meta})` : id);
     })
     .join(', ');
-  push('Affects', affectsRendered);
+  push('Assertions', assertions || undefined);
 
-  push('Source', `[\`docs/adr/${file}\`](${GITHUB_BLOB}/${file})`);
+  // External references
+  const externalRefs = objArray(fm['externalRefs'])
+    .map((r) => {
+      const url = str(r['url']);
+      const label = str(r['label']) ?? str(r['type']) ?? url ?? 'link';
+      return url ? link(label, url) : escapeCell(label);
+    })
+    .join(', ');
+  push('External refs', externalRefs || undefined);
+
+  // Evaluation (deterministic-first scoring; typically empty until an evaluator runs)
+  const evaluation = obj(fm['evaluation']);
+  if (evaluation) {
+    const parts: string[] = [];
+    if (typeof evaluation['escalate'] === 'boolean') parts.push(`escalate: ${evaluation['escalate']}`);
+    const scores = obj(evaluation['scores']);
+    if (scores) parts.push(`scores: ${Object.keys(scores).length}`);
+    for (const k of ['evaluatorVersion', 'rubricVersion'] as const) {
+      if (str(evaluation[k])) parts.push(`${k}: ${str(evaluation[k])}`);
+    }
+    push('Evaluation', parts.length ? escapeCell(parts.join('; ')) : undefined);
+  }
+
+  // Decision graph
+  push('Conflicts with', codeList(strArray(fm['conflictsWith'])));
+  push('Supersedes', codeList(strArray(fm['supersedes'])));
+  push('Superseded by', codeOf(fm['supersededBy']));
+  push('Relates to', codeList(strArray(fm['relatesTo'])));
+
+  const affects = objArray(fm['affects'])
+    .map((a) => {
+      const negate = a['negate'] === true ? '!' : '';
+      const repo = str(a['repo']) ? `${str(a['repo'])}:` : '';
+      return code(`${negate}${repo}${str(a['type']) ?? '?'}:${str(a['pattern']) ?? ''}`);
+    })
+    .join(', ');
+  push('Affects', affects || undefined);
+
+  push('Source', link(`docs/adr/${file}`, `${GITHUB_BLOB}/${file}`));
 
   if (rows.length === 0) return '';
   const header = '| Field | Value |\n| --- | --- |\n';
@@ -163,6 +270,9 @@ function renderPage(doc: AdrDoc): string {
   const frontmatter: Record<string, unknown> = {
     title,
     description,
+    // Generated pages live in a git-ignored directory, so Starlight's global
+    // editLink would 404. Point "Edit this page" at the canonical source record.
+    editUrl: `${GITHUB_EDIT}/${doc.file}`,
     sidebar: {
       order: isTemplate(doc) ? 1 : Number(doc.num) + 1,
       badge: { text: status, variant: STATUS_VARIANT[status] ?? 'default' },
@@ -178,6 +288,9 @@ function renderIndex(docs: AdrDoc[]): string {
   const frontmatter = {
     title: 'Decision records',
     description: 'The adrkit ADR corpus — the project governed by its own tooling.',
+    // This index is generated (no single canonical source file), so disable the
+    // "Edit this page" link rather than point it at a git-ignored path.
+    editUrl: false,
     sidebar: { order: 0 },
   };
   const rows = docs
@@ -191,7 +304,7 @@ function renderIndex(docs: AdrDoc[]): string {
     .join('\n');
 
   const yaml = stringifyYaml(frontmatter).trimEnd();
-  return `---\n${yaml}\n---\n\nadrkit dogfoods its own format: every decision in this project is a typed\ndecision record in [\`docs/adr/\`](${GITHUB_BLOB.replace('/blob/main/docs/adr', '/tree/main/docs/adr')}).\nThese pages are generated from those source files — the records themselves are\nnever edited to fit this site.\n\n| # | Decision | Status |\n| --- | --- | --- |\n${rows}\n\nSee the [ADR template](/adr/0000-template/) for the copy-ready starting point.\n`;
+  return `---\n${yaml}\n---\n\nadrkit dogfoods its own format: every decision in this project is a typed\ndecision record in [\`docs/adr/\`](${GITHUB_TREE}).\nThese pages are generated from those source files — the records themselves are\nnever edited to fit this site.\n\n| # | Decision | Status |\n| --- | --- | --- |\n${rows}\n\nSee the [ADR template](/adr/0000-template/) for the copy-ready starting point.\n`;
 }
 
 function main(): void {
@@ -200,10 +313,17 @@ function main(): void {
     .sort();
 
   const docs: AdrDoc[] = files.map((file) => {
-    const raw = readFileSync(join(sourceDir, file), 'utf8');
-    const { frontmatter, body } = splitFrontmatter(raw);
-    const num = (/^(\d+)-/.exec(file)?.[1] ?? '0000').padStart(4, '0');
-    return { file, num, frontmatter, body };
+    try {
+      const raw = readFileSync(join(sourceDir, file), 'utf8');
+      const { frontmatter, body } = splitFrontmatter(raw);
+      const num = (/^(\d+)-/.exec(file)?.[1] ?? '0000').padStart(4, '0');
+      return { file, num, frontmatter, body };
+    } catch (error) {
+      throw new Error(
+        `Failed to parse ADR source docs/adr/${file}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
   });
 
   rmSync(outDir, { recursive: true, force: true });

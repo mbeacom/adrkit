@@ -1,16 +1,23 @@
 name: Deploy site
 
-# Builds the Astro/Starlight docs site with Bun and deploys it to GitHub Pages
-# at the custom apex domain adrkit.dev. Kept separate from ci.yml on purpose:
-# the project's build/test/lint gates and the site deploy are independent
-# concerns and should not block or entangle each other.
+# Builds the Astro/Starlight docs site with Bun. On pull requests it runs a
+# build-only check (the site is excluded from every root gate, so this is the
+# only thing that catches a broken site change before merge). On push to main it
+# also deploys to GitHub Pages at the custom apex domain adrkit.dev.
+#
+# Kept separate from ci.yml on purpose: the project's build/test/lint gates and
+# the site deploy are independent concerns and should not block or entangle each
+# other.
 
 on:
   push:
     branches: [main]
-    # Redeploy when anything that affects the published site changes: the site
-    # itself, the canonical schema it serves at its $id, the ADR corpus it
-    # renders, or this workflow.
+    paths:
+      - 'site/**'
+      - 'schema/adr.schema.json'
+      - 'docs/adr/**'
+      - '.github/workflows/site.yml'
+  pull_request:
     paths:
       - 'site/**'
       - 'schema/adr.schema.json'
@@ -24,9 +31,9 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment; let an in-flight deploy finish.
+# Serialize per ref; never cancel an in-flight deploy.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -50,13 +57,15 @@ jobs:
       - name: Serve canonical schema at its $id
         run: bun run sync:schema
 
-      - name: Guard — served schema is byte-identical to the canonical schema
+      - name: Guard — served schema byte-identical to canonical + no stale doc versions
         run: bun run check:schema
 
       - name: Build site
         run: bun run build
 
+      # Only publish an artifact for real deployments (push to main / manual run).
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           # Path is relative to the repository root, not the job working dir.
@@ -64,6 +73,8 @@ jobs:
 
   deploy:
     needs: build
+    # Deploy only on push to main or a manual dispatch — never on pull requests.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

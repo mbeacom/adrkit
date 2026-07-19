@@ -67,8 +67,8 @@ answer where the next decision is actually being made.
 		CI in any language can validate against.
 	</Card>
 	<Card title="adr lint" icon="error">
-		Validate records, catch supersession cycles, and find decisions that
-		silently contradict each other.
+		Validate records against the schema, enforce unique ids, and flag dangling
+		references or an accepted record that declares a conflict.
 	</Card>
 	<Card title="adr migrate --from madr" icon="random">
 		Adopt an existing MADR corpus in place, additively, without breaking your

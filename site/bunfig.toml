@@ -4,6 +4,11 @@
 # repo's lockfile convention from ADR-0010.
 [install]
 
+# ADR-0010 makes the isolated linker mandatory: the default hoisted linker
+# permits phantom dependencies. Astro supports the pnpm-style symlinked layout,
+# so the docs site follows the same policy as the workspace.
+linker = "isolated"
+
 # ADR-0001/0004: this is a git-native, review-centric project. The lockfile is
 # reviewed like any other file, so it must stay text (bun.lock, never bun.lockb).
 saveTextLockfile = true

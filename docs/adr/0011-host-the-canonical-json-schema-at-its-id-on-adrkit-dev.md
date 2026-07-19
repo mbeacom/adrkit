@@ -76,7 +76,18 @@ on GitHub Pages alongside the documentation site.
   output. Deriving the path from `$id` means a version bump moves the file
   automatically and cannot silently mismatch.
 - **A guard asserts the served bytes are byte-identical to the canonical file.**
-  If they can drift, that is a bug, not a nuance.
+  If they can drift, that is a bug, not a nuance. Version-bearing URLs in the docs
+  are derived from the canonical `$id`/`SCHEMA_VERSION`, and a build-time check
+  fails if any operational doc references a stale schema version.
+- **Every published version path is immutable.** Because the `$id` carries the
+  full version (`/schema/adr/v<version>/adr.schema.json`), each release is a
+  distinct URL. Once a version is published, that exact path must keep serving
+  that version's bytes for the life of the major version. A `SCHEMA_VERSION` bump
+  introduces a **new** path and **must retain** every previously published version
+  file — a bump may add URLs but may never remove or repoint one. Today only
+  `v0.1.0` exists, so the current single-version build satisfies this trivially;
+  retaining prior files becomes a hard prerequisite of the first version bump
+  (see action items).
 - **The docs framework is a lighter, reversible choice.** Astro with the
   Starlight theme produces static HTML, which satisfies ADR-0010's
   Node-targeted/portable-artifact boundary. The framework can be replaced later
@@ -136,8 +147,9 @@ redirect or proxy, not relocate the `$id`.
 
 ## Consequences
 
-- Easier: a single canonical origin; live editor validation from the modeline;
-  dogfooding — the project's own schema resolves at its own domain.
+- Easier: a single canonical origin; validation against a stable published URL
+  (via `adr lint` and any JSON-Schema validator); dogfooding — the project's own
+  schema resolves at its own domain.
 - Harder: DNS and TLS are now part of the release surface; the host cannot be
   renamed without a coordinated major-version migration.
 - **How we would know this was wrong:** the `$id` URL 404s, serves stale or
@@ -154,7 +166,14 @@ redirect or proxy, not relocate the `$id`.
 2. [x] Build step deriving the served schema path from the `$id` and writing the
        canonical bytes into the site's published output.
 3. [x] Byte-match guard asserting the served schema equals `schema/adr.schema.json`.
-4. [x] GitHub Actions workflow building with Bun and deploying to GitHub Pages.
-5. [ ] Owner: add the GitHub Pages apex DNS records in Cloudflare, initially
+4. [x] Derive version-bearing URLs in the docs from the canonical `$id`, and add a
+       build-time check that no operational doc references a stale schema version.
+5. [x] GitHub Actions workflow building with Bun and deploying to GitHub Pages.
+6. [ ] **Prerequisite of the first `SCHEMA_VERSION` bump:** make the publish step
+       retain all previously published version files at their exact paths (the
+       current build writes only the current version). Only `v0.1.0` exists today,
+       so no retention logic is required yet — but a bump must not ship until this
+       lands, or it will 404 references pinned to the prior version.
+7. [ ] Owner: add the GitHub Pages apex DNS records in Cloudflare, initially
        DNS-only, then enable "Enforce HTTPS" once the certificate issues
        (see `site/DEPLOYMENT.md`).
