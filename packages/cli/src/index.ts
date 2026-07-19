@@ -4,6 +4,7 @@ import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import {
   buildAdrGraph,
+  checkChanges,
   countFindings,
   createAdr,
   exitCodeForFindings,
@@ -33,6 +34,7 @@ function usage(message?: string): number {
   adr new <title> [--status draft] [--dir docs/adr] [--json]
   adr graph [--dir docs/adr] [--format dot|json]
   adr explain <path> [--dir docs/adr] [--json]
+  adr check <files...> [--dir docs/adr] [--json]
 
 Round-trip sync is explicitly unsupported (ADR-0008); migrate is one-way and non-destructive.
 `);
@@ -295,6 +297,56 @@ async function runExplain(args: string[]): Promise<number> {
   return 0;
 }
 
+function renderHumanCheck(outcome: ReturnType<typeof checkChanges>): string {
+  let output = '';
+  if (outcome.governedBy.length === 0) {
+    output += 'No decisions govern the changed files.\n';
+  } else {
+    output += 'Decisions governing this change:\n';
+    for (const decision of outcome.governedBy) {
+      output += `  ${decision.recordId}  ${decision.title}\n`;
+      for (const matcher of decision.firedMatchers) {
+        output += `    via ${matcher.type}: ${matcher.pattern}\n`;
+      }
+    }
+  }
+
+  if (outcome.findings.length > 0) {
+    output += 'Findings:\n';
+    output += renderHumanLint(outcome.findings);
+  }
+
+  const changedRecordErrors = outcome.findings.filter(
+    (finding) => finding.severity === 'error' && finding.path && outcome.changedRecords.includes(finding.path),
+  ).length;
+  output += `checked: ${outcome.governedBy.length} governing, ${outcome.changedRecords.length} changed records, ${changedRecordErrors} changed-record errors\n`;
+  return output;
+}
+
+async function runCheck(args: string[]): Promise<number> {
+  let parsed: ReturnType<typeof parseArgs>;
+  try {
+    parsed = parseCommandArgs(args, {
+      json: { type: 'boolean', default: false },
+      dir: { type: 'string', default: 'docs/adr' },
+    });
+  } catch (error) {
+    return usage(error instanceof Error ? error.message : String(error));
+  }
+
+  const dir = String(parsed.values.dir);
+  const lint = await lintCorpus({ dir });
+  const outcome = checkChanges({ lint, changedFiles: parsed.positionals, dir });
+
+  if (parsed.values.json) {
+    writeStdout(`${JSON.stringify(outcome, null, 2)}\n`);
+  } else {
+    writeStdout(renderHumanCheck(outcome));
+  }
+
+  return outcome.ok ? 0 : 1;
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const [command, ...args] = argv;
 
@@ -304,6 +356,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command === 'new') return await runNew(args);
     if (command === 'graph') return await runGraph(args);
     if (command === 'explain') return await runExplain(args);
+    if (command === 'check') return await runCheck(args);
     return usage(command ? `Unknown command "${command}"` : undefined);
   } catch (error) {
     writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);

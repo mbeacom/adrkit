@@ -76,7 +76,7 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 2: Foundational (blocking)
 
-- [ ] T003 [FOUND] Implement the neutral shared function **in `@adrkit/core`**
+- [x] T003 [FOUND] Implement the neutral shared function **in `@adrkit/core`**
   (`checkChanges`, e.g. `packages/core/src/check/index.ts`, exported from the core
   index): it takes the **full `lintCorpus` result** (`{ records, findings, checked }`) +
   `changedFiles` + optional `dir` + optional `snapshots` (`changedDependencies`,
@@ -97,13 +97,13 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 3: User Story 2 — `adr check` CLI (Priority: P1) 🎯 substrate
 
-- [ ] T005 [US2] Add `check` to `packages/cli/src/index.ts` dispatch:
+- [x] T005 [US2] Add `check` to `packages/cli/src/index.ts` dispatch:
   `adr check <files...> [--dir docs/adr] [--json]`; build the full `lintCorpus` result
   and call the core `checkChanges` (T003); print the governing list (like `adr explain`)
   + changed-record findings; `--json` emits the stable sorted `CheckOutcome`; exit
   non-zero iff a changed record has an `error` finding (FR-002), `2` on usage error.
   Update the `usage()` help text.
-- [ ] T006 [P] [US2] Tests `packages/cli/test/check.test.ts` (or core-adjacent):
+- [x] T006 [P] [US2] Tests `packages/cli/test/check.test.ts` (or core-adjacent):
   governing list correct for a fixed file list; changed-record error → non-zero;
   only info/warn → `0`; `--json` shape stable and sorted (SC-002).
 

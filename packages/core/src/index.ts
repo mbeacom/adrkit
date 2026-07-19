@@ -9,4 +9,5 @@ export * from './validate/index.ts';
 export * from './scaffold/new.ts';
 export * from './graph/build.ts';
 export * from './affects/index.ts';
+export * from './check/index.ts';
 export * from './import/index.ts';
