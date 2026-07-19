@@ -35,13 +35,13 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 0: Gate (blocking — outcome ladder)
 
-- [ ] T000 [GATE] **Do not start T001+ until the rung-2 gate is cleared.** The gate is
+- [x] T000 [GATE] **Do not start T001+ until the rung-2 gate is cleared.** The gate is
   cleared by completing **T00A** below (vendor + exercise a real, permissively-licensed
   public MADR corpus subset). **Resolved (maintainer decision; reviewer may override):**
   a live external **human user** is **not** required for Phase 3 — that is a higher rung
   (3+). The precondition is the *real-corpus fixture*, not a real adopter. Until T00A is
   merged and green, **STOP**: do not start T001. (See research.md §R0.)
-- [ ] T00A [GATE] **Source + vendor the gating corpus (Phase-2 follow-up / Phase-3
+- [x] T00A [GATE] **Source + vendor the gating corpus (Phase-2 follow-up / Phase-3
   precondition — does NOT reopen or re-implement Phase 2).** Find a genuinely real,
   permissively-licensed public MADR corpus (e.g. CC0/CC-BY/MIT/Apache, or the MADR
   project's own example records). Vendor a **small subset of real third-party prose**
