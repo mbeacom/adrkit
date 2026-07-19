@@ -28,7 +28,7 @@ sync.
 | 0 — Schema and core | `specs/001-schema-and-core/` | landed (PR #5 merged) |
 | 1 — Affects resolution | `specs/002-affects-resolution/` | landed (PR #6 merged) |
 | 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
-| 3 — CI surface | `specs/004-ci-surface/` | **scoping** (spec cycle landed) |
+| 3 — CI surface | `specs/004-ci-surface/` | **implemented** (PR open; lands on merge) |
 | 4 — Deterministic evaluator | _(unopened)_ | queued |
 | 5 — MCP server | _(unopened)_ | queued |
 
@@ -65,6 +65,14 @@ Spec-kit realization note above). For rung 2, that dogfood is the maintainer run
 | 4 | An agent can read the corpus | MCP server answers retrieval queries in a real session |
 | 5 | A proposal gets routed without a meeting | Deterministic evaluator pass closes or escalates without human triage |
 | 6 | An org runs its ARB on it | Queue, tiers, SLAs in use by a team that isn't yours |
+
+**Rung status.** Rung 2 is **met**: `adr migrate --from madr` round-trips a vendored
+subset of the real [adr/madr](https://github.com/adr/madr) corpus offline (Phase 3
+T00A). Rung 3's code has **landed** (Phase 3: `adr check` + the `@adrkit/ci` Action,
+green in CI), but the rung-3 *outcome* — "a comment fires with correct records on a
+repo that isn't this one" — is confirmed only by the **owner-run** second-repo exit
+check (`specs/004-ci-surface/` T018, procedure in that quickstart), which cannot run in
+this repo's CI.
 
 ## Binding constraints
 

@@ -165,17 +165,17 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 7: CI wiring & Polish
 
-- [ ] T015 [CI] Add a self-dogfood job to `.github/workflows/ci.yml` that runs
+- [x] T015 [CI] Add a self-dogfood job to `.github/workflows/ci.yml` that runs
   `adr check` on the repo's changed ADR files (and optionally the packaged Action on
   PRs), so the CI surface governs the project that ships it. Keep the existing gate
   set (`clean-clone-builds`, `schema-emit-matches`, `core-has-no-adapter-deps`,
   `adr lint`) unchanged and green, and include the new bundle-drift + Node-24 smoke
   gates from T00B.
-- [ ] T016 [POLISH] Document the Action + `adr check` in `README`/`quickstart`
+- [x] T016 [POLISH] Document the Action + `adr check` in `README`/`quickstart`
   (inputs, permissions, default-token-only, portability, `node24` runtime, committed
   bundle), and note the CI surface is read-only + comment-only (no DB, no approval —
   ADR-0004/FR-011).
-- [ ] T017 [POLISH] Run the full gate with **stable Bun 1.3.14**: `bun install`,
+- [x] T017 [POLISH] Run the full gate with **stable Bun 1.3.14**: `bun install`,
   `bun run typecheck`, `bun test` (incl. selectivity + idempotency + RC5 marker/author +
   degradation), `bun run build`, `bun run lint`, `bun run check:deps` (now covering
   `@adrkit/ci` + the toolkit→core boundary), `bun run schema:emit && git diff
