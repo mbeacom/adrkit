@@ -1,106 +1,190 @@
 ---
-title: adrkit
-description: Decision memory for human- and agent-authored plans — machine-readable ADRs, enforceable in CI, legible to agents, without leaving git.
+title: Decisions that reach the code.
+description: adrkit turns architecture decisions into typed, locatable records that stay useful in CI, tools, and agent-authored plans.
 template: splash
 hero:
-  tagline: Decision memory for human- and agent-authored plans. Machine-readable ADRs, enforceable in CI, legible to agents — without leaving git.
+  tagline: adrkit turns architecture decisions into typed, locatable records — so the constraints your team accepted remain visible where the next change is made.
   actions:
-    - text: Quickstart
+    - text: Start with the quickstart
       link: /quickstart/
-      icon: right-arrow
-    - text: JSON Schema
-      link: /schema/
-      icon: document
+    - text: Browse the decisions
+      link: /adr/
       variant: minimal
-    - text: View on GitHub
+    - text: GitHub
       link: https://github.com/mbeacom/adrkit
-      icon: external
       variant: minimal
 ---
 
-import { Card, CardGrid, Aside, LinkCard } from '@astrojs/starlight/components';
+<div class="adr-home">
+	<section class="adr-status-band" aria-label="Project status">
+		<div class="adr-status-band__item">
+			<span class="adr-status adr-status--current">Works today</span>
+			<p>Schema, corpus validation, graphing, migration, and path explanation.</p>
+		</div>
+		<div class="adr-status-band__item">
+			<span class="adr-status adr-status--planned">Planned</span>
+			<p>Pull-request comments, deterministic evaluation, and MCP retrieval.</p>
+		</div>
+		<div class="adr-status-band__item">
+			<span class="adr-status adr-status--planned">Pre-alpha</span>
+			<p>Run from source today. Registry packages have not shipped.</p>
+		</div>
+	</section>
 
-<Aside type="caution" title="Status: pre-alpha">
-	The schema and the decision corpus exist, and the CLI (`adr lint`, `new`,
-	`graph`, `explain`, `migrate`) works today. The CI comment surface, the
-	evaluator, and the MCP server described below are planned, not yet built.
-</Aside>
+	<section class="adr-home__section adr-thesis" aria-labelledby="failure-mode">
+		<h2 id="failure-mode">A decision should not disappear after the meeting.</h2>
+		<div class="adr-thesis__copy">
+			<p>
+				Six months later, the same choice gets debated again. The code has
+				drifted. The people — and now the agents — proposing the next change
+				cannot see what was already accepted or rejected.
+			</p>
+			<p>
+				Most ADR tools preserve prose. <strong>adrkit preserves consequence.</strong>
+			</p>
+		</div>
+	</section>
 
-## The problem
+	<section class="adr-home__section" aria-labelledby="works-today">
+		<header class="adr-section-heading">
+			<h2 id="works-today">Proof in the repository, not the pitch.</h2>
+			<p>
+				The current CLI reads typed frontmatter, validates the corpus, resolves
+				what a record governs, and keeps migration additive.
+			</p>
+		</header>
 
-Your organization decides something. Six months later nobody remembers, the
-decision gets re-litigated, and the code drifts from what was agreed. Now agents
-write plans too — faster than anyone can review them, with no memory of what was
-already decided and rejected.
+		<ul class="adr-capabilities">
+			<li class="adr-capability">
+				<div class="adr-capability__command">
+					<code>adr lint</code>
+					<span class="adr-status adr-status--current">Works today</span>
+				</div>
+				<h3>Validate the corpus</h3>
+				<p>
+					Check every record against the schema, enforce unique ids, catch
+					dangling links, and flag accepted records that declare conflicts.
+				</p>
+			</li>
 
-Most ADR tooling is a markdown template and a static site generator. That
-records decisions. It doesn't make them *do* anything.
+			<li class="adr-capability">
+				<div class="adr-capability__command">
+					<code>adr explain</code>
+					<span class="adr-status adr-status--current">Works today</span>
+				</div>
+				<h3>Locate governing decisions</h3>
+				<p>
+					Give adrkit a path. It returns every decision that governs it and
+					the matcher that fired — as readable output or JSON.
+				</p>
+			</li>
 
-## The idea
+			<li class="adr-capability">
+				<div class="adr-capability__command">
+					<code>adr graph</code>
+					<span class="adr-status adr-status--current">Works today</span>
+				</div>
+				<h3>Inspect the decision graph</h3>
+				<p>
+					Render supersession and relationships as Graphviz DOT or structured
+					JSON instead of leaving the links trapped in individual files.
+				</p>
+			</li>
 
-Treat a decision record as **typed data with a markdown body**, and give it one
-field that changes everything — `affects`, declaring what the decision governs:
+			<li class="adr-capability">
+				<div class="adr-capability__command">
+					<code>adr migrate --from madr</code>
+					<span class="adr-status adr-status--current">Works today</span>
+				</div>
+				<h3>Adopt without a rewrite</h3>
+				<p>
+					Add adrkit fields to an existing MADR corpus in place. The migration
+					is additive and preserves current tooling and prose.
+				</p>
+			</li>
+		</ul>
+	</section>
 
-```yaml
----
-id: "0042"
-title: Use server-side rendering for authenticated routes
-status: accepted
-reversibility: one-way-door
-blastRadius: cross-team
-affects:
-  - type: path
-    pattern: "apps/web/app/(authed)/**"
-  - type: package
-    pattern: "next@>=16"
----
-```
+	<section class="adr-home__section adr-flow" aria-labelledby="one-field">
+		<header class="adr-section-heading">
+			<h2 id="one-field">One field makes a decision locatable.</h2>
+			<p>
+				<code>affects</code> declares what a record governs. That turns an ADR
+				from passive documentation into data a tool can resolve.
+			</p>
+		</header>
 
-Now a tool can answer *"which decisions govern this pull request?"* — and put the
-answer where the next decision is actually being made.
+		<ol class="adr-flow__steps">
+			<li>
+				<h3>Declare the reach</h3>
+				<p>
+					A record names the paths, packages, APIs, resources, or data it
+					governs.
+				</p>
+			</li>
+			<li>
+				<h3>Resolve the match</h3>
+				<p>
+					A pure function compares a changed target with the corpus and
+					explains every match.
+				</p>
+			</li>
+			<li>
+				<h3>Surface the constraint</h3>
+				<p>
+					Today, <code>adr explain</code> prints it. The planned CI and MCP
+					surfaces will put it directly in review and agent context.
+				</p>
+			</li>
+		</ol>
+	</section>
 
-## What works today
+	<section class="adr-home__section adr-roadmap" aria-labelledby="roadmap">
+		<header class="adr-section-heading">
+			<h2 id="roadmap">Built next, stated plainly.</h2>
+			<p>
+				These are committed directions, not shipping claims. Each remains
+				planned until the repository proves otherwise.
+			</p>
+		</header>
 
-<CardGrid>
-	<Card title="Typed, validated records" icon="approve-check">
-		A strict [JSON Schema](/schema/) — a superset of MADR — that editors and
-		CI in any language can validate against.
-	</Card>
-	<Card title="adr lint" icon="error">
-		Validate records against the schema, enforce unique ids, and flag dangling
-		references or an accepted record that declares a conflict.
-	</Card>
-	<Card title="adr migrate --from madr" icon="random">
-		Adopt an existing MADR corpus in place, additively, without breaking your
-		current tooling.
-	</Card>
-	<Card title="adr explain / graph" icon="puzzle">
-		Print every decision governing a file and the matcher that fired, or emit
-		the decision graph as DOT or JSON.
-	</Card>
-</CardGrid>
+		<ul class="adr-roadmap__list">
+			<li class="adr-roadmap__item">
+				<span class="adr-status adr-status--planned">Planned</span>
+				<h3>Pull-request context</h3>
+				<p>Comment with the accepted decisions governing touched files.</p>
+			</li>
+			<li class="adr-roadmap__item">
+				<span class="adr-status adr-status--planned">Planned</span>
+				<h3>Agent retrieval</h3>
+				<p>
+					Expose accepted and rejected decisions through MCP before a new plan
+					repeats an old argument.
+				</p>
+			</li>
+			<li class="adr-roadmap__item">
+				<span class="adr-status adr-status--planned">Planned</span>
+				<h3>Deterministic evaluation</h3>
+				<p>
+					Check published rules first, then route the conditions that need
+					human judgment.
+				</p>
+			</li>
+		</ul>
+	</section>
 
-## On the roadmap
-
-<CardGrid>
-	<Card title="CI comment" icon="comment">
-		Surface governing decisions on the pull requests that touch them.
-	</Card>
-	<Card title="MCP server" icon="seti:default">
-		Let agents retrieve prior decisions — including the rejected ones — before
-		proposing something already tried.
-	</Card>
-	<Card title="Evaluator" icon="rocket">
-		Score proposals against a published rubric and route them; deterministic
-		checks first, humans on the conditions that warrant them.
-	</Card>
-</CardGrid>
-
-It never approves anything. It routes, and humans decide.
-
-## Design commitments
-
-These are enforced, not aspirational — and the project governs itself with them.
-Each links to the record that decided it.
-
-<LinkCard title="Browse the decision records" href="/adr/" description="adrkit's first commit is its own decision corpus. Every choice here is a typed ADR." />
+	<section class="adr-home__section adr-closing" aria-label="Human control">
+		<blockquote>It never approves anything. It routes, and humans decide.</blockquote>
+		<div class="adr-closing__action">
+			<p>
+				adrkit governs itself. The repository's first commit is its own decision
+				corpus, including the trade-offs and rejected alternatives behind the
+				project.
+			</p>
+			<a class="adr-button adr-button--primary" href="/adr/">
+				<span>Read the decisions that built adrkit</span>
+				<span aria-hidden="true">→</span>
+			</a>
+		</div>
+	</section>
+</div>

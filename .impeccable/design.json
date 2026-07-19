@@ -1,0 +1,339 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-19T04:20:00Z",
+  "title": "Design System: adrkit",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "True Canvas",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.5 0 0)",
+          "oklch(0.65 0 0)",
+          "oklch(0.78 0 0)",
+          "oklch(0.9 0 0)",
+          "oklch(1 0 0)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Instrument Surface",
+        "canonical": "oklch(0.965 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.38 0 0)",
+          "oklch(0.52 0 0)",
+          "oklch(0.66 0 0)",
+          "oklch(0.78 0 0)",
+          "oklch(0.88 0 0)",
+          "oklch(0.965 0 0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Working Ink",
+        "canonical": "oklch(0.2 0.018 35)",
+        "tonalRamp": [
+          "oklch(0.15 0.018 35)",
+          "oklch(0.2 0.018 35)",
+          "oklch(0.3 0.018 35)",
+          "oklch(0.42 0.018 35)",
+          "oklch(0.56 0.018 35)",
+          "oklch(0.7 0.018 35)",
+          "oklch(0.83 0.018 35)",
+          "oklch(0.95 0.018 35)"
+        ]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Measured Ink",
+        "canonical": "oklch(0.43 0.018 35)",
+        "tonalRamp": [
+          "oklch(0.15 0.018 35)",
+          "oklch(0.24 0.018 35)",
+          "oklch(0.33 0.018 35)",
+          "oklch(0.43 0.018 35)",
+          "oklch(0.56 0.018 35)",
+          "oklch(0.69 0.018 35)",
+          "oklch(0.82 0.018 35)",
+          "oklch(0.95 0.018 35)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Calibration Rule",
+        "canonical": "oklch(0.82 0.012 35)",
+        "tonalRamp": [
+          "oklch(0.15 0.012 35)",
+          "oklch(0.25 0.012 35)",
+          "oklch(0.36 0.012 35)",
+          "oklch(0.48 0.012 35)",
+          "oklch(0.6 0.012 35)",
+          "oklch(0.7 0.012 35)",
+          "oklch(0.82 0.012 35)",
+          "oklch(0.95 0.012 35)"
+        ]
+      },
+      "decision-coral": {
+        "role": "primary",
+        "displayName": "Decision Coral",
+        "canonical": "oklch(0.58 0.17 34)",
+        "tonalRamp": [
+          "oklch(0.15 0.17 34)",
+          "oklch(0.25 0.17 34)",
+          "oklch(0.36 0.17 34)",
+          "oklch(0.47 0.17 34)",
+          "oklch(0.58 0.17 34)",
+          "oklch(0.7 0.17 34)",
+          "oklch(0.82 0.17 34)",
+          "oklch(0.94 0.17 34)"
+        ]
+      },
+      "decision-coral-deep": {
+        "role": "primary",
+        "displayName": "Decision Coral Deep",
+        "canonical": "oklch(0.47 0.16 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.16 30)",
+          "oklch(0.24 0.16 30)",
+          "oklch(0.34 0.16 30)",
+          "oklch(0.47 0.16 30)",
+          "oklch(0.59 0.16 30)",
+          "oklch(0.71 0.16 30)",
+          "oklch(0.83 0.16 30)",
+          "oklch(0.95 0.16 30)"
+        ]
+      },
+      "blueprint-ink": {
+        "role": "secondary",
+        "displayName": "Blueprint Ink",
+        "canonical": "oklch(0.43 0.1 245)",
+        "tonalRamp": [
+          "oklch(0.15 0.1 245)",
+          "oklch(0.24 0.1 245)",
+          "oklch(0.33 0.1 245)",
+          "oklch(0.43 0.1 245)",
+          "oklch(0.56 0.1 245)",
+          "oklch(0.69 0.1 245)",
+          "oklch(0.82 0.1 245)",
+          "oklch(0.95 0.1 245)"
+        ]
+      },
+      "inverse-canvas": {
+        "role": "neutral",
+        "displayName": "Night Canvas",
+        "canonical": "oklch(0.145 0.01 30)",
+        "tonalRamp": [
+          "oklch(0.145 0.01 30)",
+          "oklch(0.24 0.01 30)",
+          "oklch(0.34 0.01 30)",
+          "oklch(0.46 0.01 30)",
+          "oklch(0.58 0.01 30)",
+          "oklch(0.7 0.01 30)",
+          "oklch(0.82 0.01 30)",
+          "oklch(0.95 0.01 30)"
+        ]
+      },
+      "inverse-ink": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "canonical": "oklch(0.94 0.008 35)",
+        "tonalRamp": [
+          "oklch(0.15 0.008 35)",
+          "oklch(0.25 0.008 35)",
+          "oklch(0.37 0.008 35)",
+          "oklch(0.49 0.008 35)",
+          "oklch(0.61 0.008 35)",
+          "oklch(0.73 0.008 35)",
+          "oklch(0.84 0.008 35)",
+          "oklch(0.94 0.008 35)"
+        ]
+      },
+      "inverse-muted": {
+        "role": "neutral",
+        "displayName": "Night Measured Ink",
+        "canonical": "oklch(0.72 0.012 35)",
+        "tonalRamp": [
+          "oklch(0.15 0.012 35)",
+          "oklch(0.24 0.012 35)",
+          "oklch(0.33 0.012 35)",
+          "oklch(0.44 0.012 35)",
+          "oklch(0.55 0.012 35)",
+          "oklch(0.63 0.012 35)",
+          "oklch(0.72 0.012 35)",
+          "oklch(0.94 0.012 35)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Homepage thesis only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Major narrative turns."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Capabilities and documentation titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explanatory copy and documentation."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Status, metadata, and controls."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Literal commands, paths, and schema data."
+      }
+    },
+    "shadows": [
+      {
+        "name": "responsive-lift",
+        "value": "0 10px 30px oklch(0.2 0.018 35 / 0.12)",
+        "purpose": "Interactive lift on primary actions and the affects map."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-instrument",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Short state transitions and the affects-map draw."
+      },
+      {
+        "name": "duration-state",
+        "value": "180ms",
+        "purpose": "Hover, focus, and active state response."
+      },
+      {
+        "name": "duration-map",
+        "value": "900ms",
+        "purpose": "The single choreographed hero connection sequence."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "40rem"
+      },
+      {
+        "name": "wide",
+        "value": "64rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single strongest route forward.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#\">Start with the quickstart <span aria-hidden=\"true\">→</span></a>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:.5rem; min-height:2.875rem; padding:.875rem 1.125rem; border-radius:var(--adr-radius-sm,6px); background:var(--adr-coral,oklch(.58 .17 34)); color:var(--adr-canvas,white); font:680 .8125rem/1.25 'Atkinson Hyperlegible Next Variable',sans-serif; text-decoration:none; transition:background 180ms cubic-bezier(.16,1,.3,1),transform 180ms cubic-bezier(.16,1,.3,1),box-shadow 180ms cubic-bezier(.16,1,.3,1)} .ds-btn-primary:hover { background:var(--adr-coral-deep,oklch(.47 .16 30)); transform:translateY(-1px); box-shadow:0 10px 30px oklch(.2 .018 35/.12)} .ds-btn-primary:focus-visible { outline:3px solid var(--adr-blue,oklch(.43 .1 245)); outline-offset:3px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A durable secondary route with a full structural border.",
+      "html": "<a class=\"ds-btn-secondary\" href=\"#\">Browse decisions</a>",
+      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; min-height:2.875rem; padding:.875rem 1.125rem; border:1px solid var(--adr-border,oklch(.82 .012 35)); border-radius:var(--adr-radius-sm,6px); background:var(--adr-canvas,white); color:var(--adr-ink,oklch(.2 .018 35)); font:680 .8125rem/1.25 'Atkinson Hyperlegible Next Variable',sans-serif; text-decoration:none; transition:border-color 180ms cubic-bezier(.16,1,.3,1),transform 180ms cubic-bezier(.16,1,.3,1)} .ds-btn-secondary:hover { border-color:var(--adr-ink,oklch(.2 .018 35)); transform:translateY(-1px)} .ds-btn-secondary:focus-visible { outline:3px solid var(--adr-coral,oklch(.58 .17 34)); outline-offset:3px}"
+    },
+    {
+      "name": "Site Title",
+      "kind": "nav",
+      "description": "Compact wordmark and decision-junction mark.",
+      "html": "<a class=\"ds-site-title\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 6h7v4h9M4 18h7v-4h9\"/><circle cx=\"4\" cy=\"6\" r=\"2\"/><circle cx=\"4\" cy=\"18\" r=\"2\"/><circle cx=\"20\" cy=\"10\" r=\"2\"/><circle cx=\"20\" cy=\"14\" r=\"2\"/></svg><span>adrkit</span></a>",
+      "css": ".ds-site-title { display:inline-flex; align-items:center; gap:.625rem; color:var(--adr-ink,oklch(.2 .018 35)); font:720 1.125rem/1 'Anybody Variable','Arial Narrow',sans-serif; letter-spacing:-.025em; text-decoration:none} .ds-site-title svg { width:1.5rem; height:1.5rem; fill:none; stroke:var(--adr-coral,oklch(.58 .17 34)); stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round} .ds-site-title circle { fill:var(--adr-coral,oklch(.58 .17 34)); stroke:none} .ds-site-title:focus-visible { outline:3px solid var(--adr-blue,oklch(.43 .1 245)); outline-offset:4px}"
+    },
+    {
+      "name": "Current Status",
+      "kind": "chip",
+      "refersTo": "status-current",
+      "description": "Color-independent label for a capability available today.",
+      "html": "<span class=\"ds-status-current\"><svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"m3 8 3 3 7-7\"/></svg>Works today</span>",
+      "css": ".ds-status-current { display:inline-flex; align-items:center; gap:.375rem; padding:.375rem .625rem; border-radius:999px; background:var(--adr-ink,oklch(.2 .018 35)); color:var(--adr-canvas,white); font:680 .8125rem/1.25 'Atkinson Hyperlegible Next Variable',sans-serif} .ds-status-current svg { width:.875rem; height:.875rem; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}"
+    },
+    {
+      "name": "Capability Row",
+      "kind": "custom",
+      "description": "Rule-separated evidence row used instead of an icon card.",
+      "html": "<div class=\"ds-capability\"><code>adr explain</code><strong>Locate governing decisions</strong><span>Print every decision governing a path and the matcher that fired.</span></div>",
+      "css": ".ds-capability { display:grid; grid-template-columns:minmax(8rem,.6fr) minmax(12rem,1fr) minmax(16rem,1.4fr); gap:1.25rem; align-items:baseline; padding:1.25rem 0; border-block-start:1px solid var(--adr-border,oklch(.82 .012 35)); color:var(--adr-ink,oklch(.2 .018 35)); font:430 1rem/1.55 'Atkinson Hyperlegible Next Variable',sans-serif} .ds-capability code { color:var(--adr-coral-deep,oklch(.47 .16 30)); font:500 .875rem/1.55 ui-monospace,'SFMono-Regular',Consolas,monospace} .ds-capability strong { font-weight:680} .ds-capability span { color:var(--adr-muted,oklch(.43 .018 35))}"
+    },
+    {
+      "name": "Affects Map",
+      "kind": "custom",
+      "description": "The signature instrument connecting an ADR to governed code.",
+      "html": "<div class=\"ds-map\"><div class=\"ds-map-record\"><span>ADR-0042 · accepted</span><strong>Use server-side rendering</strong><code>affects:</code></div><div class=\"ds-map-route\"><code>apps/web/(authed)/**</code><code>next@>=16</code></div></div>",
+      "css": ".ds-map { display:grid; grid-template-columns:1fr .85fr; min-height:15rem; overflow:hidden; border-radius:10px; background:var(--adr-coral,oklch(.58 .17 34)); color:white; box-shadow:none; transition:transform 180ms cubic-bezier(.16,1,.3,1),box-shadow 180ms cubic-bezier(.16,1,.3,1)} .ds-map:hover { transform:translateY(-2px); box-shadow:0 10px 30px oklch(.2 .018 35/.12)} .ds-map-record,.ds-map-route { display:flex; flex-direction:column; justify-content:center; gap:.75rem; padding:2rem} .ds-map-record { border-inline-end:1px solid oklch(1 0 0/.45)} .ds-map-record span { font:680 .8125rem/1.25 'Atkinson Hyperlegible Next Variable',sans-serif} .ds-map-record strong { font:680 1.5rem/1.1 'Anybody Variable','Arial Narrow',sans-serif} .ds-map code { font:500 .8125rem/1.5 ui-monospace,'SFMono-Regular',Consolas,monospace} .ds-map-route code { padding:.625rem; border:1px solid oklch(1 0 0/.55); border-radius:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Decision Instrument",
+    "overview": "adrkit should feel like a precision instrument that makes architectural consequences visible. Its physical references are Braun technical manuals, NASA standards diagrams, and GitHub Primer's operational clarity: disciplined geometry, plain-language labels, durable controls, and one unmistakable signal color. The working scene is a Staff+ engineer evaluating the site on a bright desktop display during a design review, so the primary canvas is true white rather than a theatrical dark terminal.\n\nThe signature is the affects map: a decision record visibly routes to the code paths and packages it governs. Coral behaves like an operational redline, not decoration. The one orchestrated load sequence draws those connections in the hero; everything else uses restrained state transitions. The interface explicitly rejects generic developer-tool darkness, terminal cosplay, interchangeable SaaS card grids, and ornamental editorial styling.",
+    "keyCharacteristics": [
+      "True-white working canvas with committed coral fields.",
+      "Wide, expressive grotesk display type paired with a highly legible body face.",
+      "Structural rules, lists, and matrices instead of repeated cards.",
+      "Real records, commands, statuses, and constraints used as visual material.",
+      "One choreographed hero map; motion elsewhere is responsive and quiet."
+    ],
+    "rules": [
+      {
+        "name": "The Instrument Test",
+        "body": "Every visual device must help a visitor locate, compare, route, or verify a decision. If it only decorates the page, remove it.",
+        "section": "overview"
+      },
+      {
+        "name": "The Redline Rule",
+        "body": "Coral must carry meaning: decision, consequence, or the primary route forward. Never scatter it as decorative confetti.",
+        "section": "colors"
+      },
+      {
+        "name": "The White-Surface Rule",
+        "body": "Warmth lives in Decision Coral, never in a cream-tinted page background.",
+        "section": "colors"
+      },
+      {
+        "name": "The Code-Is-Evidence Rule",
+        "body": "Monospace appears only when the content is machine-readable evidence. It is never a brand costume.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-Until-Active Rule",
+        "body": "Resting surfaces use no shadow. A shadow is a response to interaction, never permanent decoration.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One-Orchestrated-Moment Rule",
+        "body": "The affects map owns the page-load choreography. All other motion is a short state response using exponential ease-out.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do make the `affects` relationship the homepage's memorable visual proof.",
+      "Do use real commands, schema fields, ADR ids, and honest current/planned labels.",
+      "Do keep body copy below 70ch and preserve readable reflow at 200% zoom.",
+      "Do maintain WCAG 2.2 AA, visible keyboard focus, reduced motion, and color-independent status cues.",
+      "Do let Decision Coral carry 30–60% of the hero composition while True Canvas remains the dominant reading surface."
+    ],
+    "donts": [
+      "Don't build a generic dark developer-tool landing page with neon accents, terminal cosplay, glowing grids, or hacker aesthetics.",
+      "Don't use interchangeable SaaS layouts built from repeated icon cards, vague claims, and decorative metrics.",
+      "Don't let the documentation theme expose navigation and prose without first explaining why adrkit matters.",
+      "Don't use editorial-magazine treatments that make governance feel ornamental rather than operational.",
+      "Don't use gradient text, decorative glassmorphism, colored side-stripe borders, or tiny uppercase eyebrows above every section.",
+      "Don't use monospace for brand headings or ordinary body copy."
+    ]
+  }
+}

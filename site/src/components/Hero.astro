@@ -1,0 +1,166 @@
+---
+import DraftContentNotice from 'virtual:starlight/components/DraftContentNotice';
+
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+---
+
+<section class="adr-hero">
+	<div class="adr-hero__copy">
+		<div class="adr-hero__meta">
+			<span class="adr-status adr-status--current">
+				<svg viewBox="0 0 16 16" aria-hidden="true">
+					<path d="m3 8 3 3 7-7" />
+				</svg>
+				CLI works today
+			</span>
+			<span>Pre-alpha · decision memory in git</span>
+		</div>
+
+		<h1 id="_top" data-page-title set:html={title} />
+		{data.draft && <DraftContentNotice />}
+		{tagline && <p class="adr-hero__tagline" set:html={tagline} />}
+
+		{
+			actions.length > 0 && (
+				<div class="adr-hero__actions">
+					{actions.map(({ link, text, variant }) => (
+						<a
+							href={link}
+							class:list={[
+								'adr-button',
+								variant === 'minimal' ? 'adr-button--secondary' : 'adr-button--primary',
+							]}
+						>
+							<span>{text}</span>
+							<span aria-hidden="true">→</span>
+						</a>
+					))}
+				</div>
+			)
+		}
+
+		<p class="adr-hero__truth">
+			The schema, resolver, and CLI are implemented. CI comments, the evaluator,
+			and the MCP server are clearly marked as planned.
+		</p>
+	</div>
+
+	<div
+		class="adr-instrument"
+		role="img"
+		aria-label="ADR 0042 declares two affected targets: authenticated web routes and Next.js version 16 or newer."
+	>
+		<div class="adr-instrument__bar">
+			<span>Decision route</span>
+			<span>ADR-0042 · accepted</span>
+		</div>
+
+		<div class="adr-instrument__body">
+			<div class="adr-record">
+				<div class="adr-record__heading">
+					<span>architecture decision</span>
+					<span class="adr-record__status">accepted</span>
+				</div>
+				<strong>Use server-side rendering for authenticated routes</strong>
+				<div class="adr-record__data" aria-hidden="true">
+					<span><b>reversibility:</b> one-way-door</span>
+					<span><b>blastRadius:</b> cross-team</span>
+					<span class="adr-record__affects" data-route-origin><b>affects:</b></span>
+				</div>
+			</div>
+
+			<svg
+				class="adr-instrument__routes"
+				viewBox="0 0 680 410"
+				preserveAspectRatio="none"
+				aria-hidden="true"
+			>
+				<path
+					class="adr-route adr-route--first"
+					pathLength="1"
+					d="M307 286 C 382 286, 376 171, 463 171"
+				/>
+				<path
+					class="adr-route adr-route--second"
+					pathLength="1"
+					d="M307 286 C 394 286, 387 284, 463 284"
+				/>
+				<circle class="adr-route-node adr-route-node--origin" cx="307" cy="286" r="6" />
+				<circle class="adr-route-node adr-route-node--first" cx="463" cy="171" r="6" />
+				<circle class="adr-route-node adr-route-node--second" cx="463" cy="284" r="6" />
+			</svg>
+
+			<div class="adr-targets" aria-hidden="true">
+				<span class="adr-targets__label">resolved targets</span>
+				<div class="adr-target" data-route-target>
+					<span>path</span>
+					<code>apps/web/app/(authed)/**</code>
+				</div>
+				<div class="adr-target" data-route-target>
+					<span>package</span>
+					<code>next@&gt;=16</code>
+				</div>
+			</div>
+		</div>
+
+		<div class="adr-instrument__footer">
+			<span>2 governing matches</span>
+			<span>pure function · reproducible in CI</span>
+		</div>
+	</div>
+</section>
+
+<script>
+	const connectDecisionRoutes = (instrument: Element) => {
+		const body = instrument.querySelector('.adr-instrument__body');
+		const svg = instrument.querySelector<SVGSVGElement>('.adr-instrument__routes');
+		const origin = instrument.querySelector('[data-route-origin]');
+		const targets = [...instrument.querySelectorAll('[data-route-target]')];
+		const paths = [...instrument.querySelectorAll<SVGPathElement>('.adr-route')];
+		const originNode = instrument.querySelector<SVGCircleElement>('.adr-route-node--origin');
+		const targetNodes = [
+			instrument.querySelector<SVGCircleElement>('.adr-route-node--first'),
+			instrument.querySelector<SVGCircleElement>('.adr-route-node--second'),
+		];
+
+		if (!body || !svg || !origin || !originNode || targets.length !== paths.length) return;
+
+		const update = () => {
+			const bodyRect = body.getBoundingClientRect();
+			const originRect = origin.getBoundingClientRect();
+			const targetRects = targets.map((target) => target.getBoundingClientRect());
+			if (!bodyRect.width || !bodyRect.height) return;
+
+			const start = {
+				x: originRect.right - bodyRect.left + 8,
+				y: originRect.top + originRect.height / 2 - bodyRect.top,
+			};
+			const ends = targetRects.map((target) => ({
+				x: target.left - bodyRect.left,
+				y: target.top + target.height / 2 - bodyRect.top,
+			}));
+
+			svg.setAttribute('viewBox', `0 0 ${bodyRect.width} ${bodyRect.height}`);
+			originNode.setAttribute('cx', String(start.x));
+			originNode.setAttribute('cy', String(start.y));
+
+			paths.forEach((path, index) => {
+				const end = ends[index];
+				const bend = Math.max(48, (end.x - start.x) * 0.42);
+				path.setAttribute(
+					'd',
+					`M ${start.x} ${start.y} C ${start.x + bend} ${start.y}, ${end.x - bend} ${end.y}, ${end.x} ${end.y}`,
+				);
+				targetNodes[index]?.setAttribute('cx', String(end.x));
+				targetNodes[index]?.setAttribute('cy', String(end.y));
+			});
+		};
+
+		update();
+		new ResizeObserver(update).observe(body);
+		document.fonts.ready.then(update);
+	};
+
+	document.querySelectorAll('.adr-instrument').forEach(connectDecisionRoutes);
+</script>
