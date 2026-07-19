@@ -78,7 +78,9 @@ lintCorpus({ dir }) / the existing validators   // for changed-record findings
 - **Side effects**: exactly one PR comment (created or edited). **No** record write,
   **no** database/index (ADR-0004/FR-010). It never approves or merges (FR-011).
 - **Isolation**: `@adrkit/ci` imports `@adrkit/core` + public Action libs only; **no**
-  `packages/adapters/*` import (FR-013). `core-has-no-adapter-deps` covers it.
+  `packages/adapters/*` import (FR-013). `core-has-no-adapter-deps` covers it **and**
+  asserts the GitHub toolkit (`@actions/*`, Octokit) never reaches `@adrkit/core` or
+  the schema (maintainer-resolved).
 
 ## PR comment contract
 

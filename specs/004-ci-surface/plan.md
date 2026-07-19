@@ -7,9 +7,12 @@
 
 > **⚠️ Gate status — implementation blocked.** This plan is authored during
 > scoping. Per the strict outcome ladder, Phase 3 code MUST NOT start until the
-> **rung-2** outcome is genuinely met (a **real public MADR corpus** round-tripped
-> by `adr migrate`, with a real user). Today it is met only by a **synthetic**
-> fixture — see [research.md §R0](./research.md) and `tasks.md` **T000**. Scoping
+> **rung-2** gate clears. **Resolved (maintainer decision; reviewer may override):**
+> the gate clears when a subset of a genuinely real, permissively-licensed public
+> MADR corpus is vendored as an **offline fixture** (attribution + provenance) and
+> round-tripped by `adr migrate` — a live external human user is a higher rung, *not*
+> a Phase-3 precondition. Today it is met only by a **synthetic** fixture — see
+> [research.md §R0](./research.md) and `tasks.md` **T000** / **T00A**. Scoping
 > proceeds; building does not.
 
 ## Summary
@@ -77,7 +80,7 @@ Principle I–V violation of this design.)*
 |---|---|
 | **I. Git is the source of truth** | PASS — the Action reads records from git and writes **only** a PR comment (a derived projection); it mutates no record and writes to no database (FR-010, ADR-0004). Lifecycle stays PR-driven. |
 | **II. Clean clone builds green** | PASS — the GitHub toolkit is a public registry dependency confined to `@adrkit/ci` and stubbed in tests (R3); install/build/test/lint need no token, service, or network. `clean-clone-builds` continues to guard (SC-007). |
-| **III. Core depends on no adapter** | PASS — `@adrkit/ci` is a first-party **surface** package (peer of `@adrkit/cli`), under `packages/ci/`, **not** `packages/adapters/*`; it imports `@adrkit/core` and public Action libs only, never an adapter (FR-013). `core-has-no-adapter-deps` is extended to assert this. |
+| **III. Core depends on no adapter** | PASS — `@adrkit/ci` is a first-party **surface** package (peer of `@adrkit/cli`), under `packages/ci/`, **not** `packages/adapters/*`; it imports `@adrkit/core` + public Action libs only, never an adapter (FR-013). `core-has-no-adapter-deps` is extended to assert this **and** that the GitHub toolkit (`@actions/*`, Octokit) never reaches `@adrkit/core` or the schema (R3, maintainer-resolved). |
 | **IV. Deterministic before probabilistic** | PASS — the CI surface adds **no** model step. Governing-decision resolution is the existing pure resolver; validation is the existing deterministic validators; the comment renders their output verbatim (R1/R6). The surface routes/informs; it never decides (FR-011). |
 | **V. The schema is the contract** | PASS — `adr check` and the Action consume the existing schema, validators, and resolver output; **no** schema change and no new record field. The comment renders records against the existing contract. |
 
@@ -100,7 +103,7 @@ specs/004-ci-surface/
 │   └── check-and-comment.md       # adr check CLI + Action I/O + comment/idempotency contract
 ├── checklists/
 │   └── requirements.md            # Spec quality checklist (done)
-└── tasks.md                       # Produced next (T000 = the rung-2 gate precondition)
+└── tasks.md                       # Produced next (T000 = rung-2 gate precondition; T00A = vendor the gating corpus)
 ```
 
 ### Source Code (repository root — extends merged Phase 0/1/2)
@@ -128,7 +131,7 @@ packages/ci/                 # NEW first-party surface package @adrkit/ci (peer 
     ├── token-degrade.test.ts    # read-only token → check runs, comment skipped, job not failed
     └── fixtures/                # a >10-record corpus + changed-file lists
 
-scripts/check-deps.ts             # extend to assert @adrkit/ci has no adapter dependency
+scripts/check-deps.ts             # extend: assert @adrkit/ci has no adapter dep AND the github toolkit never reaches core/schema
 .github/workflows/ci.yml          # add adr check job (self-dogfood); gate set otherwise unchanged
 ```
 
@@ -142,4 +145,4 @@ The GitHub client is injected in tests; nothing in the default build needs a tok
 ## Complexity Tracking
 
 No constitution violations — table intentionally empty. (Outcome-ladder gate on
-implementation is tracked in research.md §R0 and tasks.md T000, not here.)
+implementation is tracked in research.md §R0 and tasks.md T000/T00A, not here.)

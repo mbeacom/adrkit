@@ -44,16 +44,33 @@ correction is bookkeeping and does **not** assert the rung-2 outcome is met.
 
 - **Scoping (this spec cycle) proceeds** — that is this thread's mandate, and having
   the design ready de-risks the moment the gate clears.
-- **Phase 3 _implementation_ is BLOCKED** until rung 2 is genuinely met: run
-  `adr migrate --from madr` against at least one **real public MADR corpus**
-  (vendored with attribution, or exercised via a documented external command) and,
-  ideally, in front of a real user. `tasks.md` records this as a hard precondition
-  (T000).
+- **Phase 3 _implementation_ is BLOCKED** until the gate is cleared per the resolved
+  condition below. `tasks.md` records this as a hard precondition (**T000**), plus a
+  scoped task to source and vendor the gating corpus (**T00A**).
 
-**Not this thread's job to fix**: closing the gate means either vendoring a real
-public MADR subset into the Phase 2 corpus test (respecting its license) or
-documenting and running an external-corpus exercise. That is Phase-2 remediation,
-tracked here only so the team sees it before starting Phase 3 code.
+**RESOLVED — what "cleared" means (maintainer decision; reviewer may override).**
+A vendored **subset of a genuinely real, permissively-licensed public MADR corpus**
+clears the rung-2 corpus gate and unblocks Phase 3 implementation. A live external
+**human user** is **not** a Phase-3 precondition — that is a higher rung (3+), not
+this gate. To count as cleared, the corpus subset MUST satisfy all of:
+
+- **Real third-party prose** — not synthetic or authored-to-pass. The point is to
+  exercise real-world MADR frontmatter/body variance the current synthetic fixture
+  cannot reproduce.
+- **Committed as an OFFLINE fixture** — vendored into the repo, never fetched at test
+  time (ADR-0007 forbids network at CI time).
+- **Licensing respected** — a permissive/public-domain license (e.g. CC0/CC-BY/MIT/
+  Apache, or the MADR project's own example records). Vendor a **small** subset with
+  **attribution + provenance** (source URL, license, commit/date) recorded in the
+  fixture directory. **If no cleanly-licensed real corpus can be found, stop and
+  flag it — do not vendor prose of unknown license.**
+- **Exercised through `adr migrate --from madr`** with the same assertions as the
+  synthetic test: idempotency + body-byte preservation + clean lint.
+
+**Not this thread's job — and Phase 2 is NOT reopened.** Clearing the gate is a small,
+well-scoped Phase-2 follow-up / Phase-3 precondition: source + vendor the corpus
+subset and point the existing corpus test at it. It does **not** re-implement or
+re-open Phase 2's migration logic; it only supplies the gating fixture.
 
 ## R1 — `adr check` is the deterministic substrate; the Action is a thin wrapper
 
@@ -76,18 +93,23 @@ CLI (fails seed 21 and locks adopters to one provider).
 
 ## R2 — `@adrkit/ci` is a surface package, not core and not an adapter
 
-**Decision**: Add `packages/ci/` as a first-party **surface** package (`@adrkit/ci`),
-a peer of `@adrkit/cli`. It depends on `@adrkit/core` (`workspace:*`) and public
-GitHub Action libraries; it MUST NOT import from `packages/adapters/*`. The
-`core-has-no-adapter-deps` check is extended to assert `@adrkit/ci` carries no
-adapter dependency.
+**Decision (RESOLVED — maintainer-confirmed; reviewer may override)**: Add
+`packages/ci/` as a first-party **surface** package (`@adrkit/ci`), a peer of
+`@adrkit/cli`, **not** under `packages/adapters/*` and **not** in core. It depends on
+`@adrkit/core` (`workspace:*`) and public GitHub Action libraries; it MUST NOT import
+from `packages/adapters/*`. The `core-has-no-adapter-deps` check is extended to assert
+`@adrkit/ci` carries no adapter dependency **and** that the GitHub toolkit dependency
+never reaches `@adrkit/core` or the schema (see R3).
 
 **Rationale**: ADR-0007 forbids *core* and *cli* from importing adapters and bounds
-what may enter the default build. `@adrkit/ci` is analogous to `@adrkit/cli`: it is
-a consumer surface, permitted its own public dependencies, but it is not an adapter
-(it is not an integration with a churning third-party governance target) and it is
-not core. Placing it under `packages/ci/` (not `packages/adapters/*`) keeps it inside
-the isolation boundary the constitution's Principle III draws.
+what may enter the default build. Adapters (`packages/adapters/*`) are **external-source
+integrations** (import/catalog) that are *allowed to break* on upstream churn. An
+Action that consumes core to render governing decisions is a **consumer surface** —
+the same category as the CLI — not an integration with a churning third-party
+governance target, and it must not be allowed to break. `@adrkit/ci` is therefore
+analogous to `@adrkit/cli`: a consumer surface permitted its own public dependencies,
+but not core and not an adapter. Placing it under `packages/ci/` keeps it inside the
+isolation boundary the constitution's Principle III draws.
 
 **Alternatives rejected**: `packages/adapters/ci-github` (wrong — the Action is a
 first-party surface, not an optional integration; and adapters are *allowed to
@@ -106,6 +128,13 @@ fetchable* surfaces; the GitHub API with the default token qualifies. The bindin
 constraint is that *install/build/test/lint* pass on a clean clone with no secrets —
 satisfied by stubbing the client. Runtime token use happens only when the Action
 actually runs in CI (FR-008).
+
+**Boundary assertion (RESOLVED — maintainer decision; reviewer may override)**:
+`scripts/check-deps.ts` (the `core-has-no-adapter-deps` gate) is extended so it also
+asserts the GitHub toolkit dependency (`@actions/*`, Octokit) **never reaches
+`@adrkit/core` or the schema** — it stays confined to the `@adrkit/ci` surface. This
+turns "the toolkit is confined" from a review-time promise into a CI-enforced gate,
+the same posture ADR-0007 takes for adapter isolation.
 
 **Alternatives rejected**: shelling out to `gh` (an undeclared system dependency,
 breaks clean-clone determinism); raw `fetch` against the REST API (re-implements what
@@ -204,6 +233,20 @@ failing validation.
 evaluator boundary (Phase 4 routes/escalates; Phase 3 does even less — it informs).
 Keeping the surface read-only + comment-only preserves "git is truth" and defers all
 judgment to humans and the later evaluator.
+
+## Resolved open questions (from PR #9 review)
+
+The two questions raised when this feature was opened are now **resolved as maintainer
+decisions the reviewer may still override**:
+
+1. **`packages/ci/` vs `packages/adapters/*` placement** — CONFIRMED: `@adrkit/ci` is a
+   first-party surface package (peer of `@adrkit/cli`), not an adapter and not core.
+   See **R2**, and the extended `check-deps` boundary assertion in **R3**.
+2. **What clears the rung-2 gate** — RESOLVED: a vendored subset of a genuinely real,
+   permissively-licensed public MADR corpus (offline fixture, attribution + provenance,
+   exercised via `adr migrate`) clears it and unblocks Phase 3 implementation; a live
+   external human user is a higher rung, not a Phase-3 precondition. See **R0** and
+   tasks **T000** / **T00A**.
 
 ## Deferred (not decided here)
 

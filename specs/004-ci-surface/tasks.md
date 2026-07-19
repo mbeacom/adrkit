@@ -33,13 +33,23 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 0: Gate (blocking — outcome ladder)
 
-- [ ] T000 [GATE] **Confirm rung 2 is genuinely met before any Phase 3 code.** Run
-  `adr migrate --from madr` against at least one **real public MADR corpus** — vendor
-  a licensed subset into `packages/core/test/fixtures/madr-corpus/` (with attribution)
-  and rename/replace the *synthetic* `migrate-real-corpus.test.ts`, **or** run and
-  document an external-corpus exercise — and confirm a real user has round-tripped a
-  corpus. Until this is done, **STOP**: do not start T001. (This is Phase-2
-  remediation surfaced here; see research.md §R0.)
+- [ ] T000 [GATE] **Do not start T001+ until the rung-2 gate is cleared.** The gate is
+  cleared by completing **T00A** below (vendor + exercise a real, permissively-licensed
+  public MADR corpus subset). **Resolved (maintainer decision; reviewer may override):**
+  a live external **human user** is **not** required for Phase 3 — that is a higher rung
+  (3+). The precondition is the *real-corpus fixture*, not a real adopter. Until T00A is
+  merged and green, **STOP**: do not start T001. (See research.md §R0.)
+- [ ] T00A [GATE] **Source + vendor the gating corpus (Phase-2 follow-up / Phase-3
+  precondition — does NOT reopen or re-implement Phase 2).** Find a genuinely real,
+  permissively-licensed public MADR corpus (e.g. CC0/CC-BY/MIT/Apache, or the MADR
+  project's own example records). Vendor a **small subset of real third-party prose**
+  into `packages/core/test/fixtures/madr-corpus/` (replacing the synthetic sample),
+  with **attribution + provenance** (source URL, license, commit/date) recorded in the
+  fixture directory. Point the existing corpus test at it and assert the **same**
+  properties as today via `adr migrate --from madr`: idempotency + body-byte
+  preservation + clean lint. Keep it OFFLINE (vendored, never fetched at CI time —
+  ADR-0007). **If no cleanly-licensed real corpus can be found, STOP and flag it —
+  do not vendor prose of unknown license.**
 
 ## Phase 1: Setup
 
@@ -49,8 +59,10 @@ Keep `bun.lock` at lockfileVersion 1.
   `action.yml` (inputs `dir`, `token`; Node runner). Install with **stable Bun**;
   confirm `bun.lock` stays lockfileVersion 1.
 - [ ] T002 [SETUP] Extend `scripts/check-deps.ts` so `core-has-no-adapter-deps` also
-  asserts `@adrkit/ci` imports nothing from `packages/adapters/*` (FR-013); confirm
-  the check still passes.
+  asserts (a) `@adrkit/ci` imports nothing from `packages/adapters/*` and (b) the
+  GitHub toolkit (`@actions/*`, Octokit) never reaches `@adrkit/core` or the schema —
+  it stays confined to the `@adrkit/ci` surface (FR-013, R2/R3); confirm the check
+  passes.
 
 ## Phase 2: Foundational (blocking)
 
@@ -149,8 +161,9 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Dependencies & Execution Order
 
-- **T000 (gate) blocks everything.** No implementation task starts until rung 2 is
-  genuinely met.
+- **T000/T00A (gate) block everything.** No implementation task starts until the
+  rung-2 gate is cleared by T00A (real, permissively-licensed, offline MADR corpus
+  subset vendored + round-tripped). A live human user is *not* a precondition.
 - Setup (T001–T002) → Foundational (T003–T004) block all stories.
 - US2 (`adr check`, T005–T006) is the deterministic substrate; land first.
 - US1 (comment, T007–T010) depends on Foundational + US2's check logic; it is the MVP
@@ -167,7 +180,8 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Implementation Strategy (MVP first)
 
-1. **Clear T000 first** — do not start otherwise.
+1. **Clear the gate first (T00A, satisfying T000)** — vendor + round-trip the real
+   MADR corpus subset; do not start T001 otherwise.
 2. Setup + Foundational (shared check + comment renderer).
 3. US2 `adr check` → verify SC-002 (portable, deterministic substrate).
 4. US1 Action comment → verify SC-001 (rung 3 MVP) on a second repo.

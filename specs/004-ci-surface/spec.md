@@ -8,11 +8,15 @@
 
 > **⚠️ Upstream gate — read [research.md §R0](./research.md) first.** Phase 2
 > (rung 2) shipped its code (PR #7) but its rung-2 *outcome* — `adr migrate
-> --from madr` round-tripping a **real** third-party MADR corpus with a real user —
-> was satisfied only by a **synthetic** fixture. The strict outcome ladder is not
-> yet met. **Scoping (this document) proceeds; Phase 3 _implementation_ is
-> blocked** until the rung-2 gate is genuinely met. This spec is written now so the
-> design is ready the moment the gate clears.
+> --from madr` round-tripping a **real** third-party MADR corpus — was satisfied only
+> by a **synthetic** fixture. **Scoping (this document) proceeds; Phase 3
+> _implementation_ is blocked** until the gate clears. **Resolved (maintainer
+> decision; reviewer may override):** the gate is cleared by vendoring a subset of a
+> genuinely real, permissively-licensed public MADR corpus as an **offline fixture**
+> (attribution + provenance) and exercising it through `adr migrate` — a live external
+> human user is a higher rung, *not* a Phase-3 precondition. See
+> [research.md §R0](./research.md) and `tasks.md` **T000** / **T00A**. This spec is
+> written now so the design is ready the moment the gate clears.
 
 ## Overview
 
@@ -216,7 +220,9 @@ and comments end-to-end with no other secret present.
   and public GitHub Action libraries; it MUST NOT import from `packages/adapters/*`
   (ADR-0007). `@adrkit/ci` is a first-party **surface** package (a peer of
   `@adrkit/cli`), **not** core and **not** an adapter. The `core-has-no-adapter-deps`
-  check MUST cover it.
+  check MUST cover it **and** MUST assert the GitHub toolkit dependency (`@actions/*`,
+  Octokit) never reaches `@adrkit/core` or the schema — the toolkit stays confined to
+  the `@adrkit/ci` surface.
 - **FR-014**: On a fork PR whose token cannot comment, the Action MUST still run the
   deterministic check and **degrade** commenting to a non-fatal notice rather than
   failing the job on a permissions error (FR-008 clean-degradation, consistent with

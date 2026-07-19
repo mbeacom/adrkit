@@ -1,9 +1,11 @@
 # Quickstart: CI Surface (Phase 3)
 
-> **⚠️ Implementation is gated.** Do not build this feature until the rung-2 outcome
-> is genuinely met (a **real public MADR corpus** round-tripped by `adr migrate`,
-> with a real user). See [research.md §R0](./research.md). The commands below
-> describe the *intended* surface for the future implement thread.
+> **⚠️ Implementation is gated.** Do not build this feature until the rung-2 gate
+> clears — a subset of a real, permissively-licensed public MADR corpus vendored as
+> an **offline fixture** and round-tripped by `adr migrate` (a live external human
+> user is *not* required). See [research.md §R0](./research.md) and tasks.md
+> **T000/T00A**. The commands below describe the *intended* surface for the future
+> implement thread.
 
 Prerequisites: a **published stable Bun** (CI pins `1.3.14`) — not the canary that
 self-reports 1.4.0 (it writes an unreadable lockfile). Clean clone, no network, no

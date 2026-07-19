@@ -32,10 +32,16 @@
 ## Notes
 
 - **Upstream gate is the headline.** Phase 2 (rung 2) landed its *code* (PR #7) but
-  its rung-2 *outcome* — `adr migrate` round-tripping a **real public MADR corpus**
-  with a real user — is met only by a **synthetic** fixture (see research.md §R0).
-  Per the strict outcome ladder, **scoping proceeds but Phase 3 implementation is
-  blocked** until the gate genuinely clears (tasks.md T000).
+  its rung-2 *outcome* — `adr migrate` round-tripping a **real public MADR corpus** —
+  is met only by a **synthetic** fixture (see research.md §R0). Per the strict outcome
+  ladder, **scoping proceeds but Phase 3 implementation is blocked** until the gate
+  clears. **Resolved (maintainer decision; reviewer may override):** the gate clears by
+  vendoring a subset of a real, permissively-licensed public MADR corpus as an offline
+  fixture (attribution + provenance) and round-tripping it — a live external human user
+  is a higher rung, *not* a Phase-3 precondition (tasks.md T000/T00A).
+- **Placement resolved.** `@adrkit/ci` is a first-party surface package under
+  `packages/ci/` (peer of `@adrkit/cli`), not an adapter and not core; `check-deps`
+  asserts the boundary and that the GitHub toolkit never reaches core/schema (R2/R3).
 - **Selectivity (SC-003) and idempotency (SC-004) are load-bearing.** Exit criterion
   (b): a comment that lists everything means the `affects` matchers or the renderer
   are wrong — the comment reflects the resolver's union verbatim, never a padded or
