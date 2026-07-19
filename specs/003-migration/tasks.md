@@ -111,11 +111,18 @@ Keep `bun.lock` at lockfileVersion 1.
 
 ## Phase 6: Real corpus & Polish
 
-- [x] T019 [P] Vendor a small real-world MADR sample under
+- [ ] T019 [P] Vendor a small real-world MADR sample under
   `packages/core/test/fixtures/madr-corpus/` (respect source license/attribution;
   varied statuses, block scalars) and add a test migrating it in place + asserting
   body-preservation and `adr lint` clean (SC-007). If licensing blocks vendoring,
   use a realistic synthetic corpus and document the external command.
+  (Partial — left unchecked: a synthetic, real-world-shaped fixture and
+  `packages/core/test/migrate-real-corpus.test.ts` landed and pass, but SC-007's
+  "at least one real public MADR corpus, not a fixture" bar (ADR-0008) is not met —
+  no external corpus is vendored and no external command is documented. The
+  real-corpus round-trip is the rung-2 outcome-ladder gate in `plan.md`
+  ("`adr migrate --from madr` round-trips a real third-party corpus") and remains
+  open.)
 - [x] T020 Document round-trip as explicitly unsupported (FR-010) — a short note in
   the CLI help/`--from` error and in the feature quickstart, citing ADR-0008.
 - [x] T021 Run the full gate with **stable Bun 1.3.14**: `bun install`,
