@@ -84,6 +84,21 @@ export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
     ],
     workspaceDependencies: ['@adrkit/core', '@adrkit/evaluator'],
   },
+  {
+    name: '@adrkit/mcp',
+    directory: 'packages/mcp',
+    expectedFiles: [
+      'README.md',
+      'dist/LICENSE',
+      'dist/NOTICE',
+      'dist/bin.js',
+      'dist/index.d.ts',
+      'dist/index.js',
+      'package.json',
+      'src/index.ts',
+    ],
+    workspaceDependencies: ['@adrkit/core'],
+  },
 ] as const;
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -235,17 +250,80 @@ async function prepareSmokeProject(outputDir: string, artifacts: readonly Releas
   await Bun.write(
     join(smokeDir, 'smoke.mjs'),
     `import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import * as core from '@adrkit/core';
 import * as cli from '@adrkit/cli';
 import * as evaluator from '@adrkit/evaluator';
+import * as mcp from '@adrkit/mcp';
 
 if (typeof core.lintCorpus !== 'function') throw new Error('Installed @adrkit/core is missing lintCorpus');
 if (typeof cli.main !== 'function') throw new Error('Installed @adrkit/cli is missing main');
 if (typeof evaluator.evaluatePass0 !== 'function') throw new Error('Installed @adrkit/evaluator is missing evaluatePass0');
+if (typeof mcp.createAdrkitMcpServer !== 'function') throw new Error('Installed @adrkit/mcp is missing createAdrkitMcpServer');
 
 const repoRoot = process.argv[2];
 if (!repoRoot) throw new Error('Expected repository root argument');
+
+// The public @adrkit/mcp surface is only the sealed lifecycle handle.
+const handle = mcp.createAdrkitMcpServer({ cwd: repoRoot, dir: 'docs/adr' });
+if (Object.getPrototypeOf(handle) !== null) throw new Error('Installed MCP handle must be a null-prototype object');
+if (!Object.isFrozen(handle)) throw new Error('Installed MCP handle must be frozen');
+if (JSON.stringify(Object.getOwnPropertyNames(handle).sort()) !== JSON.stringify(['close', 'start'])) {
+  throw new Error('Installed MCP handle must expose exactly start and close');
+}
+if (mcp.buildRegisteredServer !== undefined) throw new Error('Installed @adrkit/mcp must not export its internal builder');
+
+async function runMcpStdio(bin, cwd) {
+  const proc = spawn(bin, ['--cwd', cwd], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const messages = new Map();
+  const wanted = [2, 3, 4, 5, 6];
+  let buffer = '';
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('MCP stdio smoke timed out')), 20000);
+    proc.on('error', reject);
+    proc.stdout.on('data', (chunk) => {
+      buffer += chunk.toString('utf8');
+      let index;
+      while ((index = buffer.indexOf('\\n')) >= 0) {
+        const line = buffer.slice(0, index);
+        buffer = buffer.slice(index + 1);
+        if (!line.trim()) continue;
+        const message = JSON.parse(line);
+        if (message.jsonrpc !== '2.0') throw new Error('MCP bin emitted a non-JSON-RPC stdout line');
+        if (typeof message.id === 'number') messages.set(message.id, message);
+        if (wanted.every((id) => messages.has(id))) {
+          clearTimeout(timer);
+          resolve();
+        }
+      }
+    });
+    const frames = [
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } } },
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'search_decisions', arguments: { query: 'git' } } },
+      { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get_decision', arguments: { ref: '0001' } } },
+      { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_decision_context', arguments: { files: ['README.md'] } } },
+      { jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'list_superseded', arguments: {} } },
+    ];
+    proc.stdin.write(frames.map((f) => JSON.stringify(f) + '\\n').join(''));
+  });
+  proc.stdin.end();
+  proc.kill();
+  const list = messages.get(2);
+  const names = (list?.result?.tools ?? []).map((t) => t.name).sort();
+  const expected = ['get_decision', 'get_decision_context', 'list_superseded', 'search_decisions'];
+  if (JSON.stringify(names) !== JSON.stringify(expected)) throw new Error('Installed adrkit-mcp did not list the four tools: ' + names);
+  for (const id of [3, 4, 5, 6]) {
+    const outcome = messages.get(id)?.result?.structuredContent?.result?.outcome;
+    if (!outcome) throw new Error('Installed adrkit-mcp tool call ' + id + ' did not return a structured outcome');
+  }
+}
+
+const mcpBin = join(import.meta.dirname, 'node_modules', '.bin', process.platform === 'win32' ? 'adrkit-mcp.cmd' : 'adrkit-mcp');
+await runMcpStdio(mcpBin, repoRoot);
+
 const bin = join(import.meta.dirname, 'node_modules', '.bin', process.platform === 'win32' ? 'adr.cmd' : 'adr');
 const lint = spawnSync(bin, ['lint', join(repoRoot, 'docs/adr')], { cwd: repoRoot, encoding: 'utf8' });
 if (lint.stdout) process.stdout.write(lint.stdout);
@@ -316,6 +394,9 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
     validatePackedManifest(definition, packedManifest, version);
     if (definition.name === '@adrkit/cli') {
       assert(packedManifest.bin?.adr === './dist/index.js', 'Packed CLI must expose the adr binary');
+    }
+    if (definition.name === '@adrkit/mcp') {
+      assert(packedManifest.bin?.['adrkit-mcp'] === './dist/bin.js', 'Packed MCP must expose the adrkit-mcp binary');
     }
     artifacts.push({
       name: definition.name,

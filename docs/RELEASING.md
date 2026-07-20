@@ -1,6 +1,6 @@
 # Releasing adrkit
 
-adrkit distributes three public npm packages and one repository-backed GitHub
+adrkit distributes four public npm packages and one repository-backed GitHub
 Action:
 
 | Artifact | Distribution |
@@ -8,16 +8,27 @@ Action:
 | `@adrkit/core` | npm |
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`) | npm |
+| `@adrkit/mcp` (`adrkit-mcp`) | npm |
 | `packages/ci/action.yml` | Git tag (`v0.1.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
 
+The initial `v0.1.0` release is complete. All three npm packages now use GitHub
+Actions Trusted Publishing, traditional token publishing is disabled, and the
+`npm` environment contains no long-lived publish token.
+
 ## Release guarantees
 
-- All public package versions are identical.
+- All public package versions are identical. Introducing `@adrkit/mcp` as a
+  fourth public package therefore requires bumping `@adrkit/core`,
+  `@adrkit/evaluator`, and `@adrkit/cli` to the same version in the same
+  coordinated release; the actual next release number is a maintainer scheduling
+  choice made at release time.
 - The tag is exactly `v<package version>`.
-- Packages publish in dependency order: core, evaluator, CLI.
+- Packages publish in dependency order: core, evaluator, CLI, MCP (`@adrkit/mcp`
+  depends only on core, so it is appended last to preserve the list's
+  chronological order).
 - Bun 1.3.14 builds and packs the artifacts.
 - Packed manifests contain no `workspace:` protocols.
 - Tarballs include compiled ESM, declarations, README, LICENSE, and NOTICE.
@@ -37,15 +48,19 @@ From a clean checkout:
 ```sh
 bun install --frozen-lockfile
 bun run release:pack -- --tag v0.1.0
-bunx --package node@22 node .release/smoke/smoke.mjs "$PWD"
-bunx --package node@24 node .release/smoke/smoke.mjs "$PWD"
+# With Node 22 selected in your Node version manager:
+node .release/smoke/smoke.mjs "$PWD"
+# Switch the same shell to Node 24, then run:
+node .release/smoke/smoke.mjs "$PWD"
 bun run release:publish -- --dry-run
 ```
 
 The generated tarballs and manifest live under `.release/npm/` and are ignored
-by git.
+by git. The Node version manager is intentionally not prescribed; CI uses
+`actions/setup-node` for both supported versions. Do not substitute the npm
+`node` package through `bunx`: its executable resolution is platform-dependent.
 
-## One-time npm bootstrap
+## One-time npm bootstrap (completed for v0.1.0)
 
 The npm scope and packages must exist before Trusted Publishers can be attached.
 For the first release only:
@@ -71,8 +86,8 @@ For the first release only:
    - repository: `adrkit`
    - workflow filename: `release.yml`
    - environment: `npm`
-6. Delete the `NPM_TOKEN` environment secret. For maximum security, set each
-   package's publishing access to require 2FA and disallow tokens.
+6. Delete the `NPM_TOKEN` environment secret and set each package's publishing
+   access to require 2FA and disallow tokens.
 
 All later releases are tokenless.
 

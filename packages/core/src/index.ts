@@ -1,4 +1,5 @@
 export * from './schema/index.ts';
+export * from './schema/ref.ts';
 export * from './parse/frontmatter.ts';
 export * from './load/corpus.ts';
 export * from './validate/findings.ts';

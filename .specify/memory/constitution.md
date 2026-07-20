@@ -1,16 +1,39 @@
 <!--
 SYNC IMPACT REPORT
-Version change: 1.0.0 → 1.0.1
-Ratification: PATCH clarification reconciling adapter isolation with vetted deterministic public libraries and correcting the authored schema path.
+Version change: 1.0.1 → 1.0.2
+Bump rationale: PATCH clarification of the existing clean-clone policy. The
+public, frozen dependency install already permitted by ADR-0007, contributor
+guidance, and CI is now distinguished from the network-free post-install gates.
 Modified principles:
-  - III. Core Depends on No Adapter — clarified that `zod` and `yaml` are permitted vetted, deterministic, network-free, credential-free libraries, while adapter and authenticated/network/service dependencies remain forbidden.
-  - V. The Schema Is the Contract — corrected the authored Zod source path to `packages/core/src/schema/adr.schema.ts` and documented the root schema file as a compatibility re-export.
+  - II. Clean Clone Builds Green → II. Clean Clone Builds Green — permits only
+    unauthenticated public-registry access during `bun install
+    --frozen-lockfile`; all later gates and runtime remain credential-free,
+    service-free, and network-free.
 Added sections: none.
 Removed sections: none.
 Templates reviewed:
-  ✅ .specify/templates/plan-template.md — no change required; Principle III/V gate wording remains applicable.
-  ✅ .specify/templates/spec-template.md — no change required; spec stays implementation-agnostic.
-  ✅ .specify/templates/tasks-template.md — no change required; tests remain opt-in per feature, consistent with Principle IV/V verification tasks.
+  ✅ .specify/templates/plan-template.md — no change required; it derives the
+    Constitution Check from this file and contains no duplicated Principle II text.
+  ✅ .specify/templates/spec-template.md — no change required; it contains no
+    duplicated Principle II text.
+  ✅ .specify/templates/tasks-template.md — no change required; it contains no
+    duplicated Principle II text.
+  ✅ .github/agents/speckit.*.agent.md and
+    .github/prompts/speckit.*.prompt.md — no change required; installed
+    instructions load the constitution dynamically and contain no Principle II
+    wording.
+Dependent policy and runtime guidance:
+  ✅ CONTRIBUTING.md — updated to distinguish the sole public-registry install
+    exception from network-free post-install gates and runtime.
+  ✅ docs/adr/0007-adapter-isolation-and-public-surface-build.md — reviewed; no
+    change required.
+  ✅ .github/workflows/ci.yml — reviewed; no change required; Bun 1.3.14 and the
+    frozen install are already isolated in an explicit step.
+  ✅ README.md, CLAUDE.md, bunfig.toml,
+    .github/instructions/use-bun.instructions.md,
+    .cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc, and
+    docs/adr/0010-bun-toolchain.md — reviewed; no conflicting Principle II
+    wording requires propagation.
 Deferred TODOs: none.
 Source of authority: docs/adr/0001, 0002, 0004, 0005, 0007, 0008, 0009, 0010.
 The ADRs are normative. If this file and an accepted ADR disagree, the ADR wins
@@ -46,18 +69,26 @@ code, diffable, and attributable via `git log`. (ADR-0001, ADR-0004)
 
 ### II. Clean Clone Builds Green
 
-A fresh clone with no credentials, no running services, and no network access
-MUST install, build, test, and lint successfully.
+A fresh clone MAY access an unauthenticated public package registry only during
+the frozen dependency-install step. That step MUST use Bun 1.3.14, the committed
+`bun.lock`, and the repository's `bunfig.toml` settings, including the isolated
+linker and `minimumReleaseAge`. After installation, build, typecheck, test, lint,
+packaging, smoke tests, and runtime behavior MUST require no credentials, no
+running services, and no network access.
 
 - This is a CI assertion (`clean-clone-builds`), not a guideline. A change that
-  makes the default build require a secret, a device, or a network call is a
-  defect regardless of its other merits.
-- Any integration that needs authenticated, corporate-device, or private access
-  to develop does not belong in this repository.
+  makes any post-install gate or runtime behavior require a secret, a device, a
+  service, or a network call is a defect regardless of its other merits.
+- The install exception is limited to `bun install --frozen-lockfile`. Private or
+  authenticated registries, tokens or other credentials, managed-device access,
+  and non-public dependency surfaces are forbidden.
+- Network-dependent tests and runtime behavior are forbidden. Dependencies and
+  integrations MUST use only publicly documented, publicly fetchable surfaces.
 
-Rationale: contributor onboarding, IP provenance, and offline use all depend on
-the build being self-contained; the constraint also mechanically enforces the
-boundary between this Apache-2.0 project and any employer-internal IP. (ADR-0007)
+Rationale: one deterministic public-registry fetch enables clean contributor
+onboarding, while post-install self-containment preserves reproducibility,
+offline use, IP provenance, and the mechanical boundary between this Apache-2.0
+project and any employer-internal IP. (ADR-0007, ADR-0010)
 
 ### III. Core Depends on No Adapter
 
@@ -173,4 +204,4 @@ governs and this file MUST be amended to match.
 - **Compliance.** PRs and reviews verify compliance with Principles I–V. Added
   complexity must be justified against the simpler alternative it displaces.
 
-**Version**: 1.0.1 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
+**Version**: 1.0.2 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-20

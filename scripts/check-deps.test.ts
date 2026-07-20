@@ -233,3 +233,100 @@ describe('evaluator dependency boundary (Phase 4)', () => {
     expect(outside.map((v) => v.dependency).sort()).toEqual(['fast-glob', 'undici']);
   });
 });
+
+describe('mcp dependency boundary (Phase 5)', () => {
+  test('allows exactly core, the pinned SDK, and zod, plus @types/bun in dev', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/mcp/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/mcp',
+          version: '0.1.0',
+          dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/sdk': '1.29.0', zod: '^4' },
+          devDependencies: { '@types/bun': 'latest' },
+        },
+        null,
+        2,
+      ),
+    );
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  test('rejects an adapter, network/auth/model/embedding/db/cache lib, native addon, or worker helper', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/adapters/example/package.json'),
+      JSON.stringify({ name: '@adrkit/adapter-example', version: '0.1.0' }, null, 2),
+    );
+    await writeText(
+      join(root, 'packages/mcp/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/mcp',
+          version: '0.1.0',
+          dependencies: {
+            '@adrkit/core': 'workspace:*',
+            '@modelcontextprotocol/sdk': '1.29.0',
+            zod: '^4',
+            '@adrkit/adapter-example': 'workspace:*',
+            undici: '^6',
+            jose: '^5',
+            openai: '^4',
+            '@xenova/transformers': '^2',
+            pg: '^8',
+            ioredis: '^5',
+            'node-gyp': '^10',
+            piscina: '^4',
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    const outside = result.violations
+      .filter((v) => v.reason.includes('outside its allowed public surface'))
+      .map((v) => v.dependency)
+      .sort();
+    expect(outside).toEqual(['@adrkit/adapter-example', '@xenova/transformers', 'ioredis', 'jose', 'node-gyp', 'openai', 'pg', 'piscina', 'undici']);
+    expect(result.violations.some((v) => v.reason === 'non-adapter workspace depends on an adapter package')).toBe(true);
+  });
+
+  test('rejects an undeclared SDK subpath package masquerading as the SDK', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/mcp/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/mcp',
+          version: '0.1.0',
+          dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/sdk': '1.29.0', zod: '^4', '@modelcontextprotocol/server-everything': '^1' },
+        },
+        null,
+        2,
+      ),
+    );
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((v) => v.dependency)).toContain('@modelcontextprotocol/server-everything');
+  });
+
+  test('rejects the GitHub toolkit reaching the mcp surface', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/mcp/package.json'),
+      JSON.stringify(
+        { name: '@adrkit/mcp', version: '0.1.0', dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/sdk': '1.29.0', zod: '^4', '@actions/github': '^6' } },
+        null,
+        2,
+      ),
+    );
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((v) => v.reason)).toContain(
+      'GitHub Action toolkit must stay confined to @adrkit/ci and never reach core/schema/cli',
+    );
+  });
+});

@@ -2,10 +2,10 @@
 
 ## Toolchain
 
-Bun (see [ADR-0010](docs/adr/0010-bun-toolchain.md)). Install it, then
-`bun install`. Bun is a **development** dependency only — nothing published by
-this project requires it, and every published artifact is smoke-tested under
-Node.
+Bun 1.3.14 (see [ADR-0010](docs/adr/0010-bun-toolchain.md)). Install it, then
+run `bun install --frozen-lockfile`. Bun is a **development** dependency only —
+nothing published by this project requires it, and every published artifact is
+smoke-tested under Node.
 
 `bunfig.toml` sets `linker = "isolated"`. Do not change it: the hoisted linker
 permits phantom dependencies, which would let the core import an adapter while
@@ -26,15 +26,25 @@ git commit -s -m "your message"
 These are enforced in CI. A PR that violates either will fail, and the fix is to
 change the code, not the check.
 
-**1. A clean clone must build with no credentials.**
+**1. A clean clone has one narrow network exception for dependency install.**
 
 ```
-git clone <repo> && cd adrkit && bun install && bun run build && bun test && bun run lint
+git clone <repo> && cd adrkit
+bun install --frozen-lockfile
+bun run typecheck && bun run build && bun test && bun run lint
 ```
 
-must pass with no tokens, no services, no network beyond the package registry.
-Contributions may not depend on private registries, authenticated APIs, or
-anything requiring a managed device. See
+The frozen install is the only step that may use the network, and it may contact
+only the unauthenticated public package registry. It must use Bun 1.3.14, the
+committed `bun.lock`, and the repository's `bunfig.toml` settings, including the
+isolated linker and `minimumReleaseAge`.
+
+After installation, build, typecheck, test, lint, packaging, smoke tests, and
+runtime behavior must require no credentials, no services, and no network
+access. Contributions may not use private or authenticated registries, registry
+tokens or other credentials, authenticated APIs, non-public dependency surfaces,
+network-dependent tests or runtime behavior, or anything requiring a managed
+device. See
 [ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md).
 
 **2. The core depends on no adapter.**
@@ -93,4 +103,3 @@ bun install --frozen-lockfile   # restore your local (host) install afterward
 
 Then commit `packages/ci/dist`. Any change to `packages/ci/src` **or** `@adrkit/core`
 (which is bundled in) requires regenerating it.
-

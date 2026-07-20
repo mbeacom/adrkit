@@ -9,22 +9,12 @@
  */
 
 import type { Adr } from '@adrkit/core';
+import { parseAdrRef } from '@adrkit/core';
 import { aggregate, passResult, type SubResult } from './kernel.ts';
 import type { RuleContext } from './context.ts';
 import type { ReasonCode, RuleFinding, RuleResult } from '../types.ts';
 
 type RefField = 'supersedes' | 'relatesTo';
-
-interface Parsed {
-  readonly log?: string;
-  readonly id: string;
-}
-
-function parseRef(ref: string): Parsed {
-  const idx = ref.indexOf(':');
-  if (idx <= 0) return { id: ref };
-  return { log: ref.slice(0, idx), id: ref.slice(idx + 1) };
-}
 
 export function evaluateNoOrphanRefs(ctx: RuleContext): RuleResult {
   const resolutionLog = ctx.input.resolutionLog;
@@ -50,7 +40,7 @@ export function evaluateNoOrphanRefs(ctx: RuleContext): RuleResult {
   const subs: SubResult[] = [];
 
   function classify(ref: string): 'resolved' | 'dangling' | 'federated-absent' {
-    const parsed = parseRef(ref);
+    const parsed = parseAdrRef(ref);
     if (parsed.log === undefined || parsed.log === resolutionLog) {
       return localIds.has(parsed.id) ? 'resolved' : 'dangling';
     }
