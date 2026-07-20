@@ -12,6 +12,24 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   return output;
 }
 
+async function remoteTagCommit(cwd: string, tag: string): Promise<string> {
+  const refs = await git(
+    cwd,
+    'ls-remote',
+    '--tags',
+    'origin',
+    `refs/tags/${tag}`,
+    `refs/tags/${tag}^{}`,
+  );
+  const lines = refs.split('\n');
+  const line = lines.find((entry) => entry.endsWith(`refs/tags/${tag}^{}`))
+    ?? lines.find((entry) => entry.endsWith(`refs/tags/${tag}`));
+  if (!line) throw new Error(`Remote tag ${tag} was not found`);
+  const sha = line.split(/\s+/)[0];
+  if (!sha) throw new Error(`Remote tag ${tag} has no object ID`);
+  return sha;
+}
+
 afterEach(async () => {
   await cleanupTestDir(DIR_NAME);
 });
@@ -52,12 +70,12 @@ describe('moving Action tag version guard', () => {
     await writeText(join(work, 'release.txt'), 'v0.2.0\n');
     await git(work, 'commit', '-am', 'v0.2.0');
     await git(work, 'tag', '-a', 'v0.2.0', '-m', 'v0.2.0');
-    await git(work, 'tag', 'v0');
+    await git(work, 'tag', '-a', 'v0', '-m', 'v0');
     await git(work, 'push', 'origin', '--tags');
 
     expect(await updateActionTag('v0.1.0', { repositoryRoot: work })).toBe(false);
     const v02Sha = await git(work, 'rev-list', '-n', '1', 'v0.2.0');
-    expect((await git(work, 'ls-remote', 'origin', 'refs/tags/v0')).split(/\s+/)[0]).toBe(v02Sha);
+    expect(await remoteTagCommit(work, 'v0')).toBe(v02Sha);
 
     await writeText(join(work, 'release.txt'), 'v0.3.0\n');
     await git(work, 'commit', '-am', 'v0.3.0');
@@ -66,6 +84,6 @@ describe('moving Action tag version guard', () => {
 
     expect(await updateActionTag('v0.3.0', { repositoryRoot: work })).toBe(true);
     const v03Sha = await git(work, 'rev-list', '-n', '1', 'v0.3.0');
-    expect((await git(work, 'ls-remote', 'origin', 'refs/tags/v0')).split(/\s+/)[0]).toBe(v03Sha);
+    expect(await remoteTagCommit(work, 'v0')).toBe(v03Sha);
   });
 });

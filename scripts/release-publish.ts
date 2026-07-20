@@ -5,6 +5,7 @@ const REPOSITORY_ROOT = resolve(import.meta.dir, '..');
 const RELEASE_DIR = join(REPOSITORY_ROOT, '.release', 'npm');
 const NPM_CLI_VERSION = '11.5.1';
 const REGISTRY = 'https://registry.npmjs.org';
+type RegistryFetch = (url: string) => Promise<Response>;
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -14,17 +15,30 @@ async function readManifest(): Promise<ReleaseManifest> {
   return JSON.parse(await Bun.file(join(RELEASE_DIR, 'manifest.json')).text()) as ReleaseManifest;
 }
 
-async function existingIntegrity(artifact: ReleaseArtifact): Promise<string | undefined> {
+export async function existingIntegrity(
+  artifact: ReleaseArtifact,
+  fetcher: RegistryFetch = fetch,
+): Promise<string | undefined> {
   const encodedName = encodeURIComponent(artifact.name);
-  const response = await fetch(`${REGISTRY}/${encodedName}/${artifact.version}`, {
-    headers: { accept: 'application/json' },
-  });
+  const response = await fetcher(`${REGISTRY}/${encodedName}/${artifact.version}`);
   if (response.status === 404) return undefined;
   assert(response.ok, `Registry lookup for ${artifact.name}@${artifact.version} failed with ${response.status}`);
   const metadata = (await response.json()) as { dist?: { integrity?: string } } | null;
   const integrity = metadata?.dist?.integrity;
   assert(integrity, `Registry metadata for ${artifact.name}@${artifact.version} has no integrity`);
   return integrity;
+}
+
+export function shouldPublishArtifact(
+  artifact: ReleaseArtifact,
+  registryIntegrity: string | undefined,
+): boolean {
+  if (!registryIntegrity) return true;
+  assert(
+    registryIntegrity === artifact.integrity,
+    `${artifact.name}@${artifact.version} already exists with different integrity`,
+  );
+  return false;
 }
 
 async function npmPublish(artifact: ReleaseArtifact, dryRun: boolean): Promise<void> {
@@ -70,11 +84,7 @@ export async function publishRelease(args = Bun.argv.slice(2)): Promise<void> {
   for (const artifact of manifest.artifacts) {
     if (!dryRun) {
       const integrity = await existingIntegrity(artifact);
-      if (integrity) {
-        assert(
-          integrity === artifact.integrity,
-          `${artifact.name}@${artifact.version} already exists with different integrity`,
-        );
+      if (!shouldPublishArtifact(artifact, integrity)) {
         console.log(`release-publish: ${artifact.name}@${artifact.version} already matches; skipping`);
         continue;
       }

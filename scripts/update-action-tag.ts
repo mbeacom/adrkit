@@ -51,13 +51,23 @@ export async function updateActionTag(
   const releaseVersion = parseStableVersionTag(releaseTag);
   const majorTag = `v${releaseVersion.major}`;
   const remote = await run(
-    ['git', 'ls-remote', '--tags', remoteName, `refs/tags/${majorTag}`],
+    [
+      'git',
+      'ls-remote',
+      '--tags',
+      remoteName,
+      `refs/tags/${majorTag}`,
+      `refs/tags/${majorTag}^{}`,
+    ],
     repositoryRoot,
     true,
   );
 
   if (remote) {
-    const remoteSha = remote.split(/\s+/)[0];
+    const remoteLines = remote.split('\n').filter(Boolean);
+    const remoteLine = remoteLines.find((line) => line.endsWith(`refs/tags/${majorTag}^{}`))
+      ?? remoteLines.find((line) => line.endsWith(`refs/tags/${majorTag}`));
+    const remoteSha = remoteLine?.split(/\s+/)[0];
     assert(remoteSha, `Could not parse remote ${majorTag} ref`);
     const releaseTags = await run(
       [
