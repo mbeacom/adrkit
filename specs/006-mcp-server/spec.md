@@ -3,7 +3,7 @@
 **Feature Directory**: `006-mcp-server`
 **Implementation Branch**: `feat/phase-5-mcp-server`
 **Created**: 2026-07-20
-**Status**: Implemented — PR #19
+**Status**: Landed and dogfooded — PR #19
 **Phase**: 5 (outcome ladder **rung 4**) — read tools only
 (project **Phase 5** ≠ outcome-ladder rung 5. Per `plan.md`, Phase 5 is the MCP server
 and delivers rung 4, "an agent can read the corpus." Rung 5, "a proposal gets routed

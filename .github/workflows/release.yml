@@ -82,9 +82,9 @@ jobs:
       - name: Publish npm packages with provenance
         run: bun run release:publish
         env:
-          # Used only to bootstrap packages that do not yet exist. Once npm
-          # Trusted Publishers are configured, remove this environment secret.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # The publish script maps this only to @adrkit/mcp. Existing packages
+          # remain on OIDC. Remove the secret after MCP Trusted Publishing works.
+          NPM_BOOTSTRAP_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub release
         env:

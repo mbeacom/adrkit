@@ -13,10 +13,10 @@ legible to agents — without leaving git.
 > `explain`, `check`,
 > `migrate --from madr`, and `adr evaluate` all work, including `affects`
 > resolution, in-place MADR migration, and the offline eleven-rule Pass 0. The
-> read-only `@adrkit/mcp` server is implemented on PR #19 with its exact
-> four-tool, local-only boundary; real-session dogfood and coordinated
-> publication remain. Not yet built: the later probabilistic passes (Passes
-> 1–3). See [`plan.md`](./plan.md).
+> read-only `@adrkit/mcp` server landed in PR #19 with its exact four-tool,
+> local-only boundary and passed real-session dogfood through the official MCP
+> Inspector. Coordinated v0.2.0 publication remains. Not yet built: the later
+> probabilistic passes (Passes 1–3). See [`plan.md`](./plan.md).
 
 ---
 

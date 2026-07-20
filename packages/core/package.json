@@ -1,6 +1,6 @@
 {
   "name": "@adrkit/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pure ADR parsing, validation, migration, and affects resolution for adrkit.",
   "type": "module",
   "license": "Apache-2.0",

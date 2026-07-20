@@ -34,7 +34,8 @@ I–V.
 > four-tool, local-only, read-only boundary and its exclusions. Both governance
 > preconditions are closed. Fresh analysis passed after artifact remediation with no
 > critical, high, or medium finding. All 43 tasks are complete and the implementation is
-> complete in PR #19.
+> complete in merged PR #19. Post-merge real-session evidence is recorded in
+> `quickstart.md`.
 
 ## Summary
 
