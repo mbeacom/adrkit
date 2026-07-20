@@ -1,8 +1,30 @@
 {
   "name": "@adrkit/cli",
   "version": "0.1.0",
+  "description": "Git-native architecture decision record tooling from adrkit.",
   "type": "module",
   "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "cli",
+    "governance"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "adr": "./dist/index.js"
   },
@@ -16,8 +38,9 @@
   },
   "scripts": {
     "adr": "bun ./src/index.ts",
-    "build": "rm -rf dist && bun build ./src/index.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist && chmod +x dist/index.js",
+    "build": "rm -rf dist && bun build ./src/index.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist && cp ../../LICENSE ../../NOTICE dist/ && chmod +x dist/index.js",
     "lint": "bun run typecheck",
+    "prepack": "bun run build",
     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
   },
   "dependencies": {
@@ -28,6 +51,8 @@
     "@types/bun": "latest"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "src"
   ]
 }

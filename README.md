@@ -86,6 +86,46 @@ answer where the next decision is actually being made.
 
 It never approves anything. It routes, and humans decide.
 
+## Install
+
+The CLI is published as `@adrkit/cli` and exposes the `adr` binary:
+
+```sh
+bun add --dev @adrkit/cli
+bunx adr lint
+```
+
+For one-off use:
+
+```sh
+bunx @adrkit/cli explain src/payments/api.ts
+```
+
+The pure library surfaces are independently installable:
+
+```sh
+bun add @adrkit/core @adrkit/evaluator
+```
+
+Published artifacts are ESM and require Node.js 22 or newer. Bun remains the
+project's development package manager and test/build runtime.
+
+Use the GitHub Action from its moving major tag, or pin the immutable release
+tag/commit for maximum reproducibility:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+
+steps:
+  - uses: actions/checkout@v4
+  - uses: mbeacom/adrkit/packages/ci@v0
+```
+
+The npm packages and `v0` Action tag are created by the first `v0.1.0` release.
+Until then, source checkouts can run the CLI with `bun run adr`.
+
 ## Design commitments
 
 These are enforced, not aspirational. Each links to the record that decided it.

@@ -2,6 +2,7 @@
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { existsSync, realpathSync } from 'node:fs';
 import {
   buildAdrGraph,
   checkChanges,
@@ -404,6 +405,11 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+export function isMainModule(moduleUrl: string, argvPath: string | undefined): boolean {
+  if (!argvPath || !existsSync(argvPath)) return false;
+  return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(argvPath);
+}
+
+if (isMainModule(import.meta.url, process.argv[1])) {
   process.exitCode = await main();
 }
