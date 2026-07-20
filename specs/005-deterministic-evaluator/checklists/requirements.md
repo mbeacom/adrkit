@@ -31,12 +31,9 @@
 
 ## Notes
 
-- **Phase 3 outcome gate is the headline.** Feature 004's code merged in **PR #12**, but
-  `specs/004-ci-surface/tasks.md` **T018 is unchecked** — the second-repo / >10-record /
-  selective-comment / same-comment-update / default-token-only verification. Per the
-  outcome ladder, **scoping (spec/plan/tasks) proceeds now, but ANY feature-005
-  implementation task is hard-blocked until T018 is checked off with evidence** (SC-013).
-  A merged PR is not a satisfied rung.
+- **Phase 3 outcome gate cleared 2026-07-19.** Feature 004 T018 now links the
+  second-repo / 12-record / selective-comment / same-comment-update /
+  default-token-only verification. Feature 005 T001 records the same evidence.
 - **Scope is Pass 0 only.** This feature builds only the **deterministic** pass of the
   four-pass evaluator (ADR-0005 action item 1: "Pass 0 complete and independently useful
   before any prompt is written"). **No** model call, prompt, retrieval, embedding, rubric

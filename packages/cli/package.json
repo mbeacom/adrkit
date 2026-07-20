@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
   },
   "dependencies": {
-    "@adrkit/core": "workspace:*"
+    "@adrkit/core": "workspace:*",
+    "@adrkit/evaluator": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest"

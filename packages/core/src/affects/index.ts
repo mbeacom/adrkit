@@ -8,10 +8,16 @@ import { matchPathPattern } from './matchers/path.ts';
 export type { CatalogPort, CatalogSnapshot, CatalogSnapshotEntity, EntityId } from './catalog.ts';
 export {
   deriveChangedDependenciesFromBunLockDiff,
+  matchPackagePattern,
   parsePackagePattern,
   type ChangedDependency,
+  type PackageMatcherResult,
   type ParsedPackagePattern,
 } from './matchers/package.ts';
+// Neutral repo-relative path-glob primitive. Exposed so `@adrkit/evaluator` can reuse
+// the exact matcher grammar for `path` target resolution instead of duplicating it
+// (research §R4). Evaluator-specific target-registry concepts stay out of core.
+export { matchPathPattern, type PathMatcherResult } from './matchers/path.ts';
 
 export interface ResolutionSnapshots {
   changedDependencies?: readonly ChangedDependency[];

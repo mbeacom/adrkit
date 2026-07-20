@@ -29,7 +29,7 @@ sync.
 | 1 — Affects resolution | `specs/002-affects-resolution/` | landed (PR #6 merged) |
 | 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
-| 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | scoped; implementation blocked on Phase 3 T018 |
+| 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | implementation in progress; Phase 3 T018 gate cleared |
 | 5 — MCP server | _(unopened)_ | queued |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
@@ -40,10 +40,12 @@ early is cheap and reversible, whereas shipping code against an unmet lower rung
 not. Run each feature through the spec-kit loop; the Constitution Check in every
 `plan.md` gates against Principles I–V. *(Maintainer decision; reviewer may override.)*
 
-Phase 4's spec-kit artifacts are scoped, but **no Phase 4 implementation may begin** while
-`specs/004-ci-surface/tasks.md` T018 remains unchecked. T018 must prove the Action on another
-repository with more than ten ADRs, selective governing-record comments, same-comment update
-on a second push, and only the default `GITHUB_TOKEN`.
+Phase 4's implementation gate is **cleared**. Phase 3 T018 was completed on
+[`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood):
+12 ADRs, a one-file
+[PR](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1), a selective comment naming
+only ADRs 0001 and 0002, and a second default-token-only run updating the same
+[comment](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1#issuecomment-5017253372).
 
 The "real user" a rung requires is satisfied by **maintainer dogfooding** — the ladder
 already says "even if that user is only you". For rung 2 specifically, the required
@@ -73,11 +75,9 @@ Spec-kit realization note above). For rung 2, that dogfood is the maintainer run
 
 **Rung status.** Rung 2 is **met**: `adr migrate --from madr` round-trips a vendored
 subset of the real [adr/madr](https://github.com/adr/madr) corpus offline (Phase 3
-T00A). Rung 3's code has **landed** (Phase 3: `adr check` + the `@adrkit/ci` Action,
-green in CI), but the rung-3 *outcome* — "a comment fires with correct records on a
-repo that isn't this one" — is confirmed only by the **owner-run** second-repo exit
-check (`specs/004-ci-surface/` T018, procedure in that quickstart), which cannot run in
-this repo's CI.
+T00A). Rung 3 is also **met**: the `@adrkit/ci` Action ran twice on the separate
+12-record `adrkit-t018-dogfood` repository, selected exactly two governing ADRs, and
+updated one comment in place using only the default token (Phase 3 T018).
 
 ## Binding constraints
 

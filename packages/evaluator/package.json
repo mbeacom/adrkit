@@ -1,0 +1,29 @@
+{
+  "name": "@adrkit/evaluator",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build ./src/index.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/core": "workspace:*",
+    "jsonpath-rfc9535": "1.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "files": [
+    "dist"
+  ]
+}

@@ -314,3 +314,25 @@ export interface Adr {
   /** Log name for federated corpora; undefined for single-repo. */
   log?: string;
 }
+
+/* ------------------------------------------------------------------ *
+ * Type-only inference aliases (no runtime / JSON-schema change)
+ * ------------------------------------------------------------------ *
+ * These `z.infer` aliases sit beside their existing Zod values so first-party
+ * consumers (notably `@adrkit/evaluator`) can reuse the committed contract shapes
+ * by name instead of redefining them. A value and a type may share a name in
+ * TypeScript, so `AdrRef` (value) and `AdrRef` (type) coexist. Adding these
+ * changes no Zod schema and no emitted JSON Schema (data-model §1).
+ */
+export type AdrRef = z.infer<typeof AdrRef>;
+export type AffectsType = z.infer<typeof AffectsType>;
+export type AffectsMatcher = z.infer<typeof AffectsMatcher>;
+export type Assertion = z.infer<typeof Assertion>;
+export type Severity = z.infer<typeof Severity>;
+export type EscalationReason = z.infer<typeof EscalationReason>;
+export type DeterministicFinding = z.infer<typeof DeterministicFinding>;
+export type Evaluation = z.infer<typeof Evaluation>;
+export type Status = z.infer<typeof Status>;
+export type Scope = z.infer<typeof Scope>;
+export type Reversibility = z.infer<typeof Reversibility>;
+export type BlastRadius = z.infer<typeof BlastRadius>;

@@ -54,7 +54,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Build
         run: bun run build
-      - name: Smoke test built Node artifacts
+      - name: Smoke test built Node artifacts (core, evaluator, CLI incl. offline adr evaluate, Action bundle)
         run: node scripts/smoke-node.mjs
 
   self-dogfood:

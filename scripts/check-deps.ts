@@ -105,7 +105,18 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
 
   if (packageName === '@adrkit/cli') {
     return {
-      dependencies: new Set(['@adrkit/core']),
+      dependencies: new Set(['@adrkit/core', '@adrkit/evaluator']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
+  if (packageName === '@adrkit/evaluator') {
+    // The evaluator surface may depend on core and the T002-approved deterministic
+    // JSONPath engine only — never an adapter, model, toolkit, or network/fs client.
+    return {
+      dependencies: new Set(['@adrkit/core', 'jsonpath-rfc9535']),
       devDependencies: new Set(['@types/bun']),
       peerDependencies: new Set(),
       optionalDependencies: new Set(),

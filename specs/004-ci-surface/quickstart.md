@@ -77,22 +77,26 @@ validates the changed records, and posts (or updates) a single comment.
 This repo runs `adr check` on its own PRs (the `self-dogfood` CI job) so the CI surface
 governs the project that ships it — the same dogfooding stance as `adr lint`.
 
-## Owner-run exit check (T018 — cannot be automated in CI)
+## Owner-run exit check (T018 — completed)
 
-The rung-3 exit criterion is a **manual** verification on a **second** repository (not
-this one), which CI cannot perform. Run it once as the owner:
+The rung-3 exit criterion was manually verified on the public
+[`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
+repository on 2026-07-19:
 
-1. In a separate repo with a **>10-record** ADR corpus, add the workflow above
-   (`mbeacom/adrkit/packages/ci@<ref>`), granting `pull-requests: write`.
-2. Open a PR that touches a **subset** of governed paths. Confirm the posted comment
-   names **exactly** the governing subset (id + title + fired matcher) — not the whole
-   corpus (SC-001/003).
-3. Push a second commit to the same PR. Confirm the **same** comment updates in place
-   rather than a new one being added (SC-004).
-4. Confirm it ran with only the default `GITHUB_TOKEN` (no PAT/secret) (SC-006), and
-   that a fork PR (read-only token) still runs the check and degrades commenting to a
-   job-log notice without failing the job.
+1. The corpus contains **12 schema-valid ADRs**.
+2. [PR #1](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1) changed only
+   `src/payments/api/handler.ts`. Its
+   [comment](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1#issuecomment-5017253372)
+   named exactly ADR 0001 (`src/payments/**`) and ADR 0002
+   (`src/payments/api/**`), with no other ADR.
+3. The [first run](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29702471862)
+   created the comment at `2026-07-19T20:25:13Z`; after commit
+   `b3b7cc8be2d418fec9336c71c2ad9882416f5467`, the
+   [second run](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29702494926)
+   updated REST comment id `5017253372` at `2026-07-19T20:25:54Z`. The PR still had
+   one comment.
+4. Both runs used only the workflow's default `GITHUB_TOKEN`; logs show the Action
+   input token and `GITHUB_TOKEN` masked and no PAT/extra secret. The first log says
+   the governing-decisions comment was created and the second says it was updated.
 
-This is the owner-run equivalent of the site's DNS cutover: everything up to it is
-green in CI; this last step needs a real second repo and is left unchecked in
-`tasks.md` until performed.
+This evidence completes T018 and clears the Phase 4 implementation gate.
