@@ -14,8 +14,8 @@ marked *(new — runtime only)* exist only in `@adrkit/evaluator` and are **neve
 or added to the schema (Principle V; Clarification C6). All input types are **deeply
 immutable** (`readonly`); the evaluator mutates none of them (FR-006).
 
-> **Implementation of any of this is blocked until 004 T018 evidence lands** (research
-> [§R0](./research.md)). These shapes are design, not authorization to build.
+> **Implementation gates cleared 2026-07-19.** Feature 004 T018 evidence and the
+> engine decisions are recorded in research §§R0–R1.
 
 ---
 
@@ -134,7 +134,7 @@ interface SnapshotBundleJsonV1 {
     readonly sources?: Readonly<Record<AssertionKey, {
       readonly fileContent?: string;
       readonly sourceRef?: string;
-      readonly compiledArtifact?: CompiledAssertionArtifact;
+      readonly compiledArtifact?: RegoWasmPolicyEnvelopeV1;
     }>>;
     readonly inputs?: Readonly<Record<AssertionKey, { readonly document: JsonValue }>>;
   };
@@ -172,8 +172,8 @@ function, module name, or port selector. The CLI:
    catalog owners, matchers, and assertions preserve semantic order;
 4. constructs `TargetResolutionRegistry` and `AssertionEngineRegistry` from trusted,
    T002-approved composition code — never from a JSON value; and
-5. if T002 approves a `compiled-artifact` engine profile, accepts only the fixed
-   `CompiledAssertionArtifact` data shape above and passes it to that already-registered
+5. for Rego, accepts only the fixed
+   `RegoWasmPolicyEnvelopeV1` data shape above and passes it to an already-registered
    engine for hash/format validation. The bundle cannot import an arbitrary JS/native module
    or select an executable port.
 
@@ -328,15 +328,35 @@ interface ResolvedAssertionSource {
   /** Stable source ref/hash for reproducibility & attribution (§7 evidence). */
   readonly sourceRef?: string;               // e.g. "sha256:…"
   /** Present only for an engine whose T002-approved profile consumes compiled artifacts. */
-  readonly compiledArtifact?: CompiledAssertionArtifact;
+  readonly compiledArtifact?: RegoWasmPolicyEnvelopeV1;
 }
 interface ResolvedAssertionInput { readonly document?: JsonValue }   // resolved input data; absent ⇒ inert
 
-interface CompiledAssertionArtifact {
-  readonly mediaType: string;
-  readonly payloadBase64: string;
-  readonly sha256: string;
-  readonly sourceRef: string;
+interface RegoWasmPolicyEnvelopeV1 {
+  readonly mediaType: 'application/vnd.adrkit.rego-wasm-policy.v1+json';
+  readonly schemaVersion: 'adrkit.rego-wasm-policy/v1';
+  readonly source: string;                    // UTF-8, <= 64 KiB
+  readonly sourceSha256: string;              // 64 lowercase hex chars
+  readonly moduleBase64: string;              // canonical base64, decoded <= 4 MiB
+  readonly moduleSha256: string;              // hash of raw Wasm bytes
+  readonly data: JsonValue;                   // canonical JSON <= 1 MiB/depth64/100k nodes
+  readonly entrypoint: string;                // canonical slash path, e.g. /example/allow
+  readonly abi: { readonly major: 1; readonly minor: 3 };
+  readonly compiler: {
+    readonly name: 'opa';
+    readonly version: string;
+    readonly capabilitiesProfile: 'adrkit.rego-wasm.capabilities/v1';
+    readonly capabilitiesSha256: string;
+  };
+  /** v1 permits no caller-provided host builtin implementation. */
+  readonly requiredHostBuiltins: readonly [];
+  /** SHA-256 of canonical JSON for every prior field, excluding this field itself. */
+  readonly envelopeSha256: string;
+}
+
+interface JsonPathCompiledPayload {
+  readonly source: string;                    // <= 8 KiB UTF-8
+  readonly ast: JsonPathQuery;                // immutable validation evidence
 }
 
 type AssertionEngineName = 'rego' | 'jsonpath' | 'grep' | 'custom';
@@ -355,7 +375,7 @@ interface SourceAssertionEnginePort<E extends AssertionEngineName, Payload> {
 interface CompiledArtifactEnginePort<E extends AssertionEngineName, Payload> {
   readonly engine: E;
   readonly profile: 'compiled-artifact';
-  validateArtifact(artifact: CompiledAssertionArtifact): CompileOutcome<E, Payload>;
+  validateArtifact(artifact: RegoWasmPolicyEnvelopeV1): CompileOutcome<E, Payload>;
   evaluate(compiled: CompiledAssertion<E, Payload>, input: JsonValue): EvalOutcome;
 }
 type CompileOutcome<E extends AssertionEngineName, Payload> =
@@ -389,13 +409,32 @@ whether backing happened to arrive. Declared inline `expression` only ⇒ compil
 declared `expressionFile` only + resolved `fileContent` ⇒ compile supplied content; **neither
 declared ⇒ `assertions-compile` error (`no-source`)**; **both declared ⇒ error
 (`ambiguous-source`)** (schema does not forbid either case today — R8; no schema edit).
-For a T002-approved `source` profile, declared `expressionFile` with missing resolved content
+For the approved JSONPath `source` profile, declared `expressionFile` with missing resolved content
 makes `assertions-compile` **inert**. For a T002-approved `compiled-artifact` profile, a
 missing artifact makes it inert and artifact validation supplies the compile result; the
 snapshot never selects or imports a port. A missing engine port also makes compile inert.
 Missing evaluation input affects `assertions-pass` only and makes that rule **inert**.
 Compile/artifact-validation failure ⇒ **error**; `evaluate.pass === false` or a deterministic
 engine evaluation error ⇒ **`assertions-pass` warn**.
+
+### 5.1 Approved engine profiles and resource limits
+
+`jsonpath-rfc9535@1.3.0` is the only built-in engine dependency. Its port accepts the
+restricted RFC 9535 selector/function set recorded in research R1, stores
+`JsonPathCompiledPayload`, and defines pass as a non-empty nodelist. The package's public
+evaluator accepts source rather than AST, so `evaluate` internally reparses the already
+validated source; the same immutable payload still travels directly from compile to
+evaluate, with no evaluator recompile or hidden cache. Input is canonical JSON <=1 MiB,
+depth <=64, <=100,000 nodes.
+
+Rego uses `RegoWasmPolicyEnvelopeV1` only. The envelope validator rejects unknown or
+duplicate keys, invalid canonical JSON/base64/hash/Wasm/entrypoint/ABI/capability data,
+non-empty host builtin requirements, source >64 KiB, data >1 MiB/depth64/100,000 nodes,
+module >4 MiB, or decoded envelope >6.75 MiB. adrkit registers no Rego runtime by
+default and does not execute the module. A trusted caller may register a typed
+compiled-artifact port after accepting artifact-producer trust; `@open-policy-agent/opa-wasm`
+1.10.0 is an evaluator for precompiled Wasm, not a Rego compiler, and is not an adrkit
+runtime dependency.
 
 ```ts
 /** (new — runtime only) Deterministic scope-hierarchy contradiction evidence (R5). */

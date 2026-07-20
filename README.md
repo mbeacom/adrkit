@@ -7,11 +7,13 @@
 Architecture decision records that are machine-readable, enforceable in CI, and
 legible to agents — without leaving git.
 
-> Status: early, under active development. The schema, `@adrkit/core`, and
-> `@adrkit/cli` are implemented — `adr lint`, `new`, `graph`, `explain`, and
-> `migrate --from madr` all work, including `affects` resolution and additive,
-> in-place MADR migration. Not yet built: the CI surface (GitHub Action), the
-> deterministic evaluator, and the MCP server. See [`plan.md`](./plan.md).
+> Status: early, under active development. The schema, `@adrkit/core`,
+> `@adrkit/cli`, and the deterministic **Pass 0 evaluator** (`@adrkit/evaluator`)
+> are implemented — `adr lint`, `new`, `graph`, `explain`, `check`,
+> `migrate --from madr`, and `adr evaluate` all work, including `affects`
+> resolution, in-place MADR migration, and the offline eleven-rule Pass 0. Not yet
+> built: the later probabilistic passes (Passes 1–3) and the MCP server. See
+> [`plan.md`](./plan.md).
 
 ---
 
@@ -58,6 +60,20 @@ answer where the next decision is actually being made.
   matcher that fired
 - **`adr check <files...>`** — validate the changed records and list the decisions
   governing a changed-file set; deterministic, provider-agnostic, `--json` for tools
+- **`adr evaluate <proposal> --snapshot <bundle.json> --date YYYY-MM-DD`** — run the
+  **deterministic, model-free Pass 0** over a proposal ADR plus an immutable offline
+  snapshot bundle. It applies the eleven rubric rules, escalates on **proven** triggers
+  to one named active human (or an explicit `unresolved`), and **returns** a rich
+  `Pass0Report` plus a schema-compatible `evaluationPatch`. It reads **no** model,
+  network, clock, or (in the library) filesystem, and **routes — it never approves,
+  persists, or writes**. There is **no `--write`**. Exit codes: **2** invalid
+  usage/malformed bundle (including a schema-valid non-`draft`/`proposed` candidate),
+  **1** a rubric error, **0** warn/info/inert/pass — even when it escalates or routes
+  `unresolved`. The bundle is strict `adrkit.pass0.snapshot/v1` **data only**: it can
+  never select or import an engine/resolver port; the CLI injects those from trusted
+  composition code. Assertions use the restricted **`jsonpath-rfc9535`** RFC 9535
+  source profile; **Rego** is validated as the fixed compiled-artifact envelope but is
+  inert by default (adrkit ships no Rego runtime and never compiles raw Rego).
 - **CI comment** — the `@adrkit/ci` GitHub Action surfaces the governing decisions
   on the PRs that touch them. Read-only and comment-only — no database, no approval
   ([0004](docs/adr/)); runs with only the default `GITHUB_TOKEN` on the `node24`

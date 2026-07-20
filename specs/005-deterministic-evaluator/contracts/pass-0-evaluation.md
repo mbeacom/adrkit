@@ -11,9 +11,8 @@ codes, the total ordering + canonical serialization, escalation routing, the sch
 [data-model.md](../data-model.md). Clarifications **C1–C11** and **FR-001…FR-016** in
 `spec.md` are binding.
 
-> **⛔ Implementation of this contract is HARD-BLOCKED until `specs/004-ci-surface/tasks.md`
-> T018 is checked off with second-repo evidence** (research [§R0](../research.md); SC-013).
-> This document specifies behavior; it authorizes no build.
+> **Implementation gates cleared 2026-07-19.** Feature 004 T018 evidence is linked in
+> tasks T001 and the per-engine decision is fixed in research R1.
 
 ---
 
@@ -110,9 +109,40 @@ byte-equal to compact standard
 otherwise noncanonical spellings are rejected, not normalized.
 
 No JSON field may select/import a registry, module, command, or executable port. The CLI
-injects trusted registries separately. If T002 approves a compiled-artifact profile, the
-fixed base64/hash/media-type artifact DTO is data passed only to the already-registered
-engine for validation/evaluation; it cannot choose an implementation.
+injects trusted registries separately. The approved Rego compiled-artifact profile's
+fixed base64/hash/media-type envelope is data passed only to an already-registered
+trusted engine for validation/evaluation; it cannot choose an implementation.
+
+### 2.4 Approved assertion-engine profiles
+
+**JSONPath** uses exact `jsonpath-rfc9535@1.3.0` in process. The accepted source
+language is restricted RFC 9535: root/child/wildcard/index/slice/descendant/filter
+selectors, comparisons, logical/existence tests, and only `length()`, `count()`, and
+`value()`. Reject `match()`/`search()`, custom functions, scripts, parent/backtick/type
+selectors, JSONPath-Plus/JavaScript extensions, source >8 KiB, or input canonical JSON
+over 1 MiB/depth 64/100,000 nodes. A result passes iff the nodelist is non-empty;
+selecting `false` passes. Compile validates and records an immutable source+AST payload.
+The dependency's evaluator only accepts source and internally reparses; it cannot consume
+the AST. This implementation truth is explicit and does not create a second evaluator
+compile, hidden mutable cache, or unsafe cast.
+
+**Rego** has no default executable engine. The data-only artifact is the exact strict
+`application/vnd.adrkit.rego-wasm-policy.v1+json` /
+`adrkit.rego-wasm-policy/v1` envelope from data-model §5: source+hash, raw canonical
+base64 Wasm+hash, data, slash entrypoint, ABI 1.3, OPA compiler/capabilities metadata,
+empty `requiredHostBuiltins`, and an envelope hash over canonical prior fields. Reject
+unknown/duplicate keys, malformed/noncanonical base64, bad hashes, invalid Wasm
+magic/module, unsupported ABI/profile, missing entrypoint, disallowed builtins, source
+>64 KiB, data >1 MiB/depth64/100,000 nodes, module >4 MiB, or decoded envelope
+>6.75 MiB. adrkit validates the envelope boundary but does not execute untrusted Wasm.
+An absent registered port is explicit inert behavior.
+
+A trusted caller may implement that typed port with exact
+`@open-policy-agent/opa-wasm@1.10.0` only after accepting the artifact-producer trust
+boundary and lack of deterministic fuel/step metering. Wall-clock worker timeouts are
+not permitted. Caller compilation is outside Pass 0; opa-wasm evaluates precompiled
+Wasm and does not compile Rego. Never invoke an OPA binary/service. `grep` and `custom`
+remain inert unless trusted composition code registers deterministic ports.
 
 ---
 
@@ -318,9 +348,9 @@ EvaluationPatch = {
   one-source constraint is added; both are gated decisions handled off-schema (research
   [§R8](../research.md); Principle V; C6).
 - **No** engine that shells out, opens a socket, reads the fs, runs an arbitrary command, or
-  calls a model; Rego/JSONPath are required conformance engines behind a **gated** deterministic
-  technology choice (research [§R1](../research.md), [§R7](../research.md)); `grep`/`custom` are
-  inert unless a deterministic port is registered.
+  calls a model; JSONPath uses the approved restricted source profile, Rego uses the fixed
+  inert-by-default artifact boundary, and `grep`/`custom` are inert unless a deterministic
+  port is registered (research [§R1](../research.md), [§R7](../research.md)).
 - **No** persistence, acceptance, merge, or mutation of any record or state (Principle I/IV;
   FR-014).
 

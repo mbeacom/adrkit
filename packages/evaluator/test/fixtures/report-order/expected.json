@@ -1,0 +1,68 @@
+{
+  "findings": [
+    {
+      "adr": "0002",
+      "candidateAdr": "0002",
+      "field": "supersedes",
+      "lowerLevel": {
+        "field": "supersedes",
+        "id": "0002",
+        "path": "docs/adr/0002-a.md",
+        "rule": "dangling-supersedes"
+      },
+      "message": "Reference \"6666\" in supersedes does not resolve to a record in the corpus",
+      "reason": "no-orphan-refs.dangling-supersedes",
+      "recordPath": "docs/adr/0002-a.md",
+      "relatedAdr": "6666"
+    },
+    {
+      "adr": "0002",
+      "candidateAdr": "0002",
+      "field": "relatesTo",
+      "lowerLevel": {
+        "field": "relatesTo",
+        "id": "0002",
+        "path": "docs/adr/0002-a.md",
+        "rule": "dangling-relatesTo"
+      },
+      "message": "Reference \"7777\" in relatesTo does not resolve to a record in the corpus",
+      "reason": "no-orphan-refs.dangling-relates-to",
+      "recordPath": "docs/adr/0002-a.md",
+      "relatedAdr": "7777"
+    },
+    {
+      "adr": "0002",
+      "candidateAdr": "0002",
+      "field": "relatesTo",
+      "lowerLevel": {
+        "field": "relatesTo",
+        "id": "0002",
+        "path": "docs/adr/0002-a.md",
+        "rule": "dangling-relatesTo"
+      },
+      "message": "Reference \"8888\" in relatesTo does not resolve to a record in the corpus",
+      "reason": "no-orphan-refs.dangling-relates-to",
+      "recordPath": "docs/adr/0002-a.md",
+      "relatedAdr": "8888"
+    },
+    {
+      "adr": "0002",
+      "candidateAdr": "0002",
+      "field": "relatesTo",
+      "lowerLevel": {
+        "field": "relatesTo",
+        "id": "0002",
+        "path": "docs/adr/0002-a.md",
+        "rule": "dangling-relatesTo"
+      },
+      "message": "Reference \"9999\" in relatesTo does not resolve to a record in the corpus",
+      "reason": "no-orphan-refs.dangling-relates-to",
+      "recordPath": "docs/adr/0002-a.md",
+      "relatedAdr": "9999"
+    }
+  ],
+  "reason": "no-orphan-refs.dangling-supersedes",
+  "rule": "no-orphan-refs",
+  "severity": "error",
+  "status": "fail"
+}

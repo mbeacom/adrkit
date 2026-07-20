@@ -20,20 +20,11 @@ degradation-not-failure),
 [ADR-0010](../../docs/adr/0010-bun-toolchain.md) (Bun toolchain, Node baseline), and
 [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md) Principles I–V.
 
-> **⛔ UPSTREAM OUTCOME GATE — THIS IS THE HEADLINE. Read before any implementation.**
+> **✅ UPSTREAM OUTCOME GATE CLEARED 2026-07-19.**
 >
-> Phase 3 (feature 004) **merged its code in PR #12**, but its rung-3 *outcome* is not yet
-> proven: **`specs/004-ci-surface/tasks.md` T018 is unchecked.** T018 requires exercising
-> the Action on a **second repository (not this one)** with **> 10 records**, confirming a
-> **selective** comment naming exactly the governing subset, a second push that **updates
-> the same comment** (idempotent), and a run using **only the default `GITHUB_TOKEN`**.
->
-> Per the outcome ladder, **scoping proceeds now** (this plan + research + data-model +
-> contract + tasks), so the design is ready the moment the gate clears. **But EVERY
-> feature-005 implementation task is HARD-BLOCKED until T018 is checked off with that
-> evidence.** A merged PR is not a satisfied rung — the rung is satisfied by the
-> demonstrated outcome. See **spec.md** User-Story gating, **SC-013**, and
-> [research.md §R0](./research.md). This plan authors design; it authorizes no build.
+> Phase 3 T018 is checked with a public 12-record second repository, a selective
+> two-record comment, a same-comment second-run update, and default-token-only logs.
+> See [research.md §R0](./research.md) and tasks T001.
 
 ## Summary
 
@@ -73,13 +64,11 @@ prompt, embedding, retrieval, adapter, or network/clock/filesystem-traversal dep
 it for `bun install`). Published artifacts target Node **`>=22`** (ADR-0010).
 
 **Primary Dependencies**: `@adrkit/evaluator` depends on **`@adrkit/core` (`workspace:*`)**
-only, plus a small set of **vetted, deterministic, network-free, credential-free** public
-libraries for the assertion engines — **whose exact identity is a gated pre-implementation
-decision (R1), not chosen during scoping.** In particular the **Rego and JSONPath engines
-are a genuine technology gap** ([research.md §R1](./research.md)): the plan does **not**
-assume `@open-policy-agent/opa-wasm` can *compile* raw Rego (it evaluates pre-compiled
-Wasm), and it **rejects shelling out to `opa`** (an undeclared system dependency, forbidden
-by Principle II). The evaluator MUST **not** import any model client, prompt / embedding /
+and exact **`jsonpath-rfc9535@1.3.0`** only. JSONPath uses the restricted source profile
+in research R1. Rego uses a fixed caller-supplied compiled-artifact envelope and typed port,
+but adrkit registers no default Rego runtime, does not depend on `@open-policy-agent/opa-wasm`,
+does not execute untrusted Wasm, and never shells out to `opa`. The evaluator MUST **not**
+import any model client, prompt / embedding /
 retrieval library, adapter package, or a network / clock / filesystem-traversal dependency
 (Principle III; ADR-0007; FR-001/FR-006). The assertion engines participate only through
 **caller-supplied, registered deterministic ports** (FR-015; Clarification C5) so the
@@ -156,14 +145,14 @@ by a schema change). Surfacing them here is the Principle V behavior, not a viol
 specs/005-deterministic-evaluator/
 ├── spec.md                         # Feature spec (binding; incl. Clarifications C1–C11)
 ├── plan.md                         # This file
-├── research.md                     # R0 outcome gate + R1–R12 decisions & rejected alternatives
+├── research.md                     # R0 cleared outcome gate + R1–R12 decisions & rejected alternatives
 ├── data-model.md                   # Input bundle, ports, RuleResult, Pass0Report, evaluationPatch shapes
-├── quickstart.md                   # Offline fixture invocation; what "green" means; blocked-by-T018 banner
+├── quickstart.md                   # Offline fixture invocation; what "green" means; gate evidence
 ├── contracts/
 │   └── pass-0-evaluation.md        # Library + CLI I/O, rule semantics, reason codes, ordering, routing, patch, exits
 ├── checklists/
 │   └── requirements.md             # Spec quality checklist (done)
-└── tasks.md                        # T001 = feature-004 T018 hard gate; no impl task starts before it
+└── tasks.md                        # T001/T002 gates cleared; dependency-ordered implementation
 ```
 
 ### Source Code (repository root — extends merged Phase 0/1/2/3)

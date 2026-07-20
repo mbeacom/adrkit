@@ -4,18 +4,12 @@
 **Contract**: [contracts/pass-0-evaluation.md](./contracts/pass-0-evaluation.md) |
 **Date**: 2026-07-19
 
-> # ⛔ IMPLEMENTATION IS BLOCKED — this is a design preview, not a runnable command
+> # ✅ IMPLEMENTATION COMPLETE 2026-07-19
 >
-> Unlike feature 004 (whose gate had cleared before its quickstart), **feature 005's
-> implementation gate is NOT cleared.** `specs/004-ci-surface/tasks.md` **T018 is unchecked**:
-> the CI surface has not yet been proven on a **second repository** with **> 10 records**, a
-> **selective** comment, a **same-comment idempotent update**, and the **default `GITHUB_TOKEN`
-> only**. Per the outcome ladder (SC-013; [research §R0](./research.md)), **no `@adrkit/evaluator`
-> code, no `adr evaluate` subcommand, and none of the commands below may be built or run until
-> T018 is checked off with that evidence.** A merged PR is not a satisfied rung.
->
-> Everything below shows **what the offline, model-free flow will look like once the gate
-> clears** so the design is review-ready now. The commands are **illustrative**.
+> Feature 004 T018 is complete with linked public second-repository evidence, and
+> feature 005 T002 records the restricted JSONPath source profile plus inert-by-default
+> Rego artifact boundary. The deterministic Pass 0 evaluator (`@adrkit/evaluator`) and
+> the `adr evaluate` CLI are implemented; the commands below are runnable now.
 
 ---
 
@@ -31,7 +25,7 @@ reads before calling the pure evaluator.
 
 ---
 
-## The offline flow (illustrative — blocked by T018)
+## The offline flow
 
 Everything runs from a **clean clone**, **air-gapped**, with **no model configured** (US3).
 
@@ -172,15 +166,44 @@ git later (Principle I; ADR-0004).
   returned for a **later caller PR** (FR-014; Principle I).
 - **No schema change** — the two contract limitations (finding evidence fields; one expression
   source) are **gated decisions** handled off-schema ([research §R8](./research.md); Principle V; C6).
-- **No chosen Rego/JSONPath engine yet** — the engine technology is a **gated pre-implementation
-  decision** ([research §R1](./research.md)): a vetted deterministic in-process library **or** a
-  caller-supplied compiled-policy snapshot, never `opa-wasm` raw-compile and never a shell-out.
+- **Restricted JSONPath + inert-by-default Rego** — exact
+  `jsonpath-rfc9535@1.3.0` evaluates the restricted RFC 9535 source profile. Rego
+  accepts only the fixed validated caller artifact envelope through a trusted typed
+  port; adrkit has no built-in Rego runtime, does not depend on opa-wasm, never claims
+  raw Rego compilation, and never shells out.
 
 ---
 
-## Gate reminder (again, because it is the point)
+## Gate evidence
 
-**Do not build or run any of the above until `specs/004-ci-surface/tasks.md` T018 is checked off
-with second-repo / >10-record / selective-comment / same-comment-update / default-token-only
-evidence.** Scoping (this plan, research, data-model, contract, and `tasks.md`)
-is the only work authorized now. See [plan.md](./plan.md) and [research §R0](./research.md).
+The completed gate evidence is linked from tasks T001 and
+[research §R0](./research.md): a public 12-ADR second repo, selective two-ADR
+comment, same-comment update, and default-token-only runs.
+
+---
+
+## Final verification evidence (T058)
+
+Recorded 2026-07-19 with **stable Bun 1.3.14** (`bunx bun@1.3.14`) from a clean tree.
+The default canary Bun (1.4.0) was never used to write `bun.lock`; the lockfile stays
+`lockfileVersion: 1`.
+
+| Gate | Command | Result |
+|---|---|---|
+| Frozen clean-clone install | `bunx bun@1.3.14 install --frozen-lockfile` | ✅ no changes; lockfile v1 preserved |
+| Typecheck | `bunx bun@1.3.14 run typecheck` | ✅ pass |
+| All offline tests (incl. the 11-rule pass/fail/inert matrix, purity, canonical bytes) | `bunx bun@1.3.14 test` | ✅ **363 passed, 0 failed** across 54 files |
+| Build (core, evaluator, cli, ci) | `bunx bun@1.3.14 run build` | ✅ all exited 0 |
+| Lint | `bunx bun@1.3.14 run lint` | ✅ pass |
+| Dependency boundaries (evaluator allow-list + one-way graph) | `bunx bun@1.3.14 run check:deps` | ✅ `core-has-no-adapter-deps: ok` |
+| Node 22/24 smoke (built artifacts + offline `adr evaluate`) | `node scripts/smoke-node.mjs`; `bunx nve 24 node scripts/smoke-node.mjs` | ✅ pass on Node 22.22.2 and 24.18.0 |
+| Canonical-byte repetition | reordered input collections | ✅ identical `report` + `patch` bytes |
+| Input immutability | deep-frozen input | ✅ evaluates without mutation |
+| No-model / no-I/O proof | clock/network/random traps | ✅ never tripped |
+| Schema emit byte-clean | `bunx bun@1.3.14 run schema:emit && git diff --exit-code schema/adr.schema.json` | ✅ no diff (no schema change) |
+| Working tree whitespace | `git diff --check` | ✅ clean |
+
+The `adr evaluate` invocation used above runs fully offline against the committed
+fixtures `packages/evaluator/test/fixtures/proposal-0042.md` and
+`packages/evaluator/test/fixtures/snapshot.clean.json`, printing the eleven-rule
+`Pass0Report` + `evaluationPatch` and writing nothing (there is no `--write`).

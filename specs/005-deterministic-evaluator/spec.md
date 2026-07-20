@@ -26,22 +26,11 @@ resolution, degradation-not-failure),
 [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md) Principles
 I–V.
 
-> **⚠️ Upstream gate — this is the headline. Read it before any implementation.**
+> **✅ Upstream gate cleared 2026-07-19.**
 >
-> Phase 3 (feature 004, the CI surface) **landed its code in merged PR #12**, but its
-> rung-3 *outcome* is not yet proven: `specs/004-ci-surface/tasks.md` **T018 is
-> unchecked**. T018 is the exit-criterion verification that requires exercising the
-> Action on a **second repository (not this one) with more than ten records**,
-> confirming a **selective** comment names exactly the governing subset, that a second
-> push **updates the same comment** (idempotent), and that the whole run uses **only the
-> default `GITHUB_TOKEN`**.
->
-> Per the outcome ladder, **scoping (this document, plan, tasks) proceeds now** so the
-> design is ready. **But ANY implementation task for feature 005 is hard-blocked until
-> T018 is checked off with evidence.** A merged PR is not a satisfied rung; the rung is
-> satisfied by the demonstrated outcome. Do not begin building the evaluator until the
-> Phase 3 outcome gate clears. See **User Story gating**, **SC-013**, and the checklist
-> Notes.
+> Feature 004 T018 is checked with public second-repository evidence for 12 ADRs,
+> selective two-ADR comment behavior, same-comment update, and default-token-only runs.
+> Feature 005 T001/T002 record the evidence and engine decisions.
 
 ## Overview
 

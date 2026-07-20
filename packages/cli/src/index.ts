@@ -17,6 +17,7 @@ import {
   sortFindings,
   type Finding,
 } from '@adrkit/core';
+import { evaluate } from './evaluate.ts';
 
 function writeStdout(text: string): void {
   process.stdout.write(text);
@@ -35,6 +36,7 @@ function usage(message?: string): number {
   adr graph [--dir docs/adr] [--format dot|json]
   adr explain <path> [--dir docs/adr] [--json]
   adr check <files...> [--dir docs/adr] [--json]
+  adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
 
 Round-trip sync is explicitly unsupported (ADR-0008); migrate is one-way and non-destructive.
 `);
@@ -347,6 +349,43 @@ async function runCheck(args: string[]): Promise<number> {
   return outcome.ok ? 0 : 1;
 }
 
+async function runEvaluate(args: string[]): Promise<number> {
+  let parsed: ReturnType<typeof parseArgs>;
+  try {
+    parsed = parseCommandArgs(args, {
+      snapshot: { type: 'string' },
+      date: { type: 'string' },
+      json: { type: 'boolean', default: false },
+      dir: { type: 'string' },
+    });
+  } catch (error) {
+    return usage(error instanceof Error ? error.message : String(error));
+  }
+
+  if (parsed.positionals.length !== 1) return usage('adr evaluate requires exactly one proposal path');
+  const proposalPath = parsed.positionals[0];
+  if (!proposalPath) return usage('adr evaluate requires a proposal path');
+  const snapshot = parsed.values.snapshot;
+  if (typeof snapshot !== 'string' || snapshot.length === 0) {
+    return usage('adr evaluate requires --snapshot <bundle.json>');
+  }
+  const date = parsed.values.date;
+  if (typeof date !== 'string' || date.length === 0) {
+    return usage('adr evaluate requires --date YYYY-MM-DD');
+  }
+
+  const result = await evaluate({
+    proposalPath,
+    snapshotPath: snapshot,
+    date,
+    json: parsed.values.json === true,
+    ...(typeof parsed.values.dir === 'string' ? { dir: parsed.values.dir } : {}),
+  });
+  if (result.stderr) writeStderr(result.stderr);
+  if (result.stdout) writeStdout(result.stdout);
+  return result.exitCode;
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const [command, ...args] = argv;
 
@@ -357,6 +396,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command === 'graph') return await runGraph(args);
     if (command === 'explain') return await runExplain(args);
     if (command === 'check') return await runCheck(args);
+    if (command === 'evaluate') return await runEvaluate(args);
     return usage(command ? `Unknown command "${command}"` : undefined);
   } catch (error) {
     writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);

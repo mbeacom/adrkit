@@ -182,10 +182,26 @@ canary that writes an unreadable lockfile. Keep `bun.lock` at lockfileVersion 1.
   --exit-code schema/adr.schema.json` (must be clean — no schema change), the **bundle
   drift check** (`git diff --exit-code packages/ci/dist`), and the Node smoke on **22/24**
   incl. the Action bundle. All green.
-- [ ] T018 [P] [POLISH] Manually validate on a **second repo** (not this one) with a
+- [x] T018 [P] [POLISH] Manually validate on a **second repo** (not this one) with a
   >10-record corpus: open a PR touching a governed subset, confirm the comment names
   exactly the subset, push again and confirm the same comment updates (SC-001/003/004),
-  using only the default token (SC-006).
+  using only the default token (SC-006). **Completed 2026-07-19:** the public
+  [`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
+  repository contains 12 schema-valid ADRs. Its
+  [PR #1](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1) changed only
+  `src/payments/api/handler.ts`; the
+  [first run](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29702471862)
+  created and the
+  [second run](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29702494926)
+  updated the same
+  [comment](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1#issuecomment-5017253372)
+  (REST id `5017253372`; one comment total; `created_at=2026-07-19T20:25:13Z`,
+  `updated_at=2026-07-19T20:25:54Z`). The comment named exactly ADR 0001 via
+  `src/payments/**` and ADR 0002 via `src/payments/api/**`, and no other ADR.
+  Commits were `f329d3bbf7f265e9dd416108a06e88bb6442f635` and
+  `b3b7cc8be2d418fec9336c71c2ad9882416f5467`. Both logs expose only masked
+  Action `token`/`GITHUB_TOKEN` values, with no PAT or additional secret; the
+  workflow grants the default token `contents: read` and `pull-requests: write`.
 
 ---
 

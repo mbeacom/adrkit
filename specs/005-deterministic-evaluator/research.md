@@ -8,21 +8,25 @@ Clarifications C1–C11 in `spec.md` are binding and are cited where they force 
 
 ---
 
-## R0 — Upstream outcome gate (BLOCKING; read first)
+## R0 — Upstream outcome gate (CLEARED 2026-07-19)
 
-**Decision**: **No feature-005 implementation task may start until
-`specs/004-ci-surface/tasks.md` T018 is checked off with evidence.** Scoping (this plan,
-research, data-model, contract, tasks) proceeds now; building does not. `tasks.md` therefore
-opens with hard gate task T001 that every implementation task depends on, and CI/PR
-review must refuse feature-005 source changes until the gate clears.
+**Decision**: the gate is cleared. Feature 004 T018 is checked with linked evidence from
+the public [`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
+repository.
 
-**What T018 requires (the rung-3 outcome, not a merged PR)**: the CI Action exercised on a
-**second repository — not this one** — with a corpus of **> 10 ADR records**, producing a
-**selective** PR comment that names **exactly** the governing subset (not "all ADRs"), a
-**second push that updates the same comment in place** (idempotent, no duplicate), and a run
-authenticated with **only the default `GITHUB_TOKEN`** (no PAT, no extra secret). Feature
-004 merged its code in **PR #12**, but T018 is still unchecked, so rung 3's *outcome* is
-unproven.
+**Evidence**: the repository has 12 schema-valid ADRs.
+[PR #1](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1) changed only
+`src/payments/api/handler.ts`. The
+[first run](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29702471862)
+at commit `f329d3bbf7f265e9dd416108a06e88bb6442f635` created the
+[governing-decisions comment](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1#issuecomment-5017253372);
+the [second run](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29702494926)
+at commit `b3b7cc8be2d418fec9336c71c2ad9882416f5467` updated that same REST
+comment id `5017253372`. It remained the PR's only comment. The comment named exactly
+ADR 0001 through `src/payments/**` and ADR 0002 through `src/payments/api/**`.
+`created_at=2026-07-19T20:25:13Z`; `updated_at=2026-07-19T20:25:54Z`. The workflow
+uses `${{ github.token }}` only; both logs show only masked Action `token` and
+`GITHUB_TOKEN` values and explicitly report create then update.
 
 **Rationale**: the project runs on an **outcome ladder** — a rung is satisfied by a
 demonstrated outcome, not by merged code (spec.md; SC-013). Pass 0 is the deterministic
@@ -46,54 +50,85 @@ project phases; do not conflate them.
 
 ---
 
-## R1 — Assertion-engine technology gap: Rego & JSONPath (GATED pre-implementation decision)
+## R1 — Assertion engines: restricted RFC 9535 source + inert Rego artifact boundary
 
-**Decision**: treat the **deterministic in-process engines for Rego and JSONPath as an
-unresolved technology gap** that is a **genuine maintainer decision made before
-implementation, not during scoping**. The rule logic depends only on the
-`AssertionEnginePort` interface (R7); the concrete engine is chosen at the gate. The gate
-must pick, **per engine**, exactly one of:
+**Decision — JSONPath**: pin exact
+[`jsonpath-rfc9535@1.3.0`](https://www.npmjs.com/package/jsonpath-rfc9535) as the
+only built-in assertion dependency. It is Apache-2.0, declares Node `>=20`, has zero
+runtime dependencies, reports 100% of the referenced JSONPath compliance suite, and
+its repository is unarchived with a 2026-06-04 maintenance commit. npm and OSV had no
+advisory for 1.3.0 when checked on 2026-07-19. The evaluator exposes a deliberately
+smaller, deterministic RFC 9535 profile:
 
-- **(a) a vetted, embeddable, in-process, deterministic parser/evaluator** that runs fully
-  offline with no network, no credentials, and no shell-out; **or**
-- **(b) a caller-supplied *compiled-policy / compiled-query snapshot* contract** in which the
-  caller provides an already-compiled, deterministically-evaluable artifact, and
-  `assertions-compile` honestly reports on **that** artifact (a malformed/absent compiled
-  snapshot ⇒ compile-error when present-but-invalid, inert when absent, per R6) using the
-  fixed media-type/base64/hash/source-ref DTO in `data-model.md` §2.1, rather than pretending
-  to compile source the
-  evaluator cannot.
+- source is at most 8 KiB UTF-8;
+- root, child, wildcard, index, slice, descendant, filter, comparison, logical, and
+  existence selectors are accepted;
+- only `length()`, `count()`, and `value()` functions are accepted;
+- `match()` and `search()` are rejected because attacker-controlled regular expressions
+  are outside this release's ReDoS boundary;
+- custom functions, scripts such as `[(...)]`, parent/backtick/type selectors,
+  JSONPath-Plus extensions, JavaScript operators, method calls, and property calls are
+  rejected;
+- evaluation input must be canonical JSON no larger than 1 MiB, depth 64, and 100,000
+  nodes; and
+- an assertion passes iff the returned nodelist is non-empty. Selecting the JSON value
+  `false` still passes.
 
-Rego and JSONPath are the **two required completion-conformance engines** (FR-015; C5); until
-the gate resolves them they remain **port-only and inert** in fixtures. `grep` and `custom`
-engines are evaluated **only when a deterministic port is registered**, otherwise inert.
+The package exports `parse(source)` and `query(input, source)`, but `query` accepts a
+source string and internally parses it again; it does not accept the exported AST. The
+port therefore performs exactly one engine-level validation/compile call, stores an
+immutable payload containing the validated source and AST, and passes that same payload
+directly to `evaluate`. `evaluate` truthfully calls `query` with the validated source,
+causing the package's internal reparse. There is no hidden mutable cache, registry
+lookup, recompile through the evaluator rule, or unsafe cast. AST validation before
+query prevents the package's default `match`/`search` functions from becoming reachable.
 
-**Rationale / the specific trap to avoid**: `@open-policy-agent/opa-wasm` **evaluates
-pre-compiled Wasm policy bundles — it does not compile raw `.rego` source in-process.**
-Claiming it "runs Rego assertions" would make `assertions-compile` dishonest: the evaluator
-would either silently accept un-compilable policy or depend on an out-of-band compile step it
-does not model. Shelling out to the `opa` binary is worse — an **undeclared system
-dependency** that breaks clean-clone (Principle II) and injects non-determinism. JSONPath has
-many libraries with **divergent, sometimes non-deterministic semantics** (ordering,
-descendant handling); a specific vetted deterministic parser/evaluator must be named at the
-gate, not assumed. Keeping the contract **port-based** means the technology choice is
-replaceable and the rule code never changes when (a) vs (b) is decided.
+**Decision — Rego**: define the fixed caller-supplied
+`application/vnd.adrkit.rego-wasm-policy.v1+json` envelope in the data model and
+validate it at the trusted port boundary, but add **no built-in
+`@open-policy-agent/opa-wasm` dependency and execute no untrusted Wasm in this
+release**. The envelope is strict canonical JSON with schema version, UTF-8 source +
+SHA-256, raw canonical base64 Wasm + SHA-256, data, canonical slash entrypoint,
+OPA-Wasm ABI, compiler/capabilities metadata, required host builtins, and an envelope
+SHA-256 binding every field. Unknown/duplicate keys, malformed or noncanonical
+base64, bad hashes, invalid Wasm magic/module, unsupported ABI/profile, missing
+entrypoint, non-empty/disallowed host-builtins, and size-limit violations are rejected.
+Limits are source 64 KiB, data 1 MiB/depth 64/100,000 nodes, module 4 MiB, and decoded
+envelope 6.75 MiB.
 
-**No dependency is added during scoping.** The gate task in `tasks.md` records the decision
-and, only then, adds a **single vetted deterministic dependency per engine** (or the
-compiled-snapshot contract) to `packages/evaluator/package.json` and the `check-deps`
-allow-list.
+The default registry intentionally has no Rego engine, so a Rego assertion is explicit
+`engine-absent` inert behavior. A trusted caller may implement the typed compiled-artifact
+port with exact `@open-policy-agent/opa-wasm@1.10.0` only after accepting the
+artifact-producer trust boundary and the lack of deterministic CPU metering. adrkit does
+not overclaim CPU safety. Node/Bun's WebAssembly APIs and opa-wasm 1.10.0 expose memory
+configuration but no deterministic fuel/step limit; wall-clock worker termination would
+violate the synchronous pure contract. Caller compilation is outside Pass 0.
+
+`@open-policy-agent/opa-wasm@1.10.0` is Apache-2.0 and had no OSV advisory when
+checked, but its own README calls it work in progress and documents that policies are
+compiled through the OPA CLI or Compile REST API. It **evaluates precompiled Wasm; it
+does not compile Rego**. adrkit never shells out to `opa`, calls an OPA service, or
+executes arbitrary unprofiled Wasm.
+
+**Decision — grep/custom**: both remain inert unless trusted composition code registers
+a deterministic typed port. Snapshot JSON cannot select a port or module.
 
 **Alternatives rejected**:
-- *Assume `@open-policy-agent/opa-wasm` compiles raw Rego* — rejected: factually wrong; it
-  evaluates precompiled Wasm. Would make `assertions-compile` lie.
-- *Shell out to the `opa` CLI* — rejected: undeclared system dependency; breaks clean-clone
-  (Principle II) and determinism (Principle IV).
-- *Pick a JSONPath library now, mid-scoping* — rejected: engine choice is a maintainer gate
-  with conformance + determinism criteria; premature selection risks a non-deterministic or
-  unmaintained dependency. Deferred behind the port.
-- *Ship Pass 0 without Rego/JSONPath* — rejected: FR-015/C5 make them required conformance
-  engines for completion; they are port-only and inert until the gate, not dropped.
+- *`jsonpath-plus`* — rejected despite current maintenance activity because its safe-eval
+  path had repeated RCE advisories: critical CVE-2024-21534 / GHSA-pppg-cpfq-h7wr and
+  the incomplete-fix follow-up CVE-2025-1302 / GHSA-hw8r-x6gr-5gjp. Its JavaScript
+  extension semantics are unnecessary here.
+- *Raw Rego compilation in adrkit* — rejected: opa-wasm cannot compile source and adding a
+  compiler or service expands the clean-clone and trust boundary.
+- *OPA shell/service* — rejected: undeclared binary/network dependency and nondeterministic
+  operational surface.
+- *Built-in opa-wasm execution with a worker timeout* — rejected: time is not deterministic
+  work metering and violates the pure synchronous contract.
+- *Arbitrary unprofiled Wasm* — rejected: unauditable host imports, ABI, entrypoint, data,
+  compiler capabilities, and artifact provenance.
+- *Treat the exported JSONPath AST as executable* — rejected: the package API cannot execute
+  it. The implementation records the AST as immutable validation evidence and documents
+  the internal source reparse instead.
 
 ---
 
