@@ -29,12 +29,6 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - name: Set up Node for npm Trusted Publishing
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-
       - name: Require the release commit on main
         run: |
           git fetch --no-tags origin main
@@ -65,8 +59,19 @@ jobs:
       - name: Pack release artifacts
         run: bun run release:pack -- --tag "$GITHUB_REF_NAME" --skip-build
 
+      - name: Set up Node 22 for installed-tarball smoke
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
       - name: Smoke installed tarballs on Node 22
-        run: bunx node@22 .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
+        run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
+
+      - name: Set up Node 24 for smoke and npm Trusted Publishing
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
 
       - name: Smoke installed tarballs on Node 24
         run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
