@@ -21,9 +21,10 @@ async function existingIntegrity(artifact: ReleaseArtifact): Promise<string | un
   });
   if (response.status === 404) return undefined;
   assert(response.ok, `Registry lookup for ${artifact.name}@${artifact.version} failed with ${response.status}`);
-  const metadata = (await response.json()) as { dist?: { integrity?: string } };
-  assert(metadata.dist?.integrity, `Registry metadata for ${artifact.name}@${artifact.version} has no integrity`);
-  return metadata.dist.integrity;
+  const metadata = (await response.json()) as { dist?: { integrity?: string } } | null;
+  const integrity = metadata?.dist?.integrity;
+  assert(integrity, `Registry metadata for ${artifact.name}@${artifact.version} has no integrity`);
+  return integrity;
 }
 
 async function npmPublish(artifact: ReleaseArtifact, dryRun: boolean): Promise<void> {

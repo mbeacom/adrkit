@@ -3,7 +3,7 @@ import { mkdir, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { cleanupTestDir, resetTestDir, writeText } from '../../core/test/helpers.ts';
-import { isMainModule } from '../src/index.ts';
+import { isMainModule } from '../src/main-module.ts';
 
 const DIR_NAME = 'cli-main-module';
 

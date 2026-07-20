@@ -59,20 +59,28 @@ export async function updateActionTag(
   if (remote) {
     const remoteSha = remote.split(/\s+/)[0];
     assert(remoteSha, `Could not parse remote ${majorTag} ref`);
-    const releaseTags = await run(['git', 'tag', '--list', `${majorTag}.*.*`], repositoryRoot, true);
-    const candidates = releaseTags
+    const releaseTags = await run(
+      [
+        'git',
+        'for-each-ref',
+        '--format=%(refname:strip=2)%09%(objectname)%09%(*objectname)',
+        `refs/tags/${majorTag}.*.*`,
+      ],
+      repositoryRoot,
+      true,
+    );
+    const currentVersions = releaseTags
       .split('\n')
       .filter(Boolean)
-      .map((tag) => ({ tag, version: parseStableVersionTag(tag) }));
-    const currentVersions: typeof candidates = [];
-    for (const candidate of candidates) {
-      const candidateSha = await run(['git', 'rev-list', '-n', '1', candidate.tag], repositoryRoot);
-      if (candidateSha === remoteSha) currentVersions.push(candidate);
-    }
-    const matchingVersions = currentVersions
-      .filter(({ version }) => version.major === releaseVersion.major)
+      .map((line) => {
+        const [tag, objectSha, peeledSha] = line.split('\t');
+        if (!tag || !objectSha || !/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag)) return undefined;
+        return { tag, sha: peeledSha || objectSha, version: parseStableVersionTag(tag) };
+      })
+      .filter((candidate) => candidate !== undefined)
+      .filter(({ sha, version }) => sha === remoteSha && version.major === releaseVersion.major)
       .sort((left, right) => compareStableVersions(right.version, left.version));
-    const current = matchingVersions[0];
+    const current = currentVersions[0];
     assert(current, `Remote ${majorTag} does not point at an immutable ${majorTag}.x.y release tag`);
     if (compareStableVersions(releaseVersion, current.version) <= 0) {
       console.log(`release-action-tag: ${majorTag} remains at ${current.tag}; ${releaseTag} is not newer`);

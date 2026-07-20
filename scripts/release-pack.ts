@@ -129,7 +129,7 @@ export function validateSourceManifests(
     assert(manifest.private !== true, `${definition.name} must not be private`);
     assert(typeof manifest.description === 'string' && manifest.description.length > 0, `${definition.name} needs a description`);
     assert(manifest.repository?.url === REPOSITORY_URL, `${definition.name} repository URL must be ${REPOSITORY_URL}`);
-    assert(manifest.repository.directory === definition.directory, `${definition.name} repository directory is incorrect`);
+    assert(manifest.repository?.directory === definition.directory, `${definition.name} repository directory is incorrect`);
     assert(manifest.engines?.node === '>=22', `${definition.name} must require Node >=22`);
     assert(manifest.publishConfig?.access === 'public', `${definition.name} must publish with public access`);
     assert(manifest.files?.includes('dist'), `${definition.name} must publish dist`);

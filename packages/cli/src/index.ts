@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
-import { fileURLToPath } from 'node:url';
-import { existsSync, realpathSync } from 'node:fs';
 import {
   buildAdrGraph,
   checkChanges,
@@ -19,6 +17,7 @@ import {
   type Finding,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
+import { isMainModule } from './main-module.ts';
 
 function writeStdout(text: string): void {
   process.stdout.write(text);
@@ -403,11 +402,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
     return 1;
   }
-}
-
-export function isMainModule(moduleUrl: string, argvPath: string | undefined): boolean {
-  if (!argvPath || !existsSync(argvPath)) return false;
-  return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(argvPath);
 }
 
 if (isMainModule(import.meta.url, process.argv[1])) {
