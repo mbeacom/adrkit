@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   clean-clone-builds:
     runs-on: ubuntu-latest
