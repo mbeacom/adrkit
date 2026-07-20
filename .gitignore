@@ -150,3 +150,7 @@ vite.config.ts.timestamp-*
 # Keep it tracked despite the blanket `dist` ignore above (ADR-0007/R10).
 !packages/ci/dist
 !packages/ci/dist/**
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
