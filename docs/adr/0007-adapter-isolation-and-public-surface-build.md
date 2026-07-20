@@ -31,6 +31,7 @@ assertions:
       No package outside packages/adapters/** may depend on an adapter package,
       and no package may depend on a source requiring authenticated access.
     engine: custom
+    expression: core-has-no-adapter-deps
     input: source
     severity: error
   - id: clean-clone-builds
@@ -38,6 +39,7 @@ assertions:
       A clean clone with no credentials configured must install, build, test,
       and lint successfully.
     engine: custom
+    expression: clean-clone-builds
     input: source
     severity: error
 ---

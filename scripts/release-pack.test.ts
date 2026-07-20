@@ -68,3 +68,50 @@ describe('release package validation', () => {
     ).toThrow('must resolve @adrkit/core to 0.1.0');
   });
 });
+
+describe('release package validation — @adrkit/mcp (Phase 5)', () => {
+  test('@adrkit/mcp is the fourth public release package with a packed bin and dist/bin.js', () => {
+    expect(RELEASE_PACKAGES.map((p) => p.name)).toEqual([
+      '@adrkit/core',
+      '@adrkit/evaluator',
+      '@adrkit/cli',
+      '@adrkit/mcp',
+    ]);
+    const mcp = RELEASE_PACKAGES.find((p) => p.name === '@adrkit/mcp');
+    expect(mcp).toBeDefined();
+    expect(mcp?.directory).toBe('packages/mcp');
+    expect(mcp?.workspaceDependencies).toEqual(['@adrkit/core']);
+    expect(mcp?.expectedFiles).toContain('dist/bin.js');
+    expect(mcp?.expectedFiles).toContain('dist/index.js');
+    expect(mcp?.expectedFiles).toContain('dist/index.d.ts');
+    expect(mcp?.expectedFiles).toContain('src/index.ts');
+    // No internal test/builder export leaks into the packed file list.
+    expect(mcp?.expectedFiles).not.toContain('dist/server.js');
+  });
+
+  test('all four public manifests must share one identical stable SemVer', () => {
+    const aligned = new Map(
+      RELEASE_PACKAGES.map((d) => [d.name, sourceManifest(d.name, d.directory)]),
+    );
+    expect(validateSourceManifests(aligned, 'v0.1.0')).toBe('0.1.0');
+
+    const drifted = new Map(
+      RELEASE_PACKAGES.map((d) => [
+        d.name,
+        sourceManifest(d.name, d.directory, d.name === '@adrkit/mcp' ? '0.2.0' : '0.1.0'),
+      ]),
+    );
+    expect(() => validateSourceManifests(drifted)).toThrow('versions must match');
+  });
+
+  test('a leaked workspace protocol in the packed @adrkit/mcp manifest is rejected', () => {
+    const mcp = RELEASE_PACKAGES.find((p) => p.name === '@adrkit/mcp')!;
+    expect(() =>
+      validatePackedManifest(
+        mcp,
+        { name: '@adrkit/mcp', version: '0.1.0', dependencies: { '@adrkit/core': 'workspace:*' } },
+        '0.1.0',
+      ),
+    ).toThrow('leaked workspace protocols');
+  });
+});

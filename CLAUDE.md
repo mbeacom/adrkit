@@ -2,10 +2,14 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–2 landed. `@adrkit/core` and `@adrkit/cli` (`lint`,
-`new`, `graph`, `explain`, `migrate --from madr`) exist, with `affects`
-resolution and MADR migration; the CI Action, evaluator, and MCP server are not
-yet built (see [`plan.md`](./plan.md)).
+Status: early — phases 0–4 landed and v0.1.0 is public. `@adrkit/core`,
+`@adrkit/evaluator`, and `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
+`check`, `migrate --from madr`, `evaluate`) are published on npm; the
+repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
+The read-only MCP server is scoped under `specs/006-mcp-server/`; its exact
+four-tool, local-only surface was ratified by the maintainer on 2026-07-20, so
+its 43-task graph is generated and critical/high artifact remediation is in
+progress before a fresh analysis and implementation (see [`plan.md`](./plan.md)).
 
 ## Toolchain
 

@@ -1,0 +1,59 @@
+{
+  "name": "@adrkit/mcp",
+  "version": "0.1.0",
+  "description": "Local, read-only Model Context Protocol server exposing adrkit decision retrieval over stdio.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "mcp",
+    "model-context-protocol",
+    "governance"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "adrkit-mcp": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build ./src/index.ts ./src/bin.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist && cp ../../LICENSE ../../NOTICE dist/ && chmod +x dist/bin.js",
+    "lint": "bun run typecheck",
+    "prepack": "bun run build",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "src"
+  ]
+}

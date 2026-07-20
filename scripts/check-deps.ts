@@ -123,6 +123,18 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
     };
   }
 
+  if (packageName === '@adrkit/mcp') {
+    // The MCP server surface may depend on core, the pinned Model Context Protocol
+    // SDK, and zod only — never an adapter, GitHub toolkit, network/auth/model/
+    // embedding/database/cache client, native addon, or worker helper (R2/R10).
+    return {
+      dependencies: new Set(['@adrkit/core', '@modelcontextprotocol/sdk', 'zod']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
   if (packageName === CI_SURFACE_PACKAGE) {
     // The first-party CI surface may depend on core and the public GitHub Action
     // toolkit only — never an adapter (enforced separately below).

@@ -7,13 +7,17 @@
 Architecture decision records that are machine-readable, enforceable in CI, and
 legible to agents — without leaving git.
 
-> Status: early, under active development. The schema, `@adrkit/core`,
-> `@adrkit/cli`, and the deterministic **Pass 0 evaluator** (`@adrkit/evaluator`)
-> are implemented — `adr lint`, `new`, `graph`, `explain`, `check`,
+> Status: early, under active development. **v0.1.0 is published** with the
+> schema, `@adrkit/core`, `@adrkit/cli`, and the deterministic **Pass 0
+> evaluator** (`@adrkit/evaluator`) implemented — `adr lint`, `new`, `graph`,
+> `explain`, `check`,
 > `migrate --from madr`, and `adr evaluate` all work, including `affects`
 > resolution, in-place MADR migration, and the offline eleven-rule Pass 0. Not yet
-> built: the later probabilistic passes (Passes 1–3) and the MCP server. See
-> [`plan.md`](./plan.md).
+> built: the later probabilistic passes (Passes 1–3) and the MCP server. The
+> read-only MCP surface is scoped under `specs/006-mcp-server/` and its exact
+> four-tool, local-only boundary was ratified on 2026-07-20. Its 43-task graph is
+> generated; critical/high artifact remediation and a clean analysis pass remain
+> before implementation. See [`plan.md`](./plan.md).
 
 ---
 
@@ -107,6 +111,29 @@ The pure library surfaces are independently installable:
 bun add @adrkit/core @adrkit/evaluator
 ```
 
+### MCP server (`@adrkit/mcp`)
+
+`@adrkit/mcp` ships a local, **read-only** [Model Context Protocol](https://modelcontextprotocol.io)
+server so an agent harness can retrieve decisions over stdio. It exposes exactly
+four tools — `search_decisions`, `get_decision`, `get_decision_context(files[])`,
+and `list_superseded` — and nothing else: no writes, no HTTP/auth, no model,
+embedding, or network access, and no persistent index. Run the `adrkit-mcp` bin,
+pointing it at the repository whose corpus it should answer for:
+
+```sh
+bunx @adrkit/mcp             # or: adrkit-mcp
+adrkit-mcp --cwd /path/to/repo --dir docs/adr
+```
+
+`--cwd` (env `ADRKIT_MCP_CWD`, default `process.cwd()`) must be a Git worktree
+root; `--dir` (env `ADRKIT_MCP_DIR`, default `docs/adr`) is resolved and contained
+within it. Flags win over environment variables. stdout carries only JSON-RPC
+protocol frames; all diagnostics go to stderr. Every call re-reads the corpus,
+the graveyard (`rejected`/`superseded`/`deprecated`) is included by default, and
+growing responses paginate through opaque, corpus-bound cursors. See
+[`packages/mcp/README.md`](packages/mcp/README.md) for the full tool contracts,
+limits, and cursor-restart rules.
+
 Published artifacts are ESM and require Node.js 22 or newer. Bun remains the
 project's development package manager and test/build runtime.
 
@@ -123,8 +150,8 @@ steps:
   - uses: mbeacom/adrkit/packages/ci@v0
 ```
 
-The npm packages and `v0` Action tag are created by the first `v0.1.0` release.
-Until then, source checkouts can run the CLI with `bun run adr`.
+The npm packages, immutable `v0.1.0` release, and moving `v0` Action tag are
+live. Source checkouts can also run the CLI with `bun run adr`.
 
 ## Design commitments
 

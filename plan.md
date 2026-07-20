@@ -30,7 +30,7 @@ sync.
 | 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
 | 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
-| 5 — MCP server | _(unopened)_ | queued |
+| 5 — MCP server | `specs/006-mcp-server/` | scope ratified; tasks and analysis next |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
@@ -46,6 +46,18 @@ Phase 4's implementation gate is **cleared**. Phase 3 T018 was completed on
 [PR](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1), a selective comment naming
 only ADRs 0001 and 0002, and a second default-token-only run updating the same
 [comment](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1#issuecomment-5017253372).
+
+Phase 5's lower-phase real-user gate is also **cleared**. The maintainer ran
+`adr evaluate` against the genuine, then-`proposed` ADR-0007 with the complete
+tracked-file inventory and an active-human identity snapshot. The first run
+found a real `assertions-compile.no-source` defect while still proving the
+`one-way-door` trigger and routing to `@mbeacom`; after the two custom
+assertions gained explicit symbolic expressions, the rerun exited 0 with all
+eleven ordered rules, two honest warnings, the unregistered custom engine
+reported inert, and deterministic routing to `@mbeacom`. The maintainer
+explicitly ratified Phase 5's exact four-tool, local-only, read-only scope on
+2026-07-20. Both implementation preconditions are therefore cleared; task
+generation and cross-artifact analysis are next.
 
 The "real user" a rung requires is satisfied by **maintainer dogfooding** — the ladder
 already says "even if that user is only you". For rung 2 specifically, the required
@@ -77,7 +89,10 @@ Spec-kit realization note above). For rung 2, that dogfood is the maintainer run
 subset of the real [adr/madr](https://github.com/adr/madr) corpus offline (Phase 3
 T00A). Rung 3 is also **met**: the `@adrkit/ci` Action ran twice on the separate
 12-record `adrkit-t018-dogfood` repository, selected exactly two governing ADRs, and
-updated one comment in place using only the default token (Phase 3 T018).
+updated one comment in place using only the default token (Phase 3 T018). Rung 5 is
+**met** by the landed Pass 0 evaluator and the ADR-0007 maintainer dogfood above.
+Rung 4 is the next delivery target: its MCP design is scoped and independently
+reviewed, but no implementation exists yet.
 
 ## Binding constraints
 
@@ -117,8 +132,7 @@ Named explicitly so the orchestrator doesn't helpfully build them:
 
 Deliverables: `schema/` published, `@adrkit/core` parsing and validating, `@adrkit/cli`
 with `new`, `lint`, `graph`, and the CI workflow (`.github/workflows/ci.yml`)
-carrying the three gate assertions. **The workflow file does not exist yet** —
-`MANIFEST.md` references it as though it does; creating it is part of this phase.
+carrying the three gate assertions.
 
 Exit criteria:
 
@@ -175,7 +189,7 @@ Exit criteria:
   lists everything, the `affects` matchers or the comment are wrong.
 - Runs with no credentials beyond the default token.
 
-### Phase 4 — Deterministic evaluator (rung 5, partial)
+### Phase 4 — Deterministic evaluator (rung 5, landed)
 
 Deliverables: Pass 0 from `docs/EVALUATOR_RUBRIC.md`. **No model calls.**
 
@@ -191,6 +205,16 @@ Exit criteria:
 ### Phase 5 — MCP server (rung 4)
 
 Deliverables: `@adrkit/mcp`, read tools only.
+
+Scope: exactly `search_decisions`, `get_decision`,
+`get_decision_context(files[])`, and `list_superseded` over one local corpus via
+stdio. No writes, fifth tool, prompts, resources, HTTP transport, authentication,
+model, network access, persistent cache, database, or named-log federation.
+Detailed design lives in `specs/006-mcp-server/`. The maintainer explicitly
+ratified this exact scope on 2026-07-20. The 43-task graph is generated; a fresh
+analysis found one critical and five high-severity artifact defects, now under
+remediation. Implementation remains blocked until the rerun has no blocking or
+high-severity finding.
 
 Exit criteria:
 
