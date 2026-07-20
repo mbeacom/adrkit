@@ -9,6 +9,7 @@
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { resolve } from 'node:path';
 import { buildRegisteredServer } from './server.ts';
 import { resolveCanonicalRoots, MAX_SOURCE_BYTES } from './corpus/projection.ts';
 import type { ToolConfig } from './tools/shared.ts';
@@ -32,26 +33,60 @@ export interface AdrkitMcpServerHandle {
 export function createAdrkitMcpServer(
   options?: Partial<AdrkitMcpServerOptions>,
 ): Readonly<AdrkitMcpServerHandle> {
-  const cwd = options?.cwd ?? process.cwd();
+  const cwd = resolve(options?.cwd ?? process.cwd());
   const dir = options?.dir ?? 'docs/adr';
 
   let server: McpServer | undefined;
+  let startPromise: Promise<void> | undefined;
+  let closePromise: Promise<void> | undefined;
+  let closed = false;
 
-  async function start(): Promise<void> {
-    const roots = await resolveCanonicalRoots({ cwd, dir });
-    const config: ToolConfig = {
-      configuredCwd: roots.canonicalCwd,
-      configuredDir: dir,
-      expectedCanonicalCwd: roots.canonicalCwd,
-      maxSourceBytes: MAX_SOURCE_BYTES,
-    };
-    server = buildRegisteredServer(config);
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
+  function start(): Promise<void> {
+    if (closed) {
+      return Promise.reject(new Error('adrkit MCP server handle is closed'));
+    }
+    if (startPromise) return startPromise;
+
+    startPromise = (async () => {
+      let nextServer: McpServer | undefined;
+      try {
+        const roots = await resolveCanonicalRoots({ cwd, dir });
+        const config: ToolConfig = {
+          configuredCwd: cwd,
+          configuredDir: dir,
+          expectedCanonicalCwd: roots.canonicalCwd,
+          maxSourceBytes: MAX_SOURCE_BYTES,
+        };
+        nextServer = buildRegisteredServer(config);
+        server = nextServer;
+        await nextServer.connect(new StdioServerTransport());
+      } catch (error) {
+        server = undefined;
+        if (nextServer) {
+          try {
+            await nextServer.close();
+          } catch (closeError) {
+            startPromise = undefined;
+            throw new AggregateError([error, closeError], 'MCP server startup and cleanup failed');
+          }
+        }
+        startPromise = undefined;
+        throw error;
+      }
+    })();
+    return startPromise;
   }
 
-  async function close(): Promise<void> {
-    if (server) await server.close();
+  function close(): Promise<void> {
+    if (closePromise) return closePromise;
+    closed = true;
+    closePromise = (async () => {
+      if (startPromise) await startPromise;
+      const current = server;
+      server = undefined;
+      if (current) await current.close();
+    })();
+    return closePromise;
   }
 
   const handle = Object.create(null) as AdrkitMcpServerHandle;

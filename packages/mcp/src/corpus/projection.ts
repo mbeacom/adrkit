@@ -7,8 +7,7 @@
  * No cache, index, or database of any kind.
  */
 
-import { access, lstat, realpath, stat } from 'node:fs/promises';
-import { constants as FS } from 'node:fs';
+import { access, constants as FS, lstat, realpath, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { discoverAdrFiles, lintCorpus, normalizeDisplayPath, type Adr, type Finding } from '@adrkit/core';

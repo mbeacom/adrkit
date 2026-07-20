@@ -6,10 +6,9 @@ Status: early — phases 0–4 landed and v0.1.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `migrate --from madr`, `evaluate`) are published on npm; the
 repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
-The read-only MCP server is scoped under `specs/006-mcp-server/`; its exact
-four-tool, local-only surface was ratified by the maintainer on 2026-07-20, so
-its 43-task graph is generated and critical/high artifact remediation is in
-progress before a fresh analysis and implementation (see [`plan.md`](./plan.md)).
+The read-only `@adrkit/mcp` server is implemented on PR #19 with exactly four
+local stdio tools; real-session dogfood and coordinated publication remain (see
+[`plan.md`](./plan.md)).
 
 ## Toolchain
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadCorpusProjection, CorpusUnavailableError, MAX_SOURCE_BYTES } from '../src/corpus/projection.ts';
 import { createRepo, repoFromFixture, toolConfig, makeOversizedRecord, type TempRepo } from './helpers.ts';
@@ -91,6 +92,32 @@ describe('loadCorpusProjection — stable load', () => {
   test('a changed canonical root (expected != fresh) rejects as corpus-unavailable', async () => {
     const repo = track(await repoFromFixture('status-corpus'));
     await expect(reasonOf(load(repo, { expectedCanonicalCwd: '/some/other/root' }))).resolves.not.toBe('resolved');
+  });
+
+  test('a configured root symlink retargeted after startup is rejected', async () => {
+    const original = track(await repoFromFixture('status-corpus'));
+    const replacement = track(await repoFromFixture('status-corpus'));
+    const links = await mkdtemp(join(tmpdir(), 'adrkit-mcp-root-link-'));
+    cleanups.push(() => rm(links, { recursive: true, force: true }));
+    const configuredRoot = join(links, 'repo');
+    await symlink(original.root, configuredRoot);
+    const config = await toolConfig(configuredRoot, original.dir);
+    await rm(configuredRoot);
+    await symlink(replacement.root, configuredRoot);
+
+    await expect(reasonOf(loadCorpusProjection(config))).resolves.toBe('root-not-found');
+  });
+
+  test('a configured root symlink removed after startup is rejected', async () => {
+    const repo = track(await repoFromFixture('status-corpus'));
+    const links = await mkdtemp(join(tmpdir(), 'adrkit-mcp-root-link-'));
+    cleanups.push(() => rm(links, { recursive: true, force: true }));
+    const configuredRoot = join(links, 'repo');
+    await symlink(repo.root, configuredRoot);
+    const config = await toolConfig(configuredRoot, repo.dir);
+    await rm(configuredRoot);
+
+    await expect(reasonOf(loadCorpusProjection(config))).resolves.toBe('root-not-found');
   });
 
   test('fresh reload sees an edit made between two calls', async () => {

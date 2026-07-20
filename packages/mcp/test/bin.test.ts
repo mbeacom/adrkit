@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { main } from '../src/main-module.ts';
+import { main, reportUnhandledRejection } from '../src/main-module.ts';
 import { createRepo, repoFromFixture, type TempRepo } from './helpers.ts';
 
 const BIN_SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../src/bin.ts');
@@ -99,6 +99,22 @@ describe('adrkit-mcp bin — startup validation and exit codes', () => {
     expect(code).toBe(1);
     expect(std.stderr).toContain('ADR directory');
     expect(std.stderr).not.toContain('Git worktree');
+  });
+
+  test('an unhandled rejection emits a stderr diagnostic and sets failure status', () => {
+    let diagnostic = '';
+    let failed = false;
+    reportUnhandledRejection(
+      new Error('background transport failed'),
+      (text) => {
+        diagnostic += text;
+      },
+      () => {
+        failed = true;
+      },
+    );
+    expect(diagnostic).toContain('unhandled rejection: background transport failed');
+    expect(failed).toBe(true);
   });
 });
 

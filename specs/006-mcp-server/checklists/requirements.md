@@ -43,8 +43,8 @@
   rules inert (no trusted custom engine registered), `one-way-door` proven, target
   resolved to `@mbeacom`. No model/network/clock/write occurred. This is the real-user
   evidence the outcome ladder requires and, together with maintainer scope ratification
-  of this spec, clears Phase 5 implementation — this document performs the scoping step
-  only.
+  of this spec, cleared Phase 5 implementation. The subsequent implementation completed
+  all 43 tasks in PR #19.
 - **Scope is the four named read tools only.** `search_decisions`, `get_decision`,
   `get_decision_context(files[])`, `list_superseded` — no fifth tool, no write/mutation/
   PR-creation tool, no MCP prompts/resources/subscriptions/sampling, no model call or
@@ -203,6 +203,6 @@
   acceptance criteria. It does not select a specific data structure, algorithm, file
   layout, or library beyond what those ADRs already require, which is the property this
   checklist item is actually protecting.
-- **This spec changes no implementation code and commits nothing.** It is the
-  completed scoping step. The 43-task implementation graph is generated; current artifact
-  remediation and a clean cross-artifact analysis pass precede implementation.
+- **This checklist remains the completed scoping-quality record.** Subsequent
+  artifact remediation passed fresh cross-artifact analysis with no critical,
+  high, or medium finding; all 43 implementation tasks are complete in PR #19.

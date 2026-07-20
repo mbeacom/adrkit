@@ -1,9 +1,9 @@
 # Feature Specification: MCP Server (Read-Only Retrieval)
 
-**Feature Directory**: `006-mcp-server` (not a git branch — this feature is scoped in
-place; no branch is created or switched by this work)
+**Feature Directory**: `006-mcp-server`
+**Implementation Branch**: `feat/phase-5-mcp-server`
 **Created**: 2026-07-20
-**Status**: Scope ratified — pre-implementation analysis remediation
+**Status**: Implemented — PR #19
 **Phase**: 5 (outcome ladder **rung 4**) — read tools only
 (project **Phase 5** ≠ outcome-ladder rung 5. Per `plan.md`, Phase 5 is the MCP server
 and delivers rung 4, "an agent can read the corpus." Rung 5, "a proposal gets routed
@@ -57,9 +57,9 @@ surface, not a hosted service the project operates.
 > exact four-tool, local-only, read-only boundary in this specification: no fifth
 > tool, write path, prompts/resources, HTTP/auth, models, network access,
 > persistent index/database, or named-log federation. Together with the Phase 4
-> evidence above, this clears SC-016. The 43-task graph is generated; implementation
-> remains blocked while current critical/high artifact findings are remediated and until
-> a fresh analysis reports none.
+> evidence above, this cleared SC-016. Fresh analysis passed after artifact
+> remediation with no critical, high, or medium finding; all 43 tasks are
+> complete in PR #19.
 
 ## Overview
 
@@ -91,10 +91,10 @@ or a runtime network call to be useful, that is a later, explicitly-scoped featu
 
 ## User Scenarios & Testing
 
-> **Gate cleared 2026-07-20.** The maintainer ratified the exact scope below, and
-> the Phase 4 real-user evidence is recorded above. Tasks are generated; these stories
-> become eligible for implementation in dependency order only after current artifact
-> remediation and a fresh analysis with no blocking or high-severity findings.
+> **Gate cleared 2026-07-20; implementation complete.** The maintainer ratified
+> the exact scope below, the Phase 4 real-user evidence is recorded above, fresh
+> analysis passed after remediation, and all 43 implementation tasks are
+> complete in PR #19.
 
 ### User Story 1 — An agent looks up one decision it already suspects exists (Priority: P1) 🎯 MVP
 

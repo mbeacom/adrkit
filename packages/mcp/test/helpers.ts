@@ -143,7 +143,7 @@ export async function repoFromFixture(
 export async function toolConfig(root: string, dir = 'docs/adr'): Promise<ToolConfig> {
   const canonicalCwd = await realpath(root);
   return {
-    configuredCwd: canonicalCwd,
+    configuredCwd: root,
     configuredDir: dir,
     expectedCanonicalCwd: canonicalCwd,
     maxSourceBytes: MAX_SOURCE_BYTES,

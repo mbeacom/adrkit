@@ -15,6 +15,8 @@
 import { createRequire } from 'node:module';
 import * as nodeModule from 'node:module';
 import { constants as FS } from 'node:fs';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 
@@ -44,6 +46,53 @@ function denyAll(target, names, prefix) {
         throw new SideEffectDenied(`${prefix}.${name}`);
       };
     }
+  }
+  syncEsm();
+}
+
+// ---- optional read boundary -------------------------------------------------
+const READ_ROOTS = (() => {
+  const encoded = process.env.ADRKIT_MCP_TEST_READ_ROOTS;
+  if (!encoded) return [];
+  try {
+    const roots = JSON.parse(encoded);
+    return Array.isArray(roots) ? roots.map((root) => resolve(String(root))) : [];
+  } catch {
+    throw new Error('ADRKIT_MCP_TEST_READ_ROOTS must be a JSON array');
+  }
+})();
+
+function pathString(path) {
+  if (typeof path === 'number') return undefined;
+  if (path instanceof URL) return fileURLToPath(path);
+  if (Buffer.isBuffer(path)) return path.toString();
+  return String(path);
+}
+
+function isWithin(root, candidate) {
+  const rel = relative(root, candidate);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+function assertReadAllowed(api, path) {
+  if (READ_ROOTS.length === 0) return;
+  const raw = pathString(path);
+  if (raw === undefined) return;
+  const candidate = resolve(raw);
+  if (!READ_ROOTS.some((root) => isWithin(root, candidate))) {
+    throw new SideEffectDenied(`${api}:out-of-root`);
+  }
+}
+
+function guardPathReads(target, names, prefix) {
+  if (!target || READ_ROOTS.length === 0) return;
+  for (const name of names) {
+    const original = target[name];
+    if (typeof original !== 'function') continue;
+    target[name] = function guardedRead(path, ...rest) {
+      assertReadAllowed(`${prefix}.${name}`, path);
+      return original.call(this, path, ...rest);
+    };
   }
   syncEsm();
 }
@@ -101,6 +150,15 @@ const FS_MUTATORS = [
 function patchFs() {
   const fs = require('node:fs');
   denyAll(fs, FS_MUTATORS, 'fs');
+  guardPathReads(
+    fs,
+    [
+      'access', 'accessSync', 'existsSync', 'lstat', 'lstatSync', 'stat', 'statSync',
+      'realpath', 'realpathSync', 'readFile', 'readFileSync', 'readdir', 'readdirSync',
+      'opendir', 'opendirSync', 'createReadStream',
+    ],
+    'fs',
+  );
 
   // Write-capable open only; a read open is allowed but its handle is not writable.
   for (const openName of ['open', 'openSync']) {
@@ -108,6 +166,7 @@ function patchFs() {
     if (typeof original === 'function') {
       fs[openName] = function guardedOpen(path, flags, ...rest) {
         if (flagPermitsWrite(flags)) throw new SideEffectDenied(`fs.${openName}`);
+        assertReadAllowed(`fs.${openName}`, path);
         return original.call(this, path, flags, ...rest);
       };
     }
@@ -124,10 +183,16 @@ function patchFs() {
     ],
     'fs/promises',
   );
+  guardPathReads(
+    fsp,
+    ['access', 'lstat', 'stat', 'realpath', 'readFile', 'readdir', 'opendir'],
+    'fs/promises',
+  );
   const originalOpen = fsp.open;
   if (typeof originalOpen === 'function') {
     fsp.open = async function guardedOpen(path, flags, ...rest) {
       if (flagPermitsWrite(flags)) throw new SideEffectDenied('fs/promises.open');
+      assertReadAllowed('fs/promises.open', path);
       return guardFileHandle(await originalOpen.call(this, path, flags, ...rest));
     };
   }
@@ -191,8 +256,8 @@ function patchNetwork() {
 // NOTE: `Bun.file(...).writer()` and `Bun.file(...).delete()` are deliberately NOT
 // patched at runtime: `Bun.file()`/its `writer()` back the runtime's OWN stdout/stderr
 // WriteStreams, so wrapping them breaks the very stdio channel this server speaks on.
-// Per research §R10 they are covered by import-discipline (this package's source never
-// imports or references them), which check-deps and the static import audit enforce,
+// Per research §R10 they are covered by import discipline (this package's source never
+// imports or references them), which check-deps and the static source audit enforce,
 // not by a runtime patch that has no safe injection point. `Bun.write`/`Bun.spawn`/
 // `Bun.spawnSync` DO have safe patch points and are trapped here.
 function patchBun() {

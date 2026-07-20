@@ -25,6 +25,18 @@ function writeStderr(text: string): void {
   process.stderr.write(text);
 }
 
+export function reportUnhandledRejection(
+  reason: unknown,
+  write: (text: string) => void = writeStderr,
+  fail: () => void = () => {
+    process.exitCode = 1;
+  },
+): void {
+  const detail = reason instanceof Error ? reason.message : String(reason);
+  write(`adrkit-mcp: unhandled rejection: ${detail}\n`);
+  fail();
+}
+
 export async function main(
   argv: string[],
   env: Record<string, string | undefined>,
@@ -63,9 +75,7 @@ export async function main(
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
-  process.on('unhandledRejection', () => {
-    process.exitCode = 1;
-  });
+  process.on('unhandledRejection', (reason) => reportUnhandledRejection(reason));
 
   await handle.start();
   return 0;

@@ -12,12 +12,11 @@ legible to agents — without leaving git.
 > evaluator** (`@adrkit/evaluator`) implemented — `adr lint`, `new`, `graph`,
 > `explain`, `check`,
 > `migrate --from madr`, and `adr evaluate` all work, including `affects`
-> resolution, in-place MADR migration, and the offline eleven-rule Pass 0. Not yet
-> built: the later probabilistic passes (Passes 1–3) and the MCP server. The
-> read-only MCP surface is scoped under `specs/006-mcp-server/` and its exact
-> four-tool, local-only boundary was ratified on 2026-07-20. Its 43-task graph is
-> generated; critical/high artifact remediation and a clean analysis pass remain
-> before implementation. See [`plan.md`](./plan.md).
+> resolution, in-place MADR migration, and the offline eleven-rule Pass 0. The
+> read-only `@adrkit/mcp` server is implemented on PR #19 with its exact
+> four-tool, local-only boundary; real-session dogfood and coordinated
+> publication remain. Not yet built: the later probabilistic passes (Passes
+> 1–3). See [`plan.md`](./plan.md).
 
 ---
 
@@ -113,7 +112,7 @@ bun add @adrkit/core @adrkit/evaluator
 
 ### MCP server (`@adrkit/mcp`)
 
-`@adrkit/mcp` ships a local, **read-only** [Model Context Protocol](https://modelcontextprotocol.io)
+`@adrkit/mcp` provides a local, **read-only** [Model Context Protocol](https://modelcontextprotocol.io)
 server so an agent harness can retrieve decisions over stdio. It exposes exactly
 four tools — `search_decisions`, `get_decision`, `get_decision_context(files[])`,
 and `list_superseded` — and nothing else: no writes, no HTTP/auth, no model,
@@ -188,8 +187,8 @@ consideration at all.
 Built with [Bun](https://bun.com) — see
 [ADR-0010](docs/adr/0010-bun-toolchain.md). **Bun is a development dependency
 only.** Nothing published by this project requires it: the CLI, the GitHub
-Action, and the MCP server are Node-targeted, and will be smoke-tested under
-Node 22 and 24 in CI once the publish pipeline lands (see [`plan.md`](./plan.md)).
+Action, and the MCP server are Node-targeted and smoke-tested under Node 22 and
+24 in CI (see [`plan.md`](./plan.md)).
 
 ## Contributing
 

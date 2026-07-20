@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, spyOn, test } from 'bun:test';
+import { resolve } from 'node:path';
 import { createAdrkitMcpServer } from '../src/index.ts';
 import { buildRegisteredServer } from '../src/server.ts';
+import * as projection from '../src/corpus/projection.ts';
 import { connectServer, repoFromFixture, toolConfig, type TempRepo } from './helpers.ts';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -29,6 +31,47 @@ describe('public surface — sealed lifecycle handle', () => {
     const handle = createAdrkitMcpServer();
     expect(handle.start.length).toBe(0);
     expect(handle.close.length).toBe(0);
+  });
+
+  test('concurrent start() calls share one in-flight startup', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const rootSpy = spyOn(projection, 'resolveCanonicalRoots').mockImplementation(async () => {
+      await gate;
+      throw new Error('controlled startup failure');
+    });
+    const handle = createAdrkitMcpServer({ cwd: '/not-read-by-this-test' });
+
+    const first = handle.start();
+    const second = handle.start();
+    expect(rootSpy).toHaveBeenCalledTimes(1);
+    release();
+    await expect(first).rejects.toThrow('controlled startup failure');
+    await expect(second).rejects.toThrow('controlled startup failure');
+    rootSpy.mockRestore();
+  });
+
+  test('a relative configured root is captured as an absolute lexical path', async () => {
+    let observedCwd: string | undefined;
+    const rootSpy = spyOn(projection, 'resolveCanonicalRoots').mockImplementation(async (options) => {
+      observedCwd = options.cwd;
+      throw new Error('controlled startup failure');
+    });
+    try {
+      const handle = createAdrkitMcpServer({ cwd: '.' });
+      await expect(handle.start()).rejects.toThrow('controlled startup failure');
+      expect(observedCwd).toBe(resolve('.'));
+    } finally {
+      rootSpy.mockRestore();
+    }
+  });
+
+  test('a closed handle cannot be started', async () => {
+    const handle = createAdrkitMcpServer();
+    await handle.close();
+    await expect(handle.start()).rejects.toThrow('server handle is closed');
   });
 });
 

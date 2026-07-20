@@ -1,8 +1,7 @@
 # Implementation Plan: MCP Server (Read-Only Retrieval) — Phase 5
 
-**Feature directory**: `006-mcp-server` (scoped in place — **no git branch is created or
-switched** by this work; the header note in `spec.md` already establishes this and
-nothing here changes it) | **Date**: 2026-07-20 | **Spec**: [spec.md](./spec.md)
+**Feature directory**: `006-mcp-server` | **Implementation branch**:
+`feat/phase-5-mcp-server` | **Date**: 2026-07-20 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/006-mcp-server/spec.md` (Functional
 Requirements FR-001–FR-040, Success Criteria SC-001–SC-016, Assumptions A1–A9).
@@ -33,10 +32,9 @@ I–V.
 >
 > **✅ SC-016 satisfied 2026-07-20.** The maintainer explicitly ratified the exact
 > four-tool, local-only, read-only boundary and its exclusions. Both governance
-> preconditions are now closed. The 43-task graph is generated. Fresh analysis found
-> one critical and five high-severity artifact defects; this revision remediates those
-> contracts and tasks, and implementation remains blocked until a fresh analysis reports
-> no blocking or high-severity finding.
+> preconditions are closed. Fresh analysis passed after artifact remediation with no
+> critical, high, or medium finding. All 43 tasks are complete and the implementation is
+> complete in PR #19.
 
 ## Summary
 
@@ -107,10 +105,9 @@ harness plus import discipline can observe and bound, no authentication, no pers
 cache/index/database, and no absolute filesystem path in any response (FR-001–FR-011,
 FR-017).
 
-This plan was produced during the advance-scoping step root `plan.md` permits.
-SC-016 was explicitly ratified on 2026-07-20, and `tasks.md` has since been
-generated. These artifacts do not themselves constitute implementation; the
-current cross-artifact findings must be resolved before implementation begins.
+This plan originated during the advance-scoping step root `plan.md` permits.
+SC-016 was explicitly ratified on 2026-07-20, fresh cross-artifact analysis
+passed after remediation, and every task in `tasks.md` is now implemented.
 
 ## Technical Context
 

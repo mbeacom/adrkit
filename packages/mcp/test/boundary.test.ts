@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, writeFile, rm, realpath } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { buildRegisteredServer } from '../src/server.ts';
 import {
   connectServer,
@@ -17,6 +20,9 @@ import {
 } from './helpers.ts';
 
 const cleanups: Array<() => Promise<void>> = [];
+const HERE = dirname(fileURLToPath(import.meta.url));
+const PRELOAD = join(HERE, 'side-effect-denial-preload.mjs');
+const BIN_SRC = resolve(HERE, '../src/bin.ts');
 afterEach(async () => {
   for (const c of cleanups.splice(0)) await c();
 });
@@ -52,6 +58,53 @@ describe('boundary — read-only, sandboxed, no arbitrary reads', () => {
 
     expect(diffSnapshots(treeBefore, await snapshotTree(repo.root))).toEqual([]);
     expect(diffSnapshots(sentBefore, await snapshotPaths(sentinels))).toEqual([]);
+  });
+
+  test('real stdio corpus reads stay inside the configured root and preserve complete HOME/TMPDIR trees', async () => {
+    const repo = await repoFromFixture('status-corpus');
+    cleanups.push(repo.cleanup);
+    const environmentRoot = await mkdtemp(join(tmpdir(), 'adrkit-mcp-environment-'));
+    cleanups.push(() => rm(environmentRoot, { recursive: true, force: true }));
+    const home = join(environmentRoot, 'home');
+    const processTmp = join(environmentRoot, 'tmp');
+    await mkdir(home);
+    await mkdir(processTmp);
+    await writeFile(join(home, 'sentinel.txt'), 'home', 'utf8');
+    await writeFile(join(processTmp, 'sentinel.txt'), 'tmp', 'utf8');
+
+    const repoBefore = await snapshotTree(repo.root);
+    const homeBefore = await snapshotTree(home);
+    const tmpBefore = await snapshotTree(processTmp);
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: ['--preload', PRELOAD, BIN_SRC, '--cwd', repo.root],
+      env: {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+        ),
+        HOME: home,
+        TMPDIR: processTmp,
+        BUN_RUNTIME_TRANSPILER_CACHE_PATH: '0',
+        ADRKIT_MCP_TEST_READ_ROOTS: JSON.stringify([repo.root]),
+      },
+    });
+    const client = new Client({ name: 'boundary-test', version: '0.0.0' });
+    await client.connect(transport);
+    cleanups.push(() => client.close());
+
+    for (const [name, args] of [
+      ['search_decisions', { query: 'the' }],
+      ['get_decision', { ref: '0001' }],
+      ['get_decision_context', { files: ['src/app.ts'] }],
+      ['list_superseded', {}],
+    ] as const) {
+      const response = await client.callTool({ name, arguments: args });
+      expect(response.isError).toBeFalsy();
+    }
+
+    expect(diffSnapshots(repoBefore, await snapshotTree(repo.root))).toEqual([]);
+    expect(diffSnapshots(homeBefore, await snapshotTree(home))).toEqual([]);
+    expect(diffSnapshots(tmpBefore, await snapshotTree(processTmp))).toEqual([]);
   });
 
   test('adversarial inputs are rejected before any corpus access, mutating nothing', async () => {
