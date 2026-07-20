@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import {
   buildAdrGraph,
   checkChanges,
@@ -18,6 +17,7 @@ import {
   type Finding,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
+import { isMainModule } from './main-module.ts';
 
 function writeStdout(text: string): void {
   process.stdout.write(text);
@@ -404,6 +404,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMainModule(import.meta.url, process.argv[1])) {
   process.exitCode = await main();
 }

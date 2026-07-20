@@ -29,7 +29,7 @@ sync.
 | 1 — Affects resolution | `specs/002-affects-resolution/` | landed (PR #6 merged) |
 | 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
-| 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | implementation in progress; Phase 3 T018 gate cleared |
+| 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
 | 5 — MCP server | _(unopened)_ | queued |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted

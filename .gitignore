@@ -145,6 +145,9 @@ vite.config.ts.timestamp-*
 # Test scratch data
 .test-output/
 
+# Reproducible npm release tarballs and installed-package smoke project
+.release/
+
 # The @adrkit/ci GitHub Action ships a committed, self-contained bundle (a JS
 # Action runs directly from the referenced repo — GitHub does not install deps).
 # Keep it tracked despite the blanket `dist` ignore above (ADR-0007/R10).

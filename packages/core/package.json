@@ -1,8 +1,29 @@
 {
   "name": "@adrkit/core",
   "version": "0.1.0",
+  "description": "Pure ADR parsing, validation, migration, and affects resolution for adrkit.",
   "type": "module",
   "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "governance"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "bun": "./src/index.ts",
@@ -30,8 +51,9 @@
     }
   },
   "scripts": {
-    "build": "rm -rf dist && bun build ./src/index.ts ./src/schema/index.ts ./src/schema/adr.schema.ts ./src/schema/emit.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist",
+    "build": "rm -rf dist && bun build ./src/index.ts ./src/schema/index.ts ./src/schema/adr.schema.ts ./src/schema/emit.ts --target=node --outdir=dist --packages=external && tsc --project tsconfig.build.json && bun ../../scripts/normalize-dts-imports.ts dist && cp ../../LICENSE ../../NOTICE dist/",
     "lint": "bun run typecheck",
+    "prepack": "bun run build",
     "schema:emit": "bun ./src/schema/emit.cli.ts",
     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
   },
@@ -47,6 +69,8 @@
     "@types/semver": "^7"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "src"
   ]
 }
