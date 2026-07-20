@@ -198,6 +198,8 @@ export function compileAssertionForScope(ctx: RuleContext, orgRecord: Adr, asser
   const key = makeAssertionKey(orgRecord.log, orgRecord.path, assertion.id);
   const source = ctx.input.assertionInputs.sources[key];
   const hasInline = assertion.expression !== undefined;
+  const hasFile = assertion.expressionFile !== undefined;
+  if (hasInline === hasFile) return { ok: false, reason: 'compile-error' };
   const registry = ctx.input.assertionEngines;
   switch (assertion.engine) {
     case 'rego':

@@ -14,7 +14,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { lintCorpus, normalizeDisplayPath } from '@adrkit/core';
 import {
-  canonicalize,
+  canonicalBytes,
   createAssertionEngineRegistry,
   createJsonPathEngine,
   createPackageTargetResolver,
@@ -145,14 +145,13 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
   const exitCode: 0 | 1 = report.outcome === 'returned' ? 1 : 0;
 
   if (options.json) {
-    // The deterministic `report` + `patch` are canonicalized (sorted keys); caller
-    // `metadata` lives OUTSIDE `result`, so `result.report` / `result.patch` reproduce
-    // byte-for-byte independent of the metadata (FR-005).
+    // Canonicalize the complete envelope. Caller metadata remains outside `result`,
+    // so report/patch content is still independent of metadata (FR-005).
     const envelope = {
-      result: { report: canonicalize(report), patch: canonicalize(patch) },
+      result: { report, patch },
       metadata: { evaluatorVersion: '0.1.0' },
     };
-    return { exitCode, stdout: `${JSON.stringify(envelope, null, 2)}\n`, stderr: '' };
+    return { exitCode, stdout: canonicalBytes(envelope), stderr: '' };
   }
   return { exitCode, stdout: renderHuman(report), stderr: '' };
 }

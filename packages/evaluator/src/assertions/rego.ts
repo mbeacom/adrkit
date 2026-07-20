@@ -83,20 +83,64 @@ function isStructurallyValidWasm(bytes: Uint8Array): boolean {
   }
 }
 
-/** Narrow an `unknown` to a real JSON value (rejects functions/undefined/symbols/non-finite). */
-function isJsonValue(value: unknown): value is JsonValue {
-  if (value === null) return true;
-  const type = typeof value;
-  if (type === 'boolean' || type === 'string') return true;
-  if (type === 'number') return Number.isFinite(value);
-  if (Array.isArray(value)) return value.every(isJsonValue);
-  if (isPlainObject(value)) {
-    for (const entry of Object.values(value)) {
-      if (entry === undefined || !isJsonValue(entry)) return false;
+/** Narrow an `unknown` to an acyclic JSON tree without recursive stack growth. */
+function isJsonValue(root: unknown): root is JsonValue {
+  type WalkTask =
+    | { readonly kind: 'enter'; readonly value: unknown }
+    | { readonly kind: 'exit'; readonly value: object };
+
+  const active = new Set<object>();
+  const stack: WalkTask[] = [{ kind: 'enter', value: root }];
+
+  while (stack.length > 0) {
+    const task = stack.pop();
+    if (!task) continue;
+    if (task.kind === 'exit') {
+      active.delete(task.value);
+      continue;
     }
-    return true;
+
+    const value = task.value;
+    if (value === null) continue;
+    const type = typeof value;
+    if (type === 'boolean' || type === 'string') continue;
+    if (type === 'number') {
+      if (!Number.isFinite(value)) return false;
+      continue;
+    }
+    if (typeof value !== 'object' || value === null) return false;
+
+    const objectValue = value;
+    if (active.has(objectValue)) return false;
+    active.add(objectValue);
+    stack.push({ kind: 'exit', value: objectValue });
+
+    if (Array.isArray(objectValue)) {
+      for (let index = objectValue.length - 1; index >= 0; index -= 1) {
+        if (!(index in objectValue)) return false;
+        stack.push({ kind: 'enter', value: objectValue[index] });
+      }
+      continue;
+    }
+
+    let prototype: object | null;
+    let descriptors: PropertyDescriptorMap;
+    try {
+      prototype = Object.getPrototypeOf(objectValue);
+      descriptors = Object.getOwnPropertyDescriptors(objectValue);
+    } catch {
+      return false;
+    }
+    if (prototype !== Object.prototype && prototype !== null) return false;
+    for (const key of Reflect.ownKeys(descriptors)) {
+      if (typeof key !== 'string') return false;
+      const descriptor = descriptors[key];
+      if (!descriptor?.enumerable || !('value' in descriptor)) return false;
+      stack.push({ kind: 'enter', value: descriptor.value });
+    }
   }
-  return false;
+
+  return true;
 }
 
 function isCanonicalEntrypoint(entrypoint: string): boolean {

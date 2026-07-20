@@ -118,5 +118,7 @@ describe('adr evaluate CLI', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.result.report.results).toHaveLength(11);
     expect(payload.result.patch.deterministicFindings).toEqual([]);
+    expect(result.stdout.indexOf('"metadata"')).toBeLessThan(result.stdout.indexOf('"result"'));
+    expect(result.stdout.indexOf('"patch"')).toBeLessThan(result.stdout.indexOf('"report"'));
   });
 });

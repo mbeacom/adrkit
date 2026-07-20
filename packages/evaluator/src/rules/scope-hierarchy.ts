@@ -15,7 +15,7 @@ import { aggregate, passResult, type SubResult } from './kernel.ts';
 import type { RuleContext } from './context.ts';
 import { compileAssertionForScope } from '../assertions/evaluate.ts';
 import { makeAssertionKey } from '../keys.ts';
-import { resolveRecordTargets } from '../targets/canonical.ts';
+import { anyMatcherInert, resolveRecordTargets } from '../targets/canonical.ts';
 import { byCodeUnit } from '../compare.ts';
 import type { RuleResult } from '../types.ts';
 
@@ -32,18 +32,30 @@ export function evaluateScopeHierarchy(ctx: RuleContext): RuleResult {
   }
 
   const proposalTargets = resolveRecordTargets(proposal, ctx.input.targetRegistry, ctx.input.targets, ctx.input.resolutionLog);
-  const applicableOrgAdrs = ctx.acceptedRecords.filter((record) => {
-    if (record.frontmatter.scope !== 'org') return false;
-    if (!domainApplies(record, proposal)) return false;
-    const orgTargets = resolveRecordTargets(record, ctx.input.targetRegistry, ctx.input.targets, ctx.input.resolutionLog);
-    return [...proposalTargets.targetKeys].some((key) => orgTargets.targetKeys.has(key));
-  });
-
-  if (applicableOrgAdrs.length === 0) {
-    return passResult('scope-hierarchy', 'scope-hierarchy.ok');
+  const subs: SubResult[] = [];
+  if (anyMatcherInert(proposalTargets)) {
+    subs.push({ status: 'inert', reason: 'scope-hierarchy.evidence-absent' });
   }
 
-  const subs: SubResult[] = [];
+  const applicableOrgAdrs: Adr[] = [];
+  for (const record of ctx.acceptedRecords) {
+    if (record.frontmatter.scope !== 'org') continue;
+    if (!domainApplies(record, proposal)) continue;
+    const orgTargets = resolveRecordTargets(record, ctx.input.targetRegistry, ctx.input.targets, ctx.input.resolutionLog);
+    if (anyMatcherInert(orgTargets)) {
+      subs.push({ status: 'inert', reason: 'scope-hierarchy.evidence-absent' });
+    }
+    if ([...proposalTargets.targetKeys].some((key) => orgTargets.targetKeys.has(key))) {
+      applicableOrgAdrs.push(record);
+    }
+  }
+
+  if (applicableOrgAdrs.length === 0) {
+    return subs.length > 0
+      ? aggregate('scope-hierarchy', subs)
+      : passResult('scope-hierarchy', 'scope-hierarchy.ok');
+  }
+
   const transitions: string[] = [];
 
   for (const orgRecord of applicableOrgAdrs) {

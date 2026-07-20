@@ -71,7 +71,10 @@ describe('reason codes across the degraded matrix', () => {
     const report = evaluateReport(baseInput({ corpus: corpusOf([proposal]), proposalPath: path }));
     expect(ruleResult(report, 'affects-resolvable').reason).toBe('affects-resolvable.resolver-absent');
     expect(ruleResult(report, 'affects-overlap').reason).toBe('affects-overlap.no-accepted-corpus');
-    expect(ruleResult(report, 'scope-hierarchy').reason).toBe('scope-hierarchy.ok');
+    expect(ruleResult(report, 'scope-hierarchy')).toMatchObject({
+      status: 'inert',
+      reason: 'scope-hierarchy.evidence-absent',
+    });
     expect(ruleResult(report, 'assertions-compile').reason).toBe('assertions-compile.none');
     expect(ruleResult(report, 'decider-resolvable').reason).toBe('decider-resolvable.directory-absent');
     expect(report.outcome).toBe('ok');

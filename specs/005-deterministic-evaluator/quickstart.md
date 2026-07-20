@@ -192,7 +192,7 @@ The default canary Bun (1.4.0) was never used to write `bun.lock`; the lockfile 
 |---|---|---|
 | Frozen clean-clone install | `bunx bun@1.3.14 install --frozen-lockfile` | ✅ no changes; lockfile v1 preserved |
 | Typecheck | `bunx bun@1.3.14 run typecheck` | ✅ pass |
-| All offline tests (incl. the 11-rule pass/fail/inert matrix, purity, canonical bytes) | `bunx bun@1.3.14 test` | ✅ **363 passed, 0 failed** across 54 files |
+| All offline tests (incl. the 11-rule pass/fail/inert matrix, purity, canonical bytes) | `bunx bun@1.3.14 test` | ✅ **367 passed, 0 failed** across 54 files |
 | Build (core, evaluator, cli, ci) | `bunx bun@1.3.14 run build` | ✅ all exited 0 |
 | Lint | `bunx bun@1.3.14 run lint` | ✅ pass |
 | Dependency boundaries (evaluator allow-list + one-way graph) | `bunx bun@1.3.14 run check:deps` | ✅ `core-has-no-adapter-deps: ok` |

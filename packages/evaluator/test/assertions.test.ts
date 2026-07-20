@@ -243,6 +243,19 @@ describe('Rego compiled-artifact envelope', () => {
     if (!result.ok) expect(result.message).toContain('data must be a JSON value');
   });
 
+  test('Date, Map, cycles, and hostile depth are rejected without recursion failure', () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    let deep: unknown = null;
+    for (let index = 0; index < 20_000; index += 1) deep = [deep];
+
+    for (const data of [new Date(0), new Map([['a', 1]]), cyclic, deep]) {
+      expect(() => validateRegoWasmPolicyEnvelopeV1({ ...validEnvelope, data })).not.toThrow();
+      const result = validateRegoWasmPolicyEnvelopeV1({ ...validEnvelope, data });
+      expect(result.ok).toBe(false);
+    }
+  });
+
   test('an oversized moduleBase64 is rejected before decoding (finding #6)', () => {
     // canonical base64 encodes 3 bytes → 4 chars; 4 MiB ⇒ 5,592,408 chars max.
     const oversized = 'A'.repeat(5_592_408 + 4);

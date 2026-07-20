@@ -5,6 +5,7 @@ import {
   createPathTargetResolver,
   createTargetResolutionRegistry,
   makeAssertionKey,
+  type Assertion,
   type JsonValue,
   type Pass0Input,
 } from '../src/index.ts';
@@ -32,7 +33,10 @@ function scenario(opts: {
   base?: JsonValue;
   proposed?: JsonValue;
   withEngine?: boolean;
+  withTargets?: boolean;
   overlap?: boolean;
+  orgAssertion?: Assertion;
+  sourceContent?: string;
 }): Pass0Input {
   const proposalPath = 'docs/adr/0002.md';
   const orgPath = 'docs/adr/0001.md';
@@ -53,7 +57,7 @@ function scenario(opts: {
       scope: 'org',
       ...(opts.orgDomain ? { domain: opts.orgDomain } : {}),
       affects: [{ type: 'path', pattern: opts.overlap === false ? 'src/other/**' : 'src/pay/**', negate: false }],
-      assertions: [ORG_ASSERTION],
+      assertions: [opts.orgAssertion ?? ORG_ASSERTION],
     },
     { path: orgPath },
   );
@@ -62,10 +66,10 @@ function scenario(opts: {
     corpus: corpusOf([proposal, org]),
     proposalPath,
     targetRegistry,
-    targets: { trackedPaths: ['src/pay/api.ts', 'src/other/x.ts'] },
+    targets: opts.withTargets === false ? {} : { trackedPaths: ['src/pay/api.ts', 'src/other/x.ts'] },
     ...(opts.withEngine === false ? {} : { assertionEngines: engines }),
     assertionInputs: {
-      sources: {},
+      sources: opts.sourceContent !== undefined ? { [key]: { fileContent: opts.sourceContent } } : {},
       inputs: opts.proposed !== undefined ? { [key]: { document: opts.proposed } } : {},
     },
     ...(opts.base !== undefined ? { scopeEvidence: { baseInputs: { [key]: { document: opts.base } } } } : {}),
@@ -121,5 +125,46 @@ describe('scope-hierarchy', () => {
   test('a missing proposed input is inert (proposed-input-absent)', () => {
     const report = evaluateReport(scenario({ base: { tls: true } }));
     expect(ruleResult(report, 'scope-hierarchy')).toMatchObject({ status: 'inert', reason: 'scope-hierarchy.proposed-input-absent' });
+  });
+
+  test('missing target backing is inert instead of proving no applicable org overlap', () => {
+    const report = evaluateReport(scenario({ withTargets: false, base: { tls: true }, proposed: {} }));
+    expect(ruleResult(report, 'scope-hierarchy')).toMatchObject({
+      status: 'inert',
+      reason: 'scope-hierarchy.evidence-absent',
+    });
+  });
+
+  test('an accepted assertion declaring both sources cannot fabricate contradiction or escalation', () => {
+    const report = evaluateReport(
+      scenario({
+        base: { tls: true },
+        proposed: {},
+        sourceContent: '$.tls',
+        orgAssertion: { ...ORG_ASSERTION, expressionFile: 'tls.jsonpath' },
+      }),
+    );
+    expect(ruleResult(report, 'scope-hierarchy')).toMatchObject({
+      status: 'inert',
+      reason: 'scope-hierarchy.source-absent',
+    });
+    expect(report.routing.reasons).not.toContain('contradicts-accepted-adr');
+  });
+
+  test('an accepted assertion declaring neither source ignores arbitrary snapshot content', () => {
+    const { expression: _expression, ...withoutExpression } = ORG_ASSERTION;
+    const report = evaluateReport(
+      scenario({
+        base: { tls: true },
+        proposed: {},
+        sourceContent: '$.tls',
+        orgAssertion: withoutExpression,
+      }),
+    );
+    expect(ruleResult(report, 'scope-hierarchy')).toMatchObject({
+      status: 'inert',
+      reason: 'scope-hierarchy.source-absent',
+    });
+    expect(report.routing.reasons).not.toContain('contradicts-accepted-adr');
   });
 });
