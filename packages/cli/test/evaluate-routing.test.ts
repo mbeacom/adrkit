@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
-import { readFile } from 'node:fs/promises';
 import { cleanupTestDir, resetTestDir, writeText } from '../../core/test/helpers.ts';
 import { makeAssertionKey } from '../../evaluator/src/index.ts';
 import { sha256Hex, sha256HexUtf8 } from '../../evaluator/src/crypto/sha256.ts';
@@ -100,7 +99,7 @@ describe('adr evaluate — routing, boundary, and exit codes', () => {
         assertionInputs: { sources: { [key]: { compiledArtifact: sealEnvelope() } } },
       }),
     );
-    const before = await readFile(p, 'utf8');
+    const before = await Bun.file(p).text();
     const result = await runAdr(['evaluate', p, '--snapshot', snap, '--date', '2026-07-19', '--json']);
     expect(result.exitCode).toBe(0);
     const payload = JSON.parse(result.stdout);
@@ -108,7 +107,7 @@ describe('adr evaluate — routing, boundary, and exit codes', () => {
     expect(compile.status).toBe('inert');
     expect(compile.reason).toBe('assertions-compile.engine-absent');
     // no persistence: the proposal file is untouched
-    expect(await readFile(p, 'utf8')).toBe(before);
+    expect(await Bun.file(p).text()).toBe(before);
     void relPath;
   });
 
