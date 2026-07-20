@@ -5,6 +5,7 @@ const REPOSITORY_ROOT = resolve(import.meta.dir, '..');
 const RELEASE_DIR = join(REPOSITORY_ROOT, '.release', 'npm');
 const NPM_CLI_VERSION = '11.5.1';
 const REGISTRY = 'https://registry.npmjs.org';
+const BOOTSTRAP_PACKAGE = '@adrkit/mcp';
 type RegistryFetch = (url: string) => Promise<Response>;
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -41,6 +42,20 @@ export function shouldPublishArtifact(
   return false;
 }
 
+export function publishEnvironment(
+  packageName: string,
+  source: Record<string, string | undefined> = Bun.env,
+): Record<string, string | undefined> {
+  const environment = { ...source };
+  const bootstrapToken = environment.NPM_BOOTSTRAP_TOKEN;
+  delete environment.NPM_BOOTSTRAP_TOKEN;
+  delete environment.NODE_AUTH_TOKEN;
+  if (packageName === BOOTSTRAP_PACKAGE && bootstrapToken) {
+    environment.NODE_AUTH_TOKEN = bootstrapToken;
+  }
+  return environment;
+}
+
 async function npmPublish(artifact: ReleaseArtifact, dryRun: boolean): Promise<void> {
   const bunx = Bun.which('bunx');
   assert(bunx, 'bunx is required to run the OIDC-aware npm publishing client');
@@ -60,7 +75,7 @@ async function npmPublish(artifact: ReleaseArtifact, dryRun: boolean): Promise<v
     cwd: REPOSITORY_ROOT,
     stdout: 'inherit',
     stderr: 'inherit',
-    env: Bun.env,
+    env: publishEnvironment(artifact.name),
   });
   const exitCode = await process.exited;
   assert(exitCode === 0, `Publishing ${artifact.name}@${artifact.version} failed with exit ${exitCode}`);

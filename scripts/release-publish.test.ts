@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   existingIntegrity,
+  publishEnvironment,
   shouldPublishArtifact,
 } from './release-publish.ts';
 import type { ReleaseArtifact } from './release-pack.ts';
@@ -52,5 +53,33 @@ describe('release registry safety', () => {
     expect(() => shouldPublishArtifact(artifact, 'sha512-other')).toThrow(
       'already exists with different integrity',
     );
+  });
+
+  test('keeps bootstrap credentials out of existing package publishes', () => {
+    const environment = publishEnvironment('@adrkit/core', {
+      NPM_BOOTSTRAP_TOKEN: 'bootstrap-token',
+      NODE_AUTH_TOKEN: 'inherited-token',
+      PATH: '/bin',
+    });
+
+    expect(environment).toEqual({ PATH: '/bin' });
+  });
+
+  test('maps the bootstrap credential only to the new MCP package', () => {
+    const environment = publishEnvironment('@adrkit/mcp', {
+      NPM_BOOTSTRAP_TOKEN: 'bootstrap-token',
+      PATH: '/bin',
+    });
+
+    expect(environment).toEqual({
+      NODE_AUTH_TOKEN: 'bootstrap-token',
+      PATH: '/bin',
+    });
+  });
+
+  test('uses OIDC for MCP after the bootstrap credential is removed', () => {
+    expect(publishEnvironment('@adrkit/mcp', { PATH: '/bin' })).toEqual({
+      PATH: '/bin',
+    });
   });
 });

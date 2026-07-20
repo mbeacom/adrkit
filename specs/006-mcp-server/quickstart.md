@@ -338,8 +338,8 @@ nothing to report on that channel (contracts/pagination-and-cursors.md §2).
   both `get_decision` and `get_decision_context` shows the ref unresolved, and a
   follow-up `get_decision` call using it returns the full referenced record (SC-015).
 
-Green does **not** mean "implementation may begin." That is SC-016 alone, and it is a
-maintainer decision, not a test result.
+Historically, green did **not** by itself authorize implementation; SC-016 was
+the maintainer gate. That gate was satisfied before implementation began.
 
 ---
 
@@ -362,8 +362,8 @@ maintainer decision, not a test result.
   stripped, or substituted (FR-021, FR-022, FR-034).
 - **No expansion of declared relation refs** — surfaced, never fetched or inlined by
   `get_decision`/`get_decision_context` (FR-024, FR-033).
-- **No implementation yet** — `tasks.md` exists after SC-016 ratification, but the
-  current cross-artifact findings must be cleared before production work begins.
+- **No deferred capability was smuggled into implementation** — merged PR #19
+  contains only the ratified four-tool read surface.
 
 ---
 
@@ -379,3 +379,24 @@ explicitly ratified the four-tool boundary and its exclusions. Search ranking,
 transitive-supersession scope, `conflictsWith` visibility, and log-identity
 semantics were already fixed to conservative defaults in the Functional
 Requirements. No maintainer-facing product decision remains open.
+
+### Post-merge real-session evidence
+
+On 2026-07-20, after PR #19 merged as `57e4a40`, the maintainer launched the
+built Node-targeted `packages/mcp/dist/bin.js` through the official MCP
+Inspector CLI using local stdio and this repository's real `docs/adr` corpus.
+The Inspector listed exactly the four ratified tools and then exercised each:
+
+- `search_decisions(query: "Bun")` returned ADR-0010 and ADR-0011.
+- `get_decision(ref: "0007")` returned the complete typed frontmatter and
+  Markdown body for ADR-0007.
+- `get_decision_context(files: ["packages/mcp/package.json",
+  ".github/workflows/ci.yml"])` returned accepted ADR-0010 as governing and
+  proposed ADR-0007 as active, plus the expected informational inert-package
+  finding for ADR-0004.
+- `list_superseded()` returned an empty entries result because the real corpus
+  contains no superseded record.
+
+Every call reported 11 records, zero exclusions, no corpus error, and the same
+fingerprint. This is the real MCP-compatible session required by the root
+outcome ladder, so rung 4 is met.

@@ -23,8 +23,7 @@ Actions Trusted Publishing, traditional token publishing is disabled, and the
 - All public package versions are identical. Introducing `@adrkit/mcp` as a
   fourth public package therefore requires bumping `@adrkit/core`,
   `@adrkit/evaluator`, and `@adrkit/cli` to the same version in the same
-  coordinated release; the actual next release number is a maintainer scheduling
-  choice made at release time.
+  coordinated release. The first MCP release is scheduled as v0.2.0.
 - The tag is exactly `v<package version>`.
 - Packages publish in dependency order: core, evaluator, CLI, MCP (`@adrkit/mcp`
   depends only on core, so it is appended last to preserve the list's
@@ -89,11 +88,12 @@ For the first release only:
 6. Delete the `NPM_TOKEN` environment secret and set each package's publishing
    access to require 2FA and disallow tokens.
 
-All later releases are tokenless.
+All later releases are tokenless except when a new package needs the one-time
+bootstrap described below.
 
 ## Subsequent releases
 
-1. Update the version in all three public package manifests. Update any
+1. Update the version in all four public package manifests. Update any
    inter-package expectations and run `bun install` with stable Bun 1.3.14 when
    the lockfile changes.
 2. Merge the version change only after CI passes.
@@ -104,3 +104,19 @@ All later releases are tokenless.
 
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
+
+### One-time `@adrkit/mcp` bootstrap for v0.2.0
+
+npm requires a package to exist before its Trusted Publisher can be configured.
+For v0.2.0 only, add a short-lived granular `NPM_TOKEN` to the protected `npm`
+environment with publish access limited to `@adrkit/mcp`. The workflow exposes
+it to the release script as `NPM_BOOTSTRAP_TOKEN`, and the script maps it to
+`NODE_AUTH_TOKEN` only for the `@adrkit/mcp` subprocess; the three existing
+packages continue to authenticate with OIDC. After the workflow succeeds:
+
+1. Configure `@adrkit/mcp` with the same GitHub Actions Trusted Publisher
+   (`mbeacom/adrkit`, `release.yml`, environment `npm`).
+2. Require 2FA and disallow tokens for `@adrkit/mcp`.
+3. Delete the temporary `NPM_TOKEN` environment secret.
+
+All releases after v0.2.0 are tokenless for all four packages.

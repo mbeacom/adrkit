@@ -30,7 +30,7 @@ sync.
 | 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
 | 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
-| 5 — MCP server | `specs/006-mcp-server/` | implementation complete (PR #19) |
+| 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); real-user gate met |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
@@ -92,9 +92,13 @@ T00A). Rung 3 is also **met**: the `@adrkit/ci` Action ran twice on the separate
 12-record `adrkit-t018-dogfood` repository, selected exactly two governing ADRs, and
 updated one comment in place using only the default token (Phase 3 T018). Rung 5 is
 **met** by the landed Pass 0 evaluator and the ADR-0007 maintainer dogfood above.
-Rung 4 is the next delivery target: its MCP implementation is complete on PR
-#19, but a real MCP-compatible session must still exercise it before the rung is
-met.
+Rung 4 is also **met**: after PR #19 merged, the official MCP Inspector CLI
+launched the built Node artifact over stdio against this repository's real
+11-record corpus and exercised all four tools. Search returned ADRs 0010 and
+0011 for `Bun`; `get_decision` returned complete ADR-0007; context for
+`packages/mcp/package.json` and `.github/workflows/ci.yml` returned accepted
+ADR-0010 plus proposed ADR-0007; `list_superseded` honestly returned no entries.
+All calls reported zero excluded records and the same corpus fingerprint.
 
 ## Binding constraints
 
@@ -204,7 +208,7 @@ Exit criteria:
   configured at all. If it isn't, the rubric passes are being asked to carry
   weight they shouldn't.
 
-### Phase 5 — MCP server (rung 4, implemented; dogfood pending)
+### Phase 5 — MCP server (rung 4, landed and dogfooded)
 
 Deliverables: `@adrkit/mcp`, read tools only.
 
@@ -214,8 +218,8 @@ stdio. No writes, fifth tool, prompts, resources, HTTP transport, authentication
 model, network access, persistent cache, database, or named-log federation.
 Detailed design lives in `specs/006-mcp-server/`. The maintainer explicitly
 ratified this exact scope on 2026-07-20. Fresh analysis passed after artifact
-remediation, all 43 tasks are complete, and PR #19 contains the implementation.
-Merge plus a real MCP-compatible dogfood session remain before rung 4 is met.
+remediation, all 43 tasks completed, PR #19 merged, and the official MCP
+Inspector dogfood recorded above met rung 4.
 
 Exit criteria:
 
