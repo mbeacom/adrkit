@@ -128,10 +128,9 @@ Both are faked structurally in tests without importing `@actions/*`.
 ```typescript
 export interface GitHubQueueClient {
   /**
-   * Returns ALL issues (open AND closed) in the repository, excluding pull requests.
-   * Implementation must paginate exhaustively (100 per page).
-   * MUST filter out entries where pull_request is a non-null property —
-   * GitHub's Issues API returns pull requests from listForRepo.
+   * Returns ALL issues (open AND closed) in the repository.
+   * Implementation must exhaust the GraphQL repository.issues connection
+   * with 100 nodes per cursor page. Pull requests are excluded by the GraphQL type.
    */
   listAllIssues(): Promise<Array<{
     number: number;
@@ -163,21 +162,22 @@ export interface GitHubQueueClient {
 function createOctokitQueueClient(octokit: QueueOctokit, owner: string, repo: string): GitHubQueueClient {
   return {
     async listAllIssues() {
-      const openIssues = await octokit.paginate(octokit.rest.issues.listForRepo, {
-        owner, repo, state: "open", per_page: 100,
-      });
-      const closedIssues = await octokit.paginate(octokit.rest.issues.listForRepo, {
-        owner, repo, state: "closed", per_page: 100,
-      });
-      // Filter out pull requests — GitHub's Issues API includes them in listForRepo results
-      return [...openIssues, ...closedIssues]
-        .filter(i => i.pull_request == null)
-        .map(i => ({
+      const issues = [];
+      let cursor: string | null = null;
+      do {
+        const data = await octokit.graphql(QUEUE_ISSUES_QUERY, {
+          owner, repo, cursor,
+        });
+        const page = data.repository.issues;
+        issues.push(...page.nodes.map(i => ({
           number: i.number,
-          state: i.state as "open" | "closed",
+          state: i.state.toLowerCase() as "open" | "closed",
           title: i.title,
           body: i.body ?? null,
-        }));
+        })));
+        cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+      } while (cursor !== null);
+      return issues;
     },
     async createIssue(title, body) {
       const { data } = await octokit.rest.issues.create({ owner, repo, title, body });
@@ -193,6 +193,13 @@ function createOctokitQueueClient(octokit: QueueOctokit, owner: string, repo: st
   };
 }
 ```
+
+`QUEUE_ISSUES_QUERY` requests
+`repository(owner:$owner,name:$repo).issues(first:100,after:$cursor,states:[OPEN,CLOSED])`
+with `nodes { number state title body }` and
+`pageInfo { hasNextPage endCursor }`. The GraphQL `issues` connection excludes pull
+requests by construction. Exhaustive cursor traversal is required because marker
+ownership and duplicate detection must not rely on eventually consistent search results.
 
 ---
 
@@ -215,10 +222,15 @@ The issue body template:
 {rendered Markdown queue report}
 ```
 
-**Discovery rule**: An issue is "managed" if and only if its `body` starts with the
-marker as the first line — specifically:
-- `body === MARKER` (marker-only body), OR
-- `body.startsWith(MARKER + '\n')` (marker followed by newline and remaining content).
+**Discovery rule**: An issue is "managed" if and only if the exact first line of its
+body equals the marker:
+
+```typescript
+const firstLine = (body ?? "").split(/\r\n|\n|\r/, 1)[0];
+const isManaged = firstLine === MARKER;
+```
+
+This accepts marker-only, LF, CRLF, and CR bodies while preserving exact ownership.
 
 Leading whitespace before the marker disqualifies the issue. Marker appearing only
 in the middle or end of the body does NOT confer ownership. Specifically,
@@ -234,11 +246,11 @@ from being misidentified as managed issues.
 ```
 1. issues = await client.listAllIssues()
    // listAllIssues() paginates internally; returns all open + closed issues
-   // EXCLUDING pull requests (filtered by implementation)
+   // Pull requests cannot appear in the GraphQL repository.issues connection
 
 2. managed = issues.filter(i => {
-     const body = i.body ?? "";
-     return body === MARKER || body.startsWith(MARKER + '\n');
+     const firstLine = (i.body ?? "").split(/\r\n|\n|\r/, 1)[0];
+     return firstLine === MARKER;
    })
    // MARKER = "<!-- adrkit-managed-queue-issue -->"
    // First-line check: marker must be exactly the first line, no leading whitespace
@@ -412,7 +424,7 @@ The smoke test for the queue Action bundle:
 |------|---------|
 | `packages/ci/queue/action.yml` | Action manifest (this contract) |
 | `packages/ci/src/queue-issue.ts` | `managedQueueIssue()` function + `GitHubQueueClient` interface |
-| `packages/ci/src/queue-github-client.ts` | Side-effect-free Octokit adapter; exhaustive pagination and PR filtering |
+| `packages/ci/src/queue-github-client.ts` | Side-effect-free GraphQL issue adapter; exhaustive cursor pagination |
 | `packages/ci/src/queue-action-entrypoint.ts` | `@actions/core`/`@actions/github` boundary; wires the adapter and executes |
 
 **`packages/ci/package.json` additions**:

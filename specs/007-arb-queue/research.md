@@ -145,13 +145,13 @@ item.tier-absent:
   "review.tier is absent; routing tier cannot be determined — add review.tier: auto|async|arb to this record"
 
 item.review-by-before-queued:
-  "reviewBy ({reviewBy}) is before queuedAt ({queuedAt_utc_date}); SLA deadline may be inconsistent"
+  "reviewBy ({reviewBy}) is before queuedAt ({queuedAtDate}); SLA deadline may be inconsistent"
 
 item.deciders-empty:
   "deciders is empty; routing targets cannot be determined — add at least one decider identity to this record"
 ```
 
-Where `{reviewBy}` is the `reviewBy` field value as-is, and `{queuedAt_utc_date}`
+Where `{reviewBy}` is the `reviewBy` field value as-is, and `{queuedAtDate}`
 is the UTC calendar date derived from `review.queuedAt`.
 
 **Severity rationale**: `item.tier-absent` and `item.deciders-empty` are `info`
@@ -264,21 +264,20 @@ specification. Summary of binding decisions:
 - **Required permissions**: `issues: write` on the Action's own GitHub API calls.
   The *calling workflow* must declare `contents: read` (for `actions/checkout`)
   **plus** `issues: write`. Both must appear in the `permissions:` block — no PAT.
-- **Paginated issue discovery**: call `octokit.rest.issues.listForRepo` with
-  `state: 'open'`, `per_page: 100`, paginate until all pages exhausted; repeat
-  for `state: 'closed'`. Before applying marker or title logic, **filter out all
-  entries where `pull_request` is a non-null property** — GitHub's Issues API
-  returns pull requests from `listForRepo` and they must be excluded to avoid
-  false marker or title matches.
+- **Paginated issue discovery**: use the GitHub GraphQL repository `issues`
+  connection with `states: [OPEN, CLOSED]`, `first: 100`, and cursor pagination until
+  `hasNextPage` is false. This connection returns issues only, so pull requests never
+  enter marker/title logic. Do not use the Search API: its index is eventually
+  consistent and cannot safely prove that exactly zero, one, or multiple marker-owned
+  issues exist for a mutation decision.
 - **State machine**: 0 managed → title-conflict check → create; 1 open → update;
   1 closed → single atomic update (body + state: 'open' together); 2+ → fail
   (names all conflicting numbers, no write).
 - **Marker detection**: an issue is "managed" if and only if the marker
   `<!-- adrkit-managed-queue-issue -->` is **exactly the first line** of the issue
-  body — i.e., `body.startsWith(MARKER + '\n')` (multi-line body) OR
-  `body === MARKER` (marker-only body). Leading whitespace or any other content
-  before the marker disqualifies the issue. Do NOT use `body.includes(MARKER)` for
-  ownership detection.
+  body, determined by splitting on LF, CRLF, or CR and comparing the first line to
+  `MARKER`. Leading whitespace or any other content before the marker disqualifies the
+  issue. Do NOT use `body.includes(MARKER)` for ownership detection.
 - **Title conflict scope**: when no managed issue is found, the title conflict check
   examines both **open AND closed** unowned issues. If one or more unowned issues
   (not managed, not the managed issue being managed) have the configured title, the
@@ -415,8 +414,8 @@ implementation can claim completion:
 - **Fake `GitHubQueueClient`**: in-memory stub; no token, no network.
 - State machine: all 5 branches (0 managed + no title conflict, 0 managed + title
   conflict, 1 open, 1 closed, 2+ managed).
-- `listAllIssues()` stub returns both real issues AND entries with `pull_request`
-  property set; asserts PR entries are filtered before marker/title logic.
+- GraphQL adapter exhausts multiple cursors and returns open and closed issue nodes;
+  pull requests cannot appear in the repository `issues` connection.
 - First run creates issue with marker as **first line** of body.
 - Second run on same corpus updates same issue; issue count unchanged.
 - Closed managed issue: single `updateIssue({body, state:'open'})` call — one write,
@@ -428,8 +427,8 @@ implementation can claim completion:
 - Title conflict: unmanaged open issue with configured title → fail, no write.
 - Title conflict with unmanaged **closed** issue → also fail, no write.
 - Multiple unmanaged title conflicts: all named (ascending issue number), no write.
-- Body detection: marker at line 1 → managed; marker at line 2 → NOT managed;
-  body with leading whitespace then marker → NOT managed.
+- Body detection: marker at line 1 with LF or CRLF → managed; marker at line 2 →
+  NOT managed; body with leading whitespace then marker → NOT managed.
 - Marker in quoted text mid-body → NOT managed (first-line check only).
 
 ### Bundle + static boundary tests

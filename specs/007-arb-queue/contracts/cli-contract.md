@@ -34,9 +34,12 @@ ADR corpus to stdout.
 The `--as-of` flag accepts two forms:
 
 1. **Bare date**: `YYYY-MM-DD` — must match the regex `/^\d{4}-\d{2}-\d{2}$/` AND
-   pass a UTC round-trip validation: `new Date(input + 'T00:00:00Z').toISOString().slice(0,10) === input`.
-   The round-trip check catches invalid months/days that parse without NaN (e.g.
-   `2026-13-01` or `2026-02-30`). If either check fails, exit 2.
+   pass a safe UTC round-trip validation:
+   `const parsed = new Date(input + 'T00:00:00Z')`;
+   `Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0,10) === input`.
+   The finite-time guard prevents `toISOString()` from throwing on invalid dates such as
+   `2026-13-01`; the round-trip comparison rejects normalized impossible dates such as
+   `2026-02-30`. If any check fails, exit 2.
 
 2. **ISO datetime with explicit offset**: a string containing `T` and an explicit
    timezone designator (`Z` or a numeric offset `±HH:MM` or `±HHMM`), e.g.

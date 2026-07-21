@@ -453,7 +453,8 @@ item with `slaState:"within-sla"`, `totalCorpusFindings:0`;
   (f) `--as-of "2026-01-08T01:00:00+05:00"` → exit 0, `asOf:"2026-01-07"`
   (UTC normalization: +05:00 offset → UTC 2026-01-07T20:00:00Z → date 2026-01-07);
   (g) `--as-of "2026-13-01"` (invalid month) → exit 2, stderr contains
-  `"Invalid --as-of value"`;
+  `"Invalid --as-of value"` and no unhandled exception; `--as-of "2026-02-30"`
+  (normalized impossible date) also exits 2 without throwing;
   (h) schema-invalid-corpus `--format json` → exit 1, stdout is complete JSON report
   (non-empty `corpusFindings`), stdout emitted BEFORE exit;
   (i) one-way-door-auto-corpus → exit 1, `corpusFindings[*].code:
@@ -475,7 +476,10 @@ item with `slaState:"within-sla"`, `totalCorpusFindings:0`;
   validate `--format`: if value not `"markdown"` or `"json"`, write
   `"Invalid --format value: '{v}'. Expected markdown or json.\n"` to stderr, exit 2;
   validate `--as-of` per `contracts/cli-contract.md` §As-Of Resolution:
-  bare YYYY-MM-DD → regex check + UTC round-trip `new Date(v+"T00:00:00Z").toISOString().slice(0,10)===v`;
+  bare YYYY-MM-DD → regex check, then
+  `const parsed = new Date(v+"T00:00:00Z")` and require
+  `Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0,10)===v`
+  so invalid dates never throw;
   offset datetime (contains `T` + `Z` or `±` after time) → `new Date(v).toISOString().slice(0,10)`;
   timezone-less datetime (contains `T` but no TZ designator) → stderr
   `"Invalid --as-of value: '{v}'. Timezone-less datetimes are ambiguous — use YYYY-MM-DD or add an explicit timezone offset (e.g. Z or +05:00).\n"`, exit 2;
@@ -529,6 +533,8 @@ a known error, no network call, no module-resolution error.
   marker detection:
   (H) `body === MARKER` → managed;
   (I) `body.startsWith(MARKER + "\n")` → managed;
+  (I2) `MARKER + "\r\n" + report` → managed (CRLF first-line handling);
+  (I3) `MARKER + "\r" + report` → managed (bare-CR first-line handling);
   (J) marker at line 2 (newline before marker) → NOT managed;
   (K) leading whitespace before marker → NOT managed;
   (L) `createIssue` throws 403 → no partial write; error propagated to caller;
@@ -547,11 +553,12 @@ a known error, no network call, no module-resolution error.
   `packages/ci/test/queue-adapter.test.ts` using a fake Octokit (no token, no network):
   target a side-effect-free `createOctokitQueueClient` export in the new
   `packages/ci/src/queue-github-client.ts` module (not the executable entrypoint);
-  (a) `listAllIssues()` exhausts all pages for both `state:'open'` and `state:'closed'`
-  (fake returns 100+ items split across multiple pages; assert all are collected);
-  (b) entries with `pull_request` property non-null are filtered out of the returned list;
-  (c) PR-filtered list is what `managedQueueIssue` operates on (no pull requests reach
-  marker/title logic).
+  (a) `listAllIssues()` exhausts every cursor page from the GraphQL
+  `repository.issues(states:[OPEN,CLOSED])` connection (fake returns 100+ issue nodes
+  split across multiple pages; assert all are collected in page order);
+  (b) the query requests only issue nodes with `number`, `state`, `title`, and `body`;
+  assert the adapter never calls REST `issues.listForRepo` or the Search API;
+  (c) GraphQL `OPEN`/`CLOSED` states map exactly to client `open`/`closed`.
   Run test; record `Cannot find module` failure.
 
 ### GREEN: implement Action modules
@@ -565,8 +572,8 @@ a known error, no network call, no module-resolution error.
   export `managedQueueIssue(markdownReport:string, client:GitHubQueueClient,
   issueTitle:string): Promise<{issueNumber:number}>`:
   implement all 5 state machine branches (create/update-open/update-closed/conflict-fail/
-  duplicate-fail) per `contracts/github-action.md`; first-line marker check only
-  (`body===MARKER || body.startsWith(MARKER+"\n")`);
+  duplicate-fail) per `contracts/github-action.md`; marker ownership is exact first-line
+  equality using `(body ?? "").split(/\r\n|\n|\r/, 1)[0] === MARKER`;
   do NOT receive a full `QueueReport`; do NOT return `errorFindingsPresent`;
   also export the pure `publishQueueReport` helper tested in T034, accepting a
   QueueReport, rendered Markdown, GitHubQueueClient, issue title, and injected
@@ -586,7 +593,7 @@ a known error, no network call, no module-resolution error.
   call `buildQueueReport({corpus, asOf})`;
   call `formatQueueReportMarkdown(report)`;
   first create `packages/ci/src/queue-github-client.ts` with the side-effect-free
-  structural Octokit adapter tested in T035 (no `@actions/*` import), then construct
+  structural GraphQL Octokit adapter tested in T035 (no `@actions/*` import), then construct
   `createOctokitQueueClient(octokit, owner, repo)` from the entrypoint, where
   `owner` and `repo` are split from `process.env.GITHUB_REPOSITORY`;
   call `publishQueueReport` with callbacks backed by `core.setOutput` and

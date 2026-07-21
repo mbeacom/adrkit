@@ -167,7 +167,7 @@ packages/
 └── ci/
     ├── src/
     │   ├── queue-issue.ts       # managedQueueIssue() — pure logic; GitHubQueueClient port
-    │   ├── queue-github-client.ts # side-effect-free Octokit adapter; pagination + PR filtering
+    │   ├── queue-github-client.ts # side-effect-free GraphQL issue adapter; cursor pagination
     │   └── queue-action-entrypoint.ts  # createOctokitQueueClient() + entrypoint; @actions/* confined here
     ├── queue/
     │   └── action.yml           # GitHub Action manifest for the queue surface
