@@ -23,7 +23,7 @@ describe('adr lint CLI', () => {
   test('passes on this repository corpus', async () => {
     const result = await runAdr(['lint']);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('checked 11 records, 0 errors');
+    expect(result.stdout).toContain('checked 12 records, 0 errors');
     expect(result.stderr).toBe('');
   });
 
