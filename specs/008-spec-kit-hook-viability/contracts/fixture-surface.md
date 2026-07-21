@@ -63,9 +63,10 @@ $ARGUMENTS
    scratch project's git root.
 4. If that artifact is absent, exit non-zero with the exact message in §4
    below — never a silent no-op.
-5. Otherwise, invoke it as a subprocess: `node packages/cli/dist/index.js
-   queue --format json`, with outbound network disabled and only the
-   allowlisted environment from `contracts/isolation-and-offline.md` §2
+5. Otherwise, invoke it as a subprocess: `node
+   "$ADRKIT_REPO_ROOT/packages/cli/dist/index.js" queue --dir
+   "$ADRKIT_REPO_ROOT/docs/adr" --format json`, with outbound network disabled and only
+   the allowlisted environment from `contracts/isolation-and-offline.md` §3.1
    present. Print its stdout verbatim. Exit with its exit code.
 ```
 

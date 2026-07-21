@@ -49,7 +49,7 @@ Evaluate in **exactly** this order. Stop at the first rule that matches.
 |---|---|
 | A mutation occurred | Any `MutationBaseline.identical === false` in `mutationBaselines` |
 | The fixture could not be safely disabled or fully removed | Any row in `contracts/lifecycle-evidence.md` §3/§4's tables failed |
-| A required failure-mode probe was unsafe | `absentContextProbe.isUnhandledCrash === true`, or `.exitCode === 0`, OR the same for `absentCliProbe` |
+| A required failure-mode probe was unsafe | `absentContextProbe.isUnhandledCrash === true`, or `absentContextProbe.exitCode === 0`, OR the same fields on `absentCliProbe` |
 | The live `after_plan` hook could not be fired at all | `hookFireTranscript` shows the hook crashing the agent session, corrupting repository state, or never surfacing in the rendered Mandatory Post-Execution Hooks section |
 
 If `outcome = "no-go"`: set `noGoTrigger` to the specific trigger name

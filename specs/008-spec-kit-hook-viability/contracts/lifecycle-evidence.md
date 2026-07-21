@@ -44,7 +44,7 @@ appended, never replacing or reordering pre-existing content.
 **File-existence and script-resolution check** (Edge Cases note on partial-install defects):
 inspect the rendered command's `scripts.sh` value, record whether the frozen CLI rewrote
 or preserved `scripts/probe.sh`, and prove the resulting reference resolves to an
-existing executable fixture script. Also,
+existing executable fixture script. Also, the
 evidence bundle records a direct `ls`/`stat`-equivalent check of the expected
 rendered command file paths (§4 of `contracts/agent-verification.md` for
 Copilot's exact paths) — a `specify extension add` success message alone is
