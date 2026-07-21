@@ -282,3 +282,49 @@ describe('buildQueueReport — tier semantics (FR-016)', () => {
     expect(label('auto')?.tierLabel).toContain('human acceptance required');
   });
 });
+
+describe('buildQueueReport — invalid timestamp guards (never RangeError)', () => {
+  test('malformed review.queuedAt throws an explicit Error, not a RangeError', () => {
+    const run = () =>
+      buildQueueReport({
+        corpus: single({ deciders: ['@a'], review: { tier: 'arb', queuedAt: 'not-a-date', slaDays: 14 } }),
+        asOf: '2026-01-08',
+      });
+    expect(run).toThrow(/Invalid timestamp in ADR frontmatter: 'not-a-date'/);
+    let caught: unknown;
+    try {
+      run();
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).name).not.toBe('RangeError');
+  });
+
+  test('malformed review.escalatedAt throws an explicit Error', () => {
+    expect(() =>
+      buildQueueReport({
+        corpus: single({ deciders: ['@a'], review: { tier: 'arb', queuedAt: '2026-01-01T00:00:00Z', escalatedAt: 'bogus' } }),
+        asOf: '2026-01-08',
+      }),
+    ).toThrow(/Invalid timestamp in ADR frontmatter: 'bogus'/);
+  });
+
+  test('malformed review.decidedAt throws an explicit Error', () => {
+    expect(() =>
+      buildQueueReport({
+        corpus: single({ deciders: ['@a'], review: { tier: 'arb', queuedAt: '2026-01-01T00:00:00Z', decidedAt: 'nope' } }),
+        asOf: '2026-01-08',
+      }),
+    ).toThrow(/Invalid timestamp in ADR frontmatter: 'nope'/);
+  });
+
+  test('valid schema-shaped timestamps never trigger the guard', () => {
+    expect(() =>
+      buildQueueReport({
+        corpus: single({ deciders: ['@a'], review: { tier: 'arb', queuedAt: '2026-01-01T00:00:00Z', slaDays: 14 } }),
+        asOf: '2026-01-08',
+      }),
+    ).not.toThrow();
+  });
+});

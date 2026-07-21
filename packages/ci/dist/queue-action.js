@@ -46433,7 +46433,7 @@ function compareNullableLast(a, b) {
   return compareCodeUnits(a, b);
 }
 function sortQueueItems(items) {
-  return [...items].sort((a, b) => SLA_STATE_URGENCY_ORDER[a.slaState] - SLA_STATE_URGENCY_ORDER[b.slaState] || compareNullableLast(a.deadlineDate, b.deadlineDate) || compareCodeUnits(a.queuedAt ?? "", b.queuedAt ?? "") || compareCodeUnits(a.id, b.id));
+  return [...items].sort((a, b) => SLA_STATE_URGENCY_ORDER[a.slaState] - SLA_STATE_URGENCY_ORDER[b.slaState] || compareNullableLast(a.deadlineDate, b.deadlineDate) || compareCodeUnits(a.queuedAt ?? "", b.queuedAt ?? "") || compareCodeUnits(a.id, b.id) || compareCodeUnits(a.sourcePath, b.sourcePath));
 }
 function sortCorpusFindings(findings) {
   return [...findings].sort((a, b) => compareCodeUnits(a.sourcePath, b.sourcePath) || compareCodeUnits(a.code, b.code) || severityRank(a.severity) - severityRank(b.severity) || compareCodeUnits(a.message, b.message));
@@ -46452,15 +46452,29 @@ var ITEM_MESSAGES = {
   tierAbsent: "review.tier is absent; routing tier cannot be determined — add review.tier: auto|async|arb to this record",
   decidersEmpty: "deciders is empty; routing targets cannot be determined — add at least one decider identity to this record"
 };
+function parseUtcDate(value) {
+  const date5 = new Date(value);
+  if (!Number.isFinite(date5.getTime())) {
+    throw new Error(`Invalid timestamp in ADR frontmatter: '${value}' is not a valid ISO date/datetime`);
+  }
+  return date5;
+}
 function toUtcInstant(value) {
-  return new Date(value).toISOString();
+  return parseUtcDate(value).toISOString();
 }
 function toUtcCalendarDate(value) {
-  return new Date(value).toISOString().slice(0, 10);
+  return parseUtcDate(value).toISOString().slice(0, 10);
 }
 function addCalendarDays(date5, days) {
   const base = Date.parse(`${date5}T00:00:00Z`);
-  return new Date(base + days * 86400000).toISOString().slice(0, 10);
+  if (!Number.isFinite(base)) {
+    throw new Error(`Invalid calendar date for SLA deadline computation: '${date5}'`);
+  }
+  const result = new Date(base + days * 86400000);
+  if (!Number.isFinite(result.getTime())) {
+    throw new Error(`SLA deadline computation is out of range for '${date5}' plus ${days} day(s)`);
+  }
+  return result.toISOString().slice(0, 10);
 }
 function normalizeSourcePath(path) {
   return path.replace(/\\/g, "/");

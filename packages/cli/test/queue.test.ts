@@ -137,3 +137,33 @@ describe('adr queue — usage errors (exit 2, empty stdout)', () => {
     expect(stderr).toBe(`Corpus directory not found: '${FIX}/does-not-exist'.\n`);
   });
 });
+
+describe('adr queue — value-taking flags require a value (exit 2)', () => {
+  test('bare --as-of (no value) is a usage error, not today’s report', async () => {
+    const { stdout, stderr, exitCode } = await runAdr(['queue', '--as-of']);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe('');
+    expect(stderr).toBe("Missing value for flag '--as-of'. See 'adr queue --help'.\n");
+  });
+
+  test('bare --dir (no value) is a usage error', async () => {
+    const { stdout, stderr, exitCode } = await runAdr(['queue', '--dir']);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe('');
+    expect(stderr).toBe("Missing value for flag '--dir'. See 'adr queue --help'.\n");
+  });
+
+  test('bare --format (no value) is a usage error', async () => {
+    const { stdout, stderr, exitCode } = await runAdr(['queue', '--format']);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe('');
+    expect(stderr).toBe("Missing value for flag '--format'. See 'adr queue --help'.\n");
+  });
+
+  test('--as-of does not consume a following flag as its value', async () => {
+    const { stdout, stderr, exitCode } = await runAdr(['queue', '--as-of', '--format', 'json']);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe('');
+    expect(stderr).toBe("Missing value for flag '--as-of'. See 'adr queue --help'.\n");
+  });
+});

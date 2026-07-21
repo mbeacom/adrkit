@@ -23,8 +23,10 @@ function compareNullableLast(a: string | null, b: string | null): number {
 }
 
 /**
- * Sort by: urgency group → deadline date (null last) → queuedAt → id.
+ * Sort by: urgency group → deadline date (null last) → queuedAt → id → sourcePath.
  * `not-queued` items have no queuedAt, so step 3 uses `''` and they order by id.
+ * `sourcePath` is the final, unique tiebreak because `lintCorpus` retains schema-valid
+ * duplicate-id records (id alone is therefore not a total order).
  */
 export function sortQueueItems(items: readonly QueueItem[]): QueueItem[] {
   return [...items].sort(
@@ -32,7 +34,8 @@ export function sortQueueItems(items: readonly QueueItem[]): QueueItem[] {
       SLA_STATE_URGENCY_ORDER[a.slaState] - SLA_STATE_URGENCY_ORDER[b.slaState] ||
       compareNullableLast(a.deadlineDate, b.deadlineDate) ||
       compareCodeUnits(a.queuedAt ?? '', b.queuedAt ?? '') ||
-      compareCodeUnits(a.id, b.id),
+      compareCodeUnits(a.id, b.id) ||
+      compareCodeUnits(a.sourcePath, b.sourcePath),
   );
 }
 

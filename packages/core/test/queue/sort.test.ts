@@ -95,6 +95,19 @@ describe('sortQueueItems', () => {
     expect(sortQueueItems(items).map((i) => i.id)).toEqual(['0001', '0002', '0003']);
   });
 
+  test('duplicate id with equal state/deadline/queuedAt breaks the tie by sourcePath', () => {
+    // lintCorpus retains schema-valid duplicate-id records (unique-id is a warn/info
+    // finding, not an exclusion), so id alone is not a total order.
+    const items = [
+      item({ id: '0001', slaState: 'overdue', deadlineDate: '2025-12-15', queuedAt: '2025-12-01T00:00:00.000Z', sourcePath: 'docs/adr/0001-z.md' }),
+      item({ id: '0001', slaState: 'overdue', deadlineDate: '2025-12-15', queuedAt: '2025-12-01T00:00:00.000Z', sourcePath: 'docs/adr/0001-a.md' }),
+    ];
+    expect(sortQueueItems(items).map((i) => i.sourcePath)).toEqual([
+      'docs/adr/0001-a.md',
+      'docs/adr/0001-z.md',
+    ]);
+  });
+
   test('is deterministic across repeated calls', () => {
     const items = [
       item({ id: '0002', slaState: 'due', deadlineDate: '2026-01-08' }),

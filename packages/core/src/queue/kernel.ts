@@ -38,17 +38,32 @@ const ITEM_MESSAGES = {
     'deciders is empty; routing targets cannot be determined — add at least one decider identity to this record',
 } as const;
 
+function parseUtcDate(value: string): Date {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    throw new Error(`Invalid timestamp in ADR frontmatter: '${value}' is not a valid ISO date/datetime`);
+  }
+  return date;
+}
+
 function toUtcInstant(value: string): string {
-  return new Date(value).toISOString();
+  return parseUtcDate(value).toISOString();
 }
 
 function toUtcCalendarDate(value: string): string {
-  return new Date(value).toISOString().slice(0, 10);
+  return parseUtcDate(value).toISOString().slice(0, 10);
 }
 
 function addCalendarDays(date: string, days: number): string {
   const base = Date.parse(`${date}T00:00:00Z`);
-  return new Date(base + days * 86_400_000).toISOString().slice(0, 10);
+  if (!Number.isFinite(base)) {
+    throw new Error(`Invalid calendar date for SLA deadline computation: '${date}'`);
+  }
+  const result = new Date(base + days * 86_400_000);
+  if (!Number.isFinite(result.getTime())) {
+    throw new Error(`SLA deadline computation is out of range for '${date}' plus ${days} day(s)`);
+  }
+  return result.toISOString().slice(0, 10);
 }
 
 function normalizeSourcePath(path: string): string {

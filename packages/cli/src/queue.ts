@@ -49,33 +49,44 @@ interface ParsedFlags {
   help: boolean;
 }
 
-type ParseResult = { ok: true; flags: ParsedFlags } | { ok: false; unknown: string };
+type ParseResult = { ok: true; flags: ParsedFlags } | { ok: false; unknown: string } | { ok: false; missing: string };
 
 function parseFlags(args: string[]): ParseResult {
   const flags: ParsedFlags = { dir: 'docs/adr', format: 'markdown', help: false };
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]!;
-    const eq = arg.indexOf('=');
-    const name = arg.startsWith('--') && eq !== -1 ? arg.slice(0, eq) : arg;
-    const inlineValue = arg.startsWith('--') && eq !== -1 ? arg.slice(eq + 1) : undefined;
-    const nextValue = (): string | undefined => {
-      if (inlineValue !== undefined) return inlineValue;
-      i += 1;
-      return args[i];
-    };
+    const eq = arg.startsWith('--') ? arg.indexOf('=') : -1;
+    const name = eq !== -1 ? arg.slice(0, eq) : arg;
+    const inlineValue = eq !== -1 ? arg.slice(eq + 1) : undefined;
 
     if (name === '--help') {
       flags.help = true;
-    } else if (name === '--dir') {
-      flags.dir = nextValue() ?? flags.dir;
-    } else if (name === '--as-of') {
-      flags.asOf = nextValue();
-    } else if (name === '--format') {
-      flags.format = nextValue() ?? flags.format;
-    } else {
+      continue;
+    }
+
+    const valueFlag = name === '--dir' || name === '--as-of' || name === '--format';
+    if (!valueFlag) {
       return { ok: false, unknown: name };
     }
+
+    // A value-taking flag needs a real value: either an inline `--flag=value`, or a
+    // following token that is not itself a flag. Never consume a following flag.
+    let value: string;
+    if (inlineValue !== undefined) {
+      value = inlineValue;
+    } else {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith('-')) {
+        return { ok: false, missing: name };
+      }
+      value = next;
+      i += 1;
+    }
+
+    if (name === '--dir') flags.dir = value;
+    else if (name === '--as-of') flags.asOf = value;
+    else flags.format = value;
   }
 
   return { ok: true, flags };
@@ -93,6 +104,10 @@ async function directoryExists(dir: string): Promise<boolean> {
 export async function runQueue(args: string[]): Promise<number> {
   const parsed = parseFlags(args);
   if (!parsed.ok) {
+    if ('missing' in parsed) {
+      process.stderr.write(`Missing value for flag '${parsed.missing}'. See 'adr queue --help'.\n`);
+      return 2;
+    }
     process.stderr.write(`Unknown flag: '${parsed.unknown}'. See 'adr queue --help'.\n`);
     return 2;
   }

@@ -61,8 +61,10 @@ jobs:
         run: bun run build
       - name: Pack and install publishable packages
         run: bun run release:pack -- --skip-build
-      - name: Smoke test built Node artifacts (core, evaluator, CLI incl. offline adr evaluate, Action bundle)
+      - name: Smoke test built Node artifacts (core, evaluator, CLI incl. offline adr evaluate + adr queue, Action bundle)
         run: node scripts/smoke-node.mjs
+      - name: Smoke test committed queue Action bundle (corpus-load boundary, no network)
+        run: node scripts/smoke-queue-node.mjs
       - name: Smoke test installed npm tarballs
         run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
