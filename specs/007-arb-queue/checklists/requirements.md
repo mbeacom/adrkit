@@ -66,5 +66,5 @@
 - The "Out of Scope" section enumerates the full explicit exclusion list from the feature
   brief, supplemented by the four GitHub surface non-forms (upload artifact, tracked file,
   PR comment, issue comment) and PATs, co-located with requirements for planning reference.
-- Implementation is gated on SC-004 (separate-repository/team dogfood); scoping may
-  proceed immediately.
+- Task generation and implementation may proceed after this scoping passes. SC-004
+  (separate-repository/team dogfood) gates only the `landed`/release-ready claim.

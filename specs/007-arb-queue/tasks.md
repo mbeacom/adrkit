@@ -103,7 +103,8 @@ this phase is fixture-only.
   `corpus.one-way-door-auto-tier` (file excluded from items)
 
 - [ ] T011 [P] Write `packages/core/test/fixtures/queue/no-proposed-corpus/0001.md`:
-  frontmatter `id:"0001"`, `title:"Accepted ADR"`, `status:accepted`, `date:2026-01-01`;
+  frontmatter `id:"0001"`, `title:"Accepted ADR"`, `status:accepted`,
+  `date:2026-01-01`, `deciders:["@alice"]`;
   only non-proposed records → `items:[]`, `totalItems:0`
 
 - [ ] T012 [P] Write `packages/core/test/fixtures/queue/warn-review-by-before-queued-corpus/0001.md`:
@@ -317,6 +318,8 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   empty items table renders exactly `*No proposed records found.*`;
   null field values render as `-` in table cells;
   pipe character `|` in item title is escaped as `\|` in Markdown cell;
+  a title containing CRLF/LF/CR is normalized to a single-line detail heading and
+  cannot inject a second heading or table;
   `sourcePath` and `code` values are backtick-wrapped in corpus findings section;
   overview Tier renders exactly `{tier} ({tierLabel})` for a non-null tier and
   `(none)` for a null tier; every per-item detail section contains a `Tier Label` row
@@ -465,6 +468,10 @@ item with `slaState:"within-sla"`, `totalCorpusFindings:0`;
   (l) comprehensive-corpus emits all ten proposed items plus its CorpusFinding before
   exit 1; JSON and Markdown make every overdue/due/escalated item and every item/corpus
   finding identifiable without opening source files (SC-002);
+  (m) `--help` → exit 0 with usage on stdout and empty stderr;
+  (n) `--unknown-flag` → exit 2, empty stdout, and the exact frozen unknown-flag stderr;
+  (o) a missing `--dir` → exit 2, empty stdout, and the exact frozen corpus-not-found
+  stderr rather than the top-level CLI's generic exit-1 path;
   Run `bun test packages/cli/test/queue.test.ts`; record `Cannot find module './queue'`
   or equivalent failure.
 
@@ -485,6 +492,10 @@ item with `slaState:"within-sla"`, `totalCorpusFindings:0`;
   `"Invalid --as-of value: '{v}'. Timezone-less datetimes are ambiguous — use YYYY-MM-DD or add an explicit timezone offset (e.g. Z or +05:00).\n"`, exit 2;
   any other failure → stderr `"Invalid --as-of value: '{v}'. Expected YYYY-MM-DD or ISO datetime with explicit timezone (e.g. 2026-01-08 or 2026-01-08T00:00:00Z).\n"`, exit 2;
   if `--as-of` absent: `asOf = new Date().toISOString().slice(0,10)`;
+  handle `--help` before corpus loading by writing queue usage to stdout and returning
+  0; reject unknown flags with the exact contract message and exit 2; verify the corpus
+  directory is readable before `lintCorpus`, translating missing/unreachable directory
+  errors to the exact corpus-not-found stderr and exit 2 with no stdout;
   call `lintCorpus({dir})` from `@adrkit/core`; call `buildQueueReport({corpus, asOf})`;
   call `formatQueueReportMarkdown(report)` or `formatQueueReportJson(report)`;
   write to `process.stdout` (emit complete report BEFORE deciding exit code);
@@ -543,9 +554,9 @@ a known error, no network call, no module-resolution error.
   (N) a pure `publishQueueReport` helper given an error-bearing QueueReport records
   events in exact order `update issue → set issue-number output → setFailed`, with the
   exact error-count/issue-number message; a clean report omits `setFailed`.
-  Pull-request filtering and report-error handling are adapter/entrypoint concerns
-  except for the pure publish-order helper above; `managedQueueIssue` itself receives
-  neither raw PR entries nor a QueueReport.
+  GraphQL issue-only pagination and report-error translation are adapter/entrypoint
+  concerns except for the pure publish-order helper above; `managedQueueIssue` itself
+  receives neither raw API nodes nor a QueueReport.
   Run `bun test packages/ci/test/queue-issue.test.ts`; record
   `Cannot find module '../src/queue-issue'` failure.
 
@@ -558,7 +569,10 @@ a known error, no network call, no module-resolution error.
   split across multiple pages; assert all are collected in page order);
   (b) the query requests only issue nodes with `number`, `state`, `title`, and `body`;
   assert the adapter never calls REST `issues.listForRepo` or the Search API;
-  (c) GraphQL `OPEN`/`CLOSED` states map exactly to client `open`/`closed`.
+  (c) GraphQL `OPEN`/`CLOSED` states map exactly to client `open`/`closed`;
+  (d) an exported pure `handleGitHubApiError(error, setFailed)` maps both status 401
+  and 403 to the exact `issues: write` guidance, invokes `setFailed` once (therefore a
+  non-zero Action outcome), and maps other API failures to an explicit generic failure.
   Run test; record `Cannot find module` failure.
 
 ### GREEN: implement Action modules
@@ -600,10 +614,11 @@ a known error, no network call, no module-resolution error.
   `core.setFailed`; the helper owns the write → output → conditional-failure ordering
   and exact `"Queue report contains ${n} corpus error(s). See issue #${issueNumber} for details."`
   message;
-  if GitHub API throws with status 401 or 403 call
-  `core.setFailed("GitHub API returned ${status}: insufficient permissions. Ensure the workflow grants 'issues: write' to the GITHUB_TOKEN.")`;
-  surface every other GitHub API failure through `core.setFailed` without converting it
-  into a success-shaped result.
+  route every GitHub API failure through the tested `handleGitHubApiError` helper; 401
+  and 403 call
+  `core.setFailed("GitHub API returned ${status}: insufficient permissions. Ensure the workflow grants 'issues: write' to the GITHUB_TOKEN.")`,
+  while every other failure becomes an explicit generic `setFailed` outcome rather than
+  a success-shaped result.
   Create `packages/ci/queue/action.yml` with EXACT content from contract:
   `name: "ADR ARB Queue"`;
   inputs: `dir` (required:false, default:`docs/adr`), `token` (required:false,
@@ -639,9 +654,15 @@ a known error, no network call, no module-resolution error.
   Note: Node 22/24 coverage is validated by the existing CI matrix (`ci.yml`);
   do not require local runtimes beyond what is available.
 
-- [ ] T041 Run `bun run --filter @adrkit/ci typecheck && bun test packages/ci`;
-  assert clean. Run `node scripts/smoke-node.mjs` to confirm existing `dist/index.js`
-  smoke test still passes and the existing action behavior is unaffected.
+- [ ] T041 Wire and validate Node smoke boundaries: update `scripts/smoke-node.mjs` to
+  invoke the built `packages/cli/dist/index.js queue` against a committed fixture with
+  explicit `--as-of` and `--format json`, asserting `version:"1"` and expected items;
+  add `node scripts/smoke-queue-node.mjs` to the existing Node 22/24
+  `node-smoke-built-artifacts` matrix in `.github/workflows/ci.yml`; update the installed
+  tarball smoke generated by `scripts/release-pack.ts` and its existing tests to execute
+  the installed `adr queue` command under the same Node matrix. Run
+  `bun run --filter @adrkit/ci typecheck && bun test packages/ci`; run both smoke scripts
+  on the available local Node runtime and rely on the existing CI matrix for Node 22/24.
 
 **Checkpoint**: Action creates/updates managed issues using fake client; bundle
 committed; queue and existing smoke tests pass.
@@ -681,9 +702,10 @@ milestones, and the rung-6 external exit gate.
   `bun run release:pack -- --skip-build` using the existing coordinated pack script;
   inspect the core and CLI public tarballs for presence of new exports
   (`fingerprintOf`, `buildQueueReport`, `formatQueueReportJson`,
-  `formatQueueReportMarkdown`, `compareCodeUnits`); verify no tarball is produced for
-  private `@adrkit/ci`; verify Action distribution is confirmed via committed bundle
-  path only, not npm tarball.
+  `formatQueueReportMarkdown`, `compareCodeUnits`); run the generated installed-tarball
+  smoke and confirm `adr queue` succeeds; verify no tarball is produced for private
+  `@adrkit/ci`; verify Action distribution is confirmed via committed bundle path only,
+  not npm tarball.
 
 ### Maintainer dogfood
 

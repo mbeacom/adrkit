@@ -1,6 +1,6 @@
 # Contract: GitHub Action — Managed Queue Issue
 
-**Feature**: [spec.md](../spec.md) | **Plan**: [plan.md](./plan.md) | **Date**: 2026-07-20
+**Feature**: [spec.md](../spec.md) | **Plan**: [plan.md](../plan.md) | **Date**: 2026-07-20
 
 This contract defines the GitHub Action surface for the ARB queue: its `action.yml`
 inputs, outputs, permissions, the `GitHubQueueClient` interface, the managed-issue

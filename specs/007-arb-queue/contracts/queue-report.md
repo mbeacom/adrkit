@@ -4,8 +4,8 @@
 
 This contract defines the canonical serialization of the `QueueReport` v1 type in
 both JSON and Markdown formats. It is the normative reference for all serialization
-logic in `packages/cli/src/queue.ts` (formatting) and for consumers of the
-`QueueReport` JSON.
+logic in `packages/core/src/queue/format.ts`, shared byte-for-byte by the CLI and
+Action, and for consumers of the `QueueReport` JSON.
 
 ---
 
@@ -282,6 +282,11 @@ Always included, even if empty.
 After the overview table, one detail section per `QueueItem`. Each section exposes
 all fields not visible in the overview table. Sections are ordered to match the
 overview table row order (urgency-sorted).
+
+The heading title is normalized to one line before interpolation: normalize CRLF to
+LF, replace every remaining CR or LF with one space, and leave all other characters
+unchanged. This prevents a schema-valid multiline title from injecting headings or
+tables into the canonical report structure.
 
 ```markdown
 ### 0007 — Introduce ARB queue

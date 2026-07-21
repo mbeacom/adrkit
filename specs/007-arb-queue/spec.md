@@ -712,17 +712,17 @@ planning or implementation:
 
 - **`ItemFinding`**: An actionable finding attached to a specific `QueueItem` for
   queue-specific incompleteness or inconsistency in an otherwise schema-valid `proposed`
-  record (e.g., absent `tier`, absent SLA deadline, `reviewBy` before `queuedAt`).
-  Contains the source record identity (`id` and `sourcePath`), a machine-readable finding
-  code, a severity (`error`, `warn`, or `info`), and a human-readable description.
-  Structurally distinct from `CorpusFinding`. The finding code namespace and severity
-  mapping are planning decisions.
+  record (absent `tier`, `reviewBy` before `queuedAt`, or empty `deciders` on a queued
+  record). Contains a machine-readable finding code, severity (`warn` or `info`), and a
+  human-readable description; identity comes from the parent `QueueItem`. Missing SLA
+  data is represented by `slaState: missing-sla`, not a separate finding.
+  Structurally distinct from `CorpusFinding`.
 
 - **`CorpusFinding`**: A top-level finding for a file that cannot enter the `QueueItem`
   collection: schema-invalid or unparseable frontmatter, or an unsatisfied schema
   cross-field invariant (e.g., `one-way-door` + `tier: auto`). Contains `sourcePath`
-  parser/validator details, a machine-readable code, and a severity (`error`, `warn`, or
-  `info`), and a human-readable description. Does not include `id`, `title`, `tier`,
+  parser/validator details, a machine-readable code, severity `error`, and a
+  human-readable description. Does not include `id`, `title`, `tier`,
   `slaState`, or any fabricated field. Appears in the `QueueReport`'s ordered top-level
   `corpusFindings` collection, structurally distinct from `ItemFinding`.
 

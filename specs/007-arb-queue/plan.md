@@ -251,8 +251,8 @@ All Phase 1 artifacts are generated:
 
 ## Phase 2: Task Generation
 
-Tasks are ready to be generated with `/speckit.tasks`. All design artifacts are
-complete. **Rung 6 may not be claimed as landed** until SC-004 clears: a
+Task generation is complete: [tasks.md](./tasks.md) defines T001–T049. All design
+artifacts are complete. **Rung 6 may not be claimed as landed** until SC-004 clears: a
 separate-team, separate-repository dogfood must pass the full FR-019 exit criteria
 (Assumption A7). That is an *exit/release gate* — it does not block task generation
 or implementation work.

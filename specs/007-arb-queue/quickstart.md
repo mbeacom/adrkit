@@ -22,9 +22,9 @@ bun run typecheck              # no type errors
 
 ## Fixture Corpus Setup
 
-The validation scenarios use a local fixture corpus. The following script
-creates a minimal ADR directory under `/tmp/adrkit-queue-test/` with ADRs
-spanning all seven SLA states plus invalid-file cases.
+The validation scenarios use the committed comprehensive fixture corpus. The following
+script copies it to an isolated directory under `/tmp` with records spanning all seven
+SLA states plus invalid-file cases.
 
 A full fixture corpus definition (with frontmatter content for each state)
 is maintained at `packages/core/test/fixtures/queue/`. The test suite loads
@@ -33,10 +33,9 @@ and point `--dir` at it.
 
 ```bash
 CORPUS=/tmp/adrkit-queue-test
-mkdir -p $CORPUS
-
-# See packages/core/test/fixtures/queue/ for canonical ADR YAML content.
-# Each file is described by the scenario below that uses it.
+rm -rf "$CORPUS"
+mkdir -p "$CORPUS"
+cp packages/core/test/fixtures/queue/comprehensive-corpus/*.md "$CORPUS"/
 ```
 
 ---

@@ -389,4 +389,5 @@ An ADR file is one of:
 - **Schema-valid non-proposed** → ignored by the queue (not in `items`, not in
   `corpusFindings`); but any lint findings ARE included in fingerprint input.
 - **Schema-valid proposed** → appears in `items` as a `QueueItem`; any lint
-  findings appear as `itemFindings` in the item; all findings included in fingerprint input.
+  findings from core lint are omitted from report findings but included in fingerprint
+  input. Only the closed three queue-specific conditions generate `itemFindings`.
