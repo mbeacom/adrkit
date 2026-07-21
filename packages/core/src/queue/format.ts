@@ -26,9 +26,15 @@ function escapeCell(value: string): string {
     .replace(/`/g, '\\`');
 }
 
-/** Bullet-list text (item finding messages) only escapes the pipe character. */
+/**
+ * Bullet-list text (item finding messages). Escapes the pipe so it cannot start a
+ * table column; escapes a preceding backslash first so a literal `\` in the input
+ * can never combine with the introduced escape (complete, order-safe sanitization).
+ * Item finding messages are frozen templates with no backslashes, so this is a no-op
+ * for all real data while remaining robust to any future message content.
+ */
 function escapeBullet(value: string): string {
-  return value.replace(/\|/g, '\\|');
+  return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 
 /** Collapse a heading title to one line: CRLF→LF, then any CR/LF → a single space. */

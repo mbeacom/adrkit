@@ -46569,7 +46569,7 @@ function escapeCell(value) {
 `).replace(/\r/g, " ").replace(/\n/g, "<br>").replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/`/g, "\\`");
 }
 function escapeBullet(value) {
-  return value.replace(/\|/g, "\\|");
+  return value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 }
 function normalizeHeading(value) {
   return value.replace(/\r\n/g, `
