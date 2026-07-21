@@ -9,7 +9,7 @@ tags: [architecture, packaging, governance, ip-hygiene]
 scope: org
 reversibility: one-way-door
 blastRadius: org
-relatesTo: ["0003", "0006"]
+relatesTo: ["0003", "0006", "0013"]
 affects:
   - type: path
     pattern: "packages/*/package.json"
@@ -77,6 +77,11 @@ Both forces point to the same structure.
   upstream, not with our core.
 - Adapters depend on the core; the core never learns an adapter exists.
   Discovery is by configuration, resolved at runtime.
+
+> **Amended by ADR-0013.** For the catalog surface specifically, composition uses
+> no dynamic runtime adapter/plugin loader: a catalog adapter is a standalone
+> offline snapshot generator emitting a validated interchange file. This narrows,
+> and does not repeal, the general "discovery is by configuration" rule.
 
 **No package in the default build may depend on an artifact requiring
 authenticated or corporate-device access.**
