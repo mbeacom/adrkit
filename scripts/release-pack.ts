@@ -344,6 +344,12 @@ if (evaluate.status !== 0) throw new Error(\`Installed adr evaluate failed with 
 const payload = JSON.parse(evaluate.stdout);
 if (payload.result?.report?.results?.length !== 11) throw new Error('Installed evaluator did not emit eleven rules');
 
+const queue = spawnSync(bin, ['queue', '--dir', join(repoRoot, 'docs/adr'), '--as-of', '2026-01-08', '--format', 'json'], { cwd: repoRoot, encoding: 'utf8' });
+if (queue.stderr) process.stderr.write(queue.stderr);
+if (queue.status !== 0) throw new Error(\`Installed adr queue failed with exit \${queue.status}\`);
+const queuePayload = JSON.parse(queue.stdout);
+if (queuePayload.version !== '1') throw new Error('Installed adr queue did not emit version "1"');
+
 console.log(\`release-smoke: installed packages passed on \${process.version}\`);
 `,
   );

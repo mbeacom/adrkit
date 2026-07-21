@@ -17,6 +17,7 @@ import {
   type Finding,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
+import { runQueue } from './queue.ts';
 import { isMainModule } from './main-module.ts';
 
 function writeStdout(text: string): void {
@@ -37,6 +38,7 @@ function usage(message?: string): number {
   adr explain <path> [--dir docs/adr] [--json]
   adr check <files...> [--dir docs/adr] [--json]
   adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
+  adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
 
 Round-trip sync is explicitly unsupported (ADR-0008); migrate is one-way and non-destructive.
 `);
@@ -397,6 +399,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command === 'explain') return await runExplain(args);
     if (command === 'check') return await runCheck(args);
     if (command === 'evaluate') return await runEvaluate(args);
+    if (command === 'queue') return await runQueue(args);
     return usage(command ? `Unknown command "${command}"` : undefined);
   } catch (error) {
     writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);

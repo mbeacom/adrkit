@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "rm -rf dist && bun build ./src/index.ts --target=node --conditions bun --outfile=dist/index.js",
+    "build": "rm -rf dist && bun build ./src/index.ts --target=node --conditions bun --outfile=dist/index.js && bun build ./src/queue-action-entrypoint.ts --target=node --conditions bun --outfile=dist/queue-action.js",
     "lint": "bun run typecheck",
     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
   },
@@ -26,6 +26,7 @@
   },
   "files": [
     "action.yml",
+    "queue",
     "dist"
   ]
 }

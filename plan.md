@@ -31,7 +31,7 @@ sync.
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
 | 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
 | 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); real-user gate met |
-| 6 — ARB queue | `specs/007-arb-queue/` | scoping in progress; implementation permitted; external-team rung 6 exit gate outstanding |
+| 6 — ARB queue | `specs/007-arb-queue/` | implementation in progress (kernel + `adr queue` CLI + queue Action complete, all gates green); external-team rung 6 exit gate (SC-004) outstanding |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
