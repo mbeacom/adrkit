@@ -157,6 +157,33 @@ if (evaluatePayload.result.report.outcome !== 'ok') {
   throw new Error(`Expected the clean fixture proposal to evaluate to outcome "ok", got "${evaluatePayload.result.report.outcome}"`);
 }
 
+// Offline, deterministic `adr queue --format json` against a committed fixture corpus.
+const queue = spawnSync(
+  process.execPath,
+  [
+    cliPath,
+    'queue',
+    '--dir',
+    'packages/core/test/fixtures/queue/within-sla-corpus',
+    '--as-of',
+    '2026-01-08',
+    '--format',
+    'json',
+  ],
+  { cwd: repoRoot, encoding: 'utf8' },
+);
+if (queue.stderr) process.stderr.write(queue.stderr);
+if (queue.status !== 0) {
+  throw new Error(`Built CLI \`adr queue\` smoke failed with exit ${queue.status}`);
+}
+const queuePayload = JSON.parse(queue.stdout);
+if (queuePayload.version !== '1') {
+  throw new Error(`Expected \`adr queue --format json\` to emit version "1", got "${queuePayload.version}"`);
+}
+if (queuePayload.items.length !== 1 || queuePayload.items[0]?.slaState !== 'within-sla') {
+  throw new Error('Expected exactly one within-sla item from the within-sla fixture corpus');
+}
+
 // The committed Action bundle must run self-contained on the target Node runtime.
 // Outside a pull_request event it is a graceful no-op — that is enough to prove the
 // bundle loads and all its dependencies resolved.
@@ -175,5 +202,5 @@ if (!action.stdout.includes('not a pull_request event')) {
   throw new Error('Expected the Action bundle to no-op outside a pull_request event');
 }
 
-console.log('smoke-node: built core import, evaluator import, MCP sealed handle + stdio tools, CLI lint, offline `adr evaluate`, and Action bundle passed');
+console.log('smoke-node: built core import, evaluator import, MCP sealed handle + stdio tools, CLI lint, offline `adr evaluate`, `adr queue`, and Action bundle passed');
 

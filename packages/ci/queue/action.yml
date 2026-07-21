@@ -1,0 +1,33 @@
+name: "ADR ARB Queue"
+author: "adrkit"
+description: >
+  Creates or updates a single GitHub issue containing the current ADR ARB
+  operations queue report. Requires issues: write permission.
+
+inputs:
+  dir:
+    description: "Path to the ADR corpus directory (relative to GITHUB_WORKSPACE)"
+    required: false
+    default: "docs/adr"
+  token:
+    description: >
+      GitHub token with issues: write permission. Calling workflows using
+      actions/checkout must also declare contents: read.
+    required: false
+    default: "${{ github.token }}"
+  issue-title:
+    description: "Title of the managed queue issue"
+    required: false
+    default: "ADR ARB Queue"
+
+outputs:
+  issue-number:
+    description: "The GitHub issue number of the managed queue issue"
+
+runs:
+  using: "node24"
+  main: "../dist/queue-action.js"
+
+branding:
+  icon: "inbox"
+  color: "blue"

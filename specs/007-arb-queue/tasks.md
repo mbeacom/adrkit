@@ -41,73 +41,73 @@ the corresponding GREEN task begins. No stub modules that throw `Error("unimplem
 substrate. Do NOT create production source modules or stub implementations here;
 this phase is fixture-only.
 
-- [ ] T001 Create fixture directory tree: `packages/core/test/fixtures/queue/` with
+- [X] T001 Create fixture directory tree: `packages/core/test/fixtures/queue/` with
   subdirs `within-sla-corpus/`, `overdue-corpus/`, `due-corpus/`, `escalated-corpus/`,
   `decided-corpus/`, `not-queued-corpus/`, `missing-sla-corpus/`,
   `schema-invalid-corpus/`, `one-way-door-auto-corpus/`, `no-proposed-corpus/`,
   `warn-review-by-before-queued-corpus/`, `comprehensive-corpus/`
 
-- [ ] T002 [P] Write `packages/core/test/fixtures/queue/within-sla-corpus/0001.md`:
+- [X] T002 [P] Write `packages/core/test/fixtures/queue/within-sla-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Test Within-SLA ADR"`, `status:proposed`,
   `date:2026-01-01`, `deciders:["@alice","@bob"]`, `review.tier:arb`,
   `review.queuedAt:"2026-01-01T00:00:00Z"`, `review.slaDays:14`;
   on `--as-of 2026-01-08` deadline is 2026-01-15, asOf before deadline → `within-sla`
 
-- [ ] T003 [P] Write `packages/core/test/fixtures/queue/overdue-corpus/0001.md`:
+- [X] T003 [P] Write `packages/core/test/fixtures/queue/overdue-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Test Overdue ADR"`, `status:proposed`,
   `date:2025-12-01`, `deciders:["@alice"]`, `review.tier:arb`,
   `review.queuedAt:"2025-12-01T00:00:00Z"`, `review.slaDays:14`, no `escalatedAt`;
   on `--as-of 2026-03-01` deadline 2025-12-15 < asOf, no escalatedAt → `overdue`
 
-- [ ] T004 [P] Write `packages/core/test/fixtures/queue/due-corpus/0001.md`:
+- [X] T004 [P] Write `packages/core/test/fixtures/queue/due-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Test Due ADR"`, `status:proposed`, `date:2026-02-01`,
   `deciders:["@alice"]`, `review.tier:async`, `review.queuedAt:"2026-02-01T00:00:00Z"`,
   `review.slaDays:14`;
   on `--as-of 2026-02-15` deadline 2026-02-15 == asOf → `due`
 
-- [ ] T005 [P] Write `packages/core/test/fixtures/queue/escalated-corpus/0001.md`:
+- [X] T005 [P] Write `packages/core/test/fixtures/queue/escalated-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Test Escalated ADR"`, `status:proposed`,
   `date:2025-11-01`, `deciders:["@alice"]`, `review.tier:arb`,
   `review.queuedAt:"2025-11-01T00:00:00Z"`, `review.slaDays:14`,
   `review.escalatedAt:"2025-11-20T00:00:00Z"`;
   on `--as-of 2026-01-08` deadline in past + escalatedAt present → `escalated` (not `overdue`)
 
-- [ ] T006 [P] Write `packages/core/test/fixtures/queue/decided-corpus/0001.md`:
+- [X] T006 [P] Write `packages/core/test/fixtures/queue/decided-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Test Decided ADR"`, `status:proposed`,
   `date:2026-01-01`, `deciders:["@alice"]`, `review.tier:arb`,
   `review.queuedAt:"2026-01-01T00:00:00Z"`, `review.slaDays:14`,
   `review.decidedAt:"2026-01-05T00:00:00Z"`;
   `status:proposed` + `review.decidedAt` present → `decided` regardless of deadline
 
-- [ ] T007 [P] Write `packages/core/test/fixtures/queue/not-queued-corpus/0001.md`:
+- [X] T007 [P] Write `packages/core/test/fixtures/queue/not-queued-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Test Not-Queued ADR"`, `status:proposed`,
   `date:2026-01-01`; no `review` block at all;
   queuedAt absent → `not-queued` on any asOf
 
-- [ ] T008 [P] Write `packages/core/test/fixtures/queue/missing-sla-corpus/0001.md`:
+- [X] T008 [P] Write `packages/core/test/fixtures/queue/missing-sla-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Test Missing-SLA ADR"`, `status:proposed`,
   `date:2026-01-01`, `deciders:["@alice"]`, `review.tier:async`,
   `review.queuedAt:"2026-01-01T00:00:00Z"`; NO `review.slaDays`, NO top-level `reviewBy`;
   queuedAt present, deadline uncomputable → `missing-sla`
 
-- [ ] T009 [P] Write `packages/core/test/fixtures/queue/schema-invalid-corpus/0001.md`:
+- [X] T009 [P] Write `packages/core/test/fixtures/queue/schema-invalid-corpus/0001.md`:
   valid YAML with frontmatter `id:"0001"`, `title:"Bad Status ADR"`, `date:2026-01-01`,
   `status:"not-a-valid-status"` (fails Zod enum validation); `lintCorpus` emits
   `Finding.rule:"invalid-enum-value"` for this file → maps to `corpus.schema-invalid`
 
-- [ ] T010 [P] Write `packages/core/test/fixtures/queue/one-way-door-auto-corpus/0001.md`:
+- [X] T010 [P] Write `packages/core/test/fixtures/queue/one-way-door-auto-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"One-Way-Door Auto ADR"`, `status:proposed`,
   `date:2026-01-01`, `reversibility:one-way-door`, `deciders:["@alice"]`,
   `review.tier:auto`, `review.queuedAt:"2026-01-01T00:00:00Z"`, `review.slaDays:7`;
   cross-field invariant `reversibility:one-way-door` + `review.tier:auto` →
   `corpus.one-way-door-auto-tier` (file excluded from items)
 
-- [ ] T011 [P] Write `packages/core/test/fixtures/queue/no-proposed-corpus/0001.md`:
+- [X] T011 [P] Write `packages/core/test/fixtures/queue/no-proposed-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"Accepted ADR"`, `status:accepted`,
   `date:2026-01-01`, `deciders:["@alice"]`;
   only non-proposed records → `items:[]`, `totalItems:0`
 
-- [ ] T012 [P] Write `packages/core/test/fixtures/queue/warn-review-by-before-queued-corpus/0001.md`:
+- [X] T012 [P] Write `packages/core/test/fixtures/queue/warn-review-by-before-queued-corpus/0001.md`:
   frontmatter `id:"0001"`, `title:"ReviewBy Before Queued"`, `status:proposed`,
   `date:2026-01-01`, `reviewBy:"2025-12-31"`, `deciders:["@alice"]`,
   `review.tier:async`, `review.queuedAt:"2026-01-01T00:00:00Z"`, `review.slaDays:14`;
@@ -135,7 +135,7 @@ MCP imports — no observable change to any existing behavior.
 
 ### RED: write failing tests first
 
-- [ ] T013 [P] Write failing byte-compatibility test in
+- [X] T013 [P] Write failing byte-compatibility test in
   `packages/core/test/fingerprint/fingerprint.test.ts`:
   (a) before migration, compute one fixed 64-character reference vector from the current
   MCP algorithm using a one-off `bun -e` command that copies the exact private
@@ -150,7 +150,7 @@ MCP imports — no observable change to any existing behavior.
   Run `bun test packages/core/test/fingerprint/fingerprint.test.ts`; record
   `Cannot find module '@adrkit/core' export 'fingerprintOf'` or equivalent failure.
 
-- [ ] T014 [P] Write failing ordering-helpers test in
+- [X] T014 [P] Write failing ordering-helpers test in
   `packages/core/test/ordering/ordering.test.ts`:
   import `compareCodeUnits`, `sortFindingsCanonical`, `sortByIdThenPath`,
   `compareByIdThenPath` from `@adrkit/core`;
@@ -164,7 +164,7 @@ MCP imports — no observable change to any existing behavior.
 
 ### GREEN: implement promotions
 
-- [ ] T015 After T013+T016: Create `packages/core/src/fingerprint/index.ts` by promoting
+- [X] T015 After T013+T016: Create `packages/core/src/fingerprint/index.ts` by promoting
   `canonicalStringify` and `fingerprintOf` verbatim from
   `packages/mcp/src/corpus/projection.ts` (lines ~170–196);
   exact `fingerprintOf` signature:
@@ -176,31 +176,31 @@ MCP imports — no observable change to any existing behavior.
   `node:crypto`.
   Run `bun test packages/core/test/fingerprint/fingerprint.test.ts`; assert all assertions green.
 
-- [ ] T016 [P] After T014: Create `packages/core/src/ordering/index.ts` by promoting
+- [X] T016 [P] After T014: Create `packages/core/src/ordering/index.ts` by promoting
   `compareCodeUnits`, `compareFindings`, `sortFindingsCanonical`, `compareByIdThenPath`,
   `sortByIdThenPath`, and `OrderedSummary` interface verbatim from
   `packages/mcp/src/corpus/ordering.ts`;
   import `Finding` from its relative core module (no self-package barrel import).
   Run `bun test packages/core/test/ordering/ordering.test.ts`; assert all assertions green.
 
-- [ ] T017 Add named re-exports for `canonicalStringify`, `fingerprintOf`,
+- [X] T017 Add named re-exports for `canonicalStringify`, `fingerprintOf`,
   `compareCodeUnits`, `compareFindings`, `sortFindingsCanonical`, `compareByIdThenPath`,
   `sortByIdThenPath`, `type OrderedSummary` to `packages/core/src/index.ts`.
   Run `bun run --filter @adrkit/core typecheck`; assert clean.
 
 ### MCP migration (no observable change)
 
-- [ ] T018 [P] Update `packages/mcp/src/corpus/projection.ts`: remove the local
+- [X] T018 [P] Update `packages/mcp/src/corpus/projection.ts`: remove the local
   `canonicalStringify` and `fingerprintOf` function bodies; add
   `import { canonicalStringify, fingerprintOf } from '@adrkit/core';` at the top;
   all call sites are unchanged; no other behavioral modification.
 
-- [ ] T019 [P] Convert `packages/mcp/src/corpus/ordering.ts` to a re-export shim:
+- [X] T019 [P] Convert `packages/mcp/src/corpus/ordering.ts` to a re-export shim:
   replace the implementation bodies with
   `export { compareCodeUnits, compareFindings, sortFindingsCanonical, compareByIdThenPath, sortByIdThenPath, type OrderedSummary } from '@adrkit/core';`;
   all existing MCP import sites (`import ... from '../corpus/ordering'`) need no change.
 
-- [ ] T020 Run `bun run --filter @adrkit/mcp typecheck && bun test packages/mcp`;
+- [X] T020 Run `bun run --filter @adrkit/mcp typecheck && bun test packages/mcp`;
   assert all MCP tests pass without modification; assert no change to MCP public API
   or observable tool behavior.
 
@@ -227,7 +227,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
 
 ### RED: write failing tests first
 
-- [ ] T021 [P] [US3] Write failing tests in `packages/core/test/queue/findings.test.ts`:
+- [X] T021 [P] [US3] Write failing tests in `packages/core/test/queue/findings.test.ts`:
   import `mapFindingToCorpusFinding`, `RULE_TO_CORPUS_CODE` from `@adrkit/core`;
   (a) `rule:"file-read"` → code `corpus.read-error`, message `"Cannot read file: {Finding.message}"`;
   (b) `rule:"frontmatter-parse"` → `corpus.parse-error`, message passed through from Finding;
@@ -242,7 +242,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   which files produced valid records.
   Run test; record `Cannot find module '@adrkit/core' export 'mapFindingToCorpusFinding'` failure.
 
-- [ ] T022 [P] [US2] Write failing tests in `packages/core/test/queue/sort.test.ts`:
+- [X] T022 [P] [US2] Write failing tests in `packages/core/test/queue/sort.test.ts`:
   import `sortQueueItems`, `sortCorpusFindings`, `sortItemFindings`, `SLA_STATE_URGENCY_ORDER`
   from `@adrkit/core`;
   (a) urgency order assertion: sort items with all 7 slaStates; assert final order
@@ -258,7 +258,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   (g) determinism: two calls on same input → byte-identical output.
   Run test; record `Cannot find module` failure.
 
-- [ ] T023 [P] [US1] Write failing tests in `packages/core/test/queue/kernel.test.ts`:
+- [X] T023 [P] [US1] Write failing tests in `packages/core/test/queue/kernel.test.ts`:
   import `buildQueueReport` from `@adrkit/core`; construct each input as
   `LintCorpusResult` with fields `records`, `findings`, `checked` (NOT `recordCount`/`excludedCount`);
   (1) **all 7 SLA states** — one inline corpus per state: `overdue`, `escalated`, `due`,
@@ -301,7 +301,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   explicitly requires human acceptance.
   Run test; record `Cannot find module` failure.
 
-- [ ] T024 [P] [US1] Write failing tests in `packages/core/test/queue/format.test.ts`:
+- [X] T024 [P] [US1] Write failing tests in `packages/core/test/queue/format.test.ts`:
   import `formatQueueReportJson`, `formatQueueReportMarkdown` from `@adrkit/core`;
   construct a `QueueReport` with `version:"1"` and all fields populated;
   (a) `formatQueueReportJson`: output is valid JSON; final byte is `\n` (0x0a);
@@ -330,7 +330,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
 
 ### GREEN: implement queue core
 
-- [ ] T025 [US1] Create `packages/core/src/queue/types.ts` with all type and constant
+- [X] T025 [US1] Create `packages/core/src/queue/types.ts` with all type and constant
   declarations (no runtime logic beyond `SLA_STATE_URGENCY_ORDER` constant):
   `SlaState` union type, `SLA_STATE_URGENCY_ORDER: Record<SlaState, number>` = `{overdue:0,escalated:1,due:2,"within-sla":3,"missing-sla":4,"not-queued":5,decided:6}`,
   `CorpusFinding` interface, `ItemFinding` interface, `QueueItem` interface (fields in
@@ -340,7 +340,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   Import `LintCorpusResult` from its relative core validation module. No self-package
   barrel import and no logic.
 
-- [ ] T026 [P] [US3] Create `packages/core/src/queue/findings.ts`:
+- [X] T026 [P] [US3] Create `packages/core/src/queue/findings.ts`:
   `RULE_TO_CORPUS_CODE` constant map: `"file-read"→"corpus.read-error"`,
   `"frontmatter-parse"→"corpus.parse-error"`, `"frontmatter-fence"→"corpus.parse-error"`,
   `"one-way-door-disallows-auto"→"corpus.one-way-door-auto-tier"`, all others (including
@@ -355,7 +355,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   `./types`.
   Run `bun test packages/core/test/queue/findings.test.ts`; assert green.
 
-- [ ] T027 [P] [US2] Create `packages/core/src/queue/sort.ts` with
+- [X] T027 [P] [US2] Create `packages/core/src/queue/sort.ts` with
   `sortQueueItems(items: QueueItem[]): QueueItem[]`,
   `sortCorpusFindings(findings: CorpusFinding[]): CorpusFinding[]`,
   `sortItemFindings(findings: ItemFinding[]): ItemFinding[]`;
@@ -366,7 +366,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   Import `compareCodeUnits` from `../ordering`; types from `./types`.
   Run `bun test packages/core/test/queue/sort.test.ts`; assert green.
 
-- [ ] T028 [US1] Create `packages/core/src/queue/kernel.ts` implementing
+- [X] T028 [US1] Create `packages/core/src/queue/kernel.ts` implementing
   `buildQueueReport({corpus: LintCorpusResult, asOf: string}): QueueReport`
   per the 8-step algorithm in `contracts/kernel.md`:
   Step 1 — identify excluded file paths (paths in error-severity findings not in
@@ -397,7 +397,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   `@adrkit/mcp`, `@adrkit/evaluator`, or any adapter.
   Run `bun test packages/core/test/queue/kernel.test.ts`; assert green.
 
-- [ ] T029 [US1] Create `packages/core/src/queue/format.ts` with:
+- [X] T029 [US1] Create `packages/core/src/queue/format.ts` with:
   `formatQueueReportJson(report: QueueReport): string` — returns
   `JSON.stringify(report, null, 2) + "\n"` (2-space indent; insertion-order keys; final
   newline; no additional key sorting on output);
@@ -412,7 +412,7 @@ exits 0; JSON output has `version:"1"`, `asOf:"2026-01-08"`, exactly 1 item with
   Import `QueueReport`, `QueueItem` from `./types`.
   Run `bun test packages/core/test/queue/format.test.ts`; assert green.
 
-- [ ] T030 Add all queue exports to `packages/core/src/index.ts`: `buildQueueReport`,
+- [X] T030 Add all queue exports to `packages/core/src/index.ts`: `buildQueueReport`,
   `formatQueueReportJson`, `formatQueueReportMarkdown`, `sortQueueItems`,
   `sortCorpusFindings`, `sortItemFindings`, `mapFindingToCorpusFinding`,
   `RULE_TO_CORPUS_CODE`, `SLA_STATE_URGENCY_ORDER`, and all type exports
@@ -444,7 +444,7 @@ item with `slaState:"within-sla"`, `totalCorpusFindings:0`;
 
 ### RED: write failing test first
 
-- [ ] T031 [US1] Write failing integration tests in `packages/cli/test/queue.test.ts`
+- [X] T031 [US1] Write failing integration tests in `packages/cli/test/queue.test.ts`
   using `Bun.spawn` against the CLI binary; use Phase 1 fixture corpora:
   (a) within-sla-corpus `--as-of 2026-01-08 --format json` → exit 0, valid JSON,
   `version:"1"`, `asOf:"2026-01-08"`, `items.length:1`, `items[0].slaState:"within-sla"`;
@@ -477,7 +477,7 @@ item with `slaState:"within-sla"`, `totalCorpusFindings:0`;
 
 ### GREEN: implement CLI subcommand
 
-- [ ] T032 [US1] Create `packages/cli/src/queue.ts`:
+- [X] T032 [US1] Create `packages/cli/src/queue.ts`:
   parse `--dir <path>` (default `docs/adr`), `--as-of <value>` (optional),
   `--format markdown|json` (default `markdown`);
   validate `--format`: if value not `"markdown"` or `"json"`, write
@@ -503,7 +503,7 @@ item with `slaState:"within-sla"`, `totalCorpusFindings:0`;
   No `@actions/*`, `@adrkit/ci`, `@adrkit/mcp` imports.
   Run `bun test packages/cli/test/queue.test.ts`; assert green.
 
-- [ ] T033 [US1] Add `queue` subcommand to `packages/cli/src/index.ts`:
+- [X] T033 [US1] Add `queue` subcommand to `packages/cli/src/index.ts`:
   add `"queue"` branch to existing `main()` dispatcher; import and call `runQueue`
   (or equivalent export) from `./queue`.
   Run `bun run --filter @adrkit/cli typecheck && bun test packages/cli`;
@@ -529,7 +529,7 @@ a known error, no network call, no module-resolution error.
 
 ### RED: write failing Action tests first
 
-- [ ] T034 [P] [US4] Write failing pure managed-issue tests in
+- [X] T034 [P] [US4] Write failing pure managed-issue tests in
   `packages/ci/test/queue-issue.test.ts` using a hand-rolled fake `GitHubQueueClient`
   (no token, no network):
   all 5 state machine branches per `contracts/github-action.md`:
@@ -560,7 +560,7 @@ a known error, no network call, no module-resolution error.
   Run `bun test packages/ci/test/queue-issue.test.ts`; record
   `Cannot find module '../src/queue-issue'` failure.
 
-- [ ] T035 [P] [US4] Write failing Octokit adapter tests in
+- [X] T035 [P] [US4] Write failing Octokit adapter tests in
   `packages/ci/test/queue-adapter.test.ts` using a fake Octokit (no token, no network):
   target a side-effect-free `createOctokitQueueClient` export in the new
   `packages/ci/src/queue-github-client.ts` module (not the executable entrypoint);
@@ -577,7 +577,7 @@ a known error, no network call, no module-resolution error.
 
 ### GREEN: implement Action modules
 
-- [ ] T036 [US4] Create `packages/ci/src/queue-issue.ts`:
+- [X] T036 [US4] Create `packages/ci/src/queue-issue.ts`:
   export `MARKER = "<!-- adrkit-managed-queue-issue -->"` constant;
   export `GitHubQueueClient` interface with exactly:
   `listAllIssues(): Promise<Array<{number:number; state:"open"|"closed"; title:string; body:string|null}>>`,
@@ -597,7 +597,7 @@ a known error, no network call, no module-resolution error.
   no `@actions/core` or `@actions/github` imports in this file.
   Run `bun test packages/ci/test/queue-issue.test.ts`; assert green.
 
-- [ ] T037 [US4] Create `packages/ci/src/queue-action-entrypoint.ts`:
+- [X] T037 [US4] Create `packages/ci/src/queue-action-entrypoint.ts`:
   confine ALL `@actions/core` and `@actions/github` imports to this file only;
   read `dir`, `token`, `issue-title` via `core.getInput`;
   resolve `workspace = process.env.GITHUB_WORKSPACE ?? process.cwd()`;
@@ -628,20 +628,20 @@ a known error, no network call, no module-resolution error.
   `runs: {using: "node24", main: "../dist/queue-action.js"}`.
   Run `bun test packages/ci/test/queue-adapter.test.ts`; assert green.
 
-- [ ] T038 [US4] Update `packages/ci/package.json` `build` script to:
+- [X] T038 [US4] Update `packages/ci/package.json` `build` script to:
   `"rm -rf dist && bun build ./src/index.ts --target=node --conditions bun --outfile=dist/index.js && bun build ./src/queue-action-entrypoint.ts --target=node --conditions bun --outfile=dist/queue-action.js"`;
   no new `"exports"` subpath; `@adrkit/ci` remains private/unpublished.
   Validate deterministic rebuild: run `bun run --filter @adrkit/ci build` twice;
   compare SHA-256 of `dist/queue-action.js` across both runs; assert hashes identical.
 
-- [ ] T039 [US4] Build and include `packages/ci/dist/queue-action.js` in the feature
+- [X] T039 [US4] Build and include `packages/ci/dist/queue-action.js` in the feature
   change set (do not create a commit unless the user explicitly requests it):
   run `bun run --filter @adrkit/ci build`; verify `dist/queue-action.js` exists and
   `dist/index.js` is unchanged; verify `packages/ci/queue/action.yml` `main:
   ../dist/queue-action.js` resolves correctly from `packages/ci/queue/` to
   `packages/ci/dist/queue-action.js`.
 
-- [ ] T040 [US4] Write `scripts/smoke-queue-node.mjs` bundle smoke test per
+- [X] T040 [US4] Write `scripts/smoke-queue-node.mjs` bundle smoke test per
   `contracts/github-action.md` §Bundle Smoke Tests: spawn the committed
   `packages/ci/dist/queue-action.js` with `node` (do NOT import in-process; do NOT
   use `--help`); set a temporary `GITHUB_WORKSPACE` pointing to a directory whose
@@ -654,7 +654,7 @@ a known error, no network call, no module-resolution error.
   Note: Node 22/24 coverage is validated by the existing CI matrix (`ci.yml`);
   do not require local runtimes beyond what is available.
 
-- [ ] T041 Wire and validate Node smoke boundaries: update `scripts/smoke-node.mjs` to
+- [X] T041 Wire and validate Node smoke boundaries: update `scripts/smoke-node.mjs` to
   invoke the built `packages/cli/dist/index.js queue` against a committed fixture with
   explicit `--as-of` and `--format json`, asserting `version:"1"` and expected items;
   add `node scripts/smoke-queue-node.mjs` to the existing Node 22/24
@@ -678,7 +678,7 @@ milestones, and the rung-6 external exit gate.
 
 ### Scope and boundary validation
 
-- [ ] T042 Scope/boundary gate — run `bun run check:deps`; assert `core-has-no-adapter-deps`
+- [X] T042 Scope/boundary gate — run `bun run check:deps`; assert `core-has-no-adapter-deps`
   gate green: no import path in `@adrkit/core` reaches `@adrkit/ci`, `@adrkit/mcp`,
   `@adrkit/evaluator`, or `@actions/*`; inspect ONLY the files changed in this feature
   for scope-creep markers: no fifth tool, no persistent DB call, no notification
@@ -687,18 +687,18 @@ milestones, and the rung-6 external exit gate.
 
 ### Full test suite gate
 
-- [ ] T043 Full suite gate — in sequence: `bun run typecheck && bun run build &&
+- [X] T043 Full suite gate — in sequence: `bun run typecheck && bun run build &&
   bun run lint && bun run check:deps && bun run schema:emit`; assert `schema:emit`
   diff is empty (no change to `schema/adr.schema.json`); then `bun test`; assert all
   tests pass with no failures or skips.
 
-- [ ] T044 Dist reproducibility gate — hash both files in `packages/ci/dist`, run
+- [X] T044 Dist reproducibility gate — hash both files in `packages/ci/dist`, run
   `bun run --filter @adrkit/ci build` again, and assert both hashes are unchanged;
   inspect `git diff -- packages/ci/dist` to confirm only the expected feature bundle
   changes are present. After the feature change is committed, CI's existing post-build
   `git diff --exit-code packages/ci/dist` enforces committed parity on every push.
 
-- [ ] T045 Release pack validation — run
+- [X] T045 Release pack validation — run
   `bun run release:pack -- --skip-build` using the existing coordinated pack script;
   inspect the core and CLI public tarballs for presence of new exports
   (`fingerprintOf`, `buildQueueReport`, `formatQueueReportJson`,
@@ -709,7 +709,7 @@ milestones, and the rung-6 external exit gate.
 
 ### Maintainer dogfood
 
-- [ ] T046 Maintainer dogfood — run
+- [X] T046 Maintainer dogfood — run
   `bun run adr -- queue --dir docs/adr --as-of <today> --format json | tee /tmp/mr.json`;
   assert file is valid JSON; assert `JSON.parse(fs.readFileSync("/tmp/mr.json")).version === "1"`;
   state item and corpus-finding counts conditionally from actual corpus state (do NOT
@@ -720,7 +720,7 @@ milestones, and the rung-6 external exit gate.
 
 ### Documentation milestones (in-progress)
 
-- [ ] T047 Update root `plan.md` Phase 6 status to `in progress` (implementation
+- [X] T047 Update root `plan.md` Phase 6 status to `in progress` (implementation
   complete, rung-6 external gate not yet cleared); update `CLAUDE.md` to document
   `adr queue` command usage. Do NOT update root plan.md to `landed`; do NOT reference
   a nonexistent release tag.

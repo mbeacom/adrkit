@@ -8,9 +8,15 @@
  */
 
 import { access, constants as FS, lstat, realpath, stat } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { discoverAdrFiles, lintCorpus, normalizeDisplayPath, type Adr, type Finding } from '@adrkit/core';
+import {
+  discoverAdrFiles,
+  fingerprintOf,
+  lintCorpus,
+  normalizeDisplayPath,
+  type Adr,
+  type Finding,
+} from '@adrkit/core';
 import { compareCodeUnits, sortFindingsCanonical } from './ordering.ts';
 
 export const MAX_SOURCE_BYTES = 64 * 1024;
@@ -167,31 +173,6 @@ async function verifyRoots(options: LoadCorpusProjectionOptions): Promise<Canoni
   const roots = await resolveCanonicalRoots({ cwd: options.configuredCwd, dir: options.configuredDir });
   if (roots.canonicalCwd !== options.expectedCanonicalCwd) fail('root-not-found');
   return roots;
-}
-
-function canonicalStringify(value: unknown): string {
-  if (value === null || value === undefined) return 'null';
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string') {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map(canonicalStringify).join(',')}]`;
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    const keys = Object.keys(record)
-      .filter((key) => record[key] !== undefined)
-      .sort(compareCodeUnits);
-    return `{${keys.map((key) => `${JSON.stringify(key)}:${canonicalStringify(record[key])}`).join(',')}}`;
-  }
-  return 'null';
-}
-
-function fingerprintOf(records: readonly Adr[], corpusFindings: readonly Finding[], recordCount: number, excludedCount: number): string {
-  const projection = {
-    records: records.map((record) => ({ sourcePath: record.path, frontmatter: record.frontmatter, body: record.body })),
-    corpusFindings,
-    corpusHealth: { recordCount, excludedCount },
-  };
-  return createHash('sha256').update(canonicalStringify(projection), 'utf8').digest('hex');
 }
 
 /** The one entry point every tool handler calls, fresh, at the start of its execution. */
