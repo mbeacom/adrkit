@@ -7,16 +7,17 @@
 Architecture decision records that are machine-readable, enforceable in CI, and
 legible to agents — without leaving git.
 
-> Status: early, under active development. **v0.1.0 is published** with the
-> schema, `@adrkit/core`, `@adrkit/cli`, and the deterministic **Pass 0
-> evaluator** (`@adrkit/evaluator`) implemented — `adr lint`, `new`, `graph`,
+> Status: early, under active development. **v0.2.0 is published** with the
+> schema, `@adrkit/core`, `@adrkit/cli`, the deterministic **Pass 0
+> evaluator** (`@adrkit/evaluator`), and the read-only `@adrkit/mcp` server
+> implemented — `adr lint`, `new`, `graph`,
 > `explain`, `check`,
 > `migrate --from madr`, and `adr evaluate` all work, including `affects`
 > resolution, in-place MADR migration, and the offline eleven-rule Pass 0. The
-> read-only `@adrkit/mcp` server landed in PR #19 with its exact four-tool,
-> local-only boundary and passed real-session dogfood through the official MCP
-> Inspector. Coordinated v0.2.0 publication remains. Not yet built: the later
-> probabilistic passes (Passes 1–3). See [`plan.md`](./plan.md).
+> MCP server exposes its exact four-tool, local-only boundary and passed
+> real-session dogfood through the official MCP Inspector. The Phase 6 ARB queue
+> is fully scoped but not implemented. Also not yet built: the later probabilistic
+> passes (Passes 1–3). See [`plan.md`](./plan.md).
 
 ---
 
@@ -149,7 +150,7 @@ steps:
   - uses: mbeacom/adrkit/packages/ci@v0
 ```
 
-The npm packages, immutable `v0.1.0` release, and moving `v0` Action tag are
+All four npm packages, immutable `v0.2.0` release, and moving `v0` Action tag are
 live. Source checkouts can also run the CLI with `bun run adr`.
 
 ## Design commitments

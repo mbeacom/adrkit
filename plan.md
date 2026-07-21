@@ -31,6 +31,7 @@ sync.
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
 | 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
 | 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); real-user gate met |
+| 6 — ARB queue | `specs/007-arb-queue/` | scoping in progress; implementation permitted; external-team rung 6 exit gate outstanding |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
@@ -99,6 +100,10 @@ launched the built Node artifact over stdio against this repository's real
 `packages/mcp/package.json` and `.github/workflows/ci.yml` returned accepted
 ADR-0010 plus proposed ADR-0007; `list_superseded` honestly returned no entries.
 All calls reported zero excluded records and the same corpus fingerprint.
+The four coordinated public packages then shipped as v0.2.0; `@adrkit/mcp` was
+created through the documented one-time token bootstrap while the existing
+packages continued to publish through OIDC. MCP Trusted Publisher setup and
+temporary-secret removal remain a post-release maintainer action.
 
 ## Binding constraints
 

@@ -9,21 +9,23 @@ Action:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (`v0.1.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.2.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
 
-The initial `v0.1.0` release is complete. All three npm packages now use GitHub
-Actions Trusted Publishing, traditional token publishing is disabled, and the
-`npm` environment contains no long-lived publish token.
+The coordinated `v0.2.0` release is complete. `@adrkit/core`,
+`@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
+`@adrkit/mcp` was created with the isolated one-time bootstrap path below; its
+Trusted Publisher and token-restriction cleanup must be completed before the
+temporary `NPM_TOKEN` is removed from the protected `npm` environment.
 
 ## Release guarantees
 
 - All public package versions are identical. Introducing `@adrkit/mcp` as a
   fourth public package therefore requires bumping `@adrkit/core`,
   `@adrkit/evaluator`, and `@adrkit/cli` to the same version in the same
-  coordinated release. The first MCP release is scheduled as v0.2.0.
+  coordinated release. The first MCP release shipped as v0.2.0.
 - The tag is exactly `v<package version>`.
 - Packages publish in dependency order: core, evaluator, CLI, MCP (`@adrkit/mcp`
   depends only on core, so it is appended last to preserve the list's
@@ -46,7 +48,7 @@ From a clean checkout:
 
 ```sh
 bun install --frozen-lockfile
-bun run release:pack -- --tag v0.1.0
+bun run release:pack -- --tag v0.2.0
 # With Node 22 selected in your Node version manager:
 node .release/smoke/smoke.mjs "$PWD"
 # Switch the same shell to Node 24, then run:
