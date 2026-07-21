@@ -31,7 +31,9 @@ adrkit/
         ├── 0007  adapter isolation, public-surface build proposed
         ├── 0008  MADR migration + one-way import         proposed
         ├── 0009  affects resolution + catalog binding    proposed
-        └── 0010  Bun toolchain, Node-targeted output      accepted
+        ├── 0010  Bun toolchain, Node-targeted output      accepted
+        ├── 0011  host schema at its $id (adrkit.dev)      accepted
+        └── 0012  explicit catalog owned-paths binding     accepted
 ```
 
 ## Not included — add at repo creation
@@ -69,7 +71,7 @@ independent of the GitHub namespace and unaffected either way.
 
 ## Verification
 
-11 records, ids 0001–0011, no gaps. All at schema 0.1.0. No dangling `relatesTo`.
+12 records, ids 0001–0012, no gaps. All at schema 0.1.0. No dangling `relatesTo`.
 No one-way door on the auto tier. No accepted record without a decider or an
 import provenance. JSON Schema and Zod agree on property casing. No `@adr/`
 references remain — the scope is `@adrkit/*` throughout.
