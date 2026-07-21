@@ -675,9 +675,12 @@ later, explicitly-scoped feature.*
   (`specs/007-arb-queue/spec.md` SC-004, tracked as `specs/007-arb-queue/tasks.md` T048 with
   dependent T049 — not the unrelated, already-completed T048/T049 pair in
   `specs/005-deterministic-evaluator/tasks.md`) and explicit maintainer ratification of this
-  spec's exact scope. Neither gate is satisfied as of this spec's writing. This spec's own
-  creation and refinement — the advance-scoping activity itself — is exempt from both gates,
-  per `plan.md`'s advance-scoping-vs-implementation split.
+  spec's exact scope. **As of 2026-07-21, the maintainer-ratification gate is satisfied**
+  (see the Ratification Record following the gating banner); **the Phase 6 gate remains
+  unsatisfied** — T048/T049 have not cleared, Phase 6 is not landed, and satisfying only the
+  ratification gate does not authorize spike execution. This spec's own creation and
+  refinement — the advance-scoping activity itself — is, and always was, exempt from both
+  gates, per `plan.md`'s advance-scoping-vs-implementation split.
 
 - **A11**: This spike does not add, and its fixture must not be mistaken for, a fifth MCP
   tool, a write MCP tool, an evaluator rubric pass, or any HTTP service. It is a Spec Kit

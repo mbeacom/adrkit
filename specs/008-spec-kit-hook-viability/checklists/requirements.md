@@ -2,6 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-21
+**Revised**: 2026-07-21 (maintainer ratification recorded)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -86,3 +87,12 @@
   re-ratifying the spec rather than silently substituting a different release. A_1's
   "latest stable ... as of this spec's writing" framing is preserved only as the historical
   justification for why v0.13.0 was chosen, not as an ongoing selection criterion.
+- **Maintainer ratification recorded 2026-07-21**: The maintainer explicitly ratified this
+  spec's exact scope as written — the fixed v0.13.0/SHA target, the one-command/one-hook
+  fixture shape, the two-tier agent-verification split, the offline/no-mutation evidence
+  requirements, and the three-way verdict with its precedence rule. This satisfies gate 2
+  (maintainer ratification) of the double gate in the spec's banner (FR-022(b), Assumption
+  A10) and is recorded in a dedicated Ratification Record immediately after the banner, and
+  reflected in the Status line and Assumption A10. **Gate 1 (Phase 6's
+  `specs/007-arb-queue/tasks.md` T048/T049) remains uncleared** — the spec is explicit,
+  in the same locations, that satisfying gate 2 alone does not authorize spike execution.
