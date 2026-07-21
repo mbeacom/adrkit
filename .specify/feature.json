@@ -1,1 +1,3 @@
-{"feature_directory":"specs/006-mcp-server"}
+{
+  "feature_directory": "specs/007-arb-queue"
+}
