@@ -9,7 +9,7 @@ tags: [schema, core, matching, catalog]
 scope: org
 reversibility: one-way-door
 blastRadius: org
-relatesTo: ["0002", "0004", "0007"]
+relatesTo: ["0002", "0004", "0007", "0013"]
 affects:
   - type: path
     pattern: "packages/core/src/affects/**"
@@ -117,6 +117,12 @@ its native identifiers into that shape and documents anything lossy.
 
 The snapshot is serializable so it can be committed or cached, which is what
 keeps resolution pure and CI reproducible even when the live catalog moves.
+
+> **Amended by ADR-0013; refined by ADR-0012.** The per-adapter mapping is pinned
+> by ADR-0012's explicit `adrkit.io/owned-paths` contract. The in-memory snapshot
+> is an internal type, not a wire format: any persisted snapshot requires a
+> versioned interchange envelope before production, and composition is a standalone
+> offline generator rather than a dynamic runtime loader.
 
 ## Options considered
 
