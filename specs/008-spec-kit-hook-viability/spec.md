@@ -133,7 +133,7 @@ the time of writing — freezing is not optional caution, it is the only way thi
 findings stay true after the spike is done.
 
 **Independent Test**: With no code changes to adrkit, install `specify-cli` pinned to the
-frozen release, run `specify extension add <fixture-id> --dev <path-to-fixture>` against a
+frozen release, run `specify extension add --dev <path-to-fixture>` against a
 scratch project, and confirm `specify extension list` reports it installed and enabled with
 exactly one registered command and one registered hook — without any network access beyond
 the one-time tool install itself.
@@ -149,10 +149,10 @@ the one-time tool install itself.
    exact version, **Then** `specify --version` reports exactly `0.13.0` and no later version
    is silently substituted.
 3. **Given** a scratch project already initialized with `specify init`, **When** the spike
-   runs `specify extension add <fixture-id> --dev <path-to-fixture>`, **Then** the command
+   runs `specify extension add --dev <path-to-fixture>`, **Then** the command
    succeeds, `specify extension list` shows the fixture installed and enabled with exactly
-   one command and one hook, and `.specify/extensions.yml` gains an `installed` entry and an
-   `after_plan` hook entry for the fixture — with no other project file touched outside
+   one command and one hook, and the effective project extension configuration (FR-006)
+   gains an `installed` entry and an `after_plan` hook entry for the fixture — with no other project file touched outside
    `.specify/` and the target agent's command-registration directory.
 
 ---
@@ -218,7 +218,7 @@ that renders broadly.
 **Independent Test**: With the fixture installed and its hook previously proven to fire
 (User Story 2), run `specify extension disable <fixture-id>`, re-run `/speckit.plan`, and
 confirm no hook is offered; then run `specify extension remove <fixture-id>` and confirm its
-command/prompt files, its `.specify/extensions.yml` entries, and its extension registry
+command/prompt files, its effective project extension configuration entries, and its extension registry
 entry are all gone. Separately, in a disposable scratch project configured for a second
 upstream-supported agent, install the fixture and inspect the rendered command/hook files
 for structural correctness.
@@ -232,7 +232,7 @@ for structural correctness.
 2. **Given** the fixture is disabled, **When** the spike runs `specify extension remove
    <fixture-id>`, **Then** its registered command file(s), its companion prompt file (for
    Copilot's legacy rendering mode), its `installed` and `hooks.after_plan` entries in
-   `.specify/extensions.yml`, and its entry in the extension registry are all removed, and
+   effective project extension configuration, and its entry in the extension registry are all removed, and
    re-running `specify extension list` no longer shows it in any form.
 3. **Given** GitHub Copilot is this repository's already-configured integration (legacy
    `.agent.md` + companion `.prompt.md` mode, not `--skills` mode), **When** the fixture is
@@ -338,6 +338,12 @@ required evidence present and cross-referenced.
   actually written (a partial-install defect in the upstream tool itself)? The spike's
   evidence must include a direct file-existence check of the expected rendered path(s), not
   merely trust the CLI's own success message.
+- What happens if the frozen upstream CLI follows the API Reference layout
+  (`.specify/extensions/extensions.yml`) rather than the User Guide's documented
+  `.specify/extensions.yml` path? The spike probes both locations, records which path the
+  CLI actually wrote, and treats neither file existing (or conflicting files in both
+  locations) as an install-evidence failure rather than silently assuming either document
+  is authoritative.
 - What happens if the second upstream-supported agent's rendering format changes in a way
   that breaks structural verification (e.g., a documented directory move)? That is itself a
   valid, reportable spike finding and — per SC-007's precedence rule — resolves to a
@@ -374,12 +380,15 @@ required evidence present and cross-referenced.
 - **FR-004**: The fixture MUST declare exactly one hook, registered on the `after_plan`
   event, with `optional: true`. It MUST NOT be registered as a mandatory (`optional: false`)
   hook.
-- **FR-005**: Local development install MUST use `specify extension add <fixture-id> --dev
-  <path>` against a local fixture directory — never the default catalog, never a remote
+- **FR-005**: Local development install MUST use `specify extension add --dev <path>`
+  against a local fixture directory — never the default catalog, never a remote
   `--from` URL.
 - **FR-006**: Installation MUST be verified by (a) `specify extension list` reporting the
   fixture installed and enabled with exactly one command and one hook, (b) a corresponding
-  `installed` entry and `hooks.after_plan` entry appearing in `.specify/extensions.yml`, and
+  `installed` entry and `hooks.after_plan` entry appearing in the project extension
+  configuration path actually written by the frozen CLI (probe the User Guide path
+  `.specify/extensions.yml` and the API Reference layout
+  `.specify/extensions/extensions.yml`, record exactly one authoritative path), and
   (c) the extension registry recording the fixture with its registered command name(s).
 - **FR-007**: For GitHub Copilot — this repository's already-configured integration, using
   its legacy `.agent.md` + companion `.prompt.md` rendering mode, not `--skills` mode —
@@ -415,7 +424,7 @@ required evidence present and cross-referenced.
   files unchanged on disk.
 - **FR-014**: `specify extension remove <fixture-id>` MUST delete the fixture's registered
   command file(s) and companion prompt file(s), its `installed` and `hooks.after_plan`
-  entries in `.specify/extensions.yml`, and its entry in the extension registry, leaving no
+  entries in the effective project extension configuration path recorded by FR-006, and its entry in the extension registry, leaving no
   orphaned command or hook reference.
 - **FR-015**: Direct invocation of the fixture command with no adrkit feature/plan context
   reachable MUST exit non-zero with a specific, human-readable error naming the missing
@@ -513,7 +522,7 @@ future planning or execution:
 ### Measurable Outcomes
 
 - **SC-001**: Given the frozen release and SHA, a local development install of the fixture
-  (`specify extension add <fixture-id> --dev <path>`) completes, and `specify extension
+  (`specify extension add --dev <path>`) completes, and `specify extension
   list` reports it installed and enabled with exactly one registered command and one
   registered `after_plan` hook, using no network access beyond the one-time `specify-cli`
   tool installation that already exists in the verification environment.
@@ -531,7 +540,7 @@ future planning or execution:
 
 - **SC-004**: Disabling the fixture stops its hook from being offered on a subsequent
   `/speckit.plan` run without deleting its files; removing it deletes every registered
-  command file, companion prompt file, `.specify/extensions.yml` entry, and extension
+  command file, companion prompt file, effective project extension configuration entry, and extension
   registry entry, leaving no orphaned reference.
 
 - **SC-005**: GitHub Copilot rendering is verified via a real, live hook invocation

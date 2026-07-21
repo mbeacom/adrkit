@@ -32,6 +32,7 @@ sync.
 | 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
 | 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); real-user gate met |
 | 6 — ARB queue | `specs/007-arb-queue/` | implementation in progress (kernel + `adr queue` CLI + queue Action complete, all gates green); external-team rung 6 exit gate (SC-004) outstanding |
+| 7 — Spec Kit hook viability | `specs/008-spec-kit-hook-viability/` | advance scoping complete and scope ratified; non-shipping spike execution blocked on Phase 6 T048/T049 |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
