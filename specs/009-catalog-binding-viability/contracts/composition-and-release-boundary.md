@@ -104,5 +104,5 @@ changes. Every artifact this planning session produces
 `contracts/*.md` file) lives entirely under
 `specs/009-catalog-binding-viability/` and describes a governance-authorized execution session's design — it does not
 itself execute anything, commit any fixture, or open any implementation
-branch. External-adopter evidence remains optional later production-maturity
+branch. External-adopter evidence remains optional externally-validated maturity
 evidence, not a hard gate for this spike.

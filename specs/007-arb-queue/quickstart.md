@@ -395,7 +395,7 @@ The Action must still succeed (QS-ACT-01 or QS-ACT-02 scenario).
 
 ---
 
-## Rung-2 Reference-Validation Criteria (SC-004 — ADR-0014 rung 2)
+## Rung-2 Reference-Verification Criteria (SC-004 — ADR-0014 rung 2)
 
 SC-004 is the **ADR-0014 rung-2 gate that lands Phase 6** — met by a maintainer-owned
 isolated reference repository, not by an external team, and not a gate before
@@ -416,7 +416,7 @@ reviewed:
 - [x] No installation, runtime, or permission blockers encountered
 
 Evidence is documented and linked in
-[checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md)
+[checklists/reference-verification-evidence.md](./checklists/reference-verification-evidence.md)
 ([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood), Action pinned
-at `efef89b`). This is reference validation (ADR-0014 rung 2), **not** external/community
+at `efef89b`). This is reference verification (ADR-0014 rung 2), **not** external/community
 validation (rung 3, open).

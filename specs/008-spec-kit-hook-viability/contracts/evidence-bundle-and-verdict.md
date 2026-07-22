@@ -1,7 +1,7 @@
 # Contract: Evidence Bundle Schema and Verdict Decision Procedure
 
 **Feature**: `008-spec-kit-hook-viability` | **Freezes**: FR-018, FR-019, FR-021,
-FR-022(b), FR-023, SC-007, SC-008, [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md), and the Output Recommendation section's
+FR-022(b), FR-023, FR-024, SC-007, SC-008, [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md), and the Output Recommendation section's
 non-binding-recommendation requirement. Companion to `data-model.md` §6
 (`EvidenceBundle`), §7 (`Verdict`), §8 (`NonBindingRecommendation`).
 
@@ -36,6 +36,17 @@ matched) is **incomplete** and MUST NOT have a `verdict` recorded against it
 — FR-019's "no ambiguity about which evidence drove the choice" reading
 applied structurally, matching `data-model.md`'s "Verdict is computed once,
 at the end, from a fully-populated EvidenceBundle" relationship rule.
+
+**Tracked sanitized evidence index for later landing (FR-024)**: this contract
+keeps raw transcripts and scratch artifacts outside the repository, but an
+executed spike cannot be landed in tracked history with only scratch-local
+evidence. Landing requires a tracked, sanitized evidence index that points back
+to the scratch bundle without copying raw transcripts. The index MUST include
+commit SHAs, workflow-run links if any workflow is used, content hashes for the
+scratch evidence files, tool versions, network and credential limits,
+negative-test results (including fail-closed probes), and a reviewer verdict.
+This is a future landing requirement only; the current scoped-but-unexecuted
+spike has no such evidence to record yet.
 
 ## 2. Verdict Decision Procedure (SC-007) — Fixed Precedence, Exhaustive, Mutually Exclusive
 
@@ -122,7 +133,7 @@ A `NonBindingRecommendation` MUST include:
 Every `Verdict`, regardless of `outcome`, carries `phase6ExternalValidationClaim: false`
 as a fixed literal (`data-model.md` §7). The evidence bundle's narrative file
 (`spike-008-evidence.md`) MUST additionally restate, in prose, that Phase 6
-(`specs/007-arb-queue/`) is landed / reference-validated under ADR-0014 rungs 1–2,
+(`specs/007-arb-queue/`) is landed / reference-verified under ADR-0014 rungs 1–2,
 not externally validated; that external / community validation (ADR-0014 rung 3)
 remains absent unless separately evidenced; and that this spike did not cause or
 advance Phase 6's status. A `go` verdict does not and cannot create rung-3 evidence;

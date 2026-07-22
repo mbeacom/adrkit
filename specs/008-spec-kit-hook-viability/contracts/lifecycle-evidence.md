@@ -5,7 +5,7 @@ FR-014. Source for exact commands and file shapes: `EXTENSION-API-REFERENCE.md`
 and `EXTENSION-USER-GUIDE.md` at the frozen commit (research.md R9).
 
 > This is a design-time contract for a future execution session only — the governance
-> gates in `spec.md`'s banner are satisfied (Phase 6 is landed / reference-validated under
+> gates in `spec.md`'s banner are satisfied (Phase 6 is landed / reference-verified under
 > [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
 > not externally validated; maintainer ratification satisfied 2026-07-21), and execution is
 > authorized once this migration merges.

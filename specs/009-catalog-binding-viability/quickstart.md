@@ -5,16 +5,19 @@
 > ✅ **Governance preconditions satisfied; spike execution authorized once this migration
 > merges; tasks remain unchecked until actually executed.**
 >
-> Phase 6 is **landed / reference-validated** under ADR-0014 rungs 1–2: `specs/007-arb-queue/tasks.md`
-> T048/T049 read `- [X]`, and root `plan.md` records the `specs/007-arb-queue/` row as
-> `landed / reference-validated`. That evidence is from a maintainer-owned isolated reference
+> Phase 6 is **landed / reference-verified** under ADR-0014 rungs 1–2: `specs/007-arb-queue/tasks.md`
+> T048-R/T049 read `- [X]`, and root `plan.md` records the `specs/007-arb-queue/` row as
+> `landed / reference-verified`. That evidence is from a maintainer-owned isolated reference
 > repository, not external / community validation (ADR-0014 rung 3).
 >
 > The previous independent-adopter pre-execution gate is removed. This spike builds a
-> **maintainer-authored reference oracle** in scratch from FR-001's pinned public corpora,
-> maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations, and independent
-> adversarial review. External-adopter evidence is optional later production-maturity evidence
-> for a future, stronger "authoritative `go`", not a prerequisite for this guide.
+> **frozen, maintainer-authored reference oracle** in scratch before any generator output is
+> produced, from FR-001's pinned public corpora, maintainer-authored synthetic explicit
+> `adrkit.io/owned-paths` annotations, and independent adversarial review. The oracle covers
+> positive, negative, overlap, absent/empty, collision (duplicate canonical ID), and
+> repository-mismatch cases with bounded zero false-positive / zero false-negative results over
+> those labeled cases. External-adopter evidence is optional externally-validated maturity
+> evidence only, not a prerequisite for this guide.
 >
 > This guide's existence remains advance scoping until the migration merges; running it later
 > does not mark any task complete unless that task is actually executed.
@@ -23,6 +26,11 @@
 
 - This repository cloned, on a disposable scratch branch/worktree — never
   `main` (FR-019/A7).
+- Raw transcripts remain scratch-only. A later **landed** claim requires a
+  separate tracked, sanitized evidence index with commit SHAs, run links,
+  content hashes, tool versions, network/credential limits, negative-test
+  results, and a reviewer verdict; this guide does not fabricate that evidence
+  before execution.
 - A separate scratch directory outside any git-tracked clone of
   `mbeacom/adrkit`, for general fixture sources (`research.md` R2 item 1).
 - At least two standalone, freshly `git init`'d scratch repositories with
@@ -298,7 +306,7 @@ if none fired, check `go-explicit`; otherwise `blocked`. Write
 `spike-009-evidence.json` and `spike-009-evidence.md` to the executing
 session's own scratch artifacts directory (never this repository —
 `research.md` R2/R3). Populate `Verdict.gateDisclaimers` and
-`authoritativeGoDistinctionStatement` unconditionally. If the verdict is
+`externalMaturityDistinctionStatement` unconditionally. If the verdict is
 `go-explicit`, append the non-binding recommendation per
 `contracts/evidence-bundle-and-verdict.md` §4, with `releaseVehicleDecision`
 fixed `null`.
@@ -313,7 +321,7 @@ fixed `null`.
   repository's own root should show nothing related to this spike).
 - Report the evidence bundle and verdict per `plan.md`'s Completion Report
   and this task's own reporting instruction — never open a PR, never commit
-  any fixture, never claim Phase 6 landed / reference-validated, ADR-0014 was accepted, or any
+  any fixture, never claim Phase 6 landed / reference-verified, ADR-0014 was accepted, or any
   external-adopter maturity evidence exists because of this spike's own result.
 
 ## What This Guide Deliberately Does Not Do
@@ -329,6 +337,5 @@ fixed `null`.
   ship — `contracts/evidence-bundle-and-verdict.md` §4 fixes
   `releaseVehicleDecision` as permanently `null`.
 - It does not claim, at any step, that completing this spike satisfies
-  either remaining execution gate, the catalog-governance precondition
-  (already separately satisfied), or the hardened contract's "authoritative
-  `go`" status.
+  any execution gate, the catalog-governance precondition
+  (already separately satisfied), or optional externally-validated maturity.

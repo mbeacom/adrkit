@@ -191,15 +191,23 @@ change that.
 
 ### Scope and gates
 
+> **Amended by [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+> (2026-07-22).** Gate item 3 below ("an independent adopter validating real
+> entity/path outcomes") is amended from a **hard gate** to an **optional later
+> externally-validated maturity signal**. The corresponding ladder requirement is
+> satisfied instead by a maintainer-authored reference oracle per ADR-0014; ADR-0014
+> amends this clause by reference and does not supersede this record. Gate item 1
+> (Phase 6 T048-R/T049) is satisfied: Phase 6 is landed / reference-verified.
+
 Accepting this record fixes the semantics above. It does **not** authorize a
 production adapter. It authorizes feature 009 advance scoping and this
 decision-record work only. Production of
 `packages/adapters/catalog-backstage` remains gated on all of:
 
-1. Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 clearing. **(Satisfied
-   2026-07-22: Phase 6 is landed / reference-validated on rungs 1–2 of
+1. Phase 6 `specs/007-arb-queue/tasks.md` T048-R/T049 clearing. **(Satisfied
+   2026-07-22: Phase 6 is landed / reference-verified on rungs 1–2 of
    [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md);
-   T048/T049 complete.)**
+   T048-R/T049 complete.)**
 2. Non-shipping spike evidence from `specs/009-catalog-binding-viability/`
    (go / explicit-heuristic-only / blocked), including a versioned envelope and
    the security/scale measurements below.
@@ -214,13 +222,15 @@ decision-record work only. Production of
 The spike measures annotation bytes, entities, patterns per entity, pattern
 length, documents/aliases, and compile/match cost on the pinned corpora.
 Production limits are **not** guessed now; they must be ratified from evidence.
-An authoritative `go` is a stronger status that additionally draws on
-maintainer-authored reference-oracle annotations plus a hand-labeled
-entity/path oracle, zero false positives/negatives for authoritative cases,
-repository-isolation tests, malformed/tampered/stale snapshot rejection, and
-deterministic byte output. External-adopter-authored annotations strengthen that
-status as an optional later maturity signal (ADR-0014 rung 3) but are not a
-precondition for it.
+A **frozen, maintainer-authored reference oracle** (synthetic explicit annotations
+over pinned public corpora, independently audited before generator output, with
+bounded zero false positives/negatives across positive/negative/overlap/absent/
+collision/repo-mismatch cases), repository-isolation tests,
+malformed/tampered/stale snapshot rejection, and deterministic byte output are the
+production-readiness evidence. A stronger **optional externally-validated maturity**
+status (ADR-0014 rung 3) may later be reached with external-adopter-authored
+annotations, but that is an optional maturity signal, never a hard gate for this
+spike or for landing.
 
 ## Options considered
 

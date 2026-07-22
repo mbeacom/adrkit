@@ -64,18 +64,21 @@ planning session** — see `research.md` R1): Backstage
 > documented blockers is this precondition's satisfied, final disposition — not an execution
 > gate.
 >
-> **Phase 6 status.** Phase 6 is **landed / reference-validated** on ADR-0014 rungs 1–2:
-> `specs/007-arb-queue/tasks.md` T048/T049 read `- [X]`, and root `plan.md` records the
-> `specs/007-arb-queue/` row as `landed / reference-validated`. The rung-2 evidence is the
+> **Phase 6 status.** Phase 6 is **landed / reference-verified** on ADR-0014 rungs 1–2:
+> `specs/007-arb-queue/tasks.md` T048-R/T049 read `- [X]`, and root `plan.md` records the
+> `specs/007-arb-queue/` row as `landed / reference-verified`. The rung-2 evidence is the
 > **maintainer-owned isolated reference repository** <https://github.com/mbeacom/adrkit-t018-dogfood>,
 > not an external team and not external / community validation (ADR-0014 rung 3).
 >
 > **Independent-adopter status.** The previous independent-adopter pre-execution gate is
-> removed. The spike builds its own **maintainer-authored reference oracle** in the scratch
-> workspace from FR-001's pinned public corpora, maintainer-authored synthetic explicit
-> `adrkit.io/owned-paths` annotations, and independent adversarial review. External-adopter
-> evidence is optional later production-maturity evidence for a future, stronger
-> "authoritative `go`" status, not a hard gate for this spike or Phase 6.
+> removed. The spike builds its own **frozen, maintainer-authored reference oracle** in the
+> scratch workspace before any generator output is produced, from FR-001's pinned public
+> corpora, maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations, and
+> independent adversarial review. The oracle covers positive, negative, overlap, absent/empty,
+> collision (duplicate canonical ID), and repository-mismatch cases with bounded zero
+> false-positive / zero false-negative results over those labeled cases. External-adopter
+> evidence is optional externally-validated maturity evidence only, not a hard gate for this
+> spike or Phase 6.
 >
 > **Follow-up scoping session — `tasks.md` was subsequently generated.** A later advance-scoping
 > session produced `tasks.md` with **T001–T086**, all unchecked. Phase 1 of `tasks.md` (T001–T004)
@@ -116,8 +119,8 @@ structural fixtures plus the real-corpus citations, copied verbatim from
 a fixed scale/security measurement protocol that explicitly never proposes a
 production limit (`contracts/scale-and-security-measurement.md`); the
 evidence-bundle completeness rule and the three-way verdict's fixed
-precedence, including the disclaimers distinguishing every verdict from the
-hardened contract's "authoritative `go`" (`contracts/evidence-bundle-and-verdict.md`);
+precedence, including the disclaimers distinguishing every verdict from optional
+externally-validated maturity (`contracts/evidence-bundle-and-verdict.md`);
 and the standalone-offline-generator/no-dynamic-loader composition boundary
 with the permanently-undecided release vehicle
 (`contracts/composition-and-release-boundary.md`).
@@ -232,7 +235,7 @@ specs/009-catalog-binding-viability/
 │   ├── comparison-heuristics.md                # A/B/C/D protocol; B/C non-authoritative labeling; D no-effect confirmation
 │   ├── structural-fixtures-and-corpora.md      # Pinned corpora citations; multi-doc/dup-key/Location synthetic fixtures
 │   ├── scale-and-security-measurement.md       # Fixed measurement protocol; network-denial hierarchy; no invented limits
-│   ├── evidence-bundle-and-verdict.md          # Bundle completeness; fixed 3-way verdict precedence; authoritative-go distinction
+│   ├── evidence-bundle-and-verdict.md          # Bundle completeness; fixed 3-way verdict precedence; optional externally-validated maturity distinction
 │   └── composition-and-release-boundary.md     # Standalone offline generator; no dynamic loader; undecided release vehicle
 └── tasks.md                                   # Phase 2 output — generated in a follow-up advance-scoping session (T001–T086, all unchecked; execution still gated)
 ```
@@ -358,7 +361,7 @@ All Phase 1 artifacts are generated:
 - **[contracts/evidence-bundle-and-verdict.md](./contracts/evidence-bundle-and-verdict.md)**:
   Bundle completeness; the fixed three-step verdict precedence with every
   named trigger/shortfall; the explicit, unconditional
-  authoritative-`go` distinction; the non-binding recommendation's required
+  optional externally-validated maturity distinction; the non-binding recommendation's required
   fields; the three SC-013 disclaimers, present on every verdict regardless
   of outcome; the cross-reference requirement.
 - **[contracts/composition-and-release-boundary.md](./contracts/composition-and-release-boundary.md)**:
@@ -421,12 +424,12 @@ performed no implementation, fixture derivation, corpus re-fetch, comparison
 run, evidence gathering, commit, push, or PR.
 **Constitution status**: all five principles PASS, before and after design;
 Complexity Tracking empty. **Gate status**: Phase 6 is **landed /
-reference-validated** (ADR-0014 rungs 1–2) via a maintainer-owned isolated
+reference-verified** (ADR-0014 rungs 1–2) via a maintainer-owned isolated
 reference repository, not external / community validation (ADR-0014 rung 3);
 maintainer ratification, ADR-0012, ADR-0013, and ADR-0014 are satisfied; the
 previous independent-adopter pre-execution gate is removed and replaced by the
-in-scratch maintainer-authored reference oracle. External-adopter evidence is
-optional later production-maturity evidence only. **Review status**: an
+in-scratch frozen, maintainer-authored reference oracle. External-adopter evidence is
+optional externally-validated maturity evidence only. **Review status**: an
 independent GPT-5.6 Sol reader-test pass found no critical findings, 9 high, 7
 medium, and 4 low/nit findings; all were remediated in the current version of
 the affected files (research.md §R13). **This plan and its companion `tasks.md`

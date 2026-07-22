@@ -104,12 +104,44 @@ spike execution.**
    - **Self-verifying** — the reference repository asserts its own expected
      outcomes in CI (the run fails if the observed behavior diverges), rather
      than relying on a human reading logs;
-   - **Reviewed** — the evidence (immutable links and hashes) is recorded in the
-     phase's spec/checklists and passes review.
+   - **Fail-closed** — the reference evidence includes at least one
+     consumer-facing failure scenario (e.g. invalid input / schema error,
+     duplicate ownership marker, title conflict, or missing permission) that
+     mechanically proves the surface fails **before** any side effect and mutates
+     nothing;
+   - **Reviewed** — the evidence is recorded as a **tracked, sanitized evidence
+     index** in the phase's spec/checklists, carrying immutable ref/run/issue
+     links, content hashes, tool versions, expected-vs-observed rows,
+     limitations, and a reviewer verdict, and it passes review.
 
    A phase whose exit criterion was previously "a team that isn't yours"
-   **lands / is reference-validated** when rung 2 clears. It is **not** thereby
+   **lands / is reference-verified** when rung 2 clears. It is **not** thereby
    "externally validated".
+
+### State vocabulary (binding)
+
+Every artifact (specs, root `plan.md`, README, CLAUDE) MUST describe a phase's
+maturity using exactly these state names, and MUST NOT substitute vague synonyms
+("real user", "release-ready", "authoritative go", "production-ready") unless the
+precise state is also named:
+
+| State | Meaning |
+|---|---|
+| **scoped** | spec → plan → tasks written and reviewed; no code |
+| **implemented** | code merged; rung-1 evidence green |
+| **reference-verified** | rung-2 maintainer-owned isolated reference-repository evidence met (reproducible, self-verifying, fail-closed, reviewed) |
+| **landed** | implemented **and** reference-verified (rungs 1–2). This is the bar for "landed"; it does **not** imply release or external adoption |
+| **released** | a versioned artifact is published (e.g. an npm/tag release). Distinct from landed |
+| **externally validated** | rung 3 — a party other than the maintainer verified the surface in their own repository |
+| **adopted** | an external party uses it in real work |
+| **sustained adoption** | external use persists over time |
+
+**Phase landing is decoupled from the outcome-ladder's external-adoption rung.**
+The outcome ladder in `plan.md` may state an *aspiration* (e.g. rung 6, "an org
+runs its ARB on it") whose achievement is **external adoption**; that achievement
+is a separate, later state (`externally validated` → `adopted`). A phase reaches
+**landed** at `reference-verified`, without and independently of that outcome-rung
+achievement.
 
 3. **Rung 3 — external / community validation.** A party other than the
    maintainer adopts and validates the surface in their own repository. This is
@@ -121,7 +153,7 @@ spike execution.**
 
 ### Honesty rules (binding)
 
-- **`landed / reference-validated` is a distinct claim from `externally
+- **`landed / reference-verified` is a distinct claim from `externally
   validated`.** A phase may be the former without being the latter; a spec, the
   root `plan.md`, README, and CLAUDE MUST use the labels precisely and MUST NOT
   imply external adoption that has not occurred.
@@ -129,7 +161,7 @@ spike execution.**
   is reported as absent until a real, linkable external adoption exists.
 - **The maintainer's own isolated reference repository is not "external".** It
   MUST NOT be described as an external team, a third party, or a community
-  adopter. It is maintainer-owned, separate/isolated, reference validation.
+  adopter. It is maintainer-owned, separate/isolated, reference verification.
 - **Aspirational metrics stay aspirational.** The outcome ladder may keep
   external adoption (e.g. "an org runs its ARB on it") as a target rung, but that
   target MUST NOT block implementation or release progression before a community
@@ -138,26 +170,37 @@ spike execution.**
 ### What this changes
 
 - The external-team hard gate for Phase 6 (`specs/007-arb-queue/` SC-004 /
-  FR-019 / A7 / T048) becomes a **rung-2 maintainer isolated reference-validation
+  FR-019 / A7 / T048) becomes a **rung-2 maintainer isolated reference-verification
   gate**, satisfied by the evidence in the reference repository
   [`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
   (queue Action pinned at `efef89b5d747ca175a1947f1ce2f4296dab54fa3`; PRs #2/#4/#5;
-  managed issue #3; self-verifying runs). Phase 6 is **landed / reference-validated**,
+  managed issue #3; self-verifying runs). Phase 6 is **landed / reference-verified**,
   explicitly **not** externally validated.
 - The Phase 6 execution/landing block in `specs/008-*` and `specs/009-*` is
-  **cleared** on the reference-validated basis. Each spike's *execution* is
+  **cleared** on the reference-verified basis. Each spike's *execution* is
   authorized by governance once this migration merges; its tasks remain unchecked
-  until actually executed.
-- `specs/009-*`'s independent-adopter hard gate is replaced by a
-  **maintainer-authored reference oracle** created and validated **inside the
-  scratch spike** from pinned public corpora plus synthetic explicit annotations,
-  under independent adversarial review. An external adopter's oracle becomes
-  **optional later production-maturity evidence**, not a precondition for spike
-  execution.
-- ADR-0012 and ADR-0013's acceptance/production ladders drop "an independent
-  adopter" as a **hard** item; it is retained as an optional later maturity
-  signal. Their other gates (versioned interchange envelope, security/scale
-  measurements, clean-clone/offline/adapter-boundary evidence) are unchanged.
+  until actually executed. When such a spike later lands, its raw transcripts stay
+  scratch-only, but landing requires a **tracked, sanitized evidence index** with
+  commit SHAs, run links, content hashes, tool versions, network/credential
+  limits, negative-test results, and a reviewer verdict.
+- `specs/009-*`'s independent-adopter hard gate is replaced by a **frozen,
+  maintainer-authored reference oracle** created and independently audited
+  **before** any generator output, **inside the scratch spike**, from pinned
+  public corpora plus synthetic explicit annotations — covering positive,
+  negative, overlap, absent/empty, collision, and repository-mismatch cases with a
+  bounded zero false-positive/false-negative result. An external adopter's oracle
+  becomes **optional later externally-validated maturity evidence**, not a
+  precondition for spike execution; a `go-explicit` verdict may authorize later
+  production scoping once the reference evidence is in hand.
+- This record **amends ADR-0012 and ADR-0013 by reference** (it does not supersede
+  them): the "independent adopter validating real entity/path outcomes" item in
+  each record's production/acceptance ladder is amended from a **hard gate** to an
+  **optional later externally-validated maturity signal**, and the
+  maintainer-authored reference oracle above is what satisfies the corresponding
+  ladder item. Their other gates (versioned interchange envelope, security/scale
+  measurements, clean-clone/offline/adapter-boundary evidence) are unchanged. Both
+  records carry a reciprocal "Amended by ADR-0014" note and `relatesTo: 0014`. The
+  project constitution is unaffected and needs no revision.
 
 This record governs process only. It changes **no** runtime contract, boundary
 assertion, or determinism guarantee. Where it and a technical ADR disagree, the
@@ -193,10 +236,10 @@ omission and discards the legitimate intent of the original gates.
 
 ## Trade-offs
 
-Landing a phase on maintainer-owned reference validation means "landed" no
+Landing a phase on maintainer-owned reference verification means "landed" no
 longer implies "someone else adopted it." That is a real reduction in signal
 strength, and it is the cost we accept to keep progress moving. We pay it down
-with the honesty rules: reference-validated and externally-validated are
+with the honesty rules: reference-verified and externally-validated are
 different claims, and the second is reported as absent until proven. Sloppy label
 discipline would let maturity be overstated; the rules above and the fresh-context
 review that ships with this migration are the mitigation.
@@ -210,7 +253,7 @@ review that ships with this migration are the mitigation.
   external party and is reported as absent otherwise. Sloppy "landed" wording
   that implies adoption is now a governance violation.
 - **How we would know this was wrong:** if a phase is labeled
-  `landed / reference-validated` and then fails the first time a real external
+  `landed / reference-verified` and then fails the first time a real external
   party runs it, the rung-2 evidence was not actually self-verifying or
   representative, and the reference-repository bar must be raised. Equally, if any
   artifact is found claiming external adoption without a linkable rung-3 source,
@@ -222,16 +265,26 @@ review that ships with this migration are the mitigation.
 
 ## Action items
 
-1. [x] Migrate `specs/007-arb-queue/` SC-004 / FR-019 / A7 / T048 / T049 and
-   banners from external-team hard gate to rung-2 maintainer isolated
-   reference-validation gate; record the reference-repository evidence; mark
-   Phase 6 `landed / reference-validated`, not externally validated.
+1. [x] Migrate `specs/007-arb-queue/` SC-004 / FR-019 / A7 and banners from
+   external-team hard gate to a rung-2 maintainer isolated reference-verification
+   gate; replace `T048` with **`T048-R`** (maintainer reference validation, incl. a
+   fail-closed scenario); mark Phase 6 `landed / reference-verified`, not externally
+   validated.
 2. [x] Clear the Phase 6 execution block in `specs/008-*` and `specs/009-*` on the
-   reference-validated basis; keep each spike's tasks unchecked until executed.
-3. [x] Replace `specs/009-*`'s independent-adopter hard gate with an in-spike
-   maintainer-authored reference oracle; make its Phase 1 gate formula executable
-   and non-circular; retain external-adopter evidence as optional later maturity.
-4. [x] Reconcile ADR-0012 and ADR-0013 acceptance/production ladders: independent
-   adopter becomes an optional later maturity signal, not a hard gate.
-5. [x] Record the reference-validation evidence with immutable links and hashes in
-   the Phase 6 checklists.
+   reference-verified basis; keep each spike's tasks unchecked until executed; add
+   the tracked-sanitized-evidence-index requirement for their eventual landing.
+3. [x] Replace `specs/009-*`'s independent-adopter hard gate with a frozen,
+   independently-audited, in-spike maintainer-authored reference oracle covering
+   positive/negative/overlap/absent-empty/collision/repo-mismatch with bounded zero
+   FP/FN; make its Phase-1 gate formula executable and non-circular; replace
+   "authoritative go" with optional externally-validated maturity.
+4. [x] Amend ADR-0012 and ADR-0013 by reference: independent adopter becomes an
+   optional later externally-validated maturity signal, not a hard gate; add
+   reciprocal "Amended by ADR-0014" notes and `relatesTo: 0014`.
+5. [x] Record the reference-verification evidence as a tracked, sanitized evidence
+   index (immutable ref/run/issue links, content hashes, tool versions,
+   expected-vs-observed, limitations, reviewer verdict) in the Phase 6 checklists.
+6. [x] Adopt the state vocabulary (scoped / implemented / reference-verified /
+   landed / released / externally validated / adopted / sustained adoption) across
+   the affected artifacts and remove vague `real-user` / `release-ready` /
+   `authoritative-go` wording unless the precise state is also named.

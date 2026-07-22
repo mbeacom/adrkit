@@ -451,7 +451,7 @@ Run `bun install --frozen-lockfile` followed by
 `bun run build && bun test && bun run typecheck` in a fresh clone; assert
 all pass with no network access beyond the initial install step.
 
-### Rung-2 reference-validation gate (SC-004 — ADR-0014 rung 2)
+### Rung-2 reference-verification gate (SC-004 — ADR-0014 rung 2)
 
 Not a CI test — a landing gate met by a maintainer-owned isolated reference repository.
 Evidence must be reproducible (pinned adrkit commit), self-verifying (the reference repo
@@ -464,7 +464,7 @@ asserts its own outcomes in CI), reviewed, and must include:
 - Default-token-only `issues: write` operation confirmed.
 
 Met by [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood); see
-[checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md).
+[checklists/reference-verification-evidence.md](./checklists/reference-verification-evidence.md).
 External/community validation (ADR-0014 rung 3) is a later optional maturity signal, not
 this gate.
 
@@ -583,14 +583,14 @@ that `lintCorpus` does not (e.g., symlinks or files over the MCP size limit).
 | Phase | Feature | Status |
 |-------|---------|--------|
 | 0–5 | `specs/001-006-*` | All landed; PRs #5, #6, #7, #12, #14, #19 merged |
-| 5 specifically | MCP server | `v0.2.0` published on npm; real-user gate met (maintainer dogfood via MCP Inspector) |
-| 6 | `specs/007-arb-queue` | **Landed / reference-validated** (PR #22); ADR-0014 rung-2 gate met, rung-3 external validation open |
+| 5 specifically | MCP server | `v0.2.0` published on npm; maintainer dogfood gate met (via MCP Inspector; reference-verified) |
+| 6 | `specs/007-arb-queue` | **Landed / reference-verified** (PR #22); ADR-0014 rung-2 gate met, rung-3 external validation open |
 
-The root `plan.md` records Phase 6 as landed / reference-validated: implementation is
-complete (PR #22), and the ADR-0014 rung-2 maintainer isolated reference-validation
+The root `plan.md` records Phase 6 as landed / reference-verified: implementation is
+complete (PR #22), and the ADR-0014 rung-2 maintainer isolated reference-verification
 gate is met by [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood).
 
-**Rung-2 reference-validation gate**: The queue surfaces were exercised in a
+**Rung-2 reference-verification gate**: The queue surfaces were exercised in a
 maintainer-owned isolated reference repository with reproducible, self-verifying,
 reviewed evidence (FR-019, SC-004). That is an ADR-0014 rung-2 *landing* gate, not a
 pre-implementation gate and not an external-team gate.

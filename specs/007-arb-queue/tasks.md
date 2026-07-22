@@ -669,10 +669,10 @@ committed; queue and existing smoke tests pass.
 
 ---
 
-## Phase 6: Quality Gates, Dogfood, Documentation, and Reference-Validation Gate
+## Phase 6: Quality Gates, Dogfood, Documentation, and Reference-Verification Gate
 
 **Purpose**: Run all quality suites in progression, maintainer dogfood, documentation
-milestones, and the ADR-0014 rung-2 maintainer isolated reference-validation gate.
+milestones, and the ADR-0014 rung-2 maintainer isolated reference-verification gate.
 
 **Blocked by**: Phases 1–5 complete.
 
@@ -722,12 +722,12 @@ milestones, and the ADR-0014 rung-2 maintainer isolated reference-validation gat
 
 - [X] T047 Update root `plan.md` Phase 6 status and `CLAUDE.md` to document
   `adr queue` command usage. (Interim step: recorded implementation-complete status
-  before the rung-2 reference-validation gate cleared. Superseded by T049's
-  `landed / reference-validated` update.)
+  before the rung-2 reference-verification gate cleared. Superseded by T049's
+  `landed / reference-verified` update.)
 
-### Reference-validation gate (SC-004 — ADR-0014 rung-2 gate)
+### Reference-verification gate (SC-004 — ADR-0014 rung-2 gate)
 
-- [X] T048 (SC-004) Rung-2 maintainer isolated reference-validation gate — in a
+- [X] T048-R (SC-004) Rung-2 maintainer isolated reference-verification gate — in a
   **separate, maintainer-owned isolated reference repository** (not this monorepo):
   configure the queue Action at the implementation commit SHA (record the exact ref
   used); add at least **3 `proposed` ADRs spanning ALL THREE tiers** (`auto`, `async`,
@@ -735,28 +735,34 @@ milestones, and the ADR-0014 rung-2 maintainer isolated reference-validation gat
   run date; include at least one ADR with both `review.approvals` entries AND
   `review.objections` entries in its frontmatter; trigger the Action → assert exactly
   one managed issue is created on the first run (title `ADR ARB Queue` by default);
-  trigger the Action again → assert the SAME managed issue body is updated in place (no
-  new issue created, no duplicate); confirm default `GITHUB_TOKEN` with `contents:read`
-  + `issues:write` is the only credential used; the reference repo asserts its own
-  outcomes in CI (self-verifying); document evidence (issue URL, workflow run URLs, ref
-  used) and link it.
+  trigger the Action again with a changed body → assert the SAME managed issue body is
+  updated in place (no new issue created, no duplicate); confirm default `GITHUB_TOKEN`
+  with `contents:read` + `issues:write` is the only credential used; the reference repo
+  asserts its own outcomes in CI (self-verifying); **and prove at least one fail-closed
+  consumer-facing scenario** — the Action run against a deliberately invalid corpus
+  input fails **before** any GitHub write, emits no issue-number output, and mutates
+  zero issues (before/after snapshot assertion). Record a tracked, sanitized evidence
+  index (immutable ref/run/issue links, content hashes, tool versions,
+  expected-vs-observed, limitations, reviewer verdict).
   **Met** by [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood),
-  Action pinned at `efef89b5d747ca175a1947f1ce2f4296dab54fa3`; evidence in
-  [checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md)
-  (PRs #2/#4/#5; managed issue #3; runs 29833185424 / 29833230666 / 29834061211 /
-  29836486788). This gates the `landed / reference-validated` claim (ADR-0014 rung 2),
-  **not** an external/community-validation claim (rung 3, open).
+  Action pinned at `efef89b5d747ca175a1947f1ce2f4296dab54fa3`; full evidence index in
+  [checklists/reference-verification-evidence.md](./checklists/reference-verification-evidence.md)
+  (valid path PR #2, in-place update PR #4, self-verifying PR #5, **fail-closed PR #6 /
+  run 29920390292**; managed issue #3). This gates the `landed / reference-verified`
+  claim (ADR-0014 rung 2), **not** an external / community-validation claim (rung 3,
+  open). *(Renamed from the original external-team `T048`; the requirement is now
+  maintainer reference verification incl. a fail-closed scenario, per ADR-0014.)*
   Depends on: T043, T044, T045, T046, T047.
 
-### Post-reference-validation documentation (landed)
+### Post-reference-verification documentation (landed)
 
-- [X] T049 After SC-004 (T048) cleared: update root `plan.md` Phase 6 row to
-  `landed / reference-validated` with a link to the T048 evidence; update `CLAUDE.md`
-  to reflect final state; update `README.md` with `adr queue` and Action usage. Advertise
-  `mbeacom/adrkit/packages/ci/queue@v0` only after the moving `v0` tag has actually been
-  updated to a release containing the queue bundle. Documentation states
-  `landed / reference-validated` (ADR-0014 rungs 1–2), explicitly not externally
-  validated.
+- [X] T049 After SC-004 (T048-R) cleared: update root `plan.md` Phase 6 row to
+  `landed / reference-verified` with a link to the T048-R evidence index; update
+  `CLAUDE.md` to reflect final state; update `README.md` with `adr queue` and Action
+  usage. Advertise `mbeacom/adrkit/packages/ci/queue@v0` only after the moving `v0` tag
+  has actually been updated to a release containing the queue bundle. Documentation
+  states `landed / reference-verified` (ADR-0014 rungs 1–2), explicitly not `released`
+  and not `externally validated`.
 
 ---
 
@@ -776,7 +782,7 @@ Phase 4: T030 → T031 → T032 → T033
 
 Phase 5: T033 (needs core) → T034 [P] + T035 [P] → T036 → T037 → T038 → T039 → T040 → T041
 
-Phase 6: T041 → T042 → T043 → T044 → T045 → T046 → T047 → T048 → T049
+Phase 6: T041 → T042 → T043 → T044 → T045 → T046 → T047 → T048-R → T049
 ```
 
 **Parallel opportunities by phase**:
@@ -796,14 +802,14 @@ Phase 6: T041 → T042 → T043 → T044 → T045 → T046 → T047 → T048 →
 **Local MVP** (independently testable, not yet independently releasable):
 Phases 1–4, T001–T033. Delivers `bun run adr -- queue` with correct kernel, all 7 SLA
 states, corpus/item finding distinction, deterministic JSON and Markdown output. Can
-be dogfooded locally; no Action or reference-validation gate required.
+be dogfooded locally; no Action or reference-verification gate required.
 
 **Full Phase 6 delivery**: Phases 1–5, T001–T041, plus quality gates T042–T046. All
 functionality complete and smoke-tested.
 
-**Landed / reference-validated**: After T048 (SC-004 — ADR-0014 rung-2 maintainer
-isolated reference-validation gate) completes and T049 updates documentation to
-`landed / reference-validated`. The gate requires a separate, maintainer-owned isolated
+**Landed / reference-verified**: After T048-R (SC-004 — ADR-0014 rung-2 maintainer
+isolated reference-verification gate) completes and T049 updates documentation to
+`landed / reference-verified`. The gate requires a separate, maintainer-owned isolated
 reference repository with reproducible, self-verifying, reviewed evidence — **not** an
 external team. External/community validation (ADR-0014 rung 3) is an optional later
 maturity signal and never gated landing. Both are now complete (Assumption A7, R10).

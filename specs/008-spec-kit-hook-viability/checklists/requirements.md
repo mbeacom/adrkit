@@ -27,6 +27,10 @@
       decisions, multi-hook priority ordering, and cross-platform rendering)
 - [x] Dependencies and assumptions identified (eleven assumptions; normative ADRs and the
       double execution gate listed)
+- [x] Later landing evidence-index discipline identified (raw transcripts remain scratch-only;
+      landing requires a tracked, sanitized evidence index with commit SHAs, workflow-run links,
+      content hashes, tool versions, network/credential limits, negative-test results, and a
+      reviewer verdict)
 
 ## Feature Readiness
 
@@ -51,7 +55,7 @@
   (1) the Phase 6 gate pointer originally cited a non-existent `plan.md` T048/T049 and
   collided with an unrelated, already-completed T048/T049 pair in
   `specs/005-deterministic-evaluator/tasks.md` — corrected to point at
-  `specs/007-arb-queue/tasks.md` T048/T049 with explicit disambiguation, in the banner,
+  `specs/007-arb-queue/tasks.md` T048-R/T049 with explicit disambiguation, in the banner,
   FR-022, and A10; (2) the three-way verdict (SC-007) was not exhaustive or mutually
   exclusive — a clean-except-second-agent-rendering result mapped to none of the three
   verdicts, and a hook-only mutation mapped to two of them with no stated precedence —
@@ -93,10 +97,10 @@
   three-way verdict with its precedence rule. This satisfies gate 2 (maintainer ratification)
   in the spec's banner (FR-022(b), Assumption A10) and remains recorded in the dedicated
   Ratification Record immediately after the banner. Gate 1 now also passes: Phase 6
-  (`specs/007-arb-queue/`) is landed / reference-validated under
+  (`specs/007-arb-queue/`) is landed / reference-verified under
   [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
-  `specs/007-arb-queue/tasks.md` T048/T049 read `- [X]`, and root `plan.md`'s Spec-kit
-  realization row reads `landed / reference-validated`. This is maintainer-owned isolated
+  `specs/007-arb-queue/tasks.md` T048-R/T049 read `- [X]`, and root `plan.md`'s Spec-kit
+  realization row reads `landed / reference-verified`. This is maintainer-owned isolated
   reference-repository evidence, not external / community validation (ADR-0014 rung 3).
   Spike execution is authorized once this migration merges; all 008 task checkboxes remain
   unchecked until actually executed.
