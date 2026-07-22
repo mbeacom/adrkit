@@ -18,14 +18,16 @@ banner); Phase 6 is now **landed / reference-verified** under
 [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
 not externally validated.
 
-> ✅ **Status update — Executed 2026-07-22.** The scoping language above describes this
-> spec's state *before* execution and is retained as the historical scoping record; it no
-> longer describes the current state. The spike has since executed end-to-end with a
-> recorded verdict **`no-go`** (mutation trigger). See
-> [`tasks.md`](./tasks.md)'s executed-summary banner and
-> [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the authoritative,
-> current status, including two explicit task exceptions (T005, T012) left unchecked per
-> PR review.
+> ✅ **Status update — Executed 2026-07-22, out-of-contract on one blocking gate.** The
+> scoping language above describes this spec's state *before* execution and is retained
+> as the historical scoping record; it no longer describes the current state. The spike
+> has since run and reached a recorded verdict **`no-go`** (mutation trigger) — but per PR
+> review round 12, T012's own blocking-checkpoint rule could not be genuinely satisfied
+> (T005's gap), so this is disclosed as an **out-of-contract execution**, not an
+> unqualified "executed end-to-end" one. See [`tasks.md`](./tasks.md)'s executed-summary
+> banner and [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the
+> authoritative, current status, including two explicit task exceptions (T005, T012) left
+> unchecked per PR review.
 
 **Kind**: Compatibility spike / advance scoping. This is not a `packages/adapters/spec-kit`
 feature and does not deliver a production package. It maps to ADR-0003's action item 1

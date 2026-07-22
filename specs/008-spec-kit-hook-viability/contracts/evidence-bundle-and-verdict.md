@@ -48,12 +48,14 @@ negative-test results (including fail-closed probes), and a reviewer verdict.
 This is a future landing requirement only; the current scoped-but-unexecuted
 spike has no such evidence to record yet.
 
-> ✅ **Status update — Executed 2026-07-22.** The paragraph above describes this
-> contract's applicability *before* execution and is retained as the historical
-> scoping record; it no longer describes the current state. This landing requirement
-> has since been satisfied: the tracked, sanitized index is
+> ✅ **Status update — Executed 2026-07-22, out-of-contract on one blocking gate.** The
+> paragraph above describes this contract's applicability *before* execution and is
+> retained as the historical scoping record; it no longer describes the current state.
+> This landing requirement has since been met: the tracked, sanitized index is
 > [`../checklists/evidence-index.md`](../checklists/evidence-index.md), and the
-> recorded verdict is **`no-go`** (mutation trigger). See
+> recorded verdict is **`no-go`** (mutation trigger) — but per PR review round 12, T012's
+> own blocking-checkpoint rule could not be genuinely satisfied (T005's gap), so the
+> underlying execution is disclosed as **out-of-contract**, not unqualified. See
 > [`../tasks.md`](../tasks.md)'s executed-summary banner for the authoritative,
 > current status, including two explicit task exceptions (T005, T012) left unchecked
 > per PR review.

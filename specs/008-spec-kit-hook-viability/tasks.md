@@ -26,9 +26,17 @@ permitted" exemption — generating this checklist is scoping, not execution. Ph
 landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratification is already
 satisfied; spike execution is authorized once this migration merges.
 
-> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`), **with two explicit
-> exceptions: T005 and T012 are left unchecked (`- [ ]`)** — see below and each task's own
-> note. T044,
+> ✅ **Executed 2026-07-22 — out-of-contract on one blocking gate (see round 12 below).**
+> T001–T058 below are complete (`- [X]`), **with two explicit exceptions: T005 and T012
+> are left unchecked (`- [ ]`)** — see below and each task's own note. Per PR review round
+> 12, this run is disclosed as **out-of-contract with respect to T012's own blocking rule**
+> (T012's text below: "No User Story task below may begin until this checkpoint is
+> confirmed") — because T012 could not, in fact, be genuinely confirmed at the time
+> (T005's gap), the User Story tasks that follow (T013 onward) began without that rule's
+> own precondition holding. Each of those tasks' own distinct, literally-described action
+> still ran and is independently evidenced (see the round-12 clarification below), so
+> their individual checkboxes remain `- [X]`, but this is **not** characterized as a fully
+> gate-conformant execution. T044,
 > T045, and T047 are marked complete as **correctly recognized and honored
 > short-circuits** per the `no-go` outcome's own contract-required rules (T043 matched at
 > Step 1, so T044/T045 were not evaluated and T047 does not apply — see each task's own
@@ -95,6 +103,33 @@ satisfied; spike execution is authorized once this migration merges.
 > action (initialize a project, record a transcript, validate a field, etc.) that does
 > not itself re-certify T005's mechanism-selection quality or T012's dependency-set
 > status, and each remains independently evidenced as genuinely performed.
+>
+> **PR review round 12 clarification: this is disclosed as an out-of-contract execution,
+> not a fully gate-conformant one.** A further review round correctly noted that T012's
+> own text (below: "No User Story task below may begin until this checkpoint is
+> confirmed") is an explicit blocking rule, not merely an inferred dependency convention
+> — and that, once T012 is honestly `- [ ]`, the User Story tasks that already ran (T013
+> onward) necessarily began without that rule's own precondition being genuinely
+> satisfied. **This document accepts that characterization**: the run is out-of-contract
+> with respect to T012's blocking rule. What does **not** change is the narrower,
+> previously-established point that each downstream task's own distinct,
+> literally-described action (recording a transcript, validating a field, checking a
+> mutation baseline, etc.) did genuinely happen and is independently evidenced — that is a
+> claim about the individual task's own execution, not a claim that the overall run
+> respected every gate in its intended order. Per the reviewer's own offered alternative
+> ("mark the dependent results as out-of-contract/incomplete"), this document takes that
+> path rather than rerunning the full live-Copilot lifecycle a second time (judged
+> disproportionate for the same reason given in T005's own note — the `no-go` verdict is
+> driven independently by the mutation baseline, an orthogonal axis): T013–T058's
+> individual checkboxes remain `- [X]` (their own actions ran and are evidenced), but the
+> feature's **overall execution status is corrected from an unqualified "executed
+> end-to-end" to "executed, out-of-contract on the T012 blocking gate"** everywhere that
+> phrase appears — this banner (above), `spec.md`, `quickstart.md`, this feature's own
+> `plan.md`, `contracts/evidence-bundle-and-verdict.md`, and root `plan.md`'s Phase 7
+> ledger row. See `evidence-index.md`'s Independent audit and Honest maturity label
+> sections for the mirrored account, and root `plan.md`'s Phase 7 row for the explicit
+> statement that the 008→009 sequencing precondition is **not** established as satisfied
+> by this row alone — that judgment is left to maintainer review.
 
 > ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now checked (see the executed-summary callout above).**
 >
@@ -398,7 +433,17 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   "own distinct literal action, independent of an upstream defect" reasoning already
   applied, and left uncontested, to T033's and T042's relationship to T005's gap. See
   `evidence-index.md`'s Limitations section for the tracked, cross-referenced version of
-  both the round-6 and round-11 reasoning.
+  both the round-6 and round-11 reasoning. **Round 12 addendum:** a further review
+  correctly pointed to this checkpoint's own text above ("No User Story task below may
+  begin until this checkpoint is confirmed") as an explicit blocking rule, not merely an
+  inferred convention — and noted that, since this checkpoint could not in fact be
+  genuinely confirmed, the User Story tasks that already ran began without that rule's
+  own precondition holding. **This is accepted**: the run is disclosed as out-of-contract
+  with respect to this rule, not as a fully gate-conformant execution — see the top
+  banner's round-12 clarification and root `plan.md`'s Phase 7 row for the corrected
+  overall status wording. The non-cascade conclusion above is about each downstream
+  task's own checkbox (its own literal action ran and is evidenced), not a claim that
+  this rule was honored in execution order.
 
 ---
 

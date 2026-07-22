@@ -341,18 +341,24 @@ file's content hash and mtime are unchanged by disable).
   corrected to `- [ ]` in `tasks.md` (see T012's own note there for the full account):
   the checkpoint's formal dependency-satisfaction claim is not true while T005 remains
   explicitly unchecked, even though T012's own narrower sub-check (do the seven outputs
-  exist and cohere) remains independently true. **This correction does not cascade**:
-  downstream checkpoints citing "Depends on: T012" (US1/US2/US3/US5, including T042)
-  are unaffected — each has its own distinct, literally-described action (recording a
-  transcript, validating field existence, etc.) that does not itself re-certify T005's
-  mechanism-selection quality or T012's dependency-set-certification status, and each
-  remains independently evidenced as genuinely performed. This is the same reasoning
-  already applied, and left uncontested by round 11, to T033's and T042's relationship
-  to T005's gap. T012 is the sole task among the 58 whose own defined action
-  (dependency-set certification) makes it inseparable from a disclosed upstream gap;
-  every other task's own defined action is separable from it. T033's unrelated
-  task-decomposition gap above is grouped here only because PR review round 6 raised
-  both findings in the same review pass.
+  exist and cohere) remains independently true. **This correction does not cascade to
+  individual task checkboxes**: downstream checkpoints citing "Depends on: T012"
+  (US1/US2/US3/US5, including T042) remain `- [X]` — each has its own distinct,
+  literally-described action (recording a transcript, validating field existence, etc.)
+  that does not itself re-certify T005's mechanism-selection quality or T012's
+  dependency-set-certification status, and each remains independently evidenced as
+  genuinely performed. **Per PR review round 12, this is nonetheless disclosed as an
+  out-of-contract execution, not a fully gate-conformant one**: T012's own text is an
+  explicit blocking rule ("No User Story task below may begin until this checkpoint is
+  confirmed"), and the User Story tasks that already ran necessarily began without that
+  rule's own precondition genuinely holding. This document accepts that characterization
+  — see the "Honest maturity label" section below and root `plan.md`'s Phase 7 row for the
+  corrected overall status wording. This is the same reasoning already applied, and left
+  uncontested by round 11, to T033's and T042's relationship to T005's gap. T012 is the
+  sole task among the 58 whose own defined action (dependency-set certification) makes it
+  inseparable from a disclosed upstream gap; every other task's own defined action is
+  separable from it. T033's unrelated task-decomposition gap above is grouped here only
+  because PR review round 6 raised both findings in the same review pass.
 
 ## Independent audit
 
@@ -417,11 +423,20 @@ all independently re-confirmed unchanged and correct by this same pass.
 
 ## Honest maturity label
 
-Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed and
-independently audited**. This is a fresh-context LLM consistency audit of
-the session-scoped evidence bundle, not ADR-0014's rung-2 maturity state
-(reproducible, self-verifying, fail-closed evidence from a maintainer-owned
-isolated reference repository — the bar Phase 6 met); **"reference-verified"
+Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed, out-of-contract on
+one blocking gate, and independently audited on a bounded scope**. It ran and reached
+a recorded verdict, but per PR review round 12, T012's own blocking-checkpoint rule
+("No User Story task below may begin until this checkpoint is confirmed") could not be
+genuinely satisfied at execution time (T005's gap), so this is disclosed as an
+**out-of-contract execution**, not an unqualified "executed end-to-end" one — see the
+"Independent audit" section above for the T012 paragraph and root `plan.md`'s Phase 7
+row for the corrected overall status wording. The audit itself is a fresh-context LLM
+**limited-scope consistency audit** of the session-scoped evidence bundle (bounded to
+items (a)–(f) of its own defined checklist — see T057's own note in `tasks.md`; this
+bounded scope is exactly why it did not itself catch the T005/T012 gap, which PR review
+found afterward), not ADR-0014's rung-2 maturity state (reproducible, self-verifying,
+fail-closed evidence from a maintainer-owned isolated reference repository — the bar
+Phase 6 met); **"reference-verified"
 is deliberately not claimed for this spike**. It is **not released**, **not
 externally validated**, and **not adopted**. Its own contract verdict is
 **`no-go`** (mutation trigger, both install and remove). Two tasks are
@@ -442,13 +457,16 @@ compatibility spike, not a shipped adapter or integration
 (`specs/009-catalog-binding-viability/`) is separately governance-authorized
 (its own preconditions are already satisfied) but was, per root `plan.md`'s
 execution sequence, deliberately **scheduled to run only after this spike
-completed end-to-end**; this spike did execute end-to-end and reach a
-recorded verdict, **but with the T005/T012 exceptions above disclosed and
-unresolved** — this index reports that state honestly rather than declaring
-the "completed end-to-end" precondition unconditionally, cleanly satisfied.
-Whether that state is sufficient to begin feature 009 is a judgment this
-index does not make; it is left to root `plan.md`'s own maintainer review at
-the time feature 009 is next considered. Feature 009 still requires its own
+completed end-to-end**; this spike executed and reached a recorded verdict,
+**but out-of-contract on T012's own blocking gate, with the T005/T012
+exceptions above disclosed and unresolved** — this index reports that state
+honestly rather than declaring the "completed end-to-end" precondition
+unconditionally, cleanly satisfied. Whether that state is sufficient to
+begin feature 009 is a judgment this index does not make; it is left to
+root `plan.md`'s own maintainer review at the time feature 009 is next
+considered — root `plan.md`'s Phase 7 row explicitly states the 008→009
+sequencing precondition is **not** established as satisfied by this spike's
+run alone. Feature 009 still requires its own
 technical safety gate (a genuinely blocking network-denial mechanism,
 FR-018/T006) at execution time; this index does not itself initiate, weaken,
 or bypass that gate.

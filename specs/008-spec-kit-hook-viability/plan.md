@@ -66,10 +66,13 @@ at that exact commit — cited inline by immutable
 > begins. After this migration merges, a future execution session rerunning those checks should
 > obtain `GATE_PASS = true`, but every 008 task remains unchecked until it is actually executed.
 
-> ✅ **Status update — Executed 2026-07-22.** The banner above accurately describes this
-> planning session's own scope (design/scoping only, no execution performed by it) and is
-> retained as the historical record. A later execution session has since run the tasks
-> file end-to-end and recorded verdict **`no-go`** (mutation trigger). See
+> ✅ **Status update — Executed 2026-07-22, out-of-contract on one blocking gate.** The
+> banner above accurately describes this planning session's own scope (design/scoping
+> only, no execution performed by it) and is retained as the historical record. A later
+> execution session has since run the tasks file and recorded verdict **`no-go`**
+> (mutation trigger) — but per PR review round 12, T012's own blocking-checkpoint rule
+> could not be genuinely satisfied (T005's gap), so this is disclosed as an
+> **out-of-contract execution**, not an unqualified "end-to-end" one. See
 > [`tasks.md`](./tasks.md)'s executed-summary banner and
 > [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the authoritative,
 > current status, including two explicit task exceptions (T005, T012) left unchecked per

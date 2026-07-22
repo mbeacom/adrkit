@@ -17,10 +17,13 @@
 > future execution session, and every 008 task checkbox remains unchecked until that session
 > runs it.
 
-> ✅ **Status update — Executed 2026-07-22.** The banner above describes this guide's
-> state *before* execution and is retained as the historical scoping record; it no longer
-> describes the current state. Execution has since completed end-to-end with a recorded
-> verdict **`no-go`** (mutation trigger). See [`tasks.md`](./tasks.md)'s executed-summary
+> ✅ **Status update — Executed 2026-07-22, out-of-contract on one blocking gate.** The
+> banner above describes this guide's state *before* execution and is retained as the
+> historical scoping record; it no longer describes the current state. Execution has
+> since run and reached a recorded verdict **`no-go`** (mutation trigger) — but per PR
+> review round 12, T012's own blocking-checkpoint rule could not be genuinely satisfied
+> (T005's gap), so this is disclosed as an **out-of-contract execution**, not an
+> unqualified "completed end-to-end" one. See [`tasks.md`](./tasks.md)'s executed-summary
 > banner and [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the
 > authoritative, current status, including two explicit task exceptions (T005, T012) left
 > unchecked per PR review.
