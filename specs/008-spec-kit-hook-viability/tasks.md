@@ -1096,27 +1096,37 @@ Depends on: T054, T055, T056.
   reading in which (a)–(f) is the exhaustive definition of what to check, with "every
   FR/SC/contract" naming only the reference corpus to check *against*, and (ii) a broader
   reading in which the audit's mandate is full substantive compliance with every
-  FR/SC/contract, with (a)–(f) offered as non-exhaustive examples. This document does
-  **not** claim the narrow reading is self-evidently correct — unlike T012's own text
-  (whose explicit blocking-rule sentence settled that question unambiguously in round 12),
-  no comparably explicit sentence resolves this one either way. What is not ambiguous:
-  under **either** reading, none of the seven audit passes actually dispatched for T057
-  were instructed to check, as a discrete item, whether the recorded
-  `NetworkDenialRecord.mechanismUsed` meets `contracts/isolation-and-offline.md`'s
-  strongest-available-mechanism rule, or whether a specific invocation meets FR-011's
-  literal requirement — that discrete check was simply never part of what was dispatched,
-  regardless of which scope reading the task's own intro sentence supports. This is
-  treated as a gap in what was dispatched, parallel to T033's original-task-decomposition
-  gap (round 6 above: no bracket-equivalent task was ever defined for that invocation) —
-  not a failure to perform the action that was actually dispatched and did converge to
-  PASS on its own actual instructions, seven times, accurately reported. A fresh
-  confirmatory audit pass was considered and not run: it would only re-state the already-
-  disclosed, already-known fact that `hook-fire` ran under rank 3, adding no new
-  information, and cannot substitute for the live-Copilot lifecycle rerun already judged
-  disproportionate in T005's own note. T057's checkbox remains `- [X]` on the basis above;
-  this is not counted as a new, independent T057 defect — it is the same underlying T005
-  gap, now traced to a further consequence for what T057's dispatched passes actually
-  checked.
+  FR/SC/contract, with (a)–(f) offered as non-exhaustive examples. Round 15's fix conceded
+  this ambiguity but also asserted the checkbox was safe "regardless of which reading is
+  correct" — an inconsistent position, per **PR review round 16** (posted comment, this
+  line): if the broader reading is genuinely live, a dispatched-scope gap under that
+  reading is exactly the kind of shortfall that would make `[X]` unjustified, and the
+  round-15 text could not have it both ways. Round 16 suggested the only rigorous fix:
+  "either run an audit that covers that reading or mark T057 incomplete." **This was
+  done.** An eighth audit pass — never previously dispatched, and not a re-run of any of
+  the first seven's already-checked items (a)–(f) — was commissioned from a fresh-context
+  GPT-5.6-Sol reviewer with zero authoring context, given only `network-denial.json`'s
+  literal recorded content, `contracts/isolation-and-offline.md` §4's mechanism-hierarchy
+  text, and FR-011's literal text, and asked to independently determine: does the recorded
+  `hook-fire` invocation apply the contract's strongest-available mechanism, and does it
+  meet FR-011's literal "network access disabled" requirement? The independent, fresh-
+  context finding: **FAIL on both** — `hook-fire` ran under rank 3 without a prior check
+  for `sandbox-exec` (macOS's rank-1 equivalent), and rank 3 is explicitly stated by the
+  contract's own text not to *prove* absence of a network call, so it does not meet FR-
+  011's literal disabled-access requirement. This independently confirms, rather than
+  contradicts, what T005/T024 already disclosed — it is the same underlying gap, now
+  formally checked as a discrete item for the first time. Because the check was actually
+  dispatched and its finding recorded, T057's checkbox is justified `- [X]` under **either**
+  scope reading, with no remaining ambiguity to resolve: this specific defect is no longer
+  merely "not caught because never dispatched" — it has now been dispatched, checked, and
+  the resulting FAIL is disclosed here, in `evidence-index.md`'s "Independent audit"
+  section, and in root `plan.md`'s Phase 7 row. No further remediation beyond disclosure is
+  applied, for the same reason given in T005's own note: retroactively curing the original
+  `hook-fire` invocation would require re-running the live-Copilot lifecycle in a fresh
+  isolated session, a cost judged disproportionate given the `no-go` verdict is unaffected
+  either way. This is not counted as a new, independent T057 defect distinct from T005 —
+  it is that same gap, now closed out with a genuine, independently-dispatched check rather
+  than an argument about the scope of a sentence.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location

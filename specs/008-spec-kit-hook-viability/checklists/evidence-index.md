@@ -460,41 +460,44 @@ was not, in the strict sense, met by the `hook-fire` invocation T024 captured (s
 "Network / credential limits" above and the Limitations bullet above for the full
 account). **PR review round 15 pressed further** (two suppressed comments, on this
 section's counterpart passage in `tasks.md`'s T057 note and on `plan.md`'s ledger row):
-T057's own intro sentence — "check `spike-008-evidence.md`/`.json` against every
-FR-001–FR-024, SC-001–SC-008, and all six `contracts/*.md` files for: (a)–(f)" — is
-genuinely ambiguous between a narrow reading (items (a)–(f) exhaustively define the
-check; the FR/SC/contract corpus is only the reference material) and a broader reading
-(full substantive FR/SC/contract compliance is the mandate, with (a)–(f) as non-exhaustive
-examples). This document does not claim the narrow reading is self-evidently correct —
-unlike T012's own explicit blocking-rule sentence, which settled that question
-unambiguously in round 12, no comparably explicit sentence resolves this one. What is not
-ambiguous: under either reading, none of the seven audit passes T057 actually dispatched
-were instructed to check, as a discrete item, whether the recorded
-`NetworkDenialRecord.mechanismUsed` meets `contracts/isolation-and-offline.md`'s
-strongest-available-mechanism rule, or whether a specific invocation meets FR-011's
-literal requirement. This is treated as a gap in what was dispatched, parallel to T033's
-original-task-decomposition gap (this section's own account above), not a failure to
-perform the action actually dispatched and that did converge to PASS on its own actual
-instructions, seven times, accurately reported. A confirmatory eighth audit pass was
-considered and not run: it would only re-state the already-disclosed, already-known fact
-that `hook-fire` ran under rank 3, adding no new information. This is not counted as a new,
-independent audit defect; it is the same underlying T005 gap, traced to a further
-consequence for what T057's dispatched passes actually checked.
+T057's own intro sentence is genuinely ambiguous between a narrow reading (items (a)–(f)
+exhaustively define the check) and a broader reading (full substantive FR/SC/contract
+compliance is the mandate). Round 15's fix conceded this ambiguity but also claimed the
+checkbox held "regardless of which reading is correct" — an inconsistent position that
+**PR review round 16** (posted comment, `tasks.md:1040`) correctly flagged: under the
+broader reading, a dispatched-scope gap is exactly the shortfall that would make `[X]`
+unjustified, so the two claims could not coexist. Round 16 suggested resolving this by
+actually running an audit that covers the broader reading, or marking T057 incomplete.
+**This was done**, not argued further: an eighth audit pass — never previously dispatched,
+and not a re-run of the first seven's already-checked items (a)–(f) — was commissioned
+from a fresh-context GPT-5.6-Sol reviewer with zero authoring context, given only
+`network-denial.json`'s literal content, the mechanism-hierarchy contract text, and
+FR-011's literal text, and asked to independently determine whether the recorded
+`hook-fire` invocation applies the strongest available mechanism and meets FR-011's
+literal requirement. Independent finding: **FAIL on both** — confirming, not contradicting,
+what T005/T024 already disclosed, now as a formally checked discrete item rather than an
+inferred consequence. T057's checkbox is `- [X]` on this basis under either scope reading;
+see `tasks.md`'s T057 note for the full account. This is not a new, independent T057
+defect; it is the same underlying T005 gap, now closed out with a genuinely dispatched
+check instead of a scope argument.
 
 ## Honest maturity label
 
 Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed, out-of-contract on
-one blocking gate, and independently audited on a bounded scope**. It ran and reached
-a recorded verdict, but per PR review round 12, T012's own blocking-checkpoint rule
+one blocking gate, and independently audited across eight dispatched passes**. It ran and
+reached a recorded verdict, but per PR review round 12, T012's own blocking-checkpoint rule
 ("No User Story task below may begin until this checkpoint is confirmed") could not be
 genuinely satisfied at execution time (T005's gap), so this is disclosed as an
 **out-of-contract execution**, not an unqualified "executed end-to-end" one — see the
 "Independent audit" section above for the T012 paragraph and root `plan.md`'s Phase 7
 row for the corrected overall status wording. The audit itself is a fresh-context LLM
-**limited-scope consistency audit** of the session-scoped evidence bundle (bounded to
-items (a)–(f) of its own defined checklist — see T057's own note in `tasks.md`; this
-bounded scope is exactly why it did not itself catch the T005/T012 gap, which PR review
-found afterward), not ADR-0014's rung-2 maturity state (reproducible, self-verifying,
+**consistency and compliance audit** of the session-scoped evidence bundle: seven passes
+against items (a)–(f) of T057's own defined checklist, plus an eighth, later-dispatched
+pass (PR review round 16) that specifically checked the FR-011/strongest-mechanism
+question neither the original seven nor items (a)–(f) themselves cover — see T057's own
+note in `tasks.md`. That eighth pass independently confirmed, rather than newly
+discovered, the T005/T012 gap already found by PR review; it is not ADR-0014's rung-2
+maturity state (reproducible, self-verifying,
 fail-closed evidence from a maintainer-owned isolated reference repository — the bar
 Phase 6 met); **"reference-verified"
 is deliberately not claimed for this spike**. It is **not released**, **not
