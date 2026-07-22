@@ -538,7 +538,14 @@ pressure:
   mechanism is available in the execution environment, the run does not
   satisfy FR-018 and MUST NOT proceed until one is available — this is a
   fail-closed constraint on the execution environment itself, not merely
-  an evidence-recording nicety. This corrects
+  an evidence-recording nicety. **Environment-readiness note (2026-07-22 probe,
+  not spike execution):** a qualifying mechanism-2 sandbox is present in the
+  current environment — `/usr/bin/sandbox-exec` with a `(deny network*)` profile
+  blocked network without privileges (`curl` exit 6); Podman 5.4.2 `--network
+  none` is available as an optional stronger mechanism-1-style container path
+  (Docker daemon unavailable). This establishes readiness only; a future
+  execution session MUST still select, apply, and record the actual mechanism and
+  its limitations. This corrects
   `specs/008-...` R8's own three-tier ranking for this spike's purposes;
   `specs/008-...`'s own spike may still use its original three-tier language
   for its own, separately-scoped feature — this plan does not amend that

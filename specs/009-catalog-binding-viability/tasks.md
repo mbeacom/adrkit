@@ -304,7 +304,13 @@ outputs, and none of it is story-specific.
   `<EVIDENCE_DIR>/network-denial.json`. **If neither qualifying mechanism is available in the
   execution environment, this task MUST record that fact and every subsequent derivation task
   in this file MUST NOT proceed** — this is a fail-closed constraint on the execution
-  environment itself, not merely an evidence-recording nicety. Depends on: T004 only.
+  environment itself, not merely an evidence-recording nicety. **Environment-readiness note
+  (2026-07-22 probe; not task execution):** a qualifying mechanism is present here —
+  `/usr/bin/sandbox-exec` with a `(deny network*)` profile blocked network without privileges
+  (`curl` returned exit 6), and Podman 5.4.2 `--network none` is available as an optional
+  stronger container path (Docker daemon unavailable). A future execution session MUST still
+  select, apply, and record the actual mechanism and its limitations at execution time; this
+  note establishes readiness, not completion. Depends on: T004 only.
 
 - [ ] T007 [P] Establish `<GENERAL_SCRATCH>` (`research.md` R2 item 1; Assumption A7). Create a
   disposable scratch directory outside any git-tracked clone of `mbeacom/adrkit`, or a
