@@ -17,6 +17,14 @@
 > future execution session, and every 008 task checkbox remains unchecked until that session
 > runs it.
 
+> ✅ **Status update — Executed 2026-07-22.** The banner above describes this guide's
+> state *before* execution and is retained as the historical scoping record; it no longer
+> describes the current state. Execution has since completed end-to-end with a recorded
+> verdict **`no-go`** (mutation trigger). See [`tasks.md`](./tasks.md)'s executed-summary
+> banner and [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the
+> authoritative, current status, including two explicit task exceptions (T005, T012) left
+> unchecked per PR review.
+
 ## Prerequisites (once this migration merges and T003 records `GATE_PASS = true`)
 
 - `specify-cli` v0.13.0 already installed (per spec.md A2 — no reinstall

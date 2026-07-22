@@ -66,6 +66,15 @@ at that exact commit — cited inline by immutable
 > begins. After this migration merges, a future execution session rerunning those checks should
 > obtain `GATE_PASS = true`, but every 008 task remains unchecked until it is actually executed.
 
+> ✅ **Status update — Executed 2026-07-22.** The banner above accurately describes this
+> planning session's own scope (design/scoping only, no execution performed by it) and is
+> retained as the historical record. A later execution session has since run the tasks
+> file end-to-end and recorded verdict **`no-go`** (mutation trigger). See
+> [`tasks.md`](./tasks.md)'s executed-summary banner and
+> [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the authoritative,
+> current status, including two explicit task exceptions (T005, T012) left unchecked per
+> PR review.
+
 ## Summary
 
 Design, on paper only, the disposable compatibility fixture and its evidence

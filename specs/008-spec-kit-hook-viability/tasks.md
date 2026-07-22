@@ -26,8 +26,9 @@ permitted" exemption — generating this checklist is scoping, not execution. Ph
 landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratification is already
 satisfied; spike execution is authorized once this migration merges.
 
-> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`), **with one explicit
-> exception: T005 is left unchecked (`- [ ]`)** — see below and T005's own note. T044,
+> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`), **with two explicit
+> exceptions: T005 and T012 are left unchecked (`- [ ]`)** — see below and each task's own
+> note. T044,
 > T045, and T047 are marked complete as **correctly recognized and honored
 > short-circuits** per the `no-go` outcome's own contract-required rules (T043 matched at
 > Step 1, so T044/T045 were not evaluated and T047 does not apply — see each task's own
@@ -63,21 +64,37 @@ satisfied; spike execution is authorized once this migration merges.
 > T057's own note — but its remaining checks (a)–(f) all still hold and its `[X]` marking
 > is unaffected by T005's exception.
 >
-> **PR review round 6 clarifications (no further checkbox changes):** a later review
-> round asked whether T012 (Foundational checkpoint, whose header names T005 among its
-> dependencies) and T033 (Tier-2 `specify extension add --dev` invocation, whose
-> mutation bracket had a task-decomposition gap found in round 4) should also be
-> unchecked, and whether T042 (bundle-completeness checkpoint) needed adjustment. All
-> three remain `- [X]`: each task's own literally-described action was fully,
-> genuinely performed, and the concerns raised are about a dependency's separate
-> substantive defect (T012) or a historical evidence-recording gap (T033) or neither
-> (T042 — field existence was and remains true) — not about whether the task's own
-> defined check was actually done. See T012's, T033's, and T042's own notes below for
-> the full reasoning, and `checklists/evidence-index.md`'s Limitations section for the
-> tracked, cross-referenced account. Language in T033's and T057's notes that
-> previously described the round-4 corroborating entry as "closing" the original
-> bracket gap was corrected: it corroborates only and cannot retroactively supply a
-> capture that was never taken.
+> **PR review round 6 clarifications (superseded in part by round 11 below):** a later
+> review round asked whether T012 (Foundational checkpoint, whose header names T005
+> among its dependencies) and T033 (Tier-2 `specify extension add --dev` invocation,
+> whose mutation bracket had a task-decomposition gap found in round 4) should also be
+> unchecked, and whether T042 (bundle-completeness checkpoint) needed adjustment. At
+> the time, all three were kept `- [X]`: each task's own literally-described action was
+> judged fully, genuinely performed, and the concerns raised were read as being about a
+> dependency's separate substantive defect (T012) or a historical evidence-recording
+> gap (T033) or neither (T042 — field existence was and remains true) — not about
+> whether the task's own defined check was actually done. **Round 11 correctly
+> identified that this reasoning does not hold for T012 specifically** — see the
+> correction immediately below. T033 and T042 are unaffected by round 11 and remain
+> `- [X]`; see their own notes below for the full reasoning, and
+> `checklists/evidence-index.md`'s Limitations section for the tracked, cross-referenced
+> account. Language in T033's and T057's notes that previously described the round-4
+> corroborating entry as "closing" the original bracket gap was corrected: it
+> corroborates only and cannot retroactively supply a capture that was never taken.
+>
+> **PR review round 11 correction: T012 is now marked incomplete (`- [ ]`).** A reviewer
+> correctly noted that every other "Depends on: X" reference in this document treats X's
+> own checkbox — not merely X's output — as the thing being depended on, and that T012's
+> entire and sole stated action IS dependency-set certification, so it cannot
+> self-consistently exempt itself from that convention while T005 remains explicitly
+> unchecked. The round-6 "outputs exist and cohere" reading, while textually arguable in
+> isolation, is inconsistent with the document's own established convention and amounted
+> to redefining the gate rather than honestly reporting it unmet. T012 is corrected to
+> `- [ ]`; see T012's own note below for the full account. This correction does **not**
+> cascade to T013 onward: each of those tasks has its own distinct, literally-described
+> action (initialize a project, record a transcript, validate a field, etc.) that does
+> not itself re-certify T005's mechanism-selection quality or T012's dependency-set
+> status, and each remains independently evidenced as genuinely performed.
 
 > ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now checked (see the executed-summary callout above).**
 >
@@ -339,35 +356,49 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   `<EVIDENCE_DIR>/cli-build.json`. Depends on: T003 only (no scratch-workspace
   dependency); may run any time after the gate passes, including before T005–T010.
 
-- [X] T012 Checkpoint: Foundational complete. Depends on: T004 (`reverificationOutcome
+- [ ] T012 Checkpoint: Foundational complete. Depends on: T004 (`reverificationOutcome
   === "match"` — if `"mismatch"`, this checkpoint is never reached; the spike already
   stopped at T004), T005, T006, T007, T008, T009, T010, T011. Confirm all seven outputs
   exist and are internally consistent (e.g. the fixture's `commandName` in T008's
   manifest matches the `scripts:` reference T009 wrote and the file T010 made
   executable). No User Story task below may begin until this checkpoint is confirmed.
-  **Scope clarification (PR review round 6):** a reviewer comment read "Depends on:
-  ..., T005, ..." as requiring T005 to fully satisfy T005's *own* separate substantive
-  contract (select the strongest available network-denial mechanism) before this
-  checkpoint can count as confirmed, and — since T005 does not (see T005's own note) —
-  argued this checkpoint and its downstream dependents should be marked incomplete too.
-  This checkpoint's own literal action, as written above, is narrower and different:
-  *confirm the seven listed outputs exist and are internally consistent* — not
-  *re-certify that each dependency's own selection/decision was optimal*. That
-  narrower check is true without qualification: T005's `NetworkDenialRecord` does
-  exist and is internally consistent in shape (`mechanismUsed`, `limitationsStatement`,
-  `appliedToInvocations` all correctly populated) — its documented defect is in the
-  *mechanism-selection decision* T005 recorded, not in whether the record exists or
-  coheres with the other six outputs. This checkpoint's own gating *function* (block
-  User Story work until genuine outputs exist) was also never violated: work only
-  began once all seven outputs, including T005's actual — imperfect — recorded output,
-  genuinely existed. For this reason this checkpoint remains `- [X]`, and the downstream
-  checkpoints that cite "Depends on: T012" (US1/US2/US3/US5) are unaffected and require
-  no further change: none of them re-litigates T005's mechanism-selection decision
-  either, and their own literal actions (recording transcripts, checking mutation
-  baselines, validating bundle-field existence, etc.) are independent of it. This
-  reasoning mirrors T057's own note above, applied here explicitly because a reviewer
-  named this checkpoint specifically. See `evidence-index.md`'s Limitations section for
-  the tracked, cross-referenced version of this clarification.
+  **Corrected per PR review round 11 (superseding the round-6 scope clarification
+  below):** a reviewer correctly noted that this document's own "Depends on: X"
+  convention, used consistently for every other task, treats X's own checkbox as the
+  thing depended on — not merely X's output existing — and that T012's entire and sole
+  stated action IS certifying that its named dependency set is satisfied, so it cannot
+  read its own "Depends on: ..., T005, ..." header more narrowly than every other task
+  in this document reads an identical construct. Because T005 remains explicitly
+  unchecked (`- [ ]`, see T005's own note), T012's formal dependency-satisfaction claim
+  is not true, and this checkpoint is corrected to `- [ ]`. **Round 6's original
+  reasoning (retained below for the record, no longer the operative conclusion):** a
+  reviewer comment read "Depends on: ..., T005, ..." as requiring T005 to fully satisfy
+  T005's *own* separate substantive contract (select the strongest available
+  network-denial mechanism) before this checkpoint can count as confirmed, and —
+  since T005 does not (see T005's own note) — argued this checkpoint and its downstream
+  dependents should be marked incomplete too. The round-6 response read this
+  checkpoint's own literal action as narrower and different: *confirm the seven listed
+  outputs exist and are internally consistent* — not *re-certify that each dependency's
+  own selection/decision was optimal*. That narrower check is independently true
+  without qualification: T005's `NetworkDenialRecord` does exist and is internally
+  consistent in shape (`mechanismUsed`, `limitationsStatement`, `appliedToInvocations`
+  all correctly populated) — its documented defect is in the *mechanism-selection
+  decision* T005 recorded, not in whether the record exists or coheres with the other
+  six outputs. This narrower sub-check remains true and is not itself disputed by round
+  11; what round 11 disputes is treating that narrower sub-check as sufficient to claim
+  the checkpoint's own formal "Depends on" list is satisfied. **What does not change:**
+  this checkpoint's gating *function* (block User Story work until genuine outputs
+  exist) was never violated in substance — work only began once all seven outputs,
+  including T005's actual — imperfect — recorded output, genuinely existed — and the
+  downstream checkpoints that cite "Depends on: T012" (US1/US2/US3/US5, including T042)
+  are unaffected and require no further change: none of them re-litigates T005's
+  mechanism-selection decision or T012's own dependency-set-certification status either,
+  and their own literal actions (recording transcripts, checking mutation baselines,
+  validating bundle-field existence, etc.) are independent of it — this is the same
+  "own distinct literal action, independent of an upstream defect" reasoning already
+  applied, and left uncontested, to T033's and T042's relationship to T005's gap. See
+  `evidence-index.md`'s Limitations section for the tracked, cross-referenced version of
+  both the round-6 and round-11 reasoning.
 
 ---
 
@@ -744,17 +775,22 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   genuinely missing (not merely "recorded as an unsafe/failing result," which is a
   populated field, just an unfavorable one), stop and complete the missing evidence-
   gathering task before proceeding to T043.
-  **Scope clarification (PR review round 6):** a reviewer comment asked whether this
-  checkpoint should also be adjusted given the T012/T005 and T033 findings noted above.
-  This checkpoint's own literal action is confirming *field existence* (and, for
-  `mutationBaselines`, that each present entry's `identical` field was checked) — at
-  the time this task ran, every listed field, including `mutationBaselines` (six
-  Tier-1 entries) and `networkDenial`, genuinely existed and was populated. Neither the
-  T033 Tier-2 bracket gap nor T005's mechanism-selection defect is a *missing field* —
-  both are populated fields with a disclosed content-level limitation, which is exactly
-  the case this task's own text says to let through ("recorded as an unsafe/failing
-  result... is a populated field, just an unfavorable one"). This checkpoint remains
-  `- [X]` for that reason.
+  **Scope clarification (PR review round 6; reaffirmed unchanged by round 11):** a
+  reviewer comment asked whether this checkpoint should also be adjusted given the
+  T012/T005 and T033 findings noted above. This checkpoint's own literal action is
+  confirming *field existence* (and, for `mutationBaselines`, that each present entry's
+  `identical` field was checked) — at the time this task ran, every listed field,
+  including `mutationBaselines` (six Tier-1 entries) and `networkDenial`, genuinely
+  existed and was populated. Neither the T033 Tier-2 bracket gap nor T005's
+  mechanism-selection defect is a *missing field* — both are populated fields with a
+  disclosed content-level limitation, which is exactly the case this task's own text
+  says to let through ("recorded as an unsafe/failing result... is a populated field,
+  just an unfavorable one"). Round 11 subsequently corrected T012 itself to `- [ ]`
+  (see T012's own note) because T012's action IS dependency-set certification, making
+  it inseparable from T005's gap by this document's own "Depends on" convention; this
+  checkpoint's action (field existence) is not dependency-set certification and remains
+  separable from both T005's and T012's gaps by the same convention. This checkpoint
+  remains `- [X]` for that reason.
 
 - [X] T043 [US5] Evaluate Step 1 — `no-go` (checked first; dominates). Check, against
   the assembled bundle: any `MutationBaseline.identical === false` (T019, T026); any row
@@ -935,11 +971,15 @@ Depends on: T054, T055, T056.
   retroactively close the original invocation's gap); this update happened after, not
   as part of, the six audit rounds recorded here. A further PR review round (6) also
   flagged T012's "Depends on: ..., T005, ..." checkpoint header as potentially implying
-  T005 fully satisfies its own contract; T012's own note above explains why that
-  checkpoint remains `- [X]` (its own literal action is existence/consistency, not
-  re-certification of T005's mechanism-selection decision) — again outside the six
-  audit rounds' own defined scope (a)–(f), which never asked "does any dependency's
-  header wording risk being misread this way." **PR review round 7** correctly flagged
+  T005 fully satisfies its own contract; round 6's response argued the checkpoint's own
+  literal action is existence/consistency, not re-certification, and kept it `- [X]`.
+  **PR review round 11 corrected this**: T012's action IS dependency-set certification,
+  which this document's own "Depends on" convention (used identically everywhere else)
+  requires the named dependency's checkbox — not merely its output — to be satisfied;
+  T012 is now marked `- [ ]` (see T012's own note for the full account). Like T005's
+  gap, this was outside the six audit rounds' own defined scope (a)–(f), which never
+  asked "does any dependency's header wording risk being misread this way." **PR review
+  round 7** correctly flagged
   that the six audit rounds above converged their final PASS against the bundle's
   original **6-entry** `mutationBaselines` corpus — the corroborating 7th entry
   (`install-tier2-second-agent`, added afterward in PR review round 4, per the paragraph

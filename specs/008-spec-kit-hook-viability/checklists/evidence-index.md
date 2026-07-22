@@ -322,24 +322,37 @@ file's content hash and mtime are unchanged by disable).
   signature as the Tier-1 `install` finding, corroborating (not changing)
   the existing `no-go` verdict, which already fires independently from the
   Tier-1 corpus alone.
-- **T012's checkpoint header and T005's dependency listing, PR review round 6**: a
-  reviewer read T012's "Depends on: ..., T005, ..." header as implying T005 fully
-  satisfies T005's own separate substantive contract (select the strongest available
-  network-denial mechanism), and — since it does not — argued T012 (and its
-  transitive dependents) should be marked incomplete too. T012's own literally
-  defined action is narrower: *confirm the seven listed outputs exist and are
-  internally consistent* — not *re-certify each dependency's own selection decision*.
-  That narrower check is true without qualification, including for T005's
-  `NetworkDenialRecord`, which does exist and is internally consistent in shape; its
-  documented defect is in the selection decision it records, not in whether the
-  record exists or coheres with the other six outputs. T012's own gating function
-  (block User Story work until genuine outputs exist) was also never violated. For
-  this reason T012 remains `- [X]` in `tasks.md` (see T012's own note for the full
-  reasoning), and downstream checkpoints citing "Depends on: T012" transitively
-  (US1/US2/US3/US5, including T042) are unaffected — T042's own note explains why it,
-  too, requires no adjustment. T033's task-decomposition gap above is unrelated to
-  this finding; both are grouped here only because PR review round 6 raised them in
-  the same review pass.
+- **T012 checkpoint dependency gap, discovered via PR review rounds 6 and 11 — T012 is
+  now marked incomplete (`- [ ]`) in `tasks.md` as a direct result**: PR review round 6
+  first raised whether T012's header ("Depends on: ..., T005, ...") requires T005 to
+  fully satisfy T005's own separate substantive contract (select the strongest
+  available network-denial mechanism) before T012 can count as confirmed. At the time
+  this was resolved by reading T012's own literal action narrowly — *confirm the seven
+  listed outputs exist and are internally consistent*, not *re-certify each
+  dependency's own selection decision* — and T012 stayed `- [X]` on that basis; that
+  narrower sub-check is independently true (T005's `NetworkDenialRecord` does exist and
+  is internally consistent in shape, and T012's own gating function — block User Story
+  work until genuine outputs exist — was never violated). **PR review round 11
+  correctly identified that this narrower reading is inconsistent with how every other
+  "Depends on: X" reference in this document is used**: elsewhere, a dependency's own
+  checkbox — not merely its output's existence — is what is depended on, and T012's
+  entire and sole stated action IS dependency-set certification, so it cannot
+  self-consistently exempt itself from that convention. Per this feedback, T012 is
+  corrected to `- [ ]` in `tasks.md` (see T012's own note there for the full account):
+  the checkpoint's formal dependency-satisfaction claim is not true while T005 remains
+  explicitly unchecked, even though T012's own narrower sub-check (do the seven outputs
+  exist and cohere) remains independently true. **This correction does not cascade**:
+  downstream checkpoints citing "Depends on: T012" (US1/US2/US3/US5, including T042)
+  are unaffected — each has its own distinct, literally-described action (recording a
+  transcript, validating field existence, etc.) that does not itself re-certify T005's
+  mechanism-selection quality or T012's dependency-set-certification status, and each
+  remains independently evidenced as genuinely performed. This is the same reasoning
+  already applied, and left uncontested by round 11, to T033's and T042's relationship
+  to T005's gap. T012 is the sole task among the 58 whose own defined action
+  (dependency-set certification) makes it inseparable from a disclosed upstream gap;
+  every other task's own defined action is separable from it. T033's unrelated
+  task-decomposition gap above is grouped here only because PR review round 6 raised
+  both findings in the same review pass.
 
 ## Independent audit
 
@@ -411,18 +424,31 @@ the session-scoped evidence bundle, not ADR-0014's rung-2 maturity state
 isolated reference repository — the bar Phase 6 met); **"reference-verified"
 is deliberately not claimed for this spike**. It is **not released**, **not
 externally validated**, and **not adopted**. Its own contract verdict is
-**`no-go`** (mutation trigger, both install and remove). One task, **T005**,
-is explicitly left incomplete in `tasks.md` (`- [ ]`) — its own
+**`no-go`** (mutation trigger, both install and remove). Two tasks are
+explicitly left incomplete in `tasks.md` (`- [ ]`): **T005** — its own
 mechanism-selection did not meet the contract's strongest-available-mechanism
 requirement (see Limitations, above); this does not invalidate the
 invocations it gated (fully evidenced under rank 3) or change the `no-go`
-verdict. It is a disposable compatibility spike, not a shipped adapter or
-integration
+verdict — and **T012** — the Foundational checkpoint's own defined action is
+certifying its full named dependency set (including T005) is satisfied, and
+per PR review round 11 it cannot claim that while T005 remains unchecked,
+even though T012's narrower sub-check (its seven listed outputs exist and
+cohere) is independently true and its gating function was never violated
+(see the Limitations entry above for the full account). Neither exception
+cascades to the User Story tasks (T013 onward), each of which has its own
+independently-evidenced, literally-described action. It is a disposable
+compatibility spike, not a shipped adapter or integration
 (`spec.md`: "It does not produce that adapter"). Feature 009
 (`specs/009-catalog-binding-viability/`) is separately governance-authorized
 (its own preconditions are already satisfied) but was, per root `plan.md`'s
 execution sequence, deliberately **scheduled to run only after this spike
-completed end-to-end** — this index records that completion. Feature 009
-still requires its own technical safety gate (a genuinely blocking
-network-denial mechanism, FR-018/T006) at execution time; this index does not
-itself initiate, weaken, or bypass that gate.
+completed end-to-end**; this spike did execute end-to-end and reach a
+recorded verdict, **but with the T005/T012 exceptions above disclosed and
+unresolved** — this index reports that state honestly rather than declaring
+the "completed end-to-end" precondition unconditionally, cleanly satisfied.
+Whether that state is sufficient to begin feature 009 is a judgment this
+index does not make; it is left to root `plan.md`'s own maintainer review at
+the time feature 009 is next considered. Feature 009 still requires its own
+technical safety gate (a genuinely blocking network-denial mechanism,
+FR-018/T006) at execution time; this index does not itself initiate, weaken,
+or bypass that gate.

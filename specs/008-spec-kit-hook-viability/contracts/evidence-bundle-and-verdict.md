@@ -48,6 +48,16 @@ negative-test results (including fail-closed probes), and a reviewer verdict.
 This is a future landing requirement only; the current scoped-but-unexecuted
 spike has no such evidence to record yet.
 
+> ✅ **Status update — Executed 2026-07-22.** The paragraph above describes this
+> contract's applicability *before* execution and is retained as the historical
+> scoping record; it no longer describes the current state. This landing requirement
+> has since been satisfied: the tracked, sanitized index is
+> [`../checklists/evidence-index.md`](../checklists/evidence-index.md), and the
+> recorded verdict is **`no-go`** (mutation trigger). See
+> [`../tasks.md`](../tasks.md)'s executed-summary banner for the authoritative,
+> current status, including two explicit task exceptions (T005, T012) left unchecked
+> per PR review.
+
 ## 2. Verdict Decision Procedure (SC-007) — Fixed Precedence, Exhaustive, Mutually Exclusive
 
 Evaluate in **exactly** this order. Stop at the first rule that matches.
