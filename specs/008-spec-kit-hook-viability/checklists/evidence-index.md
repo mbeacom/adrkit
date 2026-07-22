@@ -20,8 +20,12 @@ itself.
 **Executed**: 2026-07-22
 **Feature**: [spec.md](../spec.md) · [tasks.md](../tasks.md)
 **Reviewer verdict**: PASS on evidence-bundle integrity and internal
-consistency (fresh-context audit, GPT-5.6 Sol, six cumulative audit rounds,
-each finding and closing genuine defects before the final PASS — see
+consistency (fresh-context audit, GPT-5.6 Sol, six cumulative audit rounds
+against the original 6-entry `mutationBaselines` corpus, each finding and
+closing genuine defects before the final PASS, **plus a seventh, targeted
+audit pass** (PR review round 7) independently confirming the current
+7-entry bundle — after a corroborating entry was added post-audit in PR
+review round 4 — remains internally consistent and verdict-unchanged; see
 [Independent audit](#independent-audit) below). The spike's own **contract
 verdict** (`no-go`) is a separate, orthogonal outcome — see
 [Verdict](#verdict-t042-t048).
@@ -40,7 +44,7 @@ verdict** (`no-go`) is a separate, orthogonal outcome — see
 | Live Copilot lifecycle sessions (model) | `claude-sonnet-5` (per this session's model policy — never Opus 4.6) |
 | Independent evidence audit (model) | `gpt-5.6-sol` (heavyweight tier, fresh context, no authoring history) |
 | Fixture source file hashes (SHA-256) | `extension.yml` `b3765114...986b9d3`; `commands/probe.md` `11f88504...b9a33c2`; `scripts/probe.sh` `b6eac379...41b3fbdb` |
-| **Evidence bundle file hashes (SHA-256, full digests)** | `spike-008-evidence.json`: `d91934a0b55cd6e312c53d0372bc4de6d0877d054e8d1fce24bf100658ad7494`; `spike-008-evidence.md`: `055c12d9e228823ea40715aaee78e0ad9ba22012f24ca08e9b4b453b74a25aef` (per `contracts/evidence-bundle-and-verdict.md` §1's two-file bundle definition; both files are session-scoped only, per FR-017 — these digests let a reader verify a copy of either file against this index without the file itself being committed) |
+| **Evidence bundle file hashes (SHA-256, full digests)** | `spike-008-evidence.json`: `5433c588a55866090afdbad65935c606cdf451db35b0bbb6e35fb531d3a3aea7`; `spike-008-evidence.md`: `8a45a237d1a44e170fbef89ed4d76a7654d2b2ad40ac3a6972d654cce2a850c3` (per `contracts/evidence-bundle-and-verdict.md` §1's two-file bundle definition; both files are session-scoped only, per FR-017 — these digests let a reader verify a copy of either file against this index without the file itself being committed; **recomputed in PR review round 7** after that round's fixes — see [Independent audit](#independent-audit) — to a 7-entry `mutationBaselines` bundle; the round-4/round-6-era digests these superseded are not separately retained here since only the current, correct bundle state is a useful verification target) |
 
 ## Scratch environment (not tracked, not committed)
 
@@ -134,7 +138,7 @@ literal, strict byte-identical `git status --porcelain=v1` bar):
 | 3 | remove | `false` | **mutation** |
 | 4 | probe-absent-context | `true` | — |
 | 5 | probe-absent-cli | `true` | — |
-| 6 | install-tier2-second-agent (PR review round 4, see below) | `false` | *(corroborating — not counted as a distinct verdict-driving axis)* |
+| 6 | install-tier2-second-agent (PR review round 4, see below) | `false` | **mutation** *(fires the same trigger per the literal formula; corroborating only — not counted as a distinct verdict-driving axis)* |
 
 Row 6 was added in **PR review round 4 remediation**, in response to a PR-review
 finding that T033's Tier-2/second-agent `specify extension add --dev` invocation had
@@ -210,11 +214,15 @@ file's content hash and mtime are unchanged by disable).
   verdict, whatever it turned out to be, was never contingent on or coupled
   to it.
 - This spike's own execution is **reference-verified by independent audit**
-  (six cumulative fresh-context audit rounds against the evidence bundle,
-  each round finding and closing genuine defects, converging to a final PASS
-  on internal consistency) — it is **not** externally validated and **not**
-  community-adopted. ADR-0014 rung-3 external/community signal remains open
-  and is not claimed here.
+  (six cumulative fresh-context audit rounds against the original 6-entry
+  Tier-1 `mutationBaselines` corpus, each round finding and closing genuine
+  defects, converging to a final PASS on internal consistency; **plus a
+  seventh, targeted audit pass, PR review round 7**, independently
+  confirming the current 7-entry bundle — after a corroborating entry was
+  added post-audit in PR review round 4 — remains internally consistent,
+  schema-conformant, and verdict-unchanged) — it is **not** externally
+  validated and **not** community-adopted. ADR-0014 rung-3 external/community
+  signal remains open and is not claimed here.
 - Whether the `no-go` outcome should be read as "the criterion, as literally
   written, was too strict for a designed-to-mutate lifecycle action" is a
   scoping/contract-revision judgment left for a future, separately-authorized
@@ -321,7 +329,47 @@ precedence, non-empty and correctly-shaped `drivingEvidence`,
 `no-go` outcome, the Phase-6-maturity restatement present and correctly
 worded, and no fabricated or paraphrased-as-verbatim evidence — held
 throughout every remediation cycle, with the master bundle's exactly-14-field
-shape and 6-entry `mutationBaselines` array unchanged.
+shape and 6-entry `mutationBaselines` array unchanged. **This PASS was scoped
+to the bundle as it existed at that time — a 6-entry `mutationBaselines`
+array.**
+
+**Seventh audit pass (PR review round 7).** A corroborating 7th
+`mutationBaselines` entry (`install-tier2-second-agent`) was added afterward,
+during PR review round 4 remediation (see [Verdict](#verdict-t042-t048)'s
+row 6 and the Limitations bullet above) — meaning the six-round "final PASS"
+above was never actually performed against the bundle's current, 7-entry
+state. A PR reviewer correctly flagged this as a genuine temporal/scope
+mismatch (distinct from round 6's findings, which were wording-only). Rather
+than merely re-scoping the "reference-verified" claim, a seventh independent
+fresh-context audit pass (`gpt-5.6-sol`, no authoring context) was dispatched
+against the checks (a)–(f) above, applied to the current bundle, plus a new
+check (g) covering the 7th entry's own schema conformance and narrative
+consistency. That pass returned **FAIL** on first inspection, correctly
+finding five real, previously undetected defects: (1) the Markdown's
+"Bundle completeness" section still stated "6 entries" unqualified; (2) the
+7th entry itself deviated from the schema/convention followed by the other
+six on `gitTreeRoot` (held a literal path instead of the generic
+`"scratch-project"` label), `adrDiffStatBefore`/`adrDiffStatAfter` (held
+descriptive strings instead of `null`), and — most substantively —
+`noGoTriggerFired`/`noGoTriggerType` (`false`/`null` despite
+`identical: false`, contradicting the literal `data-model.md` §5 formula
+applied to every other entry); (3) the entry's own `analysis` text still used
+"closing"/"closes" language for the FR-012 gap, a defect round 6 had already
+fixed everywhere else but had missed in this one raw JSON field; (4) the
+entry's own `evidenceRound`/`analysis` fields mislabeled the change as
+"round-6" when every tracked repository file consistently and correctly
+attributes it to PR review round 4; (5) `verdict.otherTriggersChecked`
+lacked a corresponding 7th key for consistency with its established
+one-key-per-entry pattern. All five were fixed; the corrected bundle's
+`noGoTriggerFired`/`noGoTriggerType` for the 7th entry are now `true`/
+`"mutation"` (it does independently fire the same trigger, honestly, and is
+excluded from `drivingEvidence` only because it corroborates an
+already-established axis rather than adding a distinct one — this does not
+change the outcome, which remains `no-go`/`mutation` from rows 0 and 3
+alone). The bundle's exactly-14-top-level-field shape is unchanged; the
+`mutationBaselines` array is now 7 entries, all schema-conformant, and the
+verdict, precedence, `drivingEvidence`, and Phase-6-maturity restatement were
+all independently re-confirmed unchanged and correct by this same pass.
 
 ## Honest maturity label
 

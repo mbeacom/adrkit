@@ -33,8 +33,12 @@ satisfied; spike execution is authorized once this migration merges.
 > Step 1, so T044/T045 were not evaluated and T047 does not apply — see each task's own
 > note). Verdict: **`no-go`** (trigger: `mutation`, driven independently by the `install`
 > and `remove` mutation baselines). Independently audited (fresh-context, `gpt-5.6-sol`,
-> six cumulative audit rounds converging to a final PASS on evidence-bundle integrity —
-> see T057). The tracked, sanitized FR-024 evidence index is
+> six cumulative audit rounds converging to a final PASS on evidence-bundle integrity
+> against the original 6-entry `mutationBaselines` corpus, **plus a seventh, targeted
+> audit pass in PR review round 7** independently confirming the current 7-entry bundle
+> — after a corroborating entry was added post-audit in PR review round 4 — remains
+> internally consistent and verdict-unchanged, after fixing 5 real defects it found in
+> the process — see T057). The tracked, sanitized FR-024 evidence index is
 > [`checklists/evidence-index.md`](./checklists/evidence-index.md). Raw transcripts and the
 > full evidence bundle remain session-scoped only, per FR-017. This spike did **not**
 > change Phase 6's landed/reference-verified status in any direction, and does **not**
@@ -931,7 +935,29 @@ Depends on: T054, T055, T056.
   checkpoint remains `- [X]` (its own literal action is existence/consistency, not
   re-certification of T005's mechanism-selection decision) — again outside the six
   audit rounds' own defined scope (a)–(f), which never asked "does any dependency's
-  header wording risk being misread this way."
+  header wording risk being misread this way." **PR review round 7** correctly flagged
+  that the six audit rounds above converged their final PASS against the bundle's
+  original **6-entry** `mutationBaselines` corpus — the corroborating 7th entry
+  (`install-tier2-second-agent`, added afterward in PR review round 4, per the paragraph
+  above) was never itself independently audited. Rather than only re-scoping this note's
+  wording, a **seventh** fresh-context audit pass (`gpt-5.6-sol`, no authoring context)
+  was dispatched against checks (a)–(f) applied to the current 7-entry bundle, plus a new
+  check (g) specific to the 7th entry's own schema conformance and narrative consistency.
+  That pass returned an initial **FAIL**, correctly finding five real, previously
+  undetected defects confined entirely to the 7th entry and its surrounding prose: stale
+  "6 entries" wording in the Markdown's bundle-completeness section; a misleadingly
+  presented stderr excerpt; the 7th entry's `gitTreeRoot`/`adrDiffStatBefore`/
+  `adrDiffStatAfter` fields deviating from the schema/convention followed by the other
+  six; the 7th entry's `noGoTriggerFired`/`noGoTriggerType` (`false`/`null`) contradicting
+  its own `identical: false` value under the literal formula every other entry follows;
+  and the 7th entry's own `analysis`/`evidenceRound` fields mislabeling its origin as
+  "round-6" instead of the correct "PR review round 4." All five were fixed and the
+  corrected bundle was independently re-confirmed unchanged on outcome, precedence,
+  `drivingEvidence`, and the Phase-6-maturity restatement. See
+  [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s "Independent audit"
+  section for the full account. T057's own checkbox remains `- [X]`: its own
+  literally-described action (dispatch, check, converge to PASS or remediate) was
+  performed correctly across all seven rounds, including this one.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
