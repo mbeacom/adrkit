@@ -403,11 +403,14 @@ file's content hash and mtime are unchanged by disable).
   rule's own precondition genuinely holding. This document accepts that characterization
   — see the "Honest maturity label" section below and root `plan.md`'s Phase 7 row for the
   corrected overall status wording. This is the same reasoning already applied, and left
-  uncontested by round 11, to T033's and T042's relationship to T005's gap. T012 is the
-  sole task among the 58 whose own defined action (dependency-set certification) makes it
-  inseparable from a disclosed upstream gap; every other task's own defined action is
-  separable from it. T033's unrelated task-decomposition gap above is grouped here only
-  because PR review round 6 raised both findings in the same review pass.
+  uncontested by round 11, to T033's and T042's relationship to T005's gap. T012 and
+  **T057** are the two tasks among the 58 whose own defined actions (dependency-set
+  certification, and remediating any defect found before T058, respectively) make each
+  inseparable from a disclosed upstream gap — T057's own remediation-before-T058 rule was
+  not honored either (PR review round 18, see "Independent audit" below) — while every
+  other task's own defined action is separable from both gaps. T033's unrelated
+  task-decomposition gap above is grouped here only because PR review round 6 raised both
+  findings in the same review pass.
 
 ## Independent audit
 

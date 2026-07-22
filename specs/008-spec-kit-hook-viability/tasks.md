@@ -1201,8 +1201,11 @@ Depends on: T054, T055, T056.
   this task's own text above), not something this uncheck-or-not determination decides
   unilaterally.
 
-**Checkpoint**: Spike execution complete. One verdict, independently audited, reported.
-No production package scoped, scheduled, or committed to by this file's execution.
+**Checkpoint**: Spike execution complete, **out-of-contract on two blocking gates
+(T012's and T057's own — see the top banner above and root `plan.md`'s Phase 7 row)**.
+One verdict, independently audited, reported. No production package scoped, scheduled,
+or committed to by this file's execution. The 008→009 sequencing precondition is
+correspondingly **not** established as satisfied by this checkpoint alone.
 
 ---
 
