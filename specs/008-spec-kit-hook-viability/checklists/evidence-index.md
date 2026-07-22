@@ -122,7 +122,7 @@ assessing rank-1 availability on macOS hosts.
 evaluated and matched at Step 1; Steps 2–3 were not evaluated (contract's
 fixed short-circuit rule).
 
-**Trigger: `mutation`**, driven independently by **two** of six
+**Trigger: `mutation`**, driven independently by **two** of six original-corpus
 `MutationBaseline` entries (each alone is sufficient under the contract's
 literal, strict byte-identical `git status --porcelain=v1` bar):
 
@@ -134,10 +134,34 @@ literal, strict byte-identical `git status --porcelain=v1` bar):
 | 3 | remove | `false` | **mutation** |
 | 4 | probe-absent-context | `true` | — |
 | 5 | probe-absent-cli | `true` | — |
+| 6 | install-tier2-second-agent (PR review round 4, see below) | `false` | *(corroborating — not counted as a distinct verdict-driving axis)* |
+
+Row 6 was added in **PR review round 4 remediation**, closing a PR-review finding that
+T033's Tier-2/second-agent `specify extension add --dev` invocation had no
+bracketed `MutationBaseline` of its own in the original bundle (only T034's
+*structural rendering* check covered that invocation, not its mutation
+footprint). A fresh, git-initialized scratch project was used to capture a
+tightly-bracketed before/after `git status` around that exact command
+(exit 0; before: empty; after: the same four-new-untracked-path signature as
+row 0). It is recorded as **corroborating, not verdict-driving**, evidence:
+the `no-go` trigger already fires independently and sufficiently from rows 0
+and 3 (the original Tier-1 corpus), so row 6 changes nothing about the
+outcome — it exists solely to close the FR-012 completeness gap Copilot's
+review correctly identified. The fixture instance used for row 6 is a fresh,
+schema-conformant recreation (the original round-4/round-5 on-disk fixture no
+longer existed in this environment when the gap was discovered): its
+`extension.yml` is byte-identical to the original
+(`sha256:b37651147a063b6c7591712a09cf72eacedafebd3d43405625a2a225b986b9d3`,
+matching `contracts/upstream-target.md`'s fixed literal manifest verbatim);
+its `commands/probe.md`/`scripts/probe.sh` were freshly re-authored from
+`contracts/fixture-surface.md`'s frozen contract text (which explicitly
+labels those two files' exact bytes as "illustrative," only their behavior as
+frozen) and do **not** hash-match the original round-4-corrected instance —
+disclosed honestly here, never claimed as byte-identical.
 
 `install` and `remove` are the same structural class of finding: a designed
 lifecycle action that changes which files are present cannot satisfy a
-literal byte-identical git-status bar. The remaining four entries are
+literal byte-identical git-status bar. The remaining four Tier-1 entries are
 read-only or flag-only operations and are genuinely identical. Separately,
 all six rows of the removal-completeness check (`SC-004`) independently
 **passed** — SC-004 (did removal clean up correctly and completely) is a
@@ -217,6 +241,27 @@ file's content hash and mtime are unchanged by disable).
   cumulative independent audit rounds (see below) did not catch this gap
   either, prior to this PR review — that is itself a documented limitation of
   the audit process's environment-capability coverage, not just of T005.
+- **T033 Tier-2 mutation-bracket completeness gap, discovered post-hoc via
+  independent PR review (PR round 4)**: the original evidence bundle's six
+  `MutationBaseline` entries all belong to the Tier-1 (single-project) lifecycle;
+  T033's Tier-2 (second-agent) `specify extension add --dev` invocation had no
+  bracketed before/after `git status` capture of its own — only T034's
+  structural rendering check covered that invocation, and only for file
+  *shape*, not for the mutation *comparison* FR-012 requires. This was a
+  genuine completeness gap, not merely cosmetic. It was closed by adding a
+  7th, corroborating `MutationBaseline` entry (`install-tier2-second-agent`;
+  see the Verdict section's table above) captured against a freshly
+  recreated fixture instance in a dedicated Tier-2-style scratch project,
+  git-initialized specifically to bracket this one command. The recreated
+  fixture's `extension.yml` is byte-identical to the frozen original
+  (`contracts/upstream-target.md`'s literal manifest); its `probe.md`/
+  `probe.sh` are freshly re-authored per `contracts/fixture-surface.md`'s
+  explicit "illustrative shape" allowance for those two files and do not
+  hash-match the original — disclosed here, not claimed otherwise. The new
+  entry reproduces the identical four-new-untracked-path structural
+  signature as the Tier-1 `install` finding, corroborating (not changing)
+  the existing `no-go` verdict, which already fires independently from the
+  Tier-1 corpus alone.
 
 ## Independent audit
 

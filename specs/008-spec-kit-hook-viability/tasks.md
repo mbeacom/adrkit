@@ -38,6 +38,18 @@ satisfied; spike execution is authorized once this migration merges.
 > full evidence bundle remain session-scoped only, per FR-017. This spike did **not**
 > change Phase 6's landed/reference-verified status in any direction, and does **not**
 > claim external/community validation for either Phase 6 or itself.
+>
+> **Qualification (discovered via PR #35 review, after all six audit rounds above):**
+> T005's own selection of the network-denial mechanism did not detect this host's
+> genuinely-available rank-1 mechanism (`sandbox-exec`), so rank 3 gated the recorded
+> `install`/`hook-fire`/probe invocations instead of the strongest available option —
+> see T005's own note and `checklists/evidence-index.md`'s Limitations section for the
+> full account. `T005` and `T057` are therefore marked `- [X]` in the sense that their
+> literal recording/audit *actions* were performed, **not** in the sense that T005's
+> selection was fully contract-conformant or that T057's audit caught every gap (it did
+> not catch this one). This does not change the `no-go` verdict, which is driven
+> independently by the mutation baseline (an orthogonal axis), and was not remediated by
+> re-running the full live-Copilot lifecycle under the stronger mechanism.
 
 > ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now checked (see the executed-summary callout above).**
 >
@@ -537,6 +549,13 @@ precondition explicitly).
   path overlap with T028–T032** (entirely separate scratch project) — may run in
   parallel with the disable/remove sequence. Depends on: T012 (Foundational fixture
   exists) only, not on T028–T032.
+  **Post-execution correction (PR round 4):** this task's own `specify
+  extension add --dev` invocation had no bracketed `MutationBaseline` in the original
+  bundle — only T034's structural rendering check covered it, not its mutation
+  footprint. A dedicated before/after `git status` capture was added afterward (see
+  `evidence-index.md`'s Verdict section, row 6, and `mutation-baselines.json`'s
+  `install-tier2-second-agent` entry under `<EVIDENCE_DIR>`) to close this FR-012
+  bracketing gap. Recorded as corroborating, not verdict-driving, evidence.
 
 - [X] T034 [US3] Structurally inspect the Tier-2 rendered command/hook files
   (`contracts/agent-verification.md` §3 — `AgentRenderingCheck` shape; `liveInvocationPerformed`
@@ -813,6 +832,17 @@ Depends on: T054, T055, T056.
   correctly worded, and (f) no fabricated or assumed evidence (every transcript excerpt
   traces to an actual captured file under `<EVIDENCE_DIR>`, never a paraphrase presented
   as a direct quote). Record findings; remediate any defect found before T058.
+  **Post-execution correction:** six cumulative fresh-context audit rounds converged to a
+  final PASS on every item (a)–(f) above, but did **not** independently detect T005's
+  network-denial mechanism-selection gap (see T005's own note) — that gap was found only
+  afterward, via PR #35's automated review. This is disclosed as a real limitation of this
+  task's own audit coverage, not glossed over: T057's "complete" marking means the audit
+  *action* (dispatch, check items a–f, converge to PASS) was performed as specified, not
+  that the audit caught every defect that existed in the bundle. `spike-008-evidence.json`
+  was updated post-audit (PR review round 4) with a corroborating, non-verdict-driving
+  `MutationBaseline` entry closing a separate PR-review finding (T033's Tier-2 install
+  invocation lacked its own bracket); this update happened after, not as part of, the six
+  audit rounds recorded here.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
