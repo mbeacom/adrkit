@@ -390,14 +390,15 @@ to inspect.
 
 ## R12 — Status Drift Check
 
-Re-confirmed during this planning session (2026-07-21), independent of what
-`spec.md` already states:
+Re-confirmed during the original planning session (2026-07-21), independent of what
+`spec.md` already stated, then updated by this governance migration under
+[ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md):
 
-- Root `plan.md`'s Spec-kit realization table still records Phase 6
-  (`specs/007-arb-queue/`) as "implementation in progress (kernel + `adr queue`
-  CLI + queue Action complete, all gates green); external-team rung 6 exit
-  gate (SC-004) outstanding" — unchanged from `spec.md`'s own banner claim.
-  Gate 1 of this spec's double gate remains open.
+- Root `plan.md`'s Spec-kit realization table now records Phase 6
+  (`specs/007-arb-queue/`) as `landed / reference-validated`. That reflects ADR-0014
+  rungs 1–2 and the maintainer-owned isolated reference repository evidence; it is not
+  external / community validation (ADR-0014 rung 3). Gate 1 of this spec's governance gate
+  now passes once this migration merges.
 - `packages/cli/dist` still does not exist on disk in this working tree
   (confirmed by direct directory listing during this planning session) —
   unchanged from spec.md A2's stated starting condition. FR-016's probe
@@ -408,8 +409,8 @@ Re-confirmed during this planning session (2026-07-21), independent of what
   queue --format json` (R2's chosen wrapped command) is confirmed present and
   unchanged.
 
-No drift found. This plan's decisions above remain valid against the
-repository's actual current state.
+No technical drift found. This migration changes only the governance gate state; the plan's
+technical decisions above remain valid against the repository's actual current state.
 
 ## R13 — Reader Test
 
@@ -418,12 +419,11 @@ set — `plan.md`, this file, `data-model.md`, `quickstart.md`, and all six
 `contracts/*.md` files — was performed by dispatching a background review
 agent running a high-capability model (per this session's model policy:
 Opus 4.8 / GPT-5.6 Sol tier, never Opus 4.6), with no authoring context, asked
-to check the set cold against `spec.md`, ADR-0003, ADR-0007, ADR-0010, and the
-constitution for: (a) any place execution is implied to be authorized when it
-is not, (b) any drift from the frozen upstream commit's actual documented
-behavior, (c) any place the double gate is stated inconsistently across
-files, (d) any contradiction between contracts, and (e) any place a
-production-adapter decision is made prematurely. The agent independently
+to check the set cold against `spec.md`, ADR-0003, ADR-0007, ADR-0010, ADR-0014, and the
+constitution for: (a) any place execution authorization was misstated, (b) any drift from the
+frozen upstream commit's actual documented behavior, (c) any place the governance gates were
+stated inconsistently across files, (d) any contradiction between contracts, and (e) any place
+a production-adapter decision is made prematurely. The agent independently
 re-fetched the frozen-commit upstream sources itself (not merely trusting
 this plan's citations) and independently re-checked repository starting
 conditions (`packages/cli/dist` absence, `.specify/init-options.json`
@@ -431,10 +431,11 @@ Copilot legacy mode, the `queue` command's signature).
 
 ### Findings
 
-**Verdict**: FAIL on first pass — no class-(a) false-authorization defects
-(the double gate was independently confirmed consistent and blocking across
-every file that touches it), but three High and two Medium defects were
-found, all now remediated below.
+**Verdict**: FAIL on first pass — no class-(a) false-authorization defects under the
+then-current governance framing (the gates were independently confirmed consistent across every
+file that touched them), but three High and two Medium defects were found, all now remediated
+below. This ADR-0014 migration supersedes the pre-ADR-0014 framing with the current
+authorized-on-merge framing.
 
 - **H1 (remediated)** — `contracts/fixture-surface.md` §1 originally
   attributed the `.github/agents/*.agent.md` + `.github/prompts/*.prompt.md`
@@ -497,7 +498,7 @@ the verdict precedence order and `NonBindingRecommendation.releaseVehicleDecisio
 permanently-`null` guarantee; the fixture's isolation from
 `packages/adapters/*`, root `package.json` workspaces, `bun run build`, and
 the `core-has-no-adapter-deps`/`clean-clone-builds` CI gates; and every
-double-gate statement across `spec.md`, `plan.md`, `quickstart.md`, and
+governance-gate statement across `spec.md`, `plan.md`, `quickstart.md`, and
 `contracts/evidence-bundle-and-verdict.md` §4.
 
 No further findings remain open. This planning set is complete.

@@ -3,13 +3,15 @@
 **Feature Directory**: `007-arb-queue`
 **Implementation Branch**: `feat/phase-6-arb-queue`
 **Created**: 2026-07-20
-**Status**: Draft
+**Status**: Landed / reference-validated (ADR-0014 rungs 1–2)
 **Phase**: 6 (outcome ladder **rung 6**) — single-repository ARB queue surface only
 (Project Phase 6 delivers rung 6, "an org runs its ARB on it." Prior phases 0–5 are
-landed and dogfooded (PRs #5, #6, #7, #12, #14, #19). Task generation and
-implementation may proceed after this scoping passes. The claim that rung 6 is landed
-and release-ready is gated on separate-repository/team dogfood — see SC-004 and
-Assumption A7.)
+landed and dogfooded (PRs #5, #6, #7, #12, #14, #19). Phase 6 is implemented and merged
+(PR #22, `efef89b`). Per
+[ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+Phase 6 **lands on rungs 1–2** — unit/contract/conformance plus maintainer-owned
+isolated reference-repository validation — which is met; see SC-004 and Assumption A7.
+It is **not** externally validated (rung 3, open).)
 **Normative sources** (the ADRs are normative; where this spec and an ADR disagree, the
 ADR wins):
 [ADR-0001](../../docs/adr/0001-record-architecture-decisions-in-git.md) (git is the
@@ -35,12 +37,16 @@ consumer of `@adrkit/core`),
 published artifacts), and
 [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md) Principles I–V.
 
-> ⏳ **Rung 6 exit gate not yet cleared.** Scoping, task generation, and implementation
-> are permitted now that Phase 5 / rung 5 is landed and dogfooded (PR #19, v0.2.0).
-> Phase 6 MUST NOT be called landed or claim outcome-ladder rung 6 until a team that is
-> **not** the maintainer's own completes the separate-repository/team dogfood gate
-> (SC-004, Assumption A7). The maintainer's own repository dogfood does not satisfy rung
-> 6's "a team that isn't yours" exit requirement.
+> ✅ **Rung-2 reference-validation gate cleared; Phase 6 landed / reference-validated.**
+> Scoping, task generation, and implementation are complete (PR #22, `efef89b`).
+> Per [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+> Phase 6 lands on rungs 1–2 (unit/contract/conformance plus maintainer-owned
+> isolated reference-repository validation). Rung 2 is met by the reference
+> repository [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
+> (SC-004, Assumption A7; evidence in
+> [checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md)).
+> Phase 6 is **not** externally validated — the ADR-0014 rung-3 external/community
+> signal is open and tracked honestly as absent, and it never gates landing.
 
 ## Overview
 
@@ -83,18 +89,22 @@ queue kernel and CLI with no credentials, services, or network after the frozen
 dependency install. The GitHub Actions wrapper may access only the GitHub API using the
 repository default token (Principles I–II, ADR-0007).
 
-The rung 6 exit gate is a separate-repository/team dogfood with at least three active
+The rung-2 reference-validation gate is a separate-repository dogfood in a
+maintainer-owned isolated reference repository, with at least three active
 `proposed` records spanning all three tiers (`auto`, `async`, `arb`), at least one
-SLA-boundary or overdue case, approvals and objections present, the same managed GitHub
-issue body updated in place on a second run with default-token-only `issues: write`
-operation — by a team that is not the maintainer's own.
+SLA-boundary or overdue case, approvals and objections present, and the same managed
+GitHub issue body updated in place on a second run with default-token-only
+`issues: write` operation. It is reproducible (pinned adrkit commit), self-verifying
+(the reference repo asserts its own outcomes in CI), and reviewed — which is what
+ADR-0014 rung 2 requires. This is **not** external/community validation (rung 3).
 
 ## User Scenarios & Testing
 
-> **User Story gating.** The stories below may be implemented after scoping passes, but
-> Phase 6 MUST NOT be called landed or claim rung 6 until the real-user dogfood gate
-> clears (SC-004, Assumption A7). The gate requires a **separate** team and repository;
-> maintainer dogfooding on this repository alone does not clear it.
+> **User Story gating.** The stories below are implemented (PR #22). Phase 6 is
+> **landed / reference-validated** on ADR-0014 rungs 1–2; the rung-2 gate (SC-004,
+> Assumption A7) is met by the maintainer-owned isolated reference repository. Phase 6
+> is **not** externally validated (rung 3, open) — but external validation never gated
+> these stories, landing, or the next phase.
 
 ### User Story 1 — A maintainer reads the full queue for a local corpus (Priority: P1) 🎯 MVP
 
@@ -640,12 +650,15 @@ and not as a `QueueItem`.
   This boundary is asserted by the existing `clean-clone-builds` gate in CI (Principle
   II, ADR-0007).
 
-- **FR-019**: Before rung 6 is claimed, the CLI and GitHub Actions surfaces MUST be
-  exercised in a **separate** repository by a team that is not the maintainer's own, with
-  at least three active `proposed` records spanning all three tiers (`auto`, `async`,
-  `arb`), at least one SLA-boundary or overdue case, approvals and objections present,
-  the same managed GitHub issue body updated in place on a second run, and
-  default-token-only `issues: write` operation (SC-004, Assumption A7).
+- **FR-019**: To land Phase 6 on ADR-0014 rung 2, the CLI and GitHub Actions surfaces
+  MUST be exercised in a **separate, maintainer-owned isolated reference repository**,
+  with at least three active `proposed` records spanning all three tiers (`auto`,
+  `async`, `arb`), at least one SLA-boundary or overdue case, approvals and objections
+  present, the same managed GitHub issue body updated in place on a second run, and
+  default-token-only `issues: write` operation. The evidence MUST be reproducible
+  (pinned adrkit commit), self-verifying (the reference repo asserts its own outcomes in
+  CI), and reviewed (SC-004, Assumption A7). External/community validation (ADR-0014
+  rung 3) is a later optional maturity signal and is not required to land.
 
 - **FR-020**: If no managed issue marker exists and a GitHub issue already exists in the
   repository with the configured issue title but does not contain the hidden ownership
@@ -758,11 +771,15 @@ planning or implementation:
   place on every rerun, creating no duplicate issues, for a corpus that has not changed
   between runs.
 
-- **SC-004**: The rung 6 exit gate is met: a team that is **not** the maintainer's own
-  repository runs the queue surface against their repository with at least three `proposed`
-  records spanning all three tiers (`auto`, `async`, `arb`), at least one SLA-boundary or
-  overdue case, approvals and objections present, the same managed GitHub issue body
-  updated in place on a second run with default-token-only `issues: write` operation.
+- **SC-004**: The ADR-0014 rung-2 reference-validation gate is met: a maintainer-owned
+  isolated reference repository runs the queue surface against a corpus with at least
+  three `proposed` records spanning all three tiers (`auto`, `async`, `arb`), at least
+  one SLA-boundary or overdue case, approvals and objections present, and the same
+  managed GitHub issue body updated in place on a second run with default-token-only
+  `issues: write` operation — reproducibly, self-verifyingly, and reviewed. Met by
+  [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood) (evidence:
+  [checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md)).
+  This is reference validation, **not** external/community validation (ADR-0014 rung 3).
 
 - **SC-005**: Files with schema-invalid frontmatter appear in the `QueueReport`'s
   `corpusFindings` collection with `sourcePath` and parser/validator details; no `id`,
@@ -815,10 +832,14 @@ planning or implementation:
   `@adrkit/core` for record parsing, schema validation, and graph traversal (Principle III,
   ADR-0007).
 
-- **A7**: Implementation MUST NOT claim rung 6 until SC-004 is met. The dogfood evidence
-  MUST be from a repository and team that are not the maintainer's own. The maintainer's
-  own-repository dogfood cleared rungs 1–5 but does not satisfy rung 6's explicit "a team
-  that isn't yours" exit requirement (`plan.md` outcome ladder).
+- **A7**: Phase 6 lands on ADR-0014 rungs 1–2. Rung 2 requires reproducible,
+  self-verifying, reviewed evidence from a **maintainer-owned isolated reference
+  repository** (SC-004) — which is met. External/community validation (ADR-0014 rung 3)
+  is an optional later maturity signal, tracked honestly as open, and never a
+  precondition for landing Phase 6 or for opening the next phase. The maintainer's own
+  monorepo dogfood cleared rungs 1–5; the separate isolated reference repository
+  (`adrkit-t018-dogfood`) clears rung 6's reference-validation requirement without
+  requiring an external team.
 
 - **A8**: The `auto` review tier means "expedited routing to a human reviewer" — not
   automated acceptance. A human still approves or rejects. No action taken by any queue

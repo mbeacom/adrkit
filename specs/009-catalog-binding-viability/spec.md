@@ -84,64 +84,43 @@ decision record this spike's scoping and ADR-0012 both derive from is
 entity-to-path binding before feature 009" — read in full for provenance; ADR-0012 is the
 citation of record for the contract's actual terms.
 
-> ⛔ **Two open execution gates remain; the governance preconditions are satisfied —
-> implementation of this spike itself is not authorized.**
+
+> ✅ **Governance preconditions satisfied; spike execution authorized once this migration
+> merges; tasks remain unchecked until actually executed.**
 >
-> **Satisfied preconditions (not gates).** Three governance preconditions this spike once tracked
-> as open are now closed and are recorded here as satisfied, never as pending:
+> **Satisfied governance preconditions.** Maintainer scoping/contract ratification (adrkit
+> issue #25, both 2026-07-21 decisions), catalog-binding convention governance
+> ([ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md),
+> `accepted`, `54dbae8`), the adapter-isolation/catalog-binding reconciliation
+> ([ADR-0013](../../docs/adr/0013-reconcile-adapter-isolation-and-catalog-binding-with-the-offline-snapshot-genera.md),
+> `accepted`, `48087e8`), and the phase-landing evidence policy
+> ([ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+> `accepted`) are all **satisfied**. ADR-0007 and ADR-0009 remaining `status: proposed`
+> with documented blockers is this precondition's satisfied, final disposition — not an
+> execution gate; requiring their own eventual acceptance before this spike's execution would
+> be circular, since ADR-0013's own acceptance path for them lists this spike's evidence among
+> the preconditions for *their* acceptance.
 >
-> - **Maintainer scoping & contract ratification.** The maintainer ratified this spike's
->   scoping and the hardened `adrkit.io/owned-paths` contract on adrkit issue #25 on 2026-07-21
->   (both dated decisions; see the Ratification Record). **Satisfied.**
-> - **Catalog-binding convention governance.**
->   [ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md)
->   reached `status: accepted` on 2026-07-21 (PR #26, merged at `54dbae8`), fully ratifying the
->   `adrkit.io/owned-paths` convention exactly as hardened and making it the normative record of
->   the binding contract. **Satisfied.**
-> - **Adapter-isolation/catalog-binding reconciliation.**
->   [ADR-0013](../../docs/adr/0013-reconcile-adapter-isolation-and-catalog-binding-with-the-offline-snapshot-genera.md)
->   reached `status: accepted` (PR #27, merged at `48087e8`). Issue #25 required the
->   adapter-isolation/catalog-binding records to be "accepted/amended or explicitly recorded as
->   blocking before implementation"; ADR-0013 discharges that requirement by amending ADR-0007's
->   and ADR-0009's narrowed clauses and **deliberately holding both `proposed` with documented
->   blockers**. This is the **final status resolution** for the purpose of authorizing this
->   spike. ADR-0007 and ADR-0009 remaining `proposed` is therefore **not** an open gate: ADR-0013
->   itself lists this spike's own evidence among the preconditions for their eventual acceptance,
->   so gating this spike on their acceptance would be circular and is forbidden. This spec's
->   output MUST NOT imply ADR-0007/ADR-0009's own blockers are cleared, and MUST NOT require
->   their acceptance or supersession before spike execution. **Satisfied as the authoritative
->   disposition.**
+> **Phase 6 status.** Phase 6 (`specs/007-arb-queue/`) is now **landed / reference-validated**
+> on ADR-0014 rungs 1–2: `specs/007-arb-queue/tasks.md` **T048** and **T049** read `- [X]`,
+> and root `plan.md` records the `specs/007-arb-queue/` realization row as `landed /
+> reference-validated`. The rung-2 evidence is the
+> **maintainer-owned isolated reference repository**
+> <https://github.com/mbeacom/adrkit-t018-dogfood>, not an external team and not external /
+> community validation (ADR-0014 rung 3).
 >
-> **Open execution gates.** Exactly two gates remain unsatisfied; both must clear before any
-> spike execution (or any later production catalog adapter work) may begin:
+> **Independent-adopter status.** The previous independent-adopter pre-execution gate is
+> removed. This spike builds and validates its own **maintainer-authored reference oracle**
+> inside the scratch workspace from the pinned public corpora already cited by exact path and
+> commit SHA (FR-001), synthetic explicit `adrkit.io/owned-paths` annotations authored by the
+> maintainer, and independent adversarial review of those labels. An external adopter's real
+> annotated catalog and hand-labeled oracle is optional later production-maturity evidence for
+> a future, stronger "authoritative `go`" status; it is not a hard gate for this spike,
+> Phase 6 landing, next-phase implementation, or any non-shipping spike execution.
 >
-> 1. **Phase 6 gate.** `specs/007-arb-queue/spec.md` SC-004 (the rung 6 external-team,
->    separate-repository dogfood exit gate), tracked as `specs/007-arb-queue/tasks.md`
->    **T048** with dependent **T049**, is outstanding as of this writing (both unchecked).
->    `T049` is the documentation update that flips Phase 6's `plan.md` row to `landed` once
->    T048 clears — meaning that **by the time this gate is satisfied, Phase 6 will in fact
->    be `landed`**. This spec's later disclaimers (FR-030, SC-013) are written to survive
->    that transition without becoming false: they require this spike to never claim *credit*
->    for, or treat its own verdict as *constituting*, that landing — not to assert that Phase
->    6 is permanently unlanded. Neither this spike nor any later production catalog adapter
->    work may begin until this gate clears.
-> 2. **Independent-adopter gate.** An adopter other than the maintainer must author real
->    `adrkit.io/owned-paths` annotations against their own real catalog and provide a
->    hand-labeled entity/path oracle this spike cannot itself construct. Sampling public
->    Backstage-ecosystem corpora for this spec's own research grounding (see the Ratification
->    Record and User Story 3) is a read-only research input, not that adopter, and does not
->    satisfy this gate (Assumption A5). Per the Ratification Record's Evidence Gate, this gate
->    is also a precondition for any *future* "authoritative go" — a status distinct from, and
->    strictly stronger than, this spike's own `go-explicit` verdict (Success Criteria SC-012).
->
-> This spec may be read, reviewed, and refined at any time. **The governance preconditions above
-> — maintainer ratification, ADR-0012's catalog-binding governance, and ADR-0013's authoritative
-> status disposition of ADR-0007/ADR-0009 — are all satisfied.** Gate 1 (Phase 6) and gate 2
-> (independent adopter) both remain open. This spec therefore still authorizes no fixture
-> derivation, no corpus re-fetch beyond what is already cited by exact path and commit SHA below,
-> no comparison run, and no
-> evidence-gathering step described in User Scenarios & Testing until every remaining gate
-> clears.
+> This spec may be read, reviewed, refined, and — once this governance migration merges —
+> executed. Advance scoping remains exempt from execution preconditions, and this migration
+> does **not** mark any 009 task complete.
 
 ### Ratification Record
 
@@ -223,12 +202,14 @@ citation of record for the contract's actual terms.
 >   documents/aliases, and compile/match cost on both pinned corpora. Exact production limits
 >   are **not** guessed now — they must be ratified from evidence before production. Compile
 >   each accepted glob exactly once.
-> - **Evidence gate.** A future **authoritative `go`** — a status distinct from and strictly
->   stronger than this spike's own `go-explicit` verdict — requires adopter-authored
->   annotations plus a hand-labeled entity/path oracle, zero false positives/negatives for
->   authoritative cases, repository-isolation tests, malformed/tampered/stale snapshot
->   rejection, and deterministic byte output. Phase 6 T048/T049 and an independent adopter
->   remain mandatory for that authoritative status regardless of this spike's own result.
+> - **Evidence maturity.** A future **authoritative `go`** — a status distinct from and
+>   strictly stronger than this spike's own `go-explicit` verdict — may be strengthened later
+>   by optional external / community validation (ADR-0014 rung 3), including an external
+>   adopter's real annotated catalog and hand-labeled entity/path oracle. This spike's own
+>   verdict is computed from its in-scratch maintainer-authored reference oracle, the pinned
+>   public corpora, synthetic explicit annotations, repository-isolation tests, malformed/
+>   tampered/stale snapshot rejection, and deterministic byte output. External-adopter
+>   evidence is **not** a prerequisite for this spike.
 > - **ADR reconciliation.** ADR-0007/0009 must be accepted/amended or explicitly recorded as
 >   blocking before implementation. Catalog composition is a standalone offline snapshot
 >   generator feeding a validated interchange file; no dynamic runtime adapter/plugin loader
@@ -252,17 +233,17 @@ useful only as historical provenance ADR-0012 itself preserves).
 amends ADR-0007's and ADR-0009's narrowed clauses by reference while **deliberately holding
 both `status: proposed`**, "explicitly blocked" per ADR-0012's own Governance section, with
 documented blockers. **This still does not authorize production code.** These two accepted
-records, together with the maintainer's issue #25 ratification, close every governance
-precondition this spike tracks: catalog-binding convention governance (ADR-0012), the
-adapter-isolation/catalog-binding reconciliation (ADR-0013 — the authoritative, final status
-resolution of ADR-0007/ADR-0009 for spike-authorization purposes, per issue #25's
-"accepted/amended or explicitly blocked" clause), and maintainer scoping/contract ratification
-(issue #25). Only **two execution gates** remain open, both in the banner above: (1) Phase 6
-T048/T049 landing, and (2) independent-adopter validation. ADR-0007/ADR-0009 remaining
-`proposed` is a satisfied precondition disposition, **not** an execution gate, and this spec's
-requirements below are written to cite ADR-0012 (and, for the ADR-0007/ADR-0009 disposition,
-ADR-0013) as the normative source, per the coordinator's 2026-07-21 instruction to prefer the
-merged ADR over the originating issue thread for the contract's terms.
+records, together with the maintainer's issue #25 ratification and
+[**ADR-0014**](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+close every governance precondition this spike tracks: catalog-binding convention governance
+(ADR-0012), the adapter-isolation/catalog-binding reconciliation (ADR-0013 — the authoritative,
+final status resolution of ADR-0007/ADR-0009 for spike-authorization purposes, per issue #25's
+"accepted/amended or explicitly blocked" clause), maintainer scoping/contract ratification
+(issue #25), and the phase-landing evidence policy that removes external-actor hard gates
+(ADR-0014). Phase 6 is **landed / reference-validated**, and the independent-adopter requirement
+is no longer a pre-execution gate. ADR-0007/ADR-0009 remaining `proposed` is a satisfied
+precondition disposition, **not** an execution gate, and this spec's requirements below are
+written to cite ADR-0012, ADR-0013, and ADR-0014 as the normative sources.
 
 **Editorial note (not part of either quoted decision).** The hardening decision above names
 two ownership-state labels, `explicit-empty` and `annotation-absent`, for the two cases where
@@ -312,12 +293,13 @@ contract ten minutes later (see the Ratification Record above) into a materially
 shape: single-repository-only snapshots bound to an explicit input manifest, whole-operation
 atomic failure on any invalid input (not per-entity), a restricted positive-only glob dialect
 frozen to `picomatch 4.0.5` with exact options, a required (not merely advisory) versioned
-snapshot envelope, explicit decode/security/scale evidence obligations, and an "Evidence
-Gate" that reserves the term **authoritative `go`** for a later status requiring an
-independent adopter's own hand-labeled oracle — something this spike, run only against public
-corpora and its own synthetic fixtures, cannot itself produce. This spec is written against
-that hardened contract throughout; where a requirement below would only have been true under
-the initial, softer decision, it has been corrected.
+snapshot envelope, explicit decode/security/scale evidence obligations, and an evidence
+maturity distinction between this spike's **go-explicit** verdict and any later, stronger
+**authoritative `go`** status. Under ADR-0014, this spike computes its verdict from an
+in-scratch maintainer-authored reference oracle; an external adopter's own hand-labeled oracle
+is optional later production-maturity evidence, not a pre-execution gate. This spec is written
+against that hardened contract throughout; where a requirement below would only have been true
+under the initial, softer decision, it has been corrected.
 
 Both decisions are now formally ratified as project law:
 [ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md)
@@ -584,9 +566,9 @@ heuristic suppress reporting the other heuristic's defined metric.
    rate` figure for each heuristic against that finite matrix (or, for any heuristic/metric
    combination whose denominator is zero, the explicit `undefined-for-this-heuristic-on-this-
    matrix` label instead of a divide-by-zero) — explicitly labeled as measured against a
-   spike-authored proxy oracle, not an adopter-authored one, and therefore insufficient by
-   itself to satisfy the Evidence Gate's "authoritative `go`" requirement (Success Criteria
-   SC-012).
+   spike-authored proxy oracle, not an external-adopter production-maturity oracle, and therefore
+   insufficient by itself to claim external / community validation or the stronger
+   "authoritative `go`" status (Success Criteria SC-012).
 
 ---
 
@@ -869,8 +851,8 @@ queried repository's entities.
    properties provable without an adopter, that the digest check specifically proves
    accidental-corruption/naive-mutation detection — not adversarial cryptographic tamper-
    resistance, which is an explicitly open question this spike does not attempt — and that
-   none of this, by itself, satisfies the adopter-oracle-dependent portion of the Evidence
-   Gate's "authoritative `go`" requirement (Success Criteria SC-012).
+   none of this, by itself, claims external / community validation or satisfies the stronger
+   "authoritative `go`" status (Success Criteria SC-012).
 
 ---
 
@@ -879,12 +861,12 @@ queried repository's entities.
 As the maintainer, I want the spike to conclude with exactly one of three defined verdicts —
 `go-explicit`, `blocked`, or `no-go` — backed by the specific evidence gathered in User
 Stories 1–7, explicitly distinguished from the hardened contract's separate, stronger
-"authoritative `go`" status (which requires an independent adopter's oracle this spike cannot
-itself provide), plus (if the verdict is `go-explicit`) a clearly non-binding recommendation
-for the smallest later production slice that explicitly leaves the eventual package's
-publish/release vehicle undecided, so that a future, separately-scoped feature can decide
-whether to build `packages/adapters/catalog-backstage` without re-litigating whether Option
-A's own mechanics are sound.
+"authoritative `go`" status and from external / community validation (ADR-0014 rung 3), plus
+(if the verdict is `go-explicit`) a clearly non-binding recommendation for the smallest later
+production slice that explicitly leaves the eventual package's publish/release vehicle
+undecided, so that a future, separately-scoped feature can decide whether to build
+`packages/adapters/catalog-backstage` without re-litigating whether Option A's own mechanics
+are sound.
 
 **Why this priority**: This is the deliverable the spike exists to produce; every other story
 is evidence feeding this one conclusion.
@@ -892,13 +874,11 @@ is evidence feeding this one conclusion.
 **Independent Test**: Read the completed evidence bundle from User Stories 1–7 and confirm it
 maps to exactly one verdict per the fixed-precedence definitions in Success Criteria, with
 every piece of required evidence present and cross-referenced, and confirm the report
-explicitly states both (a) that this spike's technical result alone does not itself satisfy
-either open gate in this spec's banner (Phase 6 T048/T049 landing; and independent-adopter
-validation — noting that the governance preconditions, ADR-0012's catalog-binding governance
-and ADR-0013's authoritative status disposition of ADR-0007/ADR-0009, are already satisfied
-independently of this spike, and that ADR-0007/ADR-0009's own `proposed` status is not one of
-this spec's execution gates), and (b) that even a `go-explicit` verdict is not the hardened
-contract's "authoritative `go`" and does not itself satisfy the independent-adopter gate.
+explicitly states both (a) that this spike's technical result alone does not itself satisfy,
+substitute for, cause, or take credit for Phase 6 landing/reference-validation, ADR-0012,
+ADR-0013, ADR-0014, external / community validation, or optional external-adopter
+production-maturity evidence; and (b) that even a `go-explicit` verdict is not the hardened
+contract's "authoritative `go`".
 
 **Acceptance Scenarios**:
 
@@ -916,15 +896,13 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
    contract's "authoritative `go`."
 3. **Given** any verdict, **When** the spike records its output, **Then** it explicitly
    states that this spike's technical result does not itself satisfy, substitute for, or take
-   credit for either open gate in this spec's banner — Phase 6 landing or independent-adopter
-   validation — each of which will clear through its own separate, prior action, never because
-   of this spike's own result; that the governance preconditions (ADR-0012's catalog-binding
-   governance, ADR-0013's authoritative status disposition of ADR-0007/ADR-0009, and the
-   maintainer's issue #25 ratification) are already satisfied independently of this spike; and
-   that ADR-0007/ADR-0009's own `proposed` status is not one of this spec's execution gates and
-   is not cleared or advanced by this spike's verdict (see the banner's satisfied-preconditions
-   note, FR-028, and FR-030), and that no production `packages/adapters/catalog-backstage`
-   work may begin on the strength of this verdict alone.
+   credit for Phase 6 landing/reference-validation, ADR-0012/ADR-0013/ADR-0014 acceptance or
+   resolution, external / community validation, or optional external-adopter production-maturity
+   evidence; that Phase 6 is already landed / reference-validated and not externally validated;
+   that the governance preconditions are already satisfied independently of this spike; and
+   that ADR-0007/ADR-0009's own `proposed` status is not an execution gate and is not cleared or
+   advanced by this spike's verdict (see the banner's satisfied-preconditions discussion and
+   FR-027–FR-030).
 
 ---
 
@@ -1141,10 +1119,10 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
   unaffected; neither envelope is rejected, and both remain independently valid) MUST NOT let
   a query scoped to one repository ID return any entity that actually originated from another
   repository's envelope (User Story 7, Acceptance Scenario 5). This spike MUST demonstrate
-  FR-034–FR-038 using its own synthetic fixtures alone, with no adopter oracle involved, and
+  FR-034–FR-038 using its own synthetic fixtures alone, with no external adopter involved, and
   MUST explicitly record that doing so is a mechanical, offline generator/consumer-boundary
-  proof distinct from — and insufficient by itself to satisfy — the adopter-oracle-dependent
-  portion of the Evidence Gate's "authoritative `go`" requirement (FR-025).
+  proof distinct from — and insufficient by itself to claim — external / community validation
+  or the stronger "authoritative `go`" status (FR-025).
 - **FR-010**: Snapshot generation MUST read only the descriptor files explicitly listed, by
   path and content digest, in the input manifest. It MUST NOT follow a `Location` entity's
   `spec.targets` reference to read a file not itself listed in the manifest, MUST NOT invoke
@@ -1222,8 +1200,8 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
   scratch/evidence output; it MUST NOT commit, push, or open a pull request during its
   execution; and it MUST NOT write to `docs/adr/**`, the ADR schema, or any file under
   `packages/adapters/**`. The evidence bundle itself MUST remain scratch/untracked output; if
-  the spike's verdict, together with this spec's two remaining execution gates (FR-027)
-  having already cleared, jointly justify incorporating a summary into a tracked document,
+  the spike's verdict, together with the satisfied execution preconditions in FR-027, jointly
+  justify incorporating a summary into a tracked document,
   that incorporation happens through its own explicitly-scoped, separately-authorized
   subsequent PR — never as a
   direct or indirect side effect of running this spike.
@@ -1295,69 +1273,65 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
   `blocked`, `no-go` — defined with fixed, deterministic precedence in Success Criteria, with
   the evidence that drove the choice explicitly cross-referenced.
 - **FR-025**: The spike's `go-explicit` verdict, if reached, MUST be explicitly and
-  unambiguously distinguished from the hardened contract's separate "authoritative `go`"
-  status. This spike CAN and MUST mechanically demonstrate malformed/tampered/stale/
-  misidentified snapshot rejection and repository isolation using its own synthetic fixtures
-  (FR-034–FR-038) — these are offline, generator/consumer-boundary properties requiring no
-  adopter. What this spike explicitly CANNOT itself produce, and what remains exclusive to the
-  authoritative `go` status, is an independent adopter's hand-labeled entity/path oracle and
-  the zero-false-positive/negative precision guarantee over real, adopter-authored
-  annotations that only that oracle can establish (User Story 3's synthetic precision
-  measurement is a labeled proxy oracle, never a substitute for it).
+  unambiguously distinguished from the hardened contract's separate, stronger "authoritative
+  `go`" status. This spike uses its own in-scratch **maintainer-authored reference oracle** —
+  derived from the pinned public corpora named in FR-001, synthetic explicit
+  `adrkit.io/owned-paths` annotations authored by the maintainer, and independent adversarial
+  review of those labels — to compute `go-explicit`. External / community validation
+  (ADR-0014 rung 3), including a real external adopter's annotated catalog and hand-labeled
+  entity/path oracle, may later strengthen a production maturity claim or future authoritative
+  `go`, but it is optional later evidence and is not a hard gate for this spike. This spike CAN
+  and MUST mechanically demonstrate malformed/tampered/stale/misidentified snapshot rejection
+  and repository isolation using its own synthetic fixtures (FR-034–FR-038), because those are
+  offline generator/consumer-boundary properties requiring no adopter. The spike's verdict MUST
+  NOT claim external / community validation or the stronger authoritative `go` status.
 - **FR-026**: Any "smallest later production slice" recommendation the spike records MUST be
   explicitly labeled informational and non-binding, MUST NOT authorize or schedule a
   `packages/adapters/catalog-backstage` implementation, and MUST explicitly leave the eventual
   production package's publish/release vehicle undecided.
-- **FR-027**: Spike execution MUST NOT begin until both gates in this spec's banner clear:
-  (a) `specs/007-arb-queue/tasks.md` T048/T049 (Phase 6 rung-6 external dogfood, SC-004),
-  outstanding; (b) an independent adopter becoming available who has authored real
-  `adrkit.io/owned-paths` annotations and a hand-labeled entity/path oracle against their own
-  real catalog, outstanding. The catalog-governance precondition this spec previously tracked
-  as a separate execution gate is **satisfied**, not outstanding:
-  [ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md)
-  (`status: accepted`, PR #26, merged at `54dbae8`) ratifies the hardened contract, and
+- **FR-027**: Spike execution is authorized once this governance migration merges because the
+  remaining execution preconditions are satisfied: (a) Phase 6 (`specs/007-arb-queue/`) is
+  **landed / reference-validated** under ADR-0014 rungs 1–2 — `specs/007-arb-queue/tasks.md`
+  T048/T049 read `- [X]`, and root `plan.md` records the `specs/007-arb-queue/` row as
+  `landed / reference-validated`, explicitly not external / community validation (ADR-0014
+  rung 3); and (b) the governance preconditions are satisfied — maintainer ratification on
+  issue #25, [ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md)
+  (`status: accepted`, PR #26, `54dbae8`),
   [ADR-0013](../../docs/adr/0013-reconcile-adapter-isolation-and-catalog-binding-with-the-offline-snapshot-genera.md)
-  (`status: accepted`, PR #27, merged at `48087e8`) discharges issue #25's requirement that
-  ADR-0007/ADR-0009 be "accepted/amended or explicitly recorded as blocking before
-  implementation" by taking the amended-and-explicitly-blocked branch — one of exactly two
-  valid, complete resolutions that requirement named, not an unresolved ambiguity. ADR-0007
-  and ADR-0009 remaining `proposed` with documented blockers is therefore this precondition's
+  (`status: accepted`, PR #27, `48087e8`), and
+  [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+  (`status: accepted`). The previous independent-adopter pre-execution gate is removed: the
+  spike MUST build and validate a maintainer-authored reference oracle inside its scratch
+  workspace from FR-001's frozen public corpora, maintainer-authored synthetic explicit
+  annotations, and independent adversarial review. An external adopter's real annotated catalog
+  and oracle remains optional later production-maturity evidence only, never a prerequisite for
+  this spike, Phase 6 landing, next-phase implementation, or non-shipping spike execution.
+  ADR-0007 and ADR-0009 remaining `proposed` with documented blockers is this precondition's
   satisfied, final disposition; their own eventual acceptance is a separate matter this spec
   does NOT gate spike execution on — requiring it would be circular, since ADR-0013's own
   "Acceptance path for ADR-0007 and ADR-0009" lists this spike's evidence among the
-  preconditions for *their* acceptance. Gate (b) requires that adopter and oracle to exist
-  and be available for a later, separate authoritative-`go` determination (FR-025) — it does
-  NOT require this spike itself to consume that adopter's data: this spike's own `go-explicit`
-  verdict is deliberately computed only from the frozen public corpora (FR-001) and its own
-  synthetic fixtures, for the same offline/reproducibility reasons FR-018 requires, and
-  remains distinct from whatever the adopter's real oracle would separately show. Advance
-  scoping (this document) is exempt from both remaining gates, per `plan.md`'s
-  scoping-vs-implementation split, the maintainer's 2026-07-21 issue #25 ratifications of
-  exactly this scoping activity, and ADR-0012's own action item 1 authorizing it.
-- **FR-028**: The spike's output MUST NOT claim or take credit for ADR-0012's acceptance or
-  for ADR-0013's resolution of ADR-0007/ADR-0009's status ambiguity, and MUST NOT assert that
-  its own verdict caused or constitutes either. Both are present facts as of this writing
-  (`54dbae8` PR #26; `48087e8` PR #27) that occurred entirely independently of this spike's
-  own execution or verdict — the spike's output MAY accurately cite them, but MUST NOT frame
-  either as something the spike itself achieved. ADR-0007/ADR-0009's own future *acceptance*
-  (as distinct from ADR-0013's already-satisfied *status-ambiguity resolution*, which took the
-  explicitly-blocked branch rather than acceptance) remains a separate, later matter: per
-  ADR-0013, each requires its own separate, explicit, future accept/supersede decision that
-  this spike does not perform, does not gate spike execution on (FR-027), and does not cause
-  merely by executing. This spec's disclaimers report ADR-0012/ADR-0007/ADR-0009's actual,
-  independently-verifiable status at whatever point execution actually begins; they do not
-  require asserting a status that is no longer true, nor claiming a future status that has not
-  yet occurred.
+  preconditions for *their* acceptance. Advance scoping remains exempt from execution
+  preconditions per `plan.md`'s scoping-vs-implementation split, the maintainer's 2026-07-21
+  issue #25 ratifications, ADR-0012's action item 1, and ADR-0014.
+- **FR-028**: The spike's output MUST NOT claim or take credit for ADR-0012's acceptance,
+  ADR-0013's resolution of ADR-0007/ADR-0009's status ambiguity, or ADR-0014's governance
+  change, and MUST NOT assert that its own verdict caused or constitutes any of them. These are
+  present facts (`54dbae8` PR #26; `48087e8` PR #27; ADR-0014 `accepted`) that occurred
+  independently of this spike's own execution or verdict — the spike's output MAY accurately
+  cite them, but MUST NOT frame any as something the spike itself achieved. ADR-0007/ADR-0009's
+  own future *acceptance* remains a separate, later matter: per ADR-0013, each requires its own
+  separate, explicit, future accept/supersede decision that this spike does not perform, does
+  not gate spike execution on (FR-027), and does not cause merely by executing.
 - **FR-029**: The spike's output MUST NOT claim or imply that its own verdict constitutes,
-  causes, or substitutes for the independent-adopter gate (FR-027(b)) or the hardened
-  contract's "authoritative `go`" status (FR-025), regardless of this spike's own verdict.
+  causes, or substitutes for external / community validation (ADR-0014 rung 3), a future
+  external adopter's optional production-maturity evidence, or the hardened contract's
+  "authoritative `go`" status (FR-025), regardless of this spike's own verdict.
 - **FR-030**: The spike's output MUST NOT claim or take credit for Phase 6
   (`specs/007-arb-queue/`) landing, and MUST NOT assert that its own verdict caused or
-  constitutes that landing. This is distinct from, and MUST NOT be read as requiring the
-  spike to falsely claim, that Phase 6 remains permanently unlanded — by the time execution
-  gate (a) above clears, `specs/007-arb-queue/tasks.md` T049 will itself have updated
-  `plan.md`'s Phase 6 row to `landed`, and this spec's disclaimers are written to remain true
-  after that update, not to contradict it.
+  constitutes that landing. Phase 6 is now **landed / reference-validated** under ADR-0014
+  rungs 1–2, based on the maintainer-owned isolated reference repository; it is explicitly not
+  external / community validation (ADR-0014 rung 3). This spike may accurately cite that status,
+  but its verdict MUST NOT claim to have caused it.
 - **FR-031**: The hardened contract's "no exclusive winner" rule MUST be positively
   demonstrated, not merely assumed by the absence of a rejection rule: two entities with
   distinct canonical IDs whose `adrkit.io/owned-paths` values include an overlapping pattern
@@ -1469,8 +1443,9 @@ future planning or execution:
   `go-explicit`, `blocked`, `no-go` — each precisely defined in Success Criteria and each
   driven by specific evidence-bundle contents, never asserted without that evidence. This is
   a judgment about Option A's own mechanical viability, distinct from — and does not itself
-  satisfy — either of the two remaining execution gates in this spec's banner or the hardened
-  contract's separate "authoritative `go`" status (Success Criteria SC-012, SC-013).
+  satisfy — external / community validation (ADR-0014 rung 3), optional later external-adopter
+  production-maturity evidence, or the hardened contract's separate "authoritative `go`" status
+  (Success Criteria SC-012, SC-013).
 
 ## Success Criteria
 
@@ -1543,9 +1518,10 @@ future planning or execution:
   evaluate `go-explicit`; if that does not trigger either, the result is `blocked` by
   exhaustive fallback — every possible evidence outcome resolves to exactly one verdict, and
   no evidence pattern can satisfy more than one). **None of the three is, or is described as,
-  the hardened contract's separate "authoritative `go`" status** — that status additionally
-  requires the independent-adopter oracle named in FR-025 and is never reachable from this
-  spike's own evidence alone.
+  the hardened contract's separate "authoritative `go`" status**, and none claims external /
+  community validation (ADR-0014 rung 3). External-adopter oracle evidence may later strengthen
+  production maturity, but it is optional later evidence and is not required for this spike's
+  `go-explicit` verdict.
   - **`no-go` (checked first; dominates all other results)** — any of the following was
     observed: a mutation of a tracked file outside scratch output occurred, any
     network/credentialed/live-API access occurred during a derivation run (FR-018/SC-011
@@ -1575,9 +1551,9 @@ future planning or execution:
     repository isolation mechanically demonstrated via digest verification and the other
     User Story 7 checks. An offline `packages/adapters/catalog-backstage` snapshot-generator
     scoped to Option A alone, reading only a local input manifest, is recommended for later,
-    separate scoping —
-    contingent on both of this spec's execution gates (FR-027) independently clearing,
-    and explicitly distinct from the hardened contract's "authoritative `go`" (SC-013).
+    separate scoping — with any external-adopter validation treated as optional later
+    production-maturity evidence — and explicitly distinct from the hardened contract's
+    "authoritative `go`" (SC-013).
   - **`blocked` (exhaustive fallback)** — no `no-go` trigger fired, but the result falls short
     of full `go-explicit` in any way that is not itself unsafe. This covers, at minimum: the
     synthetic B/C precision comparison could not be completed; any of the three required
@@ -1590,22 +1566,17 @@ future planning or execution:
 
 - **SC-013**: Regardless of which of the three verdicts above is recorded, the spike's output
   explicitly states: (a) that this spike's own technical result does not itself satisfy,
-  substitute for, or take credit for either remaining gate in this spec's banner (FR-027:
-  Phase 6 T048/T049; and independent-adopter validation) — each of which, whenever it
-  eventually clears, will have cleared through its own separate, prior action, not because of
-  anything this spike's evidence bundle produced; that the catalog-governance precondition
-  (ADR-0012's acceptance and ADR-0013's resolution of ADR-0007/ADR-0009's status ambiguity) is
-  already satisfied and is not something this spike's own execution or verdict caused or
-  constitutes; (b) that a `go-explicit` verdict is not, and does not substitute for, the
-  hardened contract's separate "authoritative `go`" status; and (c) that the spike's verdict
-  neither claims nor requires that Phase 6 remains permanently unlanded, nor that ADR-0007/
-  ADR-0009's own eventual acceptance has occurred — only that this spike's own result does not
-  cause, constitute, or take credit for whichever of those statuses has, by gate-clearing
-  time, already separately changed (per the banner's gate-1 note, FR-028, and FR-030) — and
-  explicitly does NOT imply that ADR-0012's or ADR-0013's already-accepted status, or any
-  future ADR-0007/ADR-0009 acceptance, means ADR-0007/ADR-0009's own remaining blockers to
-  their eventual acceptance are cleared, or that this spike's own execution is authorized on
-  the strength of anything beyond the two gates FR-027 actually names.
+  substitute for, or take credit for Phase 6 landing/reference-validation, ADR-0012's
+  acceptance, ADR-0013's status resolution, or ADR-0014's governance change — each of those
+  facts is already satisfied independently of this spike; (b) that Phase 6 is **landed /
+  reference-validated** under ADR-0014 rungs 1–2, based on a maintainer-owned isolated
+  reference repository, and is not external / community validation (ADR-0014 rung 3); (c) that a
+  `go-explicit` verdict is not, and does not substitute for, the hardened contract's separate
+  "authoritative `go`" status or any external-adopter production-maturity evidence; and (d)
+  that ADR-0007/ADR-0009's own eventual acceptance has not occurred and is neither required for
+  nor caused by this spike. The output MUST NOT imply ADR-0007/ADR-0009's documented blockers
+  are cleared, MUST NOT claim external/community adoption, and MUST NOT mark any 009 task
+  complete unless that task was actually executed.
 
 - **SC-014**: Five distinct checks are demonstrated using only synthetic fixtures: (1) a
   consumer rejects a structurally malformed or unsupported envelope (missing/wrong-type
@@ -1626,8 +1597,8 @@ future planning or execution:
   individually-valid single-repository envelopes (never a merged or federated snapshot, and
   neither envelope rejected) never returns an entity originating from the non-queried
   repository (FR-038) — with the bundle explicitly stating this is a mechanical, offline
-  generator/consumer-boundary proof, not a substitute for the adopter-oracle-dependent
-  portion of the Evidence Gate's "authoritative `go`" requirement.
+  generator/consumer-boundary proof, not external / community validation and not a substitute
+  for the hardened contract's stronger "authoritative `go`" status.
 
 ## Output Recommendation (Informational, Non-Binding)
 
@@ -1648,7 +1619,8 @@ non-binding per FR-026, MUST explicitly leave the eventual production package's 
 release vehicle undecided, MUST explicitly distinguish itself from the hardened contract's
 "authoritative `go`" per FR-025, and MUST NOT itself schedule, authorize, or scope a
 `packages/adapters/catalog-backstage` implementation — that remains a separate, later,
-explicitly-scoped feature contingent on FR-027's two remaining gates clearing.*
+explicitly-scoped feature for which external-adopter evidence is optional later production
+maturity, not a hard gate.*
 
 ## Assumptions
 
@@ -1703,13 +1675,17 @@ explicitly-scoped feature contingent on FR-027's two remaining gates clearing.*
   separately-queried `git remote`/`HEAD`, never against a value asserted only in the manifest
   itself.
 
-- **A5**: "Independent adopter" (execution gate 2, FR-027(b), and the hardened contract's
-  Evidence Gate underlying FR-025) means an adopter other than the maintainer authoring real
+- **A5**: "Independent adopter" is no longer a hard execution gate for this spike. The spike's
+  executable oracle is the **maintainer-authored reference oracle** built inside the scratch
+  workspace from the pinned public Backstage-ecosystem corpora named in FR-001, synthetic
+  explicit `adrkit.io/owned-paths` annotations authored by the maintainer, and independent
+  adversarial review of those labels. A later adopter other than the maintainer authoring real
   `adrkit.io/owned-paths` annotations against their own live or real catalog and providing a
-  hand-labeled entity/path oracle. The two pinned public Backstage-ecosystem corpora sampled
-  for this spike's research grounding and B/C measurement are read-only research inputs, not
-  that adopter — neither carries any `adrkit.io/owned-paths` annotation at all (per A2), so
-  sampling them cannot, even in principle, provide the oracle this gate requires.
+  hand-labeled entity/path oracle remains valuable as optional later production-maturity
+  evidence for a future, stronger authoritative `go`; it is not required for spike execution or
+  for this spike's `go-explicit` verdict. The two pinned public corpora are read-only research
+  inputs, not external/community adoption evidence — neither carries any `adrkit.io/owned-paths`
+  annotation at all (per A2).
 
 - **A6**: The catalog-binding ADR is
   [ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md),
@@ -1722,8 +1698,8 @@ explicitly-scoped feature contingent on FR-027's two remaining gates clearing.*
   "explicitly blocked" branch issue #25's hardening decision named as one of exactly two valid
   resolutions — a documented, satisfied disposition, not an open ambiguity. The catalog-
   governance precondition this spec once modeled as a gate is therefore fully satisfied by
-  ADR-0012 and ADR-0013 together, and this spec's execution gates (FR-027) name only Phase 6
-  and the independent adopter. ADR-0007/ADR-0009's own **eventual acceptance** (moving each
+  ADR-0012 and ADR-0013 together; ADR-0014 also removes the previous external-actor hard gates.
+  ADR-0007/ADR-0009's own **eventual acceptance** (moving each
   from `proposed` to `accepted`, or superseding each) remains a separate, later action neither
   this spec nor ADR-0012/ADR-0013 performs, and this spec does not gate its own execution on
   it — doing so would be circular, since ADR-0013's own acceptance path for ADR-0007/ADR-0009
@@ -1750,21 +1726,19 @@ explicitly-scoped feature contingent on FR-027's two remaining gates clearing.*
   combination already implements the hardened dotfile policy with no code change to either
   existing core matcher.
 
-- **A9**: Implementation of this spike (the actual execution described in User Stories 1–7)
-  requires every remaining gate in this spec's banner to clear. **As of 2026-07-21, the
-  scoping-ratification component is satisfied** (adrkit issue #25, both dated decisions; see
-  the Ratification Record), **and the catalog-governance precondition is now fully satisfied**
-  (ADR-0012, `status: accepted`, PR #26, merged at `54dbae8`, providing the contract; and
-  ADR-0013, `status: accepted`, PR #27, merged at `48087e8`, resolving ADR-0007/ADR-0009's
-  status ambiguity via the "explicitly blocked" branch — one of exactly two resolutions issue
-  #25 named as sufficient). **Only Phase 6 T048/T049 (gate 1) and independent-adopter
-  validation (gate 2) remain unsatisfied.** ADR-0007/ADR-0009's own eventual acceptance
-  (moving from `proposed` to `accepted`, or supersession) is a separate, later, non-gating
-  decision — this spec does not require it, since ADR-0013's own acceptance path for
-  ADR-0007/ADR-0009 lists this spike's evidence as one of its preconditions, and gating this
-  spike's execution on it would be circular. This spec's own creation and refinement — the
-  advance-scoping activity itself — is, and always was, exempt from every gate, per
-  `plan.md`'s advance-scoping-vs-implementation split.
+- **A9**: Implementation of this spike (the actual execution described in User Stories 1–7) is
+  authorized once this governance migration merges, because every remaining execution
+  precondition is satisfied: Phase 6 is **landed / reference-validated** under ADR-0014 rungs
+  1–2 (not external / community validation), maintainer scoping/contract ratification on issue
+  #25 is satisfied, ADR-0012 and ADR-0013 are accepted, and ADR-0014 is accepted. The previous
+  independent-adopter execution gate has been removed and replaced by the in-scratch
+  maintainer-authored reference oracle described in A5/FR-025/FR-027. ADR-0007/ADR-0009's own
+  eventual acceptance (moving from `proposed` to `accepted`, or supersession) is a separate,
+  later, non-gating decision — this spec does not require it, since ADR-0013's own acceptance
+  path for ADR-0007/ADR-0009 lists this spike's evidence as one of its preconditions, and
+  gating this spike's execution on it would be circular. This spec's own creation and
+  refinement — the advance-scoping activity itself — is, and always was, exempt from execution
+  preconditions per `plan.md`'s advance-scoping-vs-implementation split.
 
 - **A10**: This spike does not add, and its fixtures must not be mistaken for, a fifth MCP
   tool, a write MCP tool, an evaluator rubric pass, or any HTTP service. It is a catalog

@@ -15,36 +15,40 @@ description: "Dependency-ordered task list for the Spec Kit Hook Compatibility V
 pre-scoping evidence for its action item 1), `docs/adr/0007` (adapter isolation;
 clean-clone, credential-free, network-free), `docs/adr/0010` (Bun for development,
 Node-targeted published `@adrkit/cli` artifact this spike invokes as a subprocess),
-`.specify/memory/constitution.md` Principles I–III
+[ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+(phase landing on rungs 1–2; external / community validation (ADR-0014 rung 3) as an optional
+later maturity signal), `.specify/memory/constitution.md` Principles I–III
 
 **Generated**: 2026-07-21, as a follow-up advance-scoping session to
 `specs/008-spec-kit-hook-viability/plan.md` (same date), under root `plan.md`'s
 explicit "Advance **scoping** (spec → plan → tasks) of the next phase is explicitly
-permitted" exemption — generating this checklist is scoping, not execution, so it does
-not itself require gate 1 to clear. **Nothing in this file may be executed until gate 1
-clears** (Phase 1 below is the hard block that enforces this).
+permitted" exemption — generating this checklist is scoping, not execution. Phase 6 is now
+landed / reference-validated under ADR-0014 rungs 1–2, and maintainer ratification is already
+satisfied; spike execution is authorized once this migration merges. **All task checkboxes
+remain unchecked until an execution session actually runs them** (Phase 1 below still
+mechanically verifies `GATE_PASS`).
 
-> ⛔ **Double gate — reproduced verbatim from `spec.md`'s banner and `plan.md`'s banner;
-> this file does not relax it, and adds a mechanical enforcement of it as Phase 1.**
+> ✅ **Governance gates satisfied — spike execution authorized once this migration merges; tasks below remain unchecked until executed.**
 >
-> 1. **Phase 6 gate (open as of this file's generation, 2026-07-21).**
->    `specs/007-arb-queue/spec.md` SC-004 (external-team, separate-repository dogfood
->    exit gate), tracked as `specs/007-arb-queue/tasks.md` **T048** (gate, currently
->    `- [ ]` unchecked) with dependent **T049** (doc flip to `landed`, currently `- [ ]`
->    unchecked). Root `plan.md`'s Spec-kit realization table (the row for
->    `specs/007-arb-queue/`) records Phase 6 as "implementation in progress ...
->    external-team rung 6 exit gate (SC-004) outstanding" — not `landed`. *Disambiguation:*
->    an unrelated, already-completed `T048`/`T049` pair exists in
+> 1. **Phase 6 gate — SATISFIED.** Under
+>    [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+>    Phase 6 (`specs/007-arb-queue/`) is **landed / reference-validated** on ADR-0014 rungs
+>    1–2, not externally validated. `specs/007-arb-queue/tasks.md` **T048** and dependent
+>    **T049** now read `- [X]`, and root `plan.md`'s Spec-kit realization table row for
+>    `specs/007-arb-queue/` reads `landed / reference-validated`. The evidence is the
+>    maintainer-owned isolated reference repository `mbeacom/adrkit-t018-dogfood`, recorded
+>    for Phase 6 in `specs/007-arb-queue/checklists/reference-validation-evidence.md`.
+>    *Disambiguation:* an unrelated, already-completed `T048`/`T049` pair exists in
 >    `specs/005-deterministic-evaluator/tasks.md` — that is not this gate.
-> 2. **This spike's own precondition (satisfied 2026-07-21).** Maintainer ratification of
->    `spec.md`'s exact scope, per its Ratification Record. **Satisfying gate 2 does not
->    satisfy gate 1.**
+> 2. **This spike's own precondition — SATISFIED 2026-07-21.** Maintainer ratification of
+>    `spec.md`'s exact scope, per its Ratification Record.
 >
-> **T001–T003 below exist to make this mechanical rather than advisory.** No task in
+> **T001–T003 below remain present to make this mechanical rather than advisory.** No task in
 > Phase 2 onward may begin — no scratch directory created, no fixture file written, no
 > `specify` command run, no evidence file written — until T003 records a `GATE_PASS`
-> result. If a future execution session finds T001 or T002 failing, it MUST stop at T003
-> and perform no further task in this file, full stop.
+> result. Once this migration merges, a future execution session re-running T001–T003 should
+> compute `GATE_PASS = true`; if the source facts drift and T001 or T002 fails, it MUST stop
+> at T003 and perform no further task in this file, full stop.
 
 **Tests**: This spike has no `bun test` suite of its own — it is not a workspace
 package. "Tests" here are the fixed exit-code/message contracts in
@@ -109,7 +113,7 @@ Opus 4.6, for any task in this file.
 
 ## Phase 1: Gate Verification (hard block — no story label)
 
-**Purpose**: Mechanically verify both halves of `spec.md`'s double gate before any
+**Purpose**: Mechanically verify both satisfied governance gates from `spec.md`'s banner before any
 scratch artifact, install, or evidence-gathering step exists. This phase produces no
 scratch file and touches no path outside direct, read-only inspection of files already
 tracked in this repository.
@@ -120,24 +124,24 @@ the gate failure (which half failed, and its current state) to the coordinating 
 and end.
 
 - [ ] T001 Verify gate 1 (Phase 6). Read, in this order: (a)
-  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048** ("(SC-004)
-  External dogfood gate...") and **T049** ("After SC-004 (T048) clears: update root
-  `plan.md` Phase 6 row to `landed`..."); both MUST read `- [X]` (checked/complete) for
-  gate 1 to pass — either being `- [ ]` fails this check. (b) root `plan.md`'s Spec-kit
-  realization table — confirm the `specs/007-arb-queue/` row's Status column reads
-  `landed` (not "implementation in progress" or any other in-progress phrasing).
-  **Output**: a single boolean `gate1Pass` plus the verbatim text of both source lines,
-  recorded to `<EVIDENCE_DIR>/gate-check.json` (this one file may be created before
-  `<SCRATCH_ROOT>` exists, since it is a pure read of already-tracked repository files —
-  no scratch workspace is needed to perform this check). **As of this task list's own
-  generation (2026-07-21), this check FAILS**: T048/T049 both read `- [ ]`, and the
-  `plan.md` row reads "implementation in progress ... external-team rung 6 exit gate
-  (SC-004) outstanding." A future execution session MUST re-run this exact check itself
-  at whatever date it actually executes — this note is a snapshot, not a substitute for
+  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048** and **T049**
+  for the Phase 6 reference-validation gate (not the unrelated, already-completed T048/T049
+  pair in `specs/005-deterministic-evaluator/tasks.md`); both MUST read `- [X]`
+  (checked/complete) for gate 1 to pass — either being `- [ ]` fails this check. (b) root
+  `plan.md`'s Spec-kit realization table — confirm the `specs/007-arb-queue/` row's Status
+  column reads `landed / reference-validated` (not "implementation in progress" or any other
+  in-progress phrasing, and not externally validated). **Output**: a single boolean
+  `gate1Pass` plus the verbatim text of both source lines, recorded to
+  `<EVIDENCE_DIR>/gate-check.json` (this one file may be created before `<SCRATCH_ROOT>`
+  exists, since it is a pure read of already-tracked repository files — no scratch workspace
+  is needed to perform this check). **Snapshot after this governance migration**: this check
+  PASSES — T048/T049 read `- [X]`, and the `plan.md` row reads `landed /
+  reference-validated`. A future execution session MUST re-run this exact check itself at
+  whatever date it actually executes — this note is a snapshot, not a substitute for
   re-verification.
 
 - [ ] T002 Verify gate 2 (maintainer ratification). Read `spec.md`'s Ratification Record
-  (the section immediately following the double-gate banner) and confirm it states an
+  (the section immediately following the satisfied-governance-gates banner) and confirm it states an
   explicit maintainer ratification dated 2026-07-21 covering: the fixed v0.13.0/SHA
   target, the one-command/one-hook fixture shape, the two-tier agent-verification split,
   the offline/no-mutation evidence requirements, and the three-way verdict precedence.
@@ -676,15 +680,15 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   session has exceeded this spike's authorized scope and must stop and re-scope rather
   than proceed.
 
-- [ ] T048 [US5] Set `phase6LandedClaim: false` (fixed literal, SC-008/FR-023) on the
-  verdict record, and write the equivalent prose restatement — in whatever words, but
+- [ ] T048 [US5] Set `phase6ExternalValidationClaim: false` (fixed literal, SC-008/FR-023)
+  on the verdict record, and write the equivalent prose restatement — in whatever words, but
   covering the same fact — into the narrative file (T050) that Phase 6
-  (`specs/007-arb-queue/`) remains not landed as of this spike's conclusion, and that no
-  feature 008 *implementation* may begin until both gates in `spec.md`'s banner clear,
-  **independent of, and never contingent on, this spike's own verdict** — a `go` verdict
-  does not and cannot advance the Phase 6 gate. Depends on: T046 (runs regardless of
-  whether T047 was skipped for a `no-go` outcome — this task applies to every outcome,
-  unconditionally, unlike T047).
+  (`specs/007-arb-queue/`) is landed / reference-validated (not externally validated), that
+  external / community validation (ADR-0014 rung 3) remains absent unless separately evidenced,
+  and that this spike did not cause or advance Phase 6's status, **independent of, and never
+  contingent on, this spike's own verdict**. Depends on: T046 (runs regardless of whether T047
+  was skipped for a `no-go` outcome — this task applies to every outcome, unconditionally,
+  unlike T047).
 
 - [ ] T049 [US5] Assemble the final `spike-008-evidence.json` (`research.md` R4;
   `contracts/evidence-bundle-and-verdict.md` §1) at
@@ -697,7 +701,7 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   `<EVIDENCE_DIR>/spike-008-evidence.md` — the human-readable narrative: frozen-reference
   re-verification result, one subsection per User Story 1–4 with transcript excerpts and
   pass/fail per acceptance scenario, the User Story 5 verdict with its cross-referenced
-  evidence, T048's Phase-6-not-landed restatement, and (if applicable) T047's non-binding
+  evidence, T048's Phase-6-maturity restatement, and (if applicable) T047's non-binding
   recommendation. Depends on: T049.
 
 **Checkpoint**: User Story 5 complete. Exactly one verdict is recorded. This is the
@@ -708,7 +712,7 @@ spike's actual deliverable (spec.md: "It does not produce that adapter").
 ## Phase 8: Cleanup and Closeout (cross-cutting, no story label)
 
 **Purpose**: Confirm every constraint this spike was required to hold throughout —
-zero tracked mutation, no package/schema/version/tag/CI change, no Phase 6 landed claim —
+zero tracked mutation, no package/schema/version/tag/CI change, no Phase 6 external / community validation claim —
 holds at the end, not merely at each individual step, and tear down (or knowingly leave,
 since nothing here is tracked) the scratch workspaces.
 
@@ -732,10 +736,12 @@ Depends on: T050 (evidence bundle finalized).
   state.
 
 - [ ] T054 Confirm no claim, anywhere in `spike-008-evidence.md`/`.json`, states or
-  implies Phase 6 is landed or that its SC-004 exit gate has cleared, regardless of this
-  spike's own verdict (Out of Scope; T048's restatement is the one place "Phase 6" and
-  "landed" may co-occur, and only in the negative). A mechanical grep for "landed" in the
-  evidence files should surface only T048's own not-landed statement.
+  implies Phase 6 is externally validated, has external / community validation (ADR-0014 rung
+  3), or was landed / reference-validated by this spike, regardless of this spike's own
+  verdict (Out of Scope; T048's restatement is the required place to state the precise Phase 6
+  maturity label). A mechanical grep for "externally validated" and "external / community"
+  in the evidence files should surface only T048's controlled maturity statement unless a
+  separate, linkable rung-3 source exists.
 
 - [ ] T055 [P] Confirm no scratch artifact from this spike was ever staged or committed
   in `<THIS_REPO>` at any point — `git log` and `git status` at `<THIS_REPO>`'s root show
@@ -769,7 +775,7 @@ Depends on: T054, T055, T056.
   Markdown narrative, (b) the verdict's precedence was applied in the fixed order (no-go
   → go → manual-command-only) with no skipped or reordered step, (c) `drivingEvidence` is
   non-empty and names real `EvidenceBundle` fields, (d) `releaseVehicleDecision` is `null`
-  in every case it appears, (e) T048's Phase-6-not-landed restatement is present and
+  in every case it appears, (e) T048's Phase-6-maturity restatement is present and
   correctly worded, and (f) no fabricated or assumed evidence (every transcript excerpt
   traces to an actual captured file under `<EVIDENCE_DIR>`, never a paraphrase presented
   as a direct quote). Record findings; remediate any defect found before T058.
@@ -777,9 +783,9 @@ Depends on: T054, T055, T056.
 - [ ] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
   (`<EVIDENCE_DIR>/spike-008-evidence.{json,md}`); any `no-go` trigger or
-  `manual-command-only` shortfall by name; the explicit restatement that Phase 6 remains
-  not landed and that no feature 008 implementation may begin until both gates in
-  `spec.md`'s banner clear; and an explicit note that **any resulting change to
+  `manual-command-only` shortfall by name; the explicit restatement that Phase 6 is landed / reference-validated (not externally
+  validated), that external / community validation (ADR-0014 rung 3) remains absent unless
+  separately evidenced, and that this spike did not cause or advance Phase 6's status; and an explicit note that **any resulting change to
   `plan.md`/`tasks.md`/`spec.md` that this spike's findings suggest is itself a separate,
   later, explicitly-scoped follow-up — never something this execution session decides or
   performs unilaterally as part of running this file.**
@@ -793,7 +799,7 @@ No production package scoped, scheduled, or committed to by this file's executio
 
 ```
 Phase 1 (Gate):        T001 [P w/ T002 read-only] + T002 → T003 (GATE_PASS)
-                        ⛔ If GATE_PASS = false: STOP. No further task runs.
+                        If GATE_PASS = false: STOP. No further task runs.
 
 Phase 2 (Foundational): T003 → T004 (frozen-target re-verify; fail-closed halt point)
                               → T005 [P] + T006 [P] + T007 [P] (no path overlap)
@@ -865,7 +871,7 @@ clean local install itself fails, that alone is enough evidence to inform (thoug
 yet fully determine, per SC-007's precedence) a `no-go`-leaning result, without needing
 to reach User Stories 2–4.
 
-### Execution Order (once gate 1 clears)
+### Execution Order (once this migration merges and T003 records `GATE_PASS = true`)
 
 1. Phase 1 (T001–T003) — gate check. **If it fails, stop; nothing below runs.**
 2. Phase 2 (T004–T012) — foundational. **If T004 finds a mismatch, stop; nothing below

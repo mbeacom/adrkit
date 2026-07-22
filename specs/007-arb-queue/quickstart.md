@@ -395,23 +395,28 @@ The Action must still succeed (QS-ACT-01 or QS-ACT-02 scenario).
 
 ---
 
-## Rung-6 Exit Criteria (SC-004)
+## Rung-2 Reference-Validation Criteria (SC-004 — ADR-0014 rung 2)
 
-Implementation tasks may be generated and executed without SC-004 being cleared.
-SC-004 is the **exit gate for claiming rung 6 as landed / release-ready** — not
-a gate before implementation.
+SC-004 is the **ADR-0014 rung-2 gate that lands Phase 6** — met by a maintainer-owned
+isolated reference repository, not by an external team, and not a gate before
+implementation.
 
-Before calling Phase 6 "landed" and claiming rung 6, a team that is **not the
-maintainer's own** must complete the following dogfood exercise in a **separate
-repository**:
+To land Phase 6, a **maintainer-owned isolated reference repository** (separate from
+this monorepo) completed the following dogfood exercise — reproducibly (pinned adrkit
+commit), self-verifyingly (the reference repo asserts its own outcomes in CI), and
+reviewed:
 
-- [ ] Repository contains at least 3 `proposed` ADRs spanning `auto`, `async`, and `arb` tiers
-- [ ] At least one ADR is overdue or at the due boundary as of the run date
-- [ ] At least one ADR has `approvals` and `objections` in its `review` block
-- [ ] `adr queue --format json` produces a valid `QueueReport` v1 JSON
-- [ ] The GitHub Action creates a managed issue on first run
-- [ ] The same managed issue is updated (not replaced) on a second run
-- [ ] Default `GITHUB_TOKEN` with `issues: write` is the only credential used
-- [ ] The external team reports no installation, runtime, or permission blockers
+- [x] Repository contains at least 3 `proposed` ADRs spanning `auto`, `async`, and `arb` tiers
+- [x] At least one ADR is overdue or at the due boundary as of the run date
+- [x] At least one ADR has `approvals` and `objections` in its `review` block
+- [x] `adr queue --format json` produces a valid `QueueReport` v1 JSON
+- [x] The GitHub Action creates a managed issue on first run
+- [x] The same managed issue is updated (not replaced) on a second run
+- [x] Default `GITHUB_TOKEN` with `issues: write` is the only credential used
+- [x] No installation, runtime, or permission blockers encountered
 
-Evidence must be documented and linked before closing SC-004.
+Evidence is documented and linked in
+[checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md)
+([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood), Action pinned
+at `efef89b`). This is reference validation (ADR-0014 rung 2), **not** external/community
+validation (rung 3, open).

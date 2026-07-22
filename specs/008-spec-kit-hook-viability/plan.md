@@ -1,8 +1,8 @@
 # Implementation Plan: Spec Kit Hook Compatibility Viability Spike
 
 **Feature directory**: `008-spec-kit-hook-viability` | **Implementation branch**:
-Not yet assigned — no implementation branch may be opened until both gates in
-`spec.md`'s banner clear. This plan was authored on
+Not yet assigned — governance gates are satisfied, and spike execution is authorized once
+this migration merges. This plan was authored on
 `mbeacom-plan-spec-008-hook-viability`, itself a scoping-only worktree; the
 plan's existence does not open an implementation branch. | **Date**:
 2026-07-21 | **Spec**: [spec.md](./spec.md)
@@ -22,7 +22,10 @@ runtime — the properties this spike's own evidence-gathering must itself
 satisfy, not only the future adapter),
 [ADR-0010](../../docs/adr/0010-bun-toolchain.md) (Bun for development,
 Node-targeted published `@adrkit/cli` artifact — the binary this spike invokes
-as a subprocess), and
+as a subprocess),
+[ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+(phase landing on rungs 1–2; external / community validation (ADR-0014 rung 3) as an optional
+later maturity signal), and
 [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md)
 Principles I–III (v1.0.2; git is truth, clean clone builds green with no
 post-install network/credentials/services, core and CLI depend on no
@@ -38,43 +41,30 @@ at that exact commit — cited inline by immutable
 `github.com/github/spec-kit/tree/9a30db4.../...` URLs, never `main` — per
 [research.md](./research.md) R1.
 
-> ⛔ **Double gate — implementation of this spike itself is not authorized.**
-> Reproduced from `spec.md`'s banner; this plan does not relax it.
+> ✅ **Governance gates satisfied — spike execution authorized once this migration merges; tasks below remain unchecked until executed.**
+> Reconciled with `spec.md`'s banner under
+> [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md).
 >
-> 1. **Phase 6 gate (open).** `specs/007-arb-queue/spec.md` SC-004 (external-team,
->    separate-repository dogfood exit gate), tracked as
->    `specs/007-arb-queue/tasks.md` **T048** (gate) with dependent **T049**
->    (doc flip to `landed`). Neither is cleared as of this planning session.
->    *Disambiguation:* an unrelated, already-completed `T048`/`T049` pair
->    exists in `specs/005-deterministic-evaluator/tasks.md` — not this gate.
-> 2. **This spike's own precondition (satisfied 2026-07-21).** Maintainer
->    ratification of this spec's exact scope, per the Ratification Record in
->    `spec.md`. **Satisfying gate 2 does not satisfy gate 1.** Advance scoping
->    — this plan and its companion artifacts — is exempt from both gates, per
->    root `plan.md`'s "Advance scoping ... is explicitly permitted" note.
->    Execution (installing the fixture, firing the hook, gathering evidence)
->    remains unauthorized until gate 1 also clears.
+> 1. **Phase 6 gate — SATISFIED.** Phase 6 (`specs/007-arb-queue/`) is **landed /
+>    reference-validated** on ADR-0014 rungs 1–2, not externally validated. The evidence is
+>    the maintainer-owned isolated reference repository `mbeacom/adrkit-t018-dogfood`, recorded
+>    for Phase 6 in `specs/007-arb-queue/checklists/reference-validation-evidence.md`.
+>    `specs/007-arb-queue/tasks.md` **T048** and dependent **T049** now read `- [X]`, and
+>    root `plan.md`'s Spec-kit realization table row for `specs/007-arb-queue/` reads
+>    `landed / reference-validated`. *Disambiguation:* an unrelated, already-completed
+>    `T048`/`T049` pair exists in `specs/005-deterministic-evaluator/tasks.md` — not this gate.
+> 2. **This spike's own precondition — SATISFIED 2026-07-21.** Maintainer ratification of this
+>    spec's exact scope, per the Ratification Record in `spec.md`.
 >
-> **This plan therefore stops after Phase 1.** Per the `/speckit.plan` command
-> contract itself ("Command ends after Phase 1 design... Report branch,
-> IMPL_PLAN path, and generated artifacts"), and per this task's explicit
-> instruction, **no `tasks.md` is generated in this planning session**, and no
-> implementation, commit, push, or PR follows from it. Phase 2 (task
-> generation) is deferred to a future planning session — one that, per root
-> `plan.md`'s "Advance **scoping** (spec → plan → tasks) of the next phase is
-> explicitly permitted" note, need not itself wait for gate 1, since generating
-> `tasks.md` is scoping, not execution. **Update (2026-07-21, follow-up
-> scoping session):** exactly that follow-up session ran and produced
-> `specs/008-spec-kit-hook-viability/tasks.md` on the same date as this plan,
-> under the same root-`plan.md` scoping exemption — the tasks file is a
-> dependency-ordered checklist for a *future*, gate-cleared execution session,
-> not an execution itself. Its own first phase is a hard-blocking gate-check
-> task pair (verifying `specs/007-arb-queue/tasks.md` T048/T049 and root
-> `plan.md`'s Phase 6 row) that every later task in that file is explicitly
-> made to depend on. **This changes nothing about gate 1's status**: Phase 6
-> was open when that tasks.md was generated and remains open; no command in
-> that file may run until gate 1 clears, exactly as this plan's banner already
-> required for every other execution step.
+> **This plan still describes design/scoping only.** Per the `/speckit.plan` command contract
+> itself ("Command ends after Phase 1 design... Report branch, IMPL_PLAN path, and generated
+> artifacts"), this planning session performed no implementation, commit, push, or PR. Phase 2
+> task generation later produced `specs/008-spec-kit-hook-viability/tasks.md` under root
+> `plan.md`'s "Advance **scoping** (spec → plan → tasks) of the next phase is explicitly
+> permitted" note. That tasks file remains a dependency-ordered checklist for a future
+> execution session; its first phase still mechanically verifies T001–T003 before scratch work
+> begins. After this migration merges, a future execution session rerunning those checks should
+> obtain `GATE_PASS = true`, but every 008 task remains unchecked until it is actually executed.
 
 ## Summary
 
@@ -93,14 +83,14 @@ for GitHub Copilot (live) and structurally correct for one more upstream agent;
 loudly and specifically, never silently; (5) the collected evidence maps to
 exactly one of three exhaustive, mutually exclusive verdicts.
 
-This plan produces the design artifacts a future, gate-cleared execution
+This plan produces the design artifacts a future, authorized execution
 session will follow verbatim: the fixture's exact manifest and command file
 content (`data-model.md`, `contracts/fixture-surface.md`), the scratch
 workspace and evidence-capture procedure (`research.md`,
 `contracts/isolation-and-offline.md`), the transcript/evidence-bundle schema
 and verdict decision procedure (`contracts/evidence-bundle-and-verdict.md`),
 and a step-by-step validation walkthrough (`quickstart.md`) that is explicitly
-marked **not runnable today**. It produces zero code, zero fixture files on
+marked **authorized once this migration merges**. It produces zero code, zero fixture files on
 disk outside this planning session's design docs, and zero adapter package.
 
 ## Technical Context
@@ -165,8 +155,8 @@ fallback — Assumption A6). No catalog submission, no multi-repo scope.
 
 *GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design
 below. Both checks additionally verify the two properties specific to this
-feature: (a) this plan produces no shipping artifact, and (b) the double gate
-from `spec.md`'s banner is recorded, not loosened, by this plan.*
+feature: (a) this plan produces no shipping artifact, and (b) the satisfied governance gates
+from `spec.md`'s banner are recorded without overstating external / community validation.*
 
 ### Pre-Design Check (initial)
 
@@ -186,13 +176,13 @@ No violations. Complexity Tracking table is empty.
 
 ```text
 specs/008-spec-kit-hook-viability/
-├── spec.md                          # Ratified; double gate banner + Ratification Record
+├── spec.md                          # Ratified; satisfied governance-gates banner + Ratification Record
 ├── checklists/
 │   └── requirements.md              # Passed; reader-tested
 ├── plan.md                          # This file — Phase 0/1 only, stops before tasks.md
 ├── research.md                      # Phase 0 output — R1–R13, all decisions resolved
 ├── data-model.md                    # Phase 1 output — evidence/verdict entities (not production data)
-├── quickstart.md                    # Phase 1 output — future GATED execution/validation guide
+├── quickstart.md                    # Phase 1 output — authorized-on-merge execution/validation guide
 ├── contracts/
 │   ├── upstream-target.md           # Manifest-v1 fixture shape; immutable v0.13.0 target; fail-closed mismatch
 │   ├── fixture-surface.md           # The one command + one optional after_plan hook; absent-context/absent-binary contracts
@@ -202,19 +192,19 @@ specs/008-spec-kit-hook-viability/
 │   └── evidence-bundle-and-verdict.md  # Evidence bundle schema; go/manual-command-only/no-go decision procedure; non-binding recommendation
 └── tasks.md                         # Phase 2 output, generated 2026-07-21 by a follow-up advance-scoping
                                       # session (root plan.md's "spec → plan → tasks" scoping exemption) — a
-                                      # dependency-ordered checklist for a FUTURE, gate-cleared execution
-                                      # session, hard-blocked by its own first-phase gate-check tasks. Does
-                                      # not itself execute anything; gate 1 (Phase 6 T048/T049) was open when
-                                      # it was generated and remains open.
+                                      # dependency-ordered checklist for a FUTURE execution session. Does
+                                      # not itself execute anything; its first-phase gate-check tasks now
+                                      # should compute GATE_PASS=true once this migration merges.
 ```
 
 **`tasks.md` exists as of 2026-07-21**, generated in a follow-up
 advance-scoping session per root `plan.md`'s explicit "spec → plan → tasks"
 scoping exemption — task *generation* is scoping, not execution, so it did not
-need to wait for gate 1. Every task in it is transitively gated by that file's
+need execution authorization. Every task in it is transitively gated by that file's
 own Phase 1 gate-check tasks, which re-verify `specs/007-arb-queue/tasks.md`
 T048/T049 and root `plan.md`'s Phase 6 row before authorizing any later task.
-This plan's own Completion Report below is updated accordingly.
+Those checks should now pass once this migration merges; this plan's own Completion Report
+below is updated accordingly.
 
 ### Source Code (repository root)
 
@@ -268,11 +258,10 @@ broadening scope. Summary of binding decisions:
   what "recovery" means for each of the two failure-mode probes (FR-015/FR-016).
 - **R11 Constitution alignment**: all five principles PASS; see Constitution
   Check above and after Phase 1 below.
-- **R12 Status drift check**: re-confirms, as of this planning session, that
-  Phase 6 (`specs/007-arb-queue/`) is still "implementation in progress ...
-  external-team rung 6 exit gate (SC-004) outstanding" per root `plan.md`, and
-  that `packages/cli/dist` still does not exist on disk (spec.md A2's starting
-  condition unchanged).
+- **R12 Status drift check**: originally captured the planning-session starting state; this
+  migration updates the governance state so Phase 6 (`specs/007-arb-queue/`) is now landed /
+  reference-validated (not externally validated) per root `plan.md` and ADR-0014, while
+  leaving the `packages/cli/dist` starting-condition note unchanged.
 
 ## Phase 1: Design Artifacts
 
@@ -314,14 +303,14 @@ All Phase 1 artifacts are generated:
   decision it must never make.
 - **[quickstart.md](./quickstart.md)**: A future-gated, step-by-step
   validation walkthrough mapping directly to User Stories 1–5 and Success
-  Criteria SC-001–SC-008, marked **not runnable until both gates clear**, for
-  whichever session eventually executes this spike.
+  Criteria SC-001–SC-008, marked **authorized once this migration merges**, for whichever session eventually executes
+  this spike.
 
 ## Constitution Check (Post-Design)
 
 | Principle | Final Status | Notes |
 |-----------|-------------|-------|
-| **I** | ✅ PASS | The complete design artifact set adds zero tracked files under `docs/adr/**`, proposes zero schema change, and opens zero implementation branch. The double gate from `spec.md`'s banner is restated verbatim in this plan's own banner, not loosened. |
+| **I** | ✅ PASS | The complete design artifact set adds zero tracked files under `docs/adr/**`, proposes zero schema change, and opens zero implementation branch. The satisfied governance gates from `spec.md`'s banner are restated in this plan's own banner without claiming external / community validation. |
 | **II** | ✅ PASS | No dependency, build step, or CI job was added anywhere in the repository by this planning session. The designed execution protocol (`contracts/isolation-and-offline.md`) requires no network beyond the pre-existing `specify-cli` install and no credentials at any step. |
 | **III** | ✅ PASS | No file was added under `packages/adapters/*` or any other package. The fixture design in `contracts/fixture-surface.md` treats adrkit's built CLI strictly as an external subprocess boundary — the arm's-length relationship ADR-0007 requires — never as an in-process import. |
 | **IV** | ✅ PASS | `contracts/evidence-bundle-and-verdict.md`'s verdict procedure is a fixed decision table, checked in a stated order, with no probabilistic or model-assisted step. The fixture's designed command is a deterministic subprocess wrapper. |
@@ -354,15 +343,15 @@ implementation branch opened; no commit/push/PR performed by this session).
 Phase 1, per its own task instruction). **Generated in a follow-up
 advance-scoping session, same date (2026-07-21)**:
 `specs/008-spec-kit-hook-viability/tasks.md` — a dependency-ordered checklist
-for a *future*, gate-cleared execution session, produced under root
+for a future execution session, produced under root
 `plan.md`'s "spec → plan → tasks" scoping exemption (task generation is
-scoping, not execution). That file's own Phase 1 is a hard-blocking pair of
+scoping, not execution). That file's own Phase 1 is a mechanical pair of
 gate-check tasks (re-verifying `specs/007-arb-queue/tasks.md` T048/T049 and
 root `plan.md`'s Phase 6 row) that every later task in it is made to depend
-on; gate 1 was open when it was generated and remains open — nothing in it
-may run yet. **Constitution status**: all five principles PASS, before and
-after design; Complexity Tracking empty. **Double gate status**: gate 2
-(maintainer ratification) satisfied 2026-07-21 per `spec.md`'s Ratification
-Record; gate 1 (Phase 6 `specs/007-arb-queue/tasks.md` T048/T049) remains
-open. **Neither this plan nor its companion `tasks.md` authorizes any
-execution.**
+on; after this migration merges, those checks should compute `GATE_PASS = true`, but the
+tasks remain unchecked until executed. **Constitution status**: all five principles PASS,
+before and after design; Complexity Tracking empty. **Governance gate status**: gate 2
+(maintainer ratification) satisfied 2026-07-21 per `spec.md`'s Ratification Record; gate 1
+(Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 and root `plan.md` row) is satisfied with
+Phase 6 landed / reference-validated, not externally validated. **This plan did not execute
+the spike; execution is authorized once this migration merges.**

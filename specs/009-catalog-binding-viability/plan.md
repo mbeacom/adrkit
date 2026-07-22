@@ -1,12 +1,12 @@
 # Implementation Plan: Catalog Entity-to-Path Binding Compatibility Viability Spike
 
 **Feature directory**: `009-catalog-binding-viability` | **Implementation
-branch**: Not yet assigned — no implementation branch may be opened until
-both gates in `spec.md`'s banner clear. This plan was authored on
+branch**: Not yet assigned; execution is authorized by governance once this
+migration merges, but this plan's authoring session remains scoping-only and
+did not open an implementation branch. This plan was authored on
 `mbeacom-spec-009-plan-catalog-binding`, itself a scoping-only worktree
 stacked on `mbeacom-spec-009-catalog-binding-viability` at commit `e892ba1`
-("docs: scope catalog binding viability"); the plan's existence does not
-open an implementation branch. | **Date**: 2026-07-21 | **Spec**:
+("docs: scope catalog binding viability"). | **Date**: 2026-07-21 | **Spec**:
 [spec.md](./spec.md)
 
 **Input**: Feature specification from
@@ -24,6 +24,8 @@ requirement),
 (`status: accepted`, PR #27, `48087e8` — reconciles ADR-0007/ADR-0009's
 narrowed clauses while deliberately holding both `proposed`, and defines
 their own future acceptance path),
+[ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+(`status: accepted` — replaces external-actor hard gates with the three-rung evidence ladder),
 [ADR-0009](../../docs/adr/0009-affects-resolution-and-catalog-binding.md)
 (`status: proposed`; affects resolution semantics, the `entity` matcher
 grammar, and the `CatalogPort`/`CatalogSnapshot` contract this spike measures
@@ -48,65 +50,39 @@ planning session** — see `research.md` R1): Backstage
 `redhat-developer/rhdh-plugins@3b355ddfedb23c6656bd9effc8510f9926b765c1`
 (38 descriptors by exact basename, not 39).
 
-> ⛔ **Two open execution gates — the governance preconditions are
-> satisfied; implementation of this spike itself is not authorized.**
-> Reproduced from `spec.md`'s banner; this plan does not relax it.
+> ✅ **Governance preconditions satisfied; spike execution authorized once this migration
+> merges; tasks remain unchecked until actually executed.**
 >
-> **Satisfied preconditions (not gates).** Maintainer scoping/contract
-> ratification (adrkit issue #25, both 2026-07-21 decisions), catalog-binding
-> convention governance
+> **Satisfied preconditions.** Maintainer scoping/contract ratification (adrkit issue #25,
+> both 2026-07-21 decisions), catalog-binding convention governance
 > ([ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md),
-> `accepted`, `54dbae8`), and the adapter-isolation/catalog-binding
-> reconciliation
+> `accepted`, `54dbae8`), the adapter-isolation/catalog-binding reconciliation
 > ([ADR-0013](../../docs/adr/0013-reconcile-adapter-isolation-and-catalog-binding-with-the-offline-snapshot-genera.md),
-> `accepted`, `48087e8` — the authoritative, final status resolution of
-> ADR-0007/ADR-0009 for spike-authorization purposes) are all **satisfied**,
-> never outstanding. ADR-0007 and ADR-0009 remaining `status: proposed` with
-> documented blockers is this precondition's satisfied, final disposition —
-> not an execution gate; requiring their own eventual acceptance before this
-> spike's execution would be circular, since ADR-0013's own acceptance path
-> for them lists this spike's evidence among the preconditions for *their*
-> acceptance.
+> `accepted`, `48087e8`), and the phase-landing evidence policy
+> ([ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+> `accepted`) are all **satisfied**. ADR-0007 and ADR-0009 remaining `status: proposed` with
+> documented blockers is this precondition's satisfied, final disposition — not an execution
+> gate.
 >
-> **Open execution gates.** Both must clear before any spike execution (or
-> any later production catalog adapter work) may begin:
+> **Phase 6 status.** Phase 6 is **landed / reference-validated** on ADR-0014 rungs 1–2:
+> `specs/007-arb-queue/tasks.md` T048/T049 read `- [X]`, and root `plan.md` records the
+> `specs/007-arb-queue/` row as `landed / reference-validated`. The rung-2 evidence is the
+> **maintainer-owned isolated reference repository** <https://github.com/mbeacom/adrkit-t018-dogfood>,
+> not an external team and not external / community validation (ADR-0014 rung 3).
 >
-> 1. **Phase 6 gate (open).** `specs/007-arb-queue/spec.md` SC-004 (the
->    external-team, separate-repository dogfood exit gate), tracked as
->    `specs/007-arb-queue/tasks.md` **T048** (gate) with dependent **T049**
->    (doc flip to `landed`). Both confirmed unchecked as of this planning
->    session's `main` at `48087e8`. *Disambiguation:* an unrelated,
->    already-completed `T048`/`T049` pair exists in
->    `specs/005-deterministic-evaluator/tasks.md` — not this gate.
-> 2. **Independent-adopter gate (open).** An adopter other than the
->    maintainer must author real `adrkit.io/owned-paths` annotations against
->    their own real catalog and provide a hand-labeled entity/path oracle
->    this spike cannot itself construct. Sampling the two pinned public
->    Backstage-ecosystem corpora above is read-only research grounding, not
->    that adopter (A5) — neither carries the annotation at all.
+> **Independent-adopter status.** The previous independent-adopter pre-execution gate is
+> removed. The spike builds its own **maintainer-authored reference oracle** in the scratch
+> workspace from FR-001's pinned public corpora, maintainer-authored synthetic explicit
+> `adrkit.io/owned-paths` annotations, and independent adversarial review. External-adopter
+> evidence is optional later production-maturity evidence for a future, stronger
+> "authoritative `go`" status, not a hard gate for this spike or Phase 6.
 >
-> **This plan itself stopped after Phase 1.** Per the `/speckit.plan`
-> command's own contract ("Command ends after Phase 1 design... Report
-> branch, IMPL_PLAN path, and generated artifacts"), the original planning
-> session that authored this file produced **no `tasks.md`**, and no
-> implementation, fixture derivation, corpus re-fetch beyond what `spec.md`
-> already cites, comparison run, evidence gathering, commit, push, or PR
-> followed from it. Task generation (`tasks.md`) is scoping, not execution,
-> per root `plan.md`'s "spec → plan → tasks" scoping exemption, and may be
-> produced without waiting for either gate above.
->
-> **Follow-up scoping session — `tasks.md` was subsequently generated.** A
-> later advance-scoping session (2026-07-21, same date) produced
-> `specs/009-catalog-binding-viability/tasks.md` with **T001–T086**, a
-> dependency-ordered task list, under that same "spec → plan → tasks" scoping
-> exemption. That generation is **scoping, not execution**: every task is
-> unchecked (`- [ ]`) as generated, no task is marked complete, and Phase 1 of
-> `tasks.md` (T001–T004) is a hard mechanical gate that computes
-> `GATE_PASS = false` and blocks every downstream task until **both** execution
-> gates above clear. Generating the task list therefore neither relaxes nor
-> satisfies either gate, and authorizes no execution. This banner and the
-> Project Structure / Completion Report sections below are written to record
-> that `tasks.md` now exists, rather than to claim it was never produced.
+> **Follow-up scoping session — `tasks.md` was subsequently generated.** A later advance-scoping
+> session produced `tasks.md` with **T001–T086**, all unchecked. Phase 1 of `tasks.md` (T001–T004)
+> now records the satisfied basis and computes `GATE_PASS = true` once re-run, authorizing Phase
+> 2 onward after this migration merges. Generating or migrating the task list still marks no
+> task complete and performs no fixture derivation, corpus re-fetch, comparison run, evidence
+> gathering, commit, push, or PR.
 
 ## Summary
 
@@ -390,15 +366,15 @@ All Phase 1 artifacts are generated:
   CLI isolation unaffected; ADR-0007/ADR-0009 status framing; the absolute
   no-shipping-artifact scope boundary; the permanently-undecided release
   vehicle; this plan's own zero-repository-footprint statement.
-- **[quickstart.md](./quickstart.md)**: A future-gated, step-by-step
+- **[quickstart.md](./quickstart.md)**: A governance-authorized, step-by-step
   validation walkthrough mapping directly to User Stories 1–8 and Success
-  Criteria SC-001–SC-014, marked **not runnable until both gates clear**.
+  Criteria SC-001–SC-014; tasks remain unchecked until executed.
 
 ## Constitution Check (Post-Design)
 
 | Principle | Final Status | Notes |
 |-----------|-------------|-------|
-| **I** | ✅ PASS | The complete design artifact set adds zero tracked files under `docs/adr/**`, proposes zero schema change, and opens zero implementation branch. The double gate from `spec.md`'s banner is restated verbatim in this plan's own banner, not loosened. |
+| **I** | ✅ PASS | The complete design artifact set adds zero tracked files under `docs/adr/**`, proposes zero schema change, and opens zero implementation branch. The ADR-0014 governance authorization from `spec.md`'s banner is restated in this plan's own banner, with tasks still unchecked until executed. |
 | **II** | ✅ PASS | No dependency, build step, or CI job was added anywhere in the repository by this planning session. The designed execution protocol (`contracts/scale-and-security-measurement.md` §5) requires no network beyond the one-time FR-001 preflight fetch and no credentials at any step. |
 | **III** | ✅ PASS | No file was added under `packages/adapters/*` or any other package. `contracts/composition-and-release-boundary.md` §1–§2 fix the future composition boundary as a standalone offline executable, never a runtime-discovered plugin, and confirm `@adrkit/core`/`@adrkit/cli` never learn an adapter exists. |
 | **IV** | ✅ PASS | Every contract's own decision procedure (`contracts/owned-paths-annotation.md`, `contracts/glob-dialect.md`, `contracts/entity-identity.md`, `contracts/evidence-bundle-and-verdict.md` §2) is a fixed, deterministic algorithm or precedence table, checked in a stated order, with no probabilistic or model-assisted step anywhere in the design. |
@@ -412,7 +388,7 @@ All Phase 1 artifacts are generated:
 
 A fresh-context, adversarial reader test of this complete planning set
 (`plan.md`, `research.md`, `data-model.md`, `quickstart.md`, all eleven
-`contracts/*.md` files) against `spec.md`, ADR-0012, ADR-0013, ADR-0009,
+`contracts/*.md` files) against `spec.md`, ADR-0012, ADR-0013, ADR-0014, ADR-0009,
 ADR-0007, `.specify/memory/constitution.md`, the referenced
 `packages/core/**` source files, and `specs/007-arb-queue/tasks.md` was
 performed per the doc-coauthoring reader-test pattern, using GPT-5.6 Sol at
@@ -438,22 +414,21 @@ file). **Generated artifacts (Phase 0/1, this authoring session)**:
 follow-up advance-scoping session (Phase 2)**: `tasks.md` (T001–T086,
 dependency-ordered, every task unchecked as generated) — produced under root
 `plan.md`'s "spec → plan → tasks" scoping exemption. That task list is
-**scoping, not execution**: it neither relaxes nor satisfies either gate
-below, and its own Phase 1 (T001–T004) mechanically computes
-`GATE_PASS = false`, blocking every downstream task until both gates clear.
-This authoring session itself performed no implementation, fixture
-derivation, corpus re-fetch, comparison run, evidence gathering, commit,
-push, or PR.
+**scoping, not execution**: it now records the satisfied Phase 6 and governance
+basis and computes `GATE_PASS = true` once T001–T004 are re-run, but no task is
+marked complete until actually executed. This authoring session itself
+performed no implementation, fixture derivation, corpus re-fetch, comparison
+run, evidence gathering, commit, push, or PR.
 **Constitution status**: all five principles PASS, before and after design;
-Complexity Tracking empty. **Double-gate status**: the catalog-governance
-precondition (ADR-0012 `accepted`, ADR-0013 `accepted`, maintainer issue #25
-ratification) is fully satisfied and is not one of this spec's own execution
-gates; gate 1 (Phase 6 `specs/007-arb-queue/tasks.md` T048/T049) remains
-open, confirmed unchecked as of this session's `main` at `48087e8`; gate 2
-(independent adopter with a real annotated catalog and hand-labeled oracle)
-remains open. **Review status**: an independent GPT-5.6 Sol reader-test pass
-found no critical findings, 9 high, 7 medium, and 4 low/nit findings; all
-were remediated in the current version of the affected files (research.md
-§R13). **Neither this plan nor its companion `tasks.md`
-authorizes any execution, fixture derivation, corpus re-fetch, comparison
-run, or evidence-gathering step.**
+Complexity Tracking empty. **Gate status**: Phase 6 is **landed /
+reference-validated** (ADR-0014 rungs 1–2) via a maintainer-owned isolated
+reference repository, not external / community validation (ADR-0014 rung 3);
+maintainer ratification, ADR-0012, ADR-0013, and ADR-0014 are satisfied; the
+previous independent-adopter pre-execution gate is removed and replaced by the
+in-scratch maintainer-authored reference oracle. External-adopter evidence is
+optional later production-maturity evidence only. **Review status**: an
+independent GPT-5.6 Sol reader-test pass found no critical findings, 9 high, 7
+medium, and 4 low/nit findings; all were remediated in the current version of
+the affected files (research.md §R13). **This plan and its companion `tasks.md`
+authorize execution only after this migration merges, and neither marks any
+execution task complete.**

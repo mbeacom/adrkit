@@ -2,26 +2,24 @@
 
 **Feature**: `009-catalog-binding-viability` | **Companion to**: [plan.md](./plan.md), [data-model.md](./data-model.md), [contracts/](./contracts/)
 
-> ⛔ **NOT RUNNABLE TODAY.** This guide describes the steps a *future*
-> execution session runs, only after **both** gates in `spec.md`'s banner
-> have cleared:
+> ✅ **Governance preconditions satisfied; spike execution authorized once this migration
+> merges; tasks remain unchecked until actually executed.**
 >
-> 1. **Phase 6 gate** — `specs/007-arb-queue/spec.md` SC-004, tracked as
->    `specs/007-arb-queue/tasks.md` **T048**/**T049**. **Open as of this
->    plan's authoring** (both unchecked as of `48087e8`).
-> 2. **Independent-adopter gate** — an adopter other than the maintainer
->    authoring real `adrkit.io/owned-paths` annotations against their own
->    real catalog and providing a hand-labeled entity/path oracle.
->    **Outstanding.**
+> Phase 6 is **landed / reference-validated** under ADR-0014 rungs 1–2: `specs/007-arb-queue/tasks.md`
+> T048/T049 read `- [X]`, and root `plan.md` records the `specs/007-arb-queue/` row as
+> `landed / reference-validated`. That evidence is from a maintainer-owned isolated reference
+> repository, not external / community validation (ADR-0014 rung 3).
 >
-> The catalog-governance precondition this spec once tracked separately is
-> **satisfied**, not outstanding (ADR-0012 `accepted`, ADR-0013 `accepted`)
-> — see `plan.md`'s banner for the full disposition. If you are reading this
-> and gate 1 or gate 2 is still open, **stop**. Do not run any command
-> below. This guide's existence is advance scoping, not authorization (root
-> `plan.md`'s "Advance scoping ... is explicitly permitted" note).
+> The previous independent-adopter pre-execution gate is removed. This spike builds a
+> **maintainer-authored reference oracle** in scratch from FR-001's pinned public corpora,
+> maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations, and independent
+> adversarial review. External-adopter evidence is optional later production-maturity evidence
+> for a future, stronger "authoritative `go`", not a prerequisite for this guide.
+>
+> This guide's existence remains advance scoping until the migration merges; running it later
+> does not mark any task complete unless that task is actually executed.
 
-## Prerequisites (once both gates clear)
+## Prerequisites (after governance authorization)
 
 - This repository cloned, on a disposable scratch branch/worktree — never
   `main` (FR-019/A7).
@@ -315,8 +313,8 @@ fixed `null`.
   repository's own root should show nothing related to this spike).
 - Report the evidence bundle and verdict per `plan.md`'s Completion Report
   and this task's own reporting instruction — never open a PR, never commit
-  any fixture, never claim Phase 6 landed or the independent-adopter gate
-  cleared because of this spike's own result.
+  any fixture, never claim Phase 6 landed / reference-validated, ADR-0014 was accepted, or any
+  external-adopter maturity evidence exists because of this spike's own result.
 
 ## What This Guide Deliberately Does Not Do
 

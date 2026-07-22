@@ -31,14 +31,19 @@ sync.
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
 | 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
 | 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); real-user gate met |
-| 6 — ARB queue | `specs/007-arb-queue/` | implementation in progress (kernel + `adr queue` CLI + queue Action complete, all gates green); external-team rung 6 exit gate (SC-004) outstanding |
-| 7 — Spec Kit hook viability | `specs/008-spec-kit-hook-viability/` | advance scoping complete and scope ratified; non-shipping spike execution blocked on Phase 6 T048/T049 |
-| 8 — Catalog binding viability | `specs/009-catalog-binding-viability/` | advance scoping complete; ADR-0012/0013 governance satisfied; non-shipping spike execution blocked on Phase 6 T048/T049 and independent-adopter oracle |
+| 6 — ARB queue | `specs/007-arb-queue/` | **landed / reference-validated** (kernel + `adr queue` CLI + queue Action; PR #22, `efef89b`); rung-2 maintainer isolated reference-repository validation met ([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)); **not** externally validated (rung 3 open, per [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)) |
+| 7 — Spec Kit hook viability | `specs/008-spec-kit-hook-viability/` | advance scoping complete and scope ratified; Phase 6 reference-validated and maintainer ratification satisfied → **spike execution authorized**; tasks unchecked until executed |
+| 8 — Catalog binding viability | `specs/009-catalog-binding-viability/` | advance scoping complete; ADR-0012/0013 governance satisfied; Phase 6 reference-validated and the independent-adopter gate replaced by an in-spike maintainer reference oracle ([ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)) → **spike execution authorized**; tasks unchecked until executed |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
-a phase, however, MUST NOT begin until the phase below it has **landed and has a real
-user**. This scoping-vs-implementation split is deliberate: writing `specs/NNN-*/`
+a phase, however, MUST NOT begin until the phase below it has **landed**. A phase lands
+on rungs 1–2 of the [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+evidence ladder — unit/contract/conformance evidence plus maintainer-owned isolated
+reference-repository validation (reproducible, self-verifying, reviewed). External/
+community validation is rung 3: an optional, later maturity signal that is tracked
+honestly but **never blocks** landing, next-phase implementation, or non-shipping spike
+execution. This scoping-vs-implementation split is deliberate: writing `specs/NNN-*/`
 early is cheap and reversible, whereas shipping code against an unmet lower rung is
 not. Run each feature through the spec-kit loop; the Constitution Check in every
 `plan.md` gates against Principles I–V. *(Maintainer decision; reviewer may override.)*
@@ -74,28 +79,33 @@ precondition for opening Phase 3 *implementation*.
 ## Outcome ladder
 
 Each rung is independently valuable and independently shippable. Do not start a
-rung's **implementation** before the one below it has a real user — **even if that
-user is only you** (maintainer dogfooding counts; advance scoping is exempt, per the
-Spec-kit realization note above). For rung 2, that dogfood is the maintainer running
-`adr migrate --from madr` against a real public MADR corpus — which *is* the required
-"real user"; no external human adopter is required to proceed to rung 3.
+rung's **implementation** before the one below it has landed — **even if the only
+operator is you** (maintainer dogfooding counts; advance scoping is exempt, per the
+Spec-kit realization note above). Landing is governed by the
+[ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+evidence ladder (rungs 1–2: unit/contract/conformance plus maintainer-owned isolated
+reference-repository validation). The *outcome* rungs below may name external adoption
+as their aspiration, but external/community validation is an ADR-0014 rung-3 maturity
+signal and **never** a precondition for landing or for opening the next rung. For
+outcome rung 2, the required dogfood is the maintainer running `adr migrate --from madr`
+against a real public MADR corpus; no external human adopter is required to proceed.
 
-| # | Outcome | Shipped when |
+| # | Outcome | Landed / shipped when |
 |---|---|---|
 | 1 | This project's own decisions are governed by this project | `adr lint` runs green in CI on this repo |
 | 2 | Someone else's existing corpus can move in | `adr migrate --from madr` round-trips a real third-party corpus |
 | 3 | A PR tells you which decisions govern it | CI comment fires with correct records on a repo that isn't this one |
 | 4 | An agent can read the corpus | MCP server answers retrieval queries in a real session |
 | 5 | A proposal gets routed without a meeting | Deterministic evaluator pass closes or escalates without human triage |
-| 6 | An org runs its ARB on it | Queue, tiers, SLAs in use by a team that isn't yours |
+| 6 | An org runs its ARB on it | Queue, tiers, SLAs validated in a maintainer-owned isolated reference repository (ADR-0014 rung 2); external-org adoption is the rung-3 maturity signal (open) |
 
-**Rung status.** Rung 2 is **met**: `adr migrate --from madr` round-trips a vendored
+**Rung status.** Outcome rung 2 is **met**: `adr migrate --from madr` round-trips a vendored
 subset of the real [adr/madr](https://github.com/adr/madr) corpus offline (Phase 3
-T00A). Rung 3 is also **met**: the `@adrkit/ci` Action ran twice on the separate
+T00A). Outcome rung 3 is also **met**: the `@adrkit/ci` Action ran twice on the separate
 12-record `adrkit-t018-dogfood` repository, selected exactly two governing ADRs, and
-updated one comment in place using only the default token (Phase 3 T018). Rung 5 is
+updated one comment in place using only the default token (Phase 3 T018). Outcome rung 5 is
 **met** by the landed Pass 0 evaluator and the ADR-0007 maintainer dogfood above.
-Rung 4 is also **met**: after PR #19 merged, the official MCP Inspector CLI
+Outcome rung 4 is also **met**: after PR #19 merged, the official MCP Inspector CLI
 launched the built Node artifact over stdio against this repository's real
 11-record corpus and exercised all four tools. Search returned ADRs 0010 and
 0011 for `Bun`; `get_decision` returned complete ADR-0007; context for
@@ -106,6 +116,18 @@ The four coordinated public packages then shipped as v0.2.0; `@adrkit/mcp` was
 created through the documented one-time token bootstrap while the existing
 packages continued to publish through OIDC. MCP Trusted Publisher setup and
 temporary-secret removal remain a post-release maintainer action.
+Outcome rung 6 is **landed / reference-validated** (ADR-0014 rungs 1–2): the Phase 6
+queue kernel, `adr queue` CLI, and managed-issue Action are exercised by the
+maintainer-owned isolated reference repository
+[`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood), which pins the
+queue Action at `efef89b5d747ca175a1947f1ce2f4296dab54fa3`, spans all three review tiers
+with an overdue/SLA-boundary case and approvals + objections, creates managed issue #3 on
+first run, updates that same issue in place on rerun (no duplicate), uses only the default
+`GITHUB_TOKEN` with `issues: write`, and self-verifies its expected outcomes in CI
+(PRs #2/#4/#5; runs 29833185424, 29833230666, 29834061211, 29836486788). This is
+**not** external/community validation — the rung-3 signal for outcome rung 6 remains
+**open** and is tracked honestly as absent (recruitment issue #24 closed as no longer
+gating).
 
 ## Binding constraints
 
@@ -236,11 +258,12 @@ Exit criteria:
   the "we tried that" knowledge lives, and omitting it defeats the purpose.
 - Write tools deliberately absent in this phase. When they land, they open PRs.
 
-### Phase 6+ — Deferred
+### Phase 7+ — Deferred
 
 Import adapters for agent logs (blocked: needs a real sample to specify a
-deterministic split), Spec Kit extension, LLM rubric passes, ARB queue, index
-and web UI, catalog adapters.
+deterministic split), Spec Kit extension, LLM rubric passes, index
+and web UI, catalog adapters. (Phase 6's ARB queue has landed — see the
+Spec-kit realization table above.)
 
 ---
 

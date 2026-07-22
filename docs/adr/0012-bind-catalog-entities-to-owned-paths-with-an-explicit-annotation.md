@@ -9,7 +9,7 @@ tags: [schema, core, matching, catalog, governance]
 scope: org
 reversibility: one-way-door
 blastRadius: org
-relatesTo: ["0002", "0007", "0009"]
+relatesTo: ["0002", "0007", "0009", "0014"]
 affects:
   - type: path
     pattern: "packages/core/src/affects/catalog.ts"
@@ -196,20 +196,31 @@ production adapter. It authorizes feature 009 advance scoping and this
 decision-record work only. Production of
 `packages/adapters/catalog-backstage` remains gated on all of:
 
-1. Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 clearing.
+1. Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 clearing. **(Satisfied
+   2026-07-22: Phase 6 is landed / reference-validated on rungs 1–2 of
+   [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md);
+   T048/T049 complete.)**
 2. Non-shipping spike evidence from `specs/009-catalog-binding-viability/`
    (go / explicit-heuristic-only / blocked), including a versioned envelope and
    the security/scale measurements below.
-3. An **independent adopter** validating real entity/path outcomes.
+3. A **maintainer-authored reference oracle** — synthetic explicit annotations
+   over pinned public corpora under independent adversarial review — validating
+   real entity/path outcomes, per
+   [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md).
+   External/community adopter validation is welcome as an **optional later
+   production-maturity signal** (ADR-0014 rung 3); it is **not** a hard gate.
 4. Clean-clone / offline / adapter-boundary / release evidence passing.
 
 The spike measures annotation bytes, entities, patterns per entity, pattern
 length, documents/aliases, and compile/match cost on the pinned corpora.
 Production limits are **not** guessed now; they must be ratified from evidence.
-An authoritative `go` additionally requires adopter-authored annotations plus a
-hand-labeled entity/path oracle, zero false positives/negatives for
-authoritative cases, repository-isolation tests, malformed/tampered/stale
-snapshot rejection, and deterministic byte output.
+An authoritative `go` is a stronger status that additionally draws on
+maintainer-authored reference-oracle annotations plus a hand-labeled
+entity/path oracle, zero false positives/negatives for authoritative cases,
+repository-isolation tests, malformed/tampered/stale snapshot rejection, and
+deterministic byte output. External-adopter-authored annotations strengthen that
+status as an optional later maturity signal (ADR-0014 rung 3) but are not a
+precondition for it.
 
 ## Options considered
 

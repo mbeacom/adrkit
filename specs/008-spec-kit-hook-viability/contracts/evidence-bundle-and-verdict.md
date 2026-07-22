@@ -1,7 +1,7 @@
 # Contract: Evidence Bundle Schema and Verdict Decision Procedure
 
 **Feature**: `008-spec-kit-hook-viability` | **Freezes**: FR-018, FR-019, FR-021,
-FR-022(b), FR-023, SC-007, SC-008, and the Output Recommendation section's
+FR-022(b), FR-023, SC-007, SC-008, [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md), and the Output Recommendation section's
 non-binding-recommendation requirement. Companion to `data-model.md` §6
 (`EvidenceBundle`), §7 (`Verdict`), §8 (`NonBindingRecommendation`).
 
@@ -117,16 +117,16 @@ A `NonBindingRecommendation` MUST include:
   npm target, a repository location, or a version/tag has exceeded this
   spike's authorized scope and must stop and re-scope rather than proceed.
 
-## 4. Phase 6 Landed Claim (SC-008; FR-023)
+## 4. Phase 6 Maturity Claim (SC-008; FR-023)
 
-Every `Verdict`, regardless of `outcome`, carries `phase6LandedClaim: false`
+Every `Verdict`, regardless of `outcome`, carries `phase6ExternalValidationClaim: false`
 as a fixed literal (`data-model.md` §7). The evidence bundle's narrative file
 (`spike-008-evidence.md`) MUST additionally restate, in prose, that Phase 6
-(`specs/007-arb-queue/`) remains not landed as of the spike's conclusion and
-that no feature 008 *implementation* may begin until both gates in this
-spec's banner clear — independent of, and never contingent on, this spike's
-own verdict. A `go` verdict does not and cannot advance the Phase 6 gate; the
-two are entirely independent facts about the repository.
+(`specs/007-arb-queue/`) is landed / reference-validated under ADR-0014 rungs 1–2,
+not externally validated; that external / community validation (ADR-0014 rung 3)
+remains absent unless separately evidenced; and that this spike did not cause or
+advance Phase 6's status. A `go` verdict does not and cannot create rung-3 evidence;
+the spike verdict and Phase 6 maturity label are independent facts about the repository.
 
 ## 5. Cross-Reference Requirement (FR-019)
 

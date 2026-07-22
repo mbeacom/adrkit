@@ -2,19 +2,20 @@
 
 **Feature Directory**: `008-spec-kit-hook-viability`
 
-**Implementation Branch**: Not yet assigned. No implementation branch may be opened until
-both gates in the banner below clear.
+**Implementation Branch**: Not yet assigned. Governance gates are satisfied; a future
+execution session may open the spike's scratch/implementation branch once this migration merges.
 
 **Created**: 2026-07-21
 
-**Status**: Draft — **advance scoping only**. This document specifies a **non-shipping
-compatibility spike**, not the production Spec Kit adapter. Writing and refining this spec
-is permitted now; *executing* the spike (installing the fixture, firing the hook, gathering
-evidence) is explicitly **not** authorized yet — see the gating banner immediately below.
-**Maintainer ratification of this spec's exact scope was recorded 2026-07-21** (see the
-Ratification Record immediately after the gating banner); that satisfies only the
-maintainer-ratification half of the double gate. The Phase 6 gate remains uncleared, so
-spike execution is still not authorized.
+**Status**: Draft — **authorized once this migration merges; tasks remain unchecked until
+executed**. This document specifies a **non-shipping compatibility spike**, not the production
+Spec Kit adapter. Writing and refining this spec has always been permitted as advance scoping;
+executing the spike (installing the fixture, firing the hook, gathering evidence) is now
+authorized by governance once this migration merges. **Maintainer ratification of this spec's
+exact scope was recorded 2026-07-21** (see the Ratification Record immediately after the gating
+banner); Phase 6 is now **landed / reference-validated** under
+[ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+not externally validated.
 
 **Kind**: Compatibility spike / advance scoping. This is not a `packages/adapters/spec-kit`
 feature and does not deliver a production package. It maps to ADR-0003's action item 1
@@ -29,42 +30,41 @@ distribution strategy; this spike is the pre-scoping evidence for that decision'
 action items), [ADR-0007](../../docs/adr/0007-adapter-isolation-and-public-surface-build.md)
 (adapter isolation; clean-clone, credential-free, network-free build and runtime
 constraint), [ADR-0010](../../docs/adr/0010-bun-toolchain.md) (Bun for development,
-Node-targeted published `@adrkit/cli` artifact — the binary this spike must invoke), and
+Node-targeted published `@adrkit/cli` artifact — the binary this spike must invoke),
+[ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+(phase landing on rungs 1–2; external / community validation (ADR-0014 rung 3) as an optional
+later maturity signal), and
 [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md) Principles
 I–III (git is truth; clean clone builds green with no post-install network/credentials/
 services; core and CLI depend on no adapter).
 
-> ⛔ **Double gate — implementation of this spike itself is not authorized.**
+> ✅ **Governance gates satisfied — spike execution authorized once this migration merges; tasks below remain unchecked until executed.**
 >
-> 1. **Phase 6 gate.** `specs/007-arb-queue/spec.md` SC-004 (the rung 6 external-team,
->    separate-repository dogfood exit gate) is outstanding. `specs/007-arb-queue/tasks.md`
->    tracks this as **T048** (external dogfood gate) with **T049** (the doc update that
->    flips Phase 6 to `landed`) depending on it — `plan.md` itself carries no task IDs and
->    tracks the same gate only as prose ("external-team rung 6 exit gate (SC-004)
->    outstanding" in its Spec-kit realization table). *Note for disambiguation: `T048`/`T049`
->    also exist, already completed, in `specs/005-deterministic-evaluator/tasks.md` — those
->    are unrelated evaluator-routing tasks and are not the gate referenced here; the gate is
->    specifically `specs/007-arb-queue/tasks.md` T048/T049.* Neither this spike nor any later
->    production Spec Kit adapter work may begin until `specs/007-arb-queue/tasks.md` T048
->    clears and its T049 completes. Phase 6 is **not** landed as of this writing, and this
->    spec MUST NOT be read as claiming otherwise.
+> 1. **Phase 6 gate — SATISFIED.** Under
+>    [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+>    Phase 6 (`specs/007-arb-queue/`) is **landed / reference-validated** on ADR-0014 rungs
+>    1–2, not externally validated. The reference evidence is the maintainer-owned isolated
+>    reference repository `mbeacom/adrkit-t018-dogfood`, recorded for Phase 6 in
+>    `specs/007-arb-queue/checklists/reference-validation-evidence.md`. `specs/007-arb-queue/tasks.md`
+>    **T048** and dependent **T049** now read `- [X]`, and root `plan.md`'s Spec-kit
+>    realization table row for `specs/007-arb-queue/` reads `landed / reference-validated`.
+>    *Note for disambiguation: `T048`/`T049` also exist, already completed, in
+>    `specs/005-deterministic-evaluator/tasks.md` — those are unrelated evaluator-routing
+>    tasks and are not this gate; this gate is specifically `specs/007-arb-queue/tasks.md`
+>    T048/T049.*
 > 2. **This spike's own precondition — SATISFIED 2026-07-21.** Mirroring the explicit scope
 >    ratification the maintainer recorded for Phase 5 (`specs/006-mcp-server/`, ratified
 >    2026-07-20 per `plan.md`), the maintainer explicitly ratified this spec's exact scope on
 >    **2026-07-21** — fixture design, frozen upstream reference, the two-tier agent-
 >    verification split in Assumption A6, and the three-way verdict definition in Success
 >    Criteria — per the Ratification Record immediately below. Advance **scoping** (this
->    document,
->    and its future `plan.md`/`tasks.md` once written) is exempt from both gates, per
->    `plan.md`'s "Advance scoping ... is explicitly permitted" note. **Execution is not** —
->    and satisfying this half of the gate does not, by itself, authorize execution: gate 1
->    (Phase 6) remains open.
+>    document and its `plan.md`/`tasks.md`) remains exempt from execution gating, per
+>    `plan.md`'s "Advance scoping ... is explicitly permitted" note.
 >
-> This spec may be read, reviewed, and refined at any time. **Only one half of the double
-> gate is now satisfied** (maintainer ratification, gate 2). Gate 1 (Phase 6's
-> `specs/007-arb-queue/tasks.md` T048/T049) remains uncleared. This spec therefore still
-> authorizes no `git checkout -b`, no `specify extension add`, no `/speckit.plan` run, and no
-> evidence-gathering step described below until gate 1 also clears.
+> This spec may be read, reviewed, and refined at any time. With both governance gates now
+> satisfied, a future execution session recomputing `tasks.md` T001–T003 after this migration
+> merges should obtain `GATE_PASS = true`. Those tasks remain unchecked until that session
+> actually executes them.
 
 ### Ratification Record
 
@@ -76,15 +76,15 @@ services; core and CLI depend on no adapter).
 > verification for one second upstream-supported agent (FR-007, FR-008, Assumption A6); the
 > offline, no-credential, no-mutation evidence requirements (FR-011, FR-012); and the exact
 > three-way `go` / `manual-command-only` / `no-go` verdict with its precedence rule
-> (Success Criteria SC-007). This ratification satisfies gate 2 of the double gate above
-> (FR-022(b), Assumption A10) as of 2026-07-21. It does **not** satisfy gate 1: the Phase 6
-> external-team dogfood gate (`specs/007-arb-queue/spec.md` SC-004, tracked as
-> `specs/007-arb-queue/tasks.md` T048/T049) remains outstanding, Phase 6 remains not landed,
-> and spike execution remains unauthorized until gate 1 also clears.
+> (Success Criteria SC-007). This ratification satisfies gate 2 of the governance gates above
+> (FR-022(b), Assumption A10) as of 2026-07-21. Gate 1 is now also satisfied because Phase 6
+> is landed / reference-validated under ADR-0014 rungs 1–2. This ratification record remains
+> satisfied; it did not itself cause Phase 6 landing, and it does not claim external /
+> community validation (ADR-0014 rung 3).
 
 ## Overview
 
-Phases 0–6 (landed or in-progress) made ADRs valid, locatable, importable, visible on the
+Phases 0–6 (through Phase 6's landed / reference-validated status) made ADRs valid, locatable, importable, visible on the
 PRs that govern them, routable without a meeting, readable by MCP-speaking agents, and
 operationally queueable. ADR-0003 additionally commits this project to distribution as
 *both* a standalone CLI (already shipping) *and* a Spec Kit extension — the surface where an
@@ -114,9 +114,9 @@ not make.
 
 ## User Scenarios & Testing
 
-> **Execution gating reminder.** Every scenario below describes what the (currently
-> unauthorized) spike execution must demonstrate once both gates in the banner above clear.
-> None of it may be run today.
+> **Execution authorization reminder.** Every scenario below describes what the spike
+> execution must demonstrate once this governance migration merges. The tasks remain
+> unchecked until an execution session actually runs them.
 
 ### User Story 1 — Freeze the upstream target and prove a clean local dev install (Priority: P1) 🎯 MVP
 
@@ -304,8 +304,9 @@ required evidence present and cross-referenced.
    explicitly informational, non-binding note — never as an authorized task list, and never
    deciding the production package's eventual publish/release vehicle.
 3. **Given** any verdict, **When** the spike records its output, **Then** it explicitly
-   states that Phase 6 remains not landed (regardless of this spike's outcome) and that no
-   feature 008 implementation may begin until the double gate in this spec's banner clears.
+   states that Phase 6 is landed / reference-validated (not externally validated), that this
+   spike did not cause or advance that Phase 6 status, and that external / community
+   validation (ADR-0014 rung 3) remains absent unless separately evidenced.
 
 ---
 
@@ -325,8 +326,8 @@ required evidence present and cross-referenced.
   this environment; a cross-platform rendering check is deferred to any later production
   feature.
 - What happens if the pinned Spec Kit release is superseded by a newer stable release
-  between this spec's approval and the spike's eventual execution (once the double gate
-  clears)? Nothing changes: the target remains exactly `v0.13.0` at the fixed commit — a
+  between this spec's approval and the spike's eventual execution (once this migration
+  merges)? Nothing changes: the target remains exactly `v0.13.0` at the fixed commit — a
   newer stable release does not replace it and does not make this evidence run stale.
   FR-001 requires re-verifying that the `v0.13.0` tag still resolves to the fixed commit and
   that the installed CLI reports exactly `0.13.0`, failing closed rather than substituting a
@@ -456,14 +457,18 @@ required evidence present and cross-referenced.
   presented as informational and non-binding, explicitly distinct from any authorized task
   list, and MUST NOT itself decide the eventual production package's publish/release
   vehicle, location, or timeline.
-- **FR-022**: Spike execution MUST NOT begin until both (a) `specs/007-arb-queue/spec.md`
-  SC-004 — tracked as `specs/007-arb-queue/tasks.md` T048, with its dependent T049 — have
-  cleared, and (b) the maintainer has explicitly ratified this spec's exact scope, mirroring
-  the explicit scope ratification recorded in `plan.md` for Phase 5. (`plan.md` itself
-  carries no task IDs; do not confuse the gate with the unrelated, already-completed
-  T048/T049 pair in `specs/005-deterministic-evaluator/tasks.md`.)
-- **FR-023**: The spike's output MUST NOT claim, imply, or record that Phase 6 has landed,
-  regardless of this spike's own verdict.
+- **FR-022**: Spike execution is authorized once this migration merges because both
+  governance gates are satisfied: (a) Phase 6 (`specs/007-arb-queue/`) is landed /
+  reference-validated under [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+  with `specs/007-arb-queue/tasks.md` T048 and dependent T049 checked and root `plan.md`'s
+  Spec-kit realization row reading `landed / reference-validated`; and (b) the maintainer
+  has explicitly ratified this spec's exact scope, mirroring the explicit scope ratification
+  recorded in `plan.md` for Phase 5. (`plan.md` itself carries no task IDs; do not confuse
+  the gate with the unrelated, already-completed T048/T049 pair in
+  `specs/005-deterministic-evaluator/tasks.md`.)
+- **FR-023**: The spike's output MUST NOT claim, imply, or record that Phase 6 has external /
+  community validation (ADR-0014 rung 3), and MUST NOT imply this spike caused or advanced
+  Phase 6's landed / reference-validated status.
 
 ### Out of Scope
 
@@ -484,7 +489,8 @@ future planning or execution:
 - Any npm publication, package version bump, or git release tag change for any `@adrkit/*`
   package.
 - Any claim, in this spec or its eventual evidence bundle, that Phase 6 (`specs/007-arb-queue/`)
-  is landed or that its rung 6 exit gate (SC-004) has cleared.
+  is externally validated, has external / community validation (ADR-0014 rung 3), or was
+  landed / reference-validated by this spike.
 - Any implementation task that silently decides the later production adapter's release
   vehicle, publish target, or ship timeline — those are separate, later, explicitly-scoped
   maintainer decisions this spike's recommendation may inform but must not make.
@@ -587,8 +593,9 @@ future planning or execution:
     scoping, and the specific shortfall that prevented `go` is named explicitly.
 
 - **SC-008**: Regardless of verdict, the spike's output explicitly states that Phase 6
-  remains not landed and that no feature 008 implementation may begin until the double gate
-  in this spec's banner has cleared.
+  is landed / reference-validated (not externally validated), that this spike did not cause
+  or advance that status, and that external / community validation (ADR-0014 rung 3) remains
+  absent unless separately evidenced.
 
 ## Output Recommendation (Informational, Non-Binding)
 
@@ -625,7 +632,7 @@ later, explicitly-scoped feature.*
   already has `specify-cli` v0.13.0 installed via `uv tool install`, matching A1 exactly and
   matching this repository's own `.specify/init-options.json` (`"speckit_version":
   "0.13.0"`) — no reinstall of the base Spec Kit tooling is required to begin the spike once
-  both gates clear, only the FR-001 re-verification that the installed CLI still reports
+  this migration merges, only the FR-001 re-verification that the installed CLI still reports
   exactly `0.13.0` and that tag `v0.13.0` still resolves to the fixed commit in A1. This
   re-verification is not a check for whether a newer stable release exists.
 
@@ -680,16 +687,17 @@ later, explicitly-scoped feature.*
   feature, not this spike.
 
 - **A10**: Implementation of this spike (the actual execution described in User Stories 1–4)
-  requires both gates in this spec's banner to clear: the Phase 6 external-team dogfood gate
-  (`specs/007-arb-queue/spec.md` SC-004, tracked as `specs/007-arb-queue/tasks.md` T048 with
-  dependent T049 — not the unrelated, already-completed T048/T049 pair in
-  `specs/005-deterministic-evaluator/tasks.md`) and explicit maintainer ratification of this
-  spec's exact scope. **As of 2026-07-21, the maintainer-ratification gate is satisfied**
-  (see the Ratification Record following the gating banner); **the Phase 6 gate remains
-  unsatisfied** — T048/T049 have not cleared, Phase 6 is not landed, and satisfying only the
-  ratification gate does not authorize spike execution. This spec's own creation and
-  refinement — the advance-scoping activity itself — is, and always was, exempt from both
-  gates, per `plan.md`'s advance-scoping-vs-implementation split.
+  requires both governance gates in this spec's banner to be satisfied: Phase 6 must be
+  landed / reference-validated under
+  [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+  (`specs/007-arb-queue/tasks.md` T048 with dependent T049 checked, not the unrelated,
+  already-completed T048/T049 pair in `specs/005-deterministic-evaluator/tasks.md`) and the
+  maintainer must explicitly ratify this spec's exact scope. Both gates are now satisfied:
+  maintainer ratification was recorded 2026-07-21, and Phase 6 is landed /
+  reference-validated (not externally validated). Spike execution is authorized once this
+  governance migration merges; the tasks remain unchecked until actually executed. This
+  spec's own creation and refinement — the advance-scoping activity itself — is, and always
+  was, exempt from execution gating, per `plan.md`'s advance-scoping-vs-implementation split.
 
 - **A11**: This spike does not add, and its fixture must not be mistaken for, a fifth MCP
   tool, a write MCP tool, an evaluator rubric pass, or any HTTP service. It is a Spec Kit

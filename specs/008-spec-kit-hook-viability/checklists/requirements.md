@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-21
-**Revised**: 2026-07-21 (maintainer ratification recorded)
+**Revised**: 2026-07-22 (ADR-0014 governance-gate migration)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -23,7 +23,7 @@
 - [x] Scope is clearly bounded (Out of Scope section enumerates twelve explicit exclusions,
       including a production `packages/adapters/spec-kit` package, plan parsing, draft ADR
       generation, evaluator Passes 1–3, MCP writes, any `main` commit/PR, schema changes,
-      catalog submission, npm publication, any Phase 6 landed claim, silent release-vehicle
+      catalog submission, npm publication, any Phase 6 external / community validation claim, silent release-vehicle
       decisions, multi-hook priority ordering, and cross-platform rendering)
 - [x] Dependencies and assumptions identified (eleven assumptions; normative ADRs and the
       double execution gate listed)
@@ -42,7 +42,7 @@
 
 - All checklist items pass. Zero `[NEEDS CLARIFICATION]` markers. The feature description
   supplied enough detail (freeze target, fixture shape, verification checklist, explicit
-  non-goals, three-way verdict, and the double-gate framing) to make every decision this
+  non-goals, three-way verdict, and the governance-gate framing) to make every decision this
   checklist requires without guessing at scope.
 - **Reader-test performed**: a fresh-context, adversarial subagent review (per the
   doc-coauthoring reader-test pattern, run with a high-capability model) read this spec cold
@@ -87,12 +87,16 @@
   re-ratifying the spec rather than silently substituting a different release. A_1's
   "latest stable ... as of this spec's writing" framing is preserved only as the historical
   justification for why v0.13.0 was chosen, not as an ongoing selection criterion.
-- **Maintainer ratification recorded 2026-07-21**: The maintainer explicitly ratified this
-  spec's exact scope as written — the fixed v0.13.0/SHA target, the one-command/one-hook
-  fixture shape, the two-tier agent-verification split, the offline/no-mutation evidence
-  requirements, and the three-way verdict with its precedence rule. This satisfies gate 2
-  (maintainer ratification) of the double gate in the spec's banner (FR-022(b), Assumption
-  A10) and is recorded in a dedicated Ratification Record immediately after the banner, and
-  reflected in the Status line and Assumption A10. **Gate 1 (Phase 6's
-  `specs/007-arb-queue/tasks.md` T048/T049) remains uncleared** — the spec is explicit,
-  in the same locations, that satisfying gate 2 alone does not authorize spike execution.
+- **Governance gates satisfied**: The maintainer explicitly ratified this spec's exact scope
+  on 2026-07-21 — the fixed v0.13.0/SHA target, the one-command/one-hook fixture shape, the
+  two-tier agent-verification split, the offline/no-mutation evidence requirements, and the
+  three-way verdict with its precedence rule. This satisfies gate 2 (maintainer ratification)
+  in the spec's banner (FR-022(b), Assumption A10) and remains recorded in the dedicated
+  Ratification Record immediately after the banner. Gate 1 now also passes: Phase 6
+  (`specs/007-arb-queue/`) is landed / reference-validated under
+  [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+  `specs/007-arb-queue/tasks.md` T048/T049 read `- [X]`, and root `plan.md`'s Spec-kit
+  realization row reads `landed / reference-validated`. This is maintainer-owned isolated
+  reference-repository evidence, not external / community validation (ADR-0014 rung 3).
+  Spike execution is authorized once this migration merges; all 008 task checkboxes remain
+  unchecked until actually executed.
