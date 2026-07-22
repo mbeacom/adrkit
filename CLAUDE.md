@@ -13,7 +13,7 @@ implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure
 `@adrkit/core`, the `adr queue` CLI subcommand ships in `@adrkit/cli`, and a
 managed-issue queue Action lives in the private `@adrkit/ci`
 (`packages/ci/queue/action.yml`, bundled to `packages/ci/dist/queue-action.js`).
-Phase 6 is **landed / reference-validated** on rungs 1–2 of the
+Phase 6 is **landed / reference-verified** on rungs 1–2 of the
 [ADR-0014](./docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 evidence ladder — unit/contract/conformance plus maintainer-owned isolated
 reference-repository validation ([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood),

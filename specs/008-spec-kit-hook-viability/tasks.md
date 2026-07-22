@@ -23,7 +23,7 @@ later maturity signal), `.specify/memory/constitution.md` Principles I–III
 `specs/008-spec-kit-hook-viability/plan.md` (same date), under root `plan.md`'s
 explicit "Advance **scoping** (spec → plan → tasks) of the next phase is explicitly
 permitted" exemption — generating this checklist is scoping, not execution. Phase 6 is now
-landed / reference-validated under ADR-0014 rungs 1–2, and maintainer ratification is already
+landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratification is already
 satisfied; spike execution is authorized once this migration merges. **All task checkboxes
 remain unchecked until an execution session actually runs them** (Phase 1 below still
 mechanically verifies `GATE_PASS`).
@@ -32,12 +32,12 @@ mechanically verifies `GATE_PASS`).
 >
 > 1. **Phase 6 gate — SATISFIED.** Under
 >    [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
->    Phase 6 (`specs/007-arb-queue/`) is **landed / reference-validated** on ADR-0014 rungs
->    1–2, not externally validated. `specs/007-arb-queue/tasks.md` **T048** and dependent
+>    Phase 6 (`specs/007-arb-queue/`) is **landed / reference-verified** on ADR-0014 rungs
+>    1–2, not externally validated. `specs/007-arb-queue/tasks.md` **T048-R** and dependent
 >    **T049** now read `- [X]`, and root `plan.md`'s Spec-kit realization table row for
->    `specs/007-arb-queue/` reads `landed / reference-validated`. The evidence is the
+>    `specs/007-arb-queue/` reads `landed / reference-verified`. The evidence is the
 >    maintainer-owned isolated reference repository `mbeacom/adrkit-t018-dogfood`, recorded
->    for Phase 6 in `specs/007-arb-queue/checklists/reference-validation-evidence.md`.
+>    for Phase 6 in `specs/007-arb-queue/checklists/reference-verification-evidence.md`.
 >    *Disambiguation:* an unrelated, already-completed `T048`/`T049` pair exists in
 >    `specs/005-deterministic-evaluator/tasks.md` — that is not this gate.
 > 2. **This spike's own precondition — SATISFIED 2026-07-21.** Maintainer ratification of
@@ -124,19 +124,19 @@ the gate failure (which half failed, and its current state) to the coordinating 
 and end.
 
 - [ ] T001 Verify gate 1 (Phase 6). Read, in this order: (a)
-  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048** and **T049**
-  for the Phase 6 reference-validation gate (not the unrelated, already-completed T048/T049
+  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048-R** and **T049**
+  for the Phase 6 reference-verification gate (not the unrelated, already-completed T048/T049
   pair in `specs/005-deterministic-evaluator/tasks.md`); both MUST read `- [X]`
   (checked/complete) for gate 1 to pass — either being `- [ ]` fails this check. (b) root
   `plan.md`'s Spec-kit realization table — confirm the `specs/007-arb-queue/` row's Status
-  column reads `landed / reference-validated` (not "implementation in progress" or any other
+  column reads `landed / reference-verified` (not "implementation in progress" or any other
   in-progress phrasing, and not externally validated). **Output**: a single boolean
   `gate1Pass` plus the verbatim text of both source lines, recorded to
   `<EVIDENCE_DIR>/gate-check.json` (this one file may be created before `<SCRATCH_ROOT>`
   exists, since it is a pure read of already-tracked repository files — no scratch workspace
   is needed to perform this check). **Snapshot after this governance migration**: this check
-  PASSES — T048/T049 read `- [X]`, and the `plan.md` row reads `landed /
-  reference-validated`. A future execution session MUST re-run this exact check itself at
+  PASSES — T048-R/T049 read `- [X]`, and the `plan.md` row reads `landed /
+  reference-verified`. A future execution session MUST re-run this exact check itself at
   whatever date it actually executes — this note is a snapshot, not a substitute for
   re-verification.
 
@@ -319,7 +319,7 @@ Depends on: T012 (Foundational checkpoint).
   (FR-006(b); never trusting T015's success message alone). Probe both
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/.specify/extensions.yml` and
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/.specify/extensions/extensions.yml`;
-  require exactly one authoritative path, record the actual path in the lifecycle
+  require exactly one effective path, record the actual path in the lifecycle
   evidence, and confirm an
   `installed` entry for `adrkit-spike` and a `hooks.after_plan` entry with
   `extension: adrkit-spike`, `command: speckit.adrkit-spike.probe`. **Additivity check**
@@ -683,7 +683,7 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
 - [ ] T048 [US5] Set `phase6ExternalValidationClaim: false` (fixed literal, SC-008/FR-023)
   on the verdict record, and write the equivalent prose restatement — in whatever words, but
   covering the same fact — into the narrative file (T050) that Phase 6
-  (`specs/007-arb-queue/`) is landed / reference-validated (not externally validated), that
+  (`specs/007-arb-queue/`) is landed / reference-verified (not externally validated), that
   external / community validation (ADR-0014 rung 3) remains absent unless separately evidenced,
   and that this spike did not cause or advance Phase 6's status, **independent of, and never
   contingent on, this spike's own verdict**. Depends on: T046 (runs regardless of whether T047
@@ -737,7 +737,7 @@ Depends on: T050 (evidence bundle finalized).
 
 - [ ] T054 Confirm no claim, anywhere in `spike-008-evidence.md`/`.json`, states or
   implies Phase 6 is externally validated, has external / community validation (ADR-0014 rung
-  3), or was landed / reference-validated by this spike, regardless of this spike's own
+  3), or was landed / reference-verified by this spike, regardless of this spike's own
   verdict (Out of Scope; T048's restatement is the required place to state the precise Phase 6
   maturity label). A mechanical grep for "externally validated" and "external / community"
   in the evidence files should surface only T048's controlled maturity statement unless a
@@ -762,7 +762,7 @@ reconfirmed holding at the end, not merely believed to hold from individual step
 ## Phase 9: Independent Evidence Audit and Final Result Report (cross-cutting)
 
 **Purpose**: Have a fresh-context, heavyweight-tier reviewer check the finished evidence
-bundle before it is reported as authoritative, then deliver the one deliverable this
+bundle before it is reported as final evidence, then deliver the one deliverable this
 entire file exists to produce.
 
 Depends on: T054, T055, T056.
@@ -770,7 +770,7 @@ Depends on: T054, T055, T056.
 - [ ] T057 Independent evidence audit. Dispatch a fresh-context review (no authoring
   context from the session that gathered the evidence) using a heavyweight-tier model —
   **Opus 4.8 or GPT-5.6 Sol; never Opus 4.6**, per this session's model policy — to check
-  `spike-008-evidence.md`/`.json` against every FR-001–FR-023, SC-001–SC-008, and all six
+  `spike-008-evidence.md`/`.json` against every FR-001–FR-024, SC-001–SC-008, and all six
   `contracts/*.md` files for: (a) internal consistency between the JSON manifest and the
   Markdown narrative, (b) the verdict's precedence was applied in the fixed order (no-go
   → go → manual-command-only) with no skipped or reordered step, (c) `drivingEvidence` is
@@ -783,12 +783,15 @@ Depends on: T054, T055, T056.
 - [ ] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
   (`<EVIDENCE_DIR>/spike-008-evidence.{json,md}`); any `no-go` trigger or
-  `manual-command-only` shortfall by name; the explicit restatement that Phase 6 is landed / reference-validated (not externally
+  `manual-command-only` shortfall by name; the explicit restatement that Phase 6 is landed / reference-verified (not externally
   validated), that external / community validation (ADR-0014 rung 3) remains absent unless
   separately evidenced, and that this spike did not cause or advance Phase 6's status; and an explicit note that **any resulting change to
   `plan.md`/`tasks.md`/`spec.md` that this spike's findings suggest is itself a separate,
   later, explicitly-scoped follow-up — never something this execution session decides or
-  performs unilaterally as part of running this file.**
+  performs unilaterally as part of running this file.** Also state the FR-024 landing rule:
+  raw transcripts remain scratch-only, and any later tracked landing requires a sanitized
+  evidence index with commit SHAs, workflow-run links if any workflow is used, content hashes,
+  tool versions, network/credential limits, negative-test results, and a reviewer verdict.
 
 **Checkpoint**: Spike execution complete. One verdict, independently audited, reported.
 No production package scoped, scheduled, or committed to by this file's execution.

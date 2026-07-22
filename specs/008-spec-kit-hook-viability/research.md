@@ -90,7 +90,7 @@ that could ever commit them:
 
 1. **Fixture source and scratch project**: a disposable directory outside any
    git-tracked clone of `mbeacom/adrkit` entirely (e.g. a fresh `git init`
-   scratch worktree or an unrelated temp directory) — never a branch of
+   scratch worktree or an unrelated scratch directory) — never a branch of
    *this* repository, because FR-017 requires "a disposable scratch git
    branch/worktree **and/or** a scratch feature directory kept outside the
    committed `specs/` tree," and the stronger reading (a wholly separate
@@ -149,6 +149,13 @@ transcripts (naturally Markdown) with the fixed, checkable
 them into one file would force one format to compromise the other. Both files
 share one basename stem (`spike-008-evidence.*`) so they are trivially
 associated without a third index file.
+
+If the executed spike is later landed in tracked repository history, those raw
+scratch files still do not move into the repository. Per FR-024 and ADR-0014's
+rung-2 evidence discipline, landing instead requires a tracked, sanitized
+evidence index carrying commit SHAs, workflow-run links if any workflow is used,
+content hashes, tool versions, network/credential limits, negative-test results,
+and a reviewer verdict.
 
 **Alternatives considered**: A single JSON file with an embedded Markdown
 prose field — rejected as harder for a human reviewer (the maintainer, per
@@ -395,7 +402,7 @@ Re-confirmed during the original planning session (2026-07-21), independent of w
 [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md):
 
 - Root `plan.md`'s Spec-kit realization table now records Phase 6
-  (`specs/007-arb-queue/`) as `landed / reference-validated`. That reflects ADR-0014
+  (`specs/007-arb-queue/`) as `landed / reference-verified`. That reflects ADR-0014
   rungs 1–2 and the maintainer-owned isolated reference repository evidence; it is not
   external / community validation (ADR-0014 rung 3). Gate 1 of this spec's governance gate
   now passes once this migration merges.

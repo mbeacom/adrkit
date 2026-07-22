@@ -7,9 +7,9 @@
 > `GATE_PASS = true` in `tasks.md` T003:
 >
 > 1. **Phase 6 gate — satisfied.** Phase 6 (`specs/007-arb-queue/`) is landed /
->    reference-validated under
+>    reference-verified under
 >    [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
->    not externally validated; `specs/007-arb-queue/tasks.md` **T048**/**T049** read `- [X]`.
+>    not externally validated; `specs/007-arb-queue/tasks.md` **T048-R**/**T049** read `- [X]`.
 > 2. **This spike's own maintainer-ratification gate — satisfied 2026-07-21** per
 >    `spec.md`'s Ratification Record.
 >
@@ -167,8 +167,8 @@ populates `disableTranscript`, `removeTranscript`, and
 ## Step 6 — Honest Failure Probes (User Story 4; FR-015, FR-016; SC-006)
 
 ```bash
-# Probe A: no feature/plan context (run from an empty directory)
-mkdir /tmp/adrkit-spike-empty && cd /tmp/adrkit-spike-empty
+# Probe A: no feature/plan context (run from an empty directory under <SCRATCH_ROOT>)
+mkdir <SCRATCH_ROOT>/adrkit-spike-empty && cd <SCRATCH_ROOT>/adrkit-spike-empty
 ../adrkit-spike-fixture/scripts/probe.sh ""; echo "exit=$?"
 # Expected: non-zero exit, specific stderr message naming the missing context.
 
@@ -183,7 +183,7 @@ mv <this-repository-root>/packages/cli/dist.spike-backup <this-repository-root>/
 populates `absentContextProbe` and `absentCliProbe` per
 `contracts/fixture-surface.md` §3–§4.
 
-## Step 7 — Compute the Verdict (User Story 5; FR-018–FR-023; SC-007, SC-008)
+## Step 7 — Compute the Verdict (User Story 5; FR-018–FR-024; SC-007, SC-008)
 
 Follow `contracts/evidence-bundle-and-verdict.md` §2's fixed precedence
 procedure exactly: check `no-go` triggers first; if none fired, check `go`;
@@ -193,8 +193,15 @@ directory (never this repository — `research.md` R3/R4). If the verdict is
 `go` or `manual-command-only`, append the non-binding recommendation per
 `contracts/evidence-bundle-and-verdict.md` §3, with
 `releaseVehicleDecision` fixed `null`. State explicitly, per §4 of that same
-contract, that Phase 6 is landed / reference-validated (not externally validated), and that
+contract, that Phase 6 is landed / reference-verified (not externally validated), and that
 this spike did not cause or advance that status.
+
+Raw transcripts and scratch artifacts stay in the session-scoped scratch area.
+If the executed spike is later landed in tracked history, FR-024 requires a
+tracked, sanitized evidence index with commit SHAs, workflow-run links if any
+workflow is used, content hashes, tool versions, network/credential limits,
+negative-test results, and a reviewer verdict; do not copy raw transcripts into
+the repository.
 
 ## Step 8 — Cleanup
 

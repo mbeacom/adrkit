@@ -12,7 +12,7 @@
       grounding and comparison targets, not as new implementation choices.
 - [x] Focused on user value and business needs (a defensible go-explicit/blocked/no-go
       decision for a later production feature, without shipping code today, and without
-      overstating that decision as the hardened contract's separate "authoritative `go`")
+      overstating that decision as optional externally-validated maturity)
 - [x] Written for non-technical stakeholders where possible; technical citations are
       necessarily precise (exact commit SHAs, file paths, annotation values, descriptor
       counts) because the spike's entire value is falsifiable, reproducible evidence
@@ -53,7 +53,7 @@
       synthetic-oracle level, D no-effect confirmation, structural edge cases including the
       not-followed `Location` case, determinism plus the required envelope/scale evidence,
       mechanical tamper/staleness/repository-isolation rejection, and the final
-      spike-verdict-vs-authoritative-`go` distinction)
+      spike-verdict-vs-optional externally-validated maturity distinction)
 - [x] Feature meets measurable outcomes defined in Success Criteria (SC-001–SC-014 are each
       independently checkable against the evidence bundle FR-019/FR-022/FR-023/FR-034–FR-036
       describe)
@@ -64,16 +64,18 @@
 ## Notes
 
 - This spec's execution is now authorized by satisfied governance preconditions once this
-  migration merges: Phase 6 is **landed / reference-validated** (ADR-0014 rungs 1–2, not
+  migration merges: Phase 6 is **landed / reference-verified** (ADR-0014 rungs 1–2, not
   external / community validation), maintainer scoping/contract ratification is satisfied
   (issue #25), ADR-0012 and ADR-0013 are accepted, and
   [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
   removes the previous external-actor hard gates. ADR-0007/ADR-0009 remain `proposed` with
   documented blockers; that is **not** an execution gate because requiring their acceptance
   first would be circular. The previous independent-adopter condition is replaced by the spike's own
-  in-scratch **maintainer-authored reference oracle**; external-adopter evidence is optional
-  later production-maturity evidence for a future, stronger "authoritative `go`" status. The
-  banner and FR-030/SC-013 are written so that Phase 6 being landed / reference-validated does
+  in-scratch **frozen, maintainer-authored reference oracle**, created and independently
+  audited before generator output and covering positive, negative, overlap, absent/empty,
+  collision, and repository-mismatch cases with bounded zero FP/FN. External-adopter evidence
+  is optional externally-validated maturity evidence only. The
+  banner and FR-030/SC-013 are written so that Phase 6 being landed / reference-verified does
   not let the spike claim credit for that landing or claim external/community adoption.
 - The Ratification Record captures **two** dated maintainer decisions on adrkit issue #25: the
   initial 2026-07-21T21:30:41Z ratification and a materially stricter
@@ -102,7 +104,7 @@
   after a separate contract-challenge process flagged that the Evidence Gate's tamper/stale/
   repository-isolation items needed explicit spike-level test coverage, distinct from the
   adopter-oracle-dependent precision guarantee that remains exclusive to the hardened
-  contract's "authoritative `go`" status (FR-025). The verdict story was renumbered to User
+  contract's optional externally-validated maturity (FR-025). The verdict story was renumbered to User
   Story 8 accordingly; all "User Stories 1–N" cross-references were updated to match. A
   second fresh-context adversarial pass against this expanded draft additionally caught and
   corrected: a false claim that repository-isolation contradicted single-repository-only
@@ -221,9 +223,9 @@ ADR-0014's three-rung ladder. Worktree was re-synced to `main` at `48087e8`
   round. This spec's banner, Ratification Record, Overview ("No circular ADR gate" note),
   FR-019, FR-027, FR-028, FR-029, FR-032, SC-013, the Output Recommendation, and Assumptions A5,
   A6, and A9 were all rewritten to the resulting historical **two-gate model** (now superseded by ADR-0014): gate 1 was Phase 6
-  T048/T049 landing and the second condition was independent-adopter annotation/oracle evidence. Under the
-  current spec, Phase 6 is landed / reference-validated and the independent-adopter item is
-  optional later production-maturity evidence only. ADR-0007/ADR-0009's own
+  T048-R/T049 landing and the second condition was independent-adopter annotation/oracle evidence. Under the
+  current spec, Phase 6 is landed / reference-verified and the independent-adopter item is
+  optional externally-validated maturity evidence only. ADR-0007/ADR-0009's own
   *eventual* acceptance or supersession remains real, separate, and non-gating — this spec
   never claims it has occurred or is required for this spike's execution, and continues to
   disclaim that neither ADR-0012's nor ADR-0013's acceptance clears ADR-0007/ADR-0009's own
@@ -235,8 +237,8 @@ ADR-0014's three-rung ladder. Worktree was re-synced to `main` at `48087e8`
   were touched, and `git status --porcelain` continues to show only
   `M .specify/feature.json` and the untracked `specs/009-catalog-binding-viability/` tree.
 - **ADR-0014 migration superseded the historical two-gate model.** Phase 6 is now
-  **landed / reference-validated** based on a maintainer-owned isolated reference repository,
+  **landed / reference-verified** based on a maintainer-owned isolated reference repository,
   not external / community validation; the independent-adopter item is no longer a
-  pre-execution gate and is replaced by the in-scratch maintainer-authored reference oracle.
-  External-adopter evidence remains optional later production-maturity evidence only, and no
+  pre-execution gate and is replaced by the in-scratch frozen, maintainer-authored reference oracle.
+  External-adopter evidence remains optional externally-validated maturity evidence only, and no
   009 task is marked complete by this documentation migration.

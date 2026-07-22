@@ -30,10 +30,10 @@ sync.
 | 2 — Migration | `specs/003-migration/` | landed (PR #7 merged) |
 | 3 — CI surface | `specs/004-ci-surface/` | landed (PR #12 merged) |
 | 4 — Deterministic evaluator | `specs/005-deterministic-evaluator/` | landed (PR #14 merged) |
-| 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); real-user gate met |
-| 6 — ARB queue | `specs/007-arb-queue/` | **landed / reference-validated** (kernel + `adr queue` CLI + queue Action; PR #22, `efef89b`); rung-2 maintainer isolated reference-repository validation met ([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)); **not** externally validated (rung 3 open, per [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)) |
-| 7 — Spec Kit hook viability | `specs/008-spec-kit-hook-viability/` | advance scoping complete and scope ratified; Phase 6 reference-validated and maintainer ratification satisfied → **spike execution authorized**; tasks unchecked until executed |
-| 8 — Catalog binding viability | `specs/009-catalog-binding-viability/` | advance scoping complete; ADR-0012/0013 governance satisfied; Phase 6 reference-validated and the independent-adopter gate replaced by an in-spike maintainer reference oracle ([ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)) → **spike execution authorized**; tasks unchecked until executed |
+| 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); reference-verified (maintainer MCP-Inspector dogfood) |
+| 6 — ARB queue | `specs/007-arb-queue/` | **landed / reference-verified** (kernel + `adr queue` CLI + queue Action; PR #22, `efef89b`); rung-2 maintainer isolated reference-repository validation met ([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)); **not** externally validated (rung 3 open, per [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)) |
+| 7 — Spec Kit hook viability | `specs/008-spec-kit-hook-viability/` | **scoped** (spec→plan→tasks); scope ratified; Phase 6 reference-verified and maintainer ratification satisfied → **spike execution authorized**; tasks unchecked until executed |
+| 8 — Catalog binding viability | `specs/009-catalog-binding-viability/` | **scoped** (spec→plan→tasks); ADR-0012/0013 governance satisfied; Phase 6 reference-verified and the independent-adopter gate replaced by an in-spike maintainer reference oracle ([ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)) → **spike execution authorized**; tasks unchecked until executed |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
@@ -55,7 +55,7 @@ Phase 4's implementation gate is **cleared**. Phase 3 T018 was completed on
 only ADRs 0001 and 0002, and a second default-token-only run updating the same
 [comment](https://github.com/mbeacom/adrkit-t018-dogfood/pull/1#issuecomment-5017253372).
 
-Phase 5's lower-phase real-user gate is also **cleared**. The maintainer ran
+Phase 5's lower-phase landing gate is also **cleared** (reference-verified). The maintainer ran
 `adr evaluate` against the genuine, then-`proposed` ADR-0007 with the complete
 tracked-file inventory and an active-human identity snapshot. The first run
 found a real `assertions-compile.no-source` defect while still proving the
@@ -68,11 +68,12 @@ explicitly ratified Phase 5's exact four-tool, local-only, read-only scope on
 or medium findings, all 43 tasks were implemented, and the complete change is
 recorded in PR #19.
 
-The "real user" a rung requires is satisfied by **maintainer dogfooding** — the ladder
-already says "even if that user is only you". For rung 2 specifically, the required
-real user is the maintainer running `adr migrate --from madr` against a **real public
-MADR corpus** (see the outcome ladder); a third-party human adopter is **not** a
-precondition for opening Phase 3 *implementation*.
+Landing a phase requires **reference verification** (ADR-0014 rung 2), which
+maintainer-owned validation satisfies — "even if the only operator is you". For
+outcome rung 2 specifically, that verification is the maintainer running
+`adr migrate --from madr` against a **real public MADR corpus** (see the outcome
+ladder); a third-party human adopter is **not** a precondition for opening Phase 3
+*implementation*, nor for landing any phase.
 
 ---
 
@@ -116,7 +117,7 @@ The four coordinated public packages then shipped as v0.2.0; `@adrkit/mcp` was
 created through the documented one-time token bootstrap while the existing
 packages continued to publish through OIDC. MCP Trusted Publisher setup and
 temporary-secret removal remain a post-release maintainer action.
-Outcome rung 6 is **landed / reference-validated** (ADR-0014 rungs 1–2): the Phase 6
+Outcome rung 6 is **landed / reference-verified** (ADR-0014 rungs 1–2): the Phase 6
 queue kernel, `adr queue` CLI, and managed-issue Action are exercised by the
 maintainer-owned isolated reference repository
 [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood), which pins the

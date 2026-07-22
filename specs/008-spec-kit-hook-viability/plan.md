@@ -9,7 +9,7 @@ plan's existence does not open an implementation branch. | **Date**:
 
 **Input**: Feature specification from `specs/008-spec-kit-hook-viability/spec.md`
 (banner + Ratification Record, User Stories 1–5, Functional Requirements
-FR-001–FR-023, Success Criteria SC-001–SC-008, Assumptions A1–A11, Output
+FR-001–FR-024, Success Criteria SC-001–SC-008, Assumptions A1–A11, Output
 Recommendation section).
 
 **Normative sources** (ADRs win on conflict):
@@ -46,12 +46,12 @@ at that exact commit — cited inline by immutable
 > [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md).
 >
 > 1. **Phase 6 gate — SATISFIED.** Phase 6 (`specs/007-arb-queue/`) is **landed /
->    reference-validated** on ADR-0014 rungs 1–2, not externally validated. The evidence is
+>    reference-verified** on ADR-0014 rungs 1–2, not externally validated. The evidence is
 >    the maintainer-owned isolated reference repository `mbeacom/adrkit-t018-dogfood`, recorded
->    for Phase 6 in `specs/007-arb-queue/checklists/reference-validation-evidence.md`.
->    `specs/007-arb-queue/tasks.md` **T048** and dependent **T049** now read `- [X]`, and
+>    for Phase 6 in `specs/007-arb-queue/checklists/reference-verification-evidence.md`.
+>    `specs/007-arb-queue/tasks.md` **T048-R** and dependent **T049** now read `- [X]`, and
 >    root `plan.md`'s Spec-kit realization table row for `specs/007-arb-queue/` reads
->    `landed / reference-validated`. *Disambiguation:* an unrelated, already-completed
+>    `landed / reference-verified`. *Disambiguation:* an unrelated, already-completed
 >    `T048`/`T049` pair exists in `specs/005-deterministic-evaluator/tasks.md` — not this gate.
 > 2. **This spike's own precondition — SATISFIED 2026-07-21.** Maintainer ratification of this
 >    spec's exact scope, per the Ratification Record in `spec.md`.
@@ -113,8 +113,12 @@ package by this plan — the fixture is not a workspace package (Assumption A3;
 research.md R8).
 
 **Storage**: None. The fixture is read-only by FR-003/FR-011. The evidence
-bundle (once gathered) is scratch-only files under a git-ignored session/temp
+bundle (once gathered) is scratch-only files under a session-scoped scratch
 location — never a database, never a tracked repository file (research.md R4).
+If a later execution result is landed in tracked history, FR-024 requires a
+tracked, sanitized evidence index with commit SHAs, workflow-run links if any
+workflow is used, content hashes, tool versions, network/credential limits,
+negative-test results, and a reviewer verdict; raw transcripts stay scratch-only.
 
 **Testing**: This spike has no `bun test` suite of its own — it is not a
 package. "Testing" here means the acceptance-scenario evidence protocol in
@@ -202,7 +206,7 @@ advance-scoping session per root `plan.md`'s explicit "spec → plan → tasks"
 scoping exemption — task *generation* is scoping, not execution, so it did not
 need execution authorization. Every task in it is transitively gated by that file's
 own Phase 1 gate-check tasks, which re-verify `specs/007-arb-queue/tasks.md`
-T048/T049 and root `plan.md`'s Phase 6 row before authorizing any later task.
+T048-R/T049 and root `plan.md`'s Phase 6 row before authorizing any later task.
 Those checks should now pass once this migration merges; this plan's own Completion Report
 below is updated accordingly.
 
@@ -236,7 +240,7 @@ broadening scope. Summary of binding decisions:
   it needs no positional record path argument and targets this repository's explicit
   `--dir docs/adr`; it exits 0 when that corpus is reachable and free of error findings,
   and its JSON output is a clean, bounded artifact to embed in evidence.
-- **R3 Scratch artifact locations**: session/temp only, enumerated exactly;
+- **R3 Scratch artifact locations**: session-scoped scratch only, enumerated exactly;
   never committed; never inside the tracked `specs/` tree (FR-017/A8).
 - **R4 Evidence bundle filenames and format**: one Markdown report plus one
   JSON manifest, both scratch-only; exact filenames and a canonical structure.
@@ -260,7 +264,7 @@ broadening scope. Summary of binding decisions:
   Check above and after Phase 1 below.
 - **R12 Status drift check**: originally captured the planning-session starting state; this
   migration updates the governance state so Phase 6 (`specs/007-arb-queue/`) is now landed /
-  reference-validated (not externally validated) per root `plan.md` and ADR-0014, while
+  reference-verified (not externally validated) per root `plan.md` and ADR-0014, while
   leaving the `packages/cli/dist` starting-condition note unchanged.
 
 ## Phase 1: Design Artifacts
@@ -346,12 +350,12 @@ advance-scoping session, same date (2026-07-21)**:
 for a future execution session, produced under root
 `plan.md`'s "spec → plan → tasks" scoping exemption (task generation is
 scoping, not execution). That file's own Phase 1 is a mechanical pair of
-gate-check tasks (re-verifying `specs/007-arb-queue/tasks.md` T048/T049 and
+gate-check tasks (re-verifying `specs/007-arb-queue/tasks.md` T048-R/T049 and
 root `plan.md`'s Phase 6 row) that every later task in it is made to depend
 on; after this migration merges, those checks should compute `GATE_PASS = true`, but the
 tasks remain unchecked until executed. **Constitution status**: all five principles PASS,
 before and after design; Complexity Tracking empty. **Governance gate status**: gate 2
 (maintainer ratification) satisfied 2026-07-21 per `spec.md`'s Ratification Record; gate 1
-(Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 and root `plan.md` row) is satisfied with
-Phase 6 landed / reference-validated, not externally validated. **This plan did not execute
+(Phase 6 `specs/007-arb-queue/tasks.md` T048-R/T049 and root `plan.md` row) is satisfied with
+Phase 6 landed / reference-verified, not externally validated. **This plan did not execute
 the spike; execution is authorized once this migration merges.**

@@ -103,6 +103,7 @@ pairs:
 |---|---|
 | `spike-009-evidence.md` | Human-readable narrative report; the one artifact a maintainer reads end-to-end. States the verdict, cites every FR/SC by ID, and reproduces the required disclaimers (FR-028–FR-030, SC-013) verbatim. |
 | `spike-009-evidence.json` | The complete machine-checkable `EvidenceBundle` (`data-model.md` §22) — a top-level **manifest** that **references** every component artifact file below by an `ArtifactFileReference` (`{ relativePath, sha256 }`), never restating any of them field-for-field. The only inline members are the computed `verdict` and the two User Story 7 result records (`envelopeRejectionResults`, `repositoryIsolationCheck`) that have no standalone file of their own — and even those reference their fixture files. |
+| `reference-oracle.json` | The frozen, maintainer-authored reference oracle (`data-model.md` §21.5), created and independently audited before any generator output is produced. It records FR-001 pinned public corpora references, maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations, positive/negative/overlap/absent-empty/collision/repository-mismatch case classes, and bounded zero FP/FN expectations. |
 | `parsing-validation-results.json` | User Story 1's per-fixture `{ pattern, annotation }[]` results (`EvidenceBundle.parsingValidationResults`; `data-model.md` §1/§2/§22). |
 | `identity-canonicalization-results.json` | `CanonicalEntityIdentity[]` including the case-only-duplicate and default-namespace scenarios (`EvidenceBundle.identityCanonicalizationResults`; §7). |
 | `atomic-failure-records.json` | User Story 2's whole-operation `AtomicFailureRecord[]` (`EvidenceBundle.atomicFailureRecords`; §6). |
@@ -145,6 +146,11 @@ actual run['s]" artifact "never...a description of what would be produced" is
 best satisfied by each envelope being its own standalone file a consumer could
 independently validate (per `contracts/snapshot-envelope.md`), not a nested
 sub-object only reachable through the evidence bundle's own schema.
+
+Raw transcripts remain scratch-only. If this spike is later marked **landed**, the landing PR
+must add a tracked, sanitized evidence index carrying commit SHAs, run links, content hashes,
+tool versions, network/credential limits, negative-test results, and a reviewer verdict; this
+research file defines the requirement but does not fabricate that evidence before execution.
 
 ## R4 — Deterministic Ordering and Canonical JSON Choice
 
@@ -630,7 +636,7 @@ ADR-0014, ADR-0009, ADR-0007, `.specify/memory/constitution.md`,
 `packages/core/src/affects/catalog.ts`/`inert.ts`/`matchers/path.ts`,
 `packages/core/src/fingerprint/index.ts`, `packages/core/src/ordering/index.ts`,
 root `plan.md`, and `specs/007-arb-queue/tasks.md` (to independently confirm the then-current
-T048/T049 status) was performed by a dedicated review agent running
+T048-R/T049 status) was performed by a dedicated review agent running
 GPT-5.6 Sol at high reasoning effort — a high-capability model distinct from
 this session's own Claude Sonnet 5, per this task's "Reader-test... with
 Opus 4.8 or GPT-5.6 Sol" instruction — reading with a fresh context and no
@@ -638,7 +644,7 @@ authoring history, explicitly instructed to check citation accuracy,
 internal consistency across every file, scope-violation risk, coverage
 against every FR/SC/User Story/Assumption, technical accuracy of every
 referenced core source file and dependency version, Constitution Check
-accuracy, and the T048/T049 status independently. ADR-0014 later superseded this historical
+accuracy, and the T048-R/T049 status independently. ADR-0014 later superseded this historical
 reader-test snapshot's external-actor gate framing.
 
 ### Verdict
@@ -648,7 +654,7 @@ low/nit** findings. Corpus counts (156/38/23/0), the three pinned commit
 SHAs, ADR statuses, `picomatch@4.0.5`/`yaml@2.9.0` dependency versions, the
 Constitution Check's five-principle coverage, and the then-current Phase 6 task status were
 all independently confirmed accurate at that time. Under the later ADR-0014
-migration, Phase 6 is now landed / reference-validated and T048/T049 are checked; this
+migration, Phase 6 is now landed / reference-verified and T048-R/T049 are checked; this
 historical reader-test result is retained only as provenance.
 
 ### High-severity findings and remediation (all 9 addressed)

@@ -243,5 +243,5 @@ Every check above MUST be demonstrated using **only synthetic fixtures, with
 no external adopter involved** — these are mechanical, offline
 generator/consumer-boundary properties this spike genuinely can prove,
 explicitly distinct from, and insufficient by themselves to claim, external /
-community validation (ADR-0014 rung 3) or the stronger "authoritative `go`"
-status (see `contracts/evidence-bundle-and-verdict.md`).
+community validation (ADR-0014 rung 3) or optional externally-validated maturity
+(see `contracts/evidence-bundle-and-verdict.md`).

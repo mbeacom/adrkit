@@ -1,4 +1,4 @@
-# Contract: Evidence Bundle Completeness, Verdict Decision Procedure, and the Authoritative-`go` Distinction
+# Contract: Evidence Bundle Completeness, Verdict Decision Procedure, and the Optional Externally-Validated Maturity Distinction
 
 **Feature**: `009-catalog-binding-viability` | **Freezes**: FR-019, FR-024
 through FR-032, User Story 8 (all 3 acceptance scenarios), SC-012, SC-013.
@@ -20,7 +20,10 @@ it, mirroring `specs/008-spec-kit-hook-viability/contracts/evidence-bundle-and-v
 verdict, together with FR-027's satisfied execution preconditions, jointly
 justify incorporating a summary into a tracked document, that incorporation
 happens through its own explicitly-scoped, separately-authorized subsequent PR
-— never as a side effect of running this spike.
+— never as a side effect of running this spike. Eventual **landed** status for this spike
+requires a tracked, sanitized evidence index (raw transcripts remain scratch-only) containing
+commit SHAs, run links, content hashes, tool versions, network/credential limits,
+negative-test results, and a reviewer verdict.
 
 ## 2. Verdict Decision Procedure — Fixed Precedence (SC-012)
 
@@ -87,23 +90,25 @@ occurrence MUST name the specific shortfall, never leaving it implicit):
 No production recommendation is made beyond naming what would need to be
 resolved first (`recommendation = null`).
 
-## 3. Neither Verdict Is the Hardened Contract's "Authoritative `go`" (FR-025, FR-029; SC-012)
+## 3. Neither Verdict Is Optional Externally-Validated Maturity (FR-025, FR-029; SC-012)
 
-**None of the three verdicts is, or is described as, the hardened contract's
-separate "authoritative `go`" status or external / community validation
-(ADR-0014 rung 3).** This spike computes `go-explicit` from its in-scratch
-**maintainer-authored reference oracle**: FR-001's pinned public corpora,
-maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations,
-and independent adversarial review of those labels. External-adopter oracle
-evidence may later strengthen production maturity or a future, stronger
-`authoritative go`, but it is optional later evidence and not a pre-execution
-gate.
+**None of the three verdicts is, or is described as, optional externally-validated
+maturity or external / community validation (ADR-0014 rung 3).** This spike computes
+`go-explicit` from its in-scratch **frozen, maintainer-authored reference oracle**:
+FR-001's pinned public corpora plus maintainer-authored synthetic explicit
+`adrkit.io/owned-paths` annotations. The oracle MUST be created and independently audited
+**before any generator output is produced**, so it cannot be fitted to results; MUST cover
+positive, negative, overlap, absent/empty, collision (duplicate canonical ID), and
+repository-mismatch cases; and MUST require bounded zero false-positive / zero
+false-negative results over those labeled oracle cases. External-adopter oracle evidence may
+later support optional externally-validated maturity, but it is optional later evidence and
+not a pre-execution gate.
 
 This spike CAN and MUST mechanically demonstrate malformed/tampered/stale/
 misidentified snapshot rejection and repository isolation using its own
 synthetic fixtures (FR-034–FR-038, `contracts/snapshot-envelope.md`) — these
 are offline, generator/consumer-boundary properties requiring no adopter.
-`Verdict.authoritativeGoDistinctionStatement` (`data-model.md` §23) MUST be
+`Verdict.externalMaturityDistinctionStatement` (`data-model.md` §23) MUST be
 present, verbatim in substance, on **every** verdict this spike ever records —
 not conditioned on `outcome`.
 
@@ -125,10 +130,10 @@ A `NonBindingRecommendation` (`data-model.md` §24) MUST include:
   a future `packages/adapters/catalog-backstage` package would publish,
   ship, or live is a separate, later, maintainer decision this spike's
   evidence may inform but never decide.
-- `authoritativeGoDisclaimer` — states explicitly that this recommendation,
+- `externalMaturityDisclaimer` — states explicitly that this recommendation,
   even under `go-explicit`, does not itself satisfy external / community
   validation (ADR-0014 rung 3), optional later external-adopter evidence, or
-  the hardened contract's "authoritative `go`" status.
+  the optional externally-validated maturity.
 - `productionAuthorizationClaimed: false` — a positively-named flag whose
   literal `false` reads plainly as "no production authorization is claimed."
   (Renamed from the earlier inverted `noProductionAuthorizationClaim: false`,
@@ -142,9 +147,9 @@ Every recorded verdict, unconditionally, MUST state:
 
 1. **(FR-030) Phase 6 credit-taking disclaimer**: this spike's own technical
    result does not itself satisfy, substitute for, or take credit for Phase 6
-   (`specs/007-arb-queue/`) landing / reference-validation, and MUST NOT
+   (`specs/007-arb-queue/`) landing / reference-verification, and MUST NOT
    assert its own verdict caused or constitutes that landing. Phase 6 is now
-   **landed / reference-validated** under ADR-0014 rungs 1–2 based on a
+   **landed / reference-verified** under ADR-0014 rungs 1–2 based on a
    maintainer-owned isolated reference repository; it is not external /
    community validation (ADR-0014 rung 3).
 2. **(FR-028) Governance credit-taking disclaimer**: this spike's output MUST
@@ -156,8 +161,8 @@ Every recorded verdict, unconditionally, MUST state:
 3. **(FR-029) External-adopter maturity disclaimer**: this spike's output MUST
    NOT claim or imply that its own verdict constitutes, causes, or substitutes
    for external / community validation (ADR-0014 rung 3), optional later
-   external-adopter production-maturity evidence, or the hardened contract's
-   "authoritative `go`" status, regardless of which verdict is recorded.
+   external-adopter maturity evidence, or the hardened contract's
+   optional externally-validated maturity, regardless of which verdict is recorded.
 
 `Verdict.gateDisclaimers` (`data-model.md` §23) is a fixed literal
 `{ phase6NotCausedByThisSpike: true, externalCommunityValidationNotClaimed:

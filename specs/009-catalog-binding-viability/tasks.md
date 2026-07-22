@@ -49,17 +49,20 @@ every checkbox below remains `- [ ]` until actually executed.
 > ([ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
 > `accepted`) are all **satisfied**.
 >
-> **Phase 6 status.** Phase 6 is **landed / reference-validated** on ADR-0014 rungs 1–2:
-> `specs/007-arb-queue/tasks.md` **T048** and **T049** read `- [X]`, and root `plan.md` records
-> the `specs/007-arb-queue/` row as `landed / reference-validated`. The evidence is the
+> **Phase 6 status.** Phase 6 is **landed / reference-verified** on ADR-0014 rungs 1–2:
+> `specs/007-arb-queue/tasks.md` **T048-R** and **T049** read `- [X]`, and root `plan.md` records
+> the `specs/007-arb-queue/` row as `landed / reference-verified`. The evidence is the
 > **maintainer-owned isolated reference repository** <https://github.com/mbeacom/adrkit-t018-dogfood>,
 > not an external team and not external / community validation (ADR-0014 rung 3).
 >
 > **Independent-adopter status.** There is no independent-adopter pre-execution gate. The spike
-> builds a **maintainer-authored reference oracle** in scratch from FR-001's pinned public
-> corpora, maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations, and
-> independent adversarial review. External-adopter evidence is optional later production-maturity
-> evidence for a future, stronger "authoritative `go`" only.
+> builds a **frozen, maintainer-authored reference oracle** in scratch before any generator
+> output is produced, from FR-001's pinned public corpora, maintainer-authored synthetic
+> explicit `adrkit.io/owned-paths` annotations, and independent adversarial review. The oracle
+> covers positive, negative, overlap, absent/empty, collision (duplicate canonical ID), and
+> repository-mismatch cases with bounded zero false-positive / zero false-negative results over
+> those labeled cases. External-adopter evidence is optional externally-validated maturity
+> evidence only.
 >
 > **T001–T004 below make this mechanical.** T004 now computes `GATE_PASS = gate1Pass AND
 > governancePreconditionsSatisfied`; the independent-adopter term is removed. Current expected
@@ -149,7 +152,7 @@ a model change. **Opus 4.6 MUST NOT be used for any task in this file, under any
   `packages/core/src/affects/catalog.ts`/`inert.ts`/`matchers/path.ts` (never modifying them,
   FR-020), (b) the final zero-tracked-mutation confirmation (T080, T089–T090 equivalents), and
   (c) reading `specs/007-arb-queue/tasks.md` and root `plan.md` for the Phase 6
-  landed/reference-validated check (T001). No task other than these ever writes inside
+  landed/reference-verified check (T001). No task other than these ever writes inside
   `<THIS_REPO>` as a net effect.
 
 ## Task-Level Design Decision: The Primary-Synthetic Pass's Entity Set
@@ -195,28 +198,32 @@ Phase 2 or any later phase. Do not create `<GENERAL_SCRATCH>`, `<SYNTHETIC_REPO>
 `<MISMATCH_REPO>`, `<SECOND_REPO>`, any corpus clone, or `<EVIDENCE_DIR>` beyond
 `gate-check.json`. Report the failed precondition and end.
 
-- [ ] T001 Verify gate 1 (Phase 6 landed / reference-validated). Read, in this order: (a)
-  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048** (the Phase 6
-  SC-004/rung-2 validation task) and **T049** (the doc flip to landed/reference-validated);
+- [ ] T001 Verify gate 1 (Phase 6 landed / reference-verified). Read, in this order: (a)
+  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048-R** (the Phase 6
+  SC-004/rung-2 validation task) and **T049** (the doc flip to landed/reference-verified);
   both MUST read `- [X]` (checked/complete) for `gate1Pass` to pass. (b) root `plan.md`'s
   Spec-kit realization table — confirm the `specs/007-arb-queue/` row's Status column reads
-  `landed / reference-validated`. **Output**: `gate1Pass` plus the verbatim text of both source
+  `landed / reference-verified`. **Output**: `gate1Pass` plus the verbatim text of both source
   lines and the table row, recorded to `<EVIDENCE_DIR>/gate-check.json`. **Current snapshot now
-  passes**: Phase 6 T048/T049 read `- [X]`, and the `plan.md` row reads `landed /
-  reference-validated`. A future execution session MUST re-run this exact check itself at
+  passes**: Phase 6 T048-R/T049 read `- [X]`, and the `plan.md` row reads `landed /
+  reference-verified`. A future execution session MUST re-run this exact check itself at
   whatever date it actually executes — this note is a snapshot, not a substitute for
   re-verification.
 
 - [ ] T002 Verify the removed independent-adopter pre-execution gate and the in-spike oracle
   basis. Confirm from `spec.md` FR-025, FR-027, and A5 that there is **no** independent-adopter
-  pre-execution gate: the spike builds its own **maintainer-authored reference oracle** inside
-  the scratch workspace from FR-001's pinned public corpora, maintainer-authored synthetic
-  explicit `adrkit.io/owned-paths` annotations, and independent adversarial review. Record
+  pre-execution gate: the spike builds its own **frozen, maintainer-authored reference oracle**
+  inside the scratch workspace from FR-001's pinned public corpora, maintainer-authored
+  synthetic explicit `adrkit.io/owned-paths` annotations, and an **independent pre-output
+  audit (T014a)** before any generator output is produced. Confirm the oracle's required case classes are
+  positive, negative, overlap, absent/empty, collision (duplicate canonical ID), and
+  repository-mismatch, with bounded zero false-positive / zero false-negative results over
+  those labeled cases. Record
   `independentAdopterPreExecutionGateRemoved: true`,
   `maintainerAuthoredReferenceOracleRequired: true`, and
   `externalAdopterEvidenceOptionalLaterMaturity: true` in `<EVIDENCE_DIR>/gate-check.json`.
   Do **not** compute a blocking `gate2Pass` boolean; external-adopter evidence remains optional
-  later production-maturity evidence only and is not an input to T004.
+  later maturity evidence only and is not an input to T004.
 
 - [ ] T003 Restate the satisfied governance preconditions (not separate gates), so T004's
   `GATE_PASS` computation is never conflated with historical external-actor gates. Confirm and
@@ -348,6 +355,7 @@ outputs, and none of it is story-specific.
   repository's working tree) and pre-register (as empty placeholders, populated by later
   tasks) every file `research.md` R3 names:
   `spike-009-evidence.{md,json}`,
+  `reference-oracle.json`,
   `parsing-validation-results.json`, `identity-canonicalization-results.json`,
   `atomic-failure-records.json`, `repository-identity-checks.json`, `identity-only-results.json`,
   `structural-edge-case-fixtures.json`, `dotfile-policy-confirmation.json`, `network-denial.json`,
@@ -358,8 +366,23 @@ outputs, and none of it is story-specific.
   `comparison-matrix.json`, `scale-evidence.json`, `git-status-captures/`. Depends on: T004
   only. No path overlap with T007–T010.
 
-- [ ] T014 Initialize the evidence-capture harness (secret scrubbing; mutation-baseline
-  bracketing — `research.md` R2/R10/R11). Write a single reusable capture helper under
+- [ ] T014 Author and freeze the reference oracle and its inputs (secret
+  scrubbing; mutation-baseline bracketing — `research.md` R2/R10/R11; `data-model.md`
+  §21.5). **Before any generator output exists**, and as a self-contained input set that
+  does **not** depend on the later US1 generator fixtures (T017–T024): (1) author the
+  maintainer's synthetic explicit `adrkit.io/owned-paths` annotation inputs plus the
+  relevant descriptors drawn from FR-001's pinned public corpora into
+  `<EVIDENCE_DIR>/reference-oracle-inputs/`; (2) compute and record a SHA-256 for every
+  oracle input file into `<EVIDENCE_DIR>/reference-oracle-inputs.sha256`; (3) write the
+  frozen `<EVIDENCE_DIR>/reference-oracle.json` — the hand-labeled expected entity→path
+  outcomes — covering positive, negative, overlap, absent/empty, collision (duplicate
+  canonical ID), and repository-mismatch case classes, with expected false-positive and
+  false-negative counts set to zero over those bounded labeled cases; and (4) record the
+  SHA-256 of `reference-oracle.json` itself. The oracle and its inputs are **frozen**
+  after this task: no later task may edit them. Independent audit of this frozen set is a
+  **separate** task (T014a) and MUST complete before any generator/derivation output.
+  Then write a single reusable
+  capture helper under
   `<EVIDENCE_DIR>/capture.sh` that, given a command line and working directory: (a) runs `git
   status --porcelain=v1` immediately before, in both `<THIS_REPO>` and whichever scratch
   repository is relevant to that invocation; (b) runs the command under the T006 network-denial
@@ -372,7 +395,21 @@ outputs, and none of it is story-specific.
   transcript is considered final — a match halts finalization and requires manual review
   before the transcript may be trusted. Every later invocation task in Phases 3–9 that runs a
   derivation/consumer probe uses this harness rather than improvising its own capture. Depends
-  on: T013.
+  on: T011, T012, T013.
+
+- [ ] T014a Independent pre-output audit of the frozen reference oracle. Depends on: T014.
+  **A fresh-context reviewer other than the oracle's author** (the maintainer acting in a
+  distinct review capacity, or a fresh-context review agent) audits the frozen
+  `reference-oracle.json` and its hashed inputs **before any generator output is produced**:
+  confirm the six case classes are all present and correctly labeled; confirm the bounded
+  zero-FP/zero-FN expectation is internally coherent with the labeled inputs; confirm the
+  recorded input SHA-256s match the files on disk (the set is genuinely frozen). Record the
+  reviewer identity, an explicit PASS/FAIL verdict, the audited `reference-oracle.json`
+  SHA-256, and the timestamp to `<EVIDENCE_DIR>/reference-oracle-audit.json`. **If the verdict
+  is FAIL, STOP**: no generator/derivation output may be produced; the oracle must be corrected
+  and re-frozen (a new T014/T014a cycle) first. This task exists so the "frozen, independently
+  audited before generator output" property (FR-025) is mechanically enforced by task order,
+  not merely self-attested.
 
 - [ ] T015 [P] Document and rehearse the mid-run-failure recovery procedure (`research.md`
   R11) to `<EVIDENCE_DIR>/recovery-procedure.md`: if a derivation run aborts partway (expected
@@ -384,10 +421,13 @@ outputs, and none of it is story-specific.
   T007–T013.
 
 - [ ] T016 Checkpoint: Foundational complete. Depends on: T005, T006, T007, T008, T009, T010,
-  T011, T012, T013, T014, T015. Confirm all eleven outputs exist and are internally consistent
+  T011, T012, T013, T014, T014a, T015. Confirm all outputs exist and are internally consistent
   (e.g. each `StandaloneScratchRepository`'s `purpose` in `scratch-workspaces.json` is unique
-  and matches the three distinct repository roles this phase created). No User Story task
-  below may begin until this checkpoint is confirmed.
+  and matches the three distinct repository roles this phase created), **and that
+  `reference-oracle-audit.json` records a PASS verdict for the frozen oracle (T014a)**. No User
+  Story task below may begin until this checkpoint is confirmed — therefore **no
+  generator/derivation output is produced until the frozen reference oracle has been
+  independently audited PASS before any output** (FR-025).
 
 ---
 
@@ -543,7 +583,9 @@ Depends on: T016 (Foundational checkpoint).
   location — and confirm the exact figures **23 of 156** carry any `metadata.annotations`
   block at all, and **0 of 156** carry `adrkit.io/owned-paths`, recorded verbatim in the
   evidence bundle (FR-015; SC-007). Record to
-  `<EVIDENCE_DIR>/parsing-validation-results.json`. Depends on: T011, T014.
+  `<EVIDENCE_DIR>/parsing-validation-results.json`. Depends on: T016 (Foundational
+  checkpoint — which requires the T014a pre-output oracle audit to PASS; a real-corpus
+  derivation run is generator output and MUST NOT precede the frozen-oracle audit).
 
 **Checkpoint**: User Story 1 complete. Option A's mechanical soundness is proven against its
 own current, hardened contract — every per-pattern rule, every collision kind, the
@@ -716,9 +758,9 @@ Depends on: T016 (Foundational checkpoint).
   silently omitted — and confirm an undefined metric for one heuristic never suppresses
   reporting the other heuristic's defined metric on the same matrix (Acceptance Scenario 5).
   Every row under `measurementLevel: "synthetic-precision"` MUST be explicitly labeled as
-  measured against a spike-authored proxy oracle, never external-adopter production-maturity
+  measured against a spike-authored proxy oracle, never external-adopter maturity
   evidence, and therefore insufficient by itself to claim external / community validation or
-  the stronger "authoritative `go`" status (SC-012).
+  optional externally-validated maturity (SC-012).
   Record `LabeledEntityChangedFilePair[]` (`data-model.md` §14) to
   `<EVIDENCE_DIR>/comparison-matrix.json` (the labeled-matrix portion of that file, which
   `EvidenceBundle.comparisonMatrix` references). Depends
@@ -982,7 +1024,7 @@ or misidentified-repository envelope, and correctly isolates queries across two
 independently-valid single-repository envelopes without ever rejecting either — all
 demonstrated as offline, mechanical generator/consumer-boundary properties requiring no
 external adopter, and explicitly distinguished from external / community validation and the
-stronger "authoritative `go`" status.
+optional externally-validated maturity.
 
 **Independent Test** (`spec.md` User Story 7): Produce one valid envelope (T059). Construct
 malformed, tampered, stale, and wrong-repository derivative copies and confirm each is
@@ -1066,9 +1108,8 @@ R3, so the mutation is auditable by diff against the valid original).
 
 **Checkpoint**: User Story 7 complete. Malformed/tamper/stale/repository-isolation
 requirements are demonstrated as an offline, mechanical generator-and-consumer property this
-spike genuinely can prove — distinct from, and never a substitute for, the
-adopter-oracle-dependent precision guarantee the Evidence Gate separately reserves for
-"authoritative `go`."
+spike genuinely can prove — distinct from, and never a substitute for, later external-adopter
+validation.
 
 ---
 
@@ -1106,7 +1147,7 @@ the network-denial mechanism explicitly named, in every tested case.
 
 ---
 
-## Phase 11: User Story 8 — Record Exactly One Spike Verdict, Distinct From Any Future Authoritative `go`, Leaving the Release Vehicle Undecided (Priority: P1)
+## Phase 11: User Story 8 — Record Exactly One Spike Verdict, Distinct From Any Optional Externally-Validated Maturity, Leaving the Release Vehicle Undecided (Priority: P1)
 
 **Goal**: Read the complete evidence bundle from User Stories 1–7 and compute exactly one of
 `go-explicit` / `blocked` / `no-go`, per `contracts/evidence-bundle-and-verdict.md` §2's fixed
@@ -1117,8 +1158,8 @@ fixed `null`.
 **Independent Test** (`spec.md` User Story 8): Read the completed evidence bundle and confirm
 it maps to exactly one verdict per the fixed-precedence definitions, with every piece of
 required evidence present and cross-referenced, and confirm the report explicitly states that
-this spike's result alone does not satisfy external / community validation, optional later
-external-adopter production-maturity evidence, or the hardened contract's "authoritative `go`."
+this spike's result alone does not satisfy external / community validation or optional
+externally-validated maturity evidence.
 
 Depends on: T016, T032, T037, T042, T044, T048, T061, T067, T070 (every prior phase's
 checkpoint).
@@ -1235,28 +1276,28 @@ checkpoint).
   directly"); **`releaseVehicleDecision: null` — always, unconditionally, with no exception**
   (if a future execution session finds itself tempted to populate this field with an npm
   target, repository location, or version/tag, that session has exceeded this spike's
-  authorized scope and must stop and re-scope rather than proceed); `authoritativeGoDisclaimer`
+  authorized scope and must stop and re-scope rather than proceed); `externalMaturityDisclaimer`
   (states explicitly that this recommendation, even under `go-explicit`, does not itself
   satisfy external / community validation (ADR-0014 rung 3), optional later external-adopter
-  evidence, or the hardened contract's "authoritative `go`" status);
+  evidence, or the optional externally-validated maturity);
   `productionAuthorizationClaimed: false`. Depends on: T075.
 
 - [ ] T077 [US8] Set `Verdict.gateDisclaimers` (fixed literal shape:
   `{ phase6NotCausedByThisSpike: true, externalCommunityValidationNotClaimed: true,
   governancePreconditionsAlreadySatisfiedIndependently: true,
   independentAdopterEvidenceOptionalLaterMaturity: true }`) and
-  `authoritativeGoDistinctionStatement` — **present unconditionally on every verdict, never
+  `externalMaturityDistinctionStatement` — **present unconditionally on every verdict, never
   contingent on `outcome`**. Restate in the narrative (to feed T079) all SC-013 disclaimers
   verbatim in substance: (a) **Phase 6 credit-taking disclaimer** — this spike's own technical
   result does not itself satisfy, substitute for, or take credit for Phase 6 landing /
-  reference-validation; Phase 6 is already landed / reference-validated under ADR-0014 rungs
+  reference-verification; Phase 6 is already landed / reference-verified under ADR-0014 rungs
   1–2 and is not external / community validation; (b) **governance credit-taking disclaimer** —
   this spike's output MUST NOT claim or take credit for ADR-0012's acceptance, ADR-0013's
   resolution of ADR-0007/ADR-0009, or ADR-0014's acceptance, all of which occurred
   independently of this spike's own execution or verdict; (c) **external-adopter maturity
   disclaimer** — this spike's output MUST NOT claim or imply that its own verdict constitutes,
   causes, or substitutes for external / community validation, optional external-adopter
-  evidence, or the hardened contract's "authoritative `go`" status, regardless of which verdict
+  evidence, or the optional externally-validated maturity, regardless of which verdict
   is recorded. Depends on: T075.
 
 - [ ] T078 [US8] Assemble the final `<EVIDENCE_DIR>/spike-009-evidence.json`
@@ -1278,7 +1319,9 @@ checkpoint).
 
 - [ ] T079 [US8] Write the final `<EVIDENCE_DIR>/spike-009-evidence.md` narrative
   (`research.md` R3) — the one human-readable artifact a maintainer reads end-to-end: the
-  recorded verdict and its `drivingEvidence`; one subsection per User Story 1–7 with
+  recorded verdict and its `drivingEvidence`; a reference-oracle subsection citing
+  `reference-oracle.json`, its pre-generator independent audit, the six required case classes,
+  and the bounded zero FP/FN expectation; one subsection per User Story 1–7 with
   fixture/transcript excerpts and pass/fail per acceptance scenario, citing every FR/SC by ID;
   the three SC-013 disclaimers verbatim in substance (T077); and, if applicable, T076's
   non-binding recommendation. Depends on: T078.
@@ -1312,11 +1355,11 @@ Depends on: T079 (evidence bundle finalized).
   `packages/adapters/catalog-*/**` directory of any kind was created.
 
 - [ ] T082 Confirm no claim anywhere in `spike-009-evidence.{md,json}` states or implies that
-  Phase 6 is landed / reference-validated because of this spike, that ADR-0012's/ADR-0013's/
+  Phase 6 is landed / reference-verified because of this spike, that ADR-0012's/ADR-0013's/
   ADR-0014's acceptance was caused by this spike, that external-adopter maturity evidence exists
   because of this spike, or that
   ADR-0007/ADR-0009's own blockers are cleared — regardless of this spike's own verdict. A
-  mechanical grep for "landed"/"accepted"/"authoritative go" across the evidence files should
+  mechanical grep for "landed"/"accepted"/"externally-validated maturity" across the evidence files should
   surface only T077's own required, correctly-worded disclaimer language, never a credit-taking
   claim.
 
@@ -1339,7 +1382,7 @@ reconfirmed holding at the end, not merely believed to hold from individual step
 ## Phase 13: Independent Evidence Audit and Final Result Report (cross-cutting)
 
 **Purpose**: Have a fresh, independent-context reviewer check the finished evidence bundle
-before it is reported as authoritative, then deliver the one deliverable this entire file
+before it is reported as final, then deliver the one deliverable this entire file
 exists to produce.
 
 Depends on: T080, T081, T082, T083, T084.
@@ -1365,9 +1408,12 @@ Depends on: T080, T081, T082, T083, T084.
 - [ ] T086 Produce the final result report to the coordinating/maintainer session: the recorded
   verdict and its `drivingEvidence`; the evidence bundle's location
   (`<EVIDENCE_DIR>/spike-009-evidence.{json,md}`); any `no-go` trigger or `blocked` shortfall
-  by name; the explicit restatement that neither Phase 6 landing/reference-validation nor optional external-adopter
-  gate is satisfied, caused, or substituted for by this spike's own result, and that the
-  governance preconditions (T003) were already satisfied independently of this spike; and an
+  by name; the explicit restatement that neither Phase 6 landing/reference-verification nor optional external-adopter
+  maturity evidence is satisfied, caused, or substituted for by this spike's own result, and
+  that the governance preconditions (T003) were already satisfied independently of this spike;
+  an explicit note that raw transcripts remain scratch-only and any later **landed** claim
+  requires a tracked, sanitized evidence index with commit SHAs, run links, content hashes, tool
+  versions, network/credential limits, negative-test results, and a reviewer verdict; and an
   explicit note that **any resulting change to `spec.md`/`plan.md`/this file that this spike's
   findings suggest is itself a separate, later, explicitly-scoped follow-up — never something
   this execution session decides or performs unilaterally as part of running this file.**
@@ -1387,9 +1433,10 @@ Phase 2 (Foundational): T004 → T005 (frozen-input re-verify; fail-closed halt 
                               → T006 [P] + T007 [P] + T008 [P] + T009 [P] + T010 [P]
                                 + T013 [P] + T015 [P] (no path overlap)
                         T005 → T011 [P] + T012 [P] (corpus clones)
-                        T013 → T014 (evidence harness)
+                        T013 → T014 (author + freeze + hash the reference oracle and inputs)
+                        T014 → T014a (independent pre-output audit of the frozen oracle; must PASS)
                         T005 + T006 + T007 + T008 + T009 + T010 + T011 + T012 + T013 + T014
-                              + T015 → T016
+                              + T014a + T015 → T016
 
 Phase 3 (US1):  T016 → T017 [P] + T018 [P] + T019 [P] + T020 [P] + T021 [P] + T022 [P]
                        + T023 [P] + T024 [P] (fixture authoring, no path overlap)
@@ -1397,7 +1444,7 @@ Phase 3 (US1):  T016 → T017 [P] + T018 [P] + T019 [P] + T020 [P] + T021 [P] + 
                 T018 + T019 → T026
                 T020 + T025 → T027;  T021 + T025 → T028;  T017 + T022 + T025 → T029
                 T023 + T025 → T030;  T024 + T025 → T031
-                T011 + T014 → T032 (independent of T017–T031)
+                T016 → T032 (independent of T017–T031; gated on the T014a pre-output oracle audit via T016)
 
 Phase 4 (US2):  T016 → T033 → T034 → T035
                 T033 → T036 (independent of T034/T035)
@@ -1446,7 +1493,9 @@ Phase 13 (Audit):   T080 + T081 + T082 + T083 + T084 → T085 → T086
   directory, recovery-procedure documentation) are mutually parallelizable; T011 + T012 (two
   independent corpus clones) are parallelizable with each other, both gated behind T005.
 - Phase 3: T017–T024 (eight independent fixture files) are fully parallelizable; T032 (the
-  real-corpus run) has no dependency on any of them and may run at any point after T011/T014.
+  real-corpus run) is independent of T017–T031 but, as a generator/derivation run, is gated on
+  the T014a pre-output oracle audit via the T016 Foundational checkpoint — it may run at any
+  point after T016.
 - Phase 4: T036 (the four manifest-request-level rejections) has no dependency on T034/T035
   beyond T033's manifest construction, so it may run in parallel with the T034→T035 sequence;
   T037 (the mismatch test) is fully independent of T033–T036, using `<MISMATCH_REPO>` rather

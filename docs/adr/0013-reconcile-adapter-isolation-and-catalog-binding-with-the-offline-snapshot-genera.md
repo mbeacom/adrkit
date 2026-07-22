@@ -112,13 +112,22 @@ constraint, pinned affects semantics — remain authoritative and unchanged.
 
 ### Acceptance path for ADR-0007 and ADR-0009
 
+> **Amended by [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+> (2026-07-22).** Blocker 3 below ("an independent adopter validates real
+> entity/path outcomes") is amended from a **hard gate** to an **optional later
+> externally-validated maturity signal**; a maintainer-authored reference oracle per
+> ADR-0014 satisfies the corresponding ladder requirement. Blocker 1 (Phase 6
+> T048-R/T049) is satisfied: Phase 6 is landed / reference-verified. ADR-0014 amends
+> these clauses by reference and does not supersede this record; the project
+> constitution is unaffected.
+
 Either record moves to `accepted` only in its own explicit, reviewed decision once
 its blockers clear:
 
-1. Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 clear. **(Satisfied
-   2026-07-22: Phase 6 is landed / reference-validated on rungs 1–2 of
+1. Phase 6 `specs/007-arb-queue/tasks.md` T048-R/T049 clear. **(Satisfied
+   2026-07-22: Phase 6 is landed / reference-verified on rungs 1–2 of
    [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md);
-   T048/T049 complete.)**
+   T048-R/T049 complete.)**
 2. Non-shipping spike evidence from `specs/009-catalog-binding-viability/`,
    including a versioned interchange envelope and the security/scale measurements
    named in ADR-0012.

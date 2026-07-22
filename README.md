@@ -17,11 +17,16 @@ legible to agents — without leaving git.
 > MCP server exposes its exact four-tool, local-only boundary and passed
 > real-session dogfood through the official MCP Inspector. The Phase 6 ARB queue
 > (`adr queue` plus the managed-issue GitHub Action) is implemented and **landed /
-> reference-validated** through a maintainer-owned isolated reference repository —
+> reference-verified** through a maintainer-owned isolated reference repository —
 > it is **not** yet externally validated (see
 > [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)).
 > Also not yet built: the later probabilistic
 > passes (Passes 1–3). See [`plan.md`](./plan.md).
+>
+> A future **v0.3.0** would follow Phase 6 being reference-verified / landed; its
+> release notes must state the queue is **maintainer reference-verified** and that
+> **external adoption is not evidenced**. No release is cut by governance/docs
+> changes alone.
 
 ---
 
@@ -176,7 +181,7 @@ Identical inputs produce byte-for-byte identical output. Exit codes: `0` clean,
 
 A managed-issue GitHub Action (`packages/ci/queue`) creates or updates exactly one
 dedicated issue whose body carries the deterministic Markdown report, using only the
-default `GITHUB_TOKEN` with `issues: write`. Phase 6 is landed / reference-validated
+default `GITHUB_TOKEN` with `issues: write`. Phase 6 is landed / reference-verified
 (see [`plan.md`](./plan.md)); pin the queue Action to an immutable commit SHA until a
 moving `queue@v0` tag is published:
 

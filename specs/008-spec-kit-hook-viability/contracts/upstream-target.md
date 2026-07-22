@@ -110,7 +110,7 @@ hooks:
 ## 3. Fail-Closed Re-Verification Procedure (FR-001)
 
 Before any other spike step, and only after the governance gates in `spec.md`'s
-banner are satisfied (both now are — Phase 6 is landed / reference-validated per
+banner are satisfied (both now are — Phase 6 is landed / reference-verified per
 ADR-0014, and maintainer ratification is recorded — so execution is authorized once
 this migration merges):
 
