@@ -26,30 +26,38 @@ permitted" exemption — generating this checklist is scoping, not execution. Ph
 landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratification is already
 satisfied; spike execution is authorized once this migration merges.
 
-> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`); T044, T045, and T047
-> are marked complete as **correctly recognized and honored short-circuits** per the
-> `no-go` outcome's own contract-required rules (T043 matched at Step 1, so T044/T045 were
-> not evaluated and T047 does not apply — see each task's own note). Verdict: **`no-go`**
-> (trigger: `mutation`, driven independently by the `install` and `remove` mutation
-> baselines). Independently audited (fresh-context, `gpt-5.6-sol`, six cumulative
-> audit rounds converging to a final PASS on evidence-bundle integrity — see T057).
-> The tracked, sanitized FR-024 evidence index is
+> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`), **with one explicit
+> exception: T005 is left unchecked (`- [ ]`)** — see below and T005's own note. T044,
+> T045, and T047 are marked complete as **correctly recognized and honored
+> short-circuits** per the `no-go` outcome's own contract-required rules (T043 matched at
+> Step 1, so T044/T045 were not evaluated and T047 does not apply — see each task's own
+> note). Verdict: **`no-go`** (trigger: `mutation`, driven independently by the `install`
+> and `remove` mutation baselines). Independently audited (fresh-context, `gpt-5.6-sol`,
+> six cumulative audit rounds converging to a final PASS on evidence-bundle integrity —
+> see T057). The tracked, sanitized FR-024 evidence index is
 > [`checklists/evidence-index.md`](./checklists/evidence-index.md). Raw transcripts and the
 > full evidence bundle remain session-scoped only, per FR-017. This spike did **not**
 > change Phase 6's landed/reference-verified status in any direction, and does **not**
 > claim external/community validation for either Phase 6 or itself.
 >
-> **Qualification (discovered via PR #35 review, after all six audit rounds above):**
+> **T005 exception (discovered via PR #35 review, after all six audit rounds above):**
 > T005's own selection of the network-denial mechanism did not detect this host's
 > genuinely-available rank-1 mechanism (`sandbox-exec`), so rank 3 gated the recorded
-> `install`/`hook-fire`/probe invocations instead of the strongest available option —
-> see T005's own note and `checklists/evidence-index.md`'s Limitations section for the
-> full account. `T005` and `T057` are therefore marked `- [X]` in the sense that their
-> literal recording/audit *actions* were performed, **not** in the sense that T005's
-> selection was fully contract-conformant or that T057's audit caught every gap (it did
-> not catch this one). This does not change the `no-go` verdict, which is driven
-> independently by the mutation baseline (an orthogonal axis), and was not remediated by
-> re-running the full live-Copilot lifecycle under the stronger mechanism.
+> `install`/`hook-fire`/probe invocations instead of the strongest available option, per
+> `contracts/isolation-and-offline.md` §4's "strongest available mechanism" requirement.
+> Per direct reviewer feedback, this is **not** papered over with qualifying prose while
+> leaving the box checked: **T005 is marked incomplete (`- [ ]`)**, honestly reflecting
+> that its own conformance bar was not met. This is a partial-conformance execution for
+> that one task only — it is **not** a claim that the gated invocations themselves didn't
+> happen or weren't evidenced (they did, and are fully recorded; see T005's own note and
+> `checklists/evidence-index.md`'s Limitations section for the full account). It was
+> **not** remediated by re-running the full live-Copilot lifecycle under the stronger
+> mechanism: that rerun was judged disproportionate given the `no-go` verdict is driven
+> independently by the mutation baseline (an orthogonal axis, unaffected by which
+> network-denial rank gated these invocations), and would require a second full isolated
+> live-Copilot session. T057's own audit did not independently catch this gap either — see
+> T057's own note — but its remaining checks (a)–(f) all still hold and its `[X]` marking
+> is unaffected by T005's exception.
 
 > ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now checked (see the executed-summary callout above).**
 >
@@ -223,7 +231,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   maintainer is asked to re-ratify — routine re-verification (the match case) needs no
   such escalation.
 
-- [X] T005 [P] Select and record the network-denial mechanism (`research.md` R8;
+- [ ] T005 [P] Select and record the network-denial mechanism (`research.md` R8;
   `contracts/isolation-and-offline.md` §4). Determine which of the three ranked tiers
   is actually available in the execution environment (1: OS-level network namespace/
   firewall; 2: process-level egress blocking; 3: allowlisted-environment + full
@@ -233,16 +241,24 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   invocation task runs under it) — to `<EVIDENCE_DIR>/network-denial.json`. If only tier
   3 is available, `limitationsStatement` MUST use `research.md` R8's exact honest-
   limitation language verbatim, never a stronger claim. No path overlap with T006–T007.
-  **Post-execution correction (via PR review, see evidence-index.md's Limitations
-  section):** the rank-1 check performed here tested only `unshare(1)` and missed this
-  host's genuinely-available macOS equivalent (`sandbox-exec`), so rank 3 was recorded
-  and used for every invocation task later listed in `NetworkDenialRecord
-  .appliedToInvocations` (`install`, `hook-fire`, `probe-absent-context`,
-  `probe-absent-cli`) even though a stronger mechanism existed. This is an
-  honestly-documented conformance gap in this task's own execution, not merely a
-  wording issue — it does not change the `no-go` verdict (driven independently by the
-  mutation baseline), and was not remediated by re-running the live-Copilot lifecycle
-  under the stronger mechanism.
+  **Marked incomplete (via PR review, see evidence-index.md's Limitations section):**
+  the rank-1 check performed here tested only `unshare(1)` and missed this host's
+  genuinely-available macOS equivalent (`sandbox-exec`), so rank 3 was recorded and used
+  for every invocation task later listed in `NetworkDenialRecord.appliedToInvocations`
+  (`install`, `hook-fire`, `probe-absent-context`, `probe-absent-cli`) even though a
+  stronger mechanism existed — this task's own contract requirement to select the
+  *strongest available* mechanism (`contracts/isolation-and-offline.md` §4) was not met.
+  Per direct reviewer feedback, this is disclosed by unchecking the box rather than by
+  qualifying prose alone: the task's core action (determine availability, record a
+  `NetworkDenialRecord`) was performed and its output exists and gated real invocations,
+  but the *selection itself* did not satisfy the contract, so it is not counted as
+  complete. This does **not** retroactively invalidate the invocations it gated — those
+  ran, completed, and are fully evidenced under rank 3, exactly as recorded — and it does
+  **not** change the `no-go` verdict, which is driven independently by the mutation
+  baseline (an orthogonal axis). It was not remediated by re-running the live-Copilot
+  lifecycle under the stronger mechanism, which was judged disproportionate: doing so
+  would not change the verdict and would require a second full isolated live-Copilot
+  session.
 
 - [X] T006 [P] Establish the three scratch workspace roots (`research.md` R3;
   `contracts/isolation-and-offline.md` §1). Create `<SCRATCH_ROOT>/` and its three named
@@ -834,15 +850,17 @@ Depends on: T054, T055, T056.
   as a direct quote). Record findings; remediate any defect found before T058.
   **Post-execution correction:** six cumulative fresh-context audit rounds converged to a
   final PASS on every item (a)–(f) above, but did **not** independently detect T005's
-  network-denial mechanism-selection gap (see T005's own note) — that gap was found only
-  afterward, via PR #35's automated review. This is disclosed as a real limitation of this
-  task's own audit coverage, not glossed over: T057's "complete" marking means the audit
-  *action* (dispatch, check items a–f, converge to PASS) was performed as specified, not
-  that the audit caught every defect that existed in the bundle. `spike-008-evidence.json`
-  was updated post-audit (PR review round 4) with a corroborating, non-verdict-driving
-  `MutationBaseline` entry closing a separate PR-review finding (T033's Tier-2 install
-  invocation lacked its own bracket); this update happened after, not as part of, the six
-  audit rounds recorded here.
+  network-denial mechanism-selection gap (see T005's own note; T005 is now marked
+  incomplete, `- [ ]`, as a direct result) — that gap was found only afterward, via PR
+  #35's automated review. This is disclosed as a real limitation of this task's own
+  audit coverage, not glossed over: T057's "complete" marking means the audit *action*
+  (dispatch, check items a–f, converge to PASS) was performed as specified against its
+  own defined scope, which did not include verifying T005's mechanism selection — not
+  that the audit caught every defect that existed anywhere in the bundle.
+  `spike-008-evidence.json` was updated post-audit (PR review round 4) with a
+  corroborating, non-verdict-driving `MutationBaseline` entry closing a separate
+  PR-review finding (T033's Tier-2 install invocation lacked its own bracket); this
+  update happened after, not as part of, the six audit rounds recorded here.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location

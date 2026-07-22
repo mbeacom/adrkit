@@ -218,7 +218,8 @@ file's content hash and mtime are unchanged by disable).
   `EvidenceBundle` JSON/Markdown pair) remains session-scoped only, per
   FR-017/FR-024. This index is the sanitized, tracked summary; it does not
   reproduce raw transcript content.
-- **T005 conformance gap, discovered post-hoc via independent PR review**: at
+- **T005 conformance gap, discovered post-hoc via independent PR review — T005
+  is marked incomplete (`- [ ]`) in `tasks.md` as a direct result**: at
   original execution time, T005's rank-1 availability check tested only
   `unshare(1)` and did not test this host's macOS-native equivalent,
   `sandbox-exec` — which was, in fact, genuinely available (kernel-enforced,
@@ -227,20 +228,28 @@ file's content hash and mtime are unchanged by disable).
   `probe-absent-cli` invocations recorded in this evidence ran under rank 3
   (allowlist + static review), not the contract's own "strongest available
   mechanism" requirement (`contracts/isolation-and-offline.md` §4) — a genuine
-  execution-accuracy gap, not merely a documentation omission. It was **not**
-  remediated by re-running the full live-Copilot lifecycle session under rank
-  1: doing so was judged disproportionate once identified, because (a) the
-  `no-go` verdict is driven entirely by the file-mutation baseline (`install`/
-  `remove` non-identical `git status`), an axis wholly independent of which
-  network-denial mechanism gated the invocations, so re-running would not
-  change the verdict, and (b) it would require a second full isolated live-
-  Copilot lifecycle session, itself a non-trivial resource/isolation cost. The
-  post-hoc CLI-only re-verification above strengthens confidence that the
-  offline CLI specifically makes no network calls, but does **not** retroactively
-  extend rank-1 coverage to the actual recorded lifecycle invocations. Six
-  cumulative independent audit rounds (see below) did not catch this gap
-  either, prior to this PR review — that is itself a documented limitation of
-  the audit process's environment-capability coverage, not just of T005.
+  execution-accuracy gap, not merely a documentation omission. Per direct PR
+  review feedback, this is disclosed by leaving T005 unchecked in `tasks.md`
+  rather than by qualifying prose alone while marking it complete: T005's own
+  literal recording action was performed and produced a real, used
+  `NetworkDenialRecord`, but the *selection itself* did not satisfy the
+  contract's strongest-available-mechanism requirement, so it is not counted
+  as complete. This does **not** retroactively invalidate the invocations it
+  gated — those ran, completed, and are fully evidenced under rank 3, exactly
+  as recorded. It was **not** remediated by re-running the full live-Copilot
+  lifecycle session under rank 1: doing so was judged disproportionate once
+  identified, because (a) the `no-go` verdict is driven entirely by the
+  file-mutation baseline (`install`/`remove` non-identical `git status`), an
+  axis wholly independent of which network-denial mechanism gated the
+  invocations, so re-running would not change the verdict, and (b) it would
+  require a second full isolated live-Copilot lifecycle session, itself a
+  non-trivial resource/isolation cost. The post-hoc CLI-only re-verification
+  above strengthens confidence that the offline CLI specifically makes no
+  network calls, but does **not** retroactively extend rank-1 coverage to the
+  actual recorded lifecycle invocations. Six cumulative independent audit
+  rounds (see below) did not catch this gap either, prior to this PR review —
+  that is itself a documented limitation of the audit process's
+  environment-capability coverage, not just of T005.
 - **T033 Tier-2 mutation-bracket completeness gap, discovered post-hoc via
   independent PR review (PR round 4)**: the original evidence bundle's six
   `MutationBaseline` entries all belong to the Tier-1 (single-project) lifecycle;
@@ -287,8 +296,13 @@ shape and 6-entry `mutationBaselines` array unchanged.
 Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed and
 reference-verified by independent audit**. It is **not released**, **not
 externally validated**, and **not adopted**. Its own contract verdict is
-**`no-go`** (mutation trigger, both install and remove). It is a disposable
-compatibility spike, not a shipped adapter or integration
+**`no-go`** (mutation trigger, both install and remove). One task, **T005**,
+is explicitly left incomplete in `tasks.md` (`- [ ]`) — its own
+mechanism-selection did not meet the contract's strongest-available-mechanism
+requirement (see Limitations, above); this does not invalidate the
+invocations it gated (fully evidenced under rank 3) or change the `no-go`
+verdict. It is a disposable compatibility spike, not a shipped adapter or
+integration
 (`spec.md`: "It does not produce that adapter"). Feature 009
 (`specs/009-catalog-binding-viability/`) is separately governance-authorized
 (its own preconditions are already satisfied) but was, per root `plan.md`'s
