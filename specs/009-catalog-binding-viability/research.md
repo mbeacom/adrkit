@@ -96,19 +96,30 @@ use a throwaway branch/worktree of this repository" (A7's "and/or" wording).
 
 **Decision**: The evidence bundle is a fixed set of files in the session
 scratch directory (R2 item 3), all JSON except the one narrative Markdown
-file:
+file (`spike-009-evidence.md`) and the raw `git-status-captures/*.txt` capture
+pairs:
 
 | File | Contents |
 |---|---|
 | `spike-009-evidence.md` | Human-readable narrative report; the one artifact a maintainer reads end-to-end. States the verdict, cites every FR/SC by ID, and reproduces the required disclaimers (FR-028–FR-030, SC-013) verbatim. |
-| `spike-009-evidence.json` | The complete machine-checkable `EvidenceBundle` (`data-model.md` §12), field for field — nests or references every artifact below by relative filename. |
+| `spike-009-evidence.json` | The complete machine-checkable `EvidenceBundle` (`data-model.md` §22) — a top-level **manifest** that **references** every component artifact file below by an `ArtifactFileReference` (`{ relativePath, sha256 }`), never restating any of them field-for-field. The only inline members are the computed `verdict` and the two User Story 7 result records (`envelopeRejectionResults`, `repositoryIsolationCheck`) that have no standalone file of their own — and even those reference their fixture files. |
+| `parsing-validation-results.json` | User Story 1's per-fixture `{ pattern, annotation }[]` results (`EvidenceBundle.parsingValidationResults`; `data-model.md` §1/§2/§22). |
+| `identity-canonicalization-results.json` | `CanonicalEntityIdentity[]` including the case-only-duplicate and default-namespace scenarios (`EvidenceBundle.identityCanonicalizationResults`; §7). |
+| `atomic-failure-records.json` | User Story 2's whole-operation `AtomicFailureRecord[]` (`EvidenceBundle.atomicFailureRecords`; §6). |
+| `repository-identity-checks.json` | `RepositoryIdentityCheck[]` — the repository/revision match and mismatch cases (`EvidenceBundle.repositoryIdentityChecks`; §4). The FR-033 manifest-version/capability rejections live in `atomic-failure-records.json`, not here. |
+| `identity-only-results.json` | User Story 4's `IdentityOnlyEntity[]` (`EvidenceBundle.identityOnlyResults`; §15). |
+| `structural-edge-case-fixtures.json` | User Story 5's `StructuralEdgeCaseFixture[]`, all three kinds (`EvidenceBundle.structuralEdgeCaseFixtures`; §16). |
+| `dotfile-policy-confirmation.json` | User Story 5 Acceptance Scenario 4's `DotfilePolicyConfirmation` (`EvidenceBundle.dotfilePolicyConfirmation`; §17). |
+| `network-denial.json` | The `NetworkDenialRecord` for the derivation runs (`EvidenceBundle.networkDenial`; §20). |
+| `mutation-baselines.json` | The `MutationBaseline[]` before/after `git status` records — each carrying the computed `identical` boolean the verdict's no-go check reads, and referencing its raw `git-status-captures/*.txt` pair (`EvidenceBundle.mutationBaselines`; §21). |
 | `input-manifest.community-plugins.json` | FR-009/FR-033 manifest for the community-plugins-derived pass. |
 | `input-manifest.rhdh-plugins.json` | Same, rhdh-plugins-derived pass. |
 | `input-manifest.synthetic.json` | Same, primary synthetic pass. |
 | `snapshot-envelope.community-plugins.json` | FR-022 envelope, community-plugins-derived pass. |
 | `snapshot-envelope.rhdh-plugins.json` | FR-022 envelope, rhdh-plugins-derived pass. |
 | `snapshot-envelope.synthetic.json` | FR-022 envelope, primary synthetic pass. |
-| `envelope-fixtures/malformed.json`, `.../tampered.json`, `.../stale.json`, `.../wrong-repository.json` | User Story 7's four rejection-case derivatives of `snapshot-envelope.synthetic.json` (FR-034–FR-037). Each is a deliberately mutated copy, never a fresh independent generation, so the mutation is auditable by diff against the valid original. |
+| `envelope-fixtures/malformed-invalid-json.json`, `.../malformed-missing-or-wrong-field.json`, `.../malformed-unrecognized.json`, `.../malformed-missing-source-digest.json`, `.../malformed-identity-only.json` | User Story 7's **five** malformed rejection-case fixtures — one file per mutually-exclusive malformation kind (FR-034; `data-model.md` §22's `MalformedEnvelopeRejectionResult[]`; `contracts/snapshot-envelope.md` §2/§7). They cannot share one file: `malformed-invalid-json.json` is deliberately non-parseable, while the other four are different *valid*-JSON mutations of `snapshot-envelope.synthetic.json`, each auditable by diff against the valid original. |
+| `envelope-fixtures/tampered.json`, `.../stale.json`, `.../wrong-repository.json` | User Story 7's tampered/stale/wrong-repository rejection-case derivatives of `snapshot-envelope.synthetic.json` (FR-035–FR-037). Each is a deliberately mutated copy, never a fresh independent generation, so the mutation is auditable by diff against the valid original. |
 | `envelope-fixtures/second-repository.json` | The second, independently-generated, individually-valid single-repository envelope for User Story 7's repository-isolation check (FR-038) — a fourth pass, distinct from the three FR-022 passes, using a second throwaway synthetic repository identity (A4). |
 | `comparison-matrix.json` | User Story 3's spike-authored labeled entity × changed-file matrix plus the B/C TP/FP/TN/FN classification and precision/false-positive-rate figures (or `undefined-for-this-heuristic-on-this-matrix`). |
 | `scale-evidence.json` | FR-023's per-pass measurements, aggregated across all three FR-009 passes. |
@@ -116,13 +127,17 @@ file:
 
 **Rationale**: `specs/008-...`'s R4 established a two-file (JSON + Markdown)
 pattern for a spike with one fixture and one verdict; this spike produces
-three required envelopes (SC-010) plus four rejection-case derivatives plus a
-second-repository isolation fixture plus a separate comparison matrix, so a
-flat two-file bundle would force either duplicating large JSON blobs inline
-inside `spike-009-evidence.json` or losing per-artifact traceability. Naming
-every artifact file explicitly, and having `spike-009-evidence.json`
-reference them by relative filename rather than embedding them, keeps each
-artifact independently diffable and keeps the top-level manifest legible.
+three required envelopes (SC-010) plus eight rejection-case derivatives (five
+malformed, one each tampered/stale/wrong-repository) plus a second-repository
+isolation fixture plus a separate comparison matrix, so a flat two-file bundle
+would force either duplicating large JSON blobs inline inside
+`spike-009-evidence.json` or losing per-artifact traceability. Naming every
+artifact file explicitly, and having `spike-009-evidence.json`
+**reference** them by relative path + digest (`ArtifactFileReference`,
+`data-model.md` §22) rather than embedding them, keeps each artifact
+independently diffable and keeps the top-level manifest legible — and is the
+single representation the bundle uses (referenced file-backed artifacts;
+inline small mechanical records only).
 
 **Alternatives considered**: One monolithic JSON file with every envelope
 nested inline — rejected; SC-010's requirement that each envelope be "an
@@ -317,12 +332,18 @@ standalone scratch repositories (R2 item 2) may reasonably use.
 
 - **Reads**: the input manifest file (by its own provided path); each
   descriptor file path the manifest's `sources` array lists, and only those
-  — each is opened, its SHA-256 digest independently computed, and compared
-  against the manifest's declared digest for that source *before* its
-  content is trusted, per FR-009's "incomplete required source" rejection
-  class; `git remote get-url origin` and `git rev-parse HEAD`, invoked as
-  subprocesses against the checkout root the manifest claims to describe
-  (never re-read from the manifest file itself, per FR-009/User Story 2).
+  — every listed `path` first passes source-path validation
+  (`contracts/input-manifest.md` §4.1: a lexical rejection pass against
+  empty/absolute/leading-slash/drive/UNC/backslash/`.`/`..`/control-character
+  forms, then a `realpath`-confined check that the resolved target — symlinks
+  followed — still lies beneath the verified checkout root, failing closed on
+  any escape) **before** the file is opened; then each is opened, its SHA-256
+  digest independently computed, and compared against the manifest's declared
+  digest for that source *before* its content is trusted, per FR-009's
+  "incomplete required source" rejection class; `git remote get-url origin`
+  and `git rev-parse HEAD`, invoked as subprocesses against the checkout root
+  the manifest claims to describe (never re-read from the manifest file
+  itself, per FR-009/User Story 2).
 - **Writes**: exactly one output envelope file, at a path supplied to the
   invocation; stdout/stderr for diagnostics and the exit code. No other file
   is created, moved, or deleted by a generation run.
@@ -577,7 +598,7 @@ session-scoped evidence directory.
 
 **Decision**: SC-012 already fixes the three-way precedence in prose
 (`no-go` checked first and dominates; `go-explicit` checked second;
-`blocked` is the exhaustive fallback). This plan's `data-model.md` §13
+`blocked` is the exhaustive fallback). This plan's `data-model.md` §23
 (`Verdict`) encodes that same precedence as a structural field
 (`precedenceEvaluationOrder: ["no-go", "go-explicit", "blocked"]`, a fixed
 literal array) and a set of named trigger/shortfall enumerations, mirroring
@@ -653,11 +674,12 @@ correction.
 3. **`SnapshotEnvelope.entities` shape contradicted `CatalogEntityRecord`**
    — the envelope contract's illustrative JSON used flat
    `canonicalId`/`refs`/`paths` fields while `data-model.md` §8/§9 typed the
-   same array as nested `CatalogEntityRecord` objects (`identity.canonicalId`,
-   `ownershipState`, `derivedPaths`). **Fixed**: the envelope contract's JSON
-   example now uses the identical nested shape, with an explicit note that
-   `entities[]` is exactly `CatalogEntityRecord[]`, never a separate flat
-   type (`contracts/snapshot-envelope.md` §1).
+   same array as nested objects. **Fixed** (and later refined in the second
+   remediation round below): the envelope contract's JSON example now uses the
+   nested shape defined as `data-model.md` §9's explicit serialized
+   `SnapshotEntityRecord` — the reduced projection of §8's `CatalogEntityRecord`,
+   not `CatalogEntityRecord`/`CanonicalEntityIdentity` field-for-field
+   (`contracts/snapshot-envelope.md` §1).
 4. **Atomic-failure trigger enumeration was too narrowly closed** — the
    original eleven-value closed type had no trigger for a generic (non-
    duplicate-key) YAML syntax error or a malformed/wrongly-shaped manifest,
@@ -763,3 +785,61 @@ correction.
 All findings above are already reflected in the current version of every
 referenced file; this section is a record of the review and its remediation,
 not a pending task list.
+
+### Second remediation round (PR #28 automated review, 16 threads)
+
+A subsequent fresh-context automated review of the full planning set (PR #28)
+raised 16 additional threads; all were remediated in the current version of
+the affected files. This round **supersedes** two earlier counts recorded
+above (the "eight total envelope-shaped artifacts" figure and the single-
+object `malformed` typing), because preserving every required FR-034 probe as
+an independently-consumable file forces separate fixtures:
+
+- **`EvidenceBundle.envelopeRejectionResults.malformed` is now an array**
+  (`MalformedEnvelopeRejectionResult[]`) with **five** instances — one per
+  mutually-exclusive malformation kind (`invalid-json`,
+  `missing-or-wrong-required-field`,
+  `unrecognized-schema-or-dialect-or-capability`, `missing-source-digest`,
+  `identity-only-true`), each backed by its own
+  `envelope-fixtures/malformed-*.json` file — because one case is
+  syntactically invalid JSON and cannot coexist with the four valid-JSON
+  mutations in a single file (`data-model.md` §22; `research.md` R3;
+  `contracts/snapshot-envelope.md` §2/§7). The total envelope/fixture-file
+  count is accordingly recomputed to **twelve** (3 required + 5 malformed +
+  tampered + stale + wrong-repository + second-repository), superseding the
+  earlier "eight."
+- **`OwnedPathsAnnotation` gained an explicit `annotationPresent`
+  discriminant**; `annotation-absent` is derived from `annotationPresent ===
+  false`, never from `rawValue === undefined` (ambiguous between absent and
+  present-but-non-string) — `data-model.md` §1;
+  `contracts/owned-paths-annotation.md` §1/§3.
+- **The owned-paths pipeline now has an explicit string-scalar check between
+  presence and `JSON.parse`.** The prior claim that passing a non-string to
+  `JSON.parse` raises a language-level type error was removed as false —
+  `JSON.parse` coerces its argument via `ToString`, so an explicit
+  `typeof === "string"` pre-parse check is required — `data-model.md` §1;
+  `contracts/owned-paths-annotation.md` §1/§3.
+- **Manifest source paths are validated** (lexical rejection of
+  absolute/leading-slash/drive/UNC/backslash/dot/dotdot/control/empty, then a
+  `realpath`-confined check beneath the verified checkout root, symlink escape
+  failing closed) before any file is opened — `data-model.md` §3;
+  `contracts/input-manifest.md` §4.1; `research.md` R7.
+- **The envelope entity shape is now the explicitly-defined serialized
+  `SnapshotEntityRecord`** (`data-model.md` §9), resolving the field-for-field
+  mismatch with `CatalogEntityRecord`/`CanonicalEntityIdentity`;
+  **consumer recognition now validates the complete nested shape** plus the
+  exact `globDialect` (`picomatch`/`4.0.5`/`dot:false,nocase:false,nonegate:true`)
+  and exact `capabilities` tuple `["pathOwnership"]` **before** the digest —
+  `contracts/snapshot-envelope.md` §1/§2.
+- **`EvidenceBundle` uses one representation**: file references
+  (`ArtifactFileReference`) for every file-backed artifact (including the three
+  input manifests, previously missing reference fields) and inline records only
+  for data with no standalone file — no field claims to be both embedded and
+  referenced; the §12→§22 cross-reference was corrected — `data-model.md` §22;
+  `research.md` R3.
+- **The inverted boolean `noProductionAuthorizationClaim: false` was renamed to
+  the positive `productionAuthorizationClaimed: false`** across the data model,
+  contracts, and tasks.
+- **Every tamper mutation of `paths` was renamed to the canonical
+  `derivedPaths`**, and the quickstart preflight now runs `set -euo pipefail`
+  with fail-fast helper error handling.

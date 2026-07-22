@@ -803,7 +803,7 @@ dialect/capability, omit a declared source's digest, or set `completeness.identi
 per FR-022) and confirm a consumer rejects it before ever reaching the digest check — and
 confirm, separately, that an otherwise-ordinary envelope whose entities merely all happen to
 be `annotation-absent` (with `completeness.identityOnly: false`) is NOT rejected on that basis
-alone; construct a **tampered** copy by mutating one entity's `paths` after generation
+alone; construct a **tampered** copy by mutating one entity's `derivedPaths` after generation
 *without* updating the envelope's own digest, and confirm a consumer that independently
 recomputes the digest rejects it; separately, to isolate the staleness and repository-identity
 checks from the digest check, construct a **stale** copy declaring any revision other than a
@@ -834,7 +834,7 @@ queried repository's entities.
    accepted — an envelope is never treated as partial/identity-only merely because its
    entities' ownership states happen to be absent; only `completeness.identityOnly` decides
    that.
-2. **Given** a valid envelope from User Story 6, **When** one entity's `paths` field is
+2. **Given** a valid envelope from User Story 6, **When** one entity's `derivedPaths` field is
    mutated after generation without updating the envelope's own digest (computed per the
    Independent Test's FR-035 canonicalization over every field including `schemaVersion`,
    not the entity list alone), **Then** a consumer that independently recomputes and compares
@@ -1109,7 +1109,7 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
   preserve array declaration order — then compute the
   digest as SHA-256 over the UTF-8 bytes of that canonicalized form. A consumer MUST
   independently recompute that digest and compare it against the envelope's declared value
-  before trusting any entity's `paths`; a mismatch MUST be rejected non-zero, naming the
+  before trusting any entity's `derivedPaths`; a mismatch MUST be rejected non-zero, naming the
   mismatch, never silently trusted (User Story 7, Acceptance Scenario 2). This spike
   deliberately limits its tamper check to this unsigned digest, which proves
   accidental-corruption and naive-mutation detection — it does not resist an adversary who

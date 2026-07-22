@@ -151,7 +151,7 @@ a model change. **Opus 4.6 MUST NOT be used for any task in this file, under any
   set `research.md` R3 names: `spike-009-evidence.md`, `spike-009-evidence.json`,
   `input-manifest.{community-plugins,rhdh-plugins,synthetic}.json`,
   `snapshot-envelope.{community-plugins,rhdh-plugins,synthetic}.json`,
-  `envelope-fixtures/{malformed,tampered,stale,wrong-repository,second-repository}.json`,
+  `envelope-fixtures/{malformed-invalid-json,malformed-missing-or-wrong-field,malformed-unrecognized,malformed-missing-source-digest,malformed-identity-only,tampered,stale,wrong-repository,second-repository}.json`,
   `comparison-matrix.json`, `scale-evidence.json`, `git-status-captures/*.txt`.
 - `<THIS_REPO>` — this repository's own root (`mbeacom/adrkit`), used only for: (a) reading
   `packages/core/src/affects/catalog.ts`/`inert.ts`/`matchers/path.ts` (never modifying them,
@@ -365,9 +365,13 @@ outputs, and none of it is story-specific.
   repository's working tree) and pre-register (as empty placeholders, populated by later
   tasks) every file `research.md` R3 names:
   `spike-009-evidence.{md,json}`,
+  `parsing-validation-results.json`, `identity-canonicalization-results.json`,
+  `atomic-failure-records.json`, `repository-identity-checks.json`, `identity-only-results.json`,
+  `structural-edge-case-fixtures.json`, `dotfile-policy-confirmation.json`, `network-denial.json`,
+  `mutation-baselines.json`,
   `input-manifest.{community-plugins,rhdh-plugins,synthetic}.json`,
   `snapshot-envelope.{community-plugins,rhdh-plugins,synthetic}.json`,
-  `envelope-fixtures/{malformed,tampered,stale,wrong-repository,second-repository}.json`,
+  `envelope-fixtures/{malformed-invalid-json,malformed-missing-or-wrong-field,malformed-unrecognized,malformed-missing-source-digest,malformed-identity-only,tampered,stale,wrong-repository,second-repository}.json`,
   `comparison-matrix.json`, `scale-evidence.json`, `git-status-captures/`. Depends on: T004
   only. No path overlap with T007–T010.
 
@@ -503,7 +507,13 @@ Depends on: T016 (Foundational checkpoint).
   implementation). Confirm the single-element-empty-string case
   (`["", "packages/**"]`, from T019) is rejected per the `empty` per-pattern rule specifically
   — distinct from, and never conflated with, the `explicit-empty`/`annotation-absent`
-  distinction T029 separately confirms. Record to
+  distinction T029 separately confirms. Confirm the `annotation-value-not-a-string` fixture
+  (T019) is classified by the explicit **string-scalar check** (`contracts/owned-paths-annotation.md`
+  §1 step 2, `data-model.md` §1's `rawYamlValueIsString`) **before** `JSON.parse` is ever
+  reached — never coerced through `JSON.parse`'s `ToString` (e.g. a one-element sequence
+  `["[]"]` must not be silently accepted as `explicit-empty`) — and that `annotation-absent` is
+  decided from the `annotationPresent === false` discriminant, never from a `rawValue` being
+  `undefined` (which is ambiguous between absent and present-but-non-string). Record to
   `<EVIDENCE_DIR>/parsing-validation-results.json`. Depends on: T018, T019.
 
 - [ ] T027 [US1] Confirm T020's case-only duplicate-ID pair is classified
@@ -604,18 +614,29 @@ pattern for its sixth entity, per the Independent Test's own suggestion).
   `partialSnapshotProduced: false` to `<EVIDENCE_DIR>/atomic-failure-records.json` (populates
   `EvidenceBundle.atomicFailureRecords`). Depends on: T034.
 
-- [ ] T036 [US2] Construct four separate manifests, each violating **exactly one** of
-  `contracts/input-manifest.md` §2's four rejection classes: `manifestSchemaVersion: "2"`;
-  `requestedSnapshotSchemaVersion: "2"`; a `requiredCapabilities` entry other than
-  `"pathOwnership"` (e.g. `["pathOwnership", "sync"]`); and a manifest listing a descriptor
-  path/digest absent from the actual fixture set on disk (an "incomplete required source" —
-  digest mismatch). Run generation for each of the four. Confirm each aborts non-zero with no
-  usable partial snapshot **before deriving any entity's paths** — all four are properties of
-  the manifest/generation request itself, never of an individual entity within a batch
-  (Acceptance Scenario 4). Record four `AtomicFailureRecord`s with `triggerClass`
-  `"unsupported-manifest-version"`, `"unsupported-snapshot-version"`, `"unsupported-capability"`,
-  and `"incomplete-required-source"` respectively, to
-  `<EVIDENCE_DIR>/atomic-failure-records.json`. Depends on: T033.
+- [ ] T036 [US2] Construct manifests exercising `contracts/input-manifest.md`'s manifest-level
+  rejection classes, each violating **exactly one**: the three §2 version/capability classes —
+  `manifestSchemaVersion: "2"`; `requestedSnapshotSchemaVersion: "2"`; a `requiredCapabilities`
+  entry other than `"pathOwnership"` (e.g. `["pathOwnership", "sync"]`) — plus a manifest listing
+  a descriptor path/digest absent from the actual fixture set on disk (an "incomplete required
+  source" — digest mismatch, §4), plus a **structurally malformed** manifest (an
+  `invalid-manifest-shape` case: e.g. `sources` not an array, a non-40-hex `repository.revision`,
+  or an unrecognized top-level field — the closed-schema violation §1 forbids). Run generation
+  for each. Confirm each aborts non-zero with no usable partial snapshot **before deriving any
+  entity's paths** — all are properties of the manifest/generation request itself, never of an
+  individual entity within a batch (Acceptance Scenario 4). Record `AtomicFailureRecord`s with
+  `triggerClass` `"unsupported-manifest-version"`, `"unsupported-snapshot-version"`,
+  `"unsupported-capability"`, `"incomplete-required-source"`, and `"invalid-manifest-shape"`
+  respectively, to `<EVIDENCE_DIR>/atomic-failure-records.json`. **Additionally**, construct
+  source-path-escape manifests exercising `contracts/input-manifest.md` §4.1's two-stage
+  source-path validation: (a) a lexically-invalid source `path` (an absolute path or leading `/`,
+  a `..` traversal segment, a drive/UNC/backslash form, or a control character) rejected by the
+  pre-open lexical pass; and (b) a lexically-clean source `path` that is a symlink whose
+  `realpath` target resolves **outside** the verified checkout root, rejected fail-closed by the
+  confined-realpath pass — confirm neither file is ever opened, and record each as an
+  `"incomplete-required-source"` `AtomicFailureRecord` (`triggeringEntityOrSource` naming the
+  offending path), proving the repository boundary is enforced by path handling, not merely
+  assumed from the "repo-relative" label. Depends on: T033.
 
 - [ ] T037 [US2] Read `<MISMATCH_REPO>`'s actual `origin`/`HEAD` via separate git tooling.
   Construct a manifest declaring a repository ID/revision that does **not** match. Run
@@ -668,8 +689,8 @@ Depends on: T016 (Foundational checkpoint).
   `authoritativeLabel: "non-authoritative"` (FR-002, unconditionally). Record
   `ComparisonHeuristicMeasurement[]` (`data-model.md` §13) with `measurementLevel:
   "real-corpus-cardinality"`, `corpusOrFixtureSet: "community-plugins"` to
-  `<EVIDENCE_DIR>/comparison-matrix.json` (populates
-  `EvidenceBundle.comparisonHeuristicMeasurements`). Depends on: T011. No path overlap with
+  `<EVIDENCE_DIR>/comparison-matrix.json` (the `ComparisonHeuristicMeasurement[]` portion of
+  that file, which `EvidenceBundle.comparisonMatrix` references). Depends on: T011. No path overlap with
   T039–T041.
 
 - [ ] T039 [P] [US3] Apply the same two heuristics to every one of `<RHDH_PLUGINS_CLONE>`'s 38
@@ -715,7 +736,8 @@ Depends on: T016 (Foundational checkpoint).
   measured against a spike-authored proxy oracle, never an adopter-authored one, and therefore
   insufficient by itself to satisfy the Evidence Gate's "authoritative `go`" requirement (SC-012).
   Record `LabeledEntityChangedFilePair[]` (`data-model.md` §14) to
-  `<EVIDENCE_DIR>/comparison-matrix.json` (populates `EvidenceBundle.labeledMatrix`). Depends
+  `<EVIDENCE_DIR>/comparison-matrix.json` (the labeled-matrix portion of that file, which
+  `EvidenceBundle.comparisonMatrix` references). Depends
   on: T041.
 
 **Checkpoint**: User Story 3 complete. The trade-off issue #25 predicted is demonstrated with
@@ -886,8 +908,12 @@ Decision above (primary-synthetic pass composition).
   `capabilities: ["pathOwnership"]`, `completeness: {wholeCatalog: false, identityOnly:
   false}` (derivation was genuinely attempted for every entity even though all 156 are
   `annotation-absent`, per FR-022's "regardless of the resulting ownership-state distribution"
-  rule), `sources`, the deterministic 156-entity list (each with its explicit `explicit-paths`
-  \| `explicit-empty` \| `annotation-absent` discriminator), and the RFC-8785-style canonical
+  rule), `sources`, the deterministic 156-entity list (each entity serialized as
+  `data-model.md` §9's `SnapshotEntityRecord`: a nested `identity`
+  (`{ canonicalId, allRefs }` — the reduced `SerializedEntityIdentity` projection, never the
+  flattened or full §7 object), the `explicit-paths` \| `explicit-empty` \|
+  `annotation-absent` discriminator, `derivedPaths`, a `sourceDocument`
+  (`{ sourcePath, documentIndexInFile }`), and `provenance`), and the RFC-8785-style canonical
   SHA-256 `digest` computed over every field including `schemaVersion` and excluding only the
   digest field itself. Write to `<EVIDENCE_DIR>/snapshot-envelope.community-plugins.json`.
   Depends on: T050.
@@ -985,17 +1011,28 @@ Depends on: T059 (the primary-synthetic pass's valid envelope — every derivati
 is a deliberately mutated **copy** of it, never a fresh independent generation, per `research.md`
 R3, so the mutation is auditable by diff against the valid original).
 
-- [ ] T062 [US7] Construct five malformed/unsupported envelope-copy derivatives of T059's
-  envelope in `<EVIDENCE_DIR>/envelope-fixtures/malformed.json` (one file, five recorded
-  malformation-kind instances, or five discrete sub-cases within it, per
-  `contracts/snapshot-envelope.md` §2/§7): missing a required top-level field; containing
-  syntactically invalid JSON; declaring an unrecognized `schemaVersion`/`globDialect.version`/
-  capability; missing a declared source's digest; and carrying `completeness.identityOnly:
-  true`. For each, confirm a consumer performing path-ownership matching rejects it as
+- [ ] T062 [US7] Construct **five separate** malformed/unsupported envelope-copy derivatives of
+  T059's envelope, **one file per mutually-exclusive malformation kind** (they cannot share one
+  file — one is syntactically invalid JSON and the other four are different valid-JSON
+  mutations, per `contracts/snapshot-envelope.md` §2/§7 and `research.md` R3):
+  `<EVIDENCE_DIR>/envelope-fixtures/malformed-invalid-json.json` (`malformationKind:
+  "invalid-json"`, syntactically invalid JSON — fails validation step 1);
+  `malformed-missing-or-wrong-field.json` (`"missing-or-wrong-required-field"` — omit a required
+  top-level field or give one the wrong JSON type — fails step 2); `malformed-unrecognized.json`
+  (`"unrecognized-schema-or-dialect-or-capability"` — an unrecognized `schemaVersion`, a
+  `globDialect` whose `engine`/`version`/`options` is not exactly
+  `picomatch`/`4.0.5`/`{dot:false,nocase:false,nonegate:true}`, or `capabilities` other than
+  exactly `["pathOwnership"]` — fails step 3); `malformed-missing-source-digest.json`
+  (`"missing-source-digest"` — omit a declared source's digest — fails step 4); and
+  `malformed-identity-only.json` (`"identity-only-true"` — `completeness.identityOnly: true` —
+  fails step 5). For each, confirm a consumer performing path-ownership matching rejects it as
   malformed/unsupported/partial, non-zero, **before any digest, revision, or
-  repository-identity check is even attempted** — record `rejectedBeforeDigestCheck: true`,
-  `rejectedBeforeRevisionCheck: true`, `rejectedBeforeRepositoryIdentityCheck: true` for each
-  instance (`data-model.md` §22's `MalformedEnvelopeRejectionResult` shape). Depends on: T059.
+  repository-identity check is even attempted** — record one
+  `MalformedEnvelopeRejectionResult` per kind (`data-model.md` §22) with `malformationKind`,
+  `exitCodeNonZero: true`, `rejectedBeforeDigestCheck: true`, `rejectedBeforeRevisionCheck:
+  true`, `rejectedBeforeRepositoryIdentityCheck: true`, and a `fixtureRef` pointing at that
+  kind's own file. The five results form `EvidenceBundle.envelopeRejectionResults.malformed`
+  (an array). Depends on: T059.
 
 - [ ] T063 [US7] Construct, separately, an otherwise well-formed envelope-copy whose entities
   simply all happen to be `annotation-absent`, with `completeness.identityOnly: false`.
@@ -1102,21 +1139,48 @@ verdict is not the hardened contract's "authoritative `go`."
 Depends on: T016, T032, T037, T042, T044, T048, T061, T067, T070 (every prior phase's
 checkpoint).
 
+> **Verdict-task pipeline model.** T072 (`no-go`), T073 (`go-explicit`), and T074 (`blocked`)
+> are the three fixed-precedence checks, evaluated **in sequence** as a linear task pipeline —
+> each `Depends on:` the previous only for **ordering**, not for a claim that all three run. The
+> first whose condition holds **sets `outcome`**; every later check in the sequence, seeing
+> `outcome` already set, is a recorded **no-op** that neither re-decides nor overrides it (so a
+> downstream task depending on T074 is satisfied whether T074 decided the outcome or merely
+> passed it through). T075 (drivingEvidence cross-reference) and T077 (disclaimers) run for
+> **every** outcome; T076 (`NonBindingRecommendation`) runs **only** when `outcome ===
+> "go-explicit"` and is otherwise skipped with `recommendation = null`. This is the task-DAG
+> encoding of `contracts/evidence-bundle-and-verdict.md` §2's "stop at the first matching rule."
+
 - [ ] T071 [US8] Validate evidence bundle completeness
-  (`contracts/evidence-bundle-and-verdict.md` §1) against all 16 required top-level
-  `EvidenceBundle` fields (`data-model.md` §22):
+  (`contracts/evidence-bundle-and-verdict.md` §1). Confirm the **fifteen evidence-gathering**
+  top-level `EvidenceBundle` fields (`data-model.md` §22) are each populated **before** any
+  verdict is computed — the sixteenth field, `verdict`, is populated last (by T072–T077) and is
+  therefore **not** a precondition of this check, only its downstream consumer. The fifteen:
   `parsingValidationResults`, `identityCanonicalizationResults`, `atomicFailureRecords`,
-  `repositoryIdentityChecks`, `comparisonHeuristicMeasurements`, `labeledMatrix`,
-  `identityOnlyResults`, `structuralEdgeCaseFixtures`, `dotfilePolicyConfirmation`,
-  `envelopes`, `scaleEvidence`, `envelopeRejectionResults`, `repositoryIsolationCheck`,
-  `networkDenial`, `mutationBaselines`, and (populated last) `verdict`. **Additionally**,
-  cross-check that every one of the fourteen `AtomicFailureRecord.triggerClass` values
-  (`contracts/atomic-fail-closed.md` §4) was exercised by at least one fixture across Phases
-  3–7 (T018's fourteen rejection fixtures plus T019's shape/parse-error fixtures, T020's/T023's
-  collision fixtures, T035's/T036's/T037's atomicity-abort cases, and T046's duplicate-YAML-key
-  fixture) — build the coverage matrix explicitly and confirm no trigger class is untested; any
-  newly-discovered trigger not among the thirteen named values is recorded
-  `"other-invalid-input"`, never invented ad hoc. **A bundle missing any required field above
+  `repositoryIdentityChecks`, `identityOnlyResults`, `structuralEdgeCaseFixtures`,
+  `dotfilePolicyConfirmation`, `inputManifests` (reference), `envelopes` (reference),
+  `comparisonMatrix` (reference to `comparison-matrix.json`, carrying both the labeled
+  matrix and the B/C measurements), `scaleEvidence` (reference), `envelopeRejectionResults`
+  (inline results, each referencing its fixture file), `repositoryIsolationCheck` (inline,
+  referencing `second-repository.json`), `networkDenial` (reference), and `mutationBaselines`
+  (reference to `mutation-baselines.json`).
+  **Additionally**,
+  cross-check trigger-class coverage against `contracts/atomic-fail-closed.md` §4's
+  fourteen-value enumeration. Thirteen are **specific** classes that MUST each be exercised by
+  at least one fixture; the fourteenth, `"other-invalid-input"`, is a deliberate always-present
+  **backstop** (`data-model.md` §6) expected to be empty in practice and therefore **not**
+  required to be exercised. Build the coverage matrix explicitly and confirm each of the
+  thirteen specific classes maps to at least one fixture: `invalid-pattern` (T018);
+  `invalid-annotation-shape`/`invalid-annotation-parse` (T019); `duplicate-canonical-id`
+  (T020/T035); `duplicate-canonical-ref` (T023); `unsupported-manifest-version`/
+  `unsupported-snapshot-version`/`unsupported-capability`/`incomplete-required-source` (T036);
+  `invalid-manifest-shape` (T036's malformed-manifest probe); `repository-mismatch` (T037);
+  `duplicate-yaml-key` (T046); and `invalid-yaml-syntax` (a dedicated syntactically-invalid-YAML
+  descriptor fixture — none of T045–T047's three current structural fixtures is itself
+  syntactically invalid, so author one alongside them in Phase 7 if not already present). **Any of the thirteen specific
+  classes left without a covering fixture is a coverage gap that MUST be closed by authoring the
+  missing fixture before execution — never waived.** A newly-discovered trigger not among the
+  thirteen specific classes is recorded as the fourteenth value, `"other-invalid-input"`, never
+  invented ad hoc. **A bundle missing any required field above
   (when every upstream gate/re-verification step succeeded) is incomplete and MUST NOT have a
   verdict recorded against it** — if any field is genuinely missing (not merely populated with
   an unfavorable result, which is still a populated field), stop and complete the missing
@@ -1130,8 +1194,9 @@ checkpoint).
   hold (any `RepositoryIdentityCheck` mismatch case in Phase 4 failed to abort before path
   derivation); any invalid-pattern/invalid-shape class was silently accepted (any
   `RestrictedGlobPattern`/`OwnedPathsAnnotation` invalid case from Phase 3 reached `"accepted"`
-  or a valid ownership state); any of Phase 9's five envelope-rejection checks (T062–T066)
-  failed to reject an envelope that should have been rejected; the repository-isolation check
+  or a valid ownership state); any of Phase 9's envelope-rejection checks — the five
+  malformed-kind probes plus the tampered, stale, and wrong-repository cases (T062, T064, T065,
+  T066) — failed to reject an envelope that should have been rejected; the repository-isolation check
   (T067) itself failed (`RepositoryIsolationCheck.outcome === "leaked"`, or either
   independently-valid envelope was incorrectly rejected); or Option A's output was not
   byte-identical across repeated runs within a single-repository pass (any of T050/T054/T058's
@@ -1151,8 +1216,9 @@ checkpoint).
   (Phase 8); and malformed/tampered/stale/misidentified-envelope rejection plus repository
   isolation mechanically demonstrated (Phase 9). **If every scenario passed**: set `outcome =
   "go-explicit"`, `drivingEvidence` to **every** `EvidenceBundle` field (a `go-explicit` verdict
-  is by definition "everything passed"). `recommendation` is now required — proceed to T074.
-  **Stop — do not evaluate T075 (the `blocked` fallback).** Depends on: T072.
+  is by definition "everything passed"). `recommendation` is now required — it is drafted in
+  T076. **Stop — do not apply T074's `blocked` fallback**; proceed through T075 (drivingEvidence
+  cross-reference) to T076. Depends on: T072.
 
 - [ ] T074 [US8] Evaluate Step 3 — `blocked` (exhaustive fallback; only if T072 and T073 did not
   match). By construction, no `no-go` trigger fired but the result fell short of full
@@ -1162,8 +1228,10 @@ checkpoint).
   rather than a clean outcome; the envelope or scale-evidence record (Phase 8) could not be
   fully populated from an actual run for any pass; the default-namespace canonicalization case
   (Phase 3, T028) could not be verified; or `(other)` — a free-text description of a different
-  non-unsafe shortfall. Set `blockedShortfall` accordingly. `recommendation` is now required —
-  proceed to T075. Depends on: T073.
+  non-unsafe shortfall. Set `blockedShortfall` accordingly. For a `blocked` outcome
+  `recommendation` is **`null`** (a `NonBindingRecommendation` is produced only for
+  `go-explicit`, per `contracts/evidence-bundle-and-verdict.md` §4 — T076 is skipped). Proceed
+  to T075. Depends on: T073.
 
 - [ ] T075 [US8] Cross-reference `verdict.drivingEvidence` (`contracts/evidence-bundle-and-verdict.md`
   §6). Confirm the array populated by whichever of T072/T073/T074 fired lists, **by exact
@@ -1186,7 +1254,7 @@ checkpoint).
   authorized scope and must stop and re-scope rather than proceed); `authoritativeGoDisclaimer`
   (states explicitly that this recommendation, even under `go-explicit`, does not itself
   satisfy the independent-adopter gate or the hardened contract's "authoritative `go`"
-  status); `noProductionAuthorizationClaim: false`. Depends on: T075.
+  status); `productionAuthorizationClaimed: false`. Depends on: T075.
 
 - [ ] T077 [US8] Set `Verdict.gateDisclaimers` (fixed literal shape:
   `{ phase6NotCausedByThisSpike: true, independentAdopterGateNotCausedByThisSpike: true,
@@ -1208,13 +1276,21 @@ checkpoint).
   T075.
 
 - [ ] T078 [US8] Assemble the final `<EVIDENCE_DIR>/spike-009-evidence.json`
-  (`research.md` R4; `contracts/evidence-bundle-and-verdict.md`) — the complete, field-for-field
-  `EvidenceBundle` (`data-model.md` §22) plus `Verdict` (§23) plus `NonBindingRecommendation`
-  (§24, or `null`) — referencing every prior artifact file
-  (`input-manifest.*.json`, `snapshot-envelope.*.json`, `envelope-fixtures/*.json`,
-  `comparison-matrix.json`, `scale-evidence.json`, `git-status-captures/*.txt`) by relative
-  filename rather than embedding them inline (`research.md` R3), so each artifact remains
-  independently diffable. Depends on: T076, T077.
+  (`research.md` R4; `contracts/evidence-bundle-and-verdict.md`) — the complete
+  `EvidenceBundle` manifest (`data-model.md` §22) plus `Verdict` (§23) plus
+  `NonBindingRecommendation` (§24, or `null`). Per §22's single representation, **reference**
+  every component artifact file each earlier task wrote (`parsing-validation-results.json`,
+  `identity-canonicalization-results.json`, `atomic-failure-records.json`,
+  `repository-identity-checks.json`, `identity-only-results.json`,
+  `structural-edge-case-fixtures.json`, `dotfile-policy-confirmation.json`,
+  `input-manifest.*.json`, `snapshot-envelope.*.json`, `comparison-matrix.json`,
+  `scale-evidence.json`, `network-denial.json`, `mutation-baselines.json`, and — for the two
+  inline User Story 7 result records — the `envelope-fixtures/*.json` fixtures including the
+  five `malformed-*.json`) via an `ArtifactFileReference` (`{ relativePath, sha256 }`) rather
+  than embedding it inline. The only inline members are the computed `verdict` and the two
+  User Story 7 result records (`envelopeRejectionResults`, `repositoryIsolationCheck`), which
+  themselves reference their fixture files — never both embed and reference the same artifact —
+  so each artifact remains independently diffable. Depends on: T076, T077.
 
 - [ ] T079 [US8] Write the final `<EVIDENCE_DIR>/spike-009-evidence.md` narrative
   (`research.md` R3) — the one human-readable artifact a maintainer reads end-to-end: the
@@ -1293,8 +1369,10 @@ Depends on: T080, T081, T082, T083, T084.
   `drivingEvidence` is non-empty and names real `EvidenceBundle` fields; (d)
   `releaseVehicleDecision` is `null` in every case it appears; (e) all three SC-013 disclaimers
   are present and correctly worded, including the Phase-6-transition-survives-`landed` framing
-  (T077's item (a)); (f) every one of the fourteen `AtomicFailureRecord.triggerClass` values was
-  genuinely exercised, not merely asserted (T071's coverage matrix); and (g) no fabricated or
+  (T077's item (a)); (f) every one of the **thirteen specific**
+  `AtomicFailureRecord.triggerClass` values was genuinely exercised (the fourteenth,
+  `"other-invalid-input"`, is a non-required backstop), not merely asserted (T071's coverage
+  matrix); and (g) no fabricated or
   assumed evidence — every transcript/fixture/envelope excerpt traces to an actual file under
   `<EVIDENCE_DIR>`, never a paraphrase presented as a direct quote. Record findings; remediate
   any defect found before T086.

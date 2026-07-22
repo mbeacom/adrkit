@@ -99,6 +99,43 @@ Story 2, Acceptance Scenario 4) — a property of the manifest/generation
 request, aborting before any entity's paths are derived, never a per-entity
 skip.
 
+### 4.1. Source-Path Validation — Lexical Rejection Then Confined Realpath (FR-009)
+
+Naming a source `path` "repo-relative POSIX" is **not** itself a validation:
+without an explicit check, a manifest could name `/etc/passwd`, `../../secret`,
+a Windows absolute path (`C:\...`), a UNC path (`\\host\share`), or a path that
+resolves through a symlink to a target outside the checkout — and a naive
+generator would then read outside the promised repository boundary. Before a
+generation run opens **any** source file, every `path` MUST pass both stages
+below, in order, stopping and aborting the whole run (never a per-entity skip)
+at the first failure:
+
+1. **Lexical rejection (pure string check, before touching the filesystem).**
+   Reject the manifest, non-zero, if any `path`:
+   - is the empty string, or is exactly `.` or `..`;
+   - is absolute or begins with `/` (a leading slash);
+   - begins with a Windows drive prefix (`^[A-Za-z]:`);
+   - is a UNC path or contains a backslash (`\`) anywhere (`^\\\\...`, or any
+     interior `\`);
+   - contains any path segment (after splitting on `/`) equal to exactly `.`
+     or exactly `..` (traversal segment);
+   - contains a NUL or any control character (code points `< 0x20` or `0x7F`).
+
+2. **Confined realpath (filesystem check, only for a path surviving stage 1).**
+   Resolve the surviving relative path against the **verified checkout root**
+   (the same root whose `git remote`/`HEAD` §3 checked), fully resolving
+   symlinks (`realpath`). The resolved real path MUST still lie **beneath**
+   that checkout root. A resolved target that escapes the root — including one
+   reached only through an intermediate symlink pointing outside the checkout —
+   **fails closed**: it is an "incomplete required source" rejection, and the
+   file is never opened. The symlink case is checked at resolution time, not
+   trusted from the lexical form alone, because a lexically-clean relative path
+   can still symlink outside the root.
+
+This makes "the generator never reads a file outside the manifest's repository
+boundary" a mechanically enforced property of path handling, not a property
+merely assumed from the "repo-relative" label.
+
 ## 5. Input Boundary — What Generation May Read (`research.md` R7)
 
 A single generation invocation reads **only**: the manifest file itself;

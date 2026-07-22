@@ -39,6 +39,11 @@
 ## Step 0 — Re-Verify the Frozen Research Inputs (FR-001)
 
 ```bash
+set -euo pipefail   # fail-fast: any failed command — including `git init` or
+                    # `remote add` inside the helper below — halts this preflight
+                    # immediately; never continue past a failure, never suppress
+                    # one with `|| true`.
+
 # Correctness note: `git ls-remote <url> <sha>` matches against *ref names*
 # (branches/tags), not arbitrary commit objects, so it cannot reliably confirm
 # that a given commit SHA is reachable unless that exact SHA also happens to
@@ -53,8 +58,12 @@
 
 verify_pinned_commit() {
   local url="$1" sha="$2" mirror_dir="$3"
-  git init --bare "$mirror_dir" >/dev/null
-  git -C "$mirror_dir" remote add origin "$url"
+  git init --bare "$mirror_dir" >/dev/null || {
+    echo "FAIL: could not initialize bare mirror at $mirror_dir" >&2; return 1;
+  }
+  git -C "$mirror_dir" remote add origin "$url" || {
+    echo "FAIL: could not add origin $url to $mirror_dir" >&2; return 1;
+  }
   # Fetch the exact commit object directly, without assuming it is any ref's tip.
   git -C "$mirror_dir" fetch --depth=1 origin "$sha" || {
     echo "FAIL: could not fetch $sha from $url" >&2; return 1;
@@ -147,12 +156,14 @@ set.)*
    case-only duplicate pattern). Run generation once over all six. Confirm
    the run exits non-zero and **no snapshot** — not even one covering the
    five otherwise-valid entities — was produced or is usable.
-5. Construct four separate manifests, each violating exactly one of the four
-   `contracts/input-manifest.md` §2 rejection classes
+5. Construct manifests each violating exactly one manifest-level rejection
+   class: the three `contracts/input-manifest.md` §2 version/capability classes
    (`manifestSchemaVersion: "2"`, `requestedSnapshotSchemaVersion: "2"`, a
-   `requiredCapabilities` entry other than `"pathOwnership"`, and a listed
-   source path/digest absent from the actual fixture set). Confirm each
-   aborts non-zero before deriving any entity's paths.
+   `requiredCapabilities` entry other than `"pathOwnership"`), plus §4's
+   incomplete-required-source class (a listed source path/digest absent from
+   the actual fixture set), plus §1's invalid-manifest-shape class (a
+   structurally malformed manifest). Confirm each aborts non-zero before
+   deriving any entity's paths.
 6. Construct a second standalone scratch repository (or reconfigure the
    first) whose declared manifest repository ID/revision does **not** match
    its actual `origin`/`HEAD`. Confirm generation aborts on repository
@@ -179,8 +190,8 @@ confirming this never suppresses the other heuristic's defined metric on the
 same matrix.
 
 **Acceptance check**: matches `spec.md` User Story 3, all 5 Acceptance
-Scenarios; populates `EvidenceBundle.comparisonHeuristicMeasurements` and
-`labeledMatrix`.
+Scenarios; writes `comparison-matrix.json` (referenced by
+`EvidenceBundle.comparisonMatrix`).
 
 ## Step 4 — User Story 4: Option D No-Effect Confirmation (`contracts/comparison-heuristics.md` §4)
 
@@ -232,21 +243,26 @@ figure attributed to its originating pass, per
 `contracts/scale-and-security-measurement.md` §3.
 
 **Acceptance check**: matches `spec.md` User Story 6, all 3 Acceptance
-Scenarios; populates `EvidenceBundle.envelopes` and `scaleEvidence`.
+Scenarios; writes the three `snapshot-envelope.*.json` and
+`scale-evidence.json` files (referenced by `EvidenceBundle.envelopes` and
+`EvidenceBundle.scaleEvidence`).
 
 ## Step 7 — User Story 7: Malformed/Tampered/Stale/Misidentified Rejection and Repository Isolation (`contracts/snapshot-envelope.md` §2–§6)
 
 Using the synthetic pass's valid envelope from Step 6 as the base:
 
-1. Construct a malformed/unsupported copy (per
-   `contracts/snapshot-envelope.md` §2's five malformation kinds). Confirm a
-   consumer rejects it before any digest/revision/identity check.
+1. Construct **five separate** malformed/unsupported copies — one file per
+   mutually-exclusive malformation kind (`contracts/snapshot-envelope.md`
+   §2/§7: `malformed-invalid-json.json`,
+   `malformed-missing-or-wrong-field.json`, `malformed-unrecognized.json`,
+   `malformed-missing-source-digest.json`, `malformed-identity-only.json`).
+   Confirm a consumer rejects each before any digest/revision/identity check.
    Separately, confirm an otherwise-valid envelope whose entities are all
    `annotation-absent` with `completeness.identityOnly: false` is
    **accepted**.
-2. Construct a tampered copy (mutate one entity's `paths`, do not update the
-   digest). Confirm a consumer that independently recomputes the digest
-   rejects it, naming the mismatch.
+2. Construct a tampered copy (mutate one entity's `derivedPaths`, do not
+   update the digest). Confirm a consumer that independently recomputes the
+   digest rejects it, naming the mismatch.
 3. Construct a stale copy (different revision, digest recomputed over its
    own actual content). Confirm rejection is attributable to staleness, not
    a digest failure.
@@ -272,8 +288,10 @@ allowlisted-env-plus-static-review check alone; confirm no credential/
 bearer-token environment variable was set; confirm the `git status
 --porcelain` before/after capture pair is identical for every run.
 
-**Acceptance check**: matches `spec.md` SC-011; populates
-`EvidenceBundle.networkDenial` and `mutationBaselines`.
+**Acceptance check**: matches `spec.md` SC-011; writes `network-denial.json`
+and `mutation-baselines.json` (each `MutationBaseline` carrying its `identical`
+boolean and referencing its raw `git-status-captures/*.txt` pair), both
+referenced by `EvidenceBundle.networkDenial` / `EvidenceBundle.mutationBaselines`.
 
 ## Step 9 — User Story 8: Compute the Verdict (`contracts/evidence-bundle-and-verdict.md`)
 
@@ -305,8 +323,10 @@ fixed `null`.
 - It does not scaffold `packages/adapters/catalog-backstage` — out of scope
   for this entire feature (`spec.md` Out of Scope;
   `contracts/composition-and-release-boundary.md` §4).
-- It does not generate `tasks.md` — deferred to a future advance-scoping
-  session, per root `plan.md`'s scoping exemption (this plan's own banner).
+- It does not itself generate `tasks.md` — that task list was already
+  produced by a separate follow-up advance-scoping session (T001–T086, all
+  unchecked), per root `plan.md`'s scoping exemption (this plan's own banner);
+  this quickstart neither regenerates nor executes it.
 - It does not decide where a future production adapter would publish or
   ship — `contracts/evidence-bundle-and-verdict.md` §4 fixes
   `releaseVehicleDecision` as permanently `null`.

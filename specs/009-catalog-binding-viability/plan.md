@@ -85,18 +85,28 @@ planning session** — see `research.md` R1): Backstage
 >    Backstage-ecosystem corpora above is read-only research grounding, not
 >    that adopter (A5) — neither carries the annotation at all.
 >
-> **This plan therefore stops after Phase 1.** Per the `/speckit.plan`
+> **This plan itself stopped after Phase 1.** Per the `/speckit.plan`
 > command's own contract ("Command ends after Phase 1 design... Report
-> branch, IMPL_PLAN path, and generated artifacts") and per this task's
-> explicit instruction, **no `tasks.md` is generated in this planning
-> session**, and no implementation, fixture derivation, corpus re-fetch
-> beyond what `spec.md` already cites, comparison run, evidence gathering,
-> commit, push, or PR follows from it. Task generation (`tasks.md`) is
-> scoping, not execution, per root `plan.md`'s "spec → plan → tasks" scoping
-> exemption, and may be produced in a future advance-scoping session without
-> waiting for either gate above — but this planning session does not produce
-> it, matching this task's explicit "ADVANCE SCOPING ONLY... Do NOT generate
-> tasks.md" instruction.
+> branch, IMPL_PLAN path, and generated artifacts"), the original planning
+> session that authored this file produced **no `tasks.md`**, and no
+> implementation, fixture derivation, corpus re-fetch beyond what `spec.md`
+> already cites, comparison run, evidence gathering, commit, push, or PR
+> followed from it. Task generation (`tasks.md`) is scoping, not execution,
+> per root `plan.md`'s "spec → plan → tasks" scoping exemption, and may be
+> produced without waiting for either gate above.
+>
+> **Follow-up scoping session — `tasks.md` was subsequently generated.** A
+> later advance-scoping session (2026-07-21, same date) produced
+> `specs/009-catalog-binding-viability/tasks.md` with **T001–T086**, a
+> dependency-ordered task list, under that same "spec → plan → tasks" scoping
+> exemption. That generation is **scoping, not execution**: every task is
+> unchecked (`- [ ]`) as generated, no task is marked complete, and Phase 1 of
+> `tasks.md` (T001–T004) is a hard mechanical gate that computes
+> `GATE_PASS = false` and blocks every downstream task until **both** execution
+> gates above clear. Generating the task list therefore neither relaxes nor
+> satisfies either gate, and authorizes no execution. This banner and the
+> Project Structure / Completion Report sections below are written to record
+> that `tasks.md` now exists, rather than to claim it was never produced.
 
 ## Summary
 
@@ -232,7 +242,7 @@ specs/009-catalog-binding-viability/
 ├── spec.md                                    # Ratified; double-gate banner + Ratification Record
 ├── checklists/
 │   └── requirements.md                        # Passed; reader-tested
-├── plan.md                                    # This file — Phase 0/1 only, stops before tasks.md
+├── plan.md                                    # This file — Phase 0/1 output (the authoring session stopped here)
 ├── research.md                                # Phase 0 output — R1–R13, all narrow decisions resolved
 ├── data-model.md                              # Phase 1 output — 24 entities plus a relationship summary (evidence/verdict schema, not production data)
 ├── quickstart.md                              # Phase 1 output — future GATED execution/validation guide
@@ -248,7 +258,7 @@ specs/009-catalog-binding-viability/
 │   ├── scale-and-security-measurement.md       # Fixed measurement protocol; network-denial hierarchy; no invented limits
 │   ├── evidence-bundle-and-verdict.md          # Bundle completeness; fixed 3-way verdict precedence; authoritative-go distinction
 │   └── composition-and-release-boundary.md     # Standalone offline generator; no dynamic loader; undecided release vehicle
-└── tasks.md                                   # Phase 2 output — NOT generated in this session (task instruction: advance scoping only)
+└── tasks.md                                   # Phase 2 output — generated in a follow-up advance-scoping session (T001–T086, all unchecked; execution still gated)
 ```
 
 ### Source Code (repository root)
@@ -422,12 +432,18 @@ referenced file. Full findings and remediation are recorded in
 `mbeacom-spec-009-catalog-binding-viability` at `e892ba1`; no implementation
 branch opened; no commit/push/PR performed by this session).
 **IMPL_PLAN path**: `specs/009-catalog-binding-viability/plan.md` (this
-file). **Generated artifacts**: `research.md`, `data-model.md`,
-`quickstart.md`, and all eleven `contracts/*.md` files listed in Project
-Structure above. **Not generated in this session**: `tasks.md` — this
-session stops after Phase 1, per the `/speckit.plan` command's own contract
-and this task's explicit "ADVANCE SCOPING ONLY... Do NOT generate
-tasks.md... Do NOT generate code, commit, push, or PR" instruction.
+file). **Generated artifacts (Phase 0/1, this authoring session)**:
+`research.md`, `data-model.md`, `quickstart.md`, and all eleven
+`contracts/*.md` files listed in Project Structure above. **Generated in a
+follow-up advance-scoping session (Phase 2)**: `tasks.md` (T001–T086,
+dependency-ordered, every task unchecked as generated) — produced under root
+`plan.md`'s "spec → plan → tasks" scoping exemption. That task list is
+**scoping, not execution**: it neither relaxes nor satisfies either gate
+below, and its own Phase 1 (T001–T004) mechanically computes
+`GATE_PASS = false`, blocking every downstream task until both gates clear.
+This authoring session itself performed no implementation, fixture
+derivation, corpus re-fetch, comparison run, evidence gathering, commit,
+push, or PR.
 **Constitution status**: all five principles PASS, before and after design;
 Complexity Tracking empty. **Double-gate status**: the catalog-governance
 precondition (ADR-0012 `accepted`, ADR-0013 `accepted`, maintainer issue #25
@@ -438,6 +454,6 @@ open, confirmed unchecked as of this session's `main` at `48087e8`; gate 2
 remains open. **Review status**: an independent GPT-5.6 Sol reader-test pass
 found no critical findings, 9 high, 7 medium, and 4 low/nit findings; all
 were remediated in the current version of the affected files (research.md
-§R13). **Neither this plan nor its future companion `tasks.md`
+§R13). **Neither this plan nor its companion `tasks.md`
 authorizes any execution, fixture derivation, corpus re-fetch, comparison
 run, or evidence-gathering step.**

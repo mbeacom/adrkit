@@ -20,26 +20,31 @@ before validation (ADR-0012 "The annotation"; FR-003; spec.md Key Entities).
 
 | Field | Type | Notes |
 |---|---|---|
-| `rawYamlValueIsString` | `boolean` | Whether the surrounding YAML document's `metadata.annotations['adrkit.io/owned-paths']` value is itself a YAML string scalar. `false` (a YAML sequence, mapping, or other non-string node deliberately authored by a synthetic fixture) is rejected as `"annotation-value-not-a-string"` **before** JSON decoding is attempted — `JSON.parse` requires a string input, so a non-string value is a language-level type error, not a JSON parse error, and is never coerced (e.g. by stringifying it first). |
-| `rawValue` | `string` \| `undefined` | The literal annotation string value exactly as it appears in `metadata.annotations['adrkit.io/owned-paths']`, present only when `rawYamlValueIsString === true`; `undefined` if the key is wholly absent from the descriptor. |
-| `jsonParseOutcome` | `"parsed"` \| `"parse-error"` \| `"annotation-value-not-a-string"` | `"parse-error"` if `rawValue` is defined but fails to parse as JSON at all (FR-003). `"annotation-value-not-a-string"` if `rawYamlValueIsString === false`. `undefined` `rawValue` (annotation wholly absent) never reaches this field (see `ownershipState` below). |
+| `annotationPresent` | `boolean` | Explicit annotation-presence discriminant: `true` iff the key `metadata.annotations['adrkit.io/owned-paths']` exists on the descriptor at all (regardless of its node type or value), `false` iff the key is wholly absent. `annotation-absent` (the ownership state) is derived **solely** from `annotationPresent === false` (see the validation rule below), never inferred from `rawValue` being `undefined` — because `rawValue` is also `undefined` for a present-but-non-string node, the two states are only unambiguously separable via this dedicated boolean. |
+| `rawYamlValueIsString` | `boolean` | Meaningful only when `annotationPresent === true`; whether the surrounding YAML document's `metadata.annotations['adrkit.io/owned-paths']` node is itself a YAML string scalar. `false` (a YAML sequence, mapping, or other non-string node deliberately authored by a synthetic fixture) is rejected as `"annotation-value-not-a-string"` **before** JSON decoding is attempted. This rejection is required because `JSON.parse` does **not** guard against a non-string argument: ECMA-262 defines `JSON.parse(text)` as first coercing `text` to a string via `ToString`, so a non-string node is silently stringified rather than raising a type error (e.g. the one-element sequence `["[]"]` coerces to `"[]"` and would parse as an empty array). The `JSON.parse` TypeScript signature provides no runtime protection; only an explicit `typeof rawNode === "string"` pre-parse check does. `false` when `annotationPresent === false` (no node to type-check). |
+| `rawValue` | `string` \| `undefined` | The literal annotation string value exactly as it appears in `metadata.annotations['adrkit.io/owned-paths']`, present only when `annotationPresent === true` **and** `rawYamlValueIsString === true`; `undefined` both when the key is wholly absent (`annotationPresent === false`) and when a present node is non-string (`rawYamlValueIsString === false`). Its `undefined` value is therefore **not** a reliable absence signal — use `annotationPresent` for that. |
+| `jsonParseOutcome` | `"parsed"` \| `"parse-error"` \| `"annotation-value-not-a-string"` | Evaluated only when `annotationPresent === true`. `"annotation-value-not-a-string"` if `rawYamlValueIsString === false`. `"parse-error"` if `rawValue` is a defined string but fails to parse as JSON at all (FR-003). An absent annotation (`annotationPresent === false`) never reaches this field (see `ownershipState` below). |
 | `decodedValue` | `unknown` \| `undefined` | The `JSON.parse` result, only when `jsonParseOutcome === "parsed"`. |
 | `shapeOutcome` | `"array-of-strings"` \| `"wrong-shape"` | `"wrong-shape"` if `decodedValue` is not exactly `array<string>` (an object, bare string, number, or an array containing a non-string element) — FR-003's distinct shape-specific reason, never conflated with `jsonParseOutcome === "parse-error"`. |
 
 **Validation rule**: `ownershipState` (see `CatalogEntityRecord` §7) is
-derived from this entity, never the reverse: `rawValue === undefined` (the
-annotation key is wholly absent) → `annotation-absent`; `decodedValue` is an
+derived from this entity, never the reverse, and the discriminant is evaluated
+in this order: first, `annotationPresent === false` → `annotation-absent`
+(decided before any value-type or decoded-value check, so a present-but-non-
+string node is never misclassified as absent); then, for a present node,
+`rawYamlValueIsString === false` → `"annotation-value-not-a-string"` (an
+invalid-input condition, not an ownership state); then `decodedValue` is an
 array of length **zero** (a **decoded-value** check — never a raw-string
 equality check against the literal text `"[]"`; `'[]'`, `'[ ]'`, and any
 other JSON text decoding to an empty array all qualify identically, since
 classification happens strictly after JSON decoding per §1's decode-then-
-validate order) → `explicit-empty`; `decodedValue` is a non-empty
+validate order) → `explicit-empty`; then `decodedValue` is a non-empty
 `array<string>` where every element passes `RestrictedGlobPattern`
 validation (§2) → `explicit-paths`; any other outcome
-(`"annotation-value-not-a-string"`, `"parse-error"`, `"wrong-shape"`, or an
-array containing at least one string that fails §2 validation) is an
-invalid-input condition under the whole-operation atomicity rule
-(`AtomicFailureRecord`, §6) — never a fourth ownership state.
+(`"parse-error"`, `"wrong-shape"`, or an array containing at least one string
+that fails §2 validation) is an invalid-input condition under the
+whole-operation atomicity rule (`AtomicFailureRecord`, §6) — never a fourth
+ownership state.
 
 ## 2. RestrictedGlobPattern — Entity
 
@@ -66,7 +71,7 @@ boundary"; FR-009; FR-033; `research.md` R5/R7).
 | `requestedSnapshotSchemaVersion` | `string` (literal) | Only `"1"` is accepted, matching `SnapshotEnvelope.schemaVersion` (§9); any other value is an "unsupported snapshot version" rejection (FR-033). |
 | `requiredCapabilities` | `string[]` | Every element MUST equal exactly `"pathOwnership"`; any other string is an "unsupported capability" rejection (FR-033). |
 | `repository` | `{ id: string; revision: string }` | `id` MUST already be in the normalized `github.com/<owner>/<repo>` lowercase form (`research.md` R6) — the manifest author is responsible for pre-normalizing it; the generator does not "fix" a malformed manifest value, it rejects it. `revision` MUST be a full 40-character lowercase-hex commit SHA. |
-| `sources` | `{ path: string; digestAlgorithm: "sha256"; digest: string }[]` | The exact, exhaustive list of descriptor files this generation run is permitted to read (`research.md` R7). Every `path` is repo-relative POSIX. `digest` is the expected SHA-256 hex digest of that file's raw bytes; a mismatch at read time is an "incomplete required source" rejection (FR-009). |
+| `sources` | `{ path: string; digestAlgorithm: "sha256"; digest: string }[]` | The exact, exhaustive list of descriptor files this generation run is permitted to read (`research.md` R7). Every `path` MUST pass source-path validation (`contracts/input-manifest.md` §4.1) **before** the file is opened: (a) a lexical rejection pass that rejects an empty string, an absolute path or leading `/`, a leading-drive (`^[A-Za-z]:`) or UNC (`^\\\\` / leading `\`) prefix, any backslash, any `.` or `..` path segment, and any NUL/control character; and (b) a filesystem check that the path resolved (`realpath`, symlinks followed) beneath the verified checkout root still lies inside that root — a path whose real target escapes the checkout (including via a symlink) fails closed as an "incomplete required source" rejection (FR-009), never opened. Only a path surviving both passes is read. `digest` is the expected SHA-256 hex digest of that file's raw bytes; a mismatch at read time is likewise an "incomplete required source" rejection (FR-009). |
 
 **Validation rule**: An unrecognized top-level field anywhere in the manifest
 JSON is itself an "unsupported manifest version"-class rejection
@@ -173,15 +178,50 @@ pass — never one instance spanning more than one repository.**
 | `capabilities` | `["pathOwnership"]` (fixed literal array) | The envelope's own declaration of what it provides, checked by a consumer against `InputManifest.requiredCapabilities` (FR-022, FR-033). |
 | `completeness` | `{ wholeCatalog: false; identityOnly: boolean }` | `wholeCatalog` is always `false` for this spike (never claims whole-catalog coverage). `identityOnly` is `true` **only** for an envelope produced by Option D alone (no owned-paths derivation attempted for any entity); it is `false` whenever Option A derivation was attempted for every entity, **regardless of the resulting `ownershipState` distribution** — an envelope where every entity happens to be `annotation-absent` is still `identityOnly: false` (FR-022, FR-034). |
 | `sources` | `{ path: string; digestAlgorithm: "sha256"; digest: string }[]` | Copied from this pass's `InputManifest.sources`, restated in the envelope so a consumer can verify the envelope's provenance without needing the original manifest. |
-| `entities` | `CatalogEntityRecord[]` (§8) | This pass's complete, deterministic entity list; every record's `provenance` (§8) matches this envelope's own single pass. |
+| `entities` | `SnapshotEntityRecord[]` (defined below) | This pass's complete, deterministic entity list; every record's `provenance` matches this envelope's own single pass. `SnapshotEntityRecord` is the explicit **serialized** projection of §8's `CatalogEntityRecord` (see below) — not the full in-memory `CatalogEntityRecord`, and not `CanonicalEntityIdentity` field-for-field. |
 | `digest` | `string` (64 lowercase hex chars) | SHA-256 over the UTF-8 bytes of this envelope's own canonical serialization (`research.md` R4), computed over every field above **including `schemaVersion`** and **excluding only this `digest` field itself** (FR-035). |
+
+**`SnapshotEntityRecord` — the serialized entity shape (the exact JSON in
+`entities[]`).** To avoid the field-for-field mismatch between the wire form
+and the in-memory §7/§8 types, the envelope serializes **exactly** these
+fields per entity, and a consumer validates **exactly** this shape:
+
+| Field | Type | Notes |
+|---|---|---|
+| `identity` | `{ canonicalId: string; allRefs: string[] }` | A deliberately reduced **`SerializedEntityIdentity`** projection of §7's `CanonicalEntityIdentity`: only the lowercased `canonicalId` and the lowercased `allRefs` array are serialized. §7's `rawKind`/`rawNamespace`/`rawName`/`fixtureAuthoredAliasRefs` are **not** serialized — they are pre-lowercase authoring inputs already fully captured by `canonicalId` (which is `${rawKind}:${rawNamespace}/${rawName}` lowercased) and `allRefs` (which is `[canonicalId, ...aliases]` each lowercased), and a path-ownership consumer never needs them. `allRefs` MUST be non-empty and MUST contain `canonicalId` as its first element. |
+| `ownershipState` | `"explicit-paths"` \| `"explicit-empty"` \| `"annotation-absent"` | Exactly §8's discriminator. |
+| `derivedPaths` | `string[]` | Exactly §8's `derivedPaths`: the entity's accepted patterns, `compareCodeUnits`-sorted and deduplicated; `[]` for both `explicit-empty` and `annotation-absent` (distinguished only via `ownershipState`). |
+| `sourceDocument` | `{ sourcePath: string; documentIndexInFile: number }` | The serialized form of §8's `sourceDocument` reference — the manifest-listed `sourcePath` plus the `documentIndexInFile` (§5), not the whole `DescriptorDocument`. |
+| `provenance` | `"community-plugins-real"` \| `"rhdh-plugins-real"` \| `"synthetic"` | Exactly §8's `provenance`; matches this envelope's single pass. |
+
+A future execution session's serializer MUST emit exactly these five fields
+per entity (nested `identity` object, never a flattened
+`canonicalId`/`refs`/`paths` triple), and a consumer MUST validate exactly
+this shape — so `SnapshotEnvelope.entities` and the on-disk envelope share one
+identical, defined type rather than two independently-drifting shapes.
 
 **Validation-before-derivation rule (consumer side, FR-034)**: A consumer
 loading an envelope for path-ownership matching MUST check, in this order,
-stopping at the first failure: (1) valid JSON; (2) every required top-level
-field above present with the correct JSON type; (3) recognized
-`schemaVersion`/`globDialect.version`/`capabilities` values; (4) every
-`sources` entry has a matching digest for its listed path; (5)
+stopping at the first failure: (1) valid JSON; (2) the **complete** §1 shape
+is present with every field the correct JSON type at **every** nesting level —
+not only the top level: each `SnapshotEntityRecord` has `identity`
+(an object with a string `canonicalId` and a non-empty `allRefs` string
+array), a recognized `ownershipState`, a `derivedPaths` string array, a
+`sourceDocument` object (string `sourcePath`, integer `documentIndexInFile`),
+and a recognized `provenance`; `sources` is an array of objects each with a
+string `path` and `digestAlgorithm` (per-source digest completeness/match is
+step (4), not here); `completeness` is
+`{ wholeCatalog, identityOnly }`; (3) the value-level contract is exact, not
+merely "recognized": `schemaVersion === "1"`; `globDialect` deep-equals
+`{ engine: "picomatch", version: "4.0.5", options: { dot: false, nocase: false, nonegate: true } }`
+(an `engine` of `"minimatch"`, a `version` other than `"4.0.5"`, or an
+`options` object with `dot: true`/`nocase: true`/`nonegate: false` all fail
+here — a `version`-only check is insufficient); and `capabilities` deep-equals
+the exact tuple `["pathOwnership"]` (an empty array `[]`, an extra element, or
+any other string all fail — a per-entry membership check is insufficient); (4)
+every `sources` entry has a **present**, correctly-typed `digest` that matches
+its listed path (a structurally well-formed entry that **omits** its digest is
+the `missing-source-digest` malformation, caught only here); (5)
 `completeness.identityOnly === false` (a `true` value is an outright
 rejection for path-ownership matching purposes, per FR-034's "one, precisely
 defined signal"). Whether a given envelope is partial/identity-only for
@@ -189,8 +229,8 @@ path-ownership matching is determined **solely** from this one boolean field
 — never inferred from scanning the entity list's ownership-state
 distribution. **Only after (1)–(5) all pass** does the consumer proceed to
 (6) digest verification (`TamperCheckResult`, §10), (7) staleness check
-(`StalenessCheckResult`, §11), and (8) repository-identity check
-(`RepositoryIdentityMatchResult`, §11). Steps (1)–(5) never depend on, and
+(`StalenessAndIdentityCheckResult`, §11), and (8) repository-identity check
+(`StalenessAndIdentityCheckResult`, §11). Steps (1)–(5) never depend on, and
 always precede, steps (6)–(8) — a malformed envelope is rejected before its
 digest, revision, or repository identity is ever inspected (User Story 7
 Acceptance Scenario 1).
@@ -363,30 +403,46 @@ The complete, cross-referenced record this spike produces (spec.md Key
 Entities "Evidence Bundle"; FR-019 through FR-038 collectively). This is the
 spike's actual deliverable.
 
-| Field | Type | Notes |
-|---|---|---|
-| `parsingValidationResults` | `{ pattern: RestrictedGlobPattern; annotation: OwnedPathsAnnotation }[]` | User Story 1's complete fixture-by-fixture results (§1, §2). |
-| `identityCanonicalizationResults` | `CanonicalEntityIdentity[]` (§7) | Including the case-only-duplicate and default-namespace scenarios. |
-| `atomicFailureRecords` | `AtomicFailureRecord[]` (§6) | User Story 2's whole-operation failure proofs. |
-| `repositoryIdentityChecks` | `RepositoryIdentityCheck[]` (§4) | Match, mismatch, and the four FR-033 manifest-request-level rejection cases. |
-| `comparisonHeuristicMeasurements` | `ComparisonHeuristicMeasurement[]` (§13) | User Story 3, both measurement levels. |
-| `labeledMatrix` | `LabeledEntityChangedFilePair[]` (§14) | At least 10 entities' worth of pairs. |
-| `identityOnlyResults` | `IdentityOnlyEntity[]` (§15) | User Story 4. |
-| `structuralEdgeCaseFixtures` | `StructuralEdgeCaseFixture[]` (§16) | User Story 5, all three kinds. |
-| `dotfilePolicyConfirmation` | `DotfilePolicyConfirmation` (§17) | User Story 5 Acceptance Scenario 4. |
-| `envelopes` | `{ communityPlugins: SnapshotEnvelope; rhdhPlugins: SnapshotEnvelope; synthetic: SnapshotEnvelope }` | The three required FR-022 envelopes, by pass — never merged. |
-| `scaleEvidence` | `ScaleEvidenceRecord[]` (§18) | One per pass, per FR-023. |
-| `envelopeRejectionResults` | `{ malformed: MalformedEnvelopeRejectionResult; tampered: TamperCheckResult; stale: StalenessAndIdentityCheckResult; wrongRepository: StalenessAndIdentityCheckResult }` | User Story 7's four rejection cases (FR-034–FR-037). `MalformedEnvelopeRejectionResult` (mechanically checkable, never `unknown`) is `{ malformationKind: "missing-required-field" \| "wrong-json-type" \| "unrecognized-schema-or-dialect-or-capability" \| "missing-source-digest" \| "identity-only-true"; exitCodeNonZero: true; rejectedBeforeDigestCheck: true; rejectedBeforeRevisionCheck: true; rejectedBeforeRepositoryIdentityCheck: true }` — one instance per malformation kind exercised (`contracts/snapshot-envelope.md` §2/§7), each instance proving the exact validation-before-derivation order via its three `rejectedBefore*` fields, all fixed `true`. |
-| `repositoryIsolationCheck` | `RepositoryIsolationCheck` (§12) | FR-038. |
-| `networkDenial` | `NetworkDenialRecord` (§20) | |
-| `mutationBaselines` | `MutationBaseline[]` (§21) | One per derivation run/probe. |
-| `verdict` | `Verdict` (§23) | Computed last, from every field above. |
+**One representation, chosen explicitly (never "embedded *or* referenced").**
+`spike-009-evidence.json` is a top-level **manifest**. Every component artifact
+an earlier task writes to its own standalone file (`research.md` R3) is
+**referenced** here — never re-embedded — via an
+**`ArtifactFileReference` = `{ relativePath: string; sha256: string }`** (or an
+object/array of them): the relative path of the on-disk artifact plus the
+SHA-256 of its bytes, so each artifact stays independently diffable and the
+manifest stays legible. The only fields embedded **inline** are (a) the
+`verdict`, which is computed into this file itself, and (b) the two User Story 7
+result records (`envelopeRejectionResults`, `repositoryIsolationCheck`) that
+have no standalone file of their own — and even those reference their fixture
+files rather than embedding them. No field is ever both embedded and referenced
+for the same artifact; no large typed artifact is restated field-for-field
+inside the bundle.
+
+| Field | Kind | Type | Notes |
+|---|---|---|---|
+| `parsingValidationResults` | reference | `ArtifactFileReference` | `parsing-validation-results.json` (`research.md` R3): User Story 1's complete fixture-by-fixture `{ pattern: RestrictedGlobPattern; annotation: OwnedPathsAnnotation }[]` (§1, §2). |
+| `identityCanonicalizationResults` | reference | `ArtifactFileReference` | `identity-canonicalization-results.json`: `CanonicalEntityIdentity[]` (§7), incl. the case-only-duplicate and default-namespace scenarios. |
+| `atomicFailureRecords` | reference | `ArtifactFileReference` | `atomic-failure-records.json`: `AtomicFailureRecord[]` (§6), User Story 2's whole-operation failure proofs. |
+| `repositoryIdentityChecks` | reference | `ArtifactFileReference` | `repository-identity-checks.json`: `RepositoryIdentityCheck[]` (§4) — the repository/revision **match and mismatch** cases (FR-009). The FR-033 manifest-version/capability rejections are **not** `RepositoryIdentityCheck`s; they are recorded in `atomicFailureRecords` above. |
+| `identityOnlyResults` | reference | `ArtifactFileReference` | `identity-only-results.json`: `IdentityOnlyEntity[]` (§15), User Story 4. |
+| `structuralEdgeCaseFixtures` | reference | `ArtifactFileReference` | `structural-edge-case-fixtures.json`: `StructuralEdgeCaseFixture[]` (§16), User Story 5, all three kinds. |
+| `dotfilePolicyConfirmation` | reference | `ArtifactFileReference` | `dotfile-policy-confirmation.json`: `DotfilePolicyConfirmation` (§17), User Story 5 Acceptance Scenario 4. |
+| `inputManifests` | reference | `{ communityPlugins: ArtifactFileReference; rhdhPlugins: ArtifactFileReference; synthetic: ArtifactFileReference }` | The three FR-009/FR-033 input manifests (`input-manifest.{community-plugins,rhdh-plugins,synthetic}.json`, `research.md` R3), by relative path + digest — never embedded. |
+| `envelopes` | reference | `{ communityPlugins: ArtifactFileReference; rhdhPlugins: ArtifactFileReference; synthetic: ArtifactFileReference }` | The three required FR-022 envelopes (`snapshot-envelope.*.json`), by relative path + digest — never merged, never embedded. |
+| `comparisonMatrix` | reference | `ArtifactFileReference` | `comparison-matrix.json` (`research.md` R3): User Story 3's labeled entity × changed-file matrix (`LabeledEntityChangedFilePair[]`, §14) **and** the B/C measurements (`ComparisonHeuristicMeasurement[]`, §13) at both levels. Both live in that one file; the bundle references it rather than restating either array inline. |
+| `scaleEvidence` | reference | `ArtifactFileReference` | `scale-evidence.json` (`research.md` R3): FR-023's per-pass `ScaleEvidenceRecord`s (§18) for all three passes. |
+| `envelopeRejectionResults` | inline (each result referencing its fixture file) | `{ malformed: MalformedEnvelopeRejectionResult[]; tampered: TamperCheckResult & { fixtureRef: ArtifactFileReference }; stale: StalenessAndIdentityCheckResult & { fixtureRef: ArtifactFileReference }; wrongRepository: StalenessAndIdentityCheckResult & { fixtureRef: ArtifactFileReference } }` | User Story 7's rejection cases (FR-034–FR-037); no standalone results file, so the small result records are inline while each references its own fixture file. **`malformed` is an array with one instance per malformation kind** (five kinds), because the kinds are mutually exclusive (one is syntactically invalid JSON) and cannot share a single envelope file. `MalformedEnvelopeRejectionResult` (mechanically checkable, never `unknown`) is `{ malformationKind: "invalid-json" \| "missing-or-wrong-required-field" \| "unrecognized-schema-or-dialect-or-capability" \| "missing-source-digest" \| "identity-only-true"; exitCodeNonZero: true; rejectedBeforeDigestCheck: true; rejectedBeforeRevisionCheck: true; rejectedBeforeRepositoryIdentityCheck: true; fixtureRef: ArtifactFileReference }` — the five kinds map 1:1 to `contracts/snapshot-envelope.md` §2's five validation steps (1 invalid JSON, 2 missing/wrong field, 3 unrecognized dialect/capability, 4 missing source digest, 5 `identityOnly: true`), each `fixtureRef` pointing at its own separate `envelope-fixtures/malformed-*.json` file, each proving the exact validation-before-derivation order via its three `rejectedBefore*` fields, all fixed `true`. |
+| `repositoryIsolationCheck` | inline (referencing its fixture file) | `RepositoryIsolationCheck` (§12) `& { secondRepositoryEnvelopeRef: ArtifactFileReference }` | FR-038; the inline check result (no standalone file) plus a reference to `envelope-fixtures/second-repository.json`. |
+| `networkDenial` | reference | `ArtifactFileReference` | `network-denial.json` (`research.md` R3): `NetworkDenialRecord` (§20). |
+| `mutationBaselines` | reference | `ArtifactFileReference` | `mutation-baselines.json` (`research.md` R3): the `MutationBaseline[]` (§21) records — each with `invocationLabel`, `statusBefore`, `statusAfter`, and the computed `identical` boolean the verdict's no-go check reads (`contracts/evidence-bundle-and-verdict.md` §2) — which in turn reference the raw `git-status-captures/*.txt` pairs. |
+| `verdict` | inline | `Verdict` (§23) | Computed last, from every field above; embedded directly in this file. |
 
 **Cross-referencing rule (mirroring `specs/008-...`'s FR-019 pattern)**:
 `Verdict.drivingEvidence` MUST list, by field name from this table, every
 `EvidenceBundle` field that determined the verdict. A bundle missing any
 required field above is **incomplete** and MUST NOT have a `verdict` recorded
-against it.
+against it. There are **16** required top-level fields (the count
+`contracts/evidence-bundle-and-verdict.md` §1 states).
 
 ## 23. Verdict — Entity
 
@@ -432,7 +488,7 @@ section; FR-026).
 | `minimalScopeDescription` | `string` | Free text, e.g. "an offline `packages/adapters/catalog-backstage` generator limited to Option A alone, reading only a local input manifest, writing only the versioned envelope." |
 | `releaseVehicleDecision` | `null` (fixed literal) | **MUST always be `null`.** Mirrors `specs/008-...` `data-model.md` §8's identical field: this recommendation never decides the eventual production package's publish target, npm name, or ship timeline (FR-026). |
 | `authoritativeGoDisclaimer` | `string` (fixed template) | States explicitly that this recommendation, even if `outcome === "go-explicit"`, does not itself satisfy the independent-adopter gate or the hardened contract's "authoritative `go`" status (FR-025/FR-026). |
-| `noProductionAuthorizationClaim` | `false` (fixed literal) | Always `false` — this recommendation MUST NOT authorize or schedule a `packages/adapters/catalog-backstage` implementation (FR-026). |
+| `productionAuthorizationClaimed` | `false` (fixed literal) | Always `false` — a positively-named flag whose literal `false` reads plainly as "this recommendation does not claim production authorization." (Renamed from the earlier double-negative `noProductionAuthorizationClaim: false`, which inverted its own meaning — "it is false that there is no authorization claim" — and could be machine-misread as *asserting* a claim.) This recommendation MUST NOT authorize or schedule a `packages/adapters/catalog-backstage` implementation (FR-026). |
 
 ## 25. Entity Relationship Summary
 

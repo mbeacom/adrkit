@@ -125,7 +125,10 @@ A `NonBindingRecommendation` (`data-model.md` §24) MUST include:
 - `authoritativeGoDisclaimer` — states explicitly that this recommendation,
   even under `go-explicit`, does not itself satisfy the independent-adopter
   gate or the hardened contract's "authoritative `go`" status.
-- `noProductionAuthorizationClaim: false` — this recommendation MUST NOT
+- `productionAuthorizationClaimed: false` — a positively-named flag whose
+  literal `false` reads plainly as "no production authorization is claimed."
+  (Renamed from the earlier inverted `noProductionAuthorizationClaim: false`,
+  which double-negated its own meaning.) This recommendation MUST NOT
   authorize or schedule a `packages/adapters/catalog-backstage`
   implementation.
 

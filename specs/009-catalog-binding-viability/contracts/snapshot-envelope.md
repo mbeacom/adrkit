@@ -27,6 +27,7 @@ Ratification Record's Evidence Gate.
       },
       "ownershipState": "explicit-paths",
       "derivedPaths": ["apis/payments/**", "packages/payments/**"],
+      "sourceDocument": { "sourcePath": "catalog-info.yaml", "documentIndexInFile": 0 },
       "provenance": "synthetic"
     }
   ],
@@ -34,32 +35,46 @@ Ratification Record's Evidence Gate.
 }
 ```
 
-**This `entities[]` shape is exactly `data-model.md` §8's `CatalogEntityRecord`
-type, field for field** — `identity.canonicalId`/`identity.allRefs` (§7
-`CanonicalEntityIdentity`), `ownershipState`, `derivedPaths`, and
-`provenance` — never a separate, flatter `canonicalId`/`refs`/`paths` shape.
-A future execution session's actual serialization MUST use this nested
-`identity` object, not a flattened one, so `SnapshotEnvelope.entities` and
-`EvidenceBundle`'s other `CatalogEntityRecord`-typed fields
-(`data-model.md` §22) share one identical type rather than two
-independently-drifting shapes for the same underlying record.
+**This `entities[]` shape is `data-model.md` §9's explicitly-defined
+`SnapshotEntityRecord` type** — the **serialized projection** of §8's
+`CatalogEntityRecord`, not `CatalogEntityRecord`/`CanonicalEntityIdentity`
+field-for-field. Each record has exactly five fields: a nested `identity`
+carrying the reduced `SerializedEntityIdentity` projection
+(`{ canonicalId, allRefs }` only — §7's `rawKind`/`rawNamespace`/`rawName`/
+`fixtureAuthoredAliasRefs` are deliberately **not** serialized, being
+pre-lowercase authoring inputs already fully captured by `canonicalId` and
+`allRefs`); `ownershipState`; `derivedPaths`; a serialized `sourceDocument`
+reference (`{ sourcePath, documentIndexInFile }`, not the whole
+`DescriptorDocument`); and `provenance`. A future execution session's actual
+serialization MUST emit exactly this nested five-field shape (never a flatter
+`canonicalId`/`refs`/`paths` triple, and never the full §7/§8 objects), so the
+on-disk envelope and `data-model.md` §9's `SnapshotEntityRecord` are one
+identical, defined type rather than two independently-drifting shapes for the
+same underlying record.
 
 **Exactly three envelopes are a required spike deliverable** (SC-010): one
 each for the community-plugins-derived pass, the rhdh-plugins-derived pass,
 and the primary synthetic pass (FR-009/User Story 6). Beyond those three,
-User Story 7 requires **five more** envelope-shaped JSON artifacts, all
-derived from (never replacing) the three required envelopes above: four
-rejection-case derivatives of the synthetic pass's envelope (malformed,
-tampered, stale, wrong-repository — `research.md` R3's
-`envelope-fixtures/malformed.json`/`tampered.json`/`stale.json`/
-`wrong-repository.json`) and one independently-generated second-repository
+User Story 7 requires more envelope-shaped JSON artifacts, all derived from
+(never replacing) the three required envelopes above: **five** malformed
+rejection-case derivatives of the synthetic pass's envelope — one per
+mutually-exclusive malformation kind, since they cannot share a single file
+(one is syntactically invalid JSON and the others are different *valid*-JSON
+mutations) — at `research.md` R3's
+`envelope-fixtures/malformed-invalid-json.json`,
+`malformed-missing-or-wrong-field.json`, `malformed-unrecognized.json`,
+`malformed-missing-source-digest.json`, and `malformed-identity-only.json`;
+three further rejection-case derivatives (`tampered.json`, `stale.json`,
+`wrong-repository.json`); and one independently-generated second-repository
 envelope for the repository-isolation check (`data-model.md` §12;
-`research.md` R3's `envelope-fixtures/second-repository.json`) — **eight
-envelope-shaped JSON artifacts in total** across the whole evidence bundle,
-never more than one repository per envelope file, and never fewer than the
-three SC-010 requires as freestanding, independently-generated artifacts in
-their own right (the five derivative/second-repository files exist
-*in addition to*, not *instead of*, those three).
+`research.md` R3's `envelope-fixtures/second-repository.json`) — **twelve
+envelope-shaped JSON artifacts in total** across the whole evidence bundle
+(3 required + 5 malformed + tampered + stale + wrong-repository +
+second-repository), never more than one repository per envelope file, and
+never fewer than the three SC-010 requires as freestanding,
+independently-generated artifacts in their own right (the nine
+derivative/second-repository files exist *in addition to*, not *instead of*,
+those three).
 
 **This is a new, separate artifact** (FR-020): it is never added as a field
 on the existing `CatalogSnapshot`/`CatalogSnapshotEntity` types
@@ -74,13 +89,33 @@ the first failure — never attempting any digest, revision, or
 repository-identity check before every one of these passes:
 
 1. Valid JSON (parses at all).
-2. Every field in §1's shape present with the correct JSON type (e.g.
-   `entities` is an array, not present with the wrong type).
-3. `schemaVersion`, `globDialect.version`, and every `capabilities` entry are
-   recognized by this consumer.
-4. Every `sources[]` entry has a corresponding digest for its listed path
-   (a missing digest for one of the envelope's own listed sources is an
-   incomplete-envelope rejection).
+2. The **complete** §1 shape is present with every field the correct JSON
+   type, at **every** nesting level (not top-level only): each
+   `SnapshotEntityRecord` (`data-model.md` §9) has an `identity` object (string
+   `canonicalId`, non-empty `allRefs` string array), a recognized
+   `ownershipState`, a `derivedPaths` string array, a `sourceDocument` object
+   (string `sourcePath`, integer `documentIndexInFile`), and a recognized
+   `provenance`; `sources` is an array of objects each with a string `path` and
+   `digestAlgorithm` (the per-source **digest completeness/match** check is
+   step 4, not this step); `completeness` is `{ wholeCatalog, identityOnly }`
+   (`entities` must be an array, not present with the wrong type, and so on for
+   every nested field). A `missing-or-wrong-required-field` malformation fails
+   here; a `missing-source-digest` malformation does **not** fail here (its
+   `sources` entry is otherwise well-formed) — it is caught at step 4.
+3. The frozen matcher contract is validated by **exact value**, not merely
+   "recognized": `schemaVersion === "1"`; `globDialect` deep-equals
+   `{ engine: "picomatch", version: "4.0.5", options: { dot: false, nocase: false, nonegate: true } }`
+   — an `engine` of `"minimatch"`, a `version` other than `"4.0.5"`, or an
+   `options` object with `dot: true` / `nocase: true` / `nonegate: false` each
+   fails here (a `globDialect.version`-only check is **insufficient**); and
+   `capabilities` deep-equals the exact tuple `["pathOwnership"]` — an empty
+   array `[]`, an extra element, or any other string each fails (a
+   per-entry-membership-only check is **insufficient**).
+4. Every `sources[]` entry has a **present**, correctly-typed `digest` string
+   that matches its listed path's actual bytes. A `sources` entry that is
+   structurally well-formed but **omits** its `digest` (the
+   `missing-source-digest` malformation), or whose digest does not match, is an
+   incomplete-envelope rejection at this step.
 5. `completeness.identityOnly === false`. If `true`, reject outright as
    partial/identity-only for path-ownership matching purposes — **this is
    the one, precisely-defined signal**; whether an envelope is
@@ -91,6 +126,14 @@ repository-identity check before every one of these passes:
    absent annotations are a valid, expected state (no descriptor in either
    real corpus has adopted `adrkit.io/owned-paths` yet, but Option A
    derivation was genuinely attempted for every entity).
+
+**The five malformation kinds map 1:1 to steps 1–5 above**, and each is
+exercised by its **own separate fixture file** (§7): `invalid-json` (fails
+step 1), `missing-or-wrong-required-field` (fails step 2),
+`unrecognized-schema-or-dialect-or-capability` (fails step 3),
+`missing-source-digest` (fails step 4), and `identity-only-true` (fails
+step 5). They cannot share one file — one is syntactically invalid JSON and
+the rest are different, mutually exclusive valid-JSON mutations.
 
 **Only after steps 1–5 all pass** does the consumer proceed to §3 (digest),
 §4 (staleness), and §5 (repository identity) below.
@@ -128,7 +171,7 @@ digest = sha256_hex(utf8_bytes(canonical_form_above))
 
 A consumer MUST **independently recompute** this digest and compare it
 against the envelope's declared `digest` value **before trusting any
-entity's `paths`** — never trusting the declared value unconditionally.
+entity's `derivedPaths`** — never trusting the declared value unconditionally.
 
 **Guarantee scope, precisely stated (FR-035)**: this digest proves
 **accidental-corruption and naive-mutation detection only**. It does
@@ -189,9 +232,9 @@ only a downstream **consumer** behavior across separately-generated files.
 
 | # | Check | Fixture construction | Rejects/accepts |
 |---|---|---|---|
-| 1 | Malformed/unsupported envelope | Omit a required field, produce invalid JSON, declare an unrecognized `schemaVersion`/dialect/capability, omit a declared source's digest, or set `completeness.identityOnly: true` | Rejects, before any digest/revision/identity check |
+| 1 | Malformed/unsupported envelope | **Five separate fixture files**, one per mutually-exclusive malformation kind (§2), each failing the correspondingly-numbered validation step: `malformed-invalid-json.json` (syntactically invalid JSON); `malformed-missing-or-wrong-field.json` (omit a required field or give one the wrong JSON type); `malformed-unrecognized.json` (an unrecognized `schemaVersion`, non-`picomatch`/non-`4.0.5` `globDialect`, wrong `options`, or `capabilities` other than exactly `["pathOwnership"]`); `malformed-missing-source-digest.json` (omit a declared source's digest); `malformed-identity-only.json` (`completeness.identityOnly: true`) | Rejects each, before any digest/revision/identity check |
 | 1b | Otherwise-valid envelope, entities all `annotation-absent`, `identityOnly: false` | (contrast case) | **Accepts** — never rejected on ownership-state distribution alone |
-| 2 | Tampered envelope | Mutate one entity's `paths` after generation, without updating the digest | Rejects, digest mismatch named |
+| 2 | Tampered envelope | Mutate one entity's `derivedPaths` after generation, without updating the digest | Rejects, digest mismatch named |
 | 3 | Stale envelope | Different revision than consumer's configured expected-current, digest recomputed over actual (mutated) content | Rejects, staleness named, not a digest failure |
 | 4 | Wrong-repository envelope | Different repository ID than consumer's configured expected, digest recomputed over actual content | Rejects, identity mismatch named, not a digest failure |
 | 5 | Repository isolation | Two fully valid envelopes, two distinct repository IDs, queried together scoped to one | **Accepts both**; query returns only the scoped repository's entities |

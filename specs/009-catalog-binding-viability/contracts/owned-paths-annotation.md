@@ -12,30 +12,47 @@ and never short-circuited by a type coercion:
 
 1. **Presence check.** If `metadata.annotations['adrkit.io/owned-paths']` is
    absent from the descriptor entirely, stop here: `ownershipState =
-   "annotation-absent"` (§3). No JSON parsing is attempted.
-2. **JSON decode.** If present, attempt `JSON.parse(rawValue)`. A decode
-   failure (malformed JSON — e.g. an unescaped quote inside the string) is
-   rejected with the distinct reason `"parse-error"` — **not** the same
-   reason as step 3's shape failure, and never coerced into a fallback empty
-   array.
-3. **Shape validation.** The decoded value MUST be exactly `array<string>`.
+   "annotation-absent"` (§3). Presence is decided by an explicit
+   annotation-presence discriminant (`OwnedPathsAnnotation.annotationPresent`,
+   `data-model.md` §1), never inferred from whether a raw value happens to be
+   `undefined`. No string check, no JSON parsing, and no shape check is
+   attempted for an absent key.
+2. **String-scalar check.** If the key is present, the annotation node read
+   from the surrounding YAML MUST itself be a YAML string scalar
+   (`typeof rawNode === "string"`). This check runs **before** step 3's
+   `JSON.parse` and is not optional: `JSON.parse` first coerces a non-string
+   argument to a string via `String(...)` (ECMA-262 `JSON.parse` →
+   `ToString`), so a non-string YAML node (a sequence such as `["[]"]`, a
+   mapping, a number, or a boolean) is **not** rejected by `JSON.parse` — it
+   would be silently coerced (for example, `["[]"]` becomes the string
+   `"[]"`, which then parses as an empty array and is misclassified as
+   `explicit-empty`). A present-but-non-string node is therefore rejected here
+   with the distinct reason `"annotation-value-not-a-string"`, never coerced
+   and never passed to `JSON.parse`.
+3. **JSON decode.** Only a present string scalar reaches `JSON.parse(rawValue)`.
+   A decode failure (malformed JSON — e.g. an unescaped quote inside the
+   string) is rejected with the distinct reason `"parse-error"` — **not** the
+   same reason as step 2's non-string failure or step 4's shape failure, and
+   never coerced into a fallback empty array.
+4. **Shape validation.** The decoded value MUST be exactly `array<string>`.
    Any of the following is rejected with the distinct reason `"wrong-shape"`:
    a JSON object; a bare string (not wrapped in an array); a bare number or
    boolean; an array containing any non-string element (a number, an object,
    `null`, a nested array). None of these is ever coerced (e.g. a bare string
    is never treated as a single-element array).
-4. **Per-pattern validation.** Only after steps 1–3 succeed does each string
+5. **Per-pattern validation.** Only after steps 1–4 succeed does each string
    element proceed to `contracts/glob-dialect.md`'s validator.
 
-**Worked example — the shape-error/parse-error distinction**:
+**Worked example — the non-string/parse-error/shape-error distinctions**:
 
-| Raw annotation value | Step 2 outcome | Step 3 outcome | Final rejection reason |
-|---|---|---|---|
-| `'["packages/payments/**"]'` | parsed | array of strings | none — proceeds to per-pattern validation |
-| `'{"paths": ["a/**"]}'` | parsed | not an array | `"wrong-shape"` |
-| `'"packages/payments/**"'` | parsed | bare string, not an array | `"wrong-shape"` |
-| `'["packages/payments/**", 3]'` | parsed | array containing a non-string element | `"wrong-shape"` |
-| `'["packages/payments/**"` (missing closing bracket) | fails to parse | n/a | `"parse-error"` |
+| Raw annotation node | Step 2 outcome | Step 3 outcome | Step 4 outcome | Final rejection reason |
+|---|---|---|---|---|
+| `'["packages/payments/**"]'` (string scalar) | string | parsed | array of strings | none — proceeds to per-pattern validation |
+| `["[]"]` (YAML sequence, not a string) | not a string | n/a (never reached) | n/a | `"annotation-value-not-a-string"` |
+| `'{"paths": ["a/**"]}'` (string scalar) | string | parsed | not an array | `"wrong-shape"` |
+| `'"packages/payments/**"'` (string scalar) | string | parsed | bare string, not an array | `"wrong-shape"` |
+| `'["packages/payments/**", 3]'` (string scalar) | string | parsed | array containing a non-string element | `"wrong-shape"` |
+| `'["packages/payments/**"` (string scalar, missing closing bracket) | string | fails to parse | n/a | `"parse-error"` |
 
 ## 2. Order Independence From Atomicity (FR-007 Interaction)
 
@@ -57,8 +74,8 @@ never a fourth state, never left recoverable only from prose:
 | State | Condition | `derivedPaths` |
 |---|---|---|
 | `explicit-paths` | The annotation is present, decodes and validates successfully, and the resulting array is **non-empty** after every element passes `contracts/glob-dialect.md`'s validator. | Sorted (`compareCodeUnits`), deduplicated, non-empty. |
-| `explicit-empty` | The annotation is present and **decodes** (via `JSON.parse`, per §1 step 2) to an array of length zero. **This is a decoded-value check, never a raw-string equality check** — `'[]'`, `'[ ]'`, `'[\n]'`, and any other JSON text that decodes to `[]` all qualify identically; the classification happens strictly after JSON decoding, exactly as §1's decode-then-validate order requires, never before it. | `[]` |
-| `annotation-absent` | The annotation key is wholly absent from `metadata.annotations`. | `[]` |
+| `explicit-empty` | The annotation is present, is a string scalar (§1 step 2), and **decodes** (via `JSON.parse`, per §1 step 3) to an array of length zero. **This is a decoded-value check, never a raw-string equality check** — `'[]'`, `'[ ]'`, `'[\n]'`, and any other JSON text that decodes to `[]` all qualify identically; the classification happens strictly after JSON decoding, exactly as §1's decode-then-validate order requires, never before it. | `[]` |
+| `annotation-absent` | The annotation key is wholly absent from `metadata.annotations` (`OwnedPathsAnnotation.annotationPresent === false`, `data-model.md` §1) — decided by the explicit presence discriminant, never inferred from a raw value being `undefined`. | `[]` |
 
 **Non-string annotation values are rejected before JSON decoding is
 attempted.** A descriptor's `adrkit.io/owned-paths` annotation value, as read
@@ -67,12 +84,18 @@ own annotation model requires every annotation value to be a string
 (`metadata.annotations` is `Record<string, string>`). If a synthetic fixture
 deliberately authors a non-string YAML value under this key (e.g. a YAML
 sequence or mapping, rather than a quoted JSON-in-a-string), that is rejected
-with the distinct reason `"annotation-value-not-a-string"` — **before** step
-2's `JSON.parse` is even attempted, since `JSON.parse` itself requires a
-string input and passing a non-string value to it would be a language-level
-type error, not a JSON parse error. This is a fourth possible
-`OwnedPathsAnnotation.jsonParseOutcome` value alongside `"parsed"` and
-`"parse-error"` (`data-model.md` §1), never silently coerced (e.g. by
+with the distinct reason `"annotation-value-not-a-string"` at §1 step 2 —
+**before** step 3's `JSON.parse` is ever reached. This explicit string check
+is required precisely because `JSON.parse` does **not** protect against a
+non-string argument: ECMA-262 defines `JSON.parse(text)` as first coercing
+`text` to a string via `ToString`, so a non-string node is silently
+stringified and can parse into a spurious value (e.g. the one-element
+sequence `["[]"]` is coerced to `"[]"` and would parse as an empty array),
+never raising a language-level type error. The TypeScript signature of
+`JSON.parse` therefore provides **no** runtime guarantee here; only the
+explicit `typeof rawNode === "string"` pre-parse check does. This is a third
+possible `OwnedPathsAnnotation.jsonParseOutcome` value alongside `"parsed"`
+and `"parse-error"` (`data-model.md` §1), never silently coerced (e.g. by
 stringifying the YAML value first).
 
 **Non-conflation rule**: `explicit-empty` and `annotation-absent` both
@@ -104,7 +127,7 @@ absent distinction in §3 and MUST NOT be conflated with it.
 
 ## 5. Determinism (SC-001)
 
-For any fixed, valid annotation input, running steps 1–4 above (and
+For any fixed, valid annotation input, running steps 1–5 above (and
 `contracts/glob-dialect.md`'s sort/dedupe) three or more times MUST produce
 byte-identical `derivedPaths` output every time — including sort order and
 deduplication. Non-determinism anywhere in this pipeline (e.g. an
