@@ -26,17 +26,20 @@ permitted" exemption — generating this checklist is scoping, not execution. Ph
 landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratification is already
 satisfied; spike execution is authorized once this migration merges.
 
-> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`). Verdict: **`no-go`**
+> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`); T044, T045, and T047
+> are marked complete as **correctly recognized and honored short-circuits** per the
+> `no-go` outcome's own contract-required rules (T043 matched at Step 1, so T044/T045 were
+> not evaluated and T047 does not apply — see each task's own note). Verdict: **`no-go`**
 > (trigger: `mutation`, driven independently by the `install` and `remove` mutation
 > baselines). Independently audited (fresh-context, `gpt-5.6-sol`, six cumulative
-> remediation rounds converging to a final PASS on evidence-bundle integrity — see T057).
+> audit rounds converging to a final PASS on evidence-bundle integrity — see T057).
 > The tracked, sanitized FR-024 evidence index is
 > [`checklists/evidence-index.md`](./checklists/evidence-index.md). Raw transcripts and the
 > full evidence bundle remain session-scoped only, per FR-017. This spike did **not**
 > change Phase 6's landed/reference-verified status in any direction, and does **not**
 > claim external/community validation for either Phase 6 or itself.
 
-> ✅ **Governance gates satisfied — spike execution authorized once this migration merges; tasks below remain unchecked until executed.**
+> ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now checked (see the executed-summary callout above).**
 >
 > 1. **Phase 6 gate — SATISFIED.** Under
 >    [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
@@ -653,6 +656,11 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   If no trigger fired, proceed to T044.
 
 - [X] T044 [US5] Evaluate Step 2 — `go` (checked second; only if T043 did not match).
+  **Correctly skipped (not evaluated) — T043 matched at Step 1 (`no-go`/`mutation`) and
+  the contract requires proceeding directly to T046 without evaluating this task**
+  (T043's own instruction). Checked here only to record that the short-circuit rule was
+  correctly recognized and honored, not that this task's substantive check (every
+  acceptance scenario in User Stories 1–4 passing) was performed or its outcome asserted.
   Check that every acceptance scenario in User Stories 1–4 passed exactly as specified:
   US1 all 3 scenarios (T013–T018), US2 all 4 scenarios (T020–T027), zero mutation
   throughout (already implied by T043 not matching), clean disable/remove (T028–T032),
@@ -663,7 +671,10 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   `recommendation` is now required — proceed to T046. **Stop — do not evaluate T045.**
 
 - [X] T045 [US5] Evaluate Step 3 — `manual-command-only` (exhaustive fallback; only if
-  neither T043 nor T044 matched). By construction, no `no-go` trigger fired but the
+  neither T043 nor T044 matched). **Correctly skipped (not evaluated) — T043 matched at
+  Step 1, so this exhaustive-fallback step never applies; recorded here only as
+  correctly-recognized-and-honored, not as an evaluated-and-passed check.** By
+  construction, no `no-go` trigger fired but the
   result fell short of full `go` in a way that is not itself unsafe. Identify which named
   case applies: (a) US1/US4/Copilot-rendering all passed but `hookFireTranscript` (T027)
   shows the hook itself proved unreliable or context-starved; (b) everything else passed
@@ -681,7 +692,10 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
 
 - [X] T047 [US5] Draft the `NonBindingRecommendation` (FR-021; required only if `outcome`
   is `"go"` or `"manual-command-only"` — skip this task entirely if `outcome ===
-  "no-go"`, where `recommendation` is fixed `null`). Depends on: T046. Populate
+  "no-go"`, where `recommendation` is fixed `null`). **Correctly skipped in its entirety
+  — `outcome === "no-go"` (T043), so per this task's own instruction it does not apply;
+  `recommendation` is fixed `null` as required, and no `NonBindingRecommendation` object
+  was drafted.** Depends on: T046. Populate
   `bindingStatus: "non-binding"` (literal), `minimalScopeDescription` (per
   `contracts/evidence-bundle-and-verdict.md` §3's exact template text for whichever
   outcome applies), and **`releaseVehicleDecision: null` — always, unconditionally, with

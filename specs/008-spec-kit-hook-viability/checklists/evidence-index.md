@@ -20,8 +20,8 @@ itself.
 **Executed**: 2026-07-22
 **Feature**: [spec.md](../spec.md) · [tasks.md](../tasks.md)
 **Reviewer verdict**: PASS on evidence-bundle integrity and internal
-consistency (fresh-context audit, GPT-5.6 Sol, six iterative remediation
-rounds against three cumulative audit passes — see
+consistency (fresh-context audit, GPT-5.6 Sol, six cumulative audit rounds,
+each finding and closing genuine defects before the final PASS — see
 [Independent audit](#independent-audit) below). The spike's own **contract
 verdict** (`no-go`) is a separate, orthogonal outcome — see
 [Verdict](#verdict-t042-t048).
@@ -39,6 +39,7 @@ verdict** (`no-go`) is a separate, orthogonal outcome — see
 | Live Copilot lifecycle sessions (model) | `claude-sonnet-5` (per this session's model policy — never Opus 4.6) |
 | Independent evidence audit (model) | `gpt-5.6-sol` (heavyweight tier, fresh context, no authoring history) |
 | Fixture source file hashes (SHA-256) | `extension.yml` `b3765114...986b9d3`; `commands/probe.md` `11f88504...b9a33c2`; `scripts/probe.sh` `b6eac379...41b3fbdb` |
+| **Evidence bundle file hashes (SHA-256, full digests)** | `spike-008-evidence.json`: `d91934a0b55cd6e312c53d0372bc4de6d0877d054e8d1fce24bf100658ad7494`; `spike-008-evidence.md`: `055c12d9e228823ea40715aaee78e0ad9ba22012f24ca08e9b4b453b74a25aef` (per `contracts/evidence-bundle-and-verdict.md` §1's two-file bundle definition; both files are session-scoped only, per FR-017 — these digests let a reader verify a copy of either file against this index without the file itself being committed) |
 
 ## Scratch environment (not tracked, not committed)
 
@@ -152,10 +153,11 @@ file's content hash and mtime are unchanged by disable).
   verdict, whatever it turned out to be, was never contingent on or coupled
   to it.
 - This spike's own execution is **reference-verified by independent audit**
-  (six cumulative audit rounds against the evidence bundle, converging to a
-  final PASS on internal consistency) — it is **not** externally validated
-  and **not** community-adopted. ADR-0014 rung-3 external/community signal
-  remains open and is not claimed here.
+  (six cumulative fresh-context audit rounds against the evidence bundle,
+  each round finding and closing genuine defects, converging to a final PASS
+  on internal consistency) — it is **not** externally validated and **not**
+  community-adopted. ADR-0014 rung-3 external/community signal remains open
+  and is not claimed here.
 - Whether the `no-go` outcome should be read as "the criterion, as literally
   written, was too strict for a designed-to-mutate lifecycle action" is a
   scoping/contract-revision judgment left for a future, separately-authorized
@@ -168,7 +170,7 @@ file's content hash and mtime are unchanged by disable).
 
 ## Independent audit
 
-Three cumulative fresh-context audit passes (all `gpt-5.6-sol`, none sharing
+Six cumulative fresh-context audit rounds (all `gpt-5.6-sol`, none sharing
 authoring context with the session that produced the evidence) progressively
 found and closed genuine defects across the evidence bundle — field-shape
 violations, stale hash references from an earlier fixture instance, an
@@ -191,6 +193,11 @@ reference-verified by independent audit**. It is **not released**, **not
 externally validated**, and **not adopted**. Its own contract verdict is
 **`no-go`** (mutation trigger, both install and remove). It is a disposable
 compatibility spike, not a shipped adapter or integration
-(`spec.md`: "It does not produce that adapter"). Feature 009 execution is a
-separate, distinct, and not-yet-authorized gate — this index does not
-authorize it.
+(`spec.md`: "It does not produce that adapter"). Feature 009
+(`specs/009-catalog-binding-viability/`) is separately governance-authorized
+(its own preconditions are already satisfied) but was, per root `plan.md`'s
+execution sequence, deliberately **scheduled to run only after this spike
+completed end-to-end** — this index records that completion. Feature 009
+still requires its own technical safety gate (a genuinely blocking
+network-denial mechanism, FR-018/T006) at execution time; this index does not
+itself initiate, weaken, or bypass that gate.
