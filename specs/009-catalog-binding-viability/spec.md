@@ -14,7 +14,9 @@ could be bound to the repo-relative paths it owns, for the sole purpose of decid
 `packages/adapters/catalog-backstage` is worth building later. It is **not** that adapter, it
 does not touch `packages/adapters/**`, and writing/refining this spec is permitted now while
 *executing* the spike (deriving fixtures, running the comparison, gathering evidence) becomes
-**authorized once this governance migration merges** — its tasks remain unexecuted until a
+**governance-authorized once this governance migration merges** — but is **scheduled after
+feature 008 (`specs/008-*`) completes end-to-end** per root `plan.md`'s execution sequence
+(the two spikes are not run in parallel overall). Its tasks remain unexecuted until a
 future session runs them; see the gating banner immediately below.
 [**ADR-0012**](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md)
 — "Bind catalog entities to owned paths with an explicit annotation," `status: accepted`,
@@ -89,6 +91,21 @@ citation of record for the contract's actual terms.
 
 > ✅ **Governance preconditions satisfied; spike execution authorized once this migration
 > merges; tasks remain unchecked until actually executed.**
+>
+> **Scheduling (distinct from authorization).** Governance *authorizes* execution, but per root
+> `plan.md`'s execution sequence this spike (feature 009) is **scheduled to run only after
+> feature 008 (`specs/008-*`) completes end-to-end** — feature 008 needs an isolated live
+> Copilot session and a clean mutation baseline, so the two spikes are **not** run in parallel
+> overall (009 → after 008). Within feature 009, its own file-disjoint US6/US7 task batches may
+> parallelize internally once its foundational checkpoint passes.
+>
+> **Technical safety gates are unaffected.** Governance authorization removes the community
+> gate only; it does **not** remove any technical safety gate. In particular this spike is
+> **not executable** unless a genuinely **blocking** (not allowlist-only) network-denial
+> mechanism is available in the execution environment (FR-018; task T006 fails closed and
+> forbids every derivation task if none is available), and its landed/complete claim requires
+> its own final report and independent evidence audit (not merely authorization). Do not
+> describe this spike as executable in an environment lacking such a mechanism.
 >
 > **Satisfied governance preconditions.** Maintainer scoping/contract ratification (adrkit
 > issue #25, both 2026-07-21 decisions), catalog-binding convention governance
@@ -1331,7 +1348,11 @@ externally-validated maturity.
   "Acceptance path for ADR-0007 and ADR-0009" lists this spike's evidence among the
   preconditions for *their* acceptance. Advance scoping remains exempt from execution
   preconditions per `plan.md`'s scoping-vs-implementation split, the maintainer's 2026-07-21
-  issue #25 ratifications, ADR-0012's action item 1, and ADR-0014.
+  issue #25 ratifications, ADR-0012's action item 1, and ADR-0014. **Scheduling caveat:**
+  governance authorization is distinct from scheduling — per root `plan.md`'s execution
+  sequence this spike runs **only after feature 008 (`specs/008-*`) completes end-to-end** (the
+  two spikes are not run in parallel overall), and execution additionally requires the technical
+  safety gate of a genuinely blocking network-denial mechanism (FR-018/T006, fail-closed).
 - **FR-028**: The spike's output MUST NOT claim or take credit for ADR-0012's acceptance,
   ADR-0013's resolution of ADR-0007/ADR-0009's status ambiguity, or ADR-0014's governance
   change, and MUST NOT assert that its own verdict caused or constitutes any of them. These are

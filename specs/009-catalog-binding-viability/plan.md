@@ -53,6 +53,12 @@ planning session** — see `research.md` R1): Backstage
 > ✅ **Governance preconditions satisfied; spike execution authorized once this migration
 > merges; tasks remain unchecked until actually executed.**
 >
+> **Scheduling (distinct from authorization).** Per root `plan.md`'s execution sequence, this
+> spike (feature 009) is scheduled to run **only after feature 008 (`specs/008-*`) completes
+> end-to-end** — the two spikes are not run in parallel overall — and execution additionally
+> requires the technical safety gate of a genuinely blocking network-denial mechanism
+> (FR-018/T006, fail-closed).
+>
 > **Satisfied preconditions.** Maintainer scoping/contract ratification (adrkit issue #25,
 > both 2026-07-21 decisions), catalog-binding convention governance
 > ([ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md),

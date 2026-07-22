@@ -40,6 +40,11 @@ every checkbox below remains `- [ ]` until actually executed.
 > ✅ **Governance preconditions satisfied; spike execution authorized once this migration
 > merges; Phase 1 records the satisfied basis before execution starts.**
 >
+> **Scheduling (distinct from authorization).** Per root `plan.md`, this spike runs **only
+> after feature 008 (`specs/008-*`) completes end-to-end** (not in parallel overall), and
+> execution requires the technical safety gate of a genuinely blocking network-denial mechanism
+> (FR-018/T006, fail-closed).
+>
 > **Satisfied preconditions.** Maintainer scoping/contract ratification (adrkit issue #25,
 > both 2026-07-21 decisions), catalog-binding convention governance
 > ([ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md),

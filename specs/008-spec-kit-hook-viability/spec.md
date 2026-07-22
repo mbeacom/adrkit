@@ -66,6 +66,17 @@ services; core and CLI depend on no adapter).
 > satisfied, a future execution session recomputing `tasks.md` T001–T003 after this migration
 > merges should obtain `GATE_PASS = true`. Those tasks remain unchecked until that session
 > actually executes them.
+>
+> **Execution prerequisites and sequence (technical, not removed by governance).** Governance
+> authorizes this spike's execution but does not remove its technical prerequisites: Spec Kit
+> `v0.13.0` at the fixed commit must be available and is **re-verified at execution, failing
+> closed** (FR-001); the adrkit CLI must be **built** (`packages/cli/dist`, which does not exist
+> on disk as of this writing — building it is part of execution); the live-agent probe requires
+> an **isolated live Copilot session** and a **clean mutation baseline**. Per root `plan.md`,
+> this spike (feature 008) is executed **before** feature 009 — the two are not run in parallel
+> overall. This spike's `plan.md` row may claim `landed`/complete only **after** its own final
+> report and independent evidence audit (its tracked, sanitized evidence index) exist, not
+> merely because execution was authorized.
 
 ### Ratification Record
 

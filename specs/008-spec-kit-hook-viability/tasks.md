@@ -124,7 +124,9 @@ the gate failure (which half failed, and its current state) to the coordinating 
 and end.
 
 - [ ] T001 Verify gate 1 (Phase 6). Read, in this order: (a)
-  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048-R** and **T049**
+  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048-R** (whose
+  title reads "T048-R (SC-004) Rung-2 maintainer isolated reference-verification gate") and
+  **T049**
   for the Phase 6 reference-verification gate (not the unrelated, already-completed T048/T049
   pair in `specs/005-deterministic-evaluator/tasks.md`); both MUST read `- [X]`
   (checked/complete) for gate 1 to pass — either being `- [ ]` fails this check. (b) root
