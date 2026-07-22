@@ -26,7 +26,12 @@ closing genuine defects before the final PASS, **plus a seventh, targeted
 audit pass** (PR review round 7) independently confirming the current
 7-entry bundle — after a corroborating entry was added post-audit in PR
 review round 4 — remains internally consistent and verdict-unchanged; see
-[Independent audit](#independent-audit) below). The spike's own **contract
+[Independent audit](#independent-audit) below). **An eighth, later-dispatched
+targeted pass** (PR review round 16) checked a different question — FR-011/
+strongest-mechanism compliance for the `hook-fire` invocation — and returned
+**FAIL**; because that defect was disclosed rather than remediated, T057 is
+now marked incomplete (`- [ ]`) — see [Independent audit](#independent-audit)
+below. The spike's own **contract
 verdict** (`no-go`) is a separate, orthogonal outcome — see
 [Verdict](#verdict-t042-t048).
 
@@ -249,14 +254,18 @@ file's content hash and mtime are unchanged by disable).
   (merge SHA `38336982b2d78aa1e20dcd57fd759c07aee716e9`), and this spike's own
   verdict, whatever it turned out to be, was never contingent on or coupled
   to it.
-- This spike's own execution is **executed and independently audited** (six
-  cumulative fresh-context audit rounds against the original 6-entry
-  Tier-1 `mutationBaselines` corpus, each round finding and closing genuine
-  defects, converging to a final PASS on internal consistency; **plus a
-  seventh, targeted audit pass, PR review round 7**, independently
-  confirming the current 7-entry bundle — after a corroborating entry was
-  added post-audit in PR review round 4 — remains internally consistent,
-  schema-conformant, and verdict-unchanged). **"Reference-verified" is a
+- This spike's own execution is **executed, out-of-contract on one blocking
+  gate, and independently audited** (six cumulative fresh-context audit
+  rounds against the original 6-entry Tier-1 `mutationBaselines` corpus, each
+  round finding and closing genuine defects, converging to a final PASS on
+  internal consistency; **plus a seventh, targeted audit pass, PR review
+  round 7**, independently confirming the current 7-entry bundle — after a
+  corroborating entry was added post-audit in PR review round 4 — remains
+  internally consistent, schema-conformant, and verdict-unchanged; **plus an
+  eighth, targeted audit pass, PR review round 16**, checking a distinct
+  question — FR-011/strongest-mechanism compliance for the `hook-fire`
+  invocation — that returned **FAIL**, disclosed rather than remediated, and
+  resulting in T057 now being marked incomplete). **"Reference-verified" is a
   distinct, binding ADR-0014 rung-2 maturity term** — reproducible,
   self-verifying, fail-closed evidence from a maintainer-owned isolated
   reference repository (the bar Phase 6 met; see
@@ -468,18 +477,25 @@ checkbox held "regardless of which reading is correct" — an inconsistent posit
 broader reading, a dispatched-scope gap is exactly the shortfall that would make `[X]`
 unjustified, so the two claims could not coexist. Round 16 suggested resolving this by
 actually running an audit that covers the broader reading, or marking T057 incomplete.
-**This was done**, not argued further: an eighth audit pass — never previously dispatched,
-and not a re-run of the first seven's already-checked items (a)–(f) — was commissioned
-from a fresh-context GPT-5.6-Sol reviewer with zero authoring context, given only
-`network-denial.json`'s literal content, the mechanism-hierarchy contract text, and
-FR-011's literal text, and asked to independently determine whether the recorded
-`hook-fire` invocation applies the strongest available mechanism and meets FR-011's
-literal requirement. Independent finding: **FAIL on both** — confirming, not contradicting,
-what T005/T024 already disclosed, now as a formally checked discrete item rather than an
-inferred consequence. T057's checkbox is `- [X]` on this basis under either scope reading;
-see `tasks.md`'s T057 note for the full account. This is not a new, independent T057
-defect; it is the same underlying T005 gap, now closed out with a genuinely dispatched
-check instead of a scope argument.
+An eighth audit pass — never previously dispatched, and not a re-run of the first seven's
+already-checked items (a)–(f) — was commissioned from a fresh-context GPT-5.6-Sol
+reviewer with zero authoring context, given only `network-denial.json`'s literal content,
+the mechanism-hierarchy contract text, and FR-011's literal text, and asked to
+independently determine whether the recorded `hook-fire` invocation applies the strongest
+available mechanism and meets FR-011's literal requirement. Independent finding: **FAIL
+on both** — confirming, not contradicting, what T005/T024 already disclosed, now as a
+formally checked discrete item rather than an inferred consequence. **PR review round 17**
+correctly pressed on the remaining gap: T057's own text requires remediating any defect
+found before T058, and recording a FAIL is disclosure, not remediation. Retroactively
+curing the original `hook-fire` invocation would require re-running the live-Copilot
+lifecycle in a fresh isolated session — judged disproportionate for the same reason given
+in T005's own note (the `no-go` verdict is unaffected either way) — so it was not done.
+**T057 is therefore marked incomplete (`- [ ]`)**: this holds under either scope reading
+from round 15, since a defect is now formally on the record and unremediated regardless
+of how the intro sentence is read. See `tasks.md`'s T057 note for the full account. This
+is not a new, independent defect distinct from T005; it is the same underlying gap, now
+closed out with a genuinely dispatched check and its consequence for T057's own checkbox
+honestly recorded.
 
 ## Honest maturity label
 
@@ -496,7 +512,12 @@ against items (a)–(f) of T057's own defined checklist, plus an eighth, later-d
 pass (PR review round 16) that specifically checked the FR-011/strongest-mechanism
 question neither the original seven nor items (a)–(f) themselves cover — see T057's own
 note in `tasks.md`. That eighth pass independently confirmed, rather than newly
-discovered, the T005/T012 gap already found by PR review; it is not ADR-0014's rung-2
+discovered, the same T005/T024 FR-011 gap already found by PR review (it was given only
+FR-011's text, the mechanism-hierarchy contract, and `network-denial.json` — not the
+separate T012 dependency-certification materials — so it speaks to that gap only, not to
+T012's own status); because the defect it confirmed was disclosed rather than remediated,
+T057 itself is now a **third** unchecked exception alongside T005 and T012 (PR review
+round 17). None of this is ADR-0014's rung-2
 maturity state (reproducible, self-verifying,
 fail-closed evidence from a maintainer-owned isolated reference repository — the bar
 Phase 6 met); **"reference-verified"

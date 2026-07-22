@@ -27,16 +27,21 @@ landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratificat
 satisfied; spike execution is authorized once this migration merges.
 
 > ✅ **Executed 2026-07-22 — out-of-contract on one blocking gate (see round 12 below).**
-> T001–T058 below are complete (`- [X]`), **with two explicit exceptions: T005 and T012
-> are left unchecked (`- [ ]`)** — see below and each task's own note. Per PR review round
-> 12, this run is disclosed as **out-of-contract with respect to T012's own blocking rule**
-> (T012's text below: "No User Story task below may begin until this checkpoint is
-> confirmed") — because T012 could not, in fact, be genuinely confirmed at the time
-> (T005's gap), the User Story tasks that follow (T013 onward) began without that rule's
-> own precondition holding. Each of those tasks' own distinct, literally-described action
-> still ran and is independently evidenced (see the round-12 clarification below), so
-> their individual checkboxes remain `- [X]`, but this is **not** characterized as a fully
-> gate-conformant execution. T044,
+> T001–T058 below are complete (`- [X]`), **with three explicit exceptions: T005, T012,
+> and T057 are left unchecked (`- [ ]`)** — see below and each task's own note. Per PR
+> review round 12, this run is disclosed as **out-of-contract with respect to T012's own
+> blocking rule** (T012's text below: "No User Story task below may begin until this
+> checkpoint is confirmed") — because T012 could not, in fact, be genuinely confirmed at
+> the time (T005's gap), the User Story tasks that follow (T013 onward) began without
+> that rule's own precondition holding. Each of those tasks' own distinct,
+> literally-described action still ran and is independently evidenced (see the round-12
+> clarification below), so their individual checkboxes remain `- [X]`, but this is
+> **not** characterized as a fully gate-conformant execution. **T057 is unchecked as of
+> PR review round 17**: an eighth, independently dispatched audit pass (PR review round
+> 16) found that the recorded `hook-fire` invocation meets neither the isolation
+> contract's strongest-mechanism rule nor FR-011's literal requirement (the same
+> underlying gap as T005/T024); T057's own text requires remediating any defect found
+> before T058, and disclosure alone does not satisfy that — see T057's own note. T044,
 > T045, and T047 are marked complete as **correctly recognized and honored
 > short-circuits** per the `no-go` outcome's own contract-required rules (T043 matched at
 > Step 1, so T044/T045 were not evaluated and T047 does not apply — see each task's own
@@ -47,7 +52,9 @@ satisfied; spike execution is authorized once this migration merges.
 > audit pass in PR review round 7** independently confirming the current 7-entry bundle
 > — after a corroborating entry was added post-audit in PR review round 4 — remains
 > internally consistent and verdict-unchanged, after fixing 6 real defects it found in
-> the process — see T057). The tracked, sanitized FR-024 evidence index is
+> the process, **and an eighth, targeted audit pass in PR review round 16** that returned
+> **FAIL** on the FR-011/strongest-mechanism question — see T057). The tracked, sanitized
+> FR-024 evidence index is
 > [`checklists/evidence-index.md`](./checklists/evidence-index.md). Raw transcripts and the
 > full evidence bundle remain session-scoped only, per FR-017. This spike did **not**
 > change Phase 6's landed/reference-verified status in any direction, and does **not**
@@ -68,9 +75,10 @@ satisfied; spike execution is authorized once this migration merges.
 > mechanism: that rerun was judged disproportionate given the `no-go` verdict is driven
 > independently by the mutation baseline (an orthogonal axis, unaffected by which
 > network-denial rank gated these invocations), and would require a second full isolated
-> live-Copilot session. T057's own audit did not independently catch this gap either — see
-> T057's own note — but its remaining checks (a)–(f) all still hold and its `[X]` marking
-> is unaffected by T005's exception.
+> live-Copilot session. T057's first seven audit passes did not independently catch this
+> gap; an eighth, later-dispatched pass (PR review round 16) did — see T057's own note,
+> which is now marked incomplete (`- [ ]`) as a direct result, since a defect it found
+> was disclosed but not remediated.
 >
 > **PR review round 6 clarifications (superseded in part by round 11 below):** a later
 > review round asked whether T012 (Foundational checkpoint, whose header names T005
@@ -1017,7 +1025,7 @@ entire file exists to produce.
 
 Depends on: T054, T055, T056.
 
-- [X] T057 Independent evidence audit. Dispatch a fresh-context review (no authoring
+- [ ] T057 Independent evidence audit. Dispatch a fresh-context review (no authoring
   context from the session that gathered the evidence) using a heavyweight-tier model —
   **Opus 4.8 or GPT-5.6 Sol; never Opus 4.6**, per this session's model policy — to check
   `spike-008-evidence.md`/`.json` against every FR-001–FR-024, SC-001–SC-008, and all six
@@ -1034,10 +1042,13 @@ Depends on: T054, T055, T056.
   network-denial mechanism-selection gap (see T005's own note; T005 is now marked
   incomplete, `- [ ]`, as a direct result) — that gap was found only afterward, via PR
   #35's automated review. This is disclosed as a real limitation of this task's own
-  audit coverage, not glossed over: T057's "complete" marking means the audit *action*
-  (dispatch, check items a–f, converge to PASS) was performed as specified against its
-  own defined scope, which did not include verifying T005's mechanism selection — not
-  that the audit caught every defect that existed anywhere in the bundle.
+  audit coverage, not glossed over: the six original audit rounds' own action (dispatch,
+  check items a–f, converge to PASS) was performed as specified, but whether items (a)–(f)
+  were meant to be the *exhaustive* definition of the check, or only illustrative examples
+  under a broader "every FR/SC/contract" mandate, is a genuinely ambiguous question — see
+  PR review round 15's discussion later in this note — so this passage does **not** assert
+  the narrow reading as settled. Either way, T005's mechanism-selection gap was not caught
+  by these six rounds.
   `spike-008-evidence.json` was updated post-audit (PR review round 4) with a
   corroborating, non-verdict-driving `MutationBaseline` entry addressing a separate
   PR-review finding (T033's Tier-2 install invocation lacked its own bracket in the
@@ -1081,10 +1092,13 @@ Depends on: T054, T055, T056.
   [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s "Independent audit"
   section for the full account (the same six findings, kept semantically aligned here —
   each document's prose differs slightly to fit its own surrounding sentence structure;
-  no claim of verbatim textual identity is made). T057's
-  own checkbox remains `- [X]`: its own
-  literally-described action (dispatch, check, converge to PASS or remediate) was
-  performed correctly across all seven rounds, including this one.
+  no claim of verbatim textual identity is made). **As of this point in the review
+  history (through round 7)**, T057's
+  own checkbox remained `- [X]`: its own
+  literally-described action (dispatch, check, converge to PASS or remediate) had been
+  performed correctly across all seven rounds, including this one. **This is superseded
+  below** — rounds 15–17 found a scope ambiguity and a genuine unremediated defect that
+  together require T057 to be marked incomplete; see the final paragraph of this note.
   **PR review round 13 additionally found** (a comment on `tasks.md:588`, initially
   missed in this session's own review-round triage and surfaced only via a later
   unresolved-threads sanity sweep) that FR-011's own network-disabled requirement was
@@ -1115,18 +1129,24 @@ Depends on: T054, T055, T056.
   contract's own text not to *prove* absence of a network call, so it does not meet FR-
   011's literal disabled-access requirement. This independently confirms, rather than
   contradicts, what T005/T024 already disclosed — it is the same underlying gap, now
-  formally checked as a discrete item for the first time. Because the check was actually
-  dispatched and its finding recorded, T057's checkbox is justified `- [X]` under **either**
-  scope reading, with no remaining ambiguity to resolve: this specific defect is no longer
-  merely "not caught because never dispatched" — it has now been dispatched, checked, and
-  the resulting FAIL is disclosed here, in `evidence-index.md`'s "Independent audit"
-  section, and in root `plan.md`'s Phase 7 row. No further remediation beyond disclosure is
-  applied, for the same reason given in T005's own note: retroactively curing the original
-  `hook-fire` invocation would require re-running the live-Copilot lifecycle in a fresh
-  isolated session, a cost judged disproportionate given the `no-go` verdict is unaffected
-  either way. This is not counted as a new, independent T057 defect distinct from T005 —
-  it is that same gap, now closed out with a genuine, independently-dispatched check rather
-  than an argument about the scope of a sentence.
+  formally checked as a discrete item for the first time. **This resolves the round-15
+  scope-ambiguity question, but not in T057's favor under either reading**: a real defect
+  was found by the eighth pass — an extension of this task's own dispatched-audit action
+  — and this task's own literal instruction ("record findings; remediate any defect found
+  before T058") requires remediation, not disclosure alone. Retroactively curing the
+  original `hook-fire` invocation would require re-running the live-Copilot lifecycle in
+  a fresh isolated session; that rerun is judged disproportionate for the same reason
+  given in T005's own note (the `no-go` verdict is driven independently by the mutation
+  baseline, an orthogonal axis, and is unaffected either way), so it was not performed.
+  Because a defect was found and not remediated, **T057 is marked incomplete (`- [ ]`) as
+  of PR review round 17** — consistent with the precedent already set for T005 (own
+  conformance bar unmet) and T012 (dependency-set certification cannot hold on an
+  unchecked dependency). This holds under **either** scope reading from round 15, which
+  is why the ambiguity no longer needs resolving: whether items (a)–(f) were exhaustive
+  or only illustrative, a defect is now formally on the record and unremediated. This is
+  not counted as a new, independent defect distinct from T005 — it is that same gap, now
+  closed out with a genuine, independently-dispatched check, and its consequence for this
+  task's own checkbox honestly recorded rather than argued away.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
