@@ -66,5 +66,7 @@
 - The "Out of Scope" section enumerates the full explicit exclusion list from the feature
   brief, supplemented by the four GitHub surface non-forms (upload artifact, tracked file,
   PR comment, issue comment) and PATs, co-located with requirements for planning reference.
-- Task generation and implementation may proceed after this scoping passes. SC-004
-  (separate-repository/team dogfood) gates only the `landed`/release-ready claim.
+- Task generation and implementation proceeded after scoping passed. SC-004 (the
+  ADR-0014 rung-2 maintainer isolated reference-repository validation) is the landing
+  gate and is **met**; external/community validation (ADR-0014 rung 3) is an optional
+  later maturity signal, tracked honestly as open, and never gated landing.

@@ -451,15 +451,22 @@ Run `bun install --frozen-lockfile` followed by
 `bun run build && bun test && bun run typecheck` in a fresh clone; assert
 all pass with no network access beyond the initial install step.
 
-### Rung-6 dogfood gate (SC-004)
+### Rung-2 reference-validation gate (SC-004 — ADR-0014 rung 2)
 
-Not a CI test — a real-user gate. Evidence must include:
-- A separate repository and team (not the maintainer's own).
+Not a CI test — a landing gate met by a maintainer-owned isolated reference repository.
+Evidence must be reproducible (pinned adrkit commit), self-verifying (the reference repo
+asserts its own outcomes in CI), reviewed, and must include:
+- A separate, maintainer-owned isolated reference repository (not this monorepo; not an external team).
 - At least three `proposed` records spanning `auto`, `async`, `arb` tiers.
 - At least one SLA-boundary or overdue case.
 - Approvals and objections present.
 - The same managed GitHub issue body updated in place on a second run.
 - Default-token-only `issues: write` operation confirmed.
+
+Met by [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood); see
+[checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md).
+External/community validation (ADR-0014 rung 3) is a later optional maturity signal, not
+this gate.
 
 ---
 
@@ -577,19 +584,18 @@ that `lintCorpus` does not (e.g., symlinks or files over the MCP size limit).
 |-------|---------|--------|
 | 0–5 | `specs/001-006-*` | All landed; PRs #5, #6, #7, #12, #14, #19 merged |
 | 5 specifically | MCP server | `v0.2.0` published on npm; real-user gate met (maintainer dogfood via MCP Inspector) |
-| 6 | `specs/007-arb-queue` | **Spec + plan only; not implemented**; rung-6 gate NOT cleared |
+| 6 | `specs/007-arb-queue` | **Landed / reference-validated** (PR #22); ADR-0014 rung-2 gate met, rung-3 external validation open |
 
-The root `plan.md` confirms that Phase 6 scoping is in progress, implementation is
-permitted because Phase 5 landed with a real user, and the external-team rung 6 exit
-gate remains outstanding.
+The root `plan.md` records Phase 6 as landed / reference-validated: implementation is
+complete (PR #22), and the ADR-0014 rung-2 maintainer isolated reference-validation
+gate is met by [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood).
 
-**Rung-6 gate**: Explicitly preserved throughout this plan. Task generation and
-implementation work may proceed. **Rung 6 may not be claimed as landed** until
-SC-004 is met: an external team (not the maintainer) runs the full dogfood scenario
-(FR-019) in a separate repository. That is an *exit/release gate*, not a
-pre-implementation or pre-task-generation gate.
+**Rung-2 reference-validation gate**: The queue surfaces were exercised in a
+maintainer-owned isolated reference repository with reproducible, self-verifying,
+reviewed evidence (FR-019, SC-004). That is an ADR-0014 rung-2 *landing* gate, not a
+pre-implementation gate and not an external-team gate.
 
-**v0.2.0 context**: The current published version is v0.2.0, corresponding to Phase 5
-(MCP server). Phase 6 implementation has not started yet but may proceed after scoping
-passes; the next release-ready claim requires both implementation completion and the
-SC-004 external dogfood evidence.
+**v0.2.0 context**: v0.2.0 corresponds to Phase 5 (MCP server). Phase 6 is implemented
+and merged (PR #22); its landing rests on rungs 1–2. External/community validation
+(ADR-0014 rung 3) remains an optional later maturity signal, tracked honestly as open,
+and never gated implementation or landing.

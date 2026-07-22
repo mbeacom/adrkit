@@ -3,9 +3,11 @@
 **Feature**: `009-catalog-binding-viability` | **Freezes**: FR-019, FR-024
 through FR-032, User Story 8 (all 3 acceptance scenarios), SC-012, SC-013.
 Companion to `data-model.md` §22 (`EvidenceBundle`), §23 (`Verdict`), §24
-(`NonBindingRecommendation`), `research.md` R12. Normative source: the
+(`NonBindingRecommendation`), `research.md` R12. Normative sources: the
 Ratification Record's Evidence Gate; ADR-0013's "Acceptance path for
-ADR-0007 and ADR-0009."
+ADR-0007 and ADR-0009"; and
+[ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)'s
+three-rung evidence ladder.
 
 ## 1. Evidence Bundle Completeness (FR-019)
 
@@ -15,11 +17,10 @@ missing any of the 16 required top-level `EvidenceBundle` fields
 succeeded — is **incomplete** and MUST NOT have a `verdict` recorded against
 it, mirroring `specs/008-spec-kit-hook-viability/contracts/evidence-bundle-and-verdict.md`
 §1's identical completeness rule for this project's sibling spike. If the
-verdict, together with this spec's two remaining execution gates having
-already cleared, jointly justify incorporating a summary into a tracked
-document, that incorporation happens through its own explicitly-scoped,
-separately-authorized subsequent PR — never as a side effect of running this
-spike.
+verdict, together with FR-027's satisfied execution preconditions, jointly
+justify incorporating a summary into a tracked document, that incorporation
+happens through its own explicitly-scoped, separately-authorized subsequent PR
+— never as a side effect of running this spike.
 
 ## 2. Verdict Decision Procedure — Fixed Precedence (SC-012)
 
@@ -89,20 +90,22 @@ resolved first (`recommendation = null`).
 ## 3. Neither Verdict Is the Hardened Contract's "Authoritative `go`" (FR-025, FR-029; SC-012)
 
 **None of the three verdicts is, or is described as, the hardened contract's
-separate "authoritative `go`" status.** That status additionally requires
-the independent-adopter oracle (FR-025) and is never reachable from this
-spike's own evidence alone, regardless of which verdict is recorded. This
-spike CAN and MUST mechanically demonstrate malformed/tampered/stale/
+separate "authoritative `go`" status or external / community validation
+(ADR-0014 rung 3).** This spike computes `go-explicit` from its in-scratch
+**maintainer-authored reference oracle**: FR-001's pinned public corpora,
+maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations,
+and independent adversarial review of those labels. External-adopter oracle
+evidence may later strengthen production maturity or a future, stronger
+`authoritative go`, but it is optional later evidence and not a pre-execution
+gate.
+
+This spike CAN and MUST mechanically demonstrate malformed/tampered/stale/
 misidentified snapshot rejection and repository isolation using its own
 synthetic fixtures (FR-034–FR-038, `contracts/snapshot-envelope.md`) — these
 are offline, generator/consumer-boundary properties requiring no adopter.
-What this spike explicitly **cannot** itself produce, and what remains
-exclusive to the authoritative `go` status, is an independent adopter's
-hand-labeled entity/path oracle and the zero-false-positive/negative
-precision guarantee over real, adopter-authored annotations that only that
-oracle can establish. `Verdict.authoritativeGoDistinctionStatement`
-(`data-model.md` §23) MUST be present, verbatim in substance, on **every**
-verdict this spike ever records — not conditioned on `outcome`.
+`Verdict.authoritativeGoDistinctionStatement` (`data-model.md` §23) MUST be
+present, verbatim in substance, on **every** verdict this spike ever records —
+not conditioned on `outcome`.
 
 ## 4. Non-Binding Recommendation (FR-026)
 
@@ -123,8 +126,9 @@ A `NonBindingRecommendation` (`data-model.md` §24) MUST include:
   ship, or live is a separate, later, maintainer decision this spike's
   evidence may inform but never decide.
 - `authoritativeGoDisclaimer` — states explicitly that this recommendation,
-  even under `go-explicit`, does not itself satisfy the independent-adopter
-  gate or the hardened contract's "authoritative `go`" status.
+  even under `go-explicit`, does not itself satisfy external / community
+  validation (ADR-0014 rung 3), optional later external-adopter evidence, or
+  the hardened contract's "authoritative `go`" status.
 - `productionAuthorizationClaimed: false` — a positively-named flag whose
   literal `false` reads plainly as "no production authorization is claimed."
   (Renamed from the earlier inverted `noProductionAuthorizationClaim: false`,
@@ -138,28 +142,27 @@ Every recorded verdict, unconditionally, MUST state:
 
 1. **(FR-030) Phase 6 credit-taking disclaimer**: this spike's own technical
    result does not itself satisfy, substitute for, or take credit for Phase 6
-   (`specs/007-arb-queue/`) landing, and MUST NOT assert its own verdict
-   caused or constitutes that landing. This is distinct from, and MUST NOT
-   be read as requiring the spike to falsely claim, that Phase 6 remains
-   permanently unlanded — by the time execution gate 1 clears,
-   `specs/007-arb-queue/tasks.md` T049 will itself have updated `plan.md`'s
-   Phase 6 row to `landed`, and this disclaimer is written to remain true
-   after that update, not to contradict it.
-2. **(FR-028) Governance credit-taking disclaimer**: this spike's output
-   MUST NOT claim or take credit for ADR-0012's acceptance or for ADR-0013's
-   resolution of ADR-0007/ADR-0009's status ambiguity — both are present
-   facts (`54dbae8` PR #26; `48087e8` PR #27) that occurred entirely
-   independently of this spike's own execution or verdict. The spike's
-   output may accurately cite them but must not frame either as something
-   the spike itself achieved.
-3. **(FR-029) Independent-adopter gate disclaimer**: this spike's output
-   MUST NOT claim or imply that its own verdict constitutes, causes, or
-   substitutes for the independent-adopter gate or the hardened contract's
+   (`specs/007-arb-queue/`) landing / reference-validation, and MUST NOT
+   assert its own verdict caused or constitutes that landing. Phase 6 is now
+   **landed / reference-validated** under ADR-0014 rungs 1–2 based on a
+   maintainer-owned isolated reference repository; it is not external /
+   community validation (ADR-0014 rung 3).
+2. **(FR-028) Governance credit-taking disclaimer**: this spike's output MUST
+   NOT claim or take credit for ADR-0012's acceptance, ADR-0013's resolution of
+   ADR-0007/ADR-0009's status ambiguity, or ADR-0014's governance change — all
+   are present facts that occurred independently of this spike's own execution
+   or verdict. The spike's output may accurately cite them but must not frame
+   any as something the spike itself achieved.
+3. **(FR-029) External-adopter maturity disclaimer**: this spike's output MUST
+   NOT claim or imply that its own verdict constitutes, causes, or substitutes
+   for external / community validation (ADR-0014 rung 3), optional later
+   external-adopter production-maturity evidence, or the hardened contract's
    "authoritative `go`" status, regardless of which verdict is recorded.
 
 `Verdict.gateDisclaimers` (`data-model.md` §23) is a fixed literal
-`{ phase6NotCausedByThisSpike: true, independentAdopterGateNotCausedByThisSpike:
-true, governancePreconditionsAlreadySatisfiedIndependently: true }` present
+`{ phase6NotCausedByThisSpike: true, externalCommunityValidationNotClaimed:
+true, governancePreconditionsAlreadySatisfiedIndependently: true,
+independentAdopterEvidenceOptionalLaterMaturity: true }` present
 unconditionally on every verdict — never contingent on `outcome`.
 
 ## 6. Cross-Reference Requirement (User Story 8's Independent Test)

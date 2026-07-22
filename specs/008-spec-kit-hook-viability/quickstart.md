@@ -2,22 +2,22 @@
 
 **Feature**: `008-spec-kit-hook-viability` | **Companion to**: [plan.md](./plan.md), [data-model.md](./data-model.md), [contracts/](./contracts/)
 
-> ⛔ **NOT RUNNABLE TODAY.** This guide describes the steps a *future*
-> execution session runs, only after **both** gates in `spec.md`'s banner
-> have cleared:
+> ✅ **Governance gates satisfied — spike execution authorized once this migration merges; tasks remain unchecked until executed.**
+> This guide describes the steps a future execution session runs after it records
+> `GATE_PASS = true` in `tasks.md` T003:
 >
-> 1. **Phase 6 gate** — `specs/007-arb-queue/spec.md` SC-004, tracked as
->    `specs/007-arb-queue/tasks.md` **T048**/**T049**. **Open as of this
->    plan's authoring.**
-> 2. **This spike's own maintainer-ratification gate** — satisfied 2026-07-21
->    per `spec.md`'s Ratification Record.
+> 1. **Phase 6 gate — satisfied.** Phase 6 (`specs/007-arb-queue/`) is landed /
+>    reference-validated under
+>    [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+>    not externally validated; `specs/007-arb-queue/tasks.md` **T048**/**T049** read `- [X]`.
+> 2. **This spike's own maintainer-ratification gate — satisfied 2026-07-21** per
+>    `spec.md`'s Ratification Record.
 >
-> If you are reading this and gate 1 is still open, **stop**. Do not run any
-> command below. Check `specs/007-arb-queue/tasks.md` T048/T049 status first.
-> This guide's existence is advance scoping, not authorization (root
-> `plan.md`'s "Advance scoping ... is explicitly permitted" note).
+> The guide's existence is advance scoping; actually running these steps remains work for a
+> future execution session, and every 008 task checkbox remains unchecked until that session
+> runs it.
 
-## Prerequisites (once both gates clear)
+## Prerequisites (once this migration merges and T003 records `GATE_PASS = true`)
 
 - `specify-cli` v0.13.0 already installed (per spec.md A2 — no reinstall
   expected; only re-verify, per Step 0).
@@ -193,7 +193,8 @@ directory (never this repository — `research.md` R3/R4). If the verdict is
 `go` or `manual-command-only`, append the non-binding recommendation per
 `contracts/evidence-bundle-and-verdict.md` §3, with
 `releaseVehicleDecision` fixed `null`. State explicitly, per §4 of that same
-contract, that Phase 6 remains not landed regardless of this verdict.
+contract, that Phase 6 is landed / reference-validated (not externally validated), and that
+this spike did not cause or advance that status.
 
 ## Step 8 — Cleanup
 
@@ -206,14 +207,15 @@ contract, that Phase 6 remains not landed regardless of this verdict.
   nothing related to this spike).
 - Report the evidence bundle and verdict per this plan's Completion Report
   and this task's instruction to message the coordinating session — never
-  open a PR, never commit the fixture, never claim Phase 6 landed.
+  open a PR, never commit the fixture, never claim Phase 6 external / community validation
+  (ADR-0014 rung 3).
 
 ## What This Guide Deliberately Does Not Do
 
 - It does not scaffold `packages/adapters/spec-kit` — that is out of scope
   for this entire feature (spec.md Out of Scope).
-- It does not generate `tasks.md` — that is Phase 2, deferred until gate 1
-  clears (this plan's banner).
+- It does not generate `tasks.md` — that was Phase 2 advance scoping; the existing tasks
+  remain unchecked until actually executed.
 - It does not decide where a future production adapter would publish or
   ship — `contracts/evidence-bundle-and-verdict.md` §3 fixes
   `releaseVehicleDecision` as permanently `null`.

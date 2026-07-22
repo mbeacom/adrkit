@@ -135,7 +135,7 @@ leaving to prose.
 | `noGoTrigger` | `string` \| `null` | If `outcome === "no-go"`: which specific trigger fired — one of `"mutation"`, `"disable-or-remove-failed"`, `"failure-probe-unsafe"`, `"hook-never-fired"`. `null` otherwise. |
 | `manualCommandOnlyShortfall` | `string` \| `null` | If `outcome === "manual-command-only"`: which specific, non-unsafe shortfall caused the fallback — at minimum one of the two named cases in SC-007 (`"hook-unreliable-or-context-starved"`, `"second-agent-rendering-partial-or-failed"`) or a free-text description of another non-unsafe shortfall SC-007's "any other" clause covers. `null` otherwise. |
 | `recommendation` | `NonBindingRecommendation` \| `null` | Required (non-null) when `outcome` is `"go"` or `"manual-command-only"` (FR-019/spec.md Output Recommendation section); MUST be `null` when `outcome === "no-go"` — a `no-go` verdict recommends nothing (spec.md: "No production Spec Kit integration is recommended at this time"). See `contracts/evidence-bundle-and-verdict.md`. |
-| `phase6LandedClaim` | `false` (fixed literal) | SC-008: every verdict, regardless of `outcome`, explicitly states Phase 6 is not landed. This field is a literal `false` precisely so no future edit can silently flip it. |
+| `phase6ExternalValidationClaim` | `false` (fixed literal) | SC-008: every verdict, regardless of `outcome`, explicitly states Phase 6 is landed / reference-validated (not externally validated), that external / community validation (ADR-0014 rung 3) remains absent unless separately evidenced, and that this spike did not cause or advance Phase 6's status. |
 
 **Validation rules** (structural encoding of SC-007's precedence, restated
 from `contracts/evidence-bundle-and-verdict.md` for entity-level completeness):

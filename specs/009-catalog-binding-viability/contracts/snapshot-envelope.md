@@ -240,8 +240,8 @@ only a downstream **consumer** behavior across separately-generated files.
 | 5 | Repository isolation | Two fully valid envelopes, two distinct repository IDs, queried together scoped to one | **Accepts both**; query returns only the scoped repository's entities |
 
 Every check above MUST be demonstrated using **only synthetic fixtures, with
-no adopter oracle involved** — these are mechanical, offline
+no external adopter involved** — these are mechanical, offline
 generator/consumer-boundary properties this spike genuinely can prove,
-explicitly distinct from, and insufficient by itself to satisfy, the
-adopter-oracle-dependent portion of the Evidence Gate's "authoritative `go`"
-requirement (see `contracts/evidence-bundle-and-verdict.md`).
+explicitly distinct from, and insufficient by themselves to claim, external /
+community validation (ADR-0014 rung 3) or the stronger "authoritative `go`"
+status (see `contracts/evidence-bundle-and-verdict.md`).

@@ -9,7 +9,7 @@ tags: [governance, architecture, packaging, catalog]
 scope: org
 reversibility: one-way-door
 blastRadius: org
-relatesTo: ["0007", "0009", "0012"]
+relatesTo: ["0007", "0009", "0012", "0014"]
 affects:
   - type: path
     pattern: "packages/adapters/catalog-*/**"
@@ -115,11 +115,19 @@ constraint, pinned affects semantics — remain authoritative and unchanged.
 Either record moves to `accepted` only in its own explicit, reviewed decision once
 its blockers clear:
 
-1. Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 clear.
+1. Phase 6 `specs/007-arb-queue/tasks.md` T048/T049 clear. **(Satisfied
+   2026-07-22: Phase 6 is landed / reference-validated on rungs 1–2 of
+   [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md);
+   T048/T049 complete.)**
 2. Non-shipping spike evidence from `specs/009-catalog-binding-viability/`,
    including a versioned interchange envelope and the security/scale measurements
    named in ADR-0012.
-3. An independent adopter validates real entity/path outcomes.
+3. A **maintainer-authored reference oracle** (synthetic explicit annotations over
+   pinned public corpora under independent adversarial review) validates real
+   entity/path outcomes, per
+   [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md).
+   External/community adopter validation is an **optional later maturity signal**
+   (ADR-0014 rung 3), not a hard gate.
 4. Clean-clone / offline / adapter-boundary / release evidence passes (for
    ADR-0007, its `core-has-no-adapter-deps` and `clean-clone-builds` assertions
    stay green throughout).

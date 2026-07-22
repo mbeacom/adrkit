@@ -2,19 +2,23 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–5 landed and v0.2.0 is public. `@adrkit/core`,
+Status: early — phases 0–6 landed and v0.2.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `migrate --from madr`, `evaluate`) are published on npm; the
 repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
 The published `@adrkit/mcp` server has exactly four local stdio tools and passed
-real-session dogfood through the official MCP Inspector. Phase 6 ARB queue
-implementation is in progress under `specs/007-arb-queue/` (see
-[`plan.md`](./plan.md)): the pure `buildQueueReport` kernel and canonical
-JSON/Markdown formatters live in `@adrkit/core`, the `adr queue` CLI subcommand
-ships in `@adrkit/cli`, and a managed-issue queue Action lives in the private
-`@adrkit/ci` (`packages/ci/queue/action.yml`, bundled to
-`packages/ci/dist/queue-action.js`). The external-team rung 6 exit gate (SC-004)
-is still outstanding, so Phase 6 is not yet landed.
+real-session dogfood through the official MCP Inspector. Phase 6 ARB queue is
+implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure
+`buildQueueReport` kernel and canonical JSON/Markdown formatters live in
+`@adrkit/core`, the `adr queue` CLI subcommand ships in `@adrkit/cli`, and a
+managed-issue queue Action lives in the private `@adrkit/ci`
+(`packages/ci/queue/action.yml`, bundled to `packages/ci/dist/queue-action.js`).
+Phase 6 is **landed / reference-validated** on rungs 1–2 of the
+[ADR-0014](./docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+evidence ladder — unit/contract/conformance plus maintainer-owned isolated
+reference-repository validation ([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood),
+queue Action pinned at `efef89b`). It is **not** yet externally validated; the
+rung-3 external/community signal is tracked honestly as open.
 
 ## `adr queue`
 

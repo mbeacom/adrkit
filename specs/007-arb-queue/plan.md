@@ -25,13 +25,15 @@ published artifacts), and
 [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md)
 Principles I–V (v1.0.2).
 
-> ⏳ **Phase 6 scoped; implementation not yet started.** Scoping (spec → plan →
-> tasks) is permitted now that Phase 5 / rung 5 is landed (PR #19, v0.2.0).
-> Task generation and implementation may proceed on the basis of this plan.
-> **Rung 6 may not be claimed as landed** until SC-004 clears: a team that is
-> not the maintainer's own completes a separate-repository dogfood with the full
-> exit criteria from FR-019 (Assumption A7). SC-004 is the *exit/release gate*,
-> not a pre-implementation gate.
+> ✅ **Phase 6 landed / reference-validated.** Scoping, task generation, and
+> implementation are complete (PR #22, `efef89b`). Phase 6 **lands** on rungs 1–2
+> of the [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+> evidence ladder: unit/contract/conformance evidence plus maintainer-owned
+> isolated reference-repository validation. Rung 2 is met by the reference
+> repository [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
+> (see [checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md)).
+> Phase 6 is **not** externally validated (ADR-0014 rung 3); that external/community
+> signal is tracked honestly as open and never gates landing.
 
 ## Summary
 
@@ -211,7 +213,7 @@ are resolved. Summary of binding decisions:
 - **R7 Test strategy**: unit + integration + fake-client + bundle-smoke + dependency-graph; see research.md §R7
 - **R8 Constitution**: All five principles PASS; see Constitution Check above
 - **R9 Primitive reuse**: `canonicalStringify`/`fingerprintOf`/`compareCodeUnits`/`compareFindings`/`sortFindingsCanonical`/`sortByIdThenPath` promoted to `@adrkit/core`; MCP migrates imports; fingerprint input uses original core `Finding[]` (not queue-mapped `CorpusFinding[]`)
-- **R10 Status drift**: Phase 5 merged, v0.2.0 published; Phase 6 scoped only; rung-6 gate preserved
+- **R10 Status drift**: Phase 5 merged, v0.2.0 published; Phase 6 landed / reference-validated (PR #22); rung-2 reference-validation gate met, rung-3 external validation open
 
 ## Phase 1: Design Artifacts
 
@@ -233,7 +235,7 @@ All Phase 1 artifacts are generated:
   issue discovery algorithm, state-machine transitions, error matrix, no-partial-write
   rule, and permissions documentation.
 - **[quickstart.md](./quickstart.md)**: Runnable validation scenarios for CLI and
-  Action with fixture corpus setup, expected outputs, and rung-6 exit criteria.
+  Action with fixture corpus setup, expected outputs, and rung-2 reference-validation criteria.
 
 ## Constitution Check (Post-Design)
 
@@ -252,7 +254,9 @@ All Phase 1 artifacts are generated:
 ## Phase 2: Task Generation
 
 Task generation is complete: [tasks.md](./tasks.md) defines T001–T049. All design
-artifacts are complete. **Rung 6 may not be claimed as landed** until SC-004 clears: a
-separate-team, separate-repository dogfood must pass the full FR-019 exit criteria
-(Assumption A7). That is an *exit/release gate* — it does not block task generation
-or implementation work.
+artifacts are complete. Phase 6 is **landed / reference-validated** (ADR-0014 rungs
+1–2): the rung-2 gate is met by the maintainer-owned isolated reference repository
+per [checklists/reference-validation-evidence.md](./checklists/reference-validation-evidence.md)
+(SC-004 as reference-validation; the FR-019 exit criteria are all exercised there).
+External/community validation (ADR-0014 rung 3) remains an optional later maturity
+signal and never blocked implementation or landing.

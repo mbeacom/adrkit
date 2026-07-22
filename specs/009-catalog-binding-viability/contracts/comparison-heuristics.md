@@ -82,12 +82,12 @@ general rule this contract must handle), its `precision = TP / (TP + FP) =
 own defined `precision`/`falsePositiveRate` are still reported normally on
 the same row set.
 
-**This is explicitly labeled a proxy, never a substitute for an adopter
-oracle**: every row produced under `measurementLevel: "synthetic-precision"`
-MUST be explicitly labeled as measured against a spike-authored proxy
-oracle, not an adopter-authored one, and therefore insufficient by itself to
-satisfy `contracts/evidence-bundle-and-verdict.md`'s Evidence Gate
-"authoritative `go`" requirement.
+**This is explicitly labeled a proxy, never external-adopter production-maturity
+evidence**: every row produced under `measurementLevel: "synthetic-precision"`
+MUST be explicitly labeled as measured against a spike-authored proxy oracle,
+not an external-adopter oracle, and therefore insufficient by itself to claim
+external / community validation (ADR-0014 rung 3) or the stronger
+"authoritative `go`" status.
 
 ## 4. Option D — Confirmed No-Effect, Using Unmodified Core Code (User Story 4)
 

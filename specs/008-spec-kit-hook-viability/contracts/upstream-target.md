@@ -109,8 +109,10 @@ hooks:
 
 ## 3. Fail-Closed Re-Verification Procedure (FR-001)
 
-Before any other spike step, and only after both gates in `spec.md`'s banner
-have cleared:
+Before any other spike step, and only after the governance gates in `spec.md`'s
+banner are satisfied (both now are — Phase 6 is landed / reference-validated per
+ADR-0014, and maintainer ratification is recorded — so execution is authorized once
+this migration merges):
 
 1. Query the upstream repository for what `refs/tags/v0.13.0` currently
    resolves to (e.g. `git ls-remote --tags https://github.com/github/spec-kit v0.13.0`,

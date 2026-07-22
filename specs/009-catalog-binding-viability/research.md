@@ -626,11 +626,11 @@ exists to remove.
 A fresh-context, adversarial reader test of this complete planning set
 (`plan.md`, `research.md` (this file), `data-model.md`, `quickstart.md`, all
 eleven `contracts/*.md` files) against `spec.md`, ADR-0012, ADR-0013,
-ADR-0009, ADR-0007, `.specify/memory/constitution.md`,
+ADR-0014, ADR-0009, ADR-0007, `.specify/memory/constitution.md`,
 `packages/core/src/affects/catalog.ts`/`inert.ts`/`matchers/path.ts`,
 `packages/core/src/fingerprint/index.ts`, `packages/core/src/ordering/index.ts`,
-root `plan.md`, and `specs/007-arb-queue/tasks.md` (to independently confirm
-T048/T049's status) was performed by a dedicated review agent running
+root `plan.md`, and `specs/007-arb-queue/tasks.md` (to independently confirm the then-current
+T048/T049 status) was performed by a dedicated review agent running
 GPT-5.6 Sol at high reasoning effort — a high-capability model distinct from
 this session's own Claude Sonnet 5, per this task's "Reader-test... with
 Opus 4.8 or GPT-5.6 Sol" instruction — reading with a fresh context and no
@@ -638,16 +638,18 @@ authoring history, explicitly instructed to check citation accuracy,
 internal consistency across every file, scope-violation risk, coverage
 against every FR/SC/User Story/Assumption, technical accuracy of every
 referenced core source file and dependency version, Constitution Check
-accuracy, and the T048/T049 gate status independently.
+accuracy, and the T048/T049 status independently. ADR-0014 later superseded this historical
+reader-test snapshot's external-actor gate framing.
 
 ### Verdict
 
 No critical findings. The review found **9 high**, **7 medium**, and **4
 low/nit** findings. Corpus counts (156/38/23/0), the three pinned commit
 SHAs, ADR statuses, `picomatch@4.0.5`/`yaml@2.9.0` dependency versions, the
-Constitution Check's five-principle coverage, and T048/T049's unchecked
-status were all independently confirmed accurate and required no
-correction.
+Constitution Check's five-principle coverage, and the then-current Phase 6 task status were
+all independently confirmed accurate at that time. Under the later ADR-0014
+migration, Phase 6 is now landed / reference-validated and T048/T049 are checked; this
+historical reader-test result is retained only as provenance.
 
 ### High-severity findings and remediation (all 9 addressed)
 

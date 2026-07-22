@@ -3,7 +3,8 @@
 **Feature**: `009-catalog-binding-viability` | **Freezes**: FR-003, FR-008,
 User Story 1 (all 8 acceptance scenarios), SC-001, SC-004. Companion to
 `data-model.md` §1 (`OwnedPathsAnnotation`), §8 (`CatalogEntityRecord`).
-Normative source: ADR-0012 "The annotation."
+Normative source: ADR-0012 "The annotation." ADR-0014 affects only execution-gate and
+maturity-label framing; it does not change this annotation decoding/validation contract.
 
 ## 1. Decode-Then-Validate Order (FR-003)
 

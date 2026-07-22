@@ -16,7 +16,11 @@ legible to agents — without leaving git.
 > resolution, in-place MADR migration, and the offline eleven-rule Pass 0. The
 > MCP server exposes its exact four-tool, local-only boundary and passed
 > real-session dogfood through the official MCP Inspector. The Phase 6 ARB queue
-> is fully scoped but not implemented. Also not yet built: the later probabilistic
+> (`adr queue` plus the managed-issue GitHub Action) is implemented and **landed /
+> reference-validated** through a maintainer-owned isolated reference repository —
+> it is **not** yet externally validated (see
+> [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)).
+> Also not yet built: the later probabilistic
 > passes (Passes 1–3). See [`plan.md`](./plan.md).
 
 ---
@@ -83,6 +87,10 @@ answer where the next decision is actually being made.
   ([0004](docs/adr/)); runs with only the default `GITHUB_TOKEN` on the `node24`
   runner from a committed self-contained bundle, and degrades (never fails the job)
   on a read-only fork token
+- **`adr queue`** — emit the ARB operations queue: a read-only, deterministic
+  projection of the corpus's `review` metadata (tiers, SLA state, approvals,
+  objections) as Markdown or `QueueReport` v1 JSON; also available as a
+  managed-issue GitHub Action
 - **MCP server** — let agents retrieve prior decisions, including the rejected
   ones, before proposing something already tried
 - **Evaluator** — score proposals against a published rubric and route them;
@@ -152,6 +160,35 @@ steps:
 
 All four npm packages, immutable `v0.2.0` release, and moving `v0` Action tag are
 live. Source checkouts can also run the CLI with `bun run adr`.
+
+### ARB operations queue (`adr queue`)
+
+Emit the ARB operations queue — a read-only, deterministic projection of the local
+corpus — to stdout:
+
+```sh
+adr queue --dir docs/adr --format markdown      # or --format json (QueueReport v1)
+adr queue --as-of 2026-01-08                     # UTC date used for SLA state
+```
+
+Identical inputs produce byte-for-byte identical output. Exit codes: `0` clean,
+`1` report emitted with error-severity corpus findings, `2` usage error.
+
+A managed-issue GitHub Action (`packages/ci/queue`) creates or updates exactly one
+dedicated issue whose body carries the deterministic Markdown report, using only the
+default `GITHUB_TOKEN` with `issues: write`. Phase 6 is landed / reference-validated
+(see [`plan.md`](./plan.md)); pin the queue Action to an immutable commit SHA until a
+moving `queue@v0` tag is published:
+
+```yaml
+permissions:
+  contents: read
+  issues: write
+
+steps:
+  - uses: actions/checkout@v4
+  - uses: mbeacom/adrkit/packages/ci/queue@efef89b5d747ca175a1947f1ce2f4296dab54fa3
+```
 
 ## Design commitments
 

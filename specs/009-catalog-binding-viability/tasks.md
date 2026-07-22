@@ -19,7 +19,9 @@ description: "Dependency-ordered task list for the Catalog Entity-to-Path Bindin
 contract, the restricted glob dialect, atomic fail-closed semantics, the repository boundary,
 and the versioned-envelope requirement), [ADR-0013](../../docs/adr/0013-reconcile-adapter-isolation-and-catalog-binding-with-the-offline-snapshot-genera.md)
 (`status: accepted`, PR #27, `48087e8` — reconciles ADR-0007/ADR-0009's narrowed clauses while
-deliberately holding both `proposed`), [ADR-0009](../../docs/adr/0009-affects-resolution-and-catalog-binding.md)
+deliberately holding both `proposed`), [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+(`status: accepted` — replaces external-actor hard gates with the three-rung evidence ladder),
+[ADR-0009](../../docs/adr/0009-affects-resolution-and-catalog-binding.md)
 (`status: proposed`; the `entity` matcher grammar and the `CatalogPort`/`CatalogSnapshot`
 contract this spike measures a candidate producer for), [ADR-0007](../../docs/adr/0007-adapter-isolation-and-public-surface-build.md)
 (`status: proposed`; adapter isolation, clean-clone/credential-free/network-free build and
@@ -29,50 +31,40 @@ Principles I–V.
 **Generated**: 2026-07-21, as a follow-up advance-scoping session to
 `specs/009-catalog-binding-viability/plan.md` (same date), under root `plan.md`'s explicit
 "Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted" exemption
-— generating this checklist is scoping, not execution, so it does not itself require either
-remaining gate to clear. **Nothing in this file may be executed until both gates clear**
-(Phase 1 below is the hard mechanical block that enforces this; as generated, Phase 1's own
-gate check reads `GATE_PASS = false` — see T004). **No task in this file is marked complete by
-this planning/scoping session** — every checkbox below is `- [ ]` as generated.
+— generating this checklist is scoping, not execution. ADR-0014 now satisfies the Phase 6
+precondition and removes the independent-adopter pre-execution gate, so execution is authorized
+once this migration merges; Phase 1 below records that satisfied basis and computes
+`GATE_PASS = true` when re-run. **No task in this file is marked complete by this migration** —
+every checkbox below remains `- [ ]` until actually executed.
 
-> ⛔ **Two open execution gates — reproduced verbatim from `spec.md`'s banner and `plan.md`'s
-> banner; this file does not relax either, and adds a mechanical enforcement of both as Phase 1.**
+> ✅ **Governance preconditions satisfied; spike execution authorized once this migration
+> merges; Phase 1 records the satisfied basis before execution starts.**
 >
-> **Satisfied preconditions (not gates).** Maintainer scoping/contract ratification (adrkit
-> issue #25, both 2026-07-21 decisions), catalog-binding convention governance
+> **Satisfied preconditions.** Maintainer scoping/contract ratification (adrkit issue #25,
+> both 2026-07-21 decisions), catalog-binding convention governance
 > ([ADR-0012](../../docs/adr/0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md),
-> `accepted`, `54dbae8`), and the adapter-isolation/catalog-binding reconciliation
+> `accepted`, `54dbae8`), the adapter-isolation/catalog-binding reconciliation
 > ([ADR-0013](../../docs/adr/0013-reconcile-adapter-isolation-and-catalog-binding-with-the-offline-snapshot-genera.md),
-> `accepted`, `48087e8`) are all **satisfied**, never outstanding. ADR-0007/ADR-0009 remaining
-> `status: proposed` with documented blockers is this precondition's satisfied, final
-> disposition — not an execution gate; requiring their own eventual acceptance before this
-> spike's execution would be circular, since ADR-0013's own acceptance path for them lists this
-> spike's evidence among the preconditions for *their* acceptance.
+> `accepted`, `48087e8`), and the phase-landing evidence policy
+> ([ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+> `accepted`) are all **satisfied**.
 >
-> **Open execution gates.** Both must clear before any task in Phase 2 onward may begin:
+> **Phase 6 status.** Phase 6 is **landed / reference-validated** on ADR-0014 rungs 1–2:
+> `specs/007-arb-queue/tasks.md` **T048** and **T049** read `- [X]`, and root `plan.md` records
+> the `specs/007-arb-queue/` row as `landed / reference-validated`. The evidence is the
+> **maintainer-owned isolated reference repository** <https://github.com/mbeacom/adrkit-t018-dogfood>,
+> not an external team and not external / community validation (ADR-0014 rung 3).
 >
-> 1. **Phase 6 gate (open).** `specs/007-arb-queue/spec.md` SC-004 (the external-team,
->    separate-repository dogfood exit gate), tracked as `specs/007-arb-queue/tasks.md` **T048**
->    (gate) with dependent **T049** (doc flip to `landed`). Both confirmed `- [ ]` (unchecked) as
->    of this file's generation, `main` at `48087e8`; root `plan.md`'s Spec-kit realization table
->    records the `specs/007-arb-queue/` row as "implementation in progress ... external-team
->    rung 6 exit gate (SC-004) outstanding" — not `landed`. *Disambiguation:* an unrelated,
->    already-completed `T048`/`T049` pair exists in `specs/005-deterministic-evaluator/tasks.md`
->    — that is not this gate.
-> 2. **Independent-adopter gate (open).** An adopter other than the maintainer must author real
->    `adrkit.io/owned-paths` annotations against their own real catalog and provide a
->    hand-labeled entity/path oracle this spike cannot itself construct. Sampling the two
->    pinned public Backstage-ecosystem corpora is read-only research grounding, not that
->    adopter (Assumption A5) — neither carries the annotation at all. **As of this file's
->    generation, no such adopter or oracle has been identified or made available to this
->    project; this gate is outstanding, mechanically, not merely unconfirmed.**
+> **Independent-adopter status.** There is no independent-adopter pre-execution gate. The spike
+> builds a **maintainer-authored reference oracle** in scratch from FR-001's pinned public
+> corpora, maintainer-authored synthetic explicit `adrkit.io/owned-paths` annotations, and
+> independent adversarial review. External-adopter evidence is optional later production-maturity
+> evidence for a future, stronger "authoritative `go`" only.
 >
-> **T001–T004 below exist to make this mechanical rather than advisory.** No task in Phase 2
-> onward may begin — no scratch directory created, no corpus clone fetched beyond the frozen
-> SHAs FR-001 already cites, no fixture file written, no evidence file written — until T004
-> records a `GATE_PASS` result. **As generated, `GATE_PASS = false`** (both gates above are
-> open). If a future execution session re-runs T001–T004 and finds either gate still open, it
-> MUST stop at T004 and perform no further task in this file, full stop.
+> **T001–T004 below make this mechanical.** T004 now computes `GATE_PASS = gate1Pass AND
+> governancePreconditionsSatisfied`; the independent-adopter term is removed. Current expected
+> result after this migration merges: `GATE_PASS = true`. All tasks remain unchecked until
+> actually executed.
 
 **Tests**: This spike has no `bun test` suite of its own — it is not a workspace package.
 "Tests" here are the fixed exit-code/rejection-reason contracts across all eleven
@@ -156,8 +148,9 @@ a model change. **Opus 4.6 MUST NOT be used for any task in this file, under any
 - `<THIS_REPO>` — this repository's own root (`mbeacom/adrkit`), used only for: (a) reading
   `packages/core/src/affects/catalog.ts`/`inert.ts`/`matchers/path.ts` (never modifying them,
   FR-020), (b) the final zero-tracked-mutation confirmation (T080, T089–T090 equivalents), and
-  (c) reading `specs/007-arb-queue/tasks.md` and root `plan.md` for the Phase 6 gate check
-  (T001). No task other than these ever writes inside `<THIS_REPO>` as a net effect.
+  (c) reading `specs/007-arb-queue/tasks.md` and root `plan.md` for the Phase 6
+  landed/reference-validated check (T001). No task other than these ever writes inside
+  `<THIS_REPO>` as a net effect.
 
 ## Task-Level Design Decision: The Primary-Synthetic Pass's Entity Set
 
@@ -193,76 +186,66 @@ inside a produced `SnapshotEnvelope`.
 
 ## Phase 1: Gate Verification (hard block — no story label)
 
-**Purpose**: Mechanically verify both halves of `spec.md`'s double gate before any scratch
-artifact, corpus clone, or evidence-gathering step exists. This phase produces no scratch file
-and touches no path outside direct, read-only inspection of files already tracked in this
-repository (or, for T002, a defined read of whether an external adopter/oracle intake record
-exists at all).
+**Purpose**: Mechanically record the satisfied execution basis before any scratch artifact,
+corpus clone, or evidence-gathering step exists. This phase produces only the gate-check record
+and touches no path outside direct, read-only inspection of already-tracked repository files.
 
 **⚠️ CRITICAL**: If T004 does not record `GATE_PASS = true`, **stop here**. Do not proceed to
 Phase 2 or any later phase. Do not create `<GENERAL_SCRATCH>`, `<SYNTHETIC_REPO>`,
-`<MISMATCH_REPO>`, `<SECOND_REPO>`, any corpus clone, or `<EVIDENCE_DIR>`. Report the gate
-failure (which half failed, and its current state) to the coordinating session and end.
+`<MISMATCH_REPO>`, `<SECOND_REPO>`, any corpus clone, or `<EVIDENCE_DIR>` beyond
+`gate-check.json`. Report the failed precondition and end.
 
-- [ ] T001 Verify gate 1 (Phase 6). Read, in this order: (a) `specs/007-arb-queue/tasks.md` —
-  confirm the literal checkbox state of **T048** ("(SC-004) External dogfood gate...") and
-  **T049** ("After SC-004 (T048) clears: update root `plan.md` Phase 6 row to `landed`..."); both
-  MUST read `- [X]` (checked/complete) for gate 1 to pass — either being `- [ ]` fails this
-  check. (b) root `plan.md`'s Spec-kit realization table — confirm the `specs/007-arb-queue/`
-  row's Status column reads `landed` (not "implementation in progress" or any other
-  in-progress phrasing). **Output**: a single boolean `gate1Pass` plus the verbatim text of
-  both source lines and the table row, recorded to `<EVIDENCE_DIR>/gate-check.json` (this one
-  file may be created before any scratch workspace exists, since it is a pure read of
-  already-tracked repository files). **As of this task list's own generation (2026-07-21),
-  this check FAILS**: T048/T049 both read `- [ ]`, and the `plan.md` row reads "implementation
-  in progress ... external-team rung 6 exit gate (SC-004) outstanding." A future execution
-  session MUST re-run this exact check itself at whatever date it actually executes — this
-  note is a snapshot, not a substitute for re-verification.
+- [ ] T001 Verify gate 1 (Phase 6 landed / reference-validated). Read, in this order: (a)
+  `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048** (the Phase 6
+  SC-004/rung-2 validation task) and **T049** (the doc flip to landed/reference-validated);
+  both MUST read `- [X]` (checked/complete) for `gate1Pass` to pass. (b) root `plan.md`'s
+  Spec-kit realization table — confirm the `specs/007-arb-queue/` row's Status column reads
+  `landed / reference-validated`. **Output**: `gate1Pass` plus the verbatim text of both source
+  lines and the table row, recorded to `<EVIDENCE_DIR>/gate-check.json`. **Current snapshot now
+  passes**: Phase 6 T048/T049 read `- [X]`, and the `plan.md` row reads `landed /
+  reference-validated`. A future execution session MUST re-run this exact check itself at
+  whatever date it actually executes — this note is a snapshot, not a substitute for
+  re-verification.
 
-- [ ] T002 Verify gate 2 (independent-adopter oracle). Confirm whether an adopter other than
-  the maintainer has authored real `adrkit.io/owned-paths` annotations against their own real
-  catalog and provided a hand-labeled entity/path oracle (Assumption A5; FR-027(b)). This is a
-  mechanical, not a rhetorical, check: look for an actual adopter-oracle intake artifact (e.g.
-  a dated maintainer/coordinator record naming the adopter, the annotated catalog, and the
-  oracle's location) anywhere this session has visibility into; sampling
-  `backstage/community-plugins` or `redhat-developer/rhdh-plugins` (Assumption A2) does **not**
-  satisfy this check regardless of how thoroughly they are sampled, since neither carries the
-  annotation at all. **Output**: `gate2Pass` (boolean) plus, if `false`, an explicit statement
-  that no such intake artifact exists, recorded to `<EVIDENCE_DIR>/gate-check.json` alongside
-  T001's fields — never silently assumed satisfied by the mere absence of a contradicting
-  record. **As of this task list's own generation, no adopter or oracle has been identified;
-  `gate2Pass = false`.**
+- [ ] T002 Verify the removed independent-adopter pre-execution gate and the in-spike oracle
+  basis. Confirm from `spec.md` FR-025, FR-027, and A5 that there is **no** independent-adopter
+  pre-execution gate: the spike builds its own **maintainer-authored reference oracle** inside
+  the scratch workspace from FR-001's pinned public corpora, maintainer-authored synthetic
+  explicit `adrkit.io/owned-paths` annotations, and independent adversarial review. Record
+  `independentAdopterPreExecutionGateRemoved: true`,
+  `maintainerAuthoredReferenceOracleRequired: true`, and
+  `externalAdopterEvidenceOptionalLaterMaturity: true` in `<EVIDENCE_DIR>/gate-check.json`.
+  Do **not** compute a blocking `gate2Pass` boolean; external-adopter evidence remains optional
+  later production-maturity evidence only and is not an input to T004.
 
-- [ ] T003 Restate the satisfied governance preconditions (not gates), so T004's `GATE_PASS`
-  computation is never conflated with them. Confirm and record to
-  `<EVIDENCE_DIR>/gate-check.json`: (a) maintainer scoping/contract ratification (adrkit issue
-  #25, both 2026-07-21 decisions, per `spec.md`'s Ratification Record); (b) catalog-binding
-  convention governance — ADR-0012 `status: accepted` (PR #26, `54dbae8`); (c) the
-  adapter-isolation/catalog-binding reconciliation — ADR-0013 `status: accepted` (PR #27,
-  `48087e8`), which discharges issue #25's "accepted/amended or explicitly recorded as
+- [ ] T003 Restate the satisfied governance preconditions (not separate gates), so T004's
+  `GATE_PASS` computation is never conflated with historical external-actor gates. Confirm and
+  record to `<EVIDENCE_DIR>/gate-check.json`: (a) maintainer scoping/contract ratification
+  (adrkit issue #25, both 2026-07-21 decisions, per `spec.md`'s Ratification Record); (b)
+  catalog-binding convention governance — ADR-0012 `status: accepted` (PR #26, `54dbae8`);
+  (c) the adapter-isolation/catalog-binding reconciliation — ADR-0013 `status: accepted` (PR
+  #27, `48087e8`), which discharges issue #25's "accepted/amended or explicitly recorded as
   blocking" requirement for ADR-0007/ADR-0009 by taking the amended-and-explicitly-blocked
-  branch. Record all three as `satisfied: true`, explicitly distinct from `gate1Pass`/
-  `gate2Pass` above — **satisfying these three does not satisfy either open gate**, and
-  ADR-0007/ADR-0009's own eventual acceptance (as distinct from this already-satisfied
-  status-ambiguity resolution) remains a separate, later, non-gating matter this spike does
-  not perform and does not require (FR-027, FR-032).
+  branch; and (d) phase-landing evidence policy — ADR-0014 `status: accepted`, replacing
+  external-actor hard gates with the three-rung evidence ladder. Record
+  `governancePreconditionsSatisfied: true`. ADR-0007/ADR-0009's own eventual acceptance remains
+  a separate, later, non-gating matter this spike does not perform and does not require.
 
 - [ ] T004 Gate decision checkpoint. Depends on: T001, T002, T003. Compute `GATE_PASS =
-  gate1Pass AND gate2Pass` (T003's three satisfied preconditions are never inputs to this
-  formula — they are recorded context, not gate terms) and write it as the top-level field in
-  `<EVIDENCE_DIR>/gate-check.json`. **As generated by this session, `gate1Pass = false` and
-  `gate2Pass = false`, so `GATE_PASS = false`.** **If `GATE_PASS` is `false`: STOP.** Perform
-  no further task in this file. Report to the coordinating/maintainer session exactly which
-  gate(s) failed (citing T001/T002's recorded evidence), that the governance preconditions
-  (T003) are independently satisfied and are not the blocker, and end without creating any
-  scratch workspace, without cloning either corpus, and without writing any file under
-  `<EVIDENCE_DIR>` beyond `gate-check.json` itself. **If `GATE_PASS` is `true`:** proceed to
-  Phase 2. Every task in Phase 2 onward states "Depends on: T004 (`GATE_PASS`)" as a standing
-  precondition, restated once here rather than repeated on every single task line.
+  gate1Pass AND governancePreconditionsSatisfied` and write it as the top-level field in
+  `<EVIDENCE_DIR>/gate-check.json`. The independent-adopter term is intentionally absent from
+  this formula. **Current expected result after this migration merges: `gate1Pass = true`,
+  `governancePreconditionsSatisfied = true`, so `GATE_PASS = true`.** **If `GATE_PASS` is
+  `false`: STOP.** Perform no further task in this file. Report to the coordinating/maintainer
+  session exactly which precondition failed and end without creating any scratch workspace,
+  without cloning either corpus, and without writing any file under `<EVIDENCE_DIR>` beyond
+  `gate-check.json` itself. **If `GATE_PASS` is `true`:** proceed to Phase 2. Every task in
+  Phase 2 onward states "Depends on: T004 (`GATE_PASS`)" as a standing precondition, restated
+  once here rather than repeated on every single task line.
 
-**Checkpoint**: Gate verification complete. `GATE_PASS` recorded (currently `false`). **All of
-Phase 2 onward is conditioned on `GATE_PASS = true`; this is not restated per-task below, but
-applies to every task T005–T086 without exception.**
+**Checkpoint**: Gate verification complete. `GATE_PASS` recorded (currently expected `true`
+after this migration merges). **All of Phase 2 onward is conditioned on `GATE_PASS = true`;
+this is not restated per-task below, but applies to every task T005–T086 without exception.**
 
 ---
 
@@ -733,8 +716,9 @@ Depends on: T016 (Foundational checkpoint).
   silently omitted — and confirm an undefined metric for one heuristic never suppresses
   reporting the other heuristic's defined metric on the same matrix (Acceptance Scenario 5).
   Every row under `measurementLevel: "synthetic-precision"` MUST be explicitly labeled as
-  measured against a spike-authored proxy oracle, never an adopter-authored one, and therefore
-  insufficient by itself to satisfy the Evidence Gate's "authoritative `go`" requirement (SC-012).
+  measured against a spike-authored proxy oracle, never external-adopter production-maturity
+  evidence, and therefore insufficient by itself to claim external / community validation or
+  the stronger "authoritative `go`" status (SC-012).
   Record `LabeledEntityChangedFilePair[]` (`data-model.md` §14) to
   `<EVIDENCE_DIR>/comparison-matrix.json` (the labeled-matrix portion of that file, which
   `EvidenceBundle.comparisonMatrix` references). Depends
@@ -997,8 +981,8 @@ measured scale numbers rather than guessed limits.
 or misidentified-repository envelope, and correctly isolates queries across two
 independently-valid single-repository envelopes without ever rejecting either — all
 demonstrated as offline, mechanical generator/consumer-boundary properties requiring no
-adopter, and explicitly distinguished from the adopter-oracle-dependent "authoritative `go`"
-requirement.
+external adopter, and explicitly distinguished from external / community validation and the
+stronger "authoritative `go`" status.
 
 **Independent Test** (`spec.md` User Story 7): Produce one valid envelope (T059). Construct
 malformed, tampered, stale, and wrong-repository derivative copies and confirm each is
@@ -1133,8 +1117,8 @@ fixed `null`.
 **Independent Test** (`spec.md` User Story 8): Read the completed evidence bundle and confirm
 it maps to exactly one verdict per the fixed-precedence definitions, with every piece of
 required evidence present and cross-referenced, and confirm the report explicitly states that
-this spike's result alone does not satisfy either open gate, and that even a `go-explicit`
-verdict is not the hardened contract's "authoritative `go`."
+this spike's result alone does not satisfy external / community validation, optional later
+external-adopter production-maturity evidence, or the hardened contract's "authoritative `go`."
 
 Depends on: T016, T032, T037, T042, T044, T048, T061, T067, T070 (every prior phase's
 checkpoint).
@@ -1253,27 +1237,27 @@ checkpoint).
   target, repository location, or version/tag, that session has exceeded this spike's
   authorized scope and must stop and re-scope rather than proceed); `authoritativeGoDisclaimer`
   (states explicitly that this recommendation, even under `go-explicit`, does not itself
-  satisfy the independent-adopter gate or the hardened contract's "authoritative `go`"
-  status); `productionAuthorizationClaimed: false`. Depends on: T075.
+  satisfy external / community validation (ADR-0014 rung 3), optional later external-adopter
+  evidence, or the hardened contract's "authoritative `go`" status);
+  `productionAuthorizationClaimed: false`. Depends on: T075.
 
 - [ ] T077 [US8] Set `Verdict.gateDisclaimers` (fixed literal shape:
-  `{ phase6NotCausedByThisSpike: true, independentAdopterGateNotCausedByThisSpike: true,
-  governancePreconditionsAlreadySatisfiedIndependently: true }`) and
+  `{ phase6NotCausedByThisSpike: true, externalCommunityValidationNotClaimed: true,
+  governancePreconditionsAlreadySatisfiedIndependently: true,
+  independentAdopterEvidenceOptionalLaterMaturity: true }`) and
   `authoritativeGoDistinctionStatement` — **present unconditionally on every verdict, never
-  contingent on `outcome`**. Restate in the narrative (to feed T079) all three SC-013
-  disclaimers verbatim in substance: (a) **Phase 6 credit-taking disclaimer** — this spike's
-  own technical result does not itself satisfy, substitute for, or take credit for Phase 6
-  landing; this is distinct from asserting Phase 6 remains permanently unlanded — by the time
-  gate 1 clears, `specs/007-arb-queue/tasks.md` T049 will itself have updated `plan.md`'s Phase
-  6 row to `landed`, and this disclaimer must remain true after that transition, not contradict
-  it; (b) **governance credit-taking disclaimer** — this spike's output MUST NOT claim or take
-  credit for ADR-0012's acceptance or ADR-0013's resolution of ADR-0007/ADR-0009's status
-  ambiguity, both of which are present facts (`54dbae8` PR #26; `48087e8` PR #27) that occurred
-  entirely independently of this spike's own execution or verdict; (c) **independent-adopter
-  gate disclaimer** — this spike's output MUST NOT claim or imply that its own verdict
-  constitutes, causes, or substitutes for the independent-adopter gate or the hardened
-  contract's "authoritative `go`" status, regardless of which verdict is recorded. Depends on:
-  T075.
+  contingent on `outcome`**. Restate in the narrative (to feed T079) all SC-013 disclaimers
+  verbatim in substance: (a) **Phase 6 credit-taking disclaimer** — this spike's own technical
+  result does not itself satisfy, substitute for, or take credit for Phase 6 landing /
+  reference-validation; Phase 6 is already landed / reference-validated under ADR-0014 rungs
+  1–2 and is not external / community validation; (b) **governance credit-taking disclaimer** —
+  this spike's output MUST NOT claim or take credit for ADR-0012's acceptance, ADR-0013's
+  resolution of ADR-0007/ADR-0009, or ADR-0014's acceptance, all of which occurred
+  independently of this spike's own execution or verdict; (c) **external-adopter maturity
+  disclaimer** — this spike's output MUST NOT claim or imply that its own verdict constitutes,
+  causes, or substitutes for external / community validation, optional external-adopter
+  evidence, or the hardened contract's "authoritative `go`" status, regardless of which verdict
+  is recorded. Depends on: T075.
 
 - [ ] T078 [US8] Assemble the final `<EVIDENCE_DIR>/spike-009-evidence.json`
   (`research.md` R4; `contracts/evidence-bundle-and-verdict.md`) — the complete
@@ -1307,7 +1291,7 @@ actual deliverable (`spec.md`: "It produces exactly one artifact of consequence"
 ## Phase 12: Cleanup and Closeout (cross-cutting, no story label)
 
 **Purpose**: Confirm every constraint this spike was required to hold throughout — zero
-tracked mutation, no package/schema/core/CI/version/tag/ADR change, no Phase 6 or gate-clearing
+tracked mutation, no package/schema/core/CI/version/tag/ADR change, no Phase 6 or governance-status
 credit-taking claim — holds at the end, not merely at each individual step, and tear down (or
 knowingly leave, since nothing here is tracked) every scratch workspace.
 
@@ -1328,8 +1312,9 @@ Depends on: T079 (evidence bundle finalized).
   `packages/adapters/catalog-*/**` directory of any kind was created.
 
 - [ ] T082 Confirm no claim anywhere in `spike-009-evidence.{md,json}` states or implies that
-  Phase 6 is landed because of this spike, that ADR-0012's/ADR-0013's acceptance was caused by
-  this spike, that the independent-adopter gate cleared because of this spike, or that
+  Phase 6 is landed / reference-validated because of this spike, that ADR-0012's/ADR-0013's/
+  ADR-0014's acceptance was caused by this spike, that external-adopter maturity evidence exists
+  because of this spike, or that
   ADR-0007/ADR-0009's own blockers are cleared — regardless of this spike's own verdict. A
   mechanical grep for "landed"/"accepted"/"authoritative go" across the evidence files should
   surface only T077's own required, correctly-worded disclaimer language, never a credit-taking
@@ -1380,7 +1365,7 @@ Depends on: T080, T081, T082, T083, T084.
 - [ ] T086 Produce the final result report to the coordinating/maintainer session: the recorded
   verdict and its `drivingEvidence`; the evidence bundle's location
   (`<EVIDENCE_DIR>/spike-009-evidence.{json,md}`); any `no-go` trigger or `blocked` shortfall
-  by name; the explicit restatement that neither the Phase 6 gate nor the independent-adopter
+  by name; the explicit restatement that neither Phase 6 landing/reference-validation nor optional external-adopter
   gate is satisfied, caused, or substituted for by this spike's own result, and that the
   governance preconditions (T003) were already satisfied independently of this spike; and an
   explicit note that **any resulting change to `spec.md`/`plan.md`/this file that this spike's
@@ -1396,7 +1381,7 @@ production package scoped, scheduled, or committed to by this file's execution.
 
 ```
 Phase 1 (Gate):         T001 [P w/ T002 read-only] + T002 + T003 → T004 (GATE_PASS)
-                        ⛔ GATE_PASS = false as generated. If GATE_PASS = false: STOP.
+                        ✅ GATE_PASS = true expected after this migration merges. If it records false: STOP.
 
 Phase 2 (Foundational): T004 → T005 (frozen-input re-verify; fail-closed halt point)
                               → T006 [P] + T007 [P] + T008 [P] + T009 [P] + T010 [P]
@@ -1501,10 +1486,11 @@ finding** — if the frozen-input re-verification or Option A's own per-rule val
 fails, that alone is enough evidence to inform (though not yet fully determine, per SC-012's
 precedence) a `no-go`-leaning result, without needing to reach User Stories 2–7.
 
-### Execution Order (once both gates clear)
+### Execution Order (after T004 records `GATE_PASS = true`)
 
-1. Phase 1 (T001–T004) — gate check. **If it fails, stop; nothing below runs.** As generated,
-   it fails (`GATE_PASS = false`).
+1. Phase 1 (T001–T004) — gate check. **Proceed only if it records `GATE_PASS = true`; if it
+   records `false`, stop and run nothing below.** Current expected result after this migration
+   merges is `GATE_PASS = true`.
 2. Phase 2 (T005–T016) — foundational. **If T005 finds a reachability mismatch, stop; nothing
    below runs, and spec re-ratification is required before any retry.**
 3. Phases 3–7 (User Stories 1–5, T017–T048) — Phase 3 (US1) and Phase 4 (US2) are P1 and should
@@ -1525,8 +1511,8 @@ precedence) a `no-go`-leaning result, without needing to reach User Stories 2–
 
 ### What Happens on a `no-go` or Gate Failure Partway Through
 
-- **Gate failure (T004) or frozen-input reachability mismatch (T005)**: stop immediately; no
-  scratch artifact or corpus clone is created (gate failure), or the spike halts with only
+- **Precondition failure (T004) or frozen-input reachability mismatch (T005)**: stop immediately;
+  no scratch artifact or corpus clone is created (T004 failure), or the spike halts with only
   `frozen-inputs-reachability.json` populated (mismatch); report and end.
 - **A `no-go` trigger firing mid-sequence** (e.g. at T035's atomicity check, or T070's mutation
   check): per this spike's own evidence-completeness discipline, the evidence-gathering pass

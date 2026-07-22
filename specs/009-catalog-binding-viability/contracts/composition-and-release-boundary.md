@@ -3,9 +3,11 @@
 **Feature**: `009-catalog-binding-viability` | **Freezes**: FR-019, FR-020,
 FR-021, FR-026, Out of Scope section, Output Recommendation section.
 Companion to `data-model.md` §9 (`SnapshotEnvelope`), §24
-(`NonBindingRecommendation`). Normative source: ADR-0013 (`status: accepted`,
+(`NonBindingRecommendation`). Normative sources: ADR-0013 (`status: accepted`,
 PR #27); ADR-0007's amendment blockquote; ADR-0012's "Composition, envelope,
-and persistence" section.
+and persistence" section; and
+[ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+for the removal of external-actor hard gates.
 
 ## 1. Composition Model — Standalone Offline Generator (FR-021)
 
@@ -59,7 +61,7 @@ not gate its own scoping activity on, that future acceptance decision.
 
 ## 4. No Shipping Artifact — Absolute Scope Boundary (Out of Scope Section)
 
-This planning session, and any future gate-cleared execution session
+This planning session, and any future governance-authorized execution session
 following it, produces **none** of the following:
 
 - A production `packages/adapters/catalog-backstage` package of any kind.
@@ -100,6 +102,7 @@ changes to root `package.json` `workspaces`, and **zero** CI workflow
 changes. Every artifact this planning session produces
 (`plan.md`, `research.md`, `data-model.md`, `quickstart.md`, and every
 `contracts/*.md` file) lives entirely under
-`specs/009-catalog-binding-viability/` and describes a **future**,
-gate-cleared execution session's design — it does not itself execute
-anything, commit any fixture, or open any implementation branch.
+`specs/009-catalog-binding-viability/` and describes a governance-authorized execution session's design — it does not
+itself execute anything, commit any fixture, or open any implementation
+branch. External-adopter evidence remains optional later production-maturity
+evidence, not a hard gate for this spike.

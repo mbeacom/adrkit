@@ -36,9 +36,9 @@
       empty-string-in-array vs. `explicit-empty`/`annotation-absent`, heuristic B applied to a
       never-read `Location` fixture, stale-corpus re-fetch drift, and manifest-vs-annotation
       repository-identity disagreement)
-- [x] Scope is clearly bounded (Out of Scope section names 14 explicit exclusions; the two
-      open execution gates, the satisfied governance preconditions, and the two-decision
-      Ratification Record bound what this document itself authorizes)
+- [x] Scope is clearly bounded (Out of Scope section names 14 explicit exclusions; the
+      satisfied governance preconditions, ADR-0014's phase-landing evidence ladder, and the
+      two-decision Ratification Record bound what this document itself authorizes)
 - [x] Dependencies and assumptions identified (11 assumptions, A1–A11, including the pinned
       commit re-verification requirement, the corrected exact descriptor counts, and the
       explicit note that the hardened decision controls wherever the two ratifications
@@ -63,20 +63,18 @@
 
 ## Notes
 
-- This spec is itself gated, but by **two** open execution gates, not three: (1) Phase 6
-  T048/T049 landing, and (2) independent-adopter validation. Three governance preconditions it
-  once tracked are now **satisfied** and are recorded as preconditions, never as open gates:
-  maintainer scoping/contract ratification (issue #25, 2026-07-21); catalog-binding convention
-  governance (ADR-0012 `accepted`, `54dbae8`); and the adapter-isolation/catalog-binding
-  reconciliation (ADR-0013 `accepted`, `48087e8`), which is the authoritative, final status
-  resolution of ADR-0007/ADR-0009 for spike-authorization purposes — ADR-0007/ADR-0009 remain
-  `proposed` with documented blockers, and this is **not** an execution gate (requiring their
-  acceptance first would be circular, since ADR-0013's own acceptance path for them lists this
-  spike's evidence as a precondition). The spec says all of this explicitly and repeatedly by
-  design — this is the spec's own core scoping constraint, mirroring the double-gate pattern
-  established in `specs/008-spec-kit-hook-viability/spec.md`. The banner and FR-030/SC-013 are
-  written so that gate 1 clearing (which itself lands Phase 6 via T049) does not make this
-  spec's own disclaimers false.
+- This spec's execution is now authorized by satisfied governance preconditions once this
+  migration merges: Phase 6 is **landed / reference-validated** (ADR-0014 rungs 1–2, not
+  external / community validation), maintainer scoping/contract ratification is satisfied
+  (issue #25), ADR-0012 and ADR-0013 are accepted, and
+  [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+  removes the previous external-actor hard gates. ADR-0007/ADR-0009 remain `proposed` with
+  documented blockers; that is **not** an execution gate because requiring their acceptance
+  first would be circular. The previous independent-adopter condition is replaced by the spike's own
+  in-scratch **maintainer-authored reference oracle**; external-adopter evidence is optional
+  later production-maturity evidence for a future, stronger "authoritative `go`" status. The
+  banner and FR-030/SC-013 are written so that Phase 6 being landed / reference-validated does
+  not let the spike claim credit for that landing or claim external/community adoption.
 - The Ratification Record captures **two** dated maintainer decisions on adrkit issue #25: the
   initial 2026-07-21T21:30:41Z ratification and a materially stricter
   2026-07-21T21:40:53Z "Contract hardening decision" made "following adversarial review."
@@ -117,8 +115,8 @@
   never a claim about a real Backstage annotation); a nuance in ADR-0007's existing
   "resolved at runtime" language versus the hardened no-general-loader constraint (now
   explicitly distinguished, with reconciliation deferred at that time to the then-separate ADR
-  gate — a gate later superseded by the satisfied-precondition/two-gate model recorded in the
-  notes below); an
+  gate — a framing later superseded first by the satisfied-precondition model and then by
+  ADR-0014's removal of external-actor hard gates); an
   overclaim that two core matcher files have no code-level divergence (corrected to
   behavioral-parity-for-tested-cases only); a contradiction between Assumption A3 and FR-013
   over whether required synthetic structural fixtures could be replaced by a real corpus find
@@ -181,12 +179,12 @@
   #27, merged separately) amends ADR-0007's and ADR-0009's narrowed clauses by reference while
   **deliberately and explicitly holding both `status: proposed`**, per ADR-0012's own
   Governance section's "explicitly-blocked" branch, with a documented future acceptance path.
-  This spec's execution gate 2 was, in that round, split into two sub-clauses in the banner,
-  FR-027, and FR-032 (a framing **later superseded by the two-gate correction recorded in the
-  next note** — the current spec no longer splits gate 2): the catalog-binding-ADR sub-clause
+  This spec's historical second execution condition was, in that round, split into two sub-clauses in the banner,
+  FR-027, and FR-032 (a framing later superseded by the next correction and then by ADR-0014 —
+  the current spec has no independent-adopter pre-execution condition): the catalog-binding-ADR sub-clause
   was **satisfied** (ADR-0012 accepted), while the ADR-0007/ADR-0009 resolution sub-clause was
-  then treated as still open (both `proposed`, deliberately, per ADR-0013) — and every place in
-  this spec that previously described gate 2,
+  then treated as unresolved (both `proposed`, deliberately, per ADR-0013) — and every place in
+  this spec that previously described that second condition,
   ADR-0007/ADR-0009's status, or "the maintainer's ratification" as a single monolithic,
   entirely-unsatisfied item was updated (banner, Ratification Record, FR-021, FR-027, FR-028,
   FR-032, SC-013, Assumptions A6 and A9, and the Overview) and to
@@ -198,9 +196,9 @@
   ADR-0013's "no dynamic runtime adapter/plugin loader" language forecloses for the catalog
   surface — rewritten so the catalog adapter is a directly-invoked standalone executable, never
   something a separate host dynamically discovers/imports; FR-032 had an "ADR-0007 and/or
-  ADR-0009" ambiguity that could be read as clearing gate 2's sub-clause with only one of the
+  ADR-0009" ambiguity that could be read as clearing that second condition's sub-clause with only one of the
   two records resolved — corrected to require both, independently; and the review surfaced a
-  circularity between this spec's own then-modeled gate 2 (requiring
+  circularity between this spec's own then-modeled second condition (requiring
   ADR-0007/ADR-0009 accepted before spike execution) and ADR-0013's acceptance path for those
   same ADRs (requiring this spike's own evidence first). That round recorded the tension in the
   Overview and banner as an open governance question for the maintainer — a framing **the next
@@ -217,13 +215,15 @@
   lists this spike's evidence as a precondition). Removing that over-reading dissolves the
   circularity without inventing any new governance fact: the catalog-governance precondition
   (ADR-0012's acceptance + ADR-0013's status-ambiguity resolution) is **fully satisfied**, not
-  a "gate 2 with one sub-clause still open." Worktree was re-synced to `main` at `48087e8`
+  a "second condition with one unresolved sub-clause." This historical framing was later superseded by
+ADR-0014's three-rung ladder. Worktree was re-synced to `main` at `48087e8`
   (fast-forward only; untracked spec/checklist/`.specify/feature.json` preserved) before this
   round. This spec's banner, Ratification Record, Overview ("No circular ADR gate" note),
   FR-019, FR-027, FR-028, FR-029, FR-032, SC-013, the Output Recommendation, and Assumptions A5,
-  A6, and A9 were all rewritten to the resulting **two-gate model**: gate 1 = Phase 6
-  T048/T049 landing (`specs/007-arb-queue/tasks.md`, still unchecked as of `48087e8`); gate 2 =
-  independent-adopter annotation/oracle evidence (still unavailable). ADR-0007/ADR-0009's own
+  A6, and A9 were all rewritten to the resulting historical **two-gate model** (now superseded by ADR-0014): gate 1 was Phase 6
+  T048/T049 landing and the second condition was independent-adopter annotation/oracle evidence. Under the
+  current spec, Phase 6 is landed / reference-validated and the independent-adopter item is
+  optional later production-maturity evidence only. ADR-0007/ADR-0009's own
   *eventual* acceptance or supersession remains real, separate, and non-gating — this spec
   never claims it has occurred or is required for this spike's execution, and continues to
   disclaim that neither ADR-0012's nor ADR-0013's acceptance clears ADR-0007/ADR-0009's own
@@ -234,3 +234,9 @@
   commit/push/PR was created at any point in this round — only `spec.md` and this checklist
   were touched, and `git status --porcelain` continues to show only
   `M .specify/feature.json` and the untracked `specs/009-catalog-binding-viability/` tree.
+- **ADR-0014 migration superseded the historical two-gate model.** Phase 6 is now
+  **landed / reference-validated** based on a maintainer-owned isolated reference repository,
+  not external / community validation; the independent-adopter item is no longer a
+  pre-execution gate and is replaced by the in-scratch maintainer-authored reference oracle.
+  External-adopter evidence remains optional later production-maturity evidence only, and no
+  009 task is marked complete by this documentation migration.
