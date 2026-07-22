@@ -66,17 +66,20 @@ at that exact commit — cited inline by immutable
 > begins. After this migration merges, a future execution session rerunning those checks should
 > obtain `GATE_PASS = true`, but every 008 task remains unchecked until it is actually executed.
 
-> ✅ **Status update — Executed 2026-07-22, out-of-contract on one blocking gate.** The
+> ✅ **Status update — Executed 2026-07-22, out-of-contract on two blocking gates.** The
 > banner above accurately describes this planning session's own scope (design/scoping
 > only, no execution performed by it) and is retained as the historical record. A later
 > execution session has since run the tasks file and recorded verdict **`no-go`**
 > (mutation trigger) — but per PR review round 12, T012's own blocking-checkpoint rule
-> could not be genuinely satisfied (T005's gap), so this is disclosed as an
-> **out-of-contract execution**, not an unqualified "end-to-end" one. See
+> could not be genuinely satisfied (T005's gap), and per PR review round 18, T057's own
+> parallel blocking rule ("remediate any defect found before T058") could not be
+> genuinely satisfied either (an eighth audit pass's FAIL was disclosed, not remediated),
+> so this is disclosed as an **out-of-contract execution on two distinct gates**, not an
+> unqualified "end-to-end" one. See
 > [`tasks.md`](./tasks.md)'s executed-summary banner and
 > [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the authoritative,
-> current status, including two explicit task exceptions (T005, T012) left unchecked per
-> PR review.
+> current status, including three explicit task exceptions (T005, T012, T057) left
+> unchecked per PR review.
 
 ## Summary
 

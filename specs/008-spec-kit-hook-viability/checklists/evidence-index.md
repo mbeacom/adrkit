@@ -254,8 +254,8 @@ file's content hash and mtime are unchanged by disable).
   (merge SHA `38336982b2d78aa1e20dcd57fd759c07aee716e9`), and this spike's own
   verdict, whatever it turned out to be, was never contingent on or coupled
   to it.
-- This spike's own execution is **executed, out-of-contract on one blocking
-  gate, and independently audited** (six cumulative fresh-context audit
+- This spike's own execution is **executed, out-of-contract on two blocking
+  gates, and independently audited** (six cumulative fresh-context audit
   rounds against the original 6-entry Tier-1 `mutationBaselines` corpus, each
   round finding and closing genuine defects, converging to a final PASS on
   internal consistency; **plus a seventh, targeted audit pass, PR review
@@ -265,7 +265,13 @@ file's content hash and mtime are unchanged by disable).
   eighth, targeted audit pass, PR review round 16**, checking a distinct
   question — FR-011/strongest-mechanism compliance for the `hook-fire`
   invocation — that returned **FAIL**, disclosed rather than remediated, and
-  resulting in T057 now being marked incomplete). **"Reference-verified" is a
+  resulting in T057 now being marked incomplete). The two blocking-gate
+  violations are: (1) T012 cannot certify its named dependency set while
+  T005 remains unchecked (PR review round 12); (2) T057's own text requires
+  remediating the eighth pass's FAIL before T058, and that remediation did
+  not happen, so T058 ran without T057's precondition genuinely holding (PR
+  review round 18) — see the "Independent audit" and "Honest maturity label"
+  sections below for the full account of both. **"Reference-verified" is a
   distinct, binding ADR-0014 rung-2 maturity term** — reproducible,
   self-verifying, fail-closed evidence from a maintainer-owned isolated
   reference repository (the bar Phase 6 met; see
@@ -495,18 +501,33 @@ from round 15, since a defect is now formally on the record and unremediated reg
 of how the intro sentence is read. See `tasks.md`'s T057 note for the full account. This
 is not a new, independent defect distinct from T005; it is the same underlying gap, now
 closed out with a genuinely dispatched check and its consequence for T057's own checkbox
-honestly recorded.
+honestly recorded. **PR review round 18** correctly pressed one step further: T057's own
+text ("record findings; remediate any defect found before T058") and the Dependency
+Graph's `T057 → T058` step together state an explicit ordering rule — textually parallel
+to T012's own "No User Story task below may begin until this checkpoint is confirmed" —
+and, since the eighth pass's FAIL was never remediated, T058 ran without that rule's own
+precondition genuinely holding. **This is accepted as a second, distinct out-of-contract
+gate**, disclosed rather than argued away, exactly as T012's own violation was in round
+12. It does not change T058's own checkbox: T058's own literal action (produce an honest
+report) is independent of T057's substantive remediation status, ran, and is evidenced —
+including honestly disclosing both T057's incompleteness and this ordering violation
+itself — the same "own distinct literal action, independent of an upstream defect"
+reasoning already applied, and left uncontested, to T012's downstream User Story tasks.
+See `tasks.md`'s T057 round-18 addendum and T058's own round-18 note for the full account.
 
 ## Honest maturity label
 
 Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed, out-of-contract on
-one blocking gate, and independently audited across eight dispatched passes**. It ran and
+two blocking gates, and independently audited across eight dispatched passes**. It ran and
 reached a recorded verdict, but per PR review round 12, T012's own blocking-checkpoint rule
 ("No User Story task below may begin until this checkpoint is confirmed") could not be
-genuinely satisfied at execution time (T005's gap), so this is disclosed as an
-**out-of-contract execution**, not an unqualified "executed end-to-end" one — see the
-"Independent audit" section above for the T012 paragraph and root `plan.md`'s Phase 7
-row for the corrected overall status wording. The audit itself is a fresh-context LLM
+genuinely satisfied at execution time (T005's gap); and, per PR review round 18, T057's own
+parallel blocking rule ("record findings; remediate any defect found before T058") could not
+be genuinely satisfied either, once the eighth audit pass returned a FAIL that was disclosed
+rather than remediated — so this is disclosed as an **out-of-contract execution on two
+distinct gates**, not an unqualified "executed end-to-end" one — see the "Independent audit"
+section above for both the T012 paragraph and the round-18 addendum, and root `plan.md`'s
+Phase 7 row for the corrected overall status wording. The audit itself is a fresh-context LLM
 **consistency and compliance audit** of the session-scoped evidence bundle: seven passes
 against items (a)–(f) of T057's own defined checklist, plus an eighth, later-dispatched
 pass (PR review round 16) that specifically checked the FR-011/strongest-mechanism
@@ -517,18 +538,20 @@ FR-011's text, the mechanism-hierarchy contract, and `network-denial.json` — n
 separate T012 dependency-certification materials — so it speaks to that gap only, not to
 T012's own status); because the defect it confirmed was disclosed rather than remediated,
 T057 itself is now a **third** unchecked exception alongside T005 and T012 (PR review
-round 17). None of this is ADR-0014's rung-2
+round 17), and the same disclosed-not-remediated fact is also, per PR review round 18,
+the source of the second blocking-gate violation named above (T057's own rule for T058).
+None of this is ADR-0014's rung-2
 maturity state (reproducible, self-verifying,
 fail-closed evidence from a maintainer-owned isolated reference repository — the bar
 Phase 6 met); **"reference-verified"
 is deliberately not claimed for this spike**. It is **not released**, **not
 externally validated**, and **not adopted**. Its own contract verdict is
-**`no-go`** (mutation trigger, both install and remove). Two tasks are
+**`no-go`** (mutation trigger, both install and remove). Three tasks are
 explicitly left incomplete in `tasks.md` (`- [ ]`): **T005** — its own
 mechanism-selection did not meet the contract's strongest-available-mechanism
 requirement (see Limitations, above); this does not invalidate the
 invocations it gated (fully evidenced under rank 3) or change the `no-go`
-verdict — and **T012** — the Foundational checkpoint's own defined action is
+verdict — **T012** — the Foundational checkpoint's own defined action is
 certifying its full named dependency set (including T005) is satisfied, and
 per PR review round 11 it cannot claim that while T005 remains unchecked,
 even though T012's narrower sub-check (its seven listed outputs exist and
@@ -537,26 +560,43 @@ blocking-gate rule ("No User Story task below may begin until this
 checkpoint is confirmed") was **not** honored in execution order, since the
 User Story tasks that already ran necessarily began before that rule's
 precondition genuinely held (see the Limitations entry above for the full
-account). One additional task, **T024**, remains checked (`- [X]`) but carries its own
+account) — and **T057** — its own dispatched audit (the eighth pass, PR
+review round 16) found a genuine FAIL on the FR-011/strongest-mechanism
+question, and this task's own text requires remediating any defect found
+before T058; because that remediation did not happen (only disclosure did),
+this task's own literal completion bar is unmet under either round-15 scope
+reading of its intro sentence, and it is marked incomplete accordingly (PR
+review round 17) — see the "Independent audit" section above for the full
+account. **Per PR review round 18**, T057's own text and the Dependency
+Graph's `T057 → T058` step together also make this the source of the run's
+*second* blocking-gate violation: T058 ran without T057's remediation
+precondition genuinely holding, textually parallel to T012's own violation
+above. One additional task, **T024**, remains checked (`- [X]`) but carries its own
 explicit disclosure (PR review round 13): the `hook-fire` invocation it captured ran
 under T005's same rank-3 mechanism, so FR-011's own network-disabled requirement was not,
 in the strict sense, met for that specific invocation — T024's own defined action
 (capture and honestly record which mechanism actually ran) was performed correctly and is
-not disputed, so this is disclosed rather than treated as a third checkbox exception; see
+not disputed, so this is disclosed rather than treated as a fourth checkbox exception; see
 T024's own note in `tasks.md` and the "Network / credential limits" section above.
-Neither exception cascades to the User Story tasks' own
+**T058 also remains checked (`- [X]`)** despite being the point at which the second
+blocking-gate violation became visible in execution order (PR review round 18): its own
+literal action — produce an honest report — is independent of T057's substantive
+remediation status, ran, and is evidenced, including honestly disclosing both T057's
+incompleteness and this very ordering violation; see T058's own round-18 note in
+`tasks.md`. None of these checked-but-disclosed or unchecked-exception tasks cascades to
+the User Story tasks' own
 checkboxes (T013 onward remain `- [X]`), each of which has its own
 independently-evidenced, literally-described action — but this is a
 narrower, checkbox-level claim, not a claim that the overall run honored
-T012's blocking rule in its intended order (see above). It is a disposable
+either T012's or T057's blocking rule in its intended order (see above). It is a disposable
 compatibility spike, not a shipped adapter or integration
 (`spec.md`: "It does not produce that adapter"). Feature 009
 (`specs/009-catalog-binding-viability/`) is separately governance-authorized
 (its own preconditions are already satisfied) but was, per root `plan.md`'s
 execution sequence, deliberately **scheduled to run only after this spike
 completed end-to-end**; this spike executed and reached a recorded verdict,
-**but out-of-contract on T012's own blocking gate, with the T005/T012
-exceptions above disclosed and unresolved** — this index reports that state
+**but out-of-contract on two blocking gates (T012's and T057's own), with the
+T005/T012/T057 exceptions above disclosed and unresolved** — this index reports that state
 honestly rather than declaring the "completed end-to-end" precondition
 unconditionally, cleanly satisfied. Whether that state is sufficient to
 begin feature 009 is a judgment this index does not make; it is left to

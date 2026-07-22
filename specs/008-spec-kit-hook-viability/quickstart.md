@@ -17,15 +17,18 @@
 > future execution session, and every 008 task checkbox remains unchecked until that session
 > runs it.
 
-> ✅ **Status update — Executed 2026-07-22, out-of-contract on one blocking gate.** The
+> ✅ **Status update — Executed 2026-07-22, out-of-contract on two blocking gates.** The
 > banner above describes this guide's state *before* execution and is retained as the
 > historical scoping record; it no longer describes the current state. Execution has
 > since run and reached a recorded verdict **`no-go`** (mutation trigger) — but per PR
 > review round 12, T012's own blocking-checkpoint rule could not be genuinely satisfied
-> (T005's gap), so this is disclosed as an **out-of-contract execution**, not an
-> unqualified "completed end-to-end" one. See [`tasks.md`](./tasks.md)'s executed-summary
-> banner and [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the
-> authoritative, current status, including two explicit task exceptions (T005, T012) left
+> (T005's gap), and per PR review round 18, T057's own parallel blocking rule ("remediate
+> any defect found before T058") could not be genuinely satisfied either (an eighth audit
+> pass's FAIL was disclosed, not remediated), so this is disclosed as an **out-of-contract
+> execution on two distinct gates**, not an unqualified "completed end-to-end" one. See
+> [`tasks.md`](./tasks.md)'s executed-summary banner and
+> [`checklists/evidence-index.md`](./checklists/evidence-index.md) for the authoritative,
+> current status, including three explicit task exceptions (T005, T012, T057) left
 > unchecked per PR review.
 
 ## Prerequisites (once this migration merges and T003 records `GATE_PASS = true`)

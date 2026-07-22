@@ -26,14 +26,14 @@ permitted" exemption — generating this checklist is scoping, not execution. Ph
 landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratification is already
 satisfied; spike execution is authorized once this migration merges.
 
-> ✅ **Executed 2026-07-22 — out-of-contract on one blocking gate (see round 12 below).**
-> T001–T058 below are complete (`- [X]`), **with three explicit exceptions: T005, T012,
-> and T057 are left unchecked (`- [ ]`)** — see below and each task's own note. Per PR
-> review round 12, this run is disclosed as **out-of-contract with respect to T012's own
-> blocking rule** (T012's text below: "No User Story task below may begin until this
-> checkpoint is confirmed") — because T012 could not, in fact, be genuinely confirmed at
-> the time (T005's gap), the User Story tasks that follow (T013 onward) began without
-> that rule's own precondition holding. Each of those tasks' own distinct,
+> ✅ **Executed 2026-07-22 — out-of-contract on two blocking gates (see rounds 12 and 18
+> below).** T001–T058 below are complete (`- [X]`), **with three explicit exceptions:
+> T005, T012, and T057 are left unchecked (`- [ ]`)** — see below and each task's own
+> note. Per PR review round 12, this run is disclosed as **out-of-contract with respect
+> to T012's own blocking rule** (T012's text below: "No User Story task below may begin
+> until this checkpoint is confirmed") — because T012 could not, in fact, be genuinely
+> confirmed at the time (T005's gap), the User Story tasks that follow (T013 onward)
+> began without that rule's own precondition holding. Each of those tasks' own distinct,
 > literally-described action still ran and is independently evidenced (see the round-12
 > clarification below), so their individual checkboxes remain `- [X]`, but this is
 > **not** characterized as a fully gate-conformant execution. **T057 is unchecked as of
@@ -41,7 +41,14 @@ satisfied; spike execution is authorized once this migration merges.
 > 16) found that the recorded `hook-fire` invocation meets neither the isolation
 > contract's strongest-mechanism rule nor FR-011's literal requirement (the same
 > underlying gap as T005/T024); T057's own text requires remediating any defect found
-> before T058, and disclosure alone does not satisfy that — see T057's own note. T044,
+> before T058, and disclosure alone does not satisfy that — see T057's own note. **Per PR
+> review round 18, this is a second, distinct out-of-contract gate** (T057's own rule,
+> textually parallel to T012's): T057's text requires remediation before T058, and the
+> Dependency Graph below states `T057 → T058`, but no remediation happened before T058 ran
+> — so, exactly as with T012 above, T058's own precondition did not genuinely hold at
+> execution time, even though T058's own distinct, literally-described action (produce an
+> honest report) still ran and is independently evidenced — see T057's own round-18
+> addendum and T058's own note below. T044,
 > T045, and T047 are marked complete as **correctly recognized and honored
 > short-circuits** per the `no-go` outcome's own contract-required rules (T043 matched at
 > Step 1, so T044/T045 were not evaluated and T047 does not apply — see each task's own
@@ -1146,7 +1153,25 @@ Depends on: T054, T055, T056.
   or only illustrative, a defect is now formally on the record and unremediated. This is
   not counted as a new, independent defect distinct from T005 — it is that same gap, now
   closed out with a genuine, independently-dispatched check, and its consequence for this
-  task's own checkbox honestly recorded rather than argued away.
+  task's own checkbox honestly recorded rather than argued away. **Round 18 addendum
+  (this task's own text is the source of a second, distinct out-of-contract gate,
+  directly parallel to T012's above):** a reviewer correctly pointed to this task's own
+  literal instruction above ("Record findings; remediate any defect found before T058")
+  and to the Dependency Graph below (`T057 → T058`) as together stating an explicit
+  ordering rule, not merely an inferred convention — the same structure T012's round-12
+  addendum already accepted for "No User Story task below may begin until this checkpoint
+  is confirmed." Because the eighth pass's FAIL was never remediated, this task's own
+  precondition for T058 did not genuinely hold when T058 ran. **This is accepted**: the
+  run is disclosed as out-of-contract with respect to this rule too — a second, distinct
+  blocking-gate violation alongside T012's — not as a fully gate-conformant execution; see
+  the top banner's round-18 clarification, T058's own note below, and root `plan.md`'s
+  Phase 7 row for the corrected overall status wording. Exactly as with T012's downstream
+  tasks, this is about execution order, not about T058's own checkbox: T058's own literal
+  action (produce an honest report) is independent of T057's substantive remediation
+  status, ran, and is evidenced — including, now, honestly disclosing T057's own
+  incompleteness and this very ordering violation — so T058's own checkbox is unaffected
+  and remains `- [X]`. See T058's own note immediately below for the corresponding
+  disclosure.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
@@ -1160,6 +1185,21 @@ Depends on: T054, T055, T056.
   raw transcripts remain scratch-only, and any later tracked landing requires a sanitized
   evidence index with commit SHAs, workflow-run links if any workflow is used, content hashes,
   tool versions, network/credential limits, negative-test results, and a reviewer verdict.
+  **Round 18 note (this task's own checkbox, distinct from T057's own uncheck above):**
+  the Dependency Graph below states `T057 → T058`, and T057's own text requires
+  remediating any defect its dispatched audit finds before this task runs; that
+  remediation did not happen (see T057's round-18 addendum above), so this task's own
+  upstream precondition did not genuinely hold in execution order — disclosed as a
+  second, distinct out-of-contract gate alongside T012's, not hidden. This task's own
+  checkbox nonetheless stays `- [X]`, for the same reason T012's downstream User Story
+  tasks were not cascaded in round 11/12: this task's own literal action — producing an
+  honest report — is independent of T057's substantive remediation status, and it was in
+  fact performed accurately, including honestly disclosing both T057's incompleteness and
+  this very ordering violation rather than concealing either. If a future maintainer
+  judges that this task's own action must itself be re-performed only after T057's defect
+  is genuinely remediated, that is a separate, explicitly-scoped follow-up decision (per
+  this task's own text above), not something this uncheck-or-not determination decides
+  unilaterally.
 
 **Checkpoint**: Spike execution complete. One verdict, independently audited, reported.
 No production package scoped, scheduled, or committed to by this file's execution.
