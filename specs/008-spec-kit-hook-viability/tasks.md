@@ -1089,12 +1089,34 @@ Depends on: T054, T055, T056.
   missed in this session's own review-round triage and surfaced only via a later
   unresolved-threads sanity sweep) that FR-011's own network-disabled requirement was
   not, in the strict sense, met by the `hook-fire` invocation T024 captured — see T024's
-  own note. Like the T005/T012 gaps above, this was outside the seven audit rounds' own
-  defined scope (a)–(f): check (f) covers fabricated/assumed *evidence* (citation/quote
-  fidelity to an actual captured file), not a substantive judgment about whether a given
-  `NetworkDenialRecord.mechanismUsed` value itself satisfies FR-011's contract-level
-  requirement. This is not counted as a T057 defect; it is the same underlying T005 gap,
-  now traced to its FR-011-specific consequence for one invocation.
+  own note. **PR review round 15 pressed further** (two suppressed comments, on this
+  note and on `plan.md`'s ledger row): this task's own intro sentence — "check
+  `spike-008-evidence.md`/`.json` against every FR-001–FR-024, SC-001–SC-008, and all six
+  `contracts/*.md` files for: (a)–(f)" — is genuinely ambiguous between (i) a narrow
+  reading in which (a)–(f) is the exhaustive definition of what to check, with "every
+  FR/SC/contract" naming only the reference corpus to check *against*, and (ii) a broader
+  reading in which the audit's mandate is full substantive compliance with every
+  FR/SC/contract, with (a)–(f) offered as non-exhaustive examples. This document does
+  **not** claim the narrow reading is self-evidently correct — unlike T012's own text
+  (whose explicit blocking-rule sentence settled that question unambiguously in round 12),
+  no comparably explicit sentence resolves this one either way. What is not ambiguous:
+  under **either** reading, none of the seven audit passes actually dispatched for T057
+  were instructed to check, as a discrete item, whether the recorded
+  `NetworkDenialRecord.mechanismUsed` meets `contracts/isolation-and-offline.md`'s
+  strongest-available-mechanism rule, or whether a specific invocation meets FR-011's
+  literal requirement — that discrete check was simply never part of what was dispatched,
+  regardless of which scope reading the task's own intro sentence supports. This is
+  treated as a gap in what was dispatched, parallel to T033's original-task-decomposition
+  gap (round 6 above: no bracket-equivalent task was ever defined for that invocation) —
+  not a failure to perform the action that was actually dispatched and did converge to
+  PASS on its own actual instructions, seven times, accurately reported. A fresh
+  confirmatory audit pass was considered and not run: it would only re-state the already-
+  disclosed, already-known fact that `hook-fire` ran under rank 3, adding no new
+  information, and cannot substitute for the live-Copilot lifecycle rerun already judged
+  disproportionate in T005's own note. T057's checkbox remains `- [X]` on the basis above;
+  this is not counted as a new, independent T057 defect — it is the same underlying T005
+  gap, now traced to a further consequence for what T057's dispatched passes actually
+  checked.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location

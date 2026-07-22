@@ -458,12 +458,28 @@ all independently re-confirmed unchanged and correct by this same pass.
 **PR review round 13 additionally found** that FR-011's own network-disabled requirement
 was not, in the strict sense, met by the `hook-fire` invocation T024 captured (see
 "Network / credential limits" above and the Limitations bullet above for the full
-account). Like the T005/T012 gaps already disclosed, this was outside the seven audit
-rounds' own defined scope (a)–(f): check (f) covers fabricated/assumed *evidence*
-(citation/quote fidelity to an actual captured file), not a substantive judgment about
-whether a given `NetworkDenialRecord.mechanismUsed` value itself satisfies FR-011's
-contract-level requirement. This is not counted as an audit defect; it is the same
-underlying T005 gap, traced to its FR-011-specific consequence for one invocation.
+account). **PR review round 15 pressed further** (two suppressed comments, on this
+section's counterpart passage in `tasks.md`'s T057 note and on `plan.md`'s ledger row):
+T057's own intro sentence — "check `spike-008-evidence.md`/`.json` against every
+FR-001–FR-024, SC-001–SC-008, and all six `contracts/*.md` files for: (a)–(f)" — is
+genuinely ambiguous between a narrow reading (items (a)–(f) exhaustively define the
+check; the FR/SC/contract corpus is only the reference material) and a broader reading
+(full substantive FR/SC/contract compliance is the mandate, with (a)–(f) as non-exhaustive
+examples). This document does not claim the narrow reading is self-evidently correct —
+unlike T012's own explicit blocking-rule sentence, which settled that question
+unambiguously in round 12, no comparably explicit sentence resolves this one. What is not
+ambiguous: under either reading, none of the seven audit passes T057 actually dispatched
+were instructed to check, as a discrete item, whether the recorded
+`NetworkDenialRecord.mechanismUsed` meets `contracts/isolation-and-offline.md`'s
+strongest-available-mechanism rule, or whether a specific invocation meets FR-011's
+literal requirement. This is treated as a gap in what was dispatched, parallel to T033's
+original-task-decomposition gap (this section's own account above), not a failure to
+perform the action actually dispatched and that did converge to PASS on its own actual
+instructions, seven times, accurately reported. A confirmatory eighth audit pass was
+considered and not run: it would only re-state the already-disclosed, already-known fact
+that `hook-fire` ran under rank 3, adding no new information. This is not counted as a new,
+independent audit defect; it is the same underlying T005 gap, traced to a further
+consequence for what T057's dispatched passes actually checked.
 
 ## Honest maturity label
 
