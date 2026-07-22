@@ -51,9 +51,14 @@ verdict** (`no-go`) is a separate, orthogonal outcome — see
 Three disposable `<SCRATCH_ROOT>` subtrees outside this repository's clone
 (fixture source, Tier-1 Copilot scratch project, Tier-2 second-agent scratch
 project), per `contracts/isolation-and-offline.md` §1. All were torn down at
-spike closeout (T056); zero scratch artifact was ever staged or committed to
-this repository at any point (T055 — confirmed via `git log`/`git status`
-showing no scratch feature, scratch ADR, or fixture file in tracked history).
+spike closeout (T056); zero scratch artifact was ever committed to this
+repository at any point (T055 — confirmed via `git log` showing no scratch
+feature, scratch ADR, or fixture file in tracked history), and `git status`
+at spike closeout showed none staged or present in the working tree or index
+at that time. Neither check can retroactively prove a file was never staged
+in the past (only current index/worktree state and the permanent commit
+history are inspectable); the claim here is scoped to "never committed" and
+"not staged at closeout," not "never staged at any point."
 Two live-Copilot lifecycle sessions' full raw JSONL transcripts
 (7,664 + 9,439 events, ~6.5MB) were permanently retained as session-scoped
 evidence rather than treated as disposable — never committed to this
@@ -117,7 +122,11 @@ re-run under the same `(deny network*)` profile and produced byte-identical
 stdout to an unsandboxed baseline run, exit `0`, empty stderr. This is
 genuine, stronger (rank-1-equivalent) proof, obtained *after* the original
 spike execution and its independent audit, that this specific offline CLI
-subprocess makes zero network calls. It does **not** retroactively claim rank
+subprocess does not *require* network access to produce correct,
+byte-identical output — not that it makes literally zero network-call
+*attempts*; an attempted-and-silently-failed or attempted-and-ignored call
+under the deny profile would be indistinguishable from no attempt at all by
+this exit-code/stdout/stderr check alone. It does **not** retroactively claim rank
 1 was used to gate the original `install`/`hook-fire`/`probe-*` live-Copilot
 invocations recorded above — those remain honestly recorded as executed under
 rank 3, per the original `network-denial.json`. Any future execution in this
@@ -219,16 +228,24 @@ file's content hash and mtime are unchanged by disable).
   (merge SHA `38336982b2d78aa1e20dcd57fd759c07aee716e9`), and this spike's own
   verdict, whatever it turned out to be, was never contingent on or coupled
   to it.
-- This spike's own execution is **reference-verified by independent audit**
-  (six cumulative fresh-context audit rounds against the original 6-entry
+- This spike's own execution is **executed and independently audited** (six
+  cumulative fresh-context audit rounds against the original 6-entry
   Tier-1 `mutationBaselines` corpus, each round finding and closing genuine
   defects, converging to a final PASS on internal consistency; **plus a
   seventh, targeted audit pass, PR review round 7**, independently
   confirming the current 7-entry bundle — after a corroborating entry was
   added post-audit in PR review round 4 — remains internally consistent,
-  schema-conformant, and verdict-unchanged) — it is **not** externally
-  validated and **not** community-adopted. ADR-0014 rung-3 external/community
-  signal remains open and is not claimed here.
+  schema-conformant, and verdict-unchanged). **"Reference-verified" is a
+  distinct, binding ADR-0014 rung-2 maturity term** — reproducible,
+  self-verifying, fail-closed evidence from a maintainer-owned isolated
+  reference repository (the bar Phase 6 met; see
+  [`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)) —
+  and is **not** claimed for this spike: the audit above is a fresh-context
+  LLM consistency review of the session-scoped evidence bundle, not a
+  reference-repository run, and T005 remains explicitly nonconformant. This
+  spike's own execution is **not** externally validated and **not**
+  community-adopted. ADR-0014 rung-3 external/community signal remains open
+  and is not claimed here.
 - Whether the `no-go` outcome should be read as "the criterion, as literally
   written, was too strict for a designed-to-mutate lifecycle action" is a
   scoping/contract-revision judgment left for a future, separately-authorized
@@ -346,7 +363,7 @@ row 6 and the Limitations bullet above) — meaning the six-round "final PASS"
 above was never actually performed against the bundle's current, 7-entry
 state. A PR reviewer correctly flagged this as a genuine temporal/scope
 mismatch (distinct from round 6's findings, which were wording-only). Rather
-than merely re-scoping the "reference-verified" claim, a seventh independent
+than merely re-scoping the "executed and independently audited" claim, a seventh independent
 fresh-context audit pass (`gpt-5.6-sol`, no authoring context) was dispatched
 against the checks (a)–(f) above, applied to the current bundle, plus a new
 check (g) covering the 7th entry's own schema conformance and narrative
@@ -382,7 +399,11 @@ all independently re-confirmed unchanged and correct by this same pass.
 ## Honest maturity label
 
 Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed and
-reference-verified by independent audit**. It is **not released**, **not
+independently audited**. This is a fresh-context LLM consistency audit of
+the session-scoped evidence bundle, not ADR-0014's rung-2 maturity state
+(reproducible, self-verifying, fail-closed evidence from a maintainer-owned
+isolated reference repository — the bar Phase 6 met); **"reference-verified"
+is deliberately not claimed for this spike**. It is **not released**, **not
 externally validated**, and **not adopted**. Its own contract verdict is
 **`no-go`** (mutation trigger, both install and remove). One task, **T005**,
 is explicitly left incomplete in `tasks.md` (`- [ ]`) — its own
