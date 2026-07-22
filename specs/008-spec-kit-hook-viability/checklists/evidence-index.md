@@ -76,16 +76,22 @@ missing dependency, no unhandled crash, stdout empty. Neither probe's own
 ## Network / credential limits
 
 Mechanism used at original T005 execution: **allowlisted-env-plus-static-review**
-(rank 3 of 3 in `contracts/isolation-and-offline.md` §4) — ranks 1–2
-(OS-namespace/firewall network denial, process-level egress block) were
-attempted and found unavailable in this shared, unprivileged host environment
-(no `unshare(1)`; `pfctl` requires `sudo`, unavailable). Rank 3 combines an
-explicit environment variable allowlist for every subprocess invocation with
-static review of the fixture's own short script source, confirming its only
-external process invocation is the offline `@adrkit/cli` subprocess call
-(every `@adrkit/cli` command reads only the local filesystem — Principle II,
-ADR-0007). No credential, API key, or remote endpoint was configured anywhere
-in the fixture, the built CLI, or any invocation environment.
+(rank 3 of 3 in `contracts/isolation-and-offline.md` §4) — rank 2
+(process-level egress block via `pfctl`) was attempted and found unavailable
+in this shared, unprivileged host environment (`pfctl` requires `sudo`). Rank
+1 (OS-namespace network denial) was **not conclusively determined
+unavailable at the time** — the original check tested only `unshare(1)`, a
+Linux-specific tool absent on this macOS host, and never tested this host's
+own macOS-native equivalent (`sandbox-exec`); this was an **incomplete
+availability check, not a valid determination that rank 1 was unavailable**
+— see the corrective addendum below, which discloses and addresses this gap
+directly. Rank 3 combines an explicit environment variable allowlist for
+every subprocess invocation with static review of the fixture's own short
+script source, confirming its only external process invocation is the
+offline `@adrkit/cli` subprocess call (every `@adrkit/cli` command reads only
+the local filesystem — Principle II, ADR-0007). No credential, API key, or
+remote endpoint was configured anywhere in the fixture, the built CLI, or any
+invocation environment.
 
 **Limitation, stated honestly**: rank 3 does not prove the *absence* of a
 network call the way ranks 1–2 would — it establishes that no credential or
@@ -345,22 +351,24 @@ fresh-context audit pass (`gpt-5.6-sol`, no authoring context) was dispatched
 against the checks (a)–(f) above, applied to the current bundle, plus a new
 check (g) covering the 7th entry's own schema conformance and narrative
 consistency. That pass returned **FAIL** on first inspection, correctly
-finding five real, previously undetected defects: (1) the Markdown's
-"Bundle completeness" section still stated "6 entries" unqualified; (2) the
-7th entry itself deviated from the schema/convention followed by the other
-six on `gitTreeRoot` (held a literal path instead of the generic
-`"scratch-project"` label), `adrDiffStatBefore`/`adrDiffStatAfter` (held
-descriptive strings instead of `null`), and — most substantively —
-`noGoTriggerFired`/`noGoTriggerType` (`false`/`null` despite
+finding six real, previously undetected defects: (1) the Markdown's "Bundle
+completeness" section still stated "6 entries" unqualified; (2) the
+Markdown's probe-b stderr table row presented a two-line stderr excerpt
+misleadingly as if it were the exact, complete stderr content; (3) the 7th
+entry itself deviated from the schema/convention followed by the other six
+on `gitTreeRoot` (held a literal path instead of the generic
+`"scratch-project"` label) and `adrDiffStatBefore`/`adrDiffStatAfter` (held
+descriptive strings instead of `null`); (4) — most substantively — the 7th
+entry's `noGoTriggerFired`/`noGoTriggerType` (`false`/`null` despite
 `identical: false`, contradicting the literal `data-model.md` §5 formula
-applied to every other entry); (3) the entry's own `analysis` text still used
-"closing"/"closes" language for the FR-012 gap, a defect round 6 had already
-fixed everywhere else but had missed in this one raw JSON field; (4) the
-entry's own `evidenceRound`/`analysis` fields mislabeled the change as
-"round-6" when every tracked repository file consistently and correctly
-attributes it to PR review round 4; (5) `verdict.otherTriggersChecked`
-lacked a corresponding 7th key for consistency with its established
-one-key-per-entry pattern. All five were fixed; the corrected bundle's
+applied to every other entry); (5) the 7th entry's own `analysis` text still
+used "closing"/"closes" language for the FR-012 gap (a defect round 6 had
+already fixed everywhere else but had missed in this one raw JSON field) and
+mislabeled the change's origin as "round-6" when every tracked repository
+file consistently and correctly attributes it to PR review round 4; (6)
+`verdict.otherTriggersChecked` lacked a corresponding 7th key for consistency
+with its established one-key-per-entry pattern. All six were fixed; the
+corrected bundle's
 `noGoTriggerFired`/`noGoTriggerType` for the 7th entry are now `true`/
 `"mutation"` (it does independently fire the same trigger, honestly, and is
 excluded from `drivingEvidence` only because it corroborates an

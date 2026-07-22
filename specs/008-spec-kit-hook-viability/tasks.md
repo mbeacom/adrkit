@@ -37,7 +37,7 @@ satisfied; spike execution is authorized once this migration merges.
 > against the original 6-entry `mutationBaselines` corpus, **plus a seventh, targeted
 > audit pass in PR review round 7** independently confirming the current 7-entry bundle
 > — after a corroborating entry was added post-audit in PR review round 4 — remains
-> internally consistent and verdict-unchanged, after fixing 5 real defects it found in
+> internally consistent and verdict-unchanged, after fixing 6 real defects it found in
 > the process — see T057). The tracked, sanitized FR-024 evidence index is
 > [`checklists/evidence-index.md`](./checklists/evidence-index.md). Raw transcripts and the
 > full evidence bundle remain session-scoped only, per FR-017. This spike did **not**
@@ -943,19 +943,26 @@ Depends on: T054, T055, T056.
   wording, a **seventh** fresh-context audit pass (`gpt-5.6-sol`, no authoring context)
   was dispatched against checks (a)–(f) applied to the current 7-entry bundle, plus a new
   check (g) specific to the 7th entry's own schema conformance and narrative consistency.
-  That pass returned an initial **FAIL**, correctly finding five real, previously
-  undetected defects confined entirely to the 7th entry and its surrounding prose: stale
-  "6 entries" wording in the Markdown's bundle-completeness section; a misleadingly
-  presented stderr excerpt; the 7th entry's `gitTreeRoot`/`adrDiffStatBefore`/
-  `adrDiffStatAfter` fields deviating from the schema/convention followed by the other
-  six; the 7th entry's `noGoTriggerFired`/`noGoTriggerType` (`false`/`null`) contradicting
-  its own `identical: false` value under the literal formula every other entry follows;
-  and the 7th entry's own `analysis`/`evidenceRound` fields mislabeling its origin as
-  "round-6" instead of the correct "PR review round 4." All five were fixed and the
+  That pass returned an initial **FAIL**, correctly finding six real, previously
+  undetected defects confined entirely to the 7th entry, its surrounding prose, and one
+  audit-trail convenience field: (1) stale "6 entries" wording in the Markdown's
+  bundle-completeness section; (2) the Markdown's probe-b stderr table row presenting a
+  two-line stderr excerpt misleadingly as if it were the exact, complete content; (3) the
+  7th entry's `gitTreeRoot` (literal path instead of the generic `"scratch-project"`
+  label) and `adrDiffStatBefore`/`adrDiffStatAfter` (descriptive strings instead of
+  `null`) fields deviating from the schema/convention followed by the other six; (4) the
+  7th entry's `noGoTriggerFired`/`noGoTriggerType` (`false`/`null`) contradicting its own
+  `identical: false` value under the literal formula every other entry follows; (5) the
+  7th entry's own `analysis` text still using "closing"/"closes" language for the FR-012
+  gap (a defect round 6 had already fixed everywhere else but had missed in this one raw
+  JSON field) and mislabeling its origin as "round-6" instead of the correct "PR review
+  round 4"; (6) `verdict.otherTriggersChecked` lacking a corresponding 7th key for
+  consistency with its established one-key-per-entry pattern. All six were fixed and the
   corrected bundle was independently re-confirmed unchanged on outcome, precedence,
   `drivingEvidence`, and the Phase-6-maturity restatement. See
   [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s "Independent audit"
-  section for the full account. T057's own checkbox remains `- [X]`: its own
+  section for the full account (identical six-item enumeration, kept in sync here). T057's
+  own checkbox remains `- [X]`: its own
   literally-described action (dispatch, check, converge to PASS or remediate) was
   performed correctly across all seven rounds, including this one.
 
