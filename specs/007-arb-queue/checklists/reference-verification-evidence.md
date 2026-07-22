@@ -26,6 +26,8 @@ self-verifying, fail-closed, reviewed — are all met by the artifacts below.
 | Reference-repo runner | `ubuntu-latest`; Action declares `node24` |
 | Bun (validation workflow) | `1.3.14` (asserted by `validate-queue.sh`) |
 | Fail-closed invalid fixture | `fixtures/fail-closed-invalid-corpus-dir` (a plain file), git blob `a9f7c3c4e629fda55968569c88a4a0283f7d66b4` |
+| Fail-closed run environment | `ubuntu-24.04` image `20260714.240.1`; runner `2.336.0`; `actions/checkout@v4`; `actions/upload-artifact@v4` |
+| Fail-closed run permissions | workflow declares `contents: read` + `issues: write`; `metadata: read` is the implicit default granted to `GITHUB_TOKEN`; no PAT, no repository secret |
 
 ## Reference repository (maintainer-owned, isolated)
 
@@ -43,7 +45,35 @@ outcomes in CI (self-verifying).
 | PR [#6](https://github.com/mbeacom/adrkit-t018-dogfood/pull/6) — add consumer-facing fail-closed evidence for the queue Action | `2d7f6063b1d0d93f453138cf24a2bcd81aa287a6` |
 
 Managed queue issue: [#3 "ADR ARB Queue"](https://github.com/mbeacom/adrkit-t018-dogfood/issues/3)
-— created once, updated in place across reruns.
+— created once, updated in place across reruns. The README evidence write-up for the
+fail-closed dispatch is commit
+[`b1536bb`](https://github.com/mbeacom/adrkit-t018-dogfood/commit/b1536bb125b31a041a514d23b87779ab5c0bf1af)
+("docs: record live fail-closed dispatch evidence (run 29920390292)").
+
+## Fail-closed proof — mechanical details and hashes
+
+The one live consumer-facing fail-closed scenario (run
+[29920390292](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29920390292),
+workflow `arb-queue-fail-closed.yml`, PR #6) establishes, mechanically:
+
+- **Deterministic invalid input.** The checked-in path `fixtures/fail-closed-invalid-corpus-dir`
+  is a **plain file** used as the Action's `dir` input, so `readdir()` throws `ENOTDIR`
+  inside adrkit's corpus loader **before** any Octokit client is constructed or any write is
+  attempted.
+- **Mechanical expected-failure proof.** `steps.queue.outcome == failure` and the Action's
+  `issue-number` output is empty — asserted by the workflow, so a non-failure would fail the
+  run. (The run's overall conclusion is `success` precisely because the verifier asserts the
+  **expected** Action failure.)
+- **Zero mutation, proven by byte-for-byte snapshot compare.** Every OPEN+CLOSED issue is
+  snapshotted before and after as `number, state, title, updatedAt, bodySha256` (the snapshot
+  **capture** uses the GitHub API; the subsequent byte-for-byte **comparison** is network-free).
+  The canonical before/after snapshot SHA-256 are **identical**:
+  `9b15bda8a202ec4bb9539f920ceb47f96b2844a4b46232c2a3a4465e579802d9`. Issue #3 remained `OPEN`
+  with `updatedAt 2026-07-21T13:21:38Z` (unchanged by the fail-closed run).
+- **Uploaded sanitized evidence artifact** (before/after snapshots) SHA-256:
+  `15e3c042fbda394a579de560756d51ea1ca075031df5d1b458ffd2f8006cb966` (retained 90 days).
+- **Untouched context.** The existing valid corpus, the other workflows, issue #3, and all
+  previous runs were left untouched by this dispatch.
 
 ## Expected vs. observed
 
@@ -53,7 +83,7 @@ Managed queue issue: [#3 "ADR ARB Queue"](https://github.com/mbeacom/adrkit-t018
 | 2 | First Action dispatch, valid corpus | Exactly one managed issue created; hidden ownership marker present; default token only | Issue #3 created; single issue | Run [29833185424](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29833185424) (create) |
 | 3 | Rerun with changed body (ADR 0015 full quorum) | Same issue #3 body updated in place; no duplicate issue | Same issue updated; no duplicate | Run [29834061211](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29834061211); PR #4 |
 | 4 | Self-verification after every dispatch | Workflow asserts its own expected outcome; diverging behavior fails the run | Passed | Run [29836486788](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29836486788); PR #5 |
-| 5 | **Fail-closed**: invalid corpus dir (a file, not a directory) | Action step fails **before** any GitHub write; no `issue-number` output; zero issue mutation (create/close/reopen/body-change) across all OPEN+CLOSED issues; default token only | Step `outcome=failure`; no issue-number; before/after issue snapshots identical (asserted by `assert-no-issue-mutation.sh`) | Run [29920390292](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29920390292) (workflow `arb-queue-fail-closed.yml`); PR #6; sanitized before/after snapshot artifacts retained 90 days |
+| 5 | **Fail-closed**: invalid corpus dir (a file → `ENOTDIR`) | Action step fails **before** any GitHub write; no `issue-number` output; zero issue mutation across all OPEN+CLOSED issues; default token only | Step `outcome=failure`; empty `issue-number`; before/after canonical snapshot SHA-256 identical (`9b15bda8…802d9`); artifact SHA-256 `15e3c042…cb966` | Run [29920390292](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29920390292) (workflow `arb-queue-fail-closed.yml`); PR #6; README commit `b1536bb`; sanitized before/after snapshot artifacts retained 90 days |
 | 6 | Credential surface | Only default `GITHUB_TOKEN` with `contents: read` + `issues: write`; no PAT/secret | Confirmed in all workflow definitions | `arb-queue.yml`, `arb-queue-fail-closed.yml`, `queue-validation.yml` |
 
 All cited runs concluded `success`.
@@ -71,7 +101,8 @@ and consistent with the reference repository's fixed-`--as-of` validation runs.
 - The reference repository is maintainer-owned; it demonstrates correctness,
   reproducibility, and fail-closed behavior, not third-party adoption or sustained
   use.
-- The fail-closed scenario evidenced is invalid-input / pre-write failure with
+- The live fail-closed scenario evidenced is exactly **one deterministic invalid-input
+  class** — an unreadable `dir` (a plain file → `ENOTDIR`) causing pre-write failure with
   zero mutation. Other consumer-facing failure modes the Action also implements
   (duplicate ownership marker, configured-title conflict, missing `issues: write`
   permission) are covered by this repo's unit/integration tests (rung 1) rather
