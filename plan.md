@@ -33,6 +33,7 @@ sync.
 | 5 — MCP server | `specs/006-mcp-server/` | landed (PR #19 merged); real-user gate met |
 | 6 — ARB queue | `specs/007-arb-queue/` | implementation in progress (kernel + `adr queue` CLI + queue Action complete, all gates green); external-team rung 6 exit gate (SC-004) outstanding |
 | 7 — Spec Kit hook viability | `specs/008-spec-kit-hook-viability/` | advance scoping complete and scope ratified; non-shipping spike execution blocked on Phase 6 T048/T049 |
+| 8 — Catalog binding viability | `specs/009-catalog-binding-viability/` | advance scoping complete; ADR-0012/0013 governance satisfied; non-shipping spike execution blocked on Phase 6 T048/T049 and independent-adopter oracle |
 
 Advance **scoping** (spec → plan → tasks) of the next phase is explicitly permitted
 and encouraged, so a design is review-ready when its turn comes; **implementation** of
