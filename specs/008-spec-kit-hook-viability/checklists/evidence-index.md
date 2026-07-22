@@ -29,11 +29,34 @@ review round 4 — remains internally consistent and verdict-unchanged; see
 [Independent audit](#independent-audit) below). **An eighth, later-dispatched
 targeted pass** (PR review round 16) checked a different question — FR-011/
 strongest-mechanism compliance for the `hook-fire` invocation — and returned
-**FAIL**; because that defect was disclosed rather than remediated, T057 is
-now marked incomplete (`- [ ]`) — see [Independent audit](#independent-audit)
+**FAIL**; because that defect was disclosed rather than remediated, T057 was
+marked incomplete (`- [ ]`) — see [Independent audit](#independent-audit)
 below. The spike's own **contract
 verdict** (`no-go`) is a separate, orthogonal outcome — see
 [Verdict](#verdict-t042-t048).
+
+**Remediation (post-merge; PR #35 merge commit `35542a5`; this session) — T005,
+T012, and T057 are now genuinely satisfied and marked `- [X]` in `tasks.md`.**
+A coordinating session mandated a conformant rerun (not a waiver, and not
+proceeding to feature 009) after PR #35 merged with the out-of-contract state
+above. A fresh probe of the actual execution host found rank 1 (OS-level
+network namespace/firewall) genuinely available via rootless **Podman 5.4.2**
+(server) / **5.8.5** (client), `--network none`, empirically confirmed via a
+direct outbound-connection-attempt probe (kernel-level `ENETUNREACH`) — plus a
+functional `sandbox-exec (deny network*)` alternative, probed but not
+selected (Podman's full network-namespace guarantee is stronger than
+`sandbox-exec`'s egress-only one). Docker was probed and rejected (client
+only, no daemon). A fresh, isolated live-Copilot session (clean mutation
+baseline, no concurrent feature 009 work) re-ran `hook-fire` with this
+mechanism genuinely gating the nested adrkit-CLI subprocess call. A **ninth**
+independent audit pass (`claude-opus-4.8`, fresh context, never Opus 4.6)
+reviewed the corrected evidence directly against every relevant FR/SC/contract
+and **PASSED**, with four cosmetic/informational notes only. **The `no-go`
+verdict (trigger: `mutation`) is unchanged.** See the "Remediation" paragraphs
+in each section below for the full account, exact hashes, and transcript
+paths; `tasks.md`'s T005/T012/T024/T057/T058 notes for the task-level account;
+and root `plan.md`'s Phase 7 row for the corrected overall status. **The
+008→009 sequencing precondition is now genuinely satisfied.**
 
 ## Tool versions / environment
 
@@ -49,7 +72,12 @@ verdict** (`no-go`) is a separate, orthogonal outcome — see
 | Live Copilot lifecycle sessions (model) | `claude-sonnet-5` (per this session's model policy — never Opus 4.6) |
 | Independent evidence audit (model) | `gpt-5.6-sol` (heavyweight tier, fresh context, no authoring history) |
 | Fixture source file hashes (SHA-256) | `extension.yml` `b3765114...986b9d3`; `commands/probe.md` `11f88504...b9a33c2`; `scripts/probe.sh` `b6eac379...41b3fbdb` |
-| **Evidence bundle file hashes (SHA-256, full digests)** | `spike-008-evidence.json`: `5433c588a55866090afdbad65935c606cdf451db35b0bbb6e35fb531d3a3aea7`; `spike-008-evidence.md`: `8a45a237d1a44e170fbef89ed4d76a7654d2b2ad40ac3a6972d654cce2a850c3` (per `contracts/evidence-bundle-and-verdict.md` §1's two-file bundle definition; both files are session-scoped only, per FR-017 — these digests let a reader verify a copy of either file against this index without the file itself being committed; **recomputed in PR review round 7** after that round's fixes — see [Independent audit](#independent-audit) — to a 7-entry `mutationBaselines` bundle; the round-4/round-6-era digests these superseded are not separately retained here since only the current, correct bundle state is a useful verification target) |
+| **Evidence bundle file hashes (SHA-256, full digests)** | `spike-008-evidence.json`: `5433c588a55866090afdbad65935c606cdf451db35b0bbb6e35fb531d3a3aea7`; `spike-008-evidence.md`: `8a45a237d1a44e170fbef89ed4d76a7654d2b2ad40ac3a6972d654cce2a850c3` (per `contracts/evidence-bundle-and-verdict.md` §1's two-file bundle definition; both files are session-scoped only, per FR-017 — these digests let a reader verify a copy of either file against this index without the file itself being committed; **recomputed in PR review round 7** after that round's fixes — see [Independent audit](#independent-audit) — to a 7-entry `mutationBaselines` bundle; the round-4/round-6-era digests these superseded are not separately retained here since only the current, correct bundle state is a useful verification target). **These are the original, first-run digests — preserved unmodified; see the remediation row below for the corrected combined bundle.** |
+| **Remediation (post-merge; PR #35 merge `35542a5`; this session): network-denial mechanism** | Rootless **Podman 5.4.2** (server) / **5.8.5** (client), `--network none`; alternative probed and confirmed but not selected: macOS `/usr/bin/sandbox-exec` with `(deny network*)`; rejected: Docker (client only, no reachable daemon on this host) |
+| **Remediation combined evidence bundle hashes (SHA-256, full digests)** | `spike-008-evidence-remediation.json`: `61242758464b187864043b59fddc5c90192a5bbe02e6a876ec2bccfb189f2033`; `spike-008-evidence-remediation.md`: `69b4123f9a8b331992744569891ac254a64b50ed78cbb7ce70ed6f3dbfcf32e6` (session-scoped only, per FR-017; supersedes the original bundle above only for `networkDenial` (hook-fire mechanism), `hookFireTranscript`, and `offlineSubprocessProof` — every other field, and the `no-go`/`mutation` verdict, is unchanged from the original bundle, carried forward verbatim) |
+| **Remediation per-category evidence hashes (SHA-256)** | `network-denial.json`: `83739ed5623e41f98e0344bbd2f926f894cfb3cb5c95887e213c7232b40f0b4f`; `hook-fire.json`: `ba266113a4ab1d3aa82b41e3c70667bb1648d7450cb107930aaf3e8c5ecc8c74`; `mutation-baselines.json`: `ff51df277d98b31afa0c073f1b8768ebfc31aa8d29803c3d526d0861f7ddc2f7`; `absent-context-probe.json`: `3db28761b2bfcc74b791d6a7498b7ae20fe0d982b29caf7298a50c9f306d778a`; `absent-cli-probe.json`: `efe25d5894396abd472d8b1664044afdd67a66a1c64328d6786a2c6b34d34a66`; `verdict-remediation-comparison.json`: `14d873a259c2a39270b220b6335234a2fa2daa876fa5e4fd547625c1efb849da` |
+| **Remediation accepted live-Copilot transcript hash (SHA-256)** | `transcripts/live-copilot-remediation-attempt2/plan-and-hookfire.json`: `827a23f323a0996c3f9a3fe848fc2171585ac0faa815ed5376b756aae3a66c6c` (the genuinely rank-1-gated re-run, accepted evidence). The disclosed, non-conformant first attempt (script bypassed and reconstructed from prose, reproducing the original rank-3 defect) is preserved at `transcripts/live-copilot-remediation-attempt1-nonconformant-rank3-reproduction/plan-and-hookfire.json`, `3cdcd2abbf8054865fb9e9a8f7c0f0fd565177c8f78375d80f771d0b847bffa2` — disclosed, not used as accepted evidence. |
+| **Remediation independent audit (model)** | `claude-opus-4.8` (heavyweight tier, fresh context, no authoring history from this remediation or any prior audit round; never Opus 4.6) — ninth cumulative audit pass, PASS |
 
 ## Scratch environment (not tracked, not committed)
 
@@ -157,6 +185,29 @@ explicit for FR-011 specifically, rather than leaving it to be inferred. This is
 orthogonal, no-go-verdict-unaffected T005 gap already disclosed throughout this section —
 not a new, independent defect — see `tasks.md`'s T024 note for the task-level account.
 
+**Remediation (post-merge; PR #35 merge `35542a5`; this session) — FR-011 now genuinely
+met for `hook-fire`.** Per a coordinating session's explicit mandate, this gap was closed
+by re-probing rank 1 on the actual execution host (not merely re-testing `sandbox-exec` in
+isolation, as the corrective addendum above already had) and finding it available via
+rootless **Podman 5.4.2**/5.8.5, `--network none` — confirmed via a direct
+outbound-connection-attempt probe returning kernel-level `ENETUNREACH`, a strictly
+stronger guarantee than the addendum's own credential-absence/static-review corroboration.
+Podman was selected over `sandbox-exec` (also confirmed functional) for its full
+network-namespace isolation, and wired unconditionally into `scripts/probe.sh` step 5. A
+fresh, isolated live-Copilot session then genuinely re-ran the `hook-fire` invocation under
+this mechanism: `env -i PATH="$PATH" ADRKIT_REPO_ROOT="$ADRKIT_REPO_ROOT" podman run --rm
+--network none ...` wrapping the same `node .../index.js queue --dir ... --format json`
+call this section's static review already established as the fixture's only external
+process invocation. Network denial was scoped to this fixture/adrkit subprocess path only
+— the live-Copilot session's own parent model/API connectivity remained available
+throughout, never denied. Exit code `0`, valid `adr queue` JSON stdout, zero repo
+mutation. This is genuine, enforced (not merely corroborative) proof that this specific
+offline CLI subprocess call ran with outbound network access disabled, satisfying FR-011's
+literal requirement for the one invocation it substantively concerns. The original rank-3
+record is preserved unmodified as the historical first-run record. See `network-denial.json`
+and `hook-fire.json` (this remediation) for the full mechanism-selection rationale, exact
+command lines, and transcript hash.
+
 
 ## Verdict (T042–T048)
 
@@ -220,6 +271,16 @@ passing does not require or imply the other.
 `NonBindingRecommendation` does not apply). `manualCommandOnlyShortfall` is
 also `null` (outcome is not `manual-command-only`).
 
+**Remediation cross-reference (post-merge; PR #35 merge `35542a5`; this session).** This
+remediation re-examined whether correcting T005/`hook-fire`'s network-denial mechanism to
+rank 1 changes this verdict. **It does not.** The `mutation` trigger fires independently
+from the `install` and `remove` `MutationBaseline` entries (rows 0 and 3 above), a
+structural property of Spec Kit's own extension-lifecycle file behavior, wholly
+orthogonal to which network-denial rank gated `hook-fire`'s CLI subprocess call. Outcome,
+trigger, and `drivingEvidence` are unchanged. See `verdict-remediation-comparison.json`
+(this remediation's own evidence, SHA-256 `14d873a259c2a39270b220b6335234a2fa2daa876fa5e4fd547625c1efb849da`)
+for the full causal account.
+
 ## Determinism
 
 The frozen upstream reference was re-verified at execution time
@@ -282,6 +343,19 @@ file's content hash and mtime are unchanged by disable).
   spike's own execution is **not** externally validated and **not**
   community-adopted. ADR-0014 rung-3 external/community signal remains open
   and is not claimed here.
+
+  **Remediation (post-merge; PR #35 merge `35542a5`; this session).** T005's
+  gap is now closed: rank 1 (Podman `--network none`) was found genuinely
+  available and applied to a fresh re-run of the `hook-fire` invocation; T012's
+  dependency-set certification and T057's remediation-before-T058 rule are now
+  both genuinely satisfied. This spike's execution is **conformant, with both
+  previously-disclosed blocking gates now closed**. This remediation is still a
+  fresh-context LLM consistency/compliance audit (ninth pass, `claude-opus-4.8`)
+  of a session-scoped evidence bundle, not a maintainer-owned reference-repository
+  run — ADR-0014 "reference-verified" is still not claimed, and rung-3
+  external/community signal remains open and is not claimed here either. See the
+  per-section remediation paragraphs below, `tasks.md`'s task-level notes, and
+  root `plan.md`'s Phase 7 row for the full corrected account.
 - Whether the `no-go` outcome should be read as "the criterion, as literally
   written, was too strict for a designed-to-mutate lifecycle action" is a
   scoping/contract-revision judgment left for a future, separately-authorized
@@ -326,6 +400,23 @@ file's content hash and mtime are unchanged by disable).
   rounds (see below) did not catch this gap either, prior to this PR review —
   that is itself a documented limitation of the audit process's
   environment-capability coverage, not just of T005.
+
+  **Remediation (post-merge; PR #35 merge `35542a5`; this session) — T005 is now
+  genuinely conformant and marked `- [X]` in `tasks.md`.** A fresh probe of the
+  actual execution host (not merely a re-test of `sandbox-exec` in isolation)
+  found rank 1 genuinely available via rootless Podman 5.4.2/5.8.5's
+  `--network none` (kernel-enforced network namespace, confirmed via a direct
+  outbound-connection-attempt probe returning `ENETUNREACH`) — stronger than the
+  `sandbox-exec (deny network*)` alternative also confirmed functional. Podman
+  was selected and wired into `scripts/probe.sh` step 5, scoped to the
+  fixture/adrkit subprocess call only (the live-Copilot session's own parent
+  model/API connectivity was never denied). A fresh, isolated live-Copilot
+  session then genuinely re-ran the `hook-fire` invocation under this mechanism
+  and the `install`/`probe-absent-context`/`probe-absent-cli` invocations
+  were re-confirmed consistent with it. This closes the execution-accuracy gap
+  described above; the original rank-3 record is preserved unmodified as
+  historical first-run evidence. See `network-denial.json` (this remediation)
+  for the full mechanism-selection rationale and exact command lines.
 - **`hook-fire` FR-011 compliance gap (T024), discovered post-hoc via independent PR
   review (round 13; a comment on `tasks.md:588` initially missed in this session's own
   review-round triage and surfaced only via a later unresolved-threads sanity sweep)**:
@@ -342,6 +433,12 @@ file's content hash and mtime are unchanged by disable).
   note there). This does not change the `no-go` verdict (driven independently by the
   mutation baseline) and is not a new, independent defect — it is the same T005 gap,
   traced to one additional consequence.
+
+  **Remediation (post-merge; PR #35 merge `35542a5`; this session).** FR-011 is now
+  genuinely met for `hook-fire`: the remediation re-ran this invocation under rank-1
+  Podman `--network none`, per the T005 remediation note above. See `hook-fire.json`
+  (this remediation) and the "Network / credential limits" section above for the full
+  account, exact command lines, and transcript hash.
 - **T033 Tier-2 mutation-bracket completeness gap, discovered post-hoc via
   independent PR review (PR round 4; framing corrected PR round 6)**: the original
   evidence bundle's six `MutationBaseline` entries all belong to the Tier-1
@@ -411,6 +508,17 @@ file's content hash and mtime are unchanged by disable).
   other task's own defined action is separable from both gaps. T033's unrelated
   task-decomposition gap above is grouped here only because PR review round 6 raised both
   findings in the same review pass.
+
+  **Remediation (post-merge; PR #35 merge `35542a5`; this session) — T012 is now
+  genuinely satisfied and marked `- [X]` in `tasks.md`.** Since T005 is now closed
+  (see the T005 remediation note above), T012's own literal action — certifying its
+  full named dependency set, including T005, is satisfied — is now honestly true, not
+  merely narrowly true. T012's blocking-gate rule ("No User Story task below may begin
+  until this checkpoint is confirmed") is satisfied for this remediation run: no new
+  User Story task work began after this remediation's T012 re-certification and before
+  it, since the remediation scope is limited to re-running already-defined lifecycle/
+  evidence tasks named in this document, not new User Story tasks. See `tasks.md`'s
+  T012 note for the full account.
 
 ## Independent audit
 
@@ -518,7 +626,34 @@ itself — the same "own distinct literal action, independent of an upstream def
 reasoning already applied, and left uncontested, to T012's downstream User Story tasks.
 See `tasks.md`'s T057 round-18 addendum and T058's own round-18 note for the full account.
 
+**Ninth audit pass (remediation; post-merge; PR #35 merge `35542a5`; this session).**
+After a coordinating session mandated a conformant rerun (not a waiver) of the two
+disclosed blocking-gate violations above, a fresh, isolated live-Copilot session
+re-ran `hook-fire` genuinely gated by rank-1 Podman `--network none` (see the T005/T024
+remediation notes in "Limitations" and "Network / credential limits" above). A **ninth**
+independent audit pass was then commissioned — `claude-opus-4.8`, fresh context, no
+authoring history from this remediation or any of the prior eight rounds, and explicitly
+not Opus 4.6 per the coordinating session's mandate — given the complete two-run evidence
+(original bundle, remediation's per-category JSON files, the combined
+`spike-008-evidence-remediation.json`/`.md` bundle, and both live-session transcripts) and
+asked to independently check every relevant FR/SC/contract, not merely re-run items
+(a)–(f). Independent finding: **PASS**. No blocking findings. Four cosmetic/informational
+notes (F1–F4): (F1) the combined bundle's `remediationProvenance` field, while accurate,
+duplicates some detail already in the per-category JSON files — informational, not a
+defect; (F2) the remediation transcripts directory naming is slightly verbose —
+cosmetic; (F3) a suggestion to cross-link `evidence-index.md`'s remediation paragraphs
+back to `tasks.md`'s equivalent notes more explicitly — addressed in this document's own
+edits; (F4) a note that the attempt-1 disclosed-failure transcript's directory name
+could be misread as accepted evidence if read out of context — its directory name
+already contains "nonconformant-rank3-reproduction" and its own transcript content
+states this explicitly, judged sufficient. This audit also independently confirmed the
+008→009 sequencing precondition is satisfiable: T005/T012/T057 are now genuinely
+conformant, and the `no-go`/`mutation` verdict is unchanged from the original run. See
+the remediation's own audit transcript (session-scoped) for the full independently-derived
+account.
+
 ## Honest maturity label
+
 
 Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed, out-of-contract on
 two blocking gates, and independently audited across eight dispatched passes**. It ran and
@@ -612,3 +747,30 @@ run alone. Feature 009 still requires its own
 technical safety gate (a genuinely blocking network-denial mechanism,
 FR-018/T006) at execution time; this index does not itself initiate, weaken,
 or bypass that gate.
+
+**Remediation (post-merge; PR #35 merge commit `35542a5`; this session) — current,
+corrected status.** The historical account above describes this spike's state through
+PR #35's merge, including its two disclosed out-of-contract blocking-gate violations.
+PR #35 nonetheless merged with T005/T012/T057 unchecked and T058 checked, and a
+coordinating session (external to this spike, mandating a conformant rerun rather than
+a waiver and explicitly forbidding proceeding to feature 009 under that state) directed
+this remediation. As detailed in the "Limitations", "Network / credential limits", and
+"Independent audit" sections above: rank 1 (rootless Podman 5.4.2/5.8.5, `--network
+none`) was found genuinely available on the actual execution host and applied,
+scoped to the fixture/adrkit subprocess path only, to a fresh, isolated live-Copilot
+re-run of `hook-fire`; this closed T005's mechanism-selection gap, which in turn made
+T012's dependency-set certification honestly true; a ninth independent audit pass
+(`claude-opus-4.8`, fresh context, never Opus 4.6) reviewed the complete two-run
+evidence against every relevant FR/SC/contract and **PASSED**, closing T057's
+remediation-before-T058 requirement; T058 was re-performed, reporting this corrected
+state to the coordinating session. **T005, T012, and T057 are now marked `- [X]` in
+`tasks.md`; all 58 tasks are checked.** This spike's execution is now **conformant**:
+both previously-disclosed blocking-gate violations are closed, and the **008→009
+sequencing precondition is now genuinely satisfied** — see root `plan.md`'s Phase 7
+row for the corrected overall status wording. The `no-go` verdict (mutation trigger,
+both `install` and `remove`) is **unchanged**: it is driven by an axis (file-mutation
+comparison) wholly orthogonal to which network-denial mechanism gated `hook-fire`. This
+remediation does not change any other conclusion above (ADR-0014 "reference-verified"
+and rung-3 external/community signal remain not claimed for this spike; it remains a
+disposable compatibility probe, not a shipped adapter or integration) — it closes
+exactly the two blocking-gate violations named, and no more.
