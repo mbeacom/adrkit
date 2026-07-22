@@ -136,18 +136,24 @@ literal, strict byte-identical `git status --porcelain=v1` bar):
 | 5 | probe-absent-cli | `true` | — |
 | 6 | install-tier2-second-agent (PR review round 4, see below) | `false` | *(corroborating — not counted as a distinct verdict-driving axis)* |
 
-Row 6 was added in **PR review round 4 remediation**, closing a PR-review finding that
-T033's Tier-2/second-agent `specify extension add --dev` invocation had no
-bracketed `MutationBaseline` of its own in the original bundle (only T034's
+Row 6 was added in **PR review round 4 remediation**, in response to a PR-review
+finding that T033's Tier-2/second-agent `specify extension add --dev` invocation had
+no bracketed `MutationBaseline` of its own in the original bundle (only T034's
 *structural rendering* check covered that invocation, not its mutation
-footprint). A fresh, git-initialized scratch project was used to capture a
-tightly-bracketed before/after `git status` around that exact command
-(exit 0; before: empty; after: the same four-new-untracked-path signature as
-row 0). It is recorded as **corroborating, not verdict-driving**, evidence:
-the `no-go` trigger already fires independently and sufficiently from rows 0
-and 3 (the original Tier-1 corpus), so row 6 changes nothing about the
-outcome — it exists solely to close the FR-012 completeness gap Copilot's
-review correctly identified. The fixture instance used for row 6 is a fresh,
+footprint) — unlike Tier-1's `install` invocation, which has a dedicated task (T019)
+for exactly this. This was a gap in the original Phase 5/US3 **task decomposition**
+(a missing task), not a failure to execute a defined task. A fresh, git-initialized
+scratch project was used to capture a tightly-bracketed before/after `git status`
+around that exact command (exit 0; before: empty; after: the same
+four-new-untracked-path signature as row 0). It is recorded as **corroborating, not
+verdict-driving**, evidence: the `no-go` trigger already fires independently and
+sufficiently from rows 0 and 3 (the original Tier-1 corpus), so row 6 changes
+nothing about the outcome. **Correction (PR review round 6):** row 6 corroborates —
+it does **not and cannot retroactively close** — the original T033 invocation's own
+missing before/after bracket. That specific historical gap is permanent and
+irreversible: the original invocation was never bracketed, and no later invocation,
+however faithfully reproduced, can stand in for a capture that was never taken. Row
+6's fixture instance is a fresh,
 schema-conformant recreation (the original round-4/round-5 on-disk fixture no
 longer existed in this environment when the gap was discovered): its
 `extension.yml` is byte-identical to the original
@@ -251,17 +257,25 @@ file's content hash and mtime are unchanged by disable).
   that is itself a documented limitation of the audit process's
   environment-capability coverage, not just of T005.
 - **T033 Tier-2 mutation-bracket completeness gap, discovered post-hoc via
-  independent PR review (PR round 4)**: the original evidence bundle's six
-  `MutationBaseline` entries all belong to the Tier-1 (single-project) lifecycle;
-  T033's Tier-2 (second-agent) `specify extension add --dev` invocation had no
-  bracketed before/after `git status` capture of its own — only T034's
-  structural rendering check covered that invocation, and only for file
-  *shape*, not for the mutation *comparison* FR-012 requires. This was a
-  genuine completeness gap, not merely cosmetic. It was closed by adding a
-  7th, corroborating `MutationBaseline` entry (`install-tier2-second-agent`;
-  see the Verdict section's table above) captured against a freshly
-  recreated fixture instance in a dedicated Tier-2-style scratch project,
-  git-initialized specifically to bracket this one command. The recreated
+  independent PR review (PR round 4; framing corrected PR round 6)**: the original
+  evidence bundle's six `MutationBaseline` entries all belong to the Tier-1
+  (single-project) lifecycle; T033's Tier-2 (second-agent) `specify extension add
+  --dev` invocation had no bracketed before/after `git status` capture of its own —
+  only T034's structural rendering check covered that invocation, and only for file
+  *shape*, not for the mutation *comparison* FR-012 requires. This is a genuine gap
+  in the original Phase 5/US3 **task decomposition** — unlike Tier-1's `install`
+  invocation, which has a dedicated task (T019) requiring exactly this bracket, no
+  equivalent task was ever defined for T033's invocation. It is not a failure to
+  execute a defined task: T033's own literally-described action (run `specify init`,
+  then `specify extension add --dev`) was fully and correctly performed, so T033's
+  checkbox in `tasks.md` remains `- [X]`. Because the original invocation was never
+  bracketed, that specific gap is permanent and irreversible — no later invocation,
+  however faithfully reproduced, can retroactively supply a before/after capture that
+  was never taken. A 7th, corroborating `MutationBaseline` entry
+  (`install-tier2-second-agent`; see the Verdict section's table above) was captured
+  against a freshly recreated fixture instance in a dedicated Tier-2-style scratch
+  project, git-initialized specifically to bracket this one command — this
+  **corroborates** (it does not close or fix) the original gap. The recreated
   fixture's `extension.yml` is byte-identical to the frozen original
   (`contracts/upstream-target.md`'s literal manifest); its `probe.md`/
   `probe.sh` are freshly re-authored per `contracts/fixture-surface.md`'s
@@ -271,6 +285,24 @@ file's content hash and mtime are unchanged by disable).
   signature as the Tier-1 `install` finding, corroborating (not changing)
   the existing `no-go` verdict, which already fires independently from the
   Tier-1 corpus alone.
+- **T012's checkpoint header and T005's dependency listing, PR review round 6**: a
+  reviewer read T012's "Depends on: ..., T005, ..." header as implying T005 fully
+  satisfies T005's own separate substantive contract (select the strongest available
+  network-denial mechanism), and — since it does not — argued T012 (and its
+  transitive dependents) should be marked incomplete too. T012's own literally
+  defined action is narrower: *confirm the seven listed outputs exist and are
+  internally consistent* — not *re-certify each dependency's own selection decision*.
+  That narrower check is true without qualification, including for T005's
+  `NetworkDenialRecord`, which does exist and is internally consistent in shape; its
+  documented defect is in the selection decision it records, not in whether the
+  record exists or coheres with the other six outputs. T012's own gating function
+  (block User Story work until genuine outputs exist) was also never violated. For
+  this reason T012 remains `- [X]` in `tasks.md` (see T012's own note for the full
+  reasoning), and downstream checkpoints citing "Depends on: T012" transitively
+  (US1/US2/US3/US5, including T042) are unaffected — T042's own note explains why it,
+  too, requires no adjustment. T033's task-decomposition gap above is unrelated to
+  this finding; both are grouped here only because PR review round 6 raised them in
+  the same review pass.
 
 ## Independent audit
 

@@ -58,6 +58,22 @@ satisfied; spike execution is authorized once this migration merges.
 > live-Copilot session. T057's own audit did not independently catch this gap either — see
 > T057's own note — but its remaining checks (a)–(f) all still hold and its `[X]` marking
 > is unaffected by T005's exception.
+>
+> **PR review round 6 clarifications (no further checkbox changes):** a later review
+> round asked whether T012 (Foundational checkpoint, whose header names T005 among its
+> dependencies) and T033 (Tier-2 `specify extension add --dev` invocation, whose
+> mutation bracket had a task-decomposition gap found in round 4) should also be
+> unchecked, and whether T042 (bundle-completeness checkpoint) needed adjustment. All
+> three remain `- [X]`: each task's own literally-described action was fully,
+> genuinely performed, and the concerns raised are about a dependency's separate
+> substantive defect (T012) or a historical evidence-recording gap (T033) or neither
+> (T042 — field existence was and remains true) — not about whether the task's own
+> defined check was actually done. See T012's, T033's, and T042's own notes below for
+> the full reasoning, and `checklists/evidence-index.md`'s Limitations section for the
+> tracked, cross-referenced account. Language in T033's and T057's notes that
+> previously described the round-4 corroborating entry as "closing" the original
+> bracket gap was corrected: it corroborates only and cannot retroactively supply a
+> capture that was never taken.
 
 > ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now checked (see the executed-summary callout above).**
 >
@@ -325,6 +341,29 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   exist and are internally consistent (e.g. the fixture's `commandName` in T008's
   manifest matches the `scripts:` reference T009 wrote and the file T010 made
   executable). No User Story task below may begin until this checkpoint is confirmed.
+  **Scope clarification (PR review round 6):** a reviewer comment read "Depends on:
+  ..., T005, ..." as requiring T005 to fully satisfy T005's *own* separate substantive
+  contract (select the strongest available network-denial mechanism) before this
+  checkpoint can count as confirmed, and — since T005 does not (see T005's own note) —
+  argued this checkpoint and its downstream dependents should be marked incomplete too.
+  This checkpoint's own literal action, as written above, is narrower and different:
+  *confirm the seven listed outputs exist and are internally consistent* — not
+  *re-certify that each dependency's own selection/decision was optimal*. That
+  narrower check is true without qualification: T005's `NetworkDenialRecord` does
+  exist and is internally consistent in shape (`mechanismUsed`, `limitationsStatement`,
+  `appliedToInvocations` all correctly populated) — its documented defect is in the
+  *mechanism-selection decision* T005 recorded, not in whether the record exists or
+  coheres with the other six outputs. This checkpoint's own gating *function* (block
+  User Story work until genuine outputs exist) was also never violated: work only
+  began once all seven outputs, including T005's actual — imperfect — recorded output,
+  genuinely existed. For this reason this checkpoint remains `- [X]`, and the downstream
+  checkpoints that cite "Depends on: T012" (US1/US2/US3/US5) are unaffected and require
+  no further change: none of them re-litigates T005's mechanism-selection decision
+  either, and their own literal actions (recording transcripts, checking mutation
+  baselines, validating bundle-field existence, etc.) are independent of it. This
+  reasoning mirrors T057's own note above, applied here explicitly because a reviewer
+  named this checkpoint specifically. See `evidence-index.md`'s Limitations section for
+  the tracked, cross-referenced version of this clarification.
 
 ---
 
@@ -565,13 +604,26 @@ precondition explicitly).
   path overlap with T028–T032** (entirely separate scratch project) — may run in
   parallel with the disable/remove sequence. Depends on: T012 (Foundational fixture
   exists) only, not on T028–T032.
-  **Post-execution correction (PR round 4):** this task's own `specify
-  extension add --dev` invocation had no bracketed `MutationBaseline` in the original
-  bundle — only T034's structural rendering check covered it, not its mutation
-  footprint. A dedicated before/after `git status` capture was added afterward (see
-  `evidence-index.md`'s Verdict section, row 6, and `mutation-baselines.json`'s
-  `install-tier2-second-agent` entry under `<EVIDENCE_DIR>`) to close this FR-012
-  bracketing gap. Recorded as corroborating, not verdict-driving, evidence.
+  **Post-execution correction (PR round 4, language corrected PR round 6):** unlike
+  Tier-1's `install` invocation, which has a dedicated task (T019) requiring its own
+  before/after `git status` bracket and `MutationBaseline` record, this Phase 5/US3
+  task decomposition never defined an equivalent dedicated task for T033's `specify
+  extension add --dev` invocation — only T034's structural rendering check covered it,
+  and only for file *shape*, not for the mutation *comparison* FR-012 requires. This is
+  a genuine gap in the original **task decomposition** (a missing task, discovered via
+  PR review), not a failure to perform T033's own literally-described action (run the
+  two `specify` commands), which was fully and correctly done. Because the gap is
+  irreversibly historical — the original invocation's own before/after capture was
+  never taken and cannot be reconstructed after the fact — a later, freshly bracketed
+  invocation of the same command against a recreated fixture instance was recorded
+  separately (see `evidence-index.md`'s Verdict section, row 6, and
+  `mutation-baselines.json`'s `install-tier2-second-agent` entry under
+  `<EVIDENCE_DIR>`). That new entry **corroborates** (same four-new-untracked-path
+  signature as Tier-1's `install` finding) but does **not and cannot retroactively
+  close** the original invocation's own bracket gap — the two are distinct events.
+  T033's checkbox remains `[X]` because its own defined action was fully performed;
+  the disclosed limitation is scoped to FR-012 bracket coverage, tracked honestly in
+  `evidence-index.md`, not to this task's completion.
 
 - [X] T034 [US3] Structurally inspect the Tier-2 rendered command/hook files
   (`contracts/agent-verification.md` §3 — `AgentRenderingCheck` shape; `liveInvocationPerformed`
@@ -688,6 +740,17 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   genuinely missing (not merely "recorded as an unsafe/failing result," which is a
   populated field, just an unfavorable one), stop and complete the missing evidence-
   gathering task before proceeding to T043.
+  **Scope clarification (PR review round 6):** a reviewer comment asked whether this
+  checkpoint should also be adjusted given the T012/T005 and T033 findings noted above.
+  This checkpoint's own literal action is confirming *field existence* (and, for
+  `mutationBaselines`, that each present entry's `identical` field was checked) — at
+  the time this task ran, every listed field, including `mutationBaselines` (six
+  Tier-1 entries) and `networkDenial`, genuinely existed and was populated. Neither the
+  T033 Tier-2 bracket gap nor T005's mechanism-selection defect is a *missing field* —
+  both are populated fields with a disclosed content-level limitation, which is exactly
+  the case this task's own text says to let through ("recorded as an unsafe/failing
+  result... is a populated field, just an unfavorable one"). This checkpoint remains
+  `- [X]` for that reason.
 
 - [X] T043 [US5] Evaluate Step 1 — `no-go` (checked first; dominates). Check, against
   the assembled bundle: any `MutationBaseline.identical === false` (T019, T026); any row
@@ -858,9 +921,17 @@ Depends on: T054, T055, T056.
   own defined scope, which did not include verifying T005's mechanism selection — not
   that the audit caught every defect that existed anywhere in the bundle.
   `spike-008-evidence.json` was updated post-audit (PR review round 4) with a
-  corroborating, non-verdict-driving `MutationBaseline` entry closing a separate
-  PR-review finding (T033's Tier-2 install invocation lacked its own bracket); this
-  update happened after, not as part of, the six audit rounds recorded here.
+  corroborating, non-verdict-driving `MutationBaseline` entry addressing a separate
+  PR-review finding (T033's Tier-2 install invocation lacked its own bracket in the
+  original decomposition — see T033's own note; that entry corroborates, it does not
+  retroactively close the original invocation's gap); this update happened after, not
+  as part of, the six audit rounds recorded here. A further PR review round (6) also
+  flagged T012's "Depends on: ..., T005, ..." checkpoint header as potentially implying
+  T005 fully satisfies its own contract; T012's own note above explains why that
+  checkpoint remains `- [X]` (its own literal action is existence/consistency, not
+  re-certification of T005's mechanism-selection decision) — again outside the six
+  audit rounds' own defined scope (a)–(f), which never asked "does any dependency's
+  header wording risk being misread this way."
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
