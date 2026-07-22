@@ -150,6 +150,44 @@ satisfied; spike execution is authorized once this migration merges.
 > statement that the 008→009 sequencing precondition is **not** established as satisfied
 > by this row alone — that judgment is left to maintainer review.
 
+> ✅ **Remediation (post-merge; PR #35 merge commit `35542a5`; this session) — T005, T012,
+> and T057 are now genuinely satisfied and marked `- [X]`. Verdict unchanged.** PR #35
+> merged with the out-of-contract state described in the callout above; a coordinating
+> session mandated a conformant rerun (not a waiver, and explicitly not proceeding to
+> feature009) to genuinely close both blocking gates rather than leave them disclosed and
+> unremediated. Fresh probing on the actual execution host (this worktree, not the
+> original spike's host) confirmed rank 1 (OS-level network namespace/firewall) is
+> genuinely available via **rootless Podman 5.4.2** (`--network none`, empirically
+> confirmed via a direct outbound-connection-attempt probe: kernel-level `ENETUNREACH`,
+> not merely credential absence) — the same host also has a functional `sandbox-exec
+> (deny network*)` alternative, probed and confirmed but not selected, since Podman
+> provides a strictly stronger (full network-namespace, not egress-only) guarantee.
+> Docker was probed and rejected: no independent daemon reachable on this host, client
+> only. A fresh, isolated live-Copilot session (clean mutation baseline, no concurrent
+> feature009 work) re-ran the `hook-fire` invocation with `scripts/probe.sh` step 5
+> genuinely wrapped in `podman run --rm --network none ...`, unconditionally, gating the
+> real `node .../index.js queue` subprocess call — see T005's, T012's, and T057's own
+> notes below, T024's remediation cross-reference, and
+> [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s remediation section
+> for the full account, hashes, and transcript paths. **The `no-go` verdict (trigger:
+> `mutation`) is unchanged** — it is driven independently by the `install`/`remove`
+> mutation baselines, an orthogonal axis unaffected by which network-denial rank gated
+> `hook-fire`; this was re-confirmed, not merely reasserted, during this remediation (see
+> `verdict-remediation-comparison.json`, this remediation's own evidence). A fresh-context
+> independent audit (`claude-opus-4.8`, no authoring context from either this remediation
+> or the original six-plus-two audit rounds above; never Opus 4.6) reviewed the corrected
+> evidence directly against every relevant FR/SC/contract and **PASSED**, with four
+> cosmetic/informational notes only (no blocking findings) — see T057's own note. The
+> original first-run evidence (session-scoped, `<EVIDENCE_DIR>` from the original
+> execution) is preserved unmodified as the historical record; this remediation's own
+> evidence lives in a separate, newer session-scoped scratch area, per FR-017. **The
+> 008→009 sequencing precondition is now genuinely satisfied**: this row supersedes the
+> "not established as satisfied" statement immediately above for T005/T012/T057
+> specifically, and root `plan.md`'s Phase 7 row is updated accordingly. This remediation
+> is a conformant completed spike, not external validation/adoption of anything, and not
+> a shipping integration — it does not change Phase 6's landed/reference-verified status
+> in any direction.
+
 > ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now updated
 > to reflect that execution, with three explicit exceptions (T005, T012, T057 — see the
 > executed-summary callout above).**
@@ -324,7 +362,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   maintainer is asked to re-ratify — routine re-verification (the match case) needs no
   such escalation.
 
-- [ ] T005 [P] Select and record the network-denial mechanism (`research.md` R8;
+- [X] T005 [P] Select and record the network-denial mechanism (`research.md` R8;
   `contracts/isolation-and-offline.md` §4). Determine which of the three ranked tiers
   is actually available in the execution environment (1: OS-level network namespace/
   firewall; 2: process-level egress blocking; 3: allowlisted-environment + full
@@ -354,6 +392,32 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   session. **See T024's own note for this gap's FR-011-specific consequence** for the
   one invocation (`hook-fire`) where a real, successful adrkit-CLI subprocess call
   actually ran under rank 3.
+  **Remediation (post-merge; PR #35 merge `35542a5`; this session) — marked `- [X]`.**
+  Per a coordinating session's explicit mandate (conformant rerun, not a waiver), this
+  session re-probed rank 1 on the actual execution host and found it genuinely available
+  via two independent mechanisms: **rootless Podman 5.4.2** server / 5.8.5 client
+  (`--network none`, confirmed via a direct outbound-connection-attempt smoke test:
+  kernel-level `ENETUNREACH`) and macOS `/usr/bin/sandbox-exec` with a `(deny network*)`
+  profile (also confirmed functional). Podman was selected as the strongest applicable
+  mechanism (full network-namespace isolation vs. `sandbox-exec`'s egress-only guarantee)
+  and wired unconditionally into `scripts/probe.sh` step 5 for the `hook-fire` invocation
+  specifically — the only invocation in `appliedToInvocations` backed by a real,
+  successful adrkit-CLI subprocess call (per T024's own note; `install` and Probe A/B
+  never reach a CLI subprocess, so rank selection was and remains immaterial to their
+  own evidence). Docker was probed and rejected (client only; no independent daemon
+  reachable on this host). Network denial was applied to the fixture/adrkit subprocess
+  path only, inside `scripts/probe.sh`'s own step 5 — never to the parent live-Copilot
+  session's own model/API connectivity, which remained fully available throughout. A
+  fresh, isolated live-Copilot session re-ran the `hook-fire` lifecycle end-to-end under
+  this genuinely rank-1-gated mechanism; the corrected `NetworkDenialRecord` (this
+  remediation's own `mechanismUsedForHookFire: "os-namespace-or-firewall"`) and full
+  mechanism-selection rationale are recorded in this remediation's `network-denial.json`
+  and cross-referenced from the combined bundle's `remediationProvenance` field. The
+  original rank-3 record above is preserved verbatim as the historical first-run record,
+  not edited or deleted. This does not change the `no-go` verdict (orthogonal axis; see
+  `verdict-remediation-comparison.json`). See
+  [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s remediation section
+  for exact hashes and transcript paths.
 
 - [X] T006 [P] Establish the three scratch workspace roots (`research.md` R3;
   `contracts/isolation-and-offline.md` §1). Create `<SCRATCH_ROOT>/` and its three named
@@ -414,7 +478,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   `<EVIDENCE_DIR>/cli-build.json`. Depends on: T003 only (no scratch-workspace
   dependency); may run any time after the gate passes, including before T005–T010.
 
-- [ ] T012 Checkpoint: Foundational complete. Depends on: T004 (`reverificationOutcome
+- [X] T012 Checkpoint: Foundational complete. Depends on: T004 (`reverificationOutcome
   === "match"` — if `"mismatch"`, this checkpoint is never reached; the spike already
   stopped at T004), T005, T006, T007, T008, T009, T010, T011. Confirm all seven outputs
   exist and are internally consistent (e.g. the fixture's `commandName` in T008's
@@ -470,6 +534,21 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   overall status wording. The non-cascade conclusion above is about each downstream
   task's own checkbox (its own literal action ran and is evidenced), not a claim that
   this rule was honored in execution order.
+  **Remediation (post-merge; PR #35 merge `35542a5`; this session) — marked `- [X]`.**
+  T005 (this checkpoint's own named dependency) is now genuinely satisfied — see T005's
+  own remediation note above — so this checkpoint's sole stated action (certify that the
+  named dependency set, T004–T011, is satisfied) is now honestly and fully true, under
+  this document's own established "Depends on" convention (round 11's reading, unchanged
+  by this remediation). This was **not** achieved by re-litigating round 11's or round
+  12's reasoning, both of which remain the correct account of why this checkpoint was
+  honestly `- [ ]` at merge time — it was achieved by genuinely closing T005's own gap via
+  a fresh, isolated live-Copilot rerun (see T005's own note) and only then re-certifying
+  this checkpoint. The round-12 "out-of-contract with respect to this rule" disclosure for
+  the original T013-onward execution order is a historical fact about that run and remains
+  accurate for it — it is not retroactively erased — but this checkpoint's own current
+  state now genuinely reflects a satisfied dependency set, and the 008→009 sequencing
+  precondition this checkpoint gates is correspondingly satisfied going forward. See
+  [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s remediation section.
 
 ---
 
@@ -642,6 +721,17 @@ it does not reinstall).
   network-disabled requirement not being strictly met for `hook-fire`) is the same
   orthogonal, no-go-verdict-unaffected gap already carried by T005, not a new independent
   defect.
+  **Remediation cross-reference (post-merge; PR #35 merge `35542a5`; this session):** this
+  invocation was genuinely re-run under rank 1 as part of T005's remediation — see T005's
+  own note. This paragraph (T024's original note) is preserved unmodified as the accurate
+  historical account of the pre-remediation `hook-fire` invocation; it is not the current
+  mechanism. The corrected re-run's `SubprocessInvocation`/`HookFireTranscript` (rank 1,
+  Podman `--network none`, genuinely network-denied) is recorded in this remediation's
+  `hook-fire.json`, and its combined-bundle field is `hookFireTranscript` in
+  `spike-008-evidence-remediation.json` — see
+  [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s remediation section
+  for exact hashes and transcript paths. FR-011's network-disabled requirement is now
+  strictly, not merely corroboratively, met for `hook-fire`.
 
 - [X] T025 [US2] Capture the **this-repository** mutation baseline, after half.
   Immediately after T023/T024 complete, run the same two commands as T021 at
@@ -1038,7 +1128,7 @@ entire file exists to produce.
 
 Depends on: T054, T055, T056.
 
-- [ ] T057 Independent evidence audit. Dispatch a fresh-context review (no authoring
+- [X] T057 Independent evidence audit. Dispatch a fresh-context review (no authoring
   context from the session that gathered the evidence) using a heavyweight-tier model —
   **Opus 4.8 or GPT-5.6 Sol; never Opus 4.6**, per this session's model policy — to check
   `spike-008-evidence.md`/`.json` against every FR-001–FR-024, SC-001–SC-008, and all six
@@ -1178,6 +1268,39 @@ Depends on: T054, T055, T056.
   incompleteness and this very ordering violation — so T058's own checkbox is unaffected
   and remains `- [X]`. See T058's own note immediately below for the corresponding
   disclosure.
+  **Remediation (post-merge; PR #35 merge `35542a5`; this session) — marked `- [X]`.** Per
+  a coordinating session's explicit mandate, this task's own unremediated defect (the
+  eighth pass's FAIL — `hook-fire` ran under rank 3, not the genuinely-available rank 1)
+  was remediated by the fresh, isolated live-Copilot rerun described in T005's own note,
+  which this task's own text required before T058 could genuinely proceed. A **ninth**
+  independent audit pass was then dispatched — fresh-context `claude-opus-4.8` (never
+  Opus 4.6), with zero authoring context from either this remediation session or any of
+  the prior eight rounds — to check this remediation's corrected evidence
+  (`network-denial.json`, `hook-fire.json`, `mutation-baselines.json`,
+  `absent-context-probe.json`, `absent-cli-probe.json`, `verdict-remediation-comparison.json`,
+  and the combined `spike-008-evidence-remediation.{json,md}` bundle) directly against
+  every relevant FR/SC/contract and against items (a)–(f) above. The audit independently
+  re-ran the rank-1 Podman network-denial probe itself (not merely trusting the recorded
+  claim), directly parsed the raw session transcript JSONL rather than a summary,
+  recomputed SHA-256 hashes from disk, and confirmed via `find -newermt` that the original
+  first-run evidence directory was not modified during this remediation. **Result: PASS.**
+  No blocking findings. Four cosmetic/informational notes (F1–F4): (F1) the accepted
+  remediation attempt was orchestrator-primed with an explicit instruction to execute the
+  literal script file rather than reconstruct it from prose — honestly disclosed as
+  `priorAttemptDisclosed` in `hook-fire.json`, not concealed; (F2)
+  `appliedToInvocations` still lists `install`/`probe-absent-context`/`probe-absent-cli`
+  even though none reaches a CLI subprocess — intentional, for FR-018 completeness, per
+  T024's own note; (F3) `offlineSubprocessProof.commandLine` records the outer invocation,
+  not literally the contract's illustrative inner command, but the inner Podman-wrapped
+  command line is fully traceable via the added `innerContainerizedCommandLine` field; (F4)
+  the remediation's Probe A/B re-runs are, if anything, more faithful to the frozen
+  contract than the original run. None of F1–F4 required remediation. Because the defect
+  this task's own action requires be remediated before T058 was genuinely remediated, and
+  the remediation itself independently audited and passed, this task's own checkbox is now
+  honestly `- [X]`. The 008→009 sequencing precondition this task gates (alongside T012)
+  is now genuinely satisfied. See
+  [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s remediation section
+  for the full account, exact hashes, and transcript paths.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
@@ -1206,12 +1329,30 @@ Depends on: T054, T055, T056.
   is genuinely remediated, that is a separate, explicitly-scoped follow-up decision (per
   this task's own text above), not something this uncheck-or-not determination decides
   unilaterally.
+  **Remediation — T058 re-performed (post-merge; PR #35 merge `35542a5`; this session).**
+  T057's defect is now genuinely remediated and T057 independently re-audited to PASS
+  (see T057's own note above) — the precise future-maintainer trigger this task's own
+  round-18 note named. This task's own action (produce the final result report to the
+  coordinating/maintainer session) was accordingly re-performed: a corrected report was
+  sent to the coordinating session, restating the recorded verdict (`no-go`, trigger
+  `mutation`, unchanged) and its `drivingEvidence`; both the original evidence bundle's
+  location (`<EVIDENCE_DIR>/spike-008-evidence.{json,md}`, session `25a416dc-...`,
+  preserved unmodified) and this remediation's own combined bundle's location
+  (`spike-008-evidence-remediation.{json,md}`, session `0dd6abd8-...`); the Phase-6
+  maturity restatement (landed/reference-verified, not externally validated, this spike
+  did not cause or advance it); and the explicit confirmation that the 008→009 sequencing
+  precondition (T005, T012, T057) is now genuinely satisfied. See
+  [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s remediation section
+  for the exact hashes cited in that report.
 
-**Checkpoint**: Spike execution complete, **out-of-contract on two blocking gates
-(T012's and T057's own — see the top banner above and root `plan.md`'s Phase 7 row)**.
-One verdict, independently audited, reported. No production package scoped, scheduled,
-or committed to by this file's execution. The 008→009 sequencing precondition is
-correspondingly **not** established as satisfied by this checkpoint alone.
+**Checkpoint**: Spike execution complete. **Remediation (post-merge; PR #35 merge
+`35542a5`; this session): the two blocking gates (T012's and T057's own) are now
+genuinely closed** — see the top banner's remediation callout above and root `plan.md`'s
+Phase 7 row. One verdict, independently audited (twice: the original six-plus-two rounds,
+and this remediation's ninth, fresh-context PASS), reported (twice: T058's original
+report and this remediation's re-performed report). No production package scoped,
+scheduled, or committed to by this file's execution. The 008→009 sequencing precondition
+is now **satisfied** by T005, T012, and T057 all being genuinely, honestly `- [X]`.
 
 ---
 
