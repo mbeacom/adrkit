@@ -24,9 +24,17 @@ later maturity signal), `.specify/memory/constitution.md` Principles I–III
 explicit "Advance **scoping** (spec → plan → tasks) of the next phase is explicitly
 permitted" exemption — generating this checklist is scoping, not execution. Phase 6 is now
 landed / reference-verified under ADR-0014 rungs 1–2, and maintainer ratification is already
-satisfied; spike execution is authorized once this migration merges. **All task checkboxes
-remain unchecked until an execution session actually runs them** (Phase 1 below still
-mechanically verifies `GATE_PASS`).
+satisfied; spike execution is authorized once this migration merges.
+
+> ✅ **Executed 2026-07-22.** T001–T058 below are complete (`- [X]`). Verdict: **`no-go`**
+> (trigger: `mutation`, driven independently by the `install` and `remove` mutation
+> baselines). Independently audited (fresh-context, `gpt-5.6-sol`, six cumulative
+> remediation rounds converging to a final PASS on evidence-bundle integrity — see T057).
+> The tracked, sanitized FR-024 evidence index is
+> [`checklists/evidence-index.md`](./checklists/evidence-index.md). Raw transcripts and the
+> full evidence bundle remain session-scoped only, per FR-017. This spike did **not**
+> change Phase 6's landed/reference-verified status in any direction, and does **not**
+> claim external/community validation for either Phase 6 or itself.
 
 > ✅ **Governance gates satisfied — spike execution authorized once this migration merges; tasks below remain unchecked until executed.**
 >
@@ -123,7 +131,7 @@ Phase 2 or any later phase. Do not create `<SCRATCH_ROOT>` or `<EVIDENCE_DIR>`. 
 the gate failure (which half failed, and its current state) to the coordinating session
 and end.
 
-- [ ] T001 Verify gate 1 (Phase 6). Read, in this order: (a)
+- [X] T001 Verify gate 1 (Phase 6). Read, in this order: (a)
   `specs/007-arb-queue/tasks.md` — confirm the literal checkbox state of **T048-R** (whose
   title reads "T048-R (SC-004) Rung-2 maintainer isolated reference-verification gate") and
   **T049**
@@ -142,7 +150,7 @@ and end.
   whatever date it actually executes — this note is a snapshot, not a substitute for
   re-verification.
 
-- [ ] T002 Verify gate 2 (maintainer ratification). Read `spec.md`'s Ratification Record
+- [X] T002 Verify gate 2 (maintainer ratification). Read `spec.md`'s Ratification Record
   (the section immediately following the satisfied-governance-gates banner) and confirm it states an
   explicit maintainer ratification dated 2026-07-21 covering: the fixed v0.13.0/SHA
   target, the one-command/one-hook fixture shape, the two-tier agent-verification split,
@@ -152,7 +160,7 @@ and end.
   or superseded by a later edit to `spec.md`. Record `gate2Pass` (boolean) to
   `<EVIDENCE_DIR>/gate-check.json` alongside T001's fields.
 
-- [ ] T003 Gate decision checkpoint. Depends on: T001, T002. Compute
+- [X] T003 Gate decision checkpoint. Depends on: T001, T002. Compute
   `GATE_PASS = gate1Pass AND gate2Pass` and write it as the top-level field in
   `<EVIDENCE_DIR>/gate-check.json`. **If `GATE_PASS` is `false`: STOP.** Perform no
   further task in this file. Report to the coordinating/maintainer session exactly which
@@ -179,7 +187,7 @@ one disposable fixture, and build adrkit's own CLI artifact — every one of Use
 **⚠️ CRITICAL**: No User Story task (Phase 3 onward) may begin until this phase's
 checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
 
-- [ ] T004 Re-verify the frozen upstream target (FR-001; `contracts/upstream-target.md`
+- [X] T004 Re-verify the frozen upstream target (FR-001; `contracts/upstream-target.md`
   §3). Run, in order: (1) `git ls-remote --tags https://github.com/github/spec-kit
   v0.13.0` (or the equivalent GitHub API call) — compare the resolved commit against
   `9a30db484b0876cb7e5a391cf735d59bd968e985`. (2) `specify --version` — compare against
@@ -200,7 +208,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   maintainer is asked to re-ratify — routine re-verification (the match case) needs no
   such escalation.
 
-- [ ] T005 [P] Select and record the network-denial mechanism (`research.md` R8;
+- [X] T005 [P] Select and record the network-denial mechanism (`research.md` R8;
   `contracts/isolation-and-offline.md` §4). Determine which of the three ranked tiers
   is actually available in the execution environment (1: OS-level network namespace/
   firewall; 2: process-level egress blocking; 3: allowlisted-environment + full
@@ -211,7 +219,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   3 is available, `limitationsStatement` MUST use `research.md` R8's exact honest-
   limitation language verbatim, never a stronger claim. No path overlap with T006–T007.
 
-- [ ] T006 [P] Establish the three scratch workspace roots (`research.md` R3;
+- [X] T006 [P] Establish the three scratch workspace roots (`research.md` R3;
   `contracts/isolation-and-offline.md` §1). Create `<SCRATCH_ROOT>/` and its three named
   subdirectories (Path Conventions above) — empty at this point except for
   `adrkit-spike-fixture/`, `adrkit-spike-fixture/commands/`, and
@@ -220,7 +228,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   no `.git` ancestor pointing at `mbeacom/adrkit` (`ScratchWorkspace.isTrackedByThisRepo
   === false` for every instance — `data-model.md` §3). No path overlap with T005/T007.
 
-- [ ] T007 [P] Initialize the evidence-capture harness (`research.md` R5–R7; secret
+- [X] T007 [P] Initialize the evidence-capture harness (`research.md` R5–R7; secret
   scrubbing per R6). Write a single reusable capture helper — e.g.
   `<EVIDENCE_DIR>/capture.sh` — that, given a command line and a working directory: (a)
   runs `git status --porcelain=v1` immediately before, (b) runs the command with the
@@ -236,20 +244,20 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   bracketed transcript (T014, T024, T028, T031) invokes this harness rather than
   improvising its own capture. No path overlap with T005/T006.
 
-- [ ] T008 [P] Write the fixture manifest `<SCRATCH_ROOT>/adrkit-spike-fixture/extension.yml`
+- [X] T008 [P] Write the fixture manifest `<SCRATCH_ROOT>/adrkit-spike-fixture/extension.yml`
   exactly as `contracts/upstream-target.md` §2's "This fixture's populated manifest"
   block specifies — `schema_version: "1.0"`, `extension.id: "adrkit-spike"`, one command
   `speckit.adrkit-spike.probe`, `requires.speckit_version: ">=0.13.0,<0.14.0"`, one
   `hooks.after_plan` entry with `optional: true`. Depends on: T006 (directory exists). No
   path overlap with T009/T010.
 
-- [ ] T009 [P] Write the fixture command file
+- [X] T009 [P] Write the fixture command file
   `<SCRATCH_ROOT>/adrkit-spike-fixture/commands/probe.md` exactly as
   `contracts/fixture-surface.md` §1 specifies — frontmatter (`description`,
   `scripts.sh: scripts/probe.sh`) and body (the five-step read-only procedure). Depends
   on: T006. No path overlap with T008/T010.
 
-- [ ] T010 [P] Write the fixture script `<SCRATCH_ROOT>/adrkit-spike-fixture/scripts/probe.sh`
+- [X] T010 [P] Write the fixture script `<SCRATCH_ROOT>/adrkit-spike-fixture/scripts/probe.sh`
   exactly per `contracts/fixture-surface.md` §1's illustrative shape (adapted only where
   the actual shell requires; the required *behavior* — locate `$1/plan.md`, exit 1 with
   the exact absent-context message if missing, locate `<repo-root>/packages/cli/dist/index.js`,
@@ -260,7 +268,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   root from the separate scratch project's git root — is fixed, not the literal
   bytes). Run `chmod +x` on it. Depends on: T006. No path overlap with T008/T009.
 
-- [ ] T011 Build adrkit's own CLI artifact (prerequisite for FR-011/US2/US4).
+- [X] T011 Build adrkit's own CLI artifact (prerequisite for FR-011/US2/US4).
   In `<THIS_REPO>`: run `bun run build` (filtered to `@adrkit/cli` per
   `packages/cli/package.json`'s `build` script), then `ls packages/cli/dist/index.js` to
   confirm it now exists. **This is the one task in this file that legitimately produces a
@@ -270,7 +278,7 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   `<EVIDENCE_DIR>/cli-build.json`. Depends on: T003 only (no scratch-workspace
   dependency); may run any time after the gate passes, including before T005–T010.
 
-- [ ] T012 Checkpoint: Foundational complete. Depends on: T004 (`reverificationOutcome
+- [X] T012 Checkpoint: Foundational complete. Depends on: T004 (`reverificationOutcome
   === "match"` — if `"mismatch"`, this checkpoint is never reached; the spike already
   stopped at T004), T005, T006, T007, T008, T009, T010, T011. Confirm all seven outputs
   exist and are internally consistent (e.g. the fixture's `commandName` in T008's
@@ -294,14 +302,14 @@ registered and enabled, with no network access beyond the pre-existing one-time
 
 Depends on: T012 (Foundational checkpoint).
 
-- [ ] T013 [US1] Initialize the Tier-1 scratch Spec Kit project. In
+- [X] T013 [US1] Initialize the Tier-1 scratch Spec Kit project. In
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/`, run `specify init --here --ai copilot`
   (matching this repository's own `.specify/init-options.json` integration mode). Confirm
   exit code 0 and that a `.specify/` directory now exists in the scratch project — no
   project extension configuration at either upstream-documented path yet (nothing
   installed).
 
-- [ ] T014 [US1] Install the fixture via local dev install (FR-005; never the default
+- [X] T014 [US1] Install the fixture via local dev install (FR-005; never the default
   catalog, never a `--from` URL). Using the T007 harness, capture: before-install
   `git status --porcelain=v1` in the scratch project, then run
   `specify extension add --dev <SCRATCH_ROOT>/adrkit-spike-fixture` from
@@ -310,14 +318,14 @@ Depends on: T012 (Foundational checkpoint).
   (`contracts/lifecycle-evidence.md` §1) — `step: "install"`, exact command line, stdout,
   stderr, exit code — to `<EVIDENCE_DIR>/transcripts/install.json`. Depends on: T013.
 
-- [ ] T015 [US1] Verify `specify extension list` (FR-006(a)). Run it in the scratch
+- [X] T015 [US1] Verify `specify extension list` (FR-006(a)). Run it in the scratch
   project; confirm the human-readable output names `adrkit-spike`, `Commands: 1`,
   `Hooks: 1`, `Status: Enabled` (`EXTENSION-USER-GUIDE.md` §"List Installed Extensions"
   output shape, per `research.md` R9). Append this check's raw output to
   `<EVIDENCE_DIR>/transcripts/install.json`'s `filesInspectedDirectly`-adjacent notes.
   Depends on: T014.
 
-- [ ] T016 [US1] Inspect the effective project extension configuration directly
+- [X] T016 [US1] Inspect the effective project extension configuration directly
   (FR-006(b); never trusting T015's success message alone). Probe both
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/.specify/extensions.yml` and
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/.specify/extensions/extensions.yml`;
@@ -329,12 +337,12 @@ Depends on: T012 (Foundational checkpoint).
   a freshly-`init`ed project, but checked regardless), confirm they are unchanged. Depends
   on: T014.
 
-- [ ] T017 [US1] Inspect the extension registry directly (FR-006(c)). Read
+- [X] T017 [US1] Inspect the extension registry directly (FR-006(c)). Read
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/.specify/extensions/.registry` (JSON);
   confirm an `adrkit-spike` key with `registered_commands` including
   `speckit.adrkit-spike.probe`. Depends on: T014.
 
-- [ ] T018 [US1] Direct file-existence and script-resolution check of the rendered
+- [X] T018 [US1] Direct file-existence and script-resolution check of the rendered
   Copilot command files
   (Edge Cases note on partial-install defects — never trust the CLI's own success message
   alone). Confirm both
@@ -348,7 +356,7 @@ Depends on: T012 (Foundational checkpoint).
   resolved target exists and is executable before any hook run; failure is install
   evidence failure, never an assumption. Depends on: T014.
 
-- [ ] T019 [US1] Record the `install` `MutationBaseline` (FR-012/SC-003). From T014's
+- [X] T019 [US1] Record the `install` `MutationBaseline` (FR-012/SC-003). From T014's
   before/after `git status --porcelain=v1` captures (scratch project git tree), compute
   `identical` (`data-model.md` §5) and append to
   `<EVIDENCE_DIR>/mutation-baselines.json` with `invocationLabel: "install"`,
@@ -383,21 +391,21 @@ Depends on: T012 (Foundational — specifically T011's built CLI) and T014 (US1'
 installed in the same Tier-1 scratch project — this story reuses that installation,
 it does not reinstall).
 
-- [ ] T020 [US2] Create a throwaway scratch adrkit feature (FR-017/A8) inside
+- [X] T020 [US2] Create a throwaway scratch adrkit feature (FR-017/A8) inside
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/`, entirely outside this repository's
   committed `specs/` tree. Run `/speckit.specify <trivial scratch description>` in that
   scratch project. Confirm a scratch feature directory now exists with its own `spec.md`
   — this feature is never intended to become a numbered feature in `mbeacom/adrkit`'s own
   `specs/` tree.
 
-- [ ] T021 [US2] Capture the **this-repository** mutation baseline, before half
+- [X] T021 [US2] Capture the **this-repository** mutation baseline, before half
   (`research.md` R7 — this scenario checks `<THIS_REPO>`, not the scratch project, per
   FR-012 Acceptance Scenario 4). Run, at `<THIS_REPO>`'s root: `git status
   --porcelain=v1` and `git diff --stat -- docs/adr`; save both to
   `<EVIDENCE_DIR>/mutation-baselines/hook-fire-before.txt` and
   `hook-fire-before-adr-diff.txt` respectively.
 
-- [ ] T022 [US2] Run `/speckit.plan` live, in this repository's own Copilot session,
+- [X] T022 [US2] Run `/speckit.plan` live, in this repository's own Copilot session,
   against T020's scratch feature. Capture the rendered Extension Hooks section verbatim.
   **Required outcome** (`contracts/fixture-surface.md` §2): the block matches the exact
   "Optional Hook" shape — `**Optional Hook**: adrkit-spike`, `Command:
@@ -408,13 +416,13 @@ it does not reinstall).
   is recorded as a `hookFireTranscript` anomaly feeding the `no-go` check in T045, not
   silently normalized.
 
-- [ ] T023 [US2] Accept the offered hook. Confirm the fixture command (`speckit.adrkit-spike.probe`)
+- [X] T023 [US2] Accept the offered hook. Confirm the fixture command (`speckit.adrkit-spike.probe`)
   executes in the same session. Capture: exit code, and direct evidence that it read the
   *just-produced* scratch `plan.md` (FR-010) — e.g. the scratch feature's directory path
   and a `plan.md` excerpt the probe's own output or logging actually references, never a
   fixed/fabricated stand-in. Depends on: T022.
 
-- [ ] T024 [US2] Capture the nested `SubprocessInvocation` (FR-011;
+- [X] T024 [US2] Capture the nested `SubprocessInvocation` (FR-011;
   `contracts/isolation-and-offline.md` §3). Using the T007 harness's allowlisted-env
   capture, record the exact command line
   (`node $ADRKIT_REPO_ROOT/packages/cli/dist/index.js queue --dir
@@ -425,11 +433,11 @@ it does not reinstall).
   which `NetworkDenialRecord.mechanismUsed` (T005) this specific invocation ran under, and
   append `"hook-fire"` to `NetworkDenialRecord.appliedToInvocations`. Depends on: T023.
 
-- [ ] T025 [US2] Capture the **this-repository** mutation baseline, after half.
+- [X] T025 [US2] Capture the **this-repository** mutation baseline, after half.
   Immediately after T023/T024 complete, run the same two commands as T021 at
   `<THIS_REPO>`'s root; save to `hook-fire-after.txt` / `hook-fire-after-adr-diff.txt`.
 
-- [ ] T026 [US2] Diff T021's and T025's captures: `diff hook-fire-before.txt
+- [X] T026 [US2] Diff T021's and T025's captures: `diff hook-fire-before.txt
   hook-fire-after.txt` and `diff hook-fire-before-adr-diff.txt
   hook-fire-after-adr-diff.txt` — **both MUST be empty** (SC-003, FR-012 Acceptance
   Scenario 4). Compute `identical` and append the `hook-fire` `MutationBaseline`
@@ -439,7 +447,7 @@ it does not reinstall).
   remaining evidence per FR-018, but this result alone determines the eventual verdict
   regardless of every later story's outcome.
 
-- [ ] T027 [US2] Record `hookFireTranscript` (`contracts/agent-verification.md` §2's
+- [X] T027 [US2] Record `hookFireTranscript` (`contracts/agent-verification.md` §2's
   shape — `planCommandInvoked`, `scratchFeatureDirectory`, `hooksBlockRendered`,
   `renderedAsOptional`, `operatorAcceptedHook`, `hookCommandExitCode`,
   `readGenuinePlanContext`, `genuineContextEvidence`) and `offlineSubprocessProof`
@@ -468,33 +476,33 @@ fixture and inspect the rendered files structurally.
 Depends on: T027 (US2's hook-fire proof — spec.md's own Independent Test names this
 precondition explicitly).
 
-- [ ] T028 [US3] Disable the fixture (FR-013). In
+- [X] T028 [US3] Disable the fixture (FR-013). In
   `<SCRATCH_ROOT>/adrkit-spike-scratch-project/`, using the T007 harness, run `specify
   extension disable adrkit-spike`. Capture the `LifecycleTranscript` (`step: "disable"`)
   to `<EVIDENCE_DIR>/transcripts/disable.json`.
 
-- [ ] T029 [US3] Re-run `/speckit.plan` in the same Tier-1 scratch project (a second
+- [X] T029 [US3] Re-run `/speckit.plan` in the same Tier-1 scratch project (a second
   scratch feature, or the same one from T020 if its plan phase can be safely re-run).
   Confirm the Mandatory Post-Execution Hooks section reports no hook registered for
   `after_plan` — either the Extension Hooks block is omitted entirely, or it explicitly
   states no hooks are registered (`templates/commands/plan.md`'s own documented
   behavior). Depends on: T028.
 
-- [ ] T030 [US3] Confirm the fixture's files remain byte-identical on disk after
+- [X] T030 [US3] Confirm the fixture's files remain byte-identical on disk after
   disabling (disable is a registry/config flag flip, never a file removal). Compare
   `commands/probe.md`, `scripts/probe.sh` (source, in `<SCRATCH_ROOT>/adrkit-spike-fixture/`)
   and the rendered `.github/agents/speckit.adrkit-spike.probe.agent.md` /
   `.github/prompts/speckit.adrkit-spike.probe.prompt.md` (in the scratch project) against
   their T009/T010/T018 hashes. Depends on: T028.
 
-- [ ] T031 [US3] Remove the fixture (FR-014). Using the T007 harness, run `specify
+- [X] T031 [US3] Remove the fixture (FR-014). Using the T007 harness, run `specify
   extension remove adrkit-spike --force` (the `--force` flag skips the interactive
   confirmation, appropriate for this spike's scripted execution — `research.md` R9).
   Capture the `LifecycleTranscript` (`step: "remove"`) to
   `<EVIDENCE_DIR>/transcripts/remove.json`. Depends on: T028 (disable proven first, per
   the Independent Test's own sequencing).
 
-- [ ] T032 [US3] Verify no orphaned reference (`contracts/lifecycle-evidence.md` §4's
+- [X] T032 [US3] Verify no orphaned reference (`contracts/lifecycle-evidence.md` §4's
   six-row table — every row checked by direct inspection, not by trusting T031's success
   message): `.github/agents/speckit.adrkit-spike.probe.agent.md` absent;
   `.github/prompts/speckit.adrkit-spike.probe.prompt.md` absent; the actual project
@@ -506,7 +514,7 @@ precondition explicitly).
   "could not be safely disabled or fully removed"). Record the full six-row result to
   `<EVIDENCE_DIR>/lifecycle-removal-check.json`. Depends on: T031.
 
-- [ ] T033 [P] [US3] Initialize the Tier-2 (second-agent) scratch project. In
+- [X] T033 [P] [US3] Initialize the Tier-2 (second-agent) scratch project. In
   `<SCRATCH_ROOT>/adrkit-spike-second-agent-scratch/` (a **third**, distinct scratch
   directory — never reusing the Tier-1 project, never this repository's own live
   configuration), run `specify init --here --ai claude` (Claude Code, the default
@@ -517,7 +525,7 @@ precondition explicitly).
   parallel with the disable/remove sequence. Depends on: T012 (Foundational fixture
   exists) only, not on T028–T032.
 
-- [ ] T034 [US3] Structurally inspect the Tier-2 rendered command/hook files
+- [X] T034 [US3] Structurally inspect the Tier-2 rendered command/hook files
   (`contracts/agent-verification.md` §3 — `AgentRenderingCheck` shape; `liveInvocationPerformed`
   fixed `false` by design, per A6). Confirm, by direct file inspection (no live
   conversational session required): correct directory (e.g.
@@ -530,7 +538,7 @@ precondition explicitly).
   Step 3 case (b)) — never treated as unsafe/`no-go` on its own, and never silently
   dropped from the bundle. Depends on: T033.
 
-- [ ] T035 [US3] Record `disableTranscript`, `removeTranscript`, and
+- [X] T035 [US3] Record `disableTranscript`, `removeTranscript`, and
   `secondAgentRenderingCheck` to `<EVIDENCE_DIR>/lifecycle-and-second-agent.json`.
   Depends on: T028, T031, T032, T034.
 
@@ -549,7 +557,7 @@ directory with no adrkit feature context; capture exit code/message. Separately,
 valid feature context but `packages/cli/dist` temporarily absent, run again; capture exit
 code/message.
 
-- [ ] T036 [US4] Probe A — absent plan context (FR-015). Depends on: T010 (fixture
+- [X] T036 [US4] Probe A — absent plan context (FR-015). Depends on: T010 (fixture
   script written) only — no dependency on US2/US3; grouped in this phase for
   evidence-bundle ordering, not because it requires them. Create a wholly empty directory
   (e.g. `<SCRATCH_ROOT>/adrkit-spike-probe-a-empty/`, distinct from every other scratch
@@ -563,12 +571,12 @@ code/message.
   those three violated is itself the FR-015 failure this probe exists to catch, not an
   acceptable variant.
 
-- [ ] T037 [US4] Record `FailureProbeResult` instance A (`contracts/fixture-surface.md`
+- [X] T037 [US4] Record `FailureProbeResult` instance A (`contracts/fixture-surface.md`
   §3's exact JSON shape: `probeName: "absent-context"`, `exitCode`, `stderrMessage`,
   `namesTheMissingDependency`, `isUnhandledCrash`) to
   `<EVIDENCE_DIR>/absent-context-probe.json`. Depends on: T036.
 
-- [ ] T038 [US4] Rename `packages/cli/dist` aside (FR-016 precondition; `research.md`
+- [X] T038 [US4] Rename `packages/cli/dist` aside (FR-016 precondition; `research.md`
   R10 — **rename, never delete**). In `<THIS_REPO>`: run `mv packages/cli/dist
   packages/cli/dist.spike-backup`. **Depends on: T024/T027 (US2's live subprocess call
   already succeeded against the built CLI)** — FR-016 explicitly forbids "coincidentally
@@ -576,7 +584,7 @@ code/message.
   proving the built-CLI path works, never before. Confirm `packages/cli/dist` no longer
   exists and `packages/cli/dist.spike-backup` does, before proceeding to T039.
 
-- [ ] T039 [US4] Probe B — absent built CLI (FR-016). With a valid scratch feature
+- [X] T039 [US4] Probe B — absent built CLI (FR-016). With a valid scratch feature
   context available (T020's scratch feature and its `plan.md`), invoke
   `<SCRATCH_ROOT>/adrkit-spike-fixture/scripts/probe.sh
   <path-to-T020-scratch-feature-directory>` directly. **Expected**: exit code non-zero;
@@ -585,7 +593,7 @@ code/message.
   packages/cli/dist/index.js — run 'bun run build' first"`); stdout empty or diagnostic
   only; **never a silent no-op (exit 0, no output)**. Depends on: T038.
 
-- [ ] T040 [US4] Restore `packages/cli/dist` (`research.md` R10's recovery contract —
+- [X] T040 [US4] Restore `packages/cli/dist` (`research.md` R10's recovery contract —
   **mandatory, not optional cleanup**). Run `mv packages/cli/dist.spike-backup
   packages/cli/dist` in `<THIS_REPO>`. Confirm `packages/cli/dist/index.js` exists again.
   **Failure recovery**: if the rename-back itself fails for any reason (e.g. the backup
@@ -596,7 +604,7 @@ code/message.
   than continuing with `<THIS_REPO>` in an ambiguous build state** — do not proceed to
   T041 or any later task until this is resolved. Depends on: T039.
 
-- [ ] T041 [US4] Confirm `<THIS_REPO>`'s own `git status --porcelain=v1` at repository
+- [X] T041 [US4] Confirm `<THIS_REPO>`'s own `git status --porcelain=v1` at repository
   root is identical before T038 and after T040 (the rename/restore round-trip must leave
   zero net effect on tracked files — `dist/` was never tracked to begin with). Record
   `FailureProbeResult` instance B (`contracts/fixture-surface.md` §4's shape:
@@ -621,7 +629,7 @@ required evidence present and cross-referenced.
 
 Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
 
-- [ ] T042 [US5] Validate evidence bundle completeness (`contracts/evidence-bundle-and-verdict.md`
+- [X] T042 [US5] Validate evidence bundle completeness (`contracts/evidence-bundle-and-verdict.md`
   §1's checklist). Confirm every required top-level field exists in the working draft
   under `<EVIDENCE_DIR>`: `frozenReference`, `fixture`, `installTranscript`,
   `disableTranscript`, `removeTranscript`, `registeredFiles`, `hookFireTranscript`,
@@ -633,7 +641,7 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   populated field, just an unfavorable one), stop and complete the missing evidence-
   gathering task before proceeding to T043.
 
-- [ ] T043 [US5] Evaluate Step 1 — `no-go` (checked first; dominates). Check, against
+- [X] T043 [US5] Evaluate Step 1 — `no-go` (checked first; dominates). Check, against
   the assembled bundle: any `MutationBaseline.identical === false` (T019, T026); any row
   of T032's removal check failed; `absentContextProbe`/`absentCliProbe` show an unsafe
   result (`exitCode === 0` or `isUnhandledCrash === true` — T037, T041); or
@@ -644,7 +652,7 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   triggering field(s), then **proceed directly to T046 — do not evaluate T044 or T045.**
   If no trigger fired, proceed to T044.
 
-- [ ] T044 [US5] Evaluate Step 2 — `go` (checked second; only if T043 did not match).
+- [X] T044 [US5] Evaluate Step 2 — `go` (checked second; only if T043 did not match).
   Check that every acceptance scenario in User Stories 1–4 passed exactly as specified:
   US1 all 3 scenarios (T013–T018), US2 all 4 scenarios (T020–T027), zero mutation
   throughout (already implied by T043 not matching), clean disable/remove (T028–T032),
@@ -654,7 +662,7 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   `EvidenceBundle` field (a `go` verdict is by definition "everything passed").
   `recommendation` is now required — proceed to T046. **Stop — do not evaluate T045.**
 
-- [ ] T045 [US5] Evaluate Step 3 — `manual-command-only` (exhaustive fallback; only if
+- [X] T045 [US5] Evaluate Step 3 — `manual-command-only` (exhaustive fallback; only if
   neither T043 nor T044 matched). By construction, no `no-go` trigger fired but the
   result fell short of full `go` in a way that is not itself unsafe. Identify which named
   case applies: (a) US1/US4/Copilot-rendering all passed but `hookFireTranscript` (T027)
@@ -664,14 +672,14 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   `manualCommandOnlyShortfall` accordingly. `recommendation` is now required — proceed to
   T046.
 
-- [ ] T046 [US5] Cross-reference `verdict.drivingEvidence` (FR-019). Confirm the array
+- [X] T046 [US5] Cross-reference `verdict.drivingEvidence` (FR-019). Confirm the array
   populated by whichever of T043/T044/T045 fired lists, by exact field name from
   `EvidenceBundle` (`data-model.md` §6), every field that determined the outcome. **A
   verdict with an empty `drivingEvidence` array is invalid under
   `contracts/evidence-bundle-and-verdict.md` §5 regardless of narrative prose elsewhere**
   — if empty, return to T043–T045 and populate it before proceeding.
 
-- [ ] T047 [US5] Draft the `NonBindingRecommendation` (FR-021; required only if `outcome`
+- [X] T047 [US5] Draft the `NonBindingRecommendation` (FR-021; required only if `outcome`
   is `"go"` or `"manual-command-only"` — skip this task entirely if `outcome ===
   "no-go"`, where `recommendation` is fixed `null`). Depends on: T046. Populate
   `bindingStatus: "non-binding"` (literal), `minimalScopeDescription` (per
@@ -682,7 +690,7 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   session has exceeded this spike's authorized scope and must stop and re-scope rather
   than proceed.
 
-- [ ] T048 [US5] Set `phase6ExternalValidationClaim: false` (fixed literal, SC-008/FR-023)
+- [X] T048 [US5] Set `phase6ExternalValidationClaim: false` (fixed literal, SC-008/FR-023)
   on the verdict record, and write the equivalent prose restatement — in whatever words, but
   covering the same fact — into the narrative file (T050) that Phase 6
   (`specs/007-arb-queue/`) is landed / reference-verified (not externally validated), that
@@ -692,14 +700,14 @@ Depends on: T012, T019, T027, T035, T041 (every prior phase's checkpoint).
   was skipped for a `no-go` outcome — this task applies to every outcome, unconditionally,
   unlike T047).
 
-- [ ] T049 [US5] Assemble the final `spike-008-evidence.json` (`research.md` R4;
+- [X] T049 [US5] Assemble the final `spike-008-evidence.json` (`research.md` R4;
   `contracts/evidence-bundle-and-verdict.md` §1) at
   `<EVIDENCE_DIR>/spike-008-evidence.json` — the complete, field-for-field
   `EvidenceBundle` (`data-model.md` §6) plus `Verdict` (§7) plus `NonBindingRecommendation`
   (§8, or `null`), assembled from every prior task's individual output files in this
   phase and Phases 3–6. This is the machine-checkable manifest half of the bundle.
 
-- [ ] T050 [US5] Write the final `spike-008-evidence.md` (`research.md` R4) at
+- [X] T050 [US5] Write the final `spike-008-evidence.md` (`research.md` R4) at
   `<EVIDENCE_DIR>/spike-008-evidence.md` — the human-readable narrative: frozen-reference
   re-verification result, one subsection per User Story 1–4 with transcript excerpts and
   pass/fail per acceptance scenario, the User Story 5 verdict with its cross-referenced
@@ -720,24 +728,24 @@ since nothing here is tracked) the scratch workspaces.
 
 Depends on: T050 (evidence bundle finalized).
 
-- [ ] T051 Re-confirm `packages/cli/dist` in `<THIS_REPO>` is in its expected final state
+- [X] T051 Re-confirm `packages/cli/dist` in `<THIS_REPO>` is in its expected final state
   (built and present, per T011/T040 — never left renamed). Run
   `ls packages/cli/dist/index.js` one final time.
 
-- [ ] T052 Confirm zero tracked mutation in `<THIS_REPO>` across the entire spike. Run
+- [X] T052 Confirm zero tracked mutation in `<THIS_REPO>` across the entire spike. Run
   `git status --porcelain=v1` at `<THIS_REPO>`'s root — MUST show nothing related to this
   spike (and, ideally, nothing at all, modulo any unrelated pre-existing dirty state the
   spike did not itself cause). This is the final, whole-spike version of every
   per-invocation check T019/T026/T041 already performed individually.
 
-- [ ] T053 Confirm no package/schema/version/tag/CI change was introduced anywhere in
+- [X] T053 Confirm no package/schema/version/tag/CI change was introduced anywhere in
   `<THIS_REPO>` (FR-020/Out of Scope). Diff (conceptually or literally, against a
   pre-spike reference) `package.json` (root and every workspace), `schema/adr.schema.json`,
   `packages/core/src/schema/adr.schema.ts`, every file under `docs/adr/**`, and every
   file under `.github/workflows/**` — all MUST be byte-identical to their pre-spike
   state.
 
-- [ ] T054 Confirm no claim, anywhere in `spike-008-evidence.md`/`.json`, states or
+- [X] T054 Confirm no claim, anywhere in `spike-008-evidence.md`/`.json`, states or
   implies Phase 6 is externally validated, has external / community validation (ADR-0014 rung
   3), or was landed / reference-verified by this spike, regardless of this spike's own
   verdict (Out of Scope; T048's restatement is the required place to state the precise Phase 6
@@ -745,12 +753,12 @@ Depends on: T050 (evidence bundle finalized).
   in the evidence files should surface only T048's controlled maturity statement unless a
   separate, linkable rung-3 source exists.
 
-- [ ] T055 [P] Confirm no scratch artifact from this spike was ever staged or committed
+- [X] T055 [P] Confirm no scratch artifact from this spike was ever staged or committed
   in `<THIS_REPO>` at any point — `git log` and `git status` at `<THIS_REPO>`'s root show
   no scratch feature, no scratch ADR, and no fixture file ever entering this repository's
   tracked history (FR-017). No path overlap with T056.
 
-- [ ] T056 [P] Tear down (or knowingly leave, since none of it is tracked by any git
+- [X] T056 [P] Tear down (or knowingly leave, since none of it is tracked by any git
   repository this spike cares about) the three `<SCRATCH_ROOT>` subdirectories
   (`adrkit-spike-fixture/`, `adrkit-spike-scratch-project/`,
   `adrkit-spike-second-agent-scratch/`) and the T036 empty-directory probe location. No
@@ -769,7 +777,7 @@ entire file exists to produce.
 
 Depends on: T054, T055, T056.
 
-- [ ] T057 Independent evidence audit. Dispatch a fresh-context review (no authoring
+- [X] T057 Independent evidence audit. Dispatch a fresh-context review (no authoring
   context from the session that gathered the evidence) using a heavyweight-tier model —
   **Opus 4.8 or GPT-5.6 Sol; never Opus 4.6**, per this session's model policy — to check
   `spike-008-evidence.md`/`.json` against every FR-001–FR-024, SC-001–SC-008, and all six
@@ -782,7 +790,7 @@ Depends on: T054, T055, T056.
   traces to an actual captured file under `<EVIDENCE_DIR>`, never a paraphrase presented
   as a direct quote). Record findings; remediate any defect found before T058.
 
-- [ ] T058 Produce the final result report to the coordinating/maintainer session:
+- [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location
   (`<EVIDENCE_DIR>/spike-008-evidence.{json,md}`); any `no-go` trigger or
   `manual-command-only` shortfall by name; the explicit restatement that Phase 6 is landed / reference-verified (not externally
