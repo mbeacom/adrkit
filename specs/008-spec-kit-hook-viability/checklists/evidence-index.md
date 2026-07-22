@@ -213,8 +213,11 @@ file's content hash and mtime are unchanged by disable).
   underlying *mechanism* is genuinely encouraging (the `after_plan` hook fires
   reliably, sees real plan context, safely shells out to adrkit's own offline
   built CLI with no observed network activity subject to the Tier-3
-  static-review caveat above, and correctly renders/disables/removes across
-  at least two upstream-supported agents) — but the contract's own strict,
+  static-review caveat above, correctly disables/re-enables/removes in the
+  Tier-1 project, and correctly renders structurally across a second,
+  independent upstream-supported agent — the second-agent contract exercises
+  rendering only, not disable/remove, per `contracts/agent-verification.md`'s
+  own `liveInvocationPerformed: false` scope) — but the contract's own strict,
   literal verdict procedure treats *any* non-identical git-status comparison
   as a `no-go` trigger, with no carve-out for a lifecycle action whose entire
   purpose is to write files. This tension is reported honestly rather than
@@ -281,8 +284,11 @@ file's content hash and mtime are unchanged by disable).
   invocations, so re-running would not change the verdict, and (b) it would
   require a second full isolated live-Copilot lifecycle session, itself a
   non-trivial resource/isolation cost. The post-hoc CLI-only re-verification
-  above strengthens confidence that the offline CLI specifically makes no
-  network calls, but does **not** retroactively extend rank-1 coverage to the
+  above strengthens confidence that the offline CLI specifically does not
+  require network access to produce correct, byte-identical output — not
+  that it makes literally zero network-call attempts, per the same
+  limitation stated above — but does **not** retroactively extend rank-1
+  coverage to the
   actual recorded lifecycle invocations. Six cumulative independent audit
   rounds (see below) did not catch this gap either, prior to this PR review —
   that is itself a documented limitation of the audit process's

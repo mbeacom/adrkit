@@ -879,10 +879,14 @@ Depends on: T050 (evidence bundle finalized).
   in the evidence files should surface only T048's controlled maturity statement unless a
   separate, linkable rung-3 source exists.
 
-- [X] T055 [P] Confirm no scratch artifact from this spike was ever staged or committed
-  in `<THIS_REPO>` at any point — `git log` and `git status` at `<THIS_REPO>`'s root show
-  no scratch feature, no scratch ADR, and no fixture file ever entering this repository's
-  tracked history (FR-017). No path overlap with T056.
+- [X] T055 [P] Confirm no scratch artifact from this spike was ever committed
+  in `<THIS_REPO>` at any point, and none remained staged in the working tree or index at
+  spike closeout — `git log` at `<THIS_REPO>`'s root shows no scratch feature, no scratch
+  ADR, and no fixture file ever entering this repository's tracked history, and `git
+  status` at closeout showed none staged or present (FR-017). Neither check can
+  retroactively prove an artifact was never staged and later unstaged before closeout; see
+  `evidence-index.md`'s "Scratch environment" section for the identically-scoped claim. No
+  path overlap with T056.
 
 - [X] T056 [P] Tear down (or knowingly leave, since none of it is tracked by any git
   repository this spike cares about) the three `<SCRATCH_ROOT>` subdirectories
@@ -961,7 +965,9 @@ Depends on: T054, T055, T056.
   corrected bundle was independently re-confirmed unchanged on outcome, precedence,
   `drivingEvidence`, and the Phase-6-maturity restatement. See
   [`checklists/evidence-index.md`](./checklists/evidence-index.md)'s "Independent audit"
-  section for the full account (identical six-item enumeration, kept in sync here). T057's
+  section for the full account (the same six findings, kept semantically aligned here —
+  each document's prose differs slightly to fit its own surrounding sentence structure;
+  no claim of verbatim textual identity is made). T057's
   own checkbox remains `- [X]`: its own
   literally-described action (dispatch, check, converge to PASS or remediate) was
   performed correctly across all seven rounds, including this one.
