@@ -205,7 +205,11 @@ achievement.
 This record governs process only. It changes **no** runtime contract, boundary
 assertion, or determinism guarantee. Where it and a technical ADR disagree, the
 technical ADR wins on the technical point; this ADR governs only how landing
-evidence is staged and how maturity is labeled.
+evidence is staged and how maturity is labeled. Where any non-normative readiness
+map or sequencing analysis differs from this record on landing evidence or maturity
+labelling, **this record governs**; such analyses inform execution order and
+prerequisites but do not relax the evidence ladder, and they never remove a
+technical safety gate (e.g. a spike's offline/network-denial requirement).
 
 ## Options considered
 

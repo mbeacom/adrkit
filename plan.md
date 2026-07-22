@@ -48,6 +48,19 @@ early is cheap and reversible, whereas shipping code against an unmet lower rung
 not. Run each feature through the spec-kit loop; the Constitution Check in every
 `plan.md` gates against Principles I–V. *(Maintainer decision; reviewer may override.)*
 
+**Execution sequence (Phases 7–8).** With Phase 6 `landed / reference-verified`, the safe
+order is: execute **feature 008** (`specs/008-*`) end-to-end **first** — it needs an
+isolated live Copilot session and a clean mutation baseline, so it must not race any other
+spike — and only **then** execute **feature 009** (`specs/009-*`). These two spikes are
+**not** run in parallel overall; the sequence is 008 → 009. (Within 009, its file-disjoint
+US6/US7 task batches may parallelize internally once its own foundational checkpoint passes.)
+Governance authorizes each spike's *execution*; a spike's `plan.md` row may only claim
+`landed`/complete **after** that spike's own final report and independent evidence audit
+exist (its tracked, sanitized evidence index), not merely because execution was authorized.
+Governance removes the community gate only — it does **not** remove any **technical safety
+gate**; in particular feature 009 is **not executable** unless a genuinely blocking (not
+allowlist-only) network-denial mechanism is available in the execution environment.
+
 Phase 4's implementation gate is **cleared**. Phase 3 T018 was completed on
 [`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood):
 12 ADRs, a one-file
