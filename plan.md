@@ -58,8 +58,13 @@ Governance authorizes each spike's *execution*; a spike's `plan.md` row may only
 `landed`/complete **after** that spike's own final report and independent evidence audit
 exist (its tracked, sanitized evidence index), not merely because execution was authorized.
 Governance removes the community gate only — it does **not** remove any **technical safety
-gate**; in particular feature 009 is **not executable** unless a genuinely blocking (not
-allowlist-only) network-denial mechanism is available in the execution environment.
+gate**; feature 009 requires a genuinely blocking (not allowlist-only) network-denial
+mechanism, and a **qualifying mechanism is available** in the current environment (a
+2026-07-22 probe confirmed `/usr/bin/sandbox-exec` with `(deny network*)` blocks network
+without privileges — `curl` failed with exit 6; Podman 5.4.2 `--network none` is an optional
+stronger container path; Docker is unavailable). Its `T006` fail-closed discipline stands for
+any environment that lacks such a mechanism, and execution must still record the actual
+mechanism and its limitations.
 
 Phase 4's implementation gate is **cleared**. Phase 3 T018 was completed on
 [`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood):

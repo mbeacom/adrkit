@@ -100,12 +100,16 @@ citation of record for the contract's actual terms.
 > parallelize internally once its foundational checkpoint passes.
 >
 > **Technical safety gates are unaffected.** Governance authorization removes the community
-> gate only; it does **not** remove any technical safety gate. In particular this spike is
-> **not executable** unless a genuinely **blocking** (not allowlist-only) network-denial
-> mechanism is available in the execution environment (FR-018; task T006 fails closed and
-> forbids every derivation task if none is available), and its landed/complete claim requires
-> its own final report and independent evidence audit (not merely authorization). Do not
-> describe this spike as executable in an environment lacking such a mechanism.
+> gate only; it does **not** remove any technical safety gate. This spike requires a genuinely
+> **blocking** (not allowlist-only) network-denial mechanism (FR-018; task T006), and a
+> **qualifying mechanism is available** in the current environment: a 2026-07-22 probe confirmed
+> `/usr/bin/sandbox-exec` with `(deny network*)` blocks network without privileges (`curl` exit
+> 6), with Podman 5.4.2 `--network none` as an optional stronger container path (Docker
+> unavailable). T006 remains **fail-closed** for any environment lacking such a mechanism, and
+> execution MUST record the actual mechanism used and its limitations. The spike's
+> landed/complete claim additionally requires its own final report and independent evidence
+> audit (not merely authorization). Do not treat this probe as spike execution — it only
+> establishes environment readiness.
 >
 > **Satisfied governance preconditions.** Maintainer scoping/contract ratification (adrkit
 > issue #25, both 2026-07-21 decisions), catalog-binding convention governance
