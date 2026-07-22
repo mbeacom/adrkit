@@ -36,6 +36,7 @@ verdict** (`no-go`) is a separate, orthogonal outcome — see
 | `specify` CLI installed version | `0.13.0` (re-verified at execution time; matched frozen target exactly, no mismatch escalation triggered) |
 | Bun (this repository's build) | `1.3.14` |
 | `@adrkit/cli` built artifact invoked by the fixture | `packages/cli/dist/index.js`, present and unchanged (T051 re-confirmed) |
+| Node.js runtime executing the `node .../packages/cli/dist/index.js queue` subprocess (SC-002/FR-011) | `v22.22.2`, on Darwin arm64 (macOS 26.5.2, kernel `25.5.0`) — the same host and runtime used throughout this spike's execution |
 | Live Copilot lifecycle sessions (model) | `claude-sonnet-5` (per this session's model policy — never Opus 4.6) |
 | Independent evidence audit (model) | `gpt-5.6-sol` (heavyweight tier, fresh context, no authoring history) |
 | Fixture source file hashes (SHA-256) | `extension.yml` `b3765114...986b9d3`; `commands/probe.md` `11f88504...b9a33c2`; `scripts/probe.sh` `b6eac379...41b3fbdb` |
@@ -70,17 +71,17 @@ missing dependency, no unhandled crash, stdout empty. Neither probe's own
 
 ## Network / credential limits
 
-Mechanism used: **allowlisted-env-plus-static-review** (rank 3 of 3 in
-`contracts/isolation-and-offline.md` §4) — ranks 1–2 (OS-namespace/firewall
-network denial, process-level egress block) were attempted and found
-unavailable in this shared, unprivileged host environment (no `unshare(1)`;
-`pfctl` requires `sudo`, unavailable). Rank 3 combines an explicit environment
-variable allowlist for every subprocess invocation with static review of the
-fixture's own short script source, confirming its only external process
-invocation is the offline `@adrkit/cli` subprocess call (every `@adrkit/cli`
-command reads only the local filesystem — Principle II, ADR-0007). No
-credential, API key, or remote endpoint was configured anywhere in the
-fixture, the built CLI, or any invocation environment.
+Mechanism used at original T005 execution: **allowlisted-env-plus-static-review**
+(rank 3 of 3 in `contracts/isolation-and-offline.md` §4) — ranks 1–2
+(OS-namespace/firewall network denial, process-level egress block) were
+attempted and found unavailable in this shared, unprivileged host environment
+(no `unshare(1)`; `pfctl` requires `sudo`, unavailable). Rank 3 combines an
+explicit environment variable allowlist for every subprocess invocation with
+static review of the fixture's own short script source, confirming its only
+external process invocation is the offline `@adrkit/cli` subprocess call
+(every `@adrkit/cli` command reads only the local filesystem — Principle II,
+ADR-0007). No credential, API key, or remote endpoint was configured anywhere
+in the fixture, the built CLI, or any invocation environment.
 
 **Limitation, stated honestly**: rank 3 does not prove the *absence* of a
 network call the way ranks 1–2 would — it establishes that no credential or
@@ -88,6 +89,32 @@ endpoint is configured for one to succeed against, corroborated by full
 static review of the fixture's short command source. No network-dependent
 failure was observed during any invocation; this is a static/behavioral
 observation, not an OS-level sandbox guarantee.
+
+**Post-review corrective addendum.** Independent review (Copilot PR review,
+PR #35) correctly identified that the original T005 rank-1 check was
+incomplete: it tested only `unshare(1)`, a Linux-specific tool, and never
+tested this host's own macOS-native OS-level network-denial primitive,
+`sandbox-exec` (Seatbelt) — which root `plan.md`'s own 2026-07-22
+network-denial probe for feature 009 independently confirms is present and
+genuinely blocks network without privileges on this exact host (`curl` fails
+with exit `6` under a `(deny network*)` profile). As a corrective action, this
+was re-verified directly: `curl` under `sandbox-exec -f <(deny network*)
+profile>` fails with exit `6` (confirming the mechanism genuinely blocks
+network, no privileges required), and the fixture's own offline CLI
+invocation — `node packages/cli/dist/index.js queue --dir docs/adr --format
+json`, the exact command `probe.sh` execs per the static review above — was
+re-run under the same `(deny network*)` profile and produced byte-identical
+stdout to an unsandboxed baseline run, exit `0`, empty stderr. This is
+genuine, stronger (rank-1-equivalent) proof, obtained *after* the original
+spike execution and its independent audit, that this specific offline CLI
+subprocess makes zero network calls. It does **not** retroactively claim rank
+1 was used to gate the original `install`/`hook-fire`/`probe-*` live-Copilot
+invocations recorded above — those remain honestly recorded as executed under
+rank 3, per the original `network-denial.json`. Any future execution in this
+same environment (including feature 009, per root `plan.md`'s own network-
+denial probe) should check for `sandbox-exec` alongside `unshare` when
+assessing rank-1 availability on macOS hosts.
+
 
 ## Verdict (T042–T048)
 
