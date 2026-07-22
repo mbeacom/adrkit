@@ -117,7 +117,9 @@ satisfied; spike execution is authorized once this migration merges.
 > cascade to T013 onward: each of those tasks has its own distinct, literally-described
 > action (initialize a project, record a transcript, validate a field, etc.) that does
 > not itself re-certify T005's mechanism-selection quality or T012's dependency-set
-> status, and each remains independently evidenced as genuinely performed.
+> status, and each remains independently evidenced as genuinely performed — with the
+> sole exception of T057, corrected to `- [ ]` in PR review round 17 for its own separate,
+> disclosed reason unrelated to this round-11 correction (see T057's own note below).
 >
 > **PR review round 12 clarification: this is disclosed as an out-of-contract execution,
 > not a fully gate-conformant one.** A further review round correctly noted that T012's
@@ -136,7 +138,9 @@ satisfied; spike execution is authorized once this migration merges.
 > path rather than rerunning the full live-Copilot lifecycle a second time (judged
 > disproportionate for the same reason given in T005's own note — the `no-go` verdict is
 > driven independently by the mutation baseline, an orthogonal axis): T013–T058's
-> individual checkboxes remain `- [X]` (their own actions ran and are evidenced), but the
+> individual checkboxes, **with the sole exception of T057** (corrected to `- [ ]` in PR
+> review round 17 for its own separate, disclosed reason — see T057's own note), remain
+> `- [X]` (their own actions ran and are evidenced), but the
 > feature's **overall execution status is corrected from an unqualified "executed
 > end-to-end" to "executed, out-of-contract on the T012 blocking gate"** everywhere that
 > phrase appears — this banner (above), `spec.md`, `quickstart.md`, this feature's own
@@ -146,7 +150,9 @@ satisfied; spike execution is authorized once this migration merges.
 > statement that the 008→009 sequencing precondition is **not** established as satisfied
 > by this row alone — that judgment is left to maintainer review.
 
-> ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now checked (see the executed-summary callout above).**
+> ✅ **Governance gates satisfied — spike executed 2026-07-22; tasks below are now updated
+> to reflect that execution, with three explicit exceptions (T005, T012, T057 — see the
+> executed-summary callout above).**
 >
 > 1. **Phase 6 gate — SATISFIED.** Under
 >    [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),

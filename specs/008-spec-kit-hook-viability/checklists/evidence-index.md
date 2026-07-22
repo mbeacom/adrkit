@@ -588,7 +588,9 @@ remediation status, ran, and is evidenced, including honestly disclosing both T0
 incompleteness and this very ordering violation; see T058's own round-18 note in
 `tasks.md`. None of these checked-but-disclosed or unchecked-exception tasks cascades to
 the User Story tasks' own
-checkboxes (T013 onward remain `- [X]`), each of which has its own
+checkboxes (T013 onward remain `- [X]`, **with the sole exception of T057**, unchecked as
+of PR review round 17 for its own separate, disclosed reason — see `tasks.md`'s own T057
+note), each of which has its own
 independently-evidenced, literally-described action — but this is a
 narrower, checkbox-level claim, not a claim that the overall run honored
 either T012's or T057's blocking rule in its intended order (see above). It is a disposable
