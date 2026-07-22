@@ -54,7 +54,7 @@ fail-closed dispatch is commit
 
 The one live consumer-facing fail-closed scenario (run
 [29920390292](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/29920390292),
-workflow `arb-queue-fail-closed.yml`, PR #6) establishes, mechanically and network-free:
+workflow `arb-queue-fail-closed.yml`, PR #6) establishes, mechanically:
 
 - **Deterministic invalid input.** The checked-in path `fixtures/fail-closed-invalid-corpus-dir`
   is a **plain file** used as the Action's `dir` input, so `readdir()` throws `ENOTDIR`
@@ -65,8 +65,9 @@ workflow `arb-queue-fail-closed.yml`, PR #6) establishes, mechanically and netwo
   run. (The run's overall conclusion is `success` precisely because the verifier asserts the
   **expected** Action failure.)
 - **Zero mutation, proven by byte-for-byte snapshot compare.** Every OPEN+CLOSED issue is
-  snapshotted before and after as `number, state, title, updatedAt, bodySha256`, then compared
-  network-free. The canonical before/after snapshot SHA-256 are **identical**:
+  snapshotted before and after as `number, state, title, updatedAt, bodySha256` (the snapshot
+  **capture** uses the GitHub API; the subsequent byte-for-byte **comparison** is network-free).
+  The canonical before/after snapshot SHA-256 are **identical**:
   `9b15bda8a202ec4bb9539f920ceb47f96b2844a4b46232c2a3a4465e579802d9`. Issue #3 remained `OPEN`
   with `updatedAt 2026-07-21T13:21:38Z` (unchanged by the fail-closed run).
 - **Uploaded sanitized evidence artifact** (before/after snapshots) SHA-256:
