@@ -48,6 +48,21 @@ negative-test results (including fail-closed probes), and a reviewer verdict.
 This is a future landing requirement only; the current scoped-but-unexecuted
 spike has no such evidence to record yet.
 
+> ✅ **Status update — Executed 2026-07-22, out-of-contract on two blocking gates.** The
+> paragraph above describes this contract's applicability *before* execution and is
+> retained as the historical scoping record; it no longer describes the current state.
+> This landing requirement has since been met: the tracked, sanitized index is
+> [`../checklists/evidence-index.md`](../checklists/evidence-index.md), and the
+> recorded verdict is **`no-go`** (mutation trigger) — but per PR review round 12, T012's
+> own blocking-checkpoint rule could not be genuinely satisfied (T005's gap), and per PR
+> review round 18, T057's own parallel blocking rule ("remediate any defect found before
+> T058") could not be genuinely satisfied either (an eighth audit pass's FAIL was
+> disclosed, not remediated), so the underlying execution is disclosed as
+> **out-of-contract on two distinct gates**, not unqualified. See
+> [`../tasks.md`](../tasks.md)'s executed-summary banner for the authoritative,
+> current status, including three explicit task exceptions (T005, T012, T057) left
+> unchecked per PR review.
+
 ## 2. Verdict Decision Procedure (SC-007) — Fixed Precedence, Exhaustive, Mutually Exclusive
 
 Evaluate in **exactly** this order. Stop at the first rule that matches.
