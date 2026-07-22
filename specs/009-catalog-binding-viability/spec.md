@@ -75,9 +75,10 @@ configuration' rule." — quoting ADR-0007's own added blockquote verbatim; ADR-
 double quotes around "discovery is by configuration," rendered here with single quotes only to
 distinguish this spec's own outer quotation marks from the nested phrase, per standard
 nested-quotation convention, not as a substantive alteration of the quoted text), and
-[`.specify/memory/constitution.md`](../../.specify/memory/constitution.md) Principles I–IV
+[`.specify/memory/constitution.md`](../../.specify/memory/constitution.md) Principles I–V
 (git is truth; clean clone builds green with no post-install network/credentials/services;
-core and CLI depend on no adapter; deterministic before probabilistic). The historical
+core and CLI depend on no adapter; deterministic before probabilistic; schema is the
+contract). The historical
 decision record this spike's scoping and ADR-0012 both derive from is
 [adrkit issue #25](https://github.com/mbeacom/adrkit/issues/25), "Decide catalog
 entity-to-path binding before feature 009" — read in full for provenance; ADR-0012 is the
@@ -790,10 +791,13 @@ detection is provable offline today; real-world path-ownership precision is not 
 story is deliberately explicit about where its own tamper check's strength stops, rather than
 overclaiming a stronger guarantee than an unsigned digest can actually provide.
 
-**Independent Test**: Produce one valid envelope from User Story 6. Canonicalize it per
-RFC 8785 (sorted object keys at every nesting level, no insignificant whitespace, arrays in
-declaration order), covering every field including `schemaVersion` and excluding only the
-digest field itself, and compute its SHA-256 digest. Construct a **malformed/unsupported**
+**Independent Test**: Produce one valid envelope from User Story 6. Canonicalize it with
+FR-035's `canonicalStringify`-compatible algorithm (sorted object keys at every nesting
+level, no insignificant whitespace, arrays in declaration order), covering every field
+including `schemaVersion` and excluding only the digest field itself, and compute its
+SHA-256 digest. This is byte-equivalent to RFC 8785/JCS over the envelope's closed scalar
+domain; it is not a claim that `canonicalStringify` is a general-purpose RFC 8785
+implementation. Construct a **malformed/unsupported**
 copy (omit a required field, produce invalid JSON, declare an unrecognized `schemaVersion`/
 dialect/capability, omit a declared source's digest, or set `completeness.identityOnly: true`
 per FR-022) and confirm a consumer rejects it before ever reaching the digest check — and
@@ -832,7 +836,7 @@ queried repository's entities.
    that.
 2. **Given** a valid envelope from User Story 6, **When** one entity's `paths` field is
    mutated after generation without updating the envelope's own digest (computed per the
-   Independent Test's RFC 8785 canonicalization over every field including `schemaVersion`,
+   Independent Test's FR-035 canonicalization over every field including `schemaVersion`,
    not the entity list alone), **Then** a consumer that independently recomputes and compares
    that digest rejects the tampered envelope, non-zero, naming the mismatch — never silently
    trusting mutated content. This proves accidental-corruption and naive-mutation detection;
@@ -1057,6 +1061,11 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
   network-verified GitHub repository — a stronger, network-verified provenance check (e.g.
   confirming the checkout's remote is reachable and matches a real GitHub repository) is
   explicitly out of scope for this offline spike and left to any later production feature.
+
+> **Requirement grouping note:** FR-033–FR-038 are grouped here beside the manifest/envelope
+> trust-boundary requirements they refine. Their IDs remain stable for traceability even
+> though this block appears before FR-010 in document order.
+
 - **FR-033**: The input manifest MUST declare exactly three version/capability fields, each with
   a fixed, spike-defined supported value or set — not an illustrative example:
   - `manifestSchemaVersion`: the only value this spike's generator accepts is the exact
@@ -1094,9 +1103,10 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
   Acceptance Scenario 1).
 - **FR-035**: Every produced envelope (FR-022) MUST carry a content digest, computed as
   follows, fixed for this spike (no "e.g." — this is the exact contract): canonicalize the
-  entire envelope (including `schemaVersion`, excluding only the digest field itself) per
-  RFC 8785 (the JSON Canonicalization Scheme — lexicographically sorted object keys at every
-  nesting level, no insignificant whitespace, arrays preserve declaration order); compute the
+  entire envelope (including `schemaVersion`, excluding only the digest field itself) using
+  adrkit's `canonicalStringify`-compatible algorithm — recursively sort object keys by
+  code-unit order, omit `undefined` object fields, emit no insignificant whitespace, and
+  preserve array declaration order — then compute the
   digest as SHA-256 over the UTF-8 bytes of that canonicalized form. A consumer MUST
   independently recompute that digest and compare it against the envelope's declared value
   before trusting any entity's `paths`; a mismatch MUST be rejected non-zero, naming the
@@ -1108,7 +1118,10 @@ contract's "authoritative `go`" and does not itself satisfy the independent-adop
   trust-anchor, and deterministic-output design questions, none of which this spike resolves)
   is an explicitly open question left to a separate, later production-scoping decision — this
   spike does not attempt that stronger mechanism, to avoid broadening into implementation-level
-  cryptographic design decisions it is not scoped to make.
+  cryptographic design decisions it is not scoped to make. For this envelope's closed scalar
+  value domain (strings, booleans, null, and bounded non-negative integers), the specified bytes
+  are equivalent to RFC 8785/JCS output; this contract does not claim `canonicalStringify` is a
+  complete general-purpose RFC 8785 implementation for arbitrary JSON numbers or values.
 - **FR-036**: A consumer MAY be configured with an expected-current repository revision for a
   given repository ID. Because commit SHAs are opaque identifiers with no defined ordering
   available to this spike without separate git-ancestry data (out of scope), "stale" for this
