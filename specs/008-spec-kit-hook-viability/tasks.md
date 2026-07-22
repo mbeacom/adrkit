@@ -421,12 +421,15 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   decision* T005 recorded, not in whether the record exists or coheres with the other
   six outputs. This narrower sub-check remains true and is not itself disputed by round
   11; what round 11 disputes is treating that narrower sub-check as sufficient to claim
-  the checkpoint's own formal "Depends on" list is satisfied. **What does not change:**
-  this checkpoint's gating *function* (block User Story work until genuine outputs
-  exist) was never violated in substance — work only began once all seven outputs,
-  including T005's actual — imperfect — recorded output, genuinely existed — and the
-  downstream checkpoints that cite "Depends on: T012" (US1/US2/US3/US5, including T042)
-  are unaffected and require no further change: none of them re-litigates T005's
+  the checkpoint's own formal "Depends on" list is satisfied. **What does not change (at
+  the individual-checkbox level — see the round-12 addendum below for the corrected
+  execution-order account):** work only began once all seven outputs, including T005's
+  actual — imperfect — recorded output, genuinely existed; but per round 12 below, this
+  is *not* the same as saying this checkpoint's blocking rule itself was honored in
+  execution order — it was not, since the checkpoint could not in fact be genuinely
+  confirmed. The downstream checkpoints that cite "Depends on: T012"
+  (US1/US2/US3/US5, including T042) are unaffected and require no further
+  change: none of them re-litigates T005's
   mechanism-selection decision or T012's own dependency-set-certification status either,
   and their own literal actions (recording transcripts, checking mutation baselines,
   validating bundle-field existence, etc.) are independent of it — this is the same

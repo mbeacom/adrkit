@@ -331,8 +331,8 @@ file's content hash and mtime are unchanged by disable).
   listed outputs exist and are internally consistent*, not *re-certify each
   dependency's own selection decision* — and T012 stayed `- [X]` on that basis; that
   narrower sub-check is independently true (T005's `NetworkDenialRecord` does exist and
-  is internally consistent in shape, and T012's own gating function — block User Story
-  work until genuine outputs exist — was never violated). **PR review round 11
+  is internally consistent in shape). This reading is superseded below by round 11 and,
+  on the execution-order question specifically, by round 12 — see both. **PR review round 11
   correctly identified that this narrower reading is inconsistent with how every other
   "Depends on: X" reference in this document is used**: elsewhere, a dependency's own
   checkbox — not merely its output's existence — is what is depended on, and T012's
@@ -448,10 +448,16 @@ verdict — and **T012** — the Foundational checkpoint's own defined action is
 certifying its full named dependency set (including T005) is satisfied, and
 per PR review round 11 it cannot claim that while T005 remains unchecked,
 even though T012's narrower sub-check (its seven listed outputs exist and
-cohere) is independently true and its gating function was never violated
-(see the Limitations entry above for the full account). Neither exception
-cascades to the User Story tasks (T013 onward), each of which has its own
-independently-evidenced, literally-described action. It is a disposable
+cohere) is independently true — but, per PR review round 12, T012's own
+blocking-gate rule ("No User Story task below may begin until this
+checkpoint is confirmed") was **not** honored in execution order, since the
+User Story tasks that already ran necessarily began before that rule's
+precondition genuinely held (see the Limitations entry above for the full
+account). Neither exception cascades to the User Story tasks' own
+checkboxes (T013 onward remain `- [X]`), each of which has its own
+independently-evidenced, literally-described action — but this is a
+narrower, checkbox-level claim, not a claim that the overall run honored
+T012's blocking rule in its intended order (see above). It is a disposable
 compatibility spike, not a shipped adapter or integration
 (`spec.md`: "It does not produce that adapter"). Feature 009
 (`specs/009-catalog-binding-viability/`) is separately governance-authorized
