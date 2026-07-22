@@ -194,8 +194,32 @@ file's content hash and mtime are unchanged by disable).
   `EvidenceBundle` JSON/Markdown pair) remains session-scoped only, per
   FR-017/FR-024. This index is the sanitized, tracked summary; it does not
   reproduce raw transcript content.
+- **T005 conformance gap, discovered post-hoc via independent PR review**: at
+  original execution time, T005's rank-1 availability check tested only
+  `unshare(1)` and did not test this host's macOS-native equivalent,
+  `sandbox-exec` — which was, in fact, genuinely available (kernel-enforced,
+  no privileges required; confirmed directly, see "Post-review corrective
+  addendum" above). This means the `install`/`hook-fire`/`probe-absent-context`/
+  `probe-absent-cli` invocations recorded in this evidence ran under rank 3
+  (allowlist + static review), not the contract's own "strongest available
+  mechanism" requirement (`contracts/isolation-and-offline.md` §4) — a genuine
+  execution-accuracy gap, not merely a documentation omission. It was **not**
+  remediated by re-running the full live-Copilot lifecycle session under rank
+  1: doing so was judged disproportionate once identified, because (a) the
+  `no-go` verdict is driven entirely by the file-mutation baseline (`install`/
+  `remove` non-identical `git status`), an axis wholly independent of which
+  network-denial mechanism gated the invocations, so re-running would not
+  change the verdict, and (b) it would require a second full isolated live-
+  Copilot lifecycle session, itself a non-trivial resource/isolation cost. The
+  post-hoc CLI-only re-verification above strengthens confidence that the
+  offline CLI specifically makes no network calls, but does **not** retroactively
+  extend rank-1 coverage to the actual recorded lifecycle invocations. Six
+  cumulative independent audit rounds (see below) did not catch this gap
+  either, prior to this PR review — that is itself a documented limitation of
+  the audit process's environment-capability coverage, not just of T005.
 
 ## Independent audit
+
 
 Six cumulative fresh-context audit rounds (all `gpt-5.6-sol`, none sharing
 authoring context with the session that produced the evidence) progressively

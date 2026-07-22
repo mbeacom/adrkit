@@ -221,6 +221,16 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   invocation task runs under it) — to `<EVIDENCE_DIR>/network-denial.json`. If only tier
   3 is available, `limitationsStatement` MUST use `research.md` R8's exact honest-
   limitation language verbatim, never a stronger claim. No path overlap with T006–T007.
+  **Post-execution correction (via PR review, see evidence-index.md's Limitations
+  section):** the rank-1 check performed here tested only `unshare(1)` and missed this
+  host's genuinely-available macOS equivalent (`sandbox-exec`), so rank 3 was recorded
+  and used for every invocation task later listed in `NetworkDenialRecord
+  .appliedToInvocations` (`install`, `hook-fire`, `probe-absent-context`,
+  `probe-absent-cli`) even though a stronger mechanism existed. This is an
+  honestly-documented conformance gap in this task's own execution, not merely a
+  wording issue — it does not change the `no-go` verdict (driven independently by the
+  mutation baseline), and was not remediated by re-running the live-Copilot lifecycle
+  under the stronger mechanism.
 
 - [X] T006 [P] Establish the three scratch workspace roots (`research.md` R3;
   `contracts/isolation-and-offline.md` §1). Create `<SCRATCH_ROOT>/` and its three named
