@@ -330,7 +330,9 @@ checkpoint (T012) passes. Depends on: T003 (`GATE_PASS`).
   baseline (an orthogonal axis). It was not remediated by re-running the live-Copilot
   lifecycle under the stronger mechanism, which was judged disproportionate: doing so
   would not change the verdict and would require a second full isolated live-Copilot
-  session.
+  session. **See T024's own note for this gap's FR-011-specific consequence** for the
+  one invocation (`hook-fire`) where a real, successful adrkit-CLI subprocess call
+  actually ran under rank 3.
 
 - [X] T006 [P] Establish the three scratch workspace roots (`research.md` R3;
   `contracts/isolation-and-offline.md` §1). Create `<SCRATCH_ROOT>/` and its three named
@@ -595,6 +597,30 @@ it does not reinstall).
   (the verbatim `adr queue` JSON output), stderr, and exit code (MUST be `0`). Record
   which `NetworkDenialRecord.mechanismUsed` (T005) this specific invocation ran under, and
   append `"hook-fire"` to `NetworkDenialRecord.appliedToInvocations`. Depends on: T023.
+  **Note (per PR review round 13, a comment on this line initially missed in this
+  session's own triage and surfaced only via a later unresolved-threads sanity sweep):**
+  this invocation ran under `NetworkDenialRecord.mechanismUsed` = rank 3
+  (allowlisted-env + static review), per T005's own note. PR review correctly observed
+  that `spec.md` FR-011's own requirement — "that subprocess call MUST run with outbound
+  network access disabled" — was **not**, in the strict/enforced sense, met by *this*
+  invocation: rank 3 only corroborates the absence of configured credentials/endpoints
+  (`contracts/isolation-and-offline.md` §4's own "Honest limitation" paragraph); it does
+  not enforce network denial the way ranks 1–2 do. This is the identical, already-disclosed
+  T005 gap, now made explicit with respect to FR-011 compliance for the one invocation
+  where it substantively matters — `install` never calls the adrkit CLI at all, and US4's
+  Probe A/B (`T036`/`T039`) are deliberate failure tests that never reach a successful CLI
+  invocation, so `hook-fire` is the only member of `NetworkDenialRecord.appliedToInvocations`
+  backed by a real, successful adrkit-CLI subprocess call. The later `sandbox-exec`
+  re-verification (`checklists/evidence-index.md`'s "Post-review corrective addendum") is a
+  separate, directly-invoked `node` command; that document already states plainly it does
+  not retroactively establish that *this* fixture-spawned subprocess met FR-011. T024's
+  checkbox remains `- [X]`: its own defined action is to capture and honestly record
+  whichever mechanism actually ran — not to itself select or guarantee a stronger one, which
+  is T005's separate, already-unchecked contract — and it did so accurately, recording the
+  weaker mechanism rather than overstating it. The substantive consequence (FR-011's
+  network-disabled requirement not being strictly met for `hook-fire`) is the same
+  orthogonal, no-go-verdict-unaffected gap already carried by T005, not a new independent
+  defect.
 
 - [X] T025 [US2] Capture the **this-repository** mutation baseline, after half.
   Immediately after T023/T024 complete, run the same two commands as T021 at
@@ -1059,6 +1085,16 @@ Depends on: T054, T055, T056.
   own checkbox remains `- [X]`: its own
   literally-described action (dispatch, check, converge to PASS or remediate) was
   performed correctly across all seven rounds, including this one.
+  **PR review round 13 additionally found** (a comment on `tasks.md:588`, initially
+  missed in this session's own review-round triage and surfaced only via a later
+  unresolved-threads sanity sweep) that FR-011's own network-disabled requirement was
+  not, in the strict sense, met by the `hook-fire` invocation T024 captured — see T024's
+  own note. Like the T005/T012 gaps above, this was outside the seven audit rounds' own
+  defined scope (a)–(f): check (f) covers fabricated/assumed *evidence* (citation/quote
+  fidelity to an actual captured file), not a substantive judgment about whether a given
+  `NetworkDenialRecord.mechanismUsed` value itself satisfies FR-011's contract-level
+  requirement. This is not counted as a T057 defect; it is the same underlying T005 gap,
+  now traced to its FR-011-specific consequence for one invocation.
 
 - [X] T058 Produce the final result report to the coordinating/maintainer session:
   the recorded verdict and its `drivingEvidence`; the evidence bundle's location

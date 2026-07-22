@@ -134,6 +134,24 @@ same environment (including feature 009, per root `plan.md`'s own network-
 denial probe) should check for `sandbox-exec` alongside `unshare` when
 assessing rank-1 availability on macOS hosts.
 
+**FR-011 compliance for the `hook-fire` invocation, stated explicitly (PR review round
+13).** `spec.md` FR-011 requires the fixture's nested adrkit-CLI subprocess call to "run
+with outbound network access disabled." The direct answer, for the one invocation this
+substantively concerns: **not met in the strict/enforced sense.** `hook-fire` (T024) ran
+under rank 3, which — per this section's own "Honest limitation" paragraph above — does
+not enforce network denial the way ranks 1–2 do; it only corroborates the absence of
+configured credentials/endpoints. `install` never invokes the adrkit CLI at all, and US4's
+Probe A/B are deliberate failure tests that never reach a successful CLI invocation, so
+`hook-fire` is the only `NetworkDenialRecord.appliedToInvocations` member backed by a real,
+successful adrkit-CLI subprocess call, making it the only one where this gap has a
+substantive FR-011 consequence rather than a purely notional one. The "Post-review
+corrective addendum" above already states its `sandbox-exec` re-verification is a
+separate, directly-invoked `node` command and does not retroactively extend rank-1
+coverage to the actual recorded invocations; this paragraph makes that consequence
+explicit for FR-011 specifically, rather than leaving it to be inferred. This is the same
+orthogonal, no-go-verdict-unaffected T005 gap already disclosed throughout this section —
+not a new, independent defect — see `tasks.md`'s T024 note for the task-level account.
+
 
 ## Verdict (T042–T048)
 
@@ -293,6 +311,22 @@ file's content hash and mtime are unchanged by disable).
   rounds (see below) did not catch this gap either, prior to this PR review —
   that is itself a documented limitation of the audit process's
   environment-capability coverage, not just of T005.
+- **`hook-fire` FR-011 compliance gap (T024), discovered post-hoc via independent PR
+  review (round 13; a comment on `tasks.md:588` initially missed in this session's own
+  review-round triage and surfaced only via a later unresolved-threads sanity sweep)**:
+  this is the FR-011-specific consequence of the T005 gap immediately above, made
+  explicit rather than left to be inferred. `spec.md` FR-011 requires the fixture's
+  nested adrkit-CLI subprocess call to run with outbound network access disabled;
+  `hook-fire` (T024) ran under rank 3, which does not enforce network denial the way
+  ranks 1–2 do, so this requirement was **not** met in the strict/enforced sense for that
+  invocation. See the "Network / credential limits" section above for the full account
+  and why `hook-fire` — not `install` or either US4 probe — is the only invocation where
+  this has a substantive consequence. T024's own literal action (capture the invocation,
+  honestly record which mechanism it ran under) was performed correctly and is not
+  disputed; T024's checkbox remains `- [X]` in `tasks.md` on that basis (see T024's own
+  note there). This does not change the `no-go` verdict (driven independently by the
+  mutation baseline) and is not a new, independent defect — it is the same T005 gap,
+  traced to one additional consequence.
 - **T033 Tier-2 mutation-bracket completeness gap, discovered post-hoc via
   independent PR review (PR round 4; framing corrected PR round 6)**: the original
   evidence bundle's six `MutationBaseline` entries all belong to the Tier-1
@@ -421,6 +455,16 @@ alone). The bundle's exactly-14-top-level-field shape is unchanged; the
 verdict, precedence, `drivingEvidence`, and Phase-6-maturity restatement were
 all independently re-confirmed unchanged and correct by this same pass.
 
+**PR review round 13 additionally found** that FR-011's own network-disabled requirement
+was not, in the strict sense, met by the `hook-fire` invocation T024 captured (see
+"Network / credential limits" above and the Limitations bullet above for the full
+account). Like the T005/T012 gaps already disclosed, this was outside the seven audit
+rounds' own defined scope (a)–(f): check (f) covers fabricated/assumed *evidence*
+(citation/quote fidelity to an actual captured file), not a substantive judgment about
+whether a given `NetworkDenialRecord.mechanismUsed` value itself satisfies FR-011's
+contract-level requirement. This is not counted as an audit defect; it is the same
+underlying T005 gap, traced to its FR-011-specific consequence for one invocation.
+
 ## Honest maturity label
 
 Feature 008 (`specs/008-spec-kit-hook-viability/`) is **executed, out-of-contract on
@@ -453,7 +497,14 @@ blocking-gate rule ("No User Story task below may begin until this
 checkpoint is confirmed") was **not** honored in execution order, since the
 User Story tasks that already ran necessarily began before that rule's
 precondition genuinely held (see the Limitations entry above for the full
-account). Neither exception cascades to the User Story tasks' own
+account). One additional task, **T024**, remains checked (`- [X]`) but carries its own
+explicit disclosure (PR review round 13): the `hook-fire` invocation it captured ran
+under T005's same rank-3 mechanism, so FR-011's own network-disabled requirement was not,
+in the strict sense, met for that specific invocation — T024's own defined action
+(capture and honestly record which mechanism actually ran) was performed correctly and is
+not disputed, so this is disclosed rather than treated as a third checkbox exception; see
+T024's own note in `tasks.md` and the "Network / credential limits" section above.
+Neither exception cascades to the User Story tasks' own
 checkboxes (T013 onward remain `- [X]`), each of which has its own
 independently-evidenced, literally-described action — but this is a
 narrower, checkbox-level claim, not a claim that the overall run honored
