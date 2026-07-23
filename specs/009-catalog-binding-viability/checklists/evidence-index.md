@@ -193,10 +193,15 @@ envelope-population shortfall.
 ## Full evidence bundle (scratch-only; hashes recorded here for integrity)
 
 `spike-009-evidence.json` sha256
-`6f31aebc0bfe9fcc44859fada5143d83a623faf7ba5fa27c923b97652bf9ea90` · `spike-009-evidence.md`
-sha256 `b04f60d40ecf63f73bdb4c3353fe6077a307a8ed6d6948620875217cf5c52997` · `verdict.json` sha256
-`9fb452a42508c3f082fe4ea54484a1b75b93c6d4c49a9ba9adf85b07bf5f4840`. These files, all raw
-transcripts (`transcripts/*.{stdout,stderr,meta.json}`), corpus checkouts, and
+`7dbd0dd389a99b8322c9fe31a8638919cef980a2add897f829ef6995d35eb84c` · `spike-009-evidence.md`
+sha256 `38bc6a21987d25007822deaef0b200fce718d992d4b4fde3f10c7d976005e30c` · `verdict.json` sha256
+`75edda1a75b5e57924b553b76886a8d14b4476c21c34360e7d9448289b240e60`. **PR #37 second-round
+review remediation:** `drivingEvidence` was missing `envelopes` despite
+`blockedShortfall = "envelope-or-scale-evidence-incomplete"` naming that field directly and
+the `t074BlockedEvaluation` detail citing both non-synthetic `envelopes` targets as the
+shortfall's specific evidence; `envelopes` has been added and all three hashes above are the
+recomputed, current values (superseding any earlier value recorded before this fix). These
+files, all raw transcripts (`transcripts/*.{stdout,stderr,meta.json}`), corpus checkouts, and
 scratch repositories are session-artifact-only per FR-019 and are **not** part
 of this repository's tracked history.
 

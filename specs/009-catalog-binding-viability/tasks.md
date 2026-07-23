@@ -451,6 +451,31 @@ outputs, and none of it is story-specific.
   > not an executed test harness in this spike) — it is disclosed here for legibility and
   > left uncorrected in the already-frozen oracle rather than risk any appearance of
   > backfilling a frozen artifact after generator/derivation work has already run against it.
+  > **On the compliant rerun's wall-clock timing (further review question):** T014a/FR-025
+  > require the audit to occur "before any generator-derived output," and the compliant
+  > rerun's own *action* was performed during PR review, after generator/derivation work (T017+)
+  > had already run. This does not reopen the anti-backfilling protection T014a/FR-025 exist to
+  > enforce, for two independently verifiable reasons: (1) the *object being audited* —
+  > `reference-oracle.json`, sha256 `8f0e260fbf86eadf495726f6f8d6f569586c75ed0f74cafa1b5c8411610ae9d5`
+  > — is byte-identical to the file that existed and was hashed **before** any generator output
+  > was ever produced (this hash has never changed across this entire spike; no edit was made to
+  > it in response to reviewing generator output, and the compliant rerun independently
+  > re-confirmed this exact hash rather than accepting it on faith); and (2) the compliant Opus
+  > 4.8 sub-agent's own scope, by direct inspection of its output, was restricted to only the ten
+  > frozen input fixture files and the oracle file itself — it recomputed hashes and re-derived
+  > case classes "from raw fixture bytes against every relevant contract," and at no point read,
+  > was given, or referenced any generator-derived artifact (`snapshot-envelope.*.json`,
+  > `atomic-failure-records.json`, or any other T017+ output). Because the graded object was never
+  > touched after being frozen pre-generator, and the grading process had zero exposure to
+  > generator output, there is no causal path by which generator output could have influenced the
+  > oracle or its audit — the *content* guarantee T014a/FR-025 protect is intact even though the
+  > *audit action's* wall-clock timestamp is later than in the original (non-compliant-model) run.
+  > This spike's contract (point 4 of the execution instructions) requires the oracle to be
+  > "authored, frozen, hashed, and independently audited before any generator-derived output" —
+  > all four of those steps occurred, in that order, before T017; only the *re-verification* of an
+  > already-satisfied, unchanged gate (substituting a compliant reviewer model for a non-compliant
+  > one) happened later, which is a model-identity correction, not a re-ordering of the oracle's
+  > own authoring/freezing/hashing/first-audit sequence relative to generator output.
 
 - [X] T015 [P] Document and rehearse the mid-run-failure recovery procedure (`research.md`
   R11) to `<EVIDENCE_DIR>/recovery-procedure.md`: if a derivation run aborts partway (expected
@@ -1284,6 +1309,26 @@ checkpoint).
   verdict recorded against it** — if any field is genuinely missing (not merely populated with
   an unfavorable result, which is still a populated field), stop and complete the missing
   evidence-gathering task before proceeding to T072.
+  > **On `envelopes`'s two non-`SnapshotEnvelope`-shaped entries (further review
+  > question):** `envelopes.communityPlugins` and `envelopes.rhdhPlugins` are populated
+  > `ArtifactFileReference`s (real, hash-verified files, per T051/T055), but their referenced
+  > files' *content* is not §9's `SnapshotEnvelope` shape — each is a distinctly-shaped
+  > rejection record (`passOutcome`, `repetitions`, `allSixByteIdentical`, `rejection`,
+  > `finding`) documenting that the real, frozen corpus deterministically and correctly
+  > fail-closed-rejects (`duplicate-canonical-id`, ADR-0012/0013) on all 6 repetitions, so no
+  > populated `SnapshotEnvelope` could ever be honestly produced for those two passes. This is
+  > not "genuinely missing" under this task's own rule above — the field slot is populated with
+  > a real reference — nor is it merely "an unfavorable result" in the sense that phrase was
+  > first written for; it is a **different, honestly-labeled shape** for a pass that could not
+  > produce the expected shape at all. `data-model.md` §22's `envelopes` row now documents this
+  > explicitly as the exact, anticipated mechanism behind `Verdict.blockedShortfall =
+  > "envelope-or-scale-evidence-incomplete"` (§23; `contracts/evidence-bundle-and-verdict.md` §2
+  > Step 3 names precisely this case: "the envelope ... could not be fully populated from an
+  > actual run for any pass" as a **named, non-unsafe** `blocked` shortfall, not grounds to
+  > withhold a verdict). Because the recorded verdict for this run is `blocked` with
+  > `blockedShortfall = "envelope-or-scale-evidence-incomplete"` — precisely the case this
+  > shortfall value exists to name — this task's completeness check is satisfied by the
+  > contract's own design, not by relaxing it.
 
 - [X] T072 [US8] Evaluate Step 1 — `no-go` (checked first; dominates all other results). Check,
   against the assembled bundle: any `MutationBaseline.identical === false` (T070); any
@@ -1338,6 +1383,15 @@ checkpoint).
   outcome. **A verdict recorded with an empty `drivingEvidence` array is invalid under this
   contract regardless of what prose elsewhere in `spike-009-evidence.md` claims** — if empty,
   return to T072–T074 and populate it before proceeding. Depends on: T074.
+  > **PR #37 second-round review remediation (genuine fix, not a note-only annotation):** the
+  > initially-recorded `drivingEvidence` array omitted `envelopes`, even though
+  > `blockedShortfall = "envelope-or-scale-evidence-incomplete"` names the `envelopes` field
+  > directly and `t074BlockedEvaluation.detail` cites `snapshot-envelope.community-plugins.json`
+  > / `snapshot-envelope.rhdh-plugins.json` (both `envelopes` targets) as the specific evidence
+  > for the shortfall — so `envelopes` plainly "determined the outcome" per this task's own rule
+  > and this task's original completion was a genuine, if narrow, gap. `envelopes` has been added
+  > to `drivingEvidence` in `verdict.json` and `spike-009-evidence.json` (and the corresponding
+  > `spike-009-evidence.md` prose); this task now genuinely, rather than only nominally, holds.
 
 - [X] T076 [US8] Draft the `NonBindingRecommendation` (`contracts/evidence-bundle-and-verdict.md`
   §4) **only if** `outcome === "go-explicit"` — skip this task entirely otherwise, where
