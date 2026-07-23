@@ -422,6 +422,36 @@ outputs, and none of it is story-specific.
   audited before generator output" property (FR-025) is mechanically enforced by task order,
   not merely self-attested.
 
+  > **PR #37 review remediation:** the run that produced `reference-oracle-audit.json` used
+  > "Independent fresh-context Claude Sonnet 4.6" as its reviewer identity — this is
+  > independent/fresh-context as the task's own text requires, but it violates the session's
+  > explicit top-level instruction that this specific audit role ("frozen-oracle audit") MUST
+  > use Claude Opus 4.8 or GPT-5.6 Sol, never Opus 4.6 (nor, by the same instruction's intent,
+  > any other non-designated model). Per the same honest-checkbox principle applied elsewhere
+  > in this remediation round (and mirroring feature008's T005 precedent for a
+  > selection-criterion violation caught by review), this is disclosed rather than left
+  > silent. Because a **genuinely compliant remediation rerun has now been performed and
+  > passed** — a fresh Claude Opus 4.8 sub-agent, with no prior authoring involvement,
+  > independently recomputed all ten input file hashes and the oracle's own hash (all match),
+  > re-derived all six case classes from raw fixture bytes against every relevant contract,
+  > and returned **PASS**, recorded to
+  > `<EVIDENCE_DIR>/reference-oracle-audit.opus48.json` — this task remains `[X]`: the
+  > property this task exists to enforce (a genuinely independent, compliant, PASS-verdict
+  > pre-output audit exists) is now truly satisfied, and `reference-oracle-audit.opus48.json`
+  > is the authoritative record for T016's gate check (the original Sonnet 4.6 file is
+  > preserved unmodified as an honest historical record, not deleted). The compliant rerun
+  > also disclosed one genuine, non-verdict-changing finding the Sonnet 4.6 run missed: the
+  > oracle's `positive` case records `derivedPathPatterns` in input order rather than the
+  > `compareCodeUnits`-sorted order `owned-paths-annotation.md` §3 mandates for the
+  > `explicit-paths` derived array (`["apis/payments/**", "packages/payments/**"]`, not
+  > `["packages/payments/**", "apis/payments/**"]`). This does not change the case class,
+  > discriminator, or accept/reject outcome for any case, and this spike's own scratch
+  > tooling never diffs generator output against these oracle fixture files by name (the
+  > oracle is a maintainer-authored, pre-generator-output ground-truth reference per FR-025,
+  > not an executed test harness in this spike) — it is disclosed here for legibility and
+  > left uncorrected in the already-frozen oracle rather than risk any appearance of
+  > backfilling a frozen artifact after generator/derivation work has already run against it.
+
 - [X] T015 [P] Document and rehearse the mid-run-failure recovery procedure (`research.md`
   R11) to `<EVIDENCE_DIR>/recovery-procedure.md`: if a derivation run aborts partway (expected
   for every atomic-fail-closed test case in User Story 2 and elsewhere), the recovery action is
@@ -937,7 +967,7 @@ Decision above (primary-synthetic pass composition).
   (`contracts/glob-dialect.md` §6; `contracts/scale-and-security-measurement.md` §2 item 3).
   Depends on: T049.
 
-- [X] T051 [US6] Produce this pass's populated `SnapshotEnvelope` (`contracts/snapshot-envelope.md`
+- [ ] T051 [US6] Produce this pass's populated `SnapshotEnvelope` (`contracts/snapshot-envelope.md`
   §1) from an actual run — schema version `"1"`, `repository: {id:
   "github.com/backstage/community-plugins", revision:
   "92e9e4e09c76cc57f3475029b73e5ec84498a459"}`, generator version, `globDialect: {engine:
@@ -954,6 +984,30 @@ Decision above (primary-synthetic pass composition).
   SHA-256 `digest` computed over every field including `schemaVersion` and excluding only the
   digest field itself. Write to `<EVIDENCE_DIR>/snapshot-envelope.community-plugins.json`.
   Depends on: T050.
+
+  > **PR #37 review correction: T051 is marked incomplete (`- [ ]`).** T050's derivation was
+  > genuinely attempted and genuinely ran against the real 156-descriptor community-plugins
+  > corpus, but it deterministically, correctly fail-closed-rejected on all 6 repetitions
+  > (duplicate-canonical-id — the 5 unsubstituted `${{ values.name | dump }}` template
+  > skeletons; see T050's own record and `atomic-failure-records.json`). Per
+  > `contracts/atomic-fail-closed.md` §1, a failed run produces **no usable partial
+  > snapshot** — there is no entity list, no digest, and no way to honestly populate the
+  > `SnapshotEnvelope` shape this task literally requires. What was actually written to
+  > `<EVIDENCE_DIR>/snapshot-envelope.community-plugins.json` is a differently-shaped,
+  > honest rejection record (`passOutcome:
+  > "deterministic-rejection-no-populated-envelope-possible"`), not a populated
+  > `SnapshotEnvelope`. Marking this `[X]` would overclaim what happened, contrary to the
+  > "mark tasks complete only from observed evidence" rule. This is **not** a claim that
+  > T050's run didn't happen or wasn't evidenced (it did, fully, and is recorded) — it is a
+  > correction of only this task's own checkbox, matching feature008's T005/T012/T057
+  > precedent for an honestly-unmet literal deliverable. T074 explicitly anticipates and
+  > names this exact scenario ("the envelope or scale-evidence record (Phase 8) could not be
+  > fully populated from an actual run for any pass") as the task-file-recognized driver of
+  > the `blocked` verdict's `envelope-or-scale-evidence-incomplete` shortfall — this
+  > correction does not change that verdict; it only makes this one task's own status
+  > honest. T052 (scale-evidence measurement) is unaffected and remains `[X]`: it depends on
+  > T050, not T051, and genuine partial timing data was captured independent of envelope
+  > population.
 
 - [X] T052 [US6] Measure and record this pass's scale evidence
   (`contracts/scale-and-security-measurement.md` §1–§2): one fixed candidate changed-file list
@@ -977,10 +1031,19 @@ Decision above (primary-synthetic pass composition).
 - [X] T054 [US6] Run the full derivation 3+ times against T053's identical 38-descriptor input.
   Diff the outputs. Confirm all runs are byte-identical. Depends on: T053.
 
-- [X] T055 [US6] Produce this pass's populated `SnapshotEnvelope`, from an actual run, with
+- [ ] T055 [US6] Produce this pass's populated `SnapshotEnvelope`, from an actual run, with
   `repository: {id: "github.com/redhat-developer/rhdh-plugins", revision:
   "3b355ddfedb23c6656bd9effc8510f9926b765c1"}` and its own deterministic 38-entity list. Write
   to `<EVIDENCE_DIR>/snapshot-envelope.rhdh-plugins.json`. Depends on: T054.
+
+  > **PR #37 review correction: T055 is marked incomplete (`- [ ]`),** for exactly the same
+  > reason as T051 above: T054's derivation genuinely ran against the real 38-descriptor
+  > rhdh-plugins corpus and deterministically, correctly fail-closed-rejected (its own
+  > independent `duplicate-canonical-id` instance) on all 6 repetitions, so no populated
+  > `SnapshotEnvelope` could be honestly produced — only a differently-shaped rejection
+  > record exists at `<EVIDENCE_DIR>/snapshot-envelope.rhdh-plugins.json`. See T051's note
+  > for the full rationale; it applies here without modification. T056 (scale-evidence
+  > measurement) is unaffected and remains `[X]`.
 
 - [X] T056 [US6] Measure and record this pass's scale evidence (same fixed protocol as T052).
   `annotationBytesTotal: 0`. Record `ScaleEvidenceRecord` with `pass: "rhdh-plugins"` to
@@ -1292,6 +1355,16 @@ checkpoint).
   satisfy external / community validation (ADR-0014 rung 3), optional later external-adopter
   evidence, or the optional externally-validated maturity);
   `productionAuthorizationClaimed: false`. Depends on: T075.
+
+  > **PR #37 review annotation added (no functional change — this task genuinely was, and
+  > remains, correctly skipped):** the recorded `outcome` is `"blocked"` (T072/T073 both
+  > `"did-not-fire"`; T074 `"fired"`), not `"go-explicit"`, so per this task's own literal
+  > text this task is **correctly skipped in its entirety** and `recommendation` is fixed
+  > `null` (verified in `verdict.json`/`spike-009-evidence.json`). Matching feature008's own
+  > convention for tasks validly skipped due to their own stated precondition not holding
+  > (see `specs/008-spec-kit-hook-viability/tasks.md`'s T047 and related notes), this
+  > annotation makes that explicit for reviewer legibility; it does not change any recorded
+  > evidence or the verdict.
 
 - [X] T077 [US8] Set `Verdict.gateDisclaimers` (fixed literal shape:
   `{ phase6NotCausedByThisSpike: true, externalCommunityValidationNotClaimed: true,

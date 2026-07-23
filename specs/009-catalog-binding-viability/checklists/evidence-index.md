@@ -66,18 +66,43 @@ recomputed the sha256 (match confirmed) and confirmed all six required case
 classes (positive / negative / overlap / annotation-absent vs. explicit-empty /
 canonical collision / repository mismatch) present and correctly labeled, with
 the contract's bounded zero-false-positive/zero-false-negative bar satisfied.
-`reference-oracle-audit.json` sha256
-`f80b67c021ddcbd9bc155921252c5cb73c36b2b185c08bc2ba050dca08f87c48`.
 
-**Disclosed model-policy deviation**: this session's execution instructions
-specified Claude Opus 4.8 or GPT-5.6 Sol (never Opus 4.6) for the frozen-oracle
-audit and the final fresh-context evidence audit. T014a was performed by an
-independent, fully context-isolated Claude **Sonnet 4.6** sub-agent — genuine
-context-isolated independence was achieved and the audit passed on its merits,
-but the specific model brand used does not match the instructed Opus
-4.8/GPT-5.6 Sol requirement (it is not Opus 4.6 either, so the explicit
-prohibition was not violated). This is disclosed rather than silently omitted.
-T085 (below) was dispatched correctly per the instructed model policy.
+**Authoritative audit record (post-remediation): `reference-oracle-audit.opus48.json`
+sha256 `4702d17c3da8bbdedf97b15744bc23a9637eb48977251792817956acdf8826d9`** (internally
+recorded `auditedReferenceOracleSha256` matches `reference-oracle.json`'s sha256 above).
+Performed by a fresh, independent
+Claude **Opus 4.8** sub-agent, satisfying both the task-file's own reviewer-independence
+requirement and this session's explicit Opus 4.8/GPT-5.6 Sol model-policy override for
+this specific audit role. It independently recomputed the sha256 of all ten input
+fixture files (matching `reference-oracle-inputs.sha256` exactly) and the oracle's own
+sha256, then re-derived every case class from raw fixture bytes against every relevant
+contract from scratch (not by trusting the prior audit). **Verdict: PASS.**
+
+**Original audit record (superseded, preserved as historical record, not deleted):
+`reference-oracle-audit.json` sha256 `f80b67c021ddcbd9bc155921252c5cb73c36b2b185c08bc2ba050dca08f87c48`.**
+This run used an independent, fully context-isolated Claude **Sonnet 4.6** sub-agent —
+genuine context-isolated independence was achieved and the audit passed on its merits, but
+the specific model does not match this session's Opus 4.8/GPT-5.6 Sol requirement for this
+audit role (it is not Opus 4.6 either, so the explicit "never Opus 4.6" prohibition was not
+violated — but it also does not satisfy the instructed alternative). **PR #37 review
+correction:** this deviation was flagged by automated review and remediated with the
+compliant Opus 4.8 rerun above, which is now the authoritative T014a gate record for T016.
+The original file is retained unmodified rather than deleted, matching this evidence
+bundle's own no-destructive-rewrite convention.
+
+**New finding disclosed only by the compliant rerun:** the oracle's `positive` case records
+`expectedOutcome.derivedPathPatterns` in input order (`["packages/payments/**",
+"apis/payments/**"]`) rather than the `compareCodeUnits`-sorted order
+`owned-paths-annotation.md` §3 mandates for the `explicit-paths` derived array (the correct
+sorted order is `["apis/payments/**", "packages/payments/**"]`, since `"a"` sorts before
+`"p"`). This does not change the case class, three-state discriminator, or accept/reject
+outcome for any case, and none of this spike's own scratch tooling diffs generator output
+against these named oracle fixture files (the oracle is a maintainer-authored,
+pre-generator-output ground-truth reference per FR-025, not an executed test harness in this
+spike) — so it has no bearing on any recorded result. It is disclosed here for legibility;
+the already-frozen oracle was deliberately left uncorrected rather than risk any appearance
+of backfilling a frozen artifact after generator/derivation work had already run against its
+existence as a gate.
 
 ## Network-denial mechanism (T006; FR-018; SC-011)
 
@@ -113,7 +138,7 @@ All 13 required `AtomicFailureRecord.triggerClass` values were genuinely
 exercised through the full generator pipeline (not merely asserted); the 14th,
 `"other-invalid-input"`, is a deliberately-empty, non-required backstop.
 `trigger-class-coverage.json` sha256
-`86c391e481934ca295bffa247ed59cad820eb9fa09842a55cb9e2d8ec0d4f328`.
+`d16643930650d7d5b97b3540b163168aa4467d6d29e08013e19e47edd63413a8`.
 
 ## Independent audit (T085)
 
@@ -130,20 +155,47 @@ no fabricated/assumed evidence (8 claims spot-checked and traced to source,
 including an independently recomputed reference-oracle sha256 match); (h)
 `blocked` is honest, non-gamed fail-closed behavior; (i) no scope creep (no
 `packages/adapters/catalog-*/**`, clean tracked git status, no adoption claim).
-Two non-blocking, self-disclosed observations were noted (the T014a
+Two non-blocking, self-disclosed observations were noted at the time T085 ran (the T014a
 model-brand deviation above; one Phase 7 synthetic fixture's internal
 rejection label reading `invalid-yaml-syntax` for what is actually a
-duplicate-YAML-key case — the fail-closed *outcome* itself is unambiguous and
-correct) — both transparent disclosures, not hidden defects.
+duplicate-YAML-key case — the fail-closed *outcome* itself was unambiguous and
+correct even before the fix below) — both transparent disclosures, not hidden defects.
+**Both have since been resolved for real** (see "PR #37 review remediation" below);
+`t085-independent-audit.json` carries a non-destructive `postAuditAddendum` documenting
+both resolutions without altering its original PASS verdict or checks.
 `t085-independent-audit.json` sha256
-`ea9bee81d6cec012130c2502f2b90a0de256adcc8f747335ffa0a1556414b343`.
+`13c7558a3de7b400a8304394c6c9ae60946d5d4a8049d9268dfcbe6bb2057712`.
+
+## PR #37 review remediation
+
+An automated Copilot code review of PR #37 returned seven findings; each was
+independently verified against source before acting. Two were confirmed as reviewer
+misreadings and required no change (T071's completeness — the task's own text explicitly
+permits an unfavorable-but-populated result to count as populated; T085's model policy —
+this session's own top-level instructions explicitly override the task-file default for
+this specific role, authorizing Opus 4.8). The remaining five were genuine and are recorded
+above at their own task/section: the T014a model-policy deviation (compliant Opus 4.8
+rerun now authoritative, see "Reference oracle" above); the `duplicate-yaml-key` labeling
+issue (root-caused to a regex in the spike's own scratch harness that never matched
+yaml@2.9.0's real error text — **fixed** in scratch tooling only, not shipping code — and
+both affected probes re-run under the same rank-1 Podman mechanism with full before/after
+provenance; see `t045-t048-us5-run.remediation-rerun.*` and
+`t071-trigger-class-coverage.remediation-rerun.*` in the scratch transcripts directory);
+T051/T055 checkbox honesty (`tasks.md` now correctly `- [ ]` — both real-corpus derivations
+deterministically fail-closed-rejected, so no populated `SnapshotEnvelope` could ever exist;
+T052/T056 scale-evidence and the driving `blocked` verdict are unaffected); and a T076
+"correctly skipped in its entirety" annotation added for reviewer legibility (no functional
+change — `recommendation` was and remains `null`, matching feature008's own convention).
+**None of these corrections change the recorded `blocked` verdict**, which remains driven
+solely by the pre-existing dual-corpus `duplicate-canonical-id` defect and the resulting
+envelope-population shortfall.
 
 ## Full evidence bundle (scratch-only; hashes recorded here for integrity)
 
 `spike-009-evidence.json` sha256
-`9221666f25034ca800ea3ae0f902cc302672b14931dfc7dca82e2dfb34e9b08b` · `spike-009-evidence.md`
-sha256 `5076c754960681a1a2015a3ab3e9722ce89dfaf30b5d1fa83335ca698e8caee0` · `verdict.json` sha256
-`5a01ad965fbd08b3f3ad1e365839d24ca53992b6865c0db0d6ddfed8782203ad`. These files, all raw
+`6f31aebc0bfe9fcc44859fada5143d83a623faf7ba5fa27c923b97652bf9ea90` · `spike-009-evidence.md`
+sha256 `b04f60d40ecf63f73bdb4c3353fe6077a307a8ed6d6948620875217cf5c52997` · `verdict.json` sha256
+`9fb452a42508c3f082fe4ea54484a1b75b93c6d4c49a9ba9adf85b07bf5f4840`. These files, all raw
 transcripts (`transcripts/*.{stdout,stderr,meta.json}`), corpus checkouts, and
 scratch repositories are session-artifact-only per FR-019 and are **not** part
 of this repository's tracked history.
