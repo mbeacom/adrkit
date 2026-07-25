@@ -95,28 +95,29 @@ Every row in this table was verified by executing the pinned sources directly;
 see "How these bindings were checked" below.
 
 The consequence is a category error in the contract, and it is not hypothetical.
-Fifteen descriptors in the two corpora feature009 pinned — five in
-`community-plugins` at `92e9e4e09c76cc57f3475029b73e5ec84498a459`, ten in
+Sixteen descriptors in the two corpora feature009 pinned — five in
+`community-plugins` at `92e9e4e09c76cc57f3475029b73e5ec84498a459`, eleven in
 `rhdh-plugins` at `3b355ddfedb23c6656bd9effc8510f9926b765c1` — carry an
 unsubstituted, un-rendered scaffolder placeholder at `metadata.name` rather than
 a name. Fourteen of them (five and nine respectively) carry the identical string
-`${{ values.name | dump }}`; the fifteenth, `bulk-import`, carries
-`${{ values.name }}`, which is equally unsubstituted but canonicalizes
-differently. Both strings fail `isValidObjectName` on character class: `$`, `{`,
-`}` and the spaces — and, for the first, `|` — are all outside the permitted set,
-while ordinary descriptor names pass the same predicate unchanged. Backstage
-would reject every one of these descriptors as a malformed entity outright. The
-contract instead accepts each as a well-formed name, lowercases it, concatenates
-it — and, for the fourteen that share a string, reports the result as
-`triggerClass: "duplicate-canonical-id"`.
+`${{ values.name | dump }}`. The remaining two, both in `rhdh-plugins`, carry
+`${{ values.name }}` (`bulk-import`) and `${{ values.entityName }}`
+(`orchestrator`) — equally unsubstituted, but distinct strings that canonicalize
+distinctly. All three forms fail `isValidObjectName` on character class: `$`,
+`{`, `}` and the spaces are outside the permitted set in every case, and `|` in
+the first, while ordinary descriptor names pass the same predicate unchanged.
+Backstage would reject every one of these descriptors as a malformed entity
+outright. The contract instead accepts each as a well-formed name, lowercases
+it, concatenates it — and, for the fourteen that share a string, reports the
+result as `triggerClass: "duplicate-canonical-id"`.
 
-`bulk-import` is the sharper case, and the reason this is a contract gap rather
-than a reporting one. Being canonically distinct, it collides with nothing. It is
-exactly as invalid as the other fourteen, and the contract has no mechanism of
-any kind that would notice. The duplicate rule catches the fourteen only
-incidentally, as a side effect of their sharing a string; behind it there is
-nothing. Duplicate detection is not a validity check, and the corpus contains a
-descriptor demonstrating that the two conditions come apart.
+The other two are the sharper case, and the reason this is a contract gap rather
+than a reporting one. Being canonically distinct, they collide with nothing.
+They are exactly as invalid as the other fourteen, and the contract has no
+mechanism of any kind that would notice. The duplicate rule catches the fourteen
+only incidentally, as a side effect of their sharing a string; behind it there is
+nothing. Duplicate detection is not a validity check, and the corpus contains two
+descriptors demonstrating that the conditions come apart.
 
 **The fail-closed rejection there is correct and required by §3.** What is wrong
 is the *classification*: a descriptor that is not a valid Backstage entity at all

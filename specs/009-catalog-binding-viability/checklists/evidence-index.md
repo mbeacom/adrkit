@@ -44,8 +44,8 @@ is the exhaustive, honestly-reached fallback.
   in `community-plugins` and **nine** in `rhdh-plugins`; a tenth `rhdh-plugins`
   descriptor, `bulk-import`, carries a *different* unsubstituted placeholder,
   `${{ values.name }}`, so it canonicalizes distinctly and is not part of that
-  collision cohort — fifteen unsubstituted skeleton files in all, fourteen
-  colliding; see "Correction 1" below) that deterministically,
+  collision cohort — sixteen unsubstituted skeleton files in all, fourteen
+  colliding; see "Correction 1" and "Correction 2" below) that deterministically,
   correctly, fail-closed-triggers rejection on all 6 repetitions, byte-identically,
   for both corpora. SC-001 (byte-identical output) and SC-002 (whole-operation
   atomicity) both **hold** — the rejection itself is deterministic with zero
@@ -311,8 +311,12 @@ quantities have to be kept apart**, and the merged record conflates them:
 | Corpus | Pinned commit | Descriptors sharing the identical `${{ values.name \| dump }}` form (the collision cohort) | Unsubstituted placeholder descriptors of any form |
 |---|---|---|---|
 | `community-plugins` | `92e9e4e09c76cc57f3475029b73e5ec84498a459` | **5** | **5** |
-| `rhdh-plugins` | `3b355ddfedb23c6656bd9effc8510f9926b765c1` | **9** | **10** |
-| **Total** | — | **14** | **15** |
+| `rhdh-plugins` | `3b355ddfedb23c6656bd9effc8510f9926b765c1` | **9** | **11** |
+| **Total** | — | **14** | **16** |
+
+The right-hand column was recorded as 10 and 15 until a full re-enumeration
+found an eleventh `rhdh-plugins` placeholder descriptor; see "Correction 2"
+below. The collision cohort is unaffected.
 
 The two columns diverge for one reason. The `rhdh-plugins` envelope `finding`
 enumerates ten workspaces — `dcm`, `homepage`, `app-defaults`, `global-header`,
@@ -326,11 +330,11 @@ participate in the same duplicate group. The collision cohort is therefore
 **nine** in `rhdh-plugins`, not ten.
 
 **Basis of this re-derivation.** The counts above are not taken from the envelope
-`finding` text alone. All fifteen descriptors were read directly from the two
+`finding` text alone. All placeholder descriptors were read directly from the two
 pinned corpora — `community-plugins` at
 `92e9e4e09c76cc57f3475029b73e5ec84498a459` and `rhdh-plugins` at
 `3b355ddfedb23c6656bd9effc8510f9926b765c1` — and their literal `metadata.name`
-values compared. Anyone can reproduce this by fetching the same fifteen files at
+values compared. Anyone can reproduce this by fetching the same files at
 the same two commits. In `community-plugins`, all five (`rbac`, `topology`,
 `mend`, `mta`, `ocm`) carry `${{ values.name | dump }}`, so "five" is confirmed
 correct for that corpus on both measures. In `rhdh-plugins`:
@@ -347,6 +351,10 @@ correct for that corpus on both measures. In `rhdh-plugins`:
 | `scorecard` | `${{ values.name \| dump }}` | yes |
 | `translations` | `${{ values.name \| dump }}` | yes |
 | `cost-management` | `${{ values.name \| dump }}` | yes |
+| **`orchestrator`** | **`${{ values.entityName }}`** | **no — different string** |
+
+The `orchestrator` row is not in the envelope's enumeration at all; see
+"Correction 2".
 
 **Substantive consequence.** The `rhdh-plugins` duplicate group is nine
 descriptors, not ten. `bulk-import` is not a member of it. It remains an
@@ -356,10 +364,10 @@ the corpus's own demonstration that they are.
 
 So: **"five" is correct for `community-plugins` on both measures.** It is wrong
 only as a claim about `rhdh-plugins`, and wrong as a claim about the corpora
-jointly. The originally-proposed replacement "fifteen in total" would have been
-correct for unsubstituted descriptors but **wrong for the collision cohort**,
-which is the quantity the surrounding sentence is actually about — so it is not
-used as a bare total here.
+jointly. The originally-proposed replacement "fifteen in total" was wrong on both
+counts — wrong for the collision cohort, which is the quantity the surrounding
+sentence is actually about, and, as Correction 2 records, wrong for the
+unsubstituted total as well.
 
 **Provenance, stated neutrally.** The "five" phrasing entered the tracked record
 during PR #37 round-3 review remediation and merged in `5ff8705`; it was written
@@ -382,13 +390,72 @@ is unchanged (`blocked`, `blockedShortfall =
 identical either way: both corpora deterministically fail-closed-reject on
 `duplicate-canonical-id`. Only the magnitude and distribution were misstated.
 
-**Limit of this correction.** The fifteen placeholder descriptors were read
+**Limit of this correction.** The placeholder descriptors were read
 directly at both pinned commits, so the figures above are corpus-derived and
 independently reproducible rather than inherited from the envelope text. What
 was **not** done is any wider re-enumeration: no count of total descriptors,
 total entity documents, or any other collision group in either corpus was
 re-derived here. These figures are a targeted correction, **not** a fresh corpus
 census, and nothing beyond the placeholder cohort should be read out of them.
+
+### Correction 2: a sixteenth placeholder descriptor, in a third placeholder form
+
+**What was wrong.** Every prior statement of these counts — the merged record,
+Correction 1 above, and the draft ADR — put the unsubstituted placeholder total
+at **fifteen**, with **ten** in `rhdh-plugins`. Both figures were low by one. The
+true totals are **sixteen** and **eleven**.
+
+**What was missed, and why.** Correction 1 re-derived its figures by reading the
+descriptors the envelope `finding` enumerated. That is a closed list, so it could
+correct the *classification* of those files but could never discover a file the
+finding never mentioned. This descriptor is exactly that case:
+
+| Path | `kind` | `metadata.name` |
+|---|---|---|
+| `workspaces/orchestrator/entities/greet-with-new-component/skeleton/catalog-info.yaml` | `Component` | `${{ values.entityName }}` |
+
+It sits at `entities/<name>/skeleton/`, not the
+`examples/template/content/` path shared by the other ten `rhdh-plugins`
+placeholders, and it carries a **third** distinct placeholder form —
+`${{ values.entityName }}`, not `${{ values.name }}` or
+`${{ values.name | dump }}`. It is inside the 38-file corpus that this index's
+own file/document finding records, and it was found by enumerating every
+`metadata.name` in both corpora rather than only the enumerated subset.
+
+**Corrected figures**, from a full enumeration of both corpora at their pinned
+commits:
+
+| Corpus | `${{ values.name \| dump }}` | `${{ values.name }}` | `${{ values.entityName }}` | Unsubstituted total |
+|---|---|---|---|---|
+| `community-plugins` | 5 | 0 | 0 | **5** |
+| `rhdh-plugins` | 9 | 1 | 1 | **11** |
+| **Total** | **14** | **1** | **1** | **16** |
+
+**What does not change.** The **collision cohort is still fourteen** — five and
+nine — because the new descriptor's placeholder is a distinct string that
+canonicalizes to a distinct id, exactly like `bulk-import`. No
+`duplicate-canonical-id` grouping, trigger class, hash, task checkbox, FR, SC,
+or the recorded `blocked` verdict is affected. The shortfall's cause is
+unchanged.
+
+**Why it is recorded as its own correction.** This is the third revision of the
+same figure, and the pattern is worth naming rather than quietly fixing again.
+Each prior attempt narrowed its evidence to the source it inherited: first the
+summary narrative, then the envelope `finding`'s enumeration. Both were faithful
+to their source and both were wrong, because the source was the wrong object to
+be faithful to. The count is a property of the corpus, and only a full
+enumeration of the corpus can establish it. Correction 1's own stated limit
+anticipated this — it said no wider re-enumeration had been performed and that
+nothing beyond the placeholder cohort should be read out of its figures. That
+limit was correct and is what this correction discharges.
+
+**Basis.** Full enumeration of every YAML document in every
+`basename == "catalog-info.yaml"` file in both corpora at
+`92e9e4e09c76cc57f3475029b73e5ec84498a459` and
+`3b355ddfedb23c6656bd9effc8510f9926b765c1` — 156/167 and 38/39 respectively,
+zero parse errors, every document carrying a string `metadata.name`. The same
+enumeration produced the two named findings recorded below, and is subject to
+the same three limits stated there.
 
 ### Named finding: `metadata.name` is canonicalized without ever being validated
 
@@ -417,9 +484,10 @@ on the same grounds minus the pipe — while ordinary descriptor names pass it
 unchanged.
 
 **The consequence.** Backstage would reject every one of these descriptors as a
-malformed entity outright — all fifteen unsubstituted ones, both the fourteen
-carrying `${{ values.name | dump }}` and the single one carrying
-`${{ values.name }}`, since each fails on character class. This spike's contract
+malformed entity outright — all sixteen unsubstituted ones: the fourteen
+carrying `${{ values.name | dump }}`, the one carrying `${{ values.name }}`, and
+the one carrying `${{ values.entityName }}`, since each fails on character
+class. This spike's contract
 instead accepts each one as a well-formed name, lowercases it, and concatenates
 it. For the fourteen that share a string, they then collide with each other and
 the collision is reported as `triggerClass: "duplicate-canonical-id"`. The
