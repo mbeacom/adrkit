@@ -6,6 +6,18 @@ import { parseFrontmatter } from '../parse/frontmatter.ts';
 export const RECORD_FILE_PATTERN = /^[0-9]{4,}-.+\.md$/;
 export const TEMPLATE_FILE_NAME = '0000-template.md';
 
+/**
+ * Conventional non-record markdown that legitimately lives alongside a corpus. These
+ * are not reported as skipped records, so the `corpus-file-skipped` warning stays
+ * signal rather than noise — and migration never rewrites or moves them.
+ */
+const NON_RECORD_FILE_NAMES = new Set(['readme.md', 'index.md', 'contributing.md', 'template.md']);
+
+/** Whether a markdown filename is conventional corpus documentation rather than a record. */
+export function isConventionalNonRecordFileName(fileName: string): boolean {
+  return fileName === TEMPLATE_FILE_NAME || NON_RECORD_FILE_NAMES.has(fileName.toLowerCase());
+}
+
 export interface ParsedAdrFile {
   data: unknown;
   body: string;
@@ -37,6 +49,28 @@ export async function discoverAdrFiles(dir = 'docs/adr', cwd = process.cwd()): P
   const entries = await readdir(absoluteDir, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isFile() && isRecordFileName(entry.name))
+    .map((entry) => join(absoluteDir, entry.name))
+    .sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+}
+
+/**
+ * Markdown files in the corpus directory that {@link discoverAdrFiles} skipped because
+ * their filename does not match {@link RECORD_FILE_PATTERN}. Surfacing these is what
+ * keeps "checked 0 records" from being silently reported as a healthy corpus when a
+ * migrated or hand-authored record is simply misnamed (#41).
+ */
+export async function discoverSkippedMarkdownFiles(dir = 'docs/adr', cwd = process.cwd()): Promise<string[]> {
+  const absoluteDir = toAbsolutePath(dir, cwd);
+  const entries = await readdir(absoluteDir, { withFileTypes: true }).catch(() => []);
+  return entries
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.endsWith('.md') &&
+        !entry.name.startsWith('.') &&
+        !isConventionalNonRecordFileName(entry.name) &&
+        !isRecordFileName(entry.name),
+    )
     .map((entry) => join(absoluteDir, entry.name))
     .sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
 }

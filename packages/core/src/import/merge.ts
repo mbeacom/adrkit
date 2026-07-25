@@ -19,6 +19,8 @@ export interface MergeMadrOptions {
   id: string;
   sourceRef: string;
   fingerprint: string;
+  /** See {@link MadrStatusContext.resolveSupersededRef}. */
+  resolveSupersededRef?: (ref: string) => string | undefined;
 }
 
 export interface MergeMadrResult {
@@ -141,6 +143,24 @@ function titleFinding(path: string, id?: string): Finding {
   };
 }
 
+const EPOCH_DATE = '1970-01-01';
+
+/**
+ * `date` is required by the schema, so a source that declares none gets the epoch
+ * sentinel. Report it rather than writing a plausible-looking but fabricated date —
+ * a record dated 1970-01-01 that nobody was told about is worse than a warning.
+ */
+function missingDateFinding(path: string, id?: string): Finding {
+  return {
+    rule: 'import-date-missing',
+    severity: 'warn',
+    message: `MADR source declares no date; using "${EPOCH_DATE}" as a placeholder — backfill the real decision date`,
+    path,
+    id,
+    field: 'date',
+  };
+}
+
 function importedAtFrom(value: unknown): string | undefined {
   if (!isRecord(value)) return undefined;
   const importedFrom = value.importedFrom;
@@ -171,13 +191,20 @@ function provenanceFrom(raw: MutableRecord, sourceRef: string, fingerprint: stri
 
 function initialCandidate(options: MergeMadrOptions, findings: Finding[]): MutableRecord {
   const raw = options.source.frontmatter;
+  const bodyFields = options.source.bodyFields ?? {};
   const id = isValidId(raw.id) ? raw.id : options.id;
   const title = options.source.title;
   if (!title || title.length < 3 || title.length > 120) {
     throw new MadrMergeError('MADR source is missing a usable title', [titleFinding(options.source.path, id)]);
   }
 
-  const status = mapMadrStatus(raw.status, { path: options.source.path, id });
+  // Frontmatter first; the body dialects (MADR 2.x bullets, Nygard sections) are the
+  // fallback so a migrated file re-migrates to exactly the same frontmatter (#40).
+  const status = mapMadrStatus(raw.status ?? bodyFields.status, {
+    path: options.source.path,
+    id,
+    ...(options.resolveSupersededRef ? { resolveSupersededRef: options.resolveSupersededRef } : {}),
+  });
   findings.push(...status.findings);
 
   const candidate: MutableRecord = {};
@@ -189,7 +216,12 @@ function initialCandidate(options: MergeMadrOptions, findings: Finding[]): Mutab
   candidate.id = id;
   candidate.title = title;
   candidate.status = status.status;
-  candidate.date = dateFrom(raw.date) ?? dateFrom(raw.created) ?? '1970-01-01';
+  const date = dateFrom(raw.date) ?? dateFrom(raw.created) ?? dateFrom(bodyFields.date);
+  if (date === undefined) findings.push(missingDateFinding(options.source.path, id));
+  candidate.date = date ?? EPOCH_DATE;
+  if (status.supersededBy !== undefined && candidate.supersededBy === undefined) {
+    candidate.supersededBy = status.supersededBy;
+  }
 
   for (const [key, value] of Object.entries(FALLBACKS)) {
     if (!(key in candidate) || candidate[key] === undefined || candidate[key] === null) {

@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
-import { cleanupTestDir, recordMarkdown, resetTestDir, writeText } from '../../core/test/helpers.ts';
+import {
+  acceptedRecordMarkdown,
+  cleanupTestDir,
+  recordMarkdown,
+  resetTestDir,
+  supersededRecordMarkdown,
+  writeText,
+} from '../../core/test/helpers.ts';
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const DIR_NAME = 'cli-check';
@@ -24,8 +31,8 @@ const pathMatcher = (pattern: string): string => ['affects:', '  - type: path', 
 async function seedCorpus(): Promise<string> {
   const root = await resetTestDir(DIR_NAME);
   const dir = join(root, 'docs/adr');
-  await writeText(join(dir, '0001-core.md'), withAffects(recordMarkdown('0001', 'Use core paths'), pathMatcher('packages/core/**')));
-  await writeText(join(dir, '0002-cli.md'), withAffects(recordMarkdown('0002', 'Use cli paths'), pathMatcher('packages/cli/**')));
+  await writeText(join(dir, '0001-core.md'), withAffects(acceptedRecordMarkdown('0001', 'Use core paths'), pathMatcher('packages/core/**')));
+  await writeText(join(dir, '0002-cli.md'), withAffects(acceptedRecordMarkdown('0002', 'Use cli paths'), pathMatcher('packages/cli/**')));
   return root;
 }
 
@@ -41,9 +48,9 @@ describe('adr check CLI', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Decisions governing this change:');
-    expect(result.stdout).toContain('0001  Use core paths');
+    expect(result.stdout).toContain('0001  [accepted] Use core paths');
     expect(result.stdout).toContain('via path: packages/core/**');
-    expect(result.stdout).not.toContain('0002  Use cli paths');
+    expect(result.stdout).not.toContain('Use cli paths');
   });
 
   test('exits non-zero when a changed record has an error finding', async () => {
@@ -66,7 +73,31 @@ describe('adr check CLI', () => {
     const result = await runAdr(['check', 'packages/core/src/index.ts', '--dir', 'docs/adr'], root);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('0001  Use core paths');
+    expect(result.stdout).toContain('0001  [accepted] Use core paths');
+  });
+
+  test('a non-accepted record that matches is reported separately, never as governing', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'docs/adr');
+    await writeText(join(dir, '0001-draft.md'), withAffects(recordMarkdown('0001', 'Draft record'), pathMatcher('src/api/**')));
+    await writeText(
+      join(dir, '0002-superseded.md'),
+      withAffects(supersededRecordMarkdown('0002', '0003', 'Superseded record'), pathMatcher('src/api/**')),
+    );
+    await writeText(
+      join(dir, '0003-accepted.md'),
+      withAffects(acceptedRecordMarkdown('0003', 'Accepted record'), pathMatcher('src/api/**')),
+    );
+
+    const result = await runAdr(['check', 'src/api/thing.ts', '--dir', 'docs/adr'], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Decisions governing this change:\n  0003  [accepted] Accepted record');
+    expect(result.stdout).toContain('Active proposals touching this change (not yet binding):\n  0001  [draft] Draft record');
+    expect(result.stdout).toContain(
+      'Historical records that once covered this change (not binding):\n  0002  [superseded] Superseded record (superseded by 0003)',
+    );
+    expect(result.stdout).toContain('checked: 1 governing, 1 active proposals, 1 historical,');
   });
 
   test('--json output is stable and deterministically sorted', async () => {
@@ -81,6 +112,10 @@ describe('adr check CLI', () => {
     expect(second.stdout).toBe(first.stdout);
     expect(parsed.changedFiles).toEqual(['packages/cli/src/a.ts', 'packages/core/src/b.ts']);
     expect(parsed.governedBy.map((g: { recordId: string }) => g.recordId)).toEqual(['0001', '0002']);
+    expect(parsed.governing.map((g: { recordId: string }) => g.recordId)).toEqual(['0001', '0002']);
+    expect(parsed.governedBy.map((g: { status: string }) => g.status)).toEqual(['accepted', 'accepted']);
+    expect(parsed.activeProposals).toEqual([]);
+    expect(parsed.history).toEqual([]);
     expect(parsed.ok).toBe(true);
     expect(parsed).toHaveProperty('changedRecords');
     expect(parsed).toHaveProperty('findings');

@@ -13,8 +13,13 @@ or validation.
   sorted; otherwise print a human summary.
 - **Behavior**: load the corpus via `lintCorpus` (keeping its full findings, including
   those for malformed files it drops from `records`); call `checkChanges({ lint,
-  changedFiles, dir })`; print the governing decisions (id + title + fired matcher, like
-  `adr explain`) and the changed-record findings.
+  changedFiles, dir })`; print the governing decisions (id + status + title + fired
+  matcher, like `adr explain`) and the changed-record findings.
+- **Status awareness**: only `accepted` records are reported as **governing**. Matched
+  `draft`/`proposed` records are reported as **active proposals** and matched
+  `rejected`/`superseded`/`deprecated` records as **history**, under their own headings.
+  The bucketing is `@adrkit/core`'s `decisionBucketFor`, the same function
+  `@adrkit/mcp`'s `get_decision_context` uses, so the two surfaces cannot drift.
 - **Exit**: `0` on success; **non-zero** iff a **changed record** has an
   `error`-severity finding (FR-002); `2` on usage error. `info`/`warn` never fail.
 - **Purity/determinism**: identical `(lint result, changedFiles, snapshots)` → identical
@@ -25,12 +30,17 @@ or validation.
 
 ```text
 Decisions governing this change:
-  0007  Isolate integrations as optional adapters
+  0007  [accepted] Isolate integrations as optional adapters
     via path: packages/*/package.json
-  0009  Pin affects resolution semantics ...
+  0009  [accepted] Pin affects resolution semantics ...
     via path: packages/core/src/affects/**
-Changed records: 0
-checked: 3 governing, 0 changed-record errors
+Active proposals touching this change (not yet binding):
+  0015  [proposed] Adopt a shared cache layer
+    via path: packages/core/src/affects/**
+Historical records that once covered this change (not binding):
+  0003  [superseded] Old adapter policy (superseded by 0007)
+    via path: packages/*/package.json
+checked: 2 governing, 1 active proposals, 1 historical, 0 changed records, 0 changed-record errors
 ```
 
 `--json` output shape:
@@ -38,10 +48,24 @@ checked: 3 governing, 0 changed-record errors
 ```ts
 {
   changedFiles: string[];
-  governedBy: { recordId: string; title: string; firedMatchers: { type: string; pattern: string }[] }[];
+  // Every match, regardless of status — the resolver's raw union. Retained for
+  // consumers written against the pre-bucketing shape; prefer `governing`.
+  governedBy: GoverningDecision[];
+  governing: GoverningDecision[];        // accepted only — the decisions that bind
+  activeProposals: GoverningDecision[];  // draft | proposed
+  history: GoverningDecision[];          // rejected | superseded | deprecated
   changedRecords: string[];
   findings: Finding[];
   ok: boolean;
+}
+
+interface GoverningDecision {
+  recordId: string;
+  title: string;
+  status: Status;
+  bucket: 'governing' | 'activeProposals' | 'history';
+  supersededBy?: string;  // present only when status is `superseded`
+  firedMatchers: { type: string; pattern: string }[];
 }
 ```
 

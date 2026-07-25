@@ -46043,6 +46043,10 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 var RECORD_FILE_PATTERN = /^[0-9]{4,}-.+\.md$/;
 var TEMPLATE_FILE_NAME = "0000-template.md";
+var NON_RECORD_FILE_NAMES = new Set(["readme.md", "index.md", "contributing.md", "template.md"]);
+function isConventionalNonRecordFileName(fileName) {
+  return fileName === TEMPLATE_FILE_NAME || NON_RECORD_FILE_NAMES.has(fileName.toLowerCase());
+}
 function isRecordFileName(fileName) {
   return fileName !== TEMPLATE_FILE_NAME && RECORD_FILE_PATTERN.test(fileName);
 }
@@ -46058,6 +46062,11 @@ async function discoverAdrFiles(dir = "docs/adr", cwd = process.cwd()) {
   const absoluteDir = toAbsolutePath(dir, cwd);
   const entries = await readdir(absoluteDir, { withFileTypes: true });
   return entries.filter((entry) => entry.isFile() && isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+}
+async function discoverSkippedMarkdownFiles(dir = "docs/adr", cwd = process.cwd()) {
+  const absoluteDir = toAbsolutePath(dir, cwd);
+  const entries = await readdir(absoluteDir, { withFileTypes: true }).catch(() => []);
+  return entries.filter((entry) => entry.isFile() && entry.name.endsWith(".md") && !entry.name.startsWith(".") && !isConventionalNonRecordFileName(entry.name) && !isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
 }
 async function expandRecordInputs(paths, dir = "docs/adr", cwd = process.cwd()) {
   if (!paths || paths.length === 0) {
@@ -46289,9 +46298,18 @@ function parseErrorFinding(error51, path) {
     path
   };
 }
+function skippedFileFinding(path) {
+  return {
+    rule: "corpus-file-skipped",
+    severity: "warn",
+    message: "Markdown file in the corpus directory is not a discoverable ADR record and was skipped; rename it to <id>-<slug>.md (four or more leading digits) for it to be linted and enforced",
+    path
+  };
+}
 async function lintCorpus(options = {}) {
   const cwd = options.cwd ?? process.cwd();
-  const files = await expandRecordInputs(options.paths, options.dir ?? "docs/adr", cwd);
+  const dir = options.dir ?? "docs/adr";
+  const files = await expandRecordInputs(options.paths, dir, cwd);
   const records = [];
   const findings = [];
   for (const file2 of files) {
@@ -46305,6 +46323,11 @@ async function lintCorpus(options = {}) {
       }
     } catch (error51) {
       findings.push(parseErrorFinding(error51, displayPath));
+    }
+  }
+  if (!options.paths || options.paths.length === 0) {
+    for (const skipped of await discoverSkippedMarkdownFiles(dir, cwd)) {
+      findings.push(skippedFileFinding(normalizeDisplayPath(skipped, cwd)));
     }
   }
   findings.push(...validateImportIncomplete(records));

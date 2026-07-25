@@ -1,5 +1,6 @@
-import type { Adr } from '../schema/adr.schema.ts';
-import { resolveAffects, type FiredMatcher, type ResolutionSnapshots } from '../affects/index.ts';
+import type { Adr, Status } from '../schema/adr.schema.ts';
+import { resolveAffects, type AffectsMatch, type FiredMatcher, type ResolutionSnapshots } from '../affects/index.ts';
+import { decisionBucketFor, type DecisionBucket } from '../status/bucket.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 
 /**
@@ -17,6 +18,15 @@ export interface CheckLintResult {
 export interface GoverningDecision {
   recordId: string;
   title: string;
+  /**
+   * The record's status. Present so no consumer has to assume a matched record is
+   * `accepted` — a `rejected` or `superseded` record can match a path just as easily.
+   */
+  status: Status;
+  /** Which of the three buckets this record falls into, per `decisionBucketFor`. */
+  bucket: DecisionBucket;
+  /** The successor, when this record was superseded. Lets a reader follow the chain. */
+  supersededBy?: string;
   firedMatchers: FiredMatcher[];
 }
 
@@ -26,7 +36,17 @@ export interface GoverningDecision {
  */
 export interface CheckOutcome {
   changedFiles: string[];
+  /**
+   * Every record whose matchers fired, regardless of status — the resolver's raw union.
+   * Retained for consumers written against the pre-bucketing shape; prefer `governing`.
+   */
   governedBy: GoverningDecision[];
+  /** `accepted` records only. These are the decisions that actually bind the change. */
+  governing: GoverningDecision[];
+  /** `draft`/`proposed` records that touch the change but have not been ratified. */
+  activeProposals: GoverningDecision[];
+  /** `rejected`/`superseded`/`deprecated` records that once covered the change. */
+  history: GoverningDecision[];
   changedRecords: string[];
   findings: Finding[];
   ok: boolean;
@@ -81,6 +101,44 @@ function uniqueSorted(values: readonly string[]): string[] {
 }
 
 /**
+ * Turn resolver matches into status-carrying decisions. A match whose record is not in
+ * `records` (dropped by lint as malformed) cannot be classified, so it is reported with
+ * the neutral `draft` status and lands in `activeProposals` rather than silently
+ * claiming to govern.
+ */
+export function toGoverningDecisions(
+  records: readonly Adr[],
+  matches: readonly AffectsMatch[],
+): GoverningDecision[] {
+  const byId = new Map(records.map((record) => [record.frontmatter.id, record]));
+  return matches.map((match) => {
+    const frontmatter = byId.get(match.recordId)?.frontmatter;
+    const status: Status = frontmatter?.status ?? 'draft';
+    return {
+      recordId: match.recordId,
+      title: frontmatter?.title ?? '',
+      status,
+      bucket: decisionBucketFor(status),
+      ...(frontmatter?.supersededBy ? { supersededBy: frontmatter.supersededBy } : {}),
+      firedMatchers: match.firedMatchers,
+    };
+  });
+}
+
+export interface BucketedDecisions {
+  governing: GoverningDecision[];
+  activeProposals: GoverningDecision[];
+  history: GoverningDecision[];
+}
+
+/** Partition decisions into the three buckets, preserving the input order within each. */
+export function bucketDecisions(decisions: readonly GoverningDecision[]): BucketedDecisions {
+  const buckets: BucketedDecisions = { governing: [], activeProposals: [], history: [] };
+  for (const decision of decisions) buckets[decision.bucket].push(decision);
+  return buckets;
+}
+
+/**
  * The single, neutral "resolve governing decisions + validate changed records"
  * implementation, called by both `adr check` (CLI) and the `@adrkit/ci` Action so
  * neither surface depends on the other. Pure: no clock, network, or fs traversal
@@ -99,14 +157,8 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
     log: input.log,
   });
 
-  const titleById = new Map(
-    input.lint.records.map((record) => [record.frontmatter.id, record.frontmatter.title]),
-  );
-  const governedBy: GoverningDecision[] = resolution.matches.map((match) => ({
-    recordId: match.recordId,
-    title: titleById.get(match.recordId) ?? '',
-    firedMatchers: match.firedMatchers,
-  }));
+  const governedBy = toGoverningDecisions(input.lint.records, resolution.matches);
+  const buckets = bucketDecisions(governedBy);
 
   // Findings kept only for files lint attributes to a changed record. Errors on
   // unchanged records (A5) and corpus-level findings without a record path do not
@@ -117,5 +169,14 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
   const findings = sortFindings([...resolution.findings, ...changedRecordFindings]);
   const ok = !changedRecordFindings.some((finding) => finding.severity === 'error');
 
-  return { changedFiles, governedBy, changedRecords, findings, ok };
+  return {
+    changedFiles,
+    governedBy,
+    governing: buckets.governing,
+    activeProposals: buckets.activeProposals,
+    history: buckets.history,
+    changedRecords,
+    findings,
+    ok,
+  };
 }

@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import { FrontmatterError, parseFrontmatter } from '../parse/frontmatter.ts';
-import { normalizeDisplayPath } from '../load/corpus.ts';
+import { isConventionalNonRecordFileName, normalizeDisplayPath } from '../load/corpus.ts';
 
 export interface MadrSourceFile {
   kind: 'madr';
@@ -11,6 +11,12 @@ export interface MadrSourceFile {
   body: string;
   source: string;
   title?: string;
+  /**
+   * Fields recovered from the markdown body for MADR dialects that do not carry YAML
+   * frontmatter. Consulted only when the corresponding frontmatter key is absent, so
+   * frontmatter always wins and an already-migrated file re-migrates identically.
+   */
+  bodyFields: MadrBodyFields;
 }
 
 export interface NotMadrFile {
@@ -43,6 +49,83 @@ export function extractMadrTitle(frontmatter: Record<string, unknown>, body: str
   return title && title.length > 0 ? title : undefined;
 }
 
+/** Fields the body-dialect readers can recover when YAML frontmatter does not carry them. */
+export interface MadrBodyFields {
+  status?: string;
+  date?: string;
+}
+
+/**
+ * The MADR 2.x header-bullet region: everything before the first `##` section heading.
+ * Restricting the bullet scan to this region keeps a `Status:`-shaped line in ordinary
+ * prose (Context, Consequences, …) from being mistaken for the record's status.
+ */
+function headerRegion(body: string): string {
+  const heading = /^##[^\n]*$/m.exec(body);
+  return heading?.index === undefined ? body : body.slice(0, heading.index);
+}
+
+/**
+ * Upper bound on a field value before cleaning. Real `Status:`/`Date:` values are a few
+ * dozen characters; the cap keeps a pathological one-line file from driving the cleanup
+ * regexes over megabytes of attacker-supplied text.
+ */
+const MAX_FIELD_VALUE_LENGTH = 512;
+
+/**
+ * Strip the markdown decoration MADR corpora put around a field value — bold/italic
+ * runs, inline code, link syntax, and a trailing period — without touching the words.
+ * Every character class here is negated on both delimiters so no pattern can rescan the
+ * remainder of the string from each start position.
+ */
+function cleanFieldValue(value: string): string {
+  return value
+    .slice(0, MAX_FIELD_VALUE_LENGTH)
+    .replace(/`/g, '')
+    .replace(/\*\*|__/g, '')
+    .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
+    .replace(/^[[<]+|[\]>]+$/g, '')
+    .replace(/[.,;]+$/, '')
+    .trim();
+}
+
+/** `* Status: accepted`, `- Date: 2025-03-14`, `**Status:** accepted` — MADR 2.x. */
+function headerBulletValue(region: string, field: 'status' | 'date'): string | undefined {
+  const pattern = new RegExp(`^[ \\t]*(?:[*+-][ \\t]+)?\\*{0,2}_{0,2}${field}_{0,2}\\*{0,2}[ \\t]*:[ \\t]*(.+)$`, 'im');
+  const value = cleanFieldValue(pattern.exec(region)?.[1] ?? '');
+  return value.length > 0 ? value : undefined;
+}
+
+/** `## Status` followed by the value on its own line — the Nygard dialect. */
+function sectionValue(body: string, field: 'status' | 'date'): string | undefined {
+  const heading = new RegExp(`^#{2,6}[ \\t]+${field}[ \\t]*#*[ \\t]*$`, 'im').exec(body);
+  if (!heading) return undefined;
+
+  const rest = body.slice(heading.index + heading[0].length);
+  for (const line of rest.split('\n')) {
+    if (/^#{1,6}[ \t]/.test(line)) break;
+    const value = cleanFieldValue(line);
+    if (value.length > 0) return value;
+  }
+  return undefined;
+}
+
+/**
+ * Recover `status` and `date` from the two widely deployed MADR dialects that keep them
+ * in the body rather than in YAML frontmatter: MADR 2.x header bullets and Nygard
+ * `## Status` sections. Without this, both dialects import as `proposed` dated
+ * `1970-01-01` — a silent downgrade of decisions that were already accepted (#40).
+ */
+export function extractMadrBodyFields(body: string): MadrBodyFields {
+  const region = headerRegion(body);
+  const status = headerBulletValue(region, 'status') ?? sectionValue(body, 'status');
+  const date = headerBulletValue(region, 'date') ?? sectionValue(body, 'date');
+  return {
+    ...(status !== undefined ? { status } : {}),
+    ...(date !== undefined ? { date } : {}),
+  };
+}
+
 function notMadr(path: string, absolutePath: string, reason: string): NotMadrFile {
   return { kind: 'not-madr', path, absolutePath, reason };
 }
@@ -65,6 +148,7 @@ export async function readMadrFile(path: string, cwd = process.cwd()): Promise<R
         body: parsed.body,
         source,
         title: extractMadrTitle(frontmatter, parsed.body),
+        bodyFields: extractMadrBodyFields(parsed.body),
       };
     } catch (error) {
       const reason = error instanceof FrontmatterError ? error.message : String(error);
@@ -85,6 +169,7 @@ export async function readMadrFile(path: string, cwd = process.cwd()): Promise<R
     body: source,
     source,
     title,
+    bodyFields: extractMadrBodyFields(source),
   };
 }
 
@@ -95,7 +180,10 @@ async function discoverMarkdownFilesInDir(dir: string): Promise<string[]> {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await discoverMarkdownFilesInDir(path)));
-    } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name !== '0000-template.md') {
+    } else if (entry.isFile() && entry.name.endsWith('.md') && !isConventionalNonRecordFileName(entry.name)) {
+      // Conventional corpus documentation (README, CONTRIBUTING, the template) is never
+      // a migration candidate: rewriting it would be wrong, and `--rename` would move
+      // it out from under every inbound link.
       files.push(path);
     }
   }

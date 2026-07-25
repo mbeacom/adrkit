@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
-import { cleanupTestDir, recordMarkdown, resetTestDir, writeText } from '../../core/test/helpers.ts';
+import {
+  acceptedRecordMarkdown,
+  cleanupTestDir,
+  recordMarkdown,
+  resetTestDir,
+  supersededRecordMarkdown,
+  writeText,
+} from '../../core/test/helpers.ts';
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const DIR_NAME = 'cli-explain';
@@ -30,14 +37,14 @@ describe('adr explain CLI', () => {
     await writeText(
       join(dir, '0001-core.md'),
       withAffects(
-        recordMarkdown('0001', 'Use core paths'),
+        acceptedRecordMarkdown('0001', 'Use core paths'),
         ['affects:', '  - type: path', '    pattern: "src/**"'].join('\n'),
       ),
     );
     await writeText(
       join(dir, '0002-specific.md'),
       withAffects(
-        recordMarkdown('0002', 'Use specific file'),
+        acceptedRecordMarkdown('0002', 'Use specific file'),
         ['affects:', '  - type: path', '    pattern: "src/file.ts"'].join('\n'),
       ),
     );
@@ -46,10 +53,34 @@ describe('adr explain CLI', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
-    expect(result.stdout).toContain('0001  Use core paths');
+    expect(result.stdout).toContain('0001  [accepted] Use core paths');
     expect(result.stdout).toContain('  via path: src/**');
-    expect(result.stdout).toContain('0002  Use specific file');
+    expect(result.stdout).toContain('0002  [accepted] Use specific file');
     expect(result.stdout).toContain('  via path: src/file.ts');
+  });
+
+  test('separates non-accepted matches from the governing group', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'docs/adr');
+    await writeText(
+      join(dir, '0001-draft.md'),
+      withAffects(recordMarkdown('0001', 'Draft record'), ['affects:', '  - type: path', '    pattern: "src/**"'].join('\n')),
+    );
+    await writeText(
+      join(dir, '0002-superseded.md'),
+      withAffects(
+        supersededRecordMarkdown('0002', '0001', 'Superseded record'),
+        ['affects:', '  - type: path', '    pattern: "src/**"'].join('\n'),
+      ),
+    );
+
+    const result = await runAdr(['explain', 'src/file.ts', '--dir', dir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('No accepted decision governs src/file.ts.');
+    expect(result.stdout).toContain('Active proposals (not yet binding):\n  0001  [draft] Draft record');
+    expect(result.stdout).toContain('Historical records (not binding):\n  0002  [superseded] Superseded record (superseded by 0001)');
+    expect(result.stdout).not.toContain('Decisions governing');
   });
 
   test('prints a clear line for an ungoverned path and exits zero', async () => {
@@ -99,14 +130,14 @@ describe('adr explain CLI', () => {
     await writeText(
       join(dir, '0002-specific.md'),
       withAffects(
-        recordMarkdown('0002', 'Use specific file'),
+        acceptedRecordMarkdown('0002', 'Use specific file'),
         ['affects:', '  - type: path', '    pattern: "src/file.ts"'].join('\n'),
       ),
     );
     await writeText(
       join(dir, '0001-core.md'),
       withAffects(
-        recordMarkdown('0001', 'Use core paths'),
+        acceptedRecordMarkdown('0001', 'Use core paths'),
         ['affects:', '  - type: path', '    pattern: "src/**"'].join('\n'),
       ),
     );
@@ -115,22 +146,29 @@ describe('adr explain CLI', () => {
     const second = await runAdr(['explain', 'src/file.ts', '--dir', dir, '--json']);
     const parsed = JSON.parse(first.stdout);
 
+    const core = {
+      recordId: '0001',
+      title: 'Use core paths',
+      status: 'accepted',
+      bucket: 'governing',
+      firedMatchers: [{ type: 'path', pattern: 'src/**' }],
+    };
+    const specific = {
+      recordId: '0002',
+      title: 'Use specific file',
+      status: 'accepted',
+      bucket: 'governing',
+      firedMatchers: [{ type: 'path', pattern: 'src/file.ts' }],
+    };
+
     expect(first.exitCode).toBe(0);
     expect(second.stdout).toBe(first.stdout);
     expect(parsed).toEqual({
       path: 'src/file.ts',
-      governedBy: [
-        {
-          recordId: '0001',
-          title: 'Use core paths',
-          firedMatchers: [{ type: 'path', pattern: 'src/**' }],
-        },
-        {
-          recordId: '0002',
-          title: 'Use specific file',
-          firedMatchers: [{ type: 'path', pattern: 'src/file.ts' }],
-        },
-      ],
+      governedBy: [core, specific],
+      governing: [core, specific],
+      activeProposals: [],
+      history: [],
       findings: [],
     });
   });

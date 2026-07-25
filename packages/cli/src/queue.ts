@@ -17,6 +17,9 @@ Exit codes: 0 = report, no error findings; 1 = report with corpus error findings
 2 = usage error (invalid flag/value or unreachable corpus directory).
 `;
 
+/** Re-exported so `adr help queue` renders the same text as `adr queue --help`. */
+export const QUEUE_USAGE = USAGE;
+
 type AsOfResolution = { ok: true; date: string } | { ok: false; kind: 'tzless' | 'invalid' };
 
 /** Resolve a `--as-of` value to a UTC calendar date (cli-contract.md §As-Of Resolution). */
@@ -60,7 +63,7 @@ function parseFlags(args: string[]): ParseResult {
     const name = eq !== -1 ? arg.slice(0, eq) : arg;
     const inlineValue = eq !== -1 ? arg.slice(eq + 1) : undefined;
 
-    if (name === '--help') {
+    if (name === '--help' || name === '-h') {
       flags.help = true;
       continue;
     }

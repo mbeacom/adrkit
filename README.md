@@ -66,11 +66,16 @@ answer where the next decision is actually being made.
 ## What it does
 
 - **`adr lint`** — validate records, catch supersession cycles, find decisions
-  that silently contradict each other
+  that silently contradict each other. Also warns when markdown in the corpus
+  directory is not a discoverable record, so "checked 0 records" is never silent
 - **`adr migrate --from madr`** — adopt an existing MADR corpus in place,
-  additively, without breaking your current tooling
+  additively, without breaking your current tooling. Reads status and date from
+  MADR 3.x frontmatter, MADR 2.x `* Status:` header bullets, and Nygard
+  `## Status` sections. Pass `--rename` to also rename each file to
+  `<id>-<slug>.md` so corpus discovery can see it
 - **`adr explain <path>`** — print every decision governing a file, and the
-  matcher that fired
+  matcher that fired. Only `accepted` records are reported as governing; matched
+  proposals and superseded/rejected/deprecated records are listed separately
 - **`adr check <files...>`** — validate the changed records and list the decisions
   governing a changed-file set; deterministic, provider-agnostic, `--json` for tools
 - **`adr evaluate <proposal> --snapshot <bundle.json> --date YYYY-MM-DD`** — run the

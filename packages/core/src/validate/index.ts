@@ -1,4 +1,4 @@
-import { parseAdrFile, expandRecordInputs, normalizeDisplayPath } from '../load/corpus.ts';
+import { parseAdrFile, expandRecordInputs, discoverSkippedMarkdownFiles, normalizeDisplayPath } from '../load/corpus.ts';
 import type { Adr } from '../schema/adr.schema.ts';
 import { FrontmatterError } from '../parse/frontmatter.ts';
 import { validateParsedAdr } from './contract.ts';
@@ -37,9 +37,25 @@ function parseErrorFinding(error: unknown, path: string): Finding {
   };
 }
 
+/**
+ * Warn about markdown in the corpus directory that discovery skipped. Without this a
+ * corpus whose records are all misnamed lints as `checked 0 records, 0 errors` at exit
+ * 0 — a false clean bill of health for a corpus that governs nothing (#41).
+ */
+function skippedFileFinding(path: string): Finding {
+  return {
+    rule: 'corpus-file-skipped',
+    severity: 'warn',
+    message:
+      'Markdown file in the corpus directory is not a discoverable ADR record and was skipped; rename it to <id>-<slug>.md (four or more leading digits) for it to be linted and enforced',
+    path,
+  };
+}
+
 export async function lintCorpus(options: LintCorpusOptions = {}): Promise<LintCorpusResult> {
   const cwd = options.cwd ?? process.cwd();
-  const files = await expandRecordInputs(options.paths, options.dir ?? 'docs/adr', cwd);
+  const dir = options.dir ?? 'docs/adr';
+  const files = await expandRecordInputs(options.paths, dir, cwd);
   const records: Adr[] = [];
   const findings: Finding[] = [];
 
@@ -54,6 +70,14 @@ export async function lintCorpus(options: LintCorpusOptions = {}): Promise<LintC
       }
     } catch (error) {
       findings.push(parseErrorFinding(error, displayPath));
+    }
+  }
+
+  // Only when scanning the corpus directory. Explicit paths are the caller's choice,
+  // so nothing there was "skipped".
+  if (!options.paths || options.paths.length === 0) {
+    for (const skipped of await discoverSkippedMarkdownFiles(dir, cwd)) {
+      findings.push(skippedFileFinding(normalizeDisplayPath(skipped, cwd)));
     }
   }
 

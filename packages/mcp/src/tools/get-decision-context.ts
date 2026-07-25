@@ -8,7 +8,7 @@
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { resolveAffects, type Adr, type Finding, type FiredMatcher } from '@adrkit/core';
+import { decisionBucketFor, resolveAffects, type Adr, type Finding, type FiredMatcher } from '@adrkit/core';
 import { compareCodeUnits, sortFindingsCanonical } from '../corpus/ordering.ts';
 import { paginate, queryShapeHash } from '../pagination/cursor.ts';
 import {
@@ -37,10 +37,12 @@ interface GetDecisionContextArgs {
 
 type Bucket = 'governing' | 'activeProposals' | 'history';
 
+/**
+ * Delegates to `@adrkit/core`'s `decisionBucketFor` so this tool and the CLI/Action
+ * cannot drift apart on what counts as governing (#39).
+ */
 function bucketFor(status: string): Bucket {
-  if (status === 'accepted') return 'governing';
-  if (status === 'draft' || status === 'proposed') return 'activeProposals';
-  return 'history';
+  return decisionBucketFor(status);
 }
 
 function contextEntry(record: Adr, firedMatchers: readonly FiredMatcher[]): ContextEntry {

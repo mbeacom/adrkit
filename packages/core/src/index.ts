@@ -2,6 +2,7 @@ export * from './schema/index.ts';
 export * from './schema/ref.ts';
 export * from './parse/frontmatter.ts';
 export * from './load/corpus.ts';
+export * from './status/bucket.ts';
 export * from './validate/findings.ts';
 export * from './validate/contract.ts';
 export * from './validate/corpus-invariants.ts';

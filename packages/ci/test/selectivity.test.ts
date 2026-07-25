@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { checkChanges, lintCorpus } from '@adrkit/core';
-import { cleanupTestDir, recordMarkdown, resetTestDir, writeText } from '../../core/test/helpers.ts';
+import { acceptedRecordMarkdown, cleanupTestDir, resetTestDir, writeText } from '../../core/test/helpers.ts';
 import { renderComment } from '../src/comment.ts';
 
 const DIR_NAME = 'ci-selectivity';
@@ -19,7 +19,7 @@ async function seedLargeCorpus(): Promise<string> {
     const slug = `pkg-${String(index).padStart(2, '0')}`;
     await writeText(
       join(dir, `${id}-${slug}.md`),
-      withPathMatcher(recordMarkdown(id, `Guard ${slug}`), `packages/${slug}/**`),
+      withPathMatcher(acceptedRecordMarkdown(id, `Guard ${slug}`), `packages/${slug}/**`),
     );
   }
   return root;

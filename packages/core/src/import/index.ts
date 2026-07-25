@@ -1,9 +1,9 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { access, readFile, rename, writeFile } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { parseFrontmatter } from '../parse/frontmatter.ts';
-import { normalizeDisplayPath } from '../load/corpus.ts';
+import { isRecordFileName, normalizeDisplayPath } from '../load/corpus.ts';
 import { AdrFrontmatter, type Adr } from '../schema/adr.schema.ts';
-import { nextSequentialId } from '../scaffold/new.ts';
+import { nextSequentialId, slugifyTitle } from '../scaffold/new.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 import { validateImportIncomplete } from '../validate/import-incomplete.ts';
 import { classifyReimport, type ReimportBucket, type ReimportClassification } from './classify.ts';
@@ -14,7 +14,7 @@ import { MadrMergeError, mergeMadr, recordFromMerge } from './merge.ts';
 export { classifyReimport } from './classify.ts';
 export type { ReimportBucket, ReimportClassification, ReimportSourceEntry } from './classify.ts';
 export { fingerprintSourceBody, normalizeSourceBody } from './fingerprint.ts';
-export { readMadrFile, discoverMadrCandidateFiles } from './madr.ts';
+export { readMadrFile, discoverMadrCandidateFiles, extractMadrBodyFields, type MadrBodyFields } from './madr.ts';
 export { mapMadrStatus } from './status.ts';
 export { mergeMadr, renderMigratedContent } from './merge.ts';
 
@@ -27,12 +27,21 @@ export interface MigrateMadrInput {
   recordEdited?: (id: string) => boolean;
   cwd?: string;
   write?: boolean;
+  /**
+   * Rename each migrated file to `<id>-<slug>.md` so corpus discovery can see it.
+   * Off by default: ADR-0008 makes migration additive and in place, so existing MADR
+   * tooling and inbound links keep working. Opt in when the source corpus does not
+   * already use `NNNN-` filenames.
+   */
+  rename?: boolean;
 }
 
 export interface MigrateMadrResultItem {
   path: string;
   outcome: MigrateOutcome;
   frontmatter?: AdrFrontmatter;
+  /** Set when `rename` moved the record; the new repo-relative path. */
+  renamedTo?: string;
 }
 
 export interface MigrateMadrDivergenceItem {
@@ -56,6 +65,13 @@ function toAbsolutePath(path: string, cwd: string): string {
   return isAbsolute(path) ? path : resolve(cwd, path);
 }
 
+async function pathExists(path: string): Promise<boolean> {
+  return access(path).then(
+    () => true,
+    () => false,
+  );
+}
+
 function notMadrFinding(path: string, reason: string): Finding {
   return {
     rule: 'import-not-madr',
@@ -63,6 +79,37 @@ function notMadrFinding(path: string, reason: string): Finding {
     message: reason,
     path,
   };
+}
+
+/**
+ * A migrated record that corpus discovery cannot see is invisible to `lint`, `graph`,
+ * `check`, `explain`, and `queue` — migration reports success while governance covers
+ * nothing. Report it at the moment it happens (#41).
+ */
+function undiscoverableFinding(path: string, id: string, reason: string): Finding {
+  return {
+    rule: 'import-undiscoverable',
+    severity: 'warn',
+    message: `Migrated record is not discoverable: ${reason}. Until it is, lint, check, explain, graph, and queue will skip it`,
+    path,
+    id,
+    field: 'path',
+  };
+}
+
+const UNDISCOVERABLE_FILENAME =
+  'its filename does not match <id>-<slug>.md (four or more leading digits) — re-run with --rename, or rename it by hand';
+const UNDISCOVERABLE_NESTED =
+  'it is in a subdirectory of the corpus, and discovery reads only the top level of the corpus directory — move it up, or point --dir at its directory';
+
+/** Target filename for `--rename`: the corpus grammar, derived from the allocated id. */
+function discoverableFileName(id: string, title: string | undefined): string {
+  if (!title) return `${id}-record.md`;
+  try {
+    return `${id}-${slugifyTitle(title)}.md`;
+  } catch {
+    return `${id}-record.md`;
+  }
 }
 
 async function existingRecordsFromFiles(files: readonly string[], cwd: string): Promise<Adr[]> {
@@ -151,6 +198,7 @@ export async function migrateMadr(input: MigrateMadrInput): Promise<MigrateMadrR
   const cwd = input.cwd ?? process.cwd();
   const dir = input.dir ?? 'docs/adr';
   const write = input.write !== false;
+  const rename_ = input.rename === true;
   const files = input.files
     ? input.files.map((file) => toAbsolutePath(file, cwd)).sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)))
     : await discoverMadrCandidateFiles(dir, cwd);
@@ -186,7 +234,27 @@ export async function migrateMadr(input: MigrateMadrInput): Promise<MigrateMadrR
   ]);
   const recordsForIncomplete: Adr[] = [];
 
-  for (const entry of prepared.sort((a, b) => a.source.path.localeCompare(b.source.path))) {
+  const sorted = prepared.sort((a, b) => a.source.path.localeCompare(b.source.path));
+  const writable = sorted.filter((entry) => {
+    const bucket: ReimportBucket = classificationForSource.get(entry.sourceRef)?.bucket ?? 'new';
+    return bucket !== 'diverged' && bucket !== 'unchanged';
+  });
+
+  // Ids are allocated up front, in canonical order, so a `superseded by <ref>` status
+  // can be resolved into the id space this run is actually writing rather than the
+  // source project's numbering (which is a different namespace entirely).
+  const allocatedIds = new Map<string, string>(
+    writable.map((entry) => [entry.sourceRef, allocateId(entry.source, classificationForSource.get(entry.sourceRef))]),
+  );
+  const sourceNumberToId = new Map<string, string>();
+  for (const entry of writable) {
+    const declared = rawId(entry.source) ?? fileNameId(entry.source.absolutePath);
+    const allocated = allocatedIds.get(entry.sourceRef);
+    if (declared && allocated && !sourceNumberToId.has(declared)) sourceNumberToId.set(declared, allocated);
+  }
+  const resolveSupersededRef = (ref: string): string | undefined => sourceNumberToId.get(ref);
+
+  for (const entry of sorted) {
     const classification = classificationForSource.get(entry.sourceRef);
     const bucket: ReimportBucket = classification?.bucket ?? 'new';
 
@@ -206,20 +274,54 @@ export async function migrateMadr(input: MigrateMadrInput): Promise<MigrateMadrR
     }
 
     try {
-      const id = allocateId(entry.source, classification);
+      const id = allocatedIds.get(entry.sourceRef) ?? allocateId(entry.source, classification);
+
+      const sourceDir = dirname(entry.source.absolutePath);
+      // Discovery reads only the top level of the corpus directory, so a record in a
+      // subdirectory is invisible no matter what it is called — and renaming it in
+      // place would not help.
+      const isNested = resolve(sourceDir) !== resolve(toAbsolutePath(dir, cwd));
+      const targetAbsolutePath = join(sourceDir, discoverableFileName(id, entry.source.title));
+      const needsRename = !isNested && !isRecordFileName(basename(entry.source.absolutePath));
+      // Never clobber an unrelated file that already occupies the target name.
+      const targetTaken =
+        targetAbsolutePath !== entry.source.absolutePath && (await pathExists(targetAbsolutePath));
+      const willRename = rename_ && needsRename && !targetTaken;
+      const finalAbsolutePath = willRename ? targetAbsolutePath : entry.source.absolutePath;
+      const finalPath = willRename ? normalizeDisplayPath(finalAbsolutePath, cwd) : entry.source.path;
+
+      // Provenance records where the record ends up, not where it started, so the next
+      // run classifies a renamed record as `unchanged` instead of re-importing it.
       const merged = mergeMadr({
         source: entry.source,
         id,
-        sourceRef: entry.sourceRef,
+        sourceRef: finalPath,
         fingerprint: entry.fingerprint,
+        resolveSupersededRef,
       });
       findings.push(...merged.findings);
       const outcome = bucket === 'updated' ? 'updated' : 'migrated';
-      if (write && merged.content !== entry.source.source) {
+
+      if (write && (merged.content !== entry.source.source || willRename)) {
         await writeFile(entry.source.absolutePath, merged.content, 'utf8');
+        if (willRename) await rename(entry.source.absolutePath, finalAbsolutePath);
       }
-      results.push({ path: entry.source.path, outcome, frontmatter: merged.frontmatter });
-      recordsForIncomplete.push(recordFromMerge(merged, entry.source));
+
+      // Reported against the path the record actually ends up at, so a `--rename` run
+      // is clean and an in-place run points at the file the user has to fix.
+      if (isNested) {
+        findings.push(undiscoverableFinding(entry.source.path, id, UNDISCOVERABLE_NESTED));
+      } else if (needsRename && !willRename) {
+        findings.push(undiscoverableFinding(entry.source.path, id, UNDISCOVERABLE_FILENAME));
+      }
+
+      results.push({
+        path: entry.source.path,
+        outcome,
+        frontmatter: merged.frontmatter,
+        ...(willRename ? { renamedTo: finalPath } : {}),
+      });
+      recordsForIncomplete.push({ ...recordFromMerge(merged, entry.source), path: finalPath });
     } catch (error) {
       if (error instanceof MadrMergeError) {
         results.push({ path: entry.source.path, outcome: 'skipped' });

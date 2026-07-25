@@ -40,3 +40,25 @@ ${extra}---
 # ADR-${id}: ${title}
 `;
 }
+
+/**
+ * An `accepted` record — the only status that governs. Accepted records need at least
+ * one decider unless they were imported, so one is supplied.
+ */
+export function acceptedRecordMarkdown(id: string, title = `Use test decision ${id}`, extra = ''): string {
+  return recordMarkdown(id, title, extra)
+    .replace('status: draft', 'status: accepted')
+    .replace('deciders: []', 'deciders: ["@tester"]');
+}
+
+/** A `superseded` record, which the schema requires to name its successor. */
+export function supersededRecordMarkdown(
+  id: string,
+  supersededBy: string,
+  title = `Use test decision ${id}`,
+  extra = '',
+): string {
+  return recordMarkdown(id, title, extra)
+    .replace('status: draft', `status: superseded\nsupersededBy: "${supersededBy}"`)
+    .replace('deciders: []', 'deciders: ["@tester"]');
+}

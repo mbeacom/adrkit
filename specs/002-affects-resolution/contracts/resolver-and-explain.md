@@ -60,12 +60,23 @@ interface CatalogPort {
 - **Input**: one repo-relative path.
 - **Behavior**: load the corpus; run `resolveAffects` with `changedFiles=[path]`
   and no snapshots (unless the environment later supplies them); print every
-  governing record and, for each, the matcher (type + pattern) that fired.
-- **Output (human)**: for each governing record: `id  title` then indented
-  `via <type>: <pattern>` lines. If none govern: `No decision governs <path>.`
+  matched record grouped by status, and, for each, the matcher (type + pattern)
+  that fired.
+- **Status awareness**: only `accepted` records govern. `draft`/`proposed` matches are
+  reported as **active proposals** and `rejected`/`superseded`/`deprecated` matches as
+  **history**, using `@adrkit/core`'s `decisionBucketFor` — the same function
+  `adr check`, the `@adrkit/ci` Action, and `@adrkit/mcp`'s `get_decision_context` use.
+- **Output (human)**: for each record: `id  [status] title` (plus
+  `(superseded by <id>)` when applicable) then indented `via <type>: <pattern>` lines,
+  under a heading per bucket. If none match: `No decision governs <path>.` If some match
+  but none are accepted: `No accepted decision governs <path>.`
   Inert/unresolved matchers relevant to the path are listed separately as info.
-- **Output (`--json`)**: `{ "path": "...", "governedBy": [{recordId, title,
-  firedMatchers:[{type,pattern}]}], "findings": Finding[] }`, stably sorted.
+- **Output (`--json`)**: `{ "path": "...", "governedBy": GoverningDecision[],
+  "governing": GoverningDecision[], "activeProposals": GoverningDecision[],
+  "history": GoverningDecision[], "findings": Finding[] }`, stably sorted.
+  `governedBy` is the full union across all statuses;
+  `GoverningDecision` is `{recordId, title, status, bucket, supersededBy?,
+  firedMatchers:[{type,pattern}]}`.
 - **Exit**: `0` normally (including "no decision governs"); `2` on usage error.
 - **Determinism**: identical corpus + path ⇒ identical output.
 

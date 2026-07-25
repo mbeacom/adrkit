@@ -1,6 +1,8 @@
 export const IMPORT_FINDING_RULES = [
   'import-incomplete',
   'import-status-unrecognized',
+  'import-date-missing',
+  'import-undiscoverable',
   'import-not-madr',
 ] as const;
 

@@ -83,7 +83,10 @@ record with no `affects` is advisory only. See the
 
 ## Explain what governs a file — `adr explain`
 
-Print every decision governing a path, and the matcher that fired.
+Print every decision that matches a path, and the matcher that fired. Only
+`accepted` records are reported as governing; matched proposals and
+superseded, rejected, or deprecated records are listed under their own
+headings so a `rejected` decision is never presented as binding.
 
 ```sh
 bun run adr explain packages/core/src/schema/adr.schema.ts
@@ -108,11 +111,23 @@ Migrate a MADR corpus in place, additively and non-destructively. The migration
 is one-way; round-trip sync is deliberately unsupported
 ([ADR-0008](/adr/0008-import-and-migration-semantics/)).
 
+Status and date are read from MADR 3.x YAML frontmatter, MADR 2.x `* Status:`
+header bullets, and Nygard `## Status` sections, so an already-accepted corpus
+does not import as a backlog of proposals.
+
 ```sh
 # preview without writing
 bun run adr migrate --from madr --dry-run
 # apply
 bun run adr migrate --from madr --dir docs/adr
+```
+
+Corpus discovery requires `<id>-<slug>.md` filenames. If your MADR files use
+descriptive names, migration warns that the records will not be discoverable —
+pass `--rename` to move each file to a discoverable name as part of the run:
+
+```sh
+bun run adr migrate --from madr --dir docs/adr --rename
 ```
 
 ## Next steps

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { checkChanges, lintCorpus } from '@adrkit/core';
-import { cleanupTestDir, recordMarkdown, resetTestDir, writeText } from '../../core/test/helpers.ts';
+import { acceptedRecordMarkdown, cleanupTestDir, recordMarkdown, resetTestDir, supersededRecordMarkdown, writeText } from '../../core/test/helpers.ts';
 import { CI_COMMENT_MARKER, renderComment } from '../src/comment.ts';
 
 const DIR_NAME = 'ci-comment-render';
@@ -18,9 +18,9 @@ async function seed(): Promise<string> {
   const dir = join(root, 'docs/adr');
   await writeText(
     join(dir, '0001-api.md'),
-    withAffects(recordMarkdown('0001', 'Guard the API package'), [...path('packages/api/**'), ...entity('component:default/api')]),
+    withAffects(acceptedRecordMarkdown('0001', 'Guard the API package'), [...path('packages/api/**'), ...entity('component:default/api')]),
   );
-  await writeText(join(dir, '0002-web.md'), withAffects(recordMarkdown('0002', 'Guard the web package'), path('packages/web/**')));
+  await writeText(join(dir, '0002-web.md'), withAffects(acceptedRecordMarkdown('0002', 'Guard the web package'), path('packages/web/**')));
   return root;
 }
 
@@ -76,5 +76,62 @@ describe('renderComment', () => {
     expect(body).toContain('No governing decisions for the changed files.');
     expect(body).not.toContain('**0001**');
     expect(body).not.toContain('**0002**');
+  });
+});
+
+/**
+ * adrkit#39 — a reviewer must never be told that a rejected, superseded, or deprecated
+ * decision governs their change.
+ */
+describe('renderComment status awareness (#39)', () => {
+  async function seedMixed(): Promise<string> {
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'docs/adr');
+    await writeText(
+      join(dir, '0001-accepted.md'),
+      withAffects(acceptedRecordMarkdown('0001', 'Accepted record'), path('src/api/**')),
+    );
+    await writeText(join(dir, '0002-draft.md'), withAffects(recordMarkdown('0002', 'Draft record'), path('src/api/**')));
+    await writeText(
+      join(dir, '0003-superseded.md'),
+      withAffects(supersededRecordMarkdown('0003', '0001', 'Superseded record'), path('src/api/**')),
+    );
+    return root;
+  }
+
+  test('only accepted records appear under the governing heading', async () => {
+    const root = await seedMixed();
+    const body = renderComment(await outcomeFor(root, ['src/api/thing.ts']));
+
+    const governingSection = body.slice(
+      body.indexOf('### Decisions governing this change'),
+      body.indexOf('#### Active proposals'),
+    );
+    expect(governingSection).toContain('**0001** — Accepted record');
+    expect(governingSection).not.toContain('0002');
+    expect(governingSection).not.toContain('0003');
+  });
+
+  test('proposals and history are labelled with their status under their own headings', async () => {
+    const root = await seedMixed();
+    const body = renderComment(await outcomeFor(root, ['src/api/thing.ts']));
+
+    expect(body).toContain('#### Active proposals touching this change');
+    expect(body).toContain('**0002** — Draft record _(draft)_');
+    expect(body).toContain('#### Historical records that once covered this change');
+    expect(body).toContain('**0003** — Superseded record _(superseded)_ — superseded by **0001**');
+  });
+
+  test('a change matched only by non-accepted records says no accepted decision governs it', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-draft.md'),
+      withAffects(recordMarkdown('0001', 'Draft record'), path('src/api/**')),
+    );
+
+    const body = renderComment(await outcomeFor(root, ['src/api/thing.ts']));
+
+    expect(body).toContain('No **accepted** decisions govern the changed files.');
+    expect(body).toContain('#### Active proposals touching this change');
   });
 });
