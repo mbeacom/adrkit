@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a capability or improvement.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an open-ended idea rather than a concrete request? Start a
+        [Discussion](https://github.com/mbeacom/adrkit/discussions) instead — it
+        is a better place to explore direction.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the need, not just the solution. What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like adrkit to do? A command, flag, output, or behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you weighed, and why they fall short.
+    validations:
+      required: false
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Fit with the project
+      description: adrkit is deliberately narrow and deterministic.
+      options:
+        - label: This keeps match resolution deterministic and the core adapter-free (ADR-0007, ADR-0009).
+          required: false
+        - label: I understand a change to a recorded decision needs an ADR that supersedes it.
+          required: false
