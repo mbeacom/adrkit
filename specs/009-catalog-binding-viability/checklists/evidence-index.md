@@ -41,8 +41,9 @@ is the exhaustive, honestly-reached fallback.
   pre-existing `duplicate-canonical-id` defect (unsubstituted Backstage
   software-template skeleton files sharing the literal, un-templated
   `metadata.name: "${{ values.name | dump }}"` placeholder — **five** such files
-  in `community-plugins` and **ten** in `rhdh-plugins`, **fifteen** in total; see
-  "Correction 1" below) that deterministically,
+  in `community-plugins` and **nine** in `rhdh-plugins`; a tenth `rhdh-plugins`
+  descriptor carries a *different* unsubstituted placeholder and so is not part
+  of that collision cohort; see "Correction 1" below) that deterministically,
   correctly, fail-closed-triggers rejection on all 6 repetitions, byte-identically,
   for both corpora. SC-001 (byte-identical output) and SC-002 (whole-operation
   atomicity) both **hold** — the rejection itself is deterministic with zero
@@ -283,7 +284,7 @@ generator-derived output. Reusing the current oracle without that cycle would
 carry a known-wrong expected result forward into a run whose outcome could
 actually depend on it.
 
-### Correction 1: placeholder-descriptor counts ("five" → five *and* ten, fifteen total)
+### Correction 1: placeholder-descriptor counts ("five", asserted of each corpus)
 
 **What the tracked record said.** Two merged summaries understated and
 mis-distributed the count of unsubstituted software-template skeleton
@@ -291,32 +292,54 @@ descriptors:
 
 - This document (the `go-explicit` bullet above) read that the two corpora
   "**each** contain a genuine, pre-existing `duplicate-canonical-id` defect
-  (**five** unsubstituted Backstage software-template skeleton files …)",
-  asserting five *per corpus*.
+  (**five** unsubstituted Backstage software-template skeleton files …)". The
+  defect is the universal quantifier **"each"**, which distributes "five" across
+  both corpora — false for `rhdh-plugins`. The corrected sentence retains "each"
+  only over *"contain a … defect"* (both corpora do) and attributes the counts
+  separately per corpus, so no number is distributed.
 - The root [`plan.md`](../../../plan.md) Phase 8 row read "(**five**
   unsubstituted Nunjucks template skeletons sharing a literal `metadata.name`
   placeholder)", stated once for both corpora together.
 
-**What the evidence actually records.** Re-derived directly from the `finding`
-field of each raw scratch envelope, and cross-checked against each finding's own
-explicit workspace enumeration:
+**What the evidence records, and where it is itself imprecise.** Re-derived
+directly from the `finding` field of each raw scratch envelope, then checked
+against each finding's own explicit workspace enumeration. **Two different
+quantities have to be kept apart**, and the merged record conflates them:
 
-| Corpus | Pinned commit | Placeholder descriptors | Workspaces enumerated in the `finding` |
+| Corpus | Pinned commit | Descriptors sharing the identical `${{ values.name \| dump }}` form (the collision cohort) | Unsubstituted placeholder descriptors of any form |
 |---|---|---|---|
-| `community-plugins` | `92e9e4e09c76cc57f3475029b73e5ec84498a459` | **5** | `rbac`, `topology`, `mend`, `mta`, `ocm` |
-| `rhdh-plugins` | `3b355ddfedb23c6656bd9effc8510f9926b765c1` | **10** | `dcm`, `homepage`, `app-defaults`, `global-header`, `quickstart`, `bulk-import`, `adoption-insights`, `scorecard`, `translations`, `cost-management` |
-| **Total** | — | **15** | — |
+| `community-plugins` | `92e9e4e09c76cc57f3475029b73e5ec84498a459` | **5** | **5** |
+| `rhdh-plugins` | `3b355ddfedb23c6656bd9effc8510f9926b765c1` | **9** | **10** |
+| **Total** | — | **14** | **15** |
 
-Each envelope's stated count and its enumerated workspace list agree with each
-other. "Five" is correct **only** for `community-plugins`; it is neither the
-per-corpus figure for `rhdh-plugins` nor the combined total.
+The two columns diverge for one reason. The `rhdh-plugins` envelope `finding`
+enumerates ten workspaces — `dcm`, `homepage`, `app-defaults`, `global-header`,
+`quickstart`, `bulk-import`, `adoption-insights`, `scorecard`, `translations`,
+`cost-management` — and describes all ten as "sharing the identical, literal,
+unsubstituted Nunjucks placeholder `${{ values.name | dump }}`". **That sentence
+is internally inconsistent.** The `bulk-import` descriptor carries
+`${{ values.name }}`, without the `| dump` filter. It is equally unsubstituted,
+but it is a *different string*, so it canonicalizes to a different id and cannot
+participate in the same duplicate group. The collision cohort is therefore
+**nine** in `rhdh-plugins`, not ten. This is independently checkable at the
+pinned commit by reading the two files.
+
+So: **"five" is correct for `community-plugins` on both measures.** It is wrong
+only as a claim about `rhdh-plugins`, and wrong as a claim about the corpora
+jointly. The originally-proposed replacement "fifteen in total" would have been
+correct for unsubstituted descriptors but **wrong for the collision cohort**,
+which is the quantity the surrounding sentence is actually about — so it is not
+used as a bare total here.
 
 **Provenance, stated neutrally.** The "five" phrasing entered the tracked record
 during PR #37 round-3 review remediation and merged in `5ff8705`; it was written
 by the coordinating session as summary narrative. It does **not** originate in
-the spike execution's own evidence artifacts — the underlying envelope `finding`
-fields record 5 and 10 correctly and separately. This is a correction to the
-tracked summary, not to any evidence artifact.
+the spike execution's own evidence artifacts — those record the two corpora
+separately, so the "each … five" distribution is not theirs. The nine-versus-ten
+imprecision above **is** in the `rhdh-plugins` envelope `finding` itself. This
+correction therefore fixes a summary error in one place and discloses an
+evidence-artifact error in the other; **no evidence artifact is edited**, in
+either case.
 
 **Scope of this correction.** Narrative only. No evidence artifact, hash,
 `EvidenceBundle`, task checkbox, FR, or SC is affected, and the recorded verdict
@@ -325,12 +348,13 @@ is unchanged (`blocked`, `blockedShortfall =
 identical either way: both corpora deterministically fail-closed-reject on
 `duplicate-canonical-id`. Only the magnitude and distribution were misstated.
 
-**Limit of this correction.** The counts above are re-derived from what the
-envelope `finding` fields record. They have **not** been independently
-re-enumerated from the pinned corpora as part of this correction, so they should
-be treated as faithful to the recorded evidence rather than as a fresh
-corpus census. Any future execution that depends on these figures should
-re-derive them from the corpora directly.
+**Limit of this correction.** The per-corpus figures come from the envelope
+`finding` fields; the nine-versus-ten split was additionally checked against the
+two descriptor files at the pinned commit. No wider re-enumeration of either
+corpus was performed as part of this correction, so these figures should be
+treated as a targeted correction of the recorded evidence, **not** as a fresh
+corpus census. Any future execution depending on them should re-derive them from
+the corpora directly.
 
 ### Named finding: `metadata.name` is canonicalized without ever being validated
 
@@ -357,8 +381,10 @@ limit, and `FieldFormatEntityPolicy` applies it to `metadata.name` as a
 `{`, `}`, `|` and the spaces are all outside the permitted set — while ordinary
 descriptor names pass it unchanged.
 
-**The consequence.** Backstage would reject those fifteen descriptors as
-malformed entities outright. This spike's contract instead accepts each one as a
+**The consequence.** Backstage would reject every one of these descriptors as a
+malformed entity outright — all fifteen unsubstituted ones, both the fourteen
+carrying `${{ values.name | dump }}` and the single one carrying
+`${{ values.name }}`, since each fails on character class. This spike's contract instead accepts each one as a
 well-formed name, lowercases it, and concatenates it — at which point they
 collide with each other, and the collision is reported as
 `triggerClass: "duplicate-canonical-id"`. The fail-closed rejection itself is
