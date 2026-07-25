@@ -89,6 +89,29 @@ rule: a deferral instructing a future reader to confirm a tightened assertion
 fires, supplied without the record that makes it fire. The convention is easiest
 to break at exactly the moment you are explaining it to somebody else.
 
+### The complementary half: report what was examined, not only what was concluded
+
+Observing a check fail proves it *can* see. It does not make blindness visible
+in the output when it recurs later. The second half of the remedy is to have the
+check state its inputs, so a reader can tell "looked and found nothing" from
+"could not look."
+
+Every fix that motivated this record is an instance of it, which is why they are
+worth reading together rather than as six separate bugs:
+
+| Before | After |
+|---|---|
+| `checked 0 records, 0 errors` | + `corpus-file-skipped`, naming each file discovery could not see |
+| `0 corpus finding(s)` | + `corpus.file-skipped`, naming the record that never reached the queue |
+| `has no deciders` | + `import-deciders-unmapped`, naming the values the parser could not read |
+
+In each case the conclusion was already correct. What was missing was the
+observation that produced it. This generalizes past checks: any report about a
+system observed with latency — a test suite, a CI summary, a status message
+between two agents working in parallel — has this failure mode, because
+"there is nothing wrong" and "I cannot see anything wrong" are the same
+sentence unless the report says what it looked at.
+
 ## Options considered
 
 ### Option A: Require an observed failure per check (chosen)
