@@ -144,6 +144,22 @@ just diagnosed the same shape twice. Vigilance is not the constraint — the
 failure is invisible by construction, which is precisely why attention does not
 catch it.
 
+The decisive evidence is this record's own drafting. While writing the sections
+above, its author asserted two things about a message thread — that a particular
+sentence had not been written, and that another party had trusted a report
+rather than querying an API — both reconstructed from memory rather than re-read,
+both stated as observation, and both false. This happened minutes after the same
+author had described that exact failure to that exact reader, in a thread whose
+entire subject was that failure. Neither party was careless; the text was
+sitting there and simply was not consulted.
+
+If the remedy were care, that could not have happened. It happened. A record
+arguing that diligence is insufficient, whose author was demonstrably diligent
+and wrong anyway, is making its case rather than asserting it — and it is the
+reason clause 3 prefers a specific observed value over a conclusion, and why the
+complementary half of the remedy is to state what was examined. Confidence is
+identical either way.
+
 ### Option C: Adopt mutation testing
 
 **Pros:** mechanical, continuous, no reliance on discipline.
