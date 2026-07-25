@@ -11,6 +11,36 @@ smoke-tested under Node.
 permits phantom dependencies, which would let the core import an adapter while
 CI's dependency check still passed.
 
+## Your first PR
+
+Welcome. The rest of this document is the full rigor — but you do not have to
+start at the hardest surface. Two areas have the steepest on-ramp and are worth
+avoiding for a first contribution:
+
+- **The CI Action bundle** (`packages/ci/dist`) must be rebuilt under
+  linux/amd64, or the byte-for-byte diff gate fails on a Mac-built bundle (see
+  "Changing the CI Action" below).
+- **The schema emit-parity gate** requires `schema/adr.schema.ts` and the
+  generated `schema/adr.schema.json` to stay in lockstep (see "Changing the
+  schema").
+
+Good first PRs steer clear of both and still matter a great deal:
+
+- **Docs** — fix or extend anything under `site/` or the package READMEs. If a
+  documented command behaves differently than described, that is a real bug.
+- **Fixtures** — add a corpus fixture that exercises a case the current tests
+  miss (a supersession cycle, an odd MADR variant, an `affects` edge case).
+- **Tests** — cover an untested branch. Per
+  [ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md),
+  watch each new test **fail first** against unfixed code, then pass — a check
+  that never failed is not coverage.
+
+Everything runs from a clean clone with `bun install --frozen-lockfile` and no
+credentials ([ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md)).
+Open an [issue](https://github.com/mbeacom/adrkit/issues/new/choose) or a
+[Discussion](https://github.com/mbeacom/adrkit/discussions) if you would like a
+pointer to a good starting spot.
+
 ## Sign-off is required
 
 All commits require a [DCO](https://developercertificate.org/) sign-off. There is
