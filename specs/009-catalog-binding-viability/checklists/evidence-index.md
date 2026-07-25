@@ -457,6 +457,38 @@ zero parse errors, every document carrying a string `metadata.name`. The same
 enumeration produced the two named findings recorded below, and is subject to
 the same three limits stated there.
 
+**Method, stated precisely because a looser one gets a different answer.** Each
+document was parsed and the value read **structurally, from the `metadata.name`
+path of the parsed document object**. It was *not* obtained by scanning for
+`name:` keys in the file text. That distinction is load-bearing, and a
+re-derivation that skips it will over-count.
+
+The concrete trap is
+`workspaces/bulk-import/examples/template/create-pr-with-catalog-info.yaml`. A
+text scan for `name:` lines carrying a `${{ … }}` placeholder matches line 46 of
+that file, `name: ${{ parameters.name }}` at ten-space indent — which is a
+scaffolder **step input**, at `spec.steps[].input.values.name`, not an entity
+identity. The document is `kind: Template` and its actual `metadata.name` is
+`create-pr-with-catalog-info`: substituted, valid, and not a placeholder at all.
+A loose scan therefore reports **seventeen** placeholder descriptors instead of
+sixteen.
+
+That single file carries **two independent traps**, and they are separable:
+
+1. **Path matching.** It is `endswith("catalog-info.yaml")` but not
+   `basename == "catalog-info.yaml"`, so it falls outside the 38-file set under
+   the strict matcher these figures use — the same distinction limit 1 of the
+   file/document finding below records.
+2. **Key extraction.** Even when it *is* included, only structural extraction of
+   `metadata.name` rejects it. Depth-based heuristics do not: the false-positive
+   line is more deeply indented than a real `metadata.name`, but nothing in a
+   flat text scan encodes that.
+
+Both traps push the count in the same direction, upward, and either alone is
+enough to produce the wrong figure. The matcher choice and the extraction method
+must therefore both be stated whenever these counts are quoted, exactly as they
+are here.
+
 ### Named finding: `metadata.name` is canonicalized without ever being validated
 
 Recorded here as a standing, named limitation alongside the carry-forward
@@ -573,7 +605,9 @@ Three limits, all of which must travel with these figures:
    `workspaces/bulk-import/examples/template/create-pr-with-catalog-info.yaml`,
    giving 39/40 instead. `community-plugins` is unaffected — both matchers
    return 156. State the matcher or the `rhdh-plugins` figure is wrong by one on
-   both axes.
+   both axes. That same file is also the source of a second, independent
+   over-count trap in the placeholder figures; see "Method, stated precisely"
+   under Correction 2 above.
 2. **These counts enumerate the full git tree, not the spike's input manifest.**
    Exact agreement with the recorded figures on both corpora is strong evidence
    that the two scopes coincide, but it is not proof, and neither the reviewer
@@ -585,7 +619,9 @@ Three limits, all of which must travel with these figures:
    library family the spike's own scratch tooling used. Agreement across two
    independent parsers is a genuine cross-check, but both apply the same
    *definition* of "document", so a disagreement about that definition would not
-   have been caught by either.
+   have been caught by either. Both also extracted names structurally, from the
+   parsed `metadata.name` path; neither result would survive substituting a text
+   scan for `name:` keys.
 
 **Scope.** Both findings above are narrative additions to this index. Neither
 changes any evidence artifact, hash, `EvidenceBundle`, task checkbox, FR, SC, or
