@@ -73,55 +73,212 @@ steps**, and nothing under `specs/009-catalog-binding-viability/**` references
 Backstage's entity-name validators at any point. Whatever string appears at
 `metadata.name` is accepted as a name and folded into a canonical identity.
 
-At the same pinned commit, Backstage does not treat those fields as free-form.
+At the same pinned commit, Backstage's own catalog model does not treat those
+fields as free-form.
 `packages/catalog-model/src/validation/makeValidator.ts` binds four **distinct**
-per-field validators, and `FieldFormatEntityPolicy` applies them to every
-entity:
+per-field validators, and `FieldFormatEntityPolicy` applies them to every entity
+it is invoked on:
 
 | Field | Validator binding | Predicate | Applied |
 |---|---|---|---|
-| `apiVersion` | `isValidApiVersion` | prefix/suffix split on `/`, DNS-subdomain prefix, ≤63 per part | required |
+| `apiVersion` | `isValidApiVersion` → `CommonValidatorFunctions.isValidPrefixAndOrSuffix` | prefix is a DNS **subdomain** (`CommonValidatorFunctions.isValidDnsSubdomain`, ≤253 total, each dot-separated label ≤63); suffix is `/^[a-z0-9A-Z]+$/`, ≤63 | required |
 | `kind` | `isValidKind` | `/^[a-zA-Z][a-z0-9A-Z]*$/`, ≤63 | required |
 | `metadata.name` | `isValidEntityName` → `KubernetesValidatorFunctions.isValidObjectName` | `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 | required |
-| `metadata.namespace` | `isValidNamespace` → `KubernetesValidatorFunctions.isValidDnsLabel` | `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 | **only when present** |
+| `metadata.namespace` | `isValidNamespace` → `KubernetesValidatorFunctions.isValidNamespace` → `CommonValidatorFunctions.isValidDnsLabel` | `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 | **only when present** |
 
-The `metadata.name` row has been independently verified by the maintainer at the
-pinned commit. The other three rows are read from the same pinned files and
-**should be re-confirmed at ratification** rather than taken on this record's
-word.
+Two further properties of the `apiVersion` binding, since the split is not
+obvious from the predicate alone: `isValidPrefixAndOrSuffix` splits on `/` and
+**rejects any value containing two or more separators**, and a value with **no**
+separator is validated against the suffix predicate alone — so a bare `v1`
+passes without the subdomain rule ever being consulted.
+
+Every row in this table was verified by executing the pinned sources directly;
+see "How these bindings were checked" below.
 
 The consequence is a category error in the contract, and it is not hypothetical.
-Fifteen descriptors in the two corpora feature009 pinned — five in
-`community-plugins` at `92e9e4e09c76cc57f3475029b73e5ec84498a459`, ten in
+Sixteen descriptors in the two corpora feature009 pinned — five in
+`community-plugins` at `92e9e4e09c76cc57f3475029b73e5ec84498a459`, eleven in
 `rhdh-plugins` at `3b355ddfedb23c6656bd9effc8510f9926b765c1` — carry an
 unsubstituted, un-rendered scaffolder placeholder at `metadata.name` rather than
 a name. Fourteen of them (five and nine respectively) carry the identical string
-`${{ values.name | dump }}`; the fifteenth, `bulk-import`, carries
-`${{ values.name }}`, which is equally unsubstituted but canonicalizes
-differently. Both strings fail `isValidObjectName` on character class: `$`, `{`,
-`}` and the spaces — and, for the first, `|` — are all outside the permitted set,
-while ordinary descriptor names pass the same predicate unchanged. Backstage
-would reject every one of these descriptors as a malformed entity outright. The
-contract instead accepts each as a well-formed name, lowercases it, concatenates
-it — and, for the fourteen that share a string, reports the result as
-`triggerClass: "duplicate-canonical-id"`.
+`${{ values.name | dump }}`. The remaining two, both in `rhdh-plugins`, carry
+`${{ values.name }}` (`bulk-import`) and `${{ values.entityName }}`
+(`orchestrator`) — equally unsubstituted, but distinct strings that canonicalize
+distinctly. All three forms fail `isValidObjectName` on character class: `$`,
+`{`, `}` and the spaces are outside the permitted set in every case, and `|` in
+the first, while ordinary descriptor names pass the same predicate unchanged.
+Backstage's own `metadata.name` validator rejects every one of these
+descriptors. The contract instead accepts each as a well-formed name, lowercases
+it, concatenates it — and, for the fourteen that share a string, reports the
+result as `triggerClass: "duplicate-canonical-id"`.
 
-`bulk-import` is the sharper case, and the reason this is a contract gap rather
-than a reporting one. Being canonically distinct, it collides with nothing. It is
-exactly as invalid as the other fourteen, and the contract has no mechanism of
-any kind that would notice. The duplicate rule catches the fourteen only
-incidentally, as a side effect of their sharing a string; behind it there is
-nothing. Duplicate detection is not a validity check, and the corpus contains a
-descriptor demonstrating that the two conditions come apart.
+The other two are the sharper case, and the reason this is a contract gap rather
+than a reporting one. Being canonically distinct, they collide with nothing.
+They are exactly as invalid as the other fourteen, and the contract has no
+mechanism of any kind that would notice. The duplicate rule catches the fourteen
+only incidentally, as a side effect of their sharing a string; behind it there is
+nothing. Duplicate detection is not a validity check, and the corpus contains two
+descriptors demonstrating that the conditions come apart.
 
 **The fail-closed rejection there is correct and required by §3.** What is wrong
 is the *classification*: a descriptor that is not a valid Backstage entity at all
 is being characterized as an identity collision *between valid entities*. Those
 are different defects with different remedies, and the contract currently cannot
-tell them apart, because it never asks the question Backstage itself asks first.
+tell them apart, because it never asks whether the descriptor is a valid entity
+in the first place.
 
 This record exists to close that gap. It is warranted by the validator bindings
 above and by nothing else.
+
+### How these bindings were checked
+
+Action item 2 of the first draft called for an independent review from a fresh
+context. That review was performed by a `claude-opus-5` reviewer with no
+authorship of this record, against
+`1121a4facd9e321179d0402c3f355e4a649e84d9`. **It returned FAIL**, with three
+blocking defects in the table above. All three are corrected here, and are
+recorded rather than quietly fixed:
+
+1. **A cited member did not exist.** The namespace row read `isValidNamespace` →
+   `KubernetesValidatorFunctions.isValidDnsLabel`. `KubernetesValidatorFunctions`
+   has no such member; the chain runs through
+   `KubernetesValidatorFunctions.isValidNamespace` to
+   `CommonValidatorFunctions.isValidDnsLabel`. The quoted regex was correct
+   throughout; the class attribution was not.
+2. **The `apiVersion` bound was understated.** "≤63 per part" was wrong for the
+   prefix, which is a DNS *subdomain*: ≤253 in total with each dot-separated
+   label ≤63. A 243-character prefix passes. The two-separator rejection and the
+   suffix-only path for unseparated values were also unstated.
+3. **An ordering claim exceeded the evidence.** The draft asserted that the
+   contract "never asks the question Backstage itself asks first" and that
+   Option A "matches Backstage's own ordering". Neither is established by the
+   four cited files: they contain no uniqueness, duplicate, conflict, collision
+   or dedup logic of any kind, and `FieldFormatEntityPolicy` is a per-entity
+   `EntityPolicy.enforce` with no cross-entity comparison. Catalog-wide
+   uniqueness lives in `plugin-catalog-backend`, outside this record's cited
+   evidence. Both phrases are **removed**, not substantiated.
+
+Defect 3 is the one worth dwelling on, because the correct response to it was to
+drop the claim rather than go looking for support. This record's stated warrant
+is the validator bindings "and nothing else"; an appeal to Backstage's internal
+ordering is outside that warrant even if it happens to be true. Ordering
+admissibility ahead of canonicalization is adrkit's own decision and needs no
+upstream precedent. Removing the appeal makes the record narrower and stronger.
+
+Every row of the table was subsequently re-verified by executing the pinned
+sources directly — `makeValidator.ts`, `KubernetesValidatorFunctions.ts` and
+`CommonValidatorFunctions.ts` fetched at the pinned commit and run — confirming
+that `isValidEntityName` and `isValidNamespace` are reference-identical to their
+`KubernetesValidatorFunctions` counterparts, that `KubernetesValidatorFunctions`
+exposes no `isValidDnsLabel`, and that a 243-character `apiVersion` prefix passes
+while a 254-character one, an over-63 label, and a two-separator value all fail.
+
+The reviewer pre-cleared the outcome of these corrections: *"On re-review after
+these three corrections, items 1, 2 and 4 stand verified and the record's core
+warrant is sound."* That is a conditional clearance of the corrections, **not** a
+ratification of the record, which remains `proposed`.
+
+**Residual limit.** "Applies them to every entity" above is now qualified to
+"every entity it is invoked on". The cited files show what
+`FieldFormatEntityPolicy.enforce` does when called; they do not show its
+installation in any particular catalog pipeline, and this record does not assert
+it.
+
+### Subsequent reviews: four further passes, all FAIL
+
+**This record has been independently reviewed five times, across two model
+lineages.** Every pass returned FAIL. The later passes were each bounded to the
+diff produced by the one before.
+
+Per-pass reviewer identities are **attested by the orchestrating session and are
+not checkable from anything in this repository** — the model assignment exists
+only in that orchestration. This section therefore records the review count and
+the fact of two lineages, both of which follow from the standing model policy,
+rather than a pass-by-pass roster. A reviewer reading this record cannot verify
+such a roster and should not attempt to confirm one; an earlier version stated
+one and it was wrong on both order and totals.
+
+**Review 1 corrected substance.** It changed two rows of the validator table —
+the `apiVersion` binding and its numeric bound, and the `metadata.namespace`
+chain — and removed a claim from Option A. Those corrections are described above.
+
+**Reviews 2 to 5 found nothing wrong with the substance.** No pass after the
+first altered the Decision, the options, the validator table, or any figure. The
+validator bindings and predicate bodies, the executed regexes, the descriptor
+counts, the over-length pair, the residual Nexus duplicate and the governance
+metadata have all stood unchanged since review 1's corrections. What failed in
+those four passes was prose — and, in the last three, prose describing the
+earlier failures.
+
+Defects found and corrected across passes 2 to 5:
+
+- A **separability claim was false**: two enumeration mistakes were said to
+  inflate a count independently. They are conjunctive for that count, though one
+  of them alone does corrupt a different count. Replaced with a four-way table.
+- **"Both unsubstituted forms"** — the pinned corpora hold three.
+- **"The placeholder descriptors recorded above at least collide"** —
+  `bulk-import` and `orchestrator` canonicalize uniquely and collide with
+  nothing.
+- **"Backstage would reject … outright"**, and five sibling phrases, asserted
+  behaviour of Backstage as a running system. The cited files establish what the
+  validators do *when applied*, not that any deployment applies them. All are
+  now scoped to the validators' own behaviour. Eight such phrases existed in the
+  original draft; the first review had already caught two of them, and the rest
+  were found here.
+- **"Depth-based heuristics do not" separate the two lines** was too categorical;
+  indentation can distinguish them. The argument for structural extraction is
+  fragility, not incapacity.
+- **The sweep for those Backstage-system phrases claimed completeness while
+  incomplete** — it was line-oriented, so `input that Backstage itself rejects`
+  survived in Option E because the phrase wrapped a line break. Re-run
+  whitespace-normalised.
+- **A superseded claim survived above its own replacement**, still asserting that
+  skipping structural extraction "will over-count".
+- **A passage about false universals contained one.**
+- **A section lead-in contradicted its own conclusion.**
+- **The account of these defects was itself wrong, twice**, in opposite
+  directions — first attributing them to revision between reviews, then to a
+  claim having been true when written and later falsified.
+
+#### What the provenance analysis concluded
+
+Four claims were traced against `4773d25`, the document the first review
+examined, and against the pinned corpora themselves. **All four were false at
+the moment they were written.** Two pre-dated the first review and were missed by
+it; two were introduced during correction rounds. The category the record twice
+reached for — *accurate when written, later falsified* — is **empty**.
+
+#### Two root causes, each transferable
+
+**The warrant is a set of pure predicates read at a pinned commit.** Any sentence
+about what Backstage as a **system** does — its ordering, its acceptance, its
+rejection — reaches past that warrant even when it is probably true. The reliable
+form is to state what the predicate returns.
+
+**A claim about a frozen artifact must be indexed to the artifact, not to the
+author's knowledge of it.** "Both unsubstituted forms present in the corpora" was
+defended on the grounds that only two forms were then *known*. That conflates
+what had been enumerated with what was true: the corpora are pinned, the third
+form was already in the tree, and the sentence was therefore false on arrival.
+For claims of this shape there is no window of excusable truth — which makes the
+class larger than it first appears, and also entirely checkable by anyone, at any
+time, without a reviewer's judgement.
+
+The corollary corrects a lesson this record previously drew the wrong way round:
+**a count change does not falsify prose; it reveals prose that was already
+false.** Re-read quantified prose when a count changes — not because the change
+broke it, but because the change is often the first occasion anyone re-reads it.
+And note that not every nearby quantifier is wrong: the work is re-reading, not
+substituting a digit.
+
+#### Why this section is short
+
+An earlier version narrated each defect's origin commit by commit, and then
+narrated the corrections to that narration. Successive passes kept finding
+defects *in that material* rather than in the record's substance — it grew with
+every pass and each addition was new surface to be wrong on, while nothing in it
+was load-bearing for a reader of this record. It has been compressed deliberately. **No defect has been removed from
+the list above**; what was removed describes only itself.
 
 ## Decision
 
@@ -178,8 +335,13 @@ report says something truer about *why*.
 
 ### Option A: Validate before canonicalizing; distinct fatal `inadmissible-descriptor` class (chosen)
 
-Matches Backstage's own ordering, preserves fail-closed exactly, and corrects the
-classification. Strictly additive on the failure surface; removes no abort.
+Preserves fail-closed exactly and corrects the classification. Strictly additive
+on the failure surface; removes no abort. The ordering — admissibility before
+canonicalization — is adrkit's own design choice, made because a validity
+question and an identity question are different questions and the cheaper,
+per-descriptor one should not be answered by the more expensive cross-descriptor
+one. It is **not** claimed to mirror any ordering in Backstage; see "How these
+bindings were checked".
 
 ### Option B: Validate, then exclude inadmissible descriptors from the entity set
 
@@ -194,8 +356,9 @@ justification, and an explicit amendment to that assertion.
 
 ### Option C: Validate, warn, and canonicalize anyway
 
-Rejected. Keeps the wrong classification while adding noise. A descriptor
-Backstage would reject is not a lesser entity; it is not an entity.
+Rejected. Keeps the wrong classification while adding noise. A descriptor that
+fails Backstage's own field-format validators is not a lesser entity; by those
+validators' own standard it is not an entity.
 
 ### Option D: Exclude by path convention (e.g. scaffolder-template directories)
 
@@ -206,9 +369,10 @@ incomplete.
 
 ### Option E: Do nothing
 
-Rejected. The contract would go on knowingly canonicalizing input that Backstage
-itself rejects, and go on mis-reporting at least one real, recorded condition.
-The gap is independent of whether feature009 ever executes again.
+Rejected. The contract would go on knowingly canonicalizing input that
+Backstage's own field-format validators reject, and go on mis-reporting at least
+one real, recorded condition. The gap is independent of whether feature009 ever
+executes again.
 
 ## Trade-offs
 
@@ -326,7 +490,7 @@ that it was reverse-engineered from a desired verdict. The check for that
 suspicion is whether the rule survives the discovery that it does not deliver
 the convenient outcome. It does. The warrant for this record is the validator
 binding at `1121a4fa…` and nothing else: a descriptor whose `metadata.name`
-Backstage would reject outright is not an entity whose identity we should be
+Backstage's own validator rejects is not an entity whose identity we should be
 canonicalizing. That argument is unchanged by the fact that the corpora remain
 unusable afterwards, which is the test it needed to pass.
 
@@ -357,17 +521,39 @@ unusable afterwards, which is the test it needed to pass.
 
 ## Action items
 
-1. **Confirm the validator bindings at the pinned commit before ratification.**
-   The `metadata.name` binding is maintainer-verified; `apiVersion`, `kind`, and
-   `namespace` are not, and this record should not be ratified on its own
-   assertion of them.
-2. **Obtain one independent review from a fresh context** that did not author
-   this record, checking the four predicates against
-   `makeValidator.ts`, `KubernetesValidatorFunctions.ts`,
-   `CommonValidatorFunctions.ts`, and `FieldFormatEntityPolicy.ts` at
-   `1121a4fa…`. Per this repository's standing model policy the reviewer must be
-   `claude-opus-5`, or `gpt-5.6` for a second, different-lineage pass. No older
-   revision is acceptable; model identity is recorded as evidence.
+1. ~~**Confirm the validator bindings at the pinned commit before
+   ratification.**~~ **Done.** All four rows are now verified by execution
+   against the pinned sources, and the two defective rows were corrected. See
+   "How these bindings were checked".
+2. ~~**Obtain one independent review from a fresh context.**~~ **Done — five
+   independent reviews across two model lineages, all FAIL, every finding
+   accepted and corrected.** Every defect is listed above. **Review 1 corrected
+   substance** — two validator-table rows and an Option A claim. **No pass after
+   it found anything wrong with the substance**: bindings, predicates, executed
+   regexes, counts, the Nexus duplicate and the governance metadata have stood
+   unchanged since. What failed in passes 2 to 5 was prose precision, and latterly
+   prose *about the earlier failures*, not the warrant.
+
+   The maintainer should decide the ratification standard explicitly rather than
+   inherit it. Three considerations, offered without a recommendation:
+
+   - **Correction rounds have themselves introduced defects.** Of the four
+     claims traced for provenance, two were introduced during correction rounds
+     rather than pre-dating the first review. So "review until clean" is not
+     obviously convergent; each round has had some chance of adding what the
+     next one finds.
+   - **The later failures are concentrated in the review history**, not the
+     record's substance. Passes 3 to 5 found defects in the account of the
+     earlier failures — including, in Option E, one instance of a defect class
+     that account had claimed was fully swept. A maintainer may reasonably weigh
+     a defect in *that section* differently from a defect in the Decision.
+   - **The largest identified defect class is enumerable and drained.**
+     System-level claims about Backstage: eight instances existed at
+     `4773d25`, all eight corrected, verifiable by a whitespace-normalised sweep
+     rather than by another reviewer's judgement. A later pass reproduced that
+     count independently.
+
+   This record does not presume which standard applies.
 3. **Only after ratification**, prepare the corresponding `specs/009-**`
    contract amendment as a separately-scoped change. No `specs/009-**` edit is
    authorized by this draft.
