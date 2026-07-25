@@ -38,9 +38,11 @@ is the exhaustive, honestly-reached fallback.
   passed exactly as specified **except** Phase 8 (US6), which requires a
   populated envelope/scale-evidence record for every real-corpus pass. The
   pinned `community-plugins` and `rhdh-plugins` corpora each contain a genuine,
-  pre-existing `duplicate-canonical-id` defect (five unsubstituted Backstage
+  pre-existing `duplicate-canonical-id` defect (unsubstituted Backstage
   software-template skeleton files sharing the literal, un-templated
-  `metadata.name: "${{ values.name | dump }}"` placeholder) that deterministically,
+  `metadata.name: "${{ values.name | dump }}"` placeholder — **five** such files
+  in `community-plugins` and **ten** in `rhdh-plugins`, **fifteen** in total; see
+  "Correction 1" below) that deterministically,
   correctly, fail-closed-triggers rejection on all 6 repetitions, byte-identically,
   for both corpora. SC-001 (byte-identical output) and SC-002 (whole-operation
   atomicity) both **hold** — the rejection itself is deterministic with zero
@@ -280,3 +282,95 @@ and obtain a new independent pre-output audit — **before** producing any
 generator-derived output. Reusing the current oracle without that cycle would
 carry a known-wrong expected result forward into a run whose outcome could
 actually depend on it.
+
+### Correction 1: placeholder-descriptor counts ("five" → five *and* ten, fifteen total)
+
+**What the tracked record said.** Two merged summaries understated and
+mis-distributed the count of unsubstituted software-template skeleton
+descriptors:
+
+- This document (the `go-explicit` bullet above) read that the two corpora
+  "**each** contain a genuine, pre-existing `duplicate-canonical-id` defect
+  (**five** unsubstituted Backstage software-template skeleton files …)",
+  asserting five *per corpus*.
+- The root [`plan.md`](../../../plan.md) Phase 8 row read "(**five**
+  unsubstituted Nunjucks template skeletons sharing a literal `metadata.name`
+  placeholder)", stated once for both corpora together.
+
+**What the evidence actually records.** Re-derived directly from the `finding`
+field of each raw scratch envelope, and cross-checked against each finding's own
+explicit workspace enumeration:
+
+| Corpus | Pinned commit | Placeholder descriptors | Workspaces enumerated in the `finding` |
+|---|---|---|---|
+| `community-plugins` | `92e9e4e09c76cc57f3475029b73e5ec84498a459` | **5** | `rbac`, `topology`, `mend`, `mta`, `ocm` |
+| `rhdh-plugins` | `3b355ddfedb23c6656bd9effc8510f9926b765c1` | **10** | `dcm`, `homepage`, `app-defaults`, `global-header`, `quickstart`, `bulk-import`, `adoption-insights`, `scorecard`, `translations`, `cost-management` |
+| **Total** | — | **15** | — |
+
+Each envelope's stated count and its enumerated workspace list agree with each
+other. "Five" is correct **only** for `community-plugins`; it is neither the
+per-corpus figure for `rhdh-plugins` nor the combined total.
+
+**Provenance, stated neutrally.** The "five" phrasing entered the tracked record
+during PR #37 round-3 review remediation and merged in `5ff8705`; it was written
+by the coordinating session as summary narrative. It does **not** originate in
+the spike execution's own evidence artifacts — the underlying envelope `finding`
+fields record 5 and 10 correctly and separately. This is a correction to the
+tracked summary, not to any evidence artifact.
+
+**Scope of this correction.** Narrative only. No evidence artifact, hash,
+`EvidenceBundle`, task checkbox, FR, or SC is affected, and the recorded verdict
+is unchanged (`blocked`, `blockedShortfall =
+"envelope-or-scale-evidence-incomplete"`). The reason for the shortfall is
+identical either way: both corpora deterministically fail-closed-reject on
+`duplicate-canonical-id`. Only the magnitude and distribution were misstated.
+
+**Limit of this correction.** The counts above are re-derived from what the
+envelope `finding` fields record. They have **not** been independently
+re-enumerated from the pinned corpora as part of this correction, so they should
+be treated as faithful to the recorded evidence rather than as a fresh
+corpus census. Any future execution that depends on these figures should
+re-derive them from the corpora directly.
+
+### Named finding: `metadata.name` is canonicalized without ever being validated
+
+Recorded here as a standing, named limitation alongside the carry-forward
+blocker above. **This finding is independent of the recorded verdict and of any
+future re-run**; it is a gap in the frozen contract text that exists whether or
+not feature009 is ever executed again.
+
+**The gap.** [`contracts/entity-identity.md`](../contracts/entity-identity.md)
+§1 defines canonicalization as exactly two steps — default the namespace, then
+lowercase `${K}:${NS}/${N}` in full. There is **no admissibility or
+validation step anywhere ahead of it.** Whatever string appears at
+`metadata.name` is accepted as a name and folded into a canonical ID. Nothing in
+`specs/009-catalog-binding-viability/**` references Backstage's own entity-name
+validators at any point.
+
+**Why that is a defect, on Backstage's own terms.** At the pinned research
+commit `1121a4facd9e321179d0402c3f355e4a649e84d9`, `makeValidator.ts` binds
+`isValidEntityName := KubernetesValidatorFunctions.isValidObjectName`, whose
+predicate is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/` with a 63-character
+limit, and `FieldFormatEntityPolicy` applies it to `metadata.name` as a
+**required** field. The literal placeholder string
+`${{ values.name | dump }}` fails that predicate on character class — `$`,
+`{`, `}`, `|` and the spaces are all outside the permitted set — while ordinary
+descriptor names pass it unchanged.
+
+**The consequence.** Backstage would reject those fifteen descriptors as
+malformed entities outright. This spike's contract instead accepts each one as a
+well-formed name, lowercases it, and concatenates it — at which point they
+collide with each other, and the collision is reported as
+`triggerClass: "duplicate-canonical-id"`. The fail-closed rejection itself is
+correct and required by §3; what is imprecise is the *classification*. A
+descriptor that is not a valid Backstage entity at all is being characterized as
+a duplicate-identity condition between valid entities.
+
+**What this finding does and does not assert.** It asserts that the contract
+canonicalizes unvalidated input and that this mis-classifies at least one real,
+recorded condition. It does **not** assert that adding validation would change
+the recorded verdict, satisfy SC-010, unblock this spike, authorize a re-run, or
+sanction any production adapter — none of those follow from it, and none are
+claimed here. Whether to close the gap, and how, is a separate decision requiring
+its own explicitly-scoped authorization; a draft ADR proposing one approach is
+under maintainer review and is **not** ratified.
