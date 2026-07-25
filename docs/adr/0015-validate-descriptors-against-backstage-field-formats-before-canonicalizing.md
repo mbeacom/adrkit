@@ -90,14 +90,17 @@ word.
 
 The consequence is a category error in the contract, and it is not hypothetical.
 The tracked feature009 record documents fifteen descriptors — five in
-`community-plugins`, ten in `rhdh-plugins` — whose `metadata.name` is the
-literal, un-rendered scaffolder placeholder `${{ values.name | dump }}`. That
-string fails `isValidObjectName` on character class: `$`, `{`, `}`, `|` and the
-spaces are all outside the permitted set, while ordinary descriptor names pass
-the same predicate unchanged. Backstage would reject those descriptors as
-malformed entities outright. The contract instead accepts each one as a
-well-formed name, lowercases it, concatenates it — and, because they are all the
-same string, reports the result as
+`community-plugins`, ten in `rhdh-plugins` — whose `metadata.name` is an
+unsubstituted, un-rendered scaffolder placeholder rather than a name. Fourteen
+of them (five and nine respectively) carry the identical string
+`${{ values.name | dump }}`; the fifteenth carries `${{ values.name }}`, which
+is equally unsubstituted but canonicalizes differently. Both strings fail
+`isValidObjectName` on character class: `$`, `{`, `}` and the spaces — and, for
+the first, `|` — are all outside the permitted set, while ordinary descriptor
+names pass the same predicate unchanged. Backstage would reject every one of
+these descriptors as a malformed entity outright. The contract instead accepts
+each as a well-formed name, lowercases it, concatenates it — and, for the
+fourteen that share a string, reports the result as
 `triggerClass: "duplicate-canonical-id"`.
 
 **The fail-closed rejection there is correct and required by §3.** What is wrong
@@ -253,6 +256,47 @@ evidence gap **not at all**. Any future claim that catalog binding is
 empirically validated must still rest on synthetic fixtures for the derivation
 paths, exactly as it did before.
 
+### This rule does not clear the corpora, and does not unblock feature009
+
+This is the most important limitation on this record, and it is stated here
+rather than buried in Consequences because it is the strongest available
+evidence about *why* this rule is being proposed.
+
+Admissibility does not make the two pinned corpora usable. At least one
+`duplicate-canonical-id` collision in `community-plugins`, pinned at
+`92e9e4e09c76cc57f3475029b73e5ec84498a459`, is **irreducible under any
+admissibility rule of the kind proposed here**. The file
+`workspaces/nexus-repository-manager/plugins/nexus-repository-manager/catalog-info.yaml`
+contains two YAML documents. Both are `kind: Component`; both declare
+`metadata.name: backstage-community-nexus-repository-manager`; they differ only
+in `title`, `spec.type` and `spec.owner`, with the second declaring itself as
+its own `subcomponentOf`. That name is 44 characters of lowercase alphanumerics
+and hyphens. It passes `isValidObjectName` cleanly, as does every other field on
+both documents.
+
+Both documents are therefore fully admissible. This is a genuine duplicate of a
+valid entity — precisely the case `entity-identity.md` §3 exists to catch — and
+the fail-closed abort is the correct outcome for it. No field-format rule can
+reach it, and none should. It is also still present on the upstream default
+branch, so re-pinning the corpus to a newer commit does not avoid it.
+
+The consequence for feature009 is direct. `spec.md` SC-010 names all three
+required real-corpus passes explicitly by corpus, so the `community-plugins`
+pass cannot be substituted away. Adopting this record would reduce the *number*
+of collisions in these corpora and would reclassify the placeholder descriptors
+correctly; it would **not** produce a populated `SnapshotEnvelope` for
+`community-plugins`, and it would **not** satisfy SC-010. The spike's `blocked`
+verdict stands, on its own merits, with or without this record.
+
+**Why this is stated so prominently.** A rule of this kind invites the suspicion
+that it was reverse-engineered from a desired verdict. The check for that
+suspicion is whether the rule survives the discovery that it does not deliver
+the convenient outcome. It does. The warrant for this record is the validator
+binding at `1121a4fa…` and nothing else: a descriptor whose `metadata.name`
+Backstage would reject outright is not an entity whose identity we should be
+canonicalizing. That argument is unchanged by the fact that the corpora remain
+unusable afterwards, which is the test it needed to pass.
+
 ## Consequences
 
 - `entity-identity.md` §1 gains an admissibility precondition; §1's own two
@@ -265,6 +309,12 @@ paths, exactly as it did before.
   `blocked` with `blockedShortfall = "envelope-or-scale-evidence-incomplete"`.
   Ratifying this record does not re-open, re-run, or re-decide that spike, and
   does not by itself make SC-010 satisfiable.
+- **A residual, irreducible collision exists independent of admissibility.** As
+  set out in Trade-offs, `community-plugins` at its pinned commit contains a
+  genuine duplicate of a fully valid entity that no field-format rule can reach,
+  and which is still present upstream. Adopting this record would not produce a
+  populated envelope for that corpus. Anyone reading this record as a route to
+  unblocking feature009 is reading it wrong.
 - The carry-forward `reference-oracle.json` blocker recorded in
   `specs/009-catalog-binding-viability/checklists/evidence-index.md` is
   untouched and remains in full force: any future feature009 execution must
