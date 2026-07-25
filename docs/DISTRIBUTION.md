@@ -228,49 +228,71 @@ public repo. The only blocker is the human steps above (namespace proof + the P2
 
 - **Process:** connect the GitHub repo at <https://smithery.ai/new> ("Deploy → From
   GitHub"); Smithery reads a `smithery.yaml` at the **repo root**.
-- **Ready-to-paste `smithery.yaml`** (belongs at **repo root** — outside this
-  workstream's owned paths; hand to the root/CI owner):
+- **Status:** ✅ **placed** at the repo root of this worktree as
+  [`smithery.yaml`](../smithery.yaml) (committed locally, **not** submitted). The
+  file below is the canonical content; edit the file, not this copy.
+- **Content** (verified 2026-07-25 against current real `smithery.yaml` files —
+  `HenkDz/selfhosted-supabase-mcp`, `isaac-levine/forage`, `sigvardt/linkedin-buddy`
+  — which all nest `configSchema`/`commandFunction`/`exampleConfig` **inside**
+  `startCommand`):
 
   ```yaml
   # smithery.yaml (repo root)
   startCommand:
     type: stdio
-    commandFunction: |
+    configSchema:
+      type: object
+      properties:
+        cwd:
+          type: string
+          title: Repository root
+          description: >-
+            Absolute path to the git repository whose ADRs to read. Must contain a
+            readable .git entry. Defaults to the launch working directory.
+        dir:
+          type: string
+          title: ADR directory
+          default: docs/adr
+          description: ADR directory, resolved against the repository root.
+      additionalProperties: false
+    commandFunction: |-
       (config) => ({
         command: 'npx',
-        args: ['-y', '@adrkit/mcp', '--dir', config.dir || 'docs/adr'],
-        env: config.cwd ? { ADRKIT_MCP_CWD: config.cwd } : {}
+        args: [
+          '-y',
+          '@adrkit/mcp',
+          ...(config.cwd ? ['--cwd', config.cwd] : []),
+          '--dir', config.dir || 'docs/adr'
+        ]
       })
-  configSchema:
-    type: object
-    properties:
-      cwd:
-        type: string
-        title: Repository root
-        description: Absolute path to the git repo whose ADRs to read (defaults to the launch cwd).
-      dir:
-        type: string
-        default: docs/adr
-        title: ADR directory
-        description: ADR directory under the repo root.
-    additionalProperties: false
-  exampleConfig:
-    dir: docs/adr
+    exampleConfig:
+      dir: docs/adr
   ```
 
-- **Prerequisite:** `smithery.yaml` at repo root (REPORT: not owned here).
-- **Criteria met?** Partially, with an honest caveat: adrkit is a **local** server
-  whose tools require a real on-disk ADR corpus in a git repo. Smithery's hosted
-  tool-playground has no such corpus, so the interactive "try in browser" surface
-  cannot meaningfully exercise the tools — the value is discovery/listing, and the
-  copy should say the server runs locally against the user's repo.
+- **Validation:** Smithery does **not** publish a referenced JSON Schema in the file
+  (there is no `$schema` key to `ajv` against), so a schema check is not possible.
+  Instead: the file parses as well-formed YAML (`Bun.YAML.parse`), its structure
+  matches the current real examples above, and the `commandFunction` was **executed**
+  — for empty/`dir`-only/`cwd`+`dir` configs it emits argv that the real binary's
+  strict `parseArgs` (`--cwd`/`--dir`, from `packages/mcp/src/main-module.ts`)
+  accepts. This is behavioural verification, not a schema assertion.
+- **Caveat (transport):** Smithery is steering **hosted** deployments from `stdio`
+  toward HTTP. adrkit is a **local** stdio server (its tools need a real on-disk ADR
+  corpus in a git repo), which is the still-supported local-server case; it is not a
+  hosted deployment. Smithery's hosted tool-playground has no corpus, so the
+  interactive "try in browser" surface cannot meaningfully exercise the tools — the
+  value is discovery/listing, and the copy should say the server runs locally against
+  the user's repo.
 
 ### B4 — Glama
 
 - **Process:** Glama crawls GitHub for a `glama.json` at the **repo root** and
   indexes within ~24h; the repo already signals MCP via name/topics.
-- **Ready-to-paste `glama.json`** (belongs at **repo root** — REPORT: not owned
-  here):
+- **Status:** ✅ **placed** at the repo root of this worktree as
+  [`glama.json`](../glama.json) (committed locally, **not** submitted).
+- **Content** (verified 2026-07-25 against two live upstream `glama.json` files —
+  `PipedreamHQ/pipedream` and `apify/apify-mcp-server` — and Glama's documented
+  format; only `$schema` + `maintainers` (GitHub usernames) are required):
 
   ```json
   {
@@ -279,8 +301,12 @@ public repo. The only blocker is the human steps above (namespace proof + the P2
   }
   ```
 
-- **Prerequisite:** `glama.json` at repo root; repo public with "mcp" in
-  topics/description.
+- **Validation:** the file is well-formed JSON with a string `$schema` and a
+  `string[]` `maintainers`, matching the live examples byte-for-byte in structure.
+  I could **not** run `ajv` against the live schema at
+  `https://glama.ai/mcp/schemas/server.json` — that URL times out from this
+  environment — so this is format-verified against real upstream examples, **not**
+  schema-validated. Stated honestly.
 - **Criteria met?** Yes (public, documented, MCP server). Discovery-only listing.
 
 ### B5 — `awesome-mcp-servers` (GitHub PR)
@@ -329,8 +355,8 @@ public repo. The only blocker is the human steps above (namespace proof + the P2
 | Official MCP registry | `server.json` (validated) | P2 `mcpName` edit + namespace proof | **Blocked on P2 + namespace proof** | Add `mcpName`, add DNS TXT (or GitHub login), run `mcp-publisher publish` |
 | mcp.so | web form | public repo | **Yes** | Fill form at mcp.so/submit (free tier) |
 | PulseMCP | (ingests registry) | official-registry listing | **After A** | Publish A; optionally email hello@pulsemcp.com |
-| Smithery | `smithery.yaml` (root) | file at repo root | **Prepared; file not placed** | Add root `smithery.yaml`, connect repo at smithery.ai/new |
-| Glama | `glama.json` (root) | file at repo root | **Prepared; file not placed** | Add root `glama.json`; Glama auto-indexes |
+| Smithery | `smithery.yaml` (root) | file at repo root | **Placed at repo root (not submitted)** | Connect the repo at smithery.ai/new |
+| Glama | `glama.json` (root) | file at repo root | **Placed at repo root (not submitted)** | Nothing — Glama auto-crawls once merged and public |
 | awesome-mcp-servers | README PR | public repo | **Yes** | Open PR with the entry line |
 | adr.github.io tooling | Jekyll post PR | public repo | **Yes** | Open PR with the table row |
 
@@ -437,15 +463,28 @@ uses: mbeacom/adrkit/packages/ci/queue@efef89b5d747ca175a1947f1ce2f4296dab54fa3
 
 …"until a moving `queue@v0` tag is published." Here is what that actually requires.
 
-### D1 — current state (verified)
+### D1 — current state (verified directly against the remote)
 
-- The queue Action (`packages/ci/queue/action.yml`) was added in commit
-  `efef89b5d747ca175a1947f1ce2f4296dab54fa3`, which landed **after** the `v0.2.0`
-  release.
-- The repo-wide `v0` tag currently points at the `v0.2.0` commit
-  (`66a1e7f…`), which does **not** contain `packages/ci/queue/action.yml`.
-- Therefore `mbeacom/adrkit/packages/ci/queue@v0` would currently **fail to
-  resolve** — which is exactly why the README pins the full commit SHA.
+Re-confirmed against `origin` on 2026-07-25 with `git ls-remote --tags origin`,
+`gh api repos/mbeacom/adrkit/git/ref/tags/v0`, and the GitHub contents API:
+
+- The `v0` tag is a **lightweight tag** (`"type":"commit"`) pointing at
+  `66a1e7f4accf503e88830ea6c1ea4fcee96168c9` — the exact commit that the annotated
+  `v0.2.0` tag peels to (`v0.2.0^{}` = `66a1e7f…`). So `v0` == the `v0.2.0` release
+  commit.
+- `GET /repos/mbeacom/adrkit/contents/packages/ci/queue/action.yml?ref=66a1e7f…`
+  returns **HTTP 404 (Not Found)**. The queue Action **does not exist at `v0`**.
+- The same path **does** exist at the pinned commit
+  `efef89b5d747ca175a1947f1ce2f4296dab54fa3` (861 bytes) and at `main` (861 bytes).
+  `66a1e7f…` (`v0`) is a git ancestor of `efef89b…`, i.e. the Action was added
+  **after** the `v0.2.0`/`v0` commit.
+
+> **⚠️ Documentation-severity finding.** Anyone who follows a `@v0` reference for the
+> queue Action **today** — `uses: mbeacom/adrkit/packages/ci/queue@v0` — gets a
+> **missing action** and the workflow fails to resolve it. The full-commit-SHA pin
+> (`@efef89b…`) is therefore **mandatory, not a nicety**, until §D3 is performed.
+> Any doc that presents `@v0` as an available option for the queue Action is wrong
+> as of this date and should keep pinning the SHA.
 
 ### D2 — there is no separate `queue@v0` tag
 
@@ -478,7 +517,11 @@ procedure only; the release is a human action.
 | File (not owned here) | Needed change | Why |
 |---|---|---|
 | `packages/mcp/package.json` | Add `"mcpName": "dev.adrkit/mcp"` (must equal `server.json` `name`). | Required for official MCP registry npm-ownership verification (P2). |
-| repo-root `smithery.yaml` | Create with the content in B3. | Smithery reads it from the repo root. |
-| repo-root `glama.json` | Create with the content in B4. | Glama crawls it from the repo root. |
 
 `server.json` does **not** need to be added to `packages/mcp/package.json` `files`.
+
+> **Update (2026-07-25):** the repo-root `smithery.yaml` and `glama.json` are now
+> **placed in this worktree** (B3/B4) — they are no longer pending on another
+> workstream. They are committed locally but **not submitted**; Smithery still needs
+> the human to connect the repo at smithery.ai/new, and Glama will auto-crawl once
+> the branch is merged and public.
