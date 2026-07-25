@@ -84,7 +84,8 @@ Options:
   --json          Emit the migration result as JSON
   --help          Show this help and exit
 
-Exit code: 0. Findings are reported but do not fail the run.
+Exit codes: 0 = migration ran (findings are reported but do not fail the run);
+2 = usage error (missing or unsupported --from, unknown flag, positional argument).
 `,
   new: `Usage: adr new <title> [options]
 
@@ -141,6 +142,12 @@ Options:
   --dir <path>        ADR corpus directory
   --json              Emit the evaluation report as JSON
   --help              Show this help and exit
+
+The evaluator routes; it never approves, persists, or writes. There is no --write.
+
+Exit codes: 0 = evaluated (including warn/info/inert and escalation);
+1 = the proposal was returned on a rubric error; 2 = usage error or a malformed
+snapshot bundle.
 `,
   queue: QUEUE_USAGE,
 };

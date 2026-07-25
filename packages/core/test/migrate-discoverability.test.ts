@@ -35,7 +35,23 @@ describe('discoverSkippedMarkdownFiles', () => {
 
     const skipped = await discoverSkippedMarkdownFiles(join(root, 'docs/adr'), root);
 
-    expect(skipped.map((p) => p.split('/').pop())).toEqual(['a-yaml.md', 'b-bullet.md', 'c-nygard.md']);
+    expect(skipped.map((s) => s.path.split('/').pop())).toEqual(['a-yaml.md', 'b-bullet.md', 'c-nygard.md']);
+    expect(skipped.every((s) => s.reason === 'filename')).toBe(true);
+  });
+
+  test('reports nested markdown regardless of filename, since discovery never reads it', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, 'docs/adr/0001-top.md'), SOURCE);
+    await writeText(join(root, 'docs/adr/nested/0002-deep.md'), SOURCE);
+    await writeText(join(root, 'docs/adr/nested/deeper/0003-deeper.md'), SOURCE);
+
+    const skipped = await discoverSkippedMarkdownFiles(join(root, 'docs/adr'), root);
+
+    expect(skipped.map((s) => s.path.split('/').slice(-2).join('/'))).toEqual([
+      'nested/0002-deep.md',
+      'deeper/0003-deeper.md',
+    ]);
+    expect(skipped.every((s) => s.reason === 'nested')).toBe(true);
   });
 
   test('does not report records, the template, or conventional companion files', async () => {
@@ -67,12 +83,43 @@ describe('lint visibility of skipped files (#41)', () => {
     expect(result.findings.every((f) => f.severity !== 'error')).toBe(true);
   });
 
-  test('explicit paths are the caller\u2019s choice and are never reported as skipped', async () => {
+  test('a corpus whose only records are nested is not reported as clean', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, 'docs/adr/nested/0001-decision.md'), SOURCE);
+
+    const result = await lintCorpus({ cwd: root, dir: 'docs/adr' });
+    const skipped = result.findings.filter((f) => f.rule === 'corpus-file-skipped');
+
+    expect(result.checked).toBe(0);
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]?.message).toContain('subdirectory');
+  });
+
+  test('an explicit directory positional is scanned like a bare corpus run', async () => {
+    const root = await seedUndiscoverableCorpus();
+
+    const result = await lintCorpus({ cwd: root, dir: 'docs/adr', paths: [join(root, 'docs/adr')] });
+
+    expect(result.checked).toBe(0);
+    expect(result.findings.filter((f) => f.rule === 'corpus-file-skipped')).toHaveLength(3);
+  });
+
+  test('explicit file positionals are the caller\u2019s choice and are never reported as skipped', async () => {
     const root = await seedUndiscoverableCorpus();
 
     const result = await lintCorpus({ cwd: root, dir: 'docs/adr', paths: [join(root, 'docs/adr/a-yaml.md')] });
 
     expect(result.findings.filter((f) => f.rule === 'corpus-file-skipped')).toEqual([]);
+  });
+
+  test('a file that was explicitly checked is not also reported as skipped', async () => {
+    const root = await seedUndiscoverableCorpus();
+    const dir = join(root, 'docs/adr');
+
+    const result = await lintCorpus({ cwd: root, dir: 'docs/adr', paths: [dir, join(dir, 'a-yaml.md')] });
+    const skipped = result.findings.filter((f) => f.rule === 'corpus-file-skipped');
+
+    expect(skipped.map((f) => f.path)).toEqual(['docs/adr/b-bullet.md', 'docs/adr/c-nygard.md']);
   });
 });
 

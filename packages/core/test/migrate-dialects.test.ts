@@ -155,6 +155,26 @@ describe('migrate --from madr across MADR dialects (#40)', () => {
     );
   });
 
+  test('resolves against a successor imported by an earlier run', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'docs/adr');
+    await writeText(join(dir, '0005-new.md'), '# Use PostgreSQL\n\n* Status: accepted\n* Date: 2025-03-14\n');
+
+    // First run imports only the successor; it is `unchanged` on the second run.
+    await migrateMadr({ cwd: root, dir: 'docs/adr' });
+    await writeText(
+      join(dir, '0001-old.md'),
+      '# Use MySQL\n\n* Status: superseded by [ADR-0005](0005-new.md)\n* Date: 2024-01-02\n',
+    );
+    const second = await migrateMadr({ cwd: root, dir: 'docs/adr' });
+    const frontmatter = await migratedFrontmatter(root, '0001-old.md');
+
+    expect(second.results.find((r) => r.path.endsWith('0005-new.md'))?.outcome).toBe('unchanged');
+    expect(frontmatter.status).toBe('superseded');
+    expect(frontmatter.supersededBy).toBe('0005');
+    expect(second.findings.filter((f) => f.rule === 'import-status-unrecognized')).toEqual([]);
+  });
+
   test('`superseded by` with no recoverable id stays unrecognized rather than being coerced', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeText(join(root, 'docs/adr/0001-old.md'), '# Use MySQL\n\n* Status: superseded by a later decision\n');

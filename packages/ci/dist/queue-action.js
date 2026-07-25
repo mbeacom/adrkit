@@ -46063,10 +46063,31 @@ async function discoverAdrFiles(dir = "docs/adr", cwd = process.cwd()) {
   const entries = await readdir(absoluteDir, { withFileTypes: true });
   return entries.filter((entry) => entry.isFile() && isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
 }
-async function discoverSkippedMarkdownFiles(dir = "docs/adr", cwd = process.cwd()) {
-  const absoluteDir = toAbsolutePath(dir, cwd);
+var MAX_SKIP_SCAN_DEPTH = 8;
+async function collectSkippedMarkdown(absoluteDir, depth, found) {
   const entries = await readdir(absoluteDir, { withFileTypes: true }).catch(() => []);
-  return entries.filter((entry) => entry.isFile() && entry.name.endsWith(".md") && !entry.name.startsWith(".") && !isConventionalNonRecordFileName(entry.name) && !isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+  for (const entry of entries) {
+    const path = join(absoluteDir, entry.name);
+    if (entry.isDirectory()) {
+      if (!entry.name.startsWith(".") && depth < MAX_SKIP_SCAN_DEPTH) {
+        await collectSkippedMarkdown(path, depth + 1, found);
+      }
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.endsWith(".md") || entry.name.startsWith("."))
+      continue;
+    if (isConventionalNonRecordFileName(entry.name))
+      continue;
+    if (depth > 0)
+      found.push({ path, reason: "nested" });
+    else if (!isRecordFileName(entry.name))
+      found.push({ path, reason: "filename" });
+  }
+}
+async function discoverSkippedMarkdownFiles(dir = "docs/adr", cwd = process.cwd()) {
+  const found = [];
+  await collectSkippedMarkdown(toAbsolutePath(dir, cwd), 0, found);
+  return found.sort((a, b) => normalizeDisplayPath(a.path, cwd).localeCompare(normalizeDisplayPath(b.path, cwd)));
 }
 async function expandRecordInputs(paths, dir = "docs/adr", cwd = process.cwd()) {
   if (!paths || paths.length === 0) {
@@ -46281,6 +46302,8 @@ function validateImportIncomplete(records) {
   return findings;
 }
 // ../core/src/validate/index.ts
+import { stat as stat2 } from "node:fs/promises";
+import { isAbsolute as isAbsolute2, resolve as resolve2 } from "node:path";
 function parseErrorFinding(error51, path) {
   if (error51 instanceof FrontmatterError) {
     return {
@@ -46298,13 +46321,28 @@ function parseErrorFinding(error51, path) {
     path
   };
 }
-function skippedFileFinding(path) {
+function skippedFileFinding(skipped, cwd) {
+  const message = skipped.reason === "nested" ? "Markdown file is in a subdirectory of the corpus, and discovery reads only the top level of the corpus directory; move it to the corpus root as <id>-<slug>.md for it to be linted and enforced" : "Markdown file in the corpus directory is not a discoverable ADR record and was skipped; rename it to <id>-<slug>.md (four or more leading digits) for it to be linted and enforced";
   return {
     rule: "corpus-file-skipped",
     severity: "warn",
-    message: "Markdown file in the corpus directory is not a discoverable ADR record and was skipped; rename it to <id>-<slug>.md (four or more leading digits) for it to be linted and enforced",
-    path
+    message,
+    path: normalizeDisplayPath(skipped.path, cwd)
   };
+}
+async function isDirectory(path) {
+  return stat2(path).then((info) => info.isDirectory(), () => false);
+}
+async function scannedDirectories(paths, dir, cwd) {
+  if (!paths || paths.length === 0)
+    return [dir];
+  const directories = new Set;
+  for (const path of paths) {
+    const absolutePath = isAbsolute2(path) ? path : resolve2(cwd, path);
+    if (await isDirectory(absolutePath))
+      directories.add(absolutePath);
+  }
+  return [...directories].sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
 }
 async function lintCorpus(options = {}) {
   const cwd = options.cwd ?? process.cwd();
@@ -46325,9 +46363,11 @@ async function lintCorpus(options = {}) {
       findings.push(parseErrorFinding(error51, displayPath));
     }
   }
-  if (!options.paths || options.paths.length === 0) {
-    for (const skipped of await discoverSkippedMarkdownFiles(dir, cwd)) {
-      findings.push(skippedFileFinding(normalizeDisplayPath(skipped, cwd)));
+  const checkedPaths = new Set(files);
+  for (const scanned of await scannedDirectories(options.paths, dir, cwd)) {
+    for (const skipped of await discoverSkippedMarkdownFiles(scanned, cwd)) {
+      if (!checkedPaths.has(skipped.path))
+        findings.push(skippedFileFinding(skipped, cwd));
     }
   }
   findings.push(...validateImportIncomplete(records));

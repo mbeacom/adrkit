@@ -246,11 +246,17 @@ export async function migrateMadr(input: MigrateMadrInput): Promise<MigrateMadrR
   const allocatedIds = new Map<string, string>(
     writable.map((entry) => [entry.sourceRef, allocateId(entry.source, classificationForSource.get(entry.sourceRef))]),
   );
+
+  // Built over *every* prepared source, not just the writable ones: in an incremental
+  // migration the successor a new record points at was often imported by an earlier run
+  // and is now `unchanged`. Its id is known from its classification, so the reference
+  // still resolves instead of being downgraded to an unrecognized status.
   const sourceNumberToId = new Map<string, string>();
-  for (const entry of writable) {
+  for (const entry of sorted) {
     const declared = rawId(entry.source) ?? fileNameId(entry.source.absolutePath);
-    const allocated = allocatedIds.get(entry.sourceRef);
-    if (declared && allocated && !sourceNumberToId.has(declared)) sourceNumberToId.set(declared, allocated);
+    if (!declared || sourceNumberToId.has(declared)) continue;
+    const resolved = allocatedIds.get(entry.sourceRef) ?? classificationForSource.get(entry.sourceRef)?.recordId;
+    if (resolved) sourceNumberToId.set(declared, resolved);
   }
   const resolveSupersededRef = (ref: string): string | undefined => sourceNumberToId.get(ref);
 

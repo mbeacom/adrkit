@@ -66,8 +66,9 @@ answer where the next decision is actually being made.
 ## What it does
 
 - **`adr lint`** — validate records, catch supersession cycles, find decisions
-  that silently contradict each other. Also warns when markdown in the corpus
-  directory is not a discoverable record, so "checked 0 records" is never silent
+  that silently contradict each other. Also warns when markdown under the corpus
+  directory is not discoverable — misnamed, or nested in a subdirectory — so
+  "checked 0 records" is never silent
 - **`adr migrate --from madr`** — adopt an existing MADR corpus in place,
   additively, without breaking your current tooling. Reads status and date from
   MADR 3.x frontmatter, MADR 2.x `* Status:` header bullets, and Nygard
