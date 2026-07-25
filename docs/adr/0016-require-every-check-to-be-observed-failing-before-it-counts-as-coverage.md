@@ -111,6 +111,25 @@ when they were introduced, and each shipped a period of false assurance. The
 cost is not the fix; it is the interval during which governance silently covered
 nothing.
 
+## Known instances outside this repository
+
+`mbeacom/adrkit-t018-dogfood` carries an instance in its own validation scripts:
+`assert-queue-report.ts` and `assert-managed-issue-body.sh` assert a blanket
+absence of corpus findings where they mean the conditional *no findings of
+`error` severity* — the script's own header comment states the narrower intent.
+
+The two forms are **equivalent at that repository's current pin** (`bbe63e01`,
+where `CorpusFinding.severity` is the `'error'` literal) and diverge only once
+#52 lands. That repository has recorded the tightening as a forward dependency,
+naming both the target and the fail-quiet risk that a naive
+`filter(severity === 'error')` reintroduces.
+
+Recorded here as evidence that the pattern is not local to adrkit, **not** as an
+action item. That repository is outside this record's `affects` scope and
+outside this project's control; making its maintenance a precondition for
+closing this record would create an action item that cannot be completed from
+here — which is its own small instance of a check that cannot fail.
+
 ## Trade-offs
 
 Requiring a deliberate red run slows each assertion slightly, and the discipline
@@ -146,8 +165,7 @@ equality assertion would be cargo cult.
        a clean corpus, and both were observed distinguishing the two before the
        fix landed.
 3. [ ] Fold the rule into `CONTRIBUTING.md` if accepted.
-4. [ ] Revisit the over-broad assertions in `mbeacom/adrkit-t018-dogfood`
-       (`assert-queue-report.ts`, `assert-managed-issue-body.sh`), which assert
-       a blanket absence of corpus findings where they mean the conditional
-       `no findings of error severity`. That repo has already recorded the
-       tightening as a forward dependency; this is the rule it is an instance of.
+
+Every item above is completable from inside this repository. The external
+instance is recorded under "Known instances outside this repository" and is
+deliberately not tracked here.
