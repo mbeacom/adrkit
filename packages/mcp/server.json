@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.adrkit/mcp",
+  "title": "adrkit decision memory",
+  "description": "Deterministic, offline, read-only ADR decision memory for coding agents. No model or network calls.",
+  "version": "0.2.0",
+  "websiteUrl": "https://adrkit.dev",
+  "repository": {
+    "url": "https://github.com/mbeacom/adrkit",
+    "source": "github",
+    "subfolder": "packages/mcp"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@adrkit/mcp",
+      "version": "0.2.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ADRKIT_MCP_CWD",
+          "description": "Repository root; must contain a readable .git entry. Defaults to the process working directory.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ADRKIT_MCP_DIR",
+          "description": "ADR directory, resolved against the root and required to stay contained within it. Defaults to docs/adr.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
