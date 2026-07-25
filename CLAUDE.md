@@ -40,6 +40,11 @@ Exit codes: `0` = report with no corpus error findings; `1` = report emitted
 usage error (invalid flag/value or unreachable corpus directory). Identical
 inputs produce byte-for-byte identical output (SC-001).
 
+Records corpus discovery cannot see — misnamed, or nested below the corpus root —
+are reported as `corpus.file-skipped` corpus findings at **`warn`** severity, so a
+`proposed` record never disappears from the queue silently. Being `warn`, they do
+not change the exit code and do not fail the managed-issue Action.
+
 ## Toolchain
 
 This project uses **Bun** as its runtime, package manager, test runner, and

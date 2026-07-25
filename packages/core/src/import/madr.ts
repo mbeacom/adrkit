@@ -53,6 +53,13 @@ export function extractMadrTitle(frontmatter: Record<string, unknown>, body: str
 export interface MadrBodyFields {
   status?: string;
   date?: string;
+  deciders?: string[];
+  /**
+   * Entries from a `* Deciders:` bullet that are not schema-valid identities, so could
+   * not be imported. Kept so the importer can say "I read this line and could not map
+   * it" rather than reporting the record as having declared no deciders at all.
+   */
+  decidersUnmapped?: string[];
 }
 
 /**
@@ -89,15 +96,17 @@ function cleanFieldValue(value: string): string {
     .trim();
 }
 
+type BodyField = 'status' | 'date' | 'deciders';
+
 /** `* Status: accepted`, `- Date: 2025-03-14`, `**Status:** accepted` — MADR 2.x. */
-function headerBulletValue(region: string, field: 'status' | 'date'): string | undefined {
+function headerBulletValue(region: string, field: BodyField): string | undefined {
   const pattern = new RegExp(`^[ \\t]*(?:[*+-][ \\t]+)?\\*{0,2}_{0,2}${field}_{0,2}\\*{0,2}[ \\t]*:[ \\t]*(.+)$`, 'im');
   const value = cleanFieldValue(pattern.exec(region)?.[1] ?? '');
   return value.length > 0 ? value : undefined;
 }
 
 /** `## Status` followed by the value on its own line — the Nygard dialect. */
-function sectionValue(body: string, field: 'status' | 'date'): string | undefined {
+function sectionValue(body: string, field: BodyField): string | undefined {
   const heading = new RegExp(`^#{2,6}[ \\t]+${field}[ \\t]*#*[ \\t]*$`, 'im').exec(body);
   if (!heading) return undefined;
 
@@ -110,19 +119,47 @@ function sectionValue(body: string, field: 'status' | 'date'): string | undefine
   return undefined;
 }
 
+/** `@handle`, `team:slug`, or an email address — the schema's `Identity` grammar. */
+const IDENTITY_PATTERN = /^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\s]+@[^@\s]+\.[^@\s]+)$/;
+
 /**
- * Recover `status` and `date` from the two widely deployed MADR dialects that keep them
- * in the body rather than in YAML frontmatter: MADR 2.x header bullets and Nygard
- * `## Status` sections. Without this, both dialects import as `proposed` dated
- * `1970-01-01` — a silent downgrade of decisions that were already accepted (#40).
+ * Split a `* Deciders: @a, @b` value into schema-valid identities, keeping the entries
+ * that are not identities separately. MADR leaves this field free-form, so real-world
+ * values are often names (`Jane Smith`) or the template's own
+ * `[list everyone involved in the decision]` placeholder. Those cannot be written as
+ * frontmatter the schema would accept — but discarding them silently would make a
+ * record that *declared* deciders indistinguishable from one that declared none.
+ */
+function parseDeciders(value: string | undefined): { identities: string[]; unmapped: string[] } {
+  if (!value) return { identities: [], unmapped: [] };
+
+  const identities: string[] = [];
+  const unmapped: string[] = [];
+  for (const entry of value.split(/[,;]|\s+and\s+/).map((part) => part.trim())) {
+    if (entry.length === 0) continue;
+    if (IDENTITY_PATTERN.test(entry)) identities.push(entry);
+    else unmapped.push(entry);
+  }
+  return { identities: [...new Set(identities)], unmapped: [...new Set(unmapped)] };
+}
+
+/**
+ * Recover `status`, `date`, and `deciders` from the two widely deployed MADR dialects
+ * that keep them in the body rather than in YAML frontmatter: MADR 2.x header bullets
+ * and Nygard `## Status` sections. Without this, both dialects import as `proposed`
+ * dated `1970-01-01` with no deciders — a silent downgrade of decisions that were
+ * already accepted, attributed to nobody (#40, #50).
  */
 export function extractMadrBodyFields(body: string): MadrBodyFields {
   const region = headerRegion(body);
   const status = headerBulletValue(region, 'status') ?? sectionValue(body, 'status');
   const date = headerBulletValue(region, 'date') ?? sectionValue(body, 'date');
+  const deciders = parseDeciders(headerBulletValue(region, 'deciders') ?? sectionValue(body, 'deciders'));
   return {
     ...(status !== undefined ? { status } : {}),
     ...(date !== undefined ? { date } : {}),
+    ...(deciders.identities.length > 0 ? { deciders: deciders.identities } : {}),
+    ...(deciders.unmapped.length > 0 ? { decidersUnmapped: deciders.unmapped } : {}),
   };
 }
 

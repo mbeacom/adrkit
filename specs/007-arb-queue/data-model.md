@@ -215,8 +215,10 @@ file that failed cross-field invariant validation).
 interface CorpusFinding {
   sourcePath: string;  // repo-relative, forward slashes
   code: string;        // from closed list: corpus.read-error, corpus.parse-error,
-                       //   corpus.schema-invalid, corpus.one-way-door-auto-tier
-  severity: "error";   // always "error"; corpus findings are always blocking
+                       //   corpus.schema-invalid, corpus.one-way-door-auto-tier,
+                       //   corpus.file-skipped
+  severity: "error" | "warn";  // "error" is blocking; "warn" is reserved for
+                       //   corpus.file-skipped (see below)
   message: string;     // human-readable; see research.md §R2
 }
 ```
@@ -241,10 +243,19 @@ interface CorpusFinding {
 | `supersededBy-requires-superseded-status` | `corpus.schema-invalid` |
 | `accepted-requires-decider-unless-imported` | `corpus.schema-invalid` |
 | `agent-accepted-requires-ratifier` | `corpus.schema-invalid` |
+| `corpus-file-skipped` | `corpus.file-skipped` (**`warn`** severity) |
 | *(any unknown future rule)* | `corpus.schema-invalid` (fallback) |
+
+`corpus.file-skipped` is the one non-blocking code. A file corpus discovery could
+not see — misnamed, or nested below the corpus root — produces no record and so no
+queue item, but it is not a corpus that fails to load or validate. Reporting it at
+`warn` makes the gap visible without failing the run: the CLI exit code and the
+Action’s `setFailed` path both key off `error` severity only (#51).
 
 **Scope**: only files that are excluded from `lintCorpus().records` (i.e., files
 whose `Adr.path` does NOT appear in `records`) are projected into CorpusFindings.
+A file is excluded when it has an `error`-severity finding, or when it carries a
+`corpus-file-skipped` finding — discovery never produced a record for it either way.
 Schema-valid `records` that have lint findings (warn/info severity) are NOT added
 to `corpusFindings` — their lint findings are ignored by the queue (the queue
 focuses on queue-specific item findings, not general lint).

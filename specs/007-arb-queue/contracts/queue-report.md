@@ -32,11 +32,16 @@ interface ItemFinding {
   message: string;
 }
 
-/** A finding for a file that could not be projected into a QueueItem. Always error severity. */
+/**
+ * A finding for a file that could not be projected into a QueueItem.
+ * `error` for a file the corpus could not load or validate; `warn` for one discovery
+ * could not see at all (`corpus.file-skipped`) — a governance gap rather than a broken
+ * corpus, so it never changes the exit code or fails the Action.
+ */
 interface CorpusFinding {
   sourcePath: string;
   code: string;
-  severity: "error";
+  severity: "error" | "warn";
   message: string;
 }
 

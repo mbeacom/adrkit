@@ -70,9 +70,9 @@ answer where the next decision is actually being made.
   directory is not discoverable — misnamed, or nested in a subdirectory — so
   "checked 0 records" is never silent
 - **`adr migrate --from madr`** — adopt an existing MADR corpus in place,
-  additively, without breaking your current tooling. Reads status and date from
-  MADR 3.x frontmatter, MADR 2.x `* Status:` header bullets, and Nygard
-  `## Status` sections. Pass `--rename` to also rename each file to
+  additively, without breaking your current tooling. Reads status, date, and
+  deciders from MADR 3.x frontmatter, MADR 2.x `* Status:` header bullets, and
+  Nygard `## Status` sections. Pass `--rename` to also rename each file to
   `<id>-<slug>.md` so corpus discovery can see it
 - **`adr explain <path>`** — print every decision governing a file, and the
   matcher that fired. Only `accepted` records are reported as governing; matched

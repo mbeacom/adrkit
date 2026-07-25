@@ -101,7 +101,7 @@ exit-2 (usage errors), where no report is produced.
 
 | Code | Meaning | Stdout emitted? |
 |------|---------|-----------------|
-| `0` | Complete report; zero `error`-severity findings | Yes (full report) |
+| `0` | Complete report; zero `error`-severity findings (a `warn` `corpus.file-skipped` entry does not change this) | Yes (full report) |
 | `1` | Complete report; one or more excluded-file `error` entries in `report.corpusFindings` | Yes (full report) |
 | `2` | Usage error; invalid flag, value, or unreachable corpus directory | No |
 

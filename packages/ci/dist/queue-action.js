@@ -46453,8 +46453,10 @@ var RULE_TO_CORPUS_CODE = {
   "superseded-requires-supersededBy": "corpus.schema-invalid",
   "supersededBy-requires-superseded-status": "corpus.schema-invalid",
   "accepted-requires-decider-unless-imported": "corpus.schema-invalid",
-  "agent-accepted-requires-ratifier": "corpus.schema-invalid"
+  "agent-accepted-requires-ratifier": "corpus.schema-invalid",
+  "corpus-file-skipped": "corpus.file-skipped"
 };
+var WARN_CORPUS_CODES = new Set(["corpus.file-skipped"]);
 function messageFor(code, finding) {
   switch (code) {
     case "corpus.read-error":
@@ -46467,7 +46469,8 @@ function messageFor(code, finding) {
 }
 function mapFindingToCorpusFinding(finding, sourcePath) {
   const code = RULE_TO_CORPUS_CODE[finding.rule] ?? "corpus.schema-invalid";
-  return { sourcePath, code, severity: "error", message: messageFor(code, finding) };
+  const severity = WARN_CORPUS_CODES.has(code) ? "warn" : "error";
+  return { sourcePath, code, severity, message: messageFor(code, finding) };
 }
 
 // ../core/src/queue/types.ts
@@ -46624,7 +46627,7 @@ function buildItem(frontmatter, sourcePath, asOf) {
 function buildQueueReport(input) {
   const { corpus, asOf } = input;
   const recordPaths = new Set(corpus.records.map((record2) => record2.path));
-  const excludedPaths = new Set(corpus.findings.filter((f) => f.severity === "error" && f.path != null && !recordPaths.has(f.path)).map((f) => f.path));
+  const excludedPaths = new Set(corpus.findings.filter((f) => (f.severity === "error" || f.rule === "corpus-file-skipped") && f.path != null && !recordPaths.has(f.path)).map((f) => f.path));
   const corpusFindings = sortCorpusFindings(corpus.findings.filter((f) => f.path != null && excludedPaths.has(f.path)).map((f) => mapFindingToCorpusFinding(f, normalizeSourcePath(f.path))));
   const items = sortQueueItems(corpus.records.filter((record2) => record2.frontmatter.status === "proposed").map((record2) => buildItem(record2.frontmatter, record2.path, asOf)));
   const orderedRecords = [...corpus.records].sort((a, b) => compareCodeUnits(a.frontmatter.id, b.frontmatter.id) || compareCodeUnits(a.path, b.path));
