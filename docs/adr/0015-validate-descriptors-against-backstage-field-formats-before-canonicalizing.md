@@ -184,20 +184,33 @@ ratification of the record, which remains `proposed`.
 installation in any particular catalog pipeline, and this record does not assert
 it.
 
-### Subsequent reviews: three further passes, all FAIL
+### Subsequent reviews: four further passes, all FAIL
 
-Three more independent passes followed — a different-lineage `gpt-5.6-sol`
-reviewer, then two `claude-opus-5` passes each bounded to the preceding diff.
-**All three returned FAIL.**
+**This record has been independently reviewed five times, across two model
+lineages.** Every pass returned FAIL. The later passes were each bounded to the
+diff produced by the one before.
 
-**Every substantive element survived all four reviews unchanged**, across two
-lineages: the validator bindings and predicate bodies, the executed regexes, the
-descriptor counts, the over-length pair, the residual Nexus duplicate, and the
-governance metadata. No review altered the Decision, the options, the validator
-table, or any figure. What failed each time was prose — and, in the last two
-passes, prose describing the earlier failures.
+Per-pass reviewer identities are **attested by the orchestrating session and are
+not checkable from anything in this repository** — the model assignment exists
+only in that orchestration. This section therefore records the review count and
+the fact of two lineages, both of which follow from the standing model policy,
+rather than a pass-by-pass roster. A reviewer reading this record cannot verify
+such a roster and should not attempt to confirm one; an earlier version stated
+one and it was wrong on both order and totals.
 
-Defects found and corrected across those three passes:
+**Review 1 corrected substance.** It changed two rows of the validator table —
+the `apiVersion` binding and its numeric bound, and the `metadata.namespace`
+chain — and removed a claim from Option A. Those corrections are described above.
+
+**Reviews 2 to 5 found nothing wrong with the substance.** No pass after the
+first altered the Decision, the options, the validator table, or any figure. The
+validator bindings and predicate bodies, the executed regexes, the descriptor
+counts, the over-length pair, the residual Nexus duplicate and the governance
+metadata have all stood unchanged since review 1's corrections. What failed in
+those four passes was prose — and, in the last three, prose describing the
+earlier failures.
+
+Defects found and corrected across passes 2 to 5:
 
 - A **separability claim was false**: two enumeration mistakes were said to
   inflate a count independently. They are conjunctive for that count, though one
@@ -215,9 +228,10 @@ Defects found and corrected across those three passes:
 - **"Depth-based heuristics do not" separate the two lines** was too categorical;
   indentation can distinguish them. The argument for structural extraction is
   fragility, not incapacity.
-- **The sweep for the preceding item claimed completeness while incomplete** —
-  it was line-oriented, and one instance survived in Option E because the phrase
-  wrapped a line break. Re-run whitespace-normalised.
+- **The sweep for those Backstage-system phrases claimed completeness while
+  incomplete** — it was line-oriented, so `input that Backstage itself rejects`
+  survived in Option E because the phrase wrapped a line break. Re-run
+  whitespace-normalised.
 - **A superseded claim survived above its own replacement**, still asserting that
   skipping structural extraction "will over-count".
 - **A passage about false universals contained one.**
@@ -260,10 +274,10 @@ substituting a digit.
 #### Why this section is short
 
 An earlier version narrated each defect's origin commit by commit, and then
-narrated the corrections to that narration. Three of the last four defects were
-found *in that material* — it grew with every pass and each addition was new
-surface to be wrong on, while nothing in it was load-bearing for a reader of this
-record. It has been compressed deliberately. **No defect has been removed from
+narrated the corrections to that narration. Successive passes kept finding
+defects *in that material* rather than in the record's substance — it grew with
+every pass and each addition was new surface to be wrong on, while nothing in it
+was load-bearing for a reader of this record. It has been compressed deliberately. **No defect has been removed from
 the list above**; what was removed describes only itself.
 
 ## Decision
@@ -511,34 +525,33 @@ unusable afterwards, which is the test it needed to pass.
    ratification.**~~ **Done.** All four rows are now verified by execution
    against the pinned sources, and the two defective rows were corrected. See
    "How these bindings were checked".
-2. ~~**Obtain one independent review from a fresh context.**~~ **Done — four
-   reviews across two lineages, all FAIL, every finding accepted and corrected.**
-   Two `claude-opus-5` passes, one `gpt-5.6-sol` pass, and a final
-   `claude-opus-5` pass, the later ones bounded to the preceding diff. Every
-   defect is listed above. **Every reviewer confirmed the substance sound** —
-   bindings, predicates, executed regexes, counts, the Nexus duplicate, the
-   governance metadata. What failed each time was prose precision, and in the
-   last two passes prose *about the earlier failures*, not the warrant.
+2. ~~**Obtain one independent review from a fresh context.**~~ **Done — five
+   independent reviews across two model lineages, all FAIL, every finding
+   accepted and corrected.** Every defect is listed above. **Review 1 corrected
+   substance** — two validator-table rows and an Option A claim. **No pass after
+   it found anything wrong with the substance**: bindings, predicates, executed
+   regexes, counts, the Nexus duplicate and the governance metadata have stood
+   unchanged since. What failed in passes 2 to 5 was prose precision, and latterly
+   prose *about the earlier failures*, not the warrant.
 
-   **No reviewer has seen the current text.** The maintainer should decide the
-   ratification standard explicitly rather than inherit it. Three
-   considerations, offered without a recommendation:
+   The maintainer should decide the ratification standard explicitly rather than
+   inherit it. Three considerations, offered without a recommendation:
 
    - **Correction rounds have themselves introduced defects.** Of the four
      claims traced for provenance, two were introduced during correction rounds
      rather than pre-dating the first review. So "review until clean" is not
      obviously convergent; each round has had some chance of adding what the
      next one finds.
-   - **The recent failures are concentrated in the meta-narrative**, not the
-     record's substance. Reviews three and four found nothing wrong with the
-     decision, the options, the validator table or any figure; they found the
-     account of the earlier failures wrong. A maintainer may reasonably weigh a
-     defect in *this section* differently from a defect in the Decision.
+   - **The later failures are concentrated in the review history**, not the
+     record's substance. Passes 3 to 5 found defects in the account of the
+     earlier failures — including, in Option E, one instance of a defect class
+     that account had claimed was fully swept. A maintainer may reasonably weigh
+     a defect in *that section* differently from a defect in the Decision.
    - **The largest identified defect class is enumerable and drained.**
      System-level claims about Backstage: eight instances existed at
      `4773d25`, all eight corrected, verifiable by a whitespace-normalised sweep
-     rather than by another reviewer's judgement. The fourth review reproduced
-     that count independently.
+     rather than by another reviewer's judgement. A later pass reproduced that
+     count independently.
 
    This record does not presume which standard applies.
 3. **Only after ratification**, prepare the corresponding `specs/009-**`
