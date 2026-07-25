@@ -25,11 +25,9 @@ on:
       - '.github/workflows/site.yml'
   workflow_dispatch:
 
-# Least-privilege token for the Pages deployment.
+# Least-privilege baseline. Pages deploy privileges are scoped to the deploy job.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Serialize per ref; never cancel an in-flight deploy.
 concurrency:
@@ -45,6 +43,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
@@ -76,6 +76,11 @@ jobs:
     # Deploy only on push to main or a manual dispatch — never on pull requests.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # Pages deploy privileges live here, not workflow-wide: the build job never
+    # receives pages:write or id-token:write.
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

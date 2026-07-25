@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
@@ -47,6 +49,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
@@ -104,6 +108,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
@@ -111,11 +116,13 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: adr check on the PR's changed files
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git fetch --no-tags origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "$BASE_REF"
           # Include deletions: a decision may govern a removed path, so deleted files
           # must stay in the changed set for path matchers to fire.
-          mapfile -t changed < <(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          mapfile -t changed < <(git diff --name-only "origin/$BASE_REF...HEAD")
           echo "Changed files:"
           printf '  %s\n' "${changed[@]}"
           if [ "${#changed[@]}" -eq 0 ]; then

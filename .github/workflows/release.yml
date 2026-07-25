@@ -5,10 +5,6 @@ on:
     tags:
       - 'v*.*.*'
 
-permissions:
-  contents: write
-  id-token: write
-
 concurrency:
   group: release-${{ github.repository }}
   cancel-in-progress: false
@@ -18,6 +14,9 @@ jobs:
     if: github.repository == 'mbeacom/adrkit'
     runs-on: ubuntu-latest
     environment: npm
+    permissions:
+      contents: write # gh release create + force-push the major Action tag
+      id-token: write # npm Trusted Publishing (OIDC provenance)
     steps:
       - name: Check out tagged source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
@@ -81,10 +80,6 @@ jobs:
 
       - name: Publish npm packages with provenance
         run: bun run release:publish
-        env:
-          # The publish script maps this only to @adrkit/mcp. Existing packages
-          # remain on OIDC. Remove the secret after MCP Trusted Publishing works.
-          NPM_BOOTSTRAP_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub release
         env:
