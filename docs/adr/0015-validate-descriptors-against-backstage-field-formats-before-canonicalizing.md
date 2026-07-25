@@ -6,9 +6,9 @@ status: proposed
 date: 2026-07-25
 deciders: ["@mbeacom"]
 tags: [catalog, governance, matching, core]
-scope: domain
+scope: org
 reversibility: two-way-door
-blastRadius: cross-team
+blastRadius: org
 relatesTo: ["0009", "0012", "0013"]
 affects:
   - type: path
@@ -25,8 +25,10 @@ review:
     Adds a precondition to the canonicalization step ADR-0012 pins, and adds a
     trigger condition to its org-scope, one-way-door atomic fail-closed clause.
     ADR-0013 set the precedent that narrowing or extending a frozen clause of an
-    org-scope record takes the ARB tier even when the amending record is itself
-    narrower.
+    org-scope record takes the ARB tier. A misjudged admissibility rule silently
+    removes entities from governance reach entirely, so that no ADR assertion
+    ever fires against them — an org-wide consequence irrespective of how narrow
+    the rule's own mechanism is.
 assertions:
   - id: entity-admissibility-precedes-canonicalization
     description: >-
@@ -204,6 +206,28 @@ The gap is independent of whether feature009 ever executes again.
 **What this buys.** Classification precision at the identity boundary, and
 alignment with the validator semantics ADR-0012 already pinned but never
 applied. Failures name the defect that actually occurred.
+
+**On the governance metadata, since the combination is unusual.** This record is
+deliberately `scope: org` and `blastRadius: org` — equal in reach to ADR-0012,
+ADR-0013 and ADR-0014 — while remaining `two-way-door`, where all three of those
+are one-way-door. **The asymmetry is intended, not an oversight.**
+
+The reach is org-wide because of what a *misjudged* admissibility rule does: it
+removes descriptors from the governed entity set entirely, so no ADR assertion
+ever fires against them. Entities do not appear mis-governed; they appear absent.
+That is precisely the failure mode ADR-0012 exists to prevent, and its
+consequence does not shrink just because this rule's mechanism is a single
+field-format check. A record cannot coherently claim ARB review *on the grounds
+that it amends an org-scope clause* while describing its own blast radius as
+narrower than the clause it amends.
+
+The reversibility is genuinely lower-risk, though, and that difference is worth
+preserving rather than rounding to match the siblings. Admissibility can be
+*widened* additively at any time — accepting a descriptor previously rejected
+strictly enlarges the entity set and invalidates no prior output. What is not
+freely reversible is the emitted `inadmissible-descriptor` trigger class, once
+consumers branch on it. So: org-wide in what it can cost if wrong, two-way-door
+in how hard it is to walk back.
 
 **What is given up:**
 
