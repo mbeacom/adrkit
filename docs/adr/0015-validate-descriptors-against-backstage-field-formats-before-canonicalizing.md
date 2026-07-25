@@ -184,21 +184,24 @@ ratification of the record, which remains `proposed`.
 installation in any particular catalog pipeline, and this record does not assert
 it.
 
-### Second and third reviews: `gpt-5.6-sol` and `claude-opus-5`, both FAIL
+### Reviews two, three and four: all FAIL
 
-A second, different-lineage pass by a `gpt-5.6-sol` reviewer, and a third
-`claude-opus-5` pass bounded to the resulting diff, both returned **FAIL**. Every
-substantive element was confirmed by all three reviewers across two lineages —
+A second, different-lineage pass by a `gpt-5.6-sol` reviewer, and third and
+fourth `claude-opus-5` passes each bounded to the preceding diff, all returned
+**FAIL**. Every substantive element was confirmed by every reviewer, across two
+lineages —
 the validator bindings and predicate bodies, the executed regexes, the counts,
 the over-length pair, the residual Nexus duplicate, the governance metadata, and
 this record's own honesty about the review standard. **The core warrant is not
-what has been failing. Prose precision is.**
+what has been failing. Prose precision is** — and, four times over, prose *about
+the failures themselves*.
 
-Nine corrections followed — four from the second review, five from the third
-(three blocking, two further non-blocking). All are in surrounding narrative;
-none touched the decision, the options, or any figure. They are enumerated in
-full because the alternative, fixing quietly, is the failure this section
-exists to avoid.
+Ten corrections followed: five from the second review, four from the third, and
+one — the last — from the third and fourth together, which found the same
+passage wrong in two different ways. All are in surrounding narrative; none
+touched the decision, the options, or any figure. They are enumerated in full
+because the alternative, fixing quietly, is the failure this section exists to
+avoid.
 
 1. **A separability claim was false.** The evidence index asserted that two
    distinct enumeration mistakes each *independently* inflated the placeholder
@@ -206,82 +209,115 @@ exists to avoid.
    count — only making *both* reaches the wrong figure — though path matching
    alone does still corrupt the file and document counts. Corrected there, with
    the four-way table.
-2. **"Both unsubstituted forms" and "these two"** were falsified by the
-   discovery of the third placeholder form.
-3. **"Backstage would reject … outright"** overstated the cited evidence in
+2. **"Both unsubstituted forms"** was wrong: the pinned corpora contain three.
+3. **"The placeholder descriptors recorded above at least collide"** was wrong:
+   `bulk-import`, and later `orchestrator`, canonicalize uniquely and collide
+   with nothing. The phrase "these two" in that passage refers to the two
+   over-length names and was **never** wrong; only the contrast around it was.
+4. **"Backstage would reject … outright"** overstated the cited evidence in
    exactly the way the ordering claim did. The four files establish what the
    validators do *when applied*; they do not establish that any particular
    Backstage deployment applies them.
-4. **"Depth-based heuristics do not" separate the two lines** was too
+5. **"Depth-based heuristics do not" separate the two lines** was too
    categorical. Indentation *can* distinguish them here — 2 spaces versus 10.
    The argument for structural extraction is fragility, not incapacity: depth
    depends on formatting YAML does not constrain.
-5. **The sweep for defect 3 was itself incomplete while claiming completeness.**
-   One instance survived in Option E, undetected because the phrase wrapped a
-   line break and the sweep was line-oriented. Now corrected, and re-run
-   whitespace-normalised.
-6. **The predecessor of correction 1 survived 40 lines above its replacement**,
+6. **The sweep for correction 4 was itself incomplete while claiming
+   completeness.** One instance survived in Option E, undetected because the
+   phrase wrapped a line break and the sweep was line-oriented. Now corrected,
+   and re-run whitespace-normalised.
+7. **The predecessor of correction 1 survived 40 lines above its replacement**,
    still asserting that skipping structural extraction "will over-count" — which
    correction 1 disproves. Corrected.
-7. **The diagnosis below was wrong**, in the way set out next.
 8. **A passage about false universals contained one.** It said the third
    placeholder form "invalidated **every** sentence that had quantified over
-   'both forms' or 'these two'". It did not: "these two" in the over-length
-   finding refers to a different pair and stayed correct. Corrected in place.
+   'both forms' or 'these two'". It did not.
 9. **A section lead-in contradicted its own conclusion** — "Why this case is the
    harder one" introducing a paragraph that calls the pair the *cleanest* case.
    Retitled to match what the paragraph argues.
+10. **The provenance account below was wrong twice**, in the way set out next.
 
 #### Where these defects actually came from
 
-The second review's findings were first characterised — in this record and in
-the reporting around it — as prose "added after the first review", making the
-lesson *revision between reviews is risky*. **That characterisation is false**,
-and so is the opposite reading that later passes are merely draining a pool the
-first pass missed. Checked against `4773d25`, the document the first review
-examined, the three second-review defects have three *different* origins:
+This account has now been wrong twice, in opposite directions, and the second
+wrong version was mine.
 
-| Defect | Present at `4773d25`? | Origin |
-|---|---|---|
-| Separability | no | **Introduced** during the first round of corrections |
-| "Both … forms" / "these two" | yes — **and true then** | **Self-falsified**: only two forms were known; the third-form discovery invalidated it and the sweep was not run |
-| "Backstage would reject" | yes — **and false then** | **Pre-existing**, missed by the first review |
+It was first written as prose "added after the first review", making the lesson
+*revision between reviews is risky*. Corrected once to say two of the three
+second-review defects pre-dated the first review, it was then corrected again —
+by this record — to claim that "Both unsubstituted forms" had been **true when
+written** and only became false when the third placeholder form was found. That
+second correction was well-argued and wrong, and it was accepted without being
+tested against the corpus.
 
-So one of three is a genuine pre-existing miss; two are self-inflicted during
-correction rounds. Neither "revision is risky" nor "the pool is finite" is the
-whole picture — **both mechanisms are operating**, and they need different
-remedies.
+Checked properly, against `4773d25` and against the pinned corpora themselves:
 
-The pre-existing component is at least *enumerable*. A whitespace-normalised
-sweep of `4773d25` finds **eight** system-level claims about Backstage — seven of
-the form "Backstage \<verb\>" and one noun phrase, "matches Backstage's own
-ordering". The first review caught two of them, both about ordering, and missed
-six. The second review caught the class again; five were then corrected and one
-was missed, which the third review found in Option E. All eight are now
-corrected, and the sweep has been re-run whitespace-normalised over both files,
-so this class is drained rather than sampled and can be re-checked mechanically
-at any time.
+| Second-review finding | Present at `4773d25`? | True when written? | Origin |
+|---|---|---|---|
+| Separability | no — added at `b1b60c2` | no | **Self-inflicted** |
+| "Both unsubstituted forms" | **yes** | **no** — the pinned corpus already held three | **Pre-existing**, missed by review 1 |
+| "…at least collide" | no — added at `2e85fa6` | **no** — `bulk-import` was recorded as non-colliding in a table in the *same commit* | **Self-inflicted** |
+| "Backstage would reject …" | **yes** | **no** | **Pre-existing**, missed by review 1 |
 
-The self-inflicted component has no such bound, and is the more honest thing to
-report. It is the reason this section enumerates every correction rather than
-presenting a clean record.
+Two pre-existing misses and two self-inflicted. But the column that matters is
+the third one:
 
+**None of these was ever true.** Every one was false the moment it was written.
+The category this record previously reached for — "accurate when written, later
+falsified" — turns out to be empty, and the "we didn't know that yet" defence
+never applied to any of them.
+
+##### Why the wrong version was tempting
+
+The reasoning was: only two placeholder forms were *known* when the sentence was
+written, so the sentence was accurate then. **That conflates what the author had
+enumerated with what was true.** The claim was "Both unsubstituted forms
+**present in the corpora**" — an assertion about a corpus frozen at
+`3b355ddfedb23c6656bd9effc8510f9926b765c1`. `${{ values.entityName }}` was in
+that tree on the day the sentence was written and every day before and since.
+The corpus cannot change, so the statement's truth-value does not depend on when
+anyone looked at it. It was false on arrival.
+
+This is the same failure the record keeps producing, one level up: **a claim
+indexed to the author's knowledge state rather than to the object it is about.**
+Ordering claims indexed to an assumption about Backstage rather than to the
+predicate. Counts indexed to an inherited enumeration rather than to the corpus.
+And here, a provenance claim indexed to what had been noticed rather than to what
+the frozen tree contained.
+
+The consequence is worth stating plainly, because it cuts against this record's
+own interest: for a claim about a pinned artifact, the pre-existing-defect class
+is **larger** than it looked and there is no window in which such a claim is
+excusably true. That also makes it more tractable — anything of this shape is
+checkable against the artifact at any time, by anyone, without a reviewer's
+judgement.
 #### Two root causes, each with a general form
 
 **The warrant is a set of pure predicates read at a pinned commit.** Any sentence
 about what Backstage as a **system** does — its ordering, its acceptance, its
-rejection — reaches past that warrant even when it is probably true. Defects 3
-and 5 are both instances. The reliable form is to state what the predicate
+rejection — reaches past that warrant even when it is probably true. Corrections
+4 and 6 are both instances. The reliable form is to state what the predicate
 returns.
 
-**A count change is never local.** Introducing a third placeholder form
-invalidated sentences that quantified over "both forms" and "these two" — none
-of which contained a digit, so no search for the changed figure could have
-surfaced them. Not *every* such sentence was affected: "these two" in the
-over-length finding refers to a different pair and remained correct throughout,
-which is exactly why this needs re-reading rather than pattern-matching. Any
-future revision to these counts should re-read the quantified prose, not just the
-digits.
+**A count change does not falsify prose; it reveals prose that was already
+false.** This was previously recorded the other way round — as "a count change is
+never local", with the third placeholder form said to have *invalidated*
+surrounding sentences. It did not. "Both unsubstituted forms" was already false
+against the pinned corpus; "…at least collide" was already false against a table
+in its own commit. What the count change did was make them **findable**.
+
+The practical guidance is nearly the same and the reasoning is not, which
+matters. Re-read quantified prose when a count changes — not because the change
+broke it, but because the change is often the first occasion anyone re-reads it.
+And do not treat "this was written before we knew" as establishing that a
+sentence was once correct: for claims about a pinned artifact, there is no such
+window.
+
+One caution against pattern-matching, since the previous version of this passage
+over-generalised: not every nearby quantifier was wrong. "These two" in the
+over-length finding refers to a different pair and was correct throughout. The
+work is re-reading, not substituting a digit.
+
 ## Decision
 
 **A descriptor MUST be admissible before it is canonicalized.** Admissibility is
@@ -527,28 +563,35 @@ unusable afterwards, which is the test it needed to pass.
    ratification.**~~ **Done.** All four rows are now verified by execution
    against the pinned sources, and the two defective rows were corrected. See
    "How these bindings were checked".
-2. ~~**Obtain one independent review from a fresh context.**~~ **Done — three
+2. ~~**Obtain one independent review from a fresh context.**~~ **Done — four
    reviews, all FAIL, every finding accepted and corrected.** A `claude-opus-5`
    reviewer found three blocking defects in the validator table; a
-   different-lineage `gpt-5.6-sol` reviewer then found three more, plus one
-   non-blocking; a third `claude-opus-5` pass bounded to that diff found three
-   blocking and three non-blocking. All are corrected and enumerated above.
-   **All three reviewers confirmed the substance sound** — bindings, predicates,
-   executed regexes, counts, the Nexus duplicate, the governance metadata. What
-   has failed each time is prose precision, not the warrant.
+   different-lineage `gpt-5.6-sol` reviewer found four more; a third
+   `claude-opus-5` pass, bounded to that diff, found three blocking and three
+   non-blocking; a fourth found the provenance account still wrong. All are
+   corrected and enumerated above. **Every reviewer confirmed the substance
+   sound** — bindings, predicates, executed regexes, counts, the Nexus
+   duplicate, the governance metadata. What has failed each time is prose
+   precision, and latterly prose *about the earlier failures*, not the warrant.
 
-   **Neither the second nor the third reviewer has seen the current text.** The
-   maintainer should decide the ratification standard explicitly rather than
-   inherit it. Two considerations, offered without a recommendation:
+   **No reviewer has seen the current text.** The maintainer should decide the
+   ratification standard explicitly rather than inherit it. Three
+   considerations, offered without a recommendation:
 
-   - Of the second review's three defects, only one pre-dated the first review;
-     two were introduced or falsified by the correction rounds themselves. So
-     "review until clean" is not obviously convergent — each round has so far
-     had some chance of adding what the next one finds.
-   - Against that, the largest identified defect class — system-level claims
-     about Backstage — is now **enumerable and drained**, verifiable by a
-     whitespace-normalised sweep rather than by another reviewer's judgement.
-     Eight instances existed at `4773d25`; all eight are corrected.
+   - **Correction rounds have themselves introduced defects** — two of the
+     second review's four originated in the first round. So "review until clean"
+     is not obviously convergent; each round has had some chance of adding what
+     the next one finds.
+   - **The recent failures are concentrated in the meta-narrative**, not the
+     record's substance. Reviews three and four found nothing wrong with the
+     decision, the options, the validator table or any figure; they found the
+     account of the earlier failures wrong. A maintainer may reasonably weigh a
+     defect in *this section* differently from a defect in the Decision.
+   - **The largest identified defect class is enumerable and drained.**
+     System-level claims about Backstage: eight instances existed at
+     `4773d25`, all eight corrected, verifiable by a whitespace-normalised sweep
+     rather than by another reviewer's judgement. The fourth review reproduced
+     that count independently.
 
    This record does not presume which standard applies.
 3. **Only after ratification**, prepare the corresponding `specs/009-**`
