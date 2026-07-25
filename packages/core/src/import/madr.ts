@@ -54,6 +54,12 @@ export interface MadrBodyFields {
   status?: string;
   date?: string;
   deciders?: string[];
+  /**
+   * Entries from a `* Deciders:` bullet that are not schema-valid identities, so could
+   * not be imported. Kept so the importer can say "I read this line and could not map
+   * it" rather than reporting the record as having declared no deciders at all.
+   */
+  decidersUnmapped?: string[];
 }
 
 /**
@@ -117,19 +123,24 @@ function sectionValue(body: string, field: BodyField): string | undefined {
 const IDENTITY_PATTERN = /^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\s]+@[^@\s]+\.[^@\s]+)$/;
 
 /**
- * Split a `* Deciders: @a, @b` value into schema-valid identities. MADR leaves this
- * field free-form, so entries that are not identities — the template's own
- * `[list everyone involved in the decision]` placeholder, or a bare name — are dropped
- * rather than written as frontmatter the schema would then reject.
+ * Split a `* Deciders: @a, @b` value into schema-valid identities, keeping the entries
+ * that are not identities separately. MADR leaves this field free-form, so real-world
+ * values are often names (`Jane Smith`) or the template's own
+ * `[list everyone involved in the decision]` placeholder. Those cannot be written as
+ * frontmatter the schema would accept — but discarding them silently would make a
+ * record that *declared* deciders indistinguishable from one that declared none.
  */
-function parseDeciders(value: string | undefined): string[] | undefined {
-  if (!value) return undefined;
-  const identities = value
-    .split(/[,;]|\s+and\s+/)
-    .map((entry) => entry.trim())
-    .filter((entry) => IDENTITY_PATTERN.test(entry));
-  const unique = [...new Set(identities)];
-  return unique.length > 0 ? unique : undefined;
+function parseDeciders(value: string | undefined): { identities: string[]; unmapped: string[] } {
+  if (!value) return { identities: [], unmapped: [] };
+
+  const identities: string[] = [];
+  const unmapped: string[] = [];
+  for (const entry of value.split(/[,;]|\s+and\s+/).map((part) => part.trim())) {
+    if (entry.length === 0) continue;
+    if (IDENTITY_PATTERN.test(entry)) identities.push(entry);
+    else unmapped.push(entry);
+  }
+  return { identities: [...new Set(identities)], unmapped: [...new Set(unmapped)] };
 }
 
 /**
@@ -147,7 +158,8 @@ export function extractMadrBodyFields(body: string): MadrBodyFields {
   return {
     ...(status !== undefined ? { status } : {}),
     ...(date !== undefined ? { date } : {}),
-    ...(deciders !== undefined ? { deciders } : {}),
+    ...(deciders.identities.length > 0 ? { deciders: deciders.identities } : {}),
+    ...(deciders.unmapped.length > 0 ? { decidersUnmapped: deciders.unmapped } : {}),
   };
 }
 

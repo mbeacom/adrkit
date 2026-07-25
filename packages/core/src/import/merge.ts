@@ -161,6 +161,23 @@ function missingDateFinding(path: string, id?: string): Finding {
   };
 }
 
+/**
+ * The source named deciders in a form the schema cannot hold (`Jane Smith`, or an
+ * unfilled template placeholder). Without this the record is reported as having
+ * declared no deciders — true of the output, but not of the input.
+ */
+function unmappedDecidersFinding(unmapped: readonly string[], path: string, id?: string): Finding {
+  const listed = unmapped.map((entry) => `"${entry}"`).join(', ');
+  return {
+    rule: 'import-deciders-unmapped',
+    severity: 'warn',
+    message: `MADR source declares deciders that are not valid identities and were not imported: ${listed} — rewrite them as @handle, team:slug, or an email address`,
+    path,
+    id,
+    field: 'deciders',
+  };
+}
+
 function importedAtFrom(value: unknown): string | undefined {
   if (!isRecord(value)) return undefined;
   const importedFrom = value.importedFrom;
@@ -225,8 +242,13 @@ function initialCandidate(options: MergeMadrOptions, findings: Finding[]): Mutab
   // Frontmatter deciders win; the MADR 2.x `* Deciders:` bullet is the fallback. Without
   // this an imported record is attributed to nobody, and `import-incomplete` then asks
   // the user to backfill from a line the importer declined to read (#50).
-  if (!Array.isArray(candidate.deciders) && bodyFields.deciders !== undefined) {
-    candidate.deciders = [...bodyFields.deciders];
+  if (!Array.isArray(candidate.deciders)) {
+    if (bodyFields.deciders !== undefined) candidate.deciders = [...bodyFields.deciders];
+    // Only when the bullet is actually being consulted: if frontmatter already carries
+    // deciders, the bullet is ignored wholesale and there is nothing to report.
+    if (bodyFields.decidersUnmapped !== undefined) {
+      findings.push(unmappedDecidersFinding(bodyFields.decidersUnmapped, options.source.path, id));
+    }
   }
 
   for (const [key, value] of Object.entries(FALLBACKS)) {
