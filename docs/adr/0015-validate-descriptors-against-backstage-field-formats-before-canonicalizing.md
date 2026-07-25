@@ -73,7 +73,8 @@ steps**, and nothing under `specs/009-catalog-binding-viability/**` references
 Backstage's entity-name validators at any point. Whatever string appears at
 `metadata.name` is accepted as a name and folded into a canonical identity.
 
-At the same pinned commit, Backstage does not treat those fields as free-form.
+At the same pinned commit, Backstage's own catalog model does not treat those
+fields as free-form.
 `packages/catalog-model/src/validation/makeValidator.ts` binds four **distinct**
 per-field validators, and `FieldFormatEntityPolicy` applies them to every entity
 it is invoked on:
@@ -106,8 +107,8 @@ a name. Fourteen of them (five and nine respectively) carry the identical string
 distinctly. All three forms fail `isValidObjectName` on character class: `$`,
 `{`, `}` and the spaces are outside the permitted set in every case, and `|` in
 the first, while ordinary descriptor names pass the same predicate unchanged.
-Backstage would reject every one of these descriptors as a malformed entity
-outright. The contract instead accepts each as a well-formed name, lowercases
+Backstage's own `metadata.name` validator rejects every one of these
+descriptors. The contract instead accepts each as a well-formed name, lowercases
 it, concatenates it — and, for the fourteen that share a string, reports the
 result as `triggerClass: "duplicate-canonical-id"`.
 
@@ -182,6 +183,46 @@ ratification of the record, which remains `proposed`.
 `FieldFormatEntityPolicy.enforce` does when called; they do not show its
 installation in any particular catalog pipeline, and this record does not assert
 it.
+
+### Second review: `gpt-5.6-sol`, also FAIL
+
+A second, different-lineage pass was performed against the revised text by a
+`gpt-5.6-sol` reviewer, per the standing model policy. **It also returned FAIL.**
+The validator table, executed predicates, counts, governance metadata and the
+honest recording of the first FAIL were all confirmed sound; the defects were in
+prose added *after* the first review, which is the specific risk of revising a
+record between reviews.
+
+Three corrections followed, all in the surrounding narrative rather than the
+decision:
+
+1. **A separability claim was false.** The evidence index had asserted that two
+   distinct enumeration mistakes each independently inflated the placeholder
+   count. Executing all four combinations shows they are conjunctive for that
+   count — only making *both* mistakes reaches the wrong figure — though path
+   matching alone does still corrupt the file and document counts. Corrected
+   there, with the four-way table.
+2. **"Both unsubstituted forms" and "these two"** survived from before the third
+   placeholder form was found, and were silently falsified by it.
+3. **"Backstage would reject … outright"** overstated the cited evidence in
+   exactly the way the ordering claim did. The four files establish what the
+   validators do *when applied*; they do not establish that any particular
+   Backstage deployment applies them. Every such phrase is now scoped to the
+   validators' own behaviour — "Backstage's own `metadata.name` validator
+   rejects" — rather than to Backstage as a running system.
+
+Defect 3 is the second instance of one root cause, and worth naming as such:
+this record's warrant is a set of *pure predicates read at a pinned commit*, and
+any sentence about what Backstage as a **system** does — its ordering, its
+acceptance, its rejection — reaches past that warrant even when it is probably
+true. The reliable form is to say what the predicate returns.
+
+Defect 2 illustrates a different failure with its own lesson: **a count change is
+never local.** Introducing a third placeholder form invalidated every sentence
+that had quantified over "both forms" or "these two", none of which mentioned a
+number and none of which a search for the changed figure would have found. Any
+future revision to these counts should re-read the quantified prose, not just
+the digits.
 
 ## Decision
 
@@ -259,8 +300,9 @@ justification, and an explicit amendment to that assertion.
 
 ### Option C: Validate, warn, and canonicalize anyway
 
-Rejected. Keeps the wrong classification while adding noise. A descriptor
-Backstage would reject is not a lesser entity; it is not an entity.
+Rejected. Keeps the wrong classification while adding noise. A descriptor that
+fails Backstage's own field-format validators is not a lesser entity; by those
+validators' own standard it is not an entity.
 
 ### Option D: Exclude by path convention (e.g. scaffolder-template directories)
 
@@ -391,7 +433,7 @@ that it was reverse-engineered from a desired verdict. The check for that
 suspicion is whether the rule survives the discovery that it does not deliver
 the convenient outcome. It does. The warrant for this record is the validator
 binding at `1121a4fa…` and nothing else: a descriptor whose `metadata.name`
-Backstage would reject outright is not an entity whose identity we should be
+Backstage's own validator rejects is not an entity whose identity we should be
 canonicalizing. That argument is unchanged by the fact that the corpora remain
 unusable afterwards, which is the test it needed to pass.
 
@@ -426,13 +468,16 @@ unusable afterwards, which is the test it needed to pass.
    ratification.**~~ **Done.** All four rows are now verified by execution
    against the pinned sources, and the two defective rows were corrected. See
    "How these bindings were checked".
-2. ~~**Obtain one independent review from a fresh context.**~~ **Done —
-   verdict FAIL**, by a `claude-opus-5` reviewer with no authorship of this
-   record, per the standing model policy. Three blocking defects were found and
-   are corrected and recorded above. A second, different-lineage `gpt-5.6` pass
-   remains **optional and unperformed**; the maintainer may still want one
-   before ratification, since the record has now been revised after the only
-   independent review it has had.
+2. ~~**Obtain one independent review from a fresh context.**~~ **Done — two
+   reviews, both FAIL.** A `claude-opus-5` reviewer found three blocking defects
+   in the validator table; a second, different-lineage `gpt-5.6-sol` reviewer
+   then found three more in the prose added during that first round. Both are
+   corrected and recorded above, and both reviewers confirmed the core warrant
+   sound. **Neither reviewer has seen the current text**, which was revised
+   again in response to the second. The maintainer should decide explicitly
+   whether ratification requires a review that returns clean on an unmodified
+   document, or whether two independent FAILs whose findings were each accepted
+   and corrected are sufficient. This record does not presume the answer.
 3. **Only after ratification**, prepare the corresponding `specs/009-**`
    contract amendment as a separately-scoped change. No `specs/009-**` edit is
    authorized by this draft.

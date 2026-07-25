@@ -470,24 +470,54 @@ that file, `name: ${{ parameters.name }}` at ten-space indent — which is a
 scaffolder **step input**, at `spec.steps[].input.values.name`, not an entity
 identity. The document is `kind: Template` and its actual `metadata.name` is
 `create-pr-with-catalog-info`: substituted, valid, and not a placeholder at all.
-A loose scan therefore reports **seventeen** placeholder descriptors instead of
-sixteen.
+A scan that makes **both** of the mistakes below reports **seventeen**
+placeholder descriptors instead of sixteen.
 
-That single file carries **two independent traps**, and they are separable:
+That single file carries two mistakes that are independent **in kind** but, for
+this count, **conjunctive in effect** — both are required to reach seventeen:
 
 1. **Path matching.** It is `endswith("catalog-info.yaml")` but not
    `basename == "catalog-info.yaml"`, so it falls outside the 38-file set under
    the strict matcher these figures use — the same distinction limit 1 of the
    file/document finding below records.
-2. **Key extraction.** Even when it *is* included, only structural extraction of
-   `metadata.name` rejects it. Depth-based heuristics do not: the false-positive
-   line is more deeply indented than a real `metadata.name`, but nothing in a
-   flat text scan encodes that.
+2. **Key extraction.** Even when the file *is* included, structural extraction
+   of `metadata.name` rejects the line, because that document's `metadata.name`
+   is `create-pr-with-catalog-info` and carries no placeholder at all.
 
-Both traps push the count in the same direction, upward, and either alone is
-enough to produce the wrong figure. The matcher choice and the extraction method
-must therefore both be stated whenever these counts are quoted, exactly as they
-are here.
+Executed across the `rhdh-plugins` corpus at
+`3b355ddfedb23c6656bd9effc8510f9926b765c1`, all four combinations give:
+
+| File set | Extraction | Placeholder descriptors |
+|---|---|---|
+| `basename ==` (38) | structural | 11 |
+| `basename ==` (38) | text scan | 11 |
+| `endswith` (39) | structural | 11 |
+| **`endswith` (39)** | **text scan** | **12** |
+
+**Only the fourth row is wrong.** Either mistake alone still yields 11, and the
+three correct combinations agree on the members as well as the count, not merely
+by coincidence of totals.
+
+Two consequences, both worth stating because they differ:
+
+- **For the placeholder counts, the mistakes are conjunctive.** Neither alone
+  corrupts them.
+- **For the file and document counts, path matching alone is sufficient.**
+  `endswith` gives 39/40 rather than 38/39 regardless of how names are
+  extracted, because that figure counts files and documents rather than names.
+
+So the two quantities fail differently, and both the matcher choice and the
+extraction method still have to be stated whenever either is quoted — not
+because either mistake alone breaks every figure, but because which figure each
+one breaks is not obvious.
+
+**On depth heuristics.** An indentation-aware scan *can* separate these two
+lines: the real `metadata.name` sits at 2 spaces and the step input at 10. The
+argument for structural extraction is therefore not that depth is incapable in
+principle, but that it is fragile — it depends on formatting YAML does not
+constrain, and would not survive a flow mapping, a differently-indented file, or
+a `metadata` block nested inside a list. Structural extraction is correct by
+construction rather than by the corpus happening to be formatted conveniently.
 
 ### Named finding: `metadata.name` is canonicalized without ever being validated
 
@@ -509,33 +539,34 @@ commit `1121a4facd9e321179d0402c3f355e4a649e84d9`, `makeValidator.ts` binds
 `isValidEntityName := KubernetesValidatorFunctions.isValidObjectName`, whose
 predicate is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/` with a 63-character
 limit, and `FieldFormatEntityPolicy` applies it to `metadata.name` as a
-**required** field. Both unsubstituted forms present in the corpora fail that
-predicate on character class — in `${{ values.name | dump }}` the `$`, `{`, `}`,
-`|` and spaces are all outside the permitted set, and `${{ values.name }}` fails
-on the same grounds minus the pipe — while ordinary descriptor names pass it
-unchanged.
+**required** field. All three unsubstituted forms present in the corpora fail
+that predicate on character class — in `${{ values.name | dump }}` the `$`, `{`,
+`}`, `|` and spaces are all outside the permitted set, and `${{ values.name }}`
+and `${{ values.entityName }}` fail on the same grounds minus the pipe — while
+ordinary descriptor names pass it unchanged.
 
-**The consequence.** Backstage would reject every one of these descriptors as a
-malformed entity outright — all sixteen unsubstituted ones: the fourteen
+**The consequence.** Every one of these descriptors fails Backstage's own
+`metadata.name` validator — all sixteen unsubstituted ones: the fourteen
 carrying `${{ values.name | dump }}`, the one carrying `${{ values.name }}`, and
 the one carrying `${{ values.entityName }}`, since each fails on character
-class. This spike's contract
-instead accepts each one as a well-formed name, lowercases it, and concatenates
+class. This spike's contract instead accepts each one as a well-formed name,
+lowercases it, and concatenates
 it. For the fourteen that share a string, they then collide with each other and
 the collision is reported as `triggerClass: "duplicate-canonical-id"`. The
 fail-closed rejection itself is correct and required by §3; what is imprecise is
 the *classification*. A descriptor that is not a valid Backstage entity at all is
 being characterized as a duplicate-identity condition between valid entities.
 
-**`bulk-import` is the sharper illustration.** Because its placeholder is
-`${{ values.name }}` rather than `${{ values.name | dump }}`, it canonicalizes to
-a *unique* id and collides with nothing. It is exactly as invalid as the other
-fourteen under `isValidObjectName`, but the contract has **no mechanism of any
-kind** that would notice. The duplicate rule catches the fourteen only
-incidentally — as a side effect of their sharing a string — and there is nothing
-behind it. This is why the gap is a contract gap rather than a reporting one:
-duplicate detection is not, and was never intended to be, a validity check, and
-the corpus contains a descriptor that proves the two conditions come apart.
+**`bulk-import` and `orchestrator` are the sharper illustration.** Their
+placeholders are `${{ values.name }}` and `${{ values.entityName }}` rather than
+`${{ values.name | dump }}`, so each canonicalizes to a *unique* id and collides
+with nothing. Both are exactly as invalid as the other fourteen under
+`isValidObjectName`, but the contract has **no mechanism of any kind** that would
+notice. The duplicate rule catches the fourteen only incidentally — as a side
+effect of their sharing a string — and there is nothing behind it. This is why
+the gap is a contract gap rather than a reporting one: duplicate detection is
+not, and was never intended to be, a validity check, and the corpus contains two
+descriptors that prove the conditions come apart.
 
 **What this finding does and does not assert.** It asserts that the contract
 canonicalizes unvalidated input and that this mis-classifies at least one real,
@@ -568,14 +599,20 @@ Both satisfy the character-class regex completely and fail **only** on length:
 over-length names; its longest is 45 characters
 (`red-hat-developer-hub-bulk-import-backend-api`).
 
-**Why this case is the harder one.** The placeholder descriptors recorded above
-at least collide, so the contract aborts for an adjacent reason. These two do
-not. Each canonicalizes to a unique id, participates in no duplicate group, and
-passes through the contract's every check while being an entity Backstage itself
-would reject. There is no incidental mechanism that catches them at all.
+**Why this case is the harder one.** Fourteen of the placeholder descriptors
+recorded above at least collide, so the contract aborts for an adjacent reason.
+The two over-length names do not — and neither, as it happens, do the
+`bulk-import` and `orchestrator` placeholders, for the same underlying reason.
+Each canonicalizes to a unique id, participates in no duplicate group, and
+passes through the contract's every check while being an entity Backstage's own
+validators reject. There is no incidental mechanism that catches any of them.
+The over-length pair is the cleanest case only because it fails on a different
+predicate clause, so it cannot be dismissed as an artefact of un-rendered
+templating.
 
-**"Over 63" is not the count of invalid names.** These two are the descriptors
-failing on *length*. In `community-plugins` the total failing `isValidObjectName`
+**"Over 63" is not the count of invalid names.** The two above are the
+descriptors failing on *length*. In `community-plugins` the total failing
+`isValidObjectName`
 is **seven** — these 2 on length, plus the 5 template placeholders on character
 class. In `rhdh-plugins` it is **eleven**, all on character class, none on
 length. Do not restate "2" as a count of invalid names.
