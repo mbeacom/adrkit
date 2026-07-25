@@ -160,10 +160,19 @@ naming both the target and the fail-quiet risk that a naive
 record that trips the assertions rather than instructing a future reader to
 construct one.
 
-Measured rather than predicted: under #52's head that repository's corpus still
-reports `totalCorpusFindings: 0`, its `assert-queue-report.ts` passes
-**unmodified**, and its QueueReport is byte-identical at `716e21b7…`. The
+Measured, not predicted — and measured **twice, independently, agreeing**. That
+repository ran it, and this one re-ran its unmodified `assert-queue-report.ts`
+against its corpus rather than relaying the reported number: under #52's head
+the corpus still reports `totalCorpusFindings: 0`, the script passes unmodified,
+and the QueueReport is byte-identical at `716e21b7…` in both runs. The
 tightening is therefore a correctness-of-intent change, not a repair of a break.
+
+The attribution is deliberate. A claim about #52's effect on a downstream
+repository is one where each party is interested in a different direction, so
+either measurement alone is weaker than the pair. "Measured" that does not say
+by whom reads with authority and cannot be traced — the same shape as an
+unattributed disclaimer, in a record whose subject is the provenance of
+verification.
 
 Recorded here as evidence that the pattern is not local to adrkit, **not** as an
 action item. That repository is outside this record's `affects` scope and
