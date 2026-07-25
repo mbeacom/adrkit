@@ -451,6 +451,22 @@ outputs, and none of it is story-specific.
   > not an executed test harness in this spike) — it is disclosed here for legibility and
   > left uncorrected in the already-frozen oracle rather than risk any appearance of
   > backfilling a frozen artifact after generator/derivation work has already run against it.
+  > **PR #37 third-round review remediation (disposition, not correction):** a further review
+  > round argued this defect means the oracle cannot satisfy T014/T014a at all, and demanded it
+  > be corrected, re-frozen, re-audited, and the downstream spike re-run. The finding itself is
+  > accepted as genuine; the demanded remedy is deliberately **not** applied here, for the
+  > reasons above — editing the frozen artifact now is the exact backfilling FR-025/T014a exist
+  > to prevent, T014a's own FAIL/STOP path was never entered (the authoritative compliant Opus
+  > 4.8 audit returned PASS), and the defect provably cannot move a verdict that is already
+  > `blocked`, the most conservative of the three outcomes. Instead the finding is **promoted
+  > out of this prose block into a named carry-forward blocker** — see
+  > `checklists/evidence-index.md` § "Limitations and scope → Carry-forward blocker: the frozen
+  > reference oracle is not reusable as-is", and the matching clause in the root `plan.md`
+  > Phase 8 row. That blocker states, bindingly, that any future feature009 execution or
+  > landing PR MUST begin from a fresh T014 → T014a cycle (correct the ordering, re-freeze,
+  > re-hash, obtain a new independent pre-output audit) **before** producing any
+  > generator-derived output. The defect is thereby neither hidden nor silently inherited; it
+  > is recorded where the next execution cannot miss it, without falsifying this run's record.
   > **On the compliant rerun's wall-clock timing (further review question):** T014a/FR-025
   > require the audit to occur "before any generator-derived output," and the compliant
   > rerun's own *action* was performed during PR review, after generator/derivation work (T017+)
@@ -1329,6 +1345,28 @@ checkpoint).
   > `blockedShortfall = "envelope-or-scale-evidence-incomplete"` — precisely the case this
   > shortfall value exists to name — this task's completeness check is satisfied by the
   > contract's own design, not by relaxing it.
+  > **PR #37 third-round review remediation (structural gap in the clarification
+  > above):** a further review correctly identified that the clarification above, while
+  > accurate, left a genuine structural gap: with `envelopes`'s type still bare
+  > `ArtifactFileReference`, a consumer reading the bundle JSON alone has no way to tell
+  > *which* of the two possible shapes a given `envelopes.*` entry's referenced file uses —
+  > it would have to open and sniff the file's top-level keys to find out, which is exactly
+  > the ambiguity §22's own completeness/validation discipline (§9's
+  > "Validation-before-derivation rule") exists to prevent elsewhere in this data model. This
+  > was corrected, not merely re-explained: `data-model.md` §22's `envelopes` row now types
+  > each entry as `EnvelopeOrRejectionRef = ArtifactFileReference & { contentShape:
+  > "snapshot-envelope" | "fail-closed-rejection-record" }`, and `spike-009-evidence.json`'s
+  > actual `envelopes` field has been updated to carry this `contentShape` discriminator on
+  > all three entries (`synthetic: "snapshot-envelope"`; `community-plugins`/`rhdh-plugins:
+  > "fail-closed-rejection-record"`, matching each file's independently-verified actual
+  > top-level shape). A consumer can now determine the correct schema to parse **from the
+  > bundle alone**, with no file-sniffing required. `spike-009-evidence.json` was re-hashed
+  > (`checklists/evidence-index.md` updated to the new value); `verdict.json` is unaffected
+  > (it does not embed `envelopes`, only names it in `drivingEvidence`, already corrected in
+  > the prior remediation round). This is a genuine, narrow data-model and evidence-file fix,
+  > not merely documentation — but it changes no verdict, no shortfall value, and no
+  > underlying evidentiary fact: it only makes the already-true content-shape distinction
+  > mechanically legible from the bundle's own JSON.
 
 - [X] T072 [US8] Evaluate Step 1 — `no-go` (checked first; dominates all other results). Check,
   against the assembled bundle: any `MutationBaseline.identical === false` (T070); any

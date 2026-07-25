@@ -190,17 +190,39 @@ change — `recommendation` was and remains `null`, matching feature008's own co
 solely by the pre-existing dual-corpus `duplicate-canonical-id` defect and the resulting
 envelope-population shortfall.
 
+**Third round (auto-triggered by the second remediation push; two findings).** (1) The
+`envelopes` field's *type* was still bare `ArtifactFileReference`, so a consumer reading the
+bundle JSON alone could not tell which of two possible schemas a given `envelopes.*` target
+uses without opening and sniffing the file. **Genuinely fixed**, not re-explained:
+`data-model.md` §22 now types each entry as `EnvelopeOrRejectionRef = ArtifactFileReference &
+{ contentShape: "snapshot-envelope" | "fail-closed-rejection-record" }`, and
+`spike-009-evidence.json`'s actual `envelopes` field now carries that discriminator on all
+three entries (`synthetic: "snapshot-envelope"`;
+`community-plugins`/`rhdh-plugins: "fail-closed-rejection-record"`, each matching its file's
+independently-verified actual top-level shape). `spike-009-evidence.json` was re-hashed
+accordingly (see below); `spike-009-evidence.md` and `verdict.json` are byte-unchanged — the
+Markdown mirror narrates `envelopes` rather than restating its per-entry structure, so no
+JSON↔Markdown divergence is introduced, and `verdict.json` does not embed `envelopes`.
+(2) The frozen-oracle sort-order finding was **not** remediated by correcting the oracle —
+see "Limitations and scope" below, where it is recorded as an explicit carry-forward blocker.
+**Neither round-three item changes the recorded `blocked` verdict, its `blockedShortfall`, or
+any underlying evidentiary fact.**
+
 ## Full evidence bundle (scratch-only; hashes recorded here for integrity)
 
 `spike-009-evidence.json` sha256
-`7dbd0dd389a99b8322c9fe31a8638919cef980a2add897f829ef6995d35eb84c` · `spike-009-evidence.md`
+`639154ce8e70aa908902a8585e1f26971171f178b6888992dc057e4fa91cf246` · `spike-009-evidence.md`
 sha256 `38bc6a21987d25007822deaef0b200fce718d992d4b4fde3f10c7d976005e30c` · `verdict.json` sha256
 `75edda1a75b5e57924b553b76886a8d14b4476c21c34360e7d9448289b240e60`. **PR #37 second-round
 review remediation:** `drivingEvidence` was missing `envelopes` despite
 `blockedShortfall = "envelope-or-scale-evidence-incomplete"` naming that field directly and
 the `t074BlockedEvaluation` detail citing both non-synthetic `envelopes` targets as the
-shortfall's specific evidence; `envelopes` has been added and all three hashes above are the
-recomputed, current values (superseding any earlier value recorded before this fix). These
+shortfall's specific evidence; `envelopes` has been added. **PR #37 third-round review
+remediation:** `spike-009-evidence.json`'s hash above is the recomputed value after the
+`contentShape` discriminator was added to its `envelopes` entries (superseding
+`7dbd0dd389a99b8322c9fe31a8638919cef980a2add897f829ef6995d35eb84c`, recorded before that
+fix); `spike-009-evidence.md` and `verdict.json` were not modified in that round and their
+hashes are unchanged. All three values above are the current, recomputed ones. These
 files, all raw transcripts (`transcripts/*.{stdout,stderr,meta.json}`), corpus checkouts, and
 scratch repositories are session-artifact-only per FR-019 and are **not** part
 of this repository's tracked history.
@@ -227,3 +249,34 @@ still open. Any future change to `spec.md`/`plan.md`/`tasks.md` that this
 spike's findings might suggest is a separate, later, explicitly-scoped
 follow-up decision — not something this execution performed or decided
 unilaterally.
+
+### Carry-forward blocker: the frozen reference oracle is not reusable as-is
+
+The frozen `reference-oracle.json`'s `positive` case records
+`expectedOutcome.derivedPathPatterns` in **input order**
+(`["packages/payments/**", "apis/payments/**"]`) rather than the
+`compareCodeUnits`-sorted order `owned-paths-annotation.md` §3 mandates for the
+`explicit-paths` derived array (correct: `["apis/payments/**",
+"packages/payments/**"]`). This was surfaced by the compliant Opus 4.8 T014a
+rerun and is restated here — rather than left only in that task's prose — so it
+cannot be silently inherited.
+
+**Why it was not corrected in this run.** The oracle was authored, frozen, and
+hashed before any generator output existed; its sha256
+`8f0e260fbf86eadf495726f6f8d6f569586c75ed0f74cafa1b5c8411610ae9d5` has never
+changed. Editing it *now*, after generator/derivation work (T017+) has already
+run against its existence as a gate, is precisely the backfilling of a frozen
+pre-output artifact that FR-025/T014a exist to prevent. The defect also changes
+no case class, no three-state discriminator, no accept/reject outcome, and no
+recorded result: none of this spike's scratch tooling diffs generator output
+against these named oracle fixture files, and the recorded verdict is `blocked`
+— already the most conservative of the three outcomes, and driven solely by the
+pre-existing `duplicate-canonical-id` corpus defect.
+
+**What it blocks.** The oracle is therefore **not** a valid ground truth to
+reuse as-is. Any future feature009 execution, and any landing PR, MUST begin
+with a fresh **T014 → T014a cycle** — correct the ordering, re-freeze, re-hash,
+and obtain a new independent pre-output audit — **before** producing any
+generator-derived output. Reusing the current oracle without that cycle would
+carry a known-wrong expected result forward into a run whose outcome could
+actually depend on it.
