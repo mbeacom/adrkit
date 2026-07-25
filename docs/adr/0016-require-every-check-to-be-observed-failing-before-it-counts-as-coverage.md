@@ -112,6 +112,21 @@ between two agents working in parallel — has this failure mode, because
 "there is nothing wrong" and "I cannot see anything wrong" are the same
 sentence unless the report says what it looked at.
 
+It reaches the act of verification itself. While confirming an earlier revision
+of this record, a reviewer fetched it by **branch ref** and received a stale
+copy: HTTP 200, coherent markdown, no indication it was behind the branch head.
+They were one step from concluding the change had been declined. What surfaced
+it was the response size not moving when the commit list said it should have —
+the read happened to state its inputs.
+
+The concrete rule that falls out: **when verifying a claim about a moving
+branch, fetch by explicit commit SHA, not by ref.** A ref can answer
+successfully and still not show you what you asked for, and a stale read and a
+current read render identically. This is the same reason
+[ADR-0008](0008-import-and-migration-semantics.md)-era tooling and the external
+validation repository pin full 40-character SHAs rather than `@main` or a tag —
+stated here as an observation rather than a convention, because it was observed.
+
 ## Options considered
 
 ### Option A: Require an observed failure per check (chosen)
