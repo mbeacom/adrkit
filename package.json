@@ -39,5 +39,9 @@
     "@types/bun": "latest",
     "typescript": "^6",
     "zod": "^4"
+  },
+  "overrides": {
+    "@hono/node-server": "^2.0.5",
+    "fast-uri": "^3.1.4"
   }
 }
