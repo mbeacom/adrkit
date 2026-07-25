@@ -74,9 +74,20 @@ Concretely, when adding or tightening any assertion, lint rule, or CI gate:
    absence. Where a count or absence is genuinely the right assertion, the
    negative case is mandatory rather than advisory, because nothing else
    distinguishes a passing check from a blind one.
+4. **When deferring the work to someone else, hand over the failing case, not
+   the instruction.** "Verify the tightened assertion actually fires" reads as
+   diligence but transfers the entire cost of constructing the input — and the
+   recipient has no way to tell whether the author ever built one. An
+   instruction to observe a failure, with no failure attached, is a check that
+   cannot fail dressed as a handoff.
 
 This is a convention for contributors and reviewers. It is deliberately not
 tooling: see Option C.
+
+Clause 4 was added after the rule was violated by a note written *about* the
+rule: a deferral instructing a future reader to confirm a tightened assertion
+fires, supplied without the record that makes it fire. The convention is easiest
+to break at exactly the moment you are explaining it to somebody else.
 
 ## Options considered
 
@@ -122,7 +133,14 @@ The two forms are **equivalent at that repository's current pin** (`bbe63e01`,
 where `CorpusFinding.severity` is the `'error'` literal) and diverge only once
 #52 lands. That repository has recorded the tightening as a forward dependency,
 naming both the target and the fail-quiet risk that a naive
-`filter(severity === 'error')` reintroduces.
+`filter(severity === 'error')` reintroduces — and, per clause 4, supplying the
+record that trips the assertions rather than instructing a future reader to
+construct one.
+
+Measured rather than predicted: under #52's head that repository's corpus still
+reports `totalCorpusFindings: 0`, its `assert-queue-report.ts` passes
+**unmodified**, and its QueueReport is byte-identical at `716e21b7…`. The
+tightening is therefore a correctness-of-intent change, not a repair of a break.
 
 Recorded here as evidence that the pattern is not local to adrkit, **not** as an
 action item. That repository is outside this record's `affects` scope and
