@@ -445,3 +445,83 @@ sanction any production adapter — none of those follow from it, and none are
 claimed here. Whether to close the gap, and how, is a separate decision requiring
 its own explicitly-scoped authorization; a draft ADR proposing one approach is
 under maintainer review and is **not** ratified.
+
+### Named finding: two `community-plugins` names fail only on length
+
+Independently verified by a fresh-context `claude-opus-5` reviewer with no
+authorship of this record, and re-derived here by direct enumeration of both
+pinned corpora. Recorded because it is a second, structurally different way the
+unvalidated-`metadata.name` gap above manifests in real data — and one that no
+duplicate-detection rule could ever surface.
+
+Exactly **two** descriptors in `community-plugins` at
+`92e9e4e09c76cc57f3475029b73e5ec84498a459` carry a `metadata.name` longer than
+the 63-character limit `isValidObjectName` enforces. Both are `kind: Component`.
+Both satisfy the character-class regex completely and fail **only** on length:
+
+| Path | `metadata.name` | Length |
+|---|---|---|
+| `workspaces/azure-devops/plugins/azure-devops-backend/catalog-info.yaml` | `backstage-plugin-catalog-backend-module-azure-devops-annotator-processor` | 72 |
+| `workspaces/pingidentity/plugins/auth-backend-module-pingfederate-provider/catalog-info.yaml` | `backstage-community-plugin-auth-backend-module-pingfederate-provider` | 68 |
+
+`rhdh-plugins` at `3b355ddfedb23c6656bd9effc8510f9926b765c1` has **zero**
+over-length names; its longest is 45 characters
+(`red-hat-developer-hub-bulk-import-backend-api`).
+
+**Why this case is the harder one.** The placeholder descriptors recorded above
+at least collide, so the contract aborts for an adjacent reason. These two do
+not. Each canonicalizes to a unique id, participates in no duplicate group, and
+passes through the contract's every check while being an entity Backstage itself
+would reject. There is no incidental mechanism that catches them at all.
+
+**"Over 63" is not the count of invalid names.** These two are the descriptors
+failing on *length*. In `community-plugins` the total failing `isValidObjectName`
+is **seven** — these 2 on length, plus the 5 template placeholders on character
+class. In `rhdh-plugins` it is **eleven**, all on character class, none on
+length. Do not restate "2" as a count of invalid names.
+
+### Named finding: descriptor files and entity documents are not the same count
+
+Independently verified by a fresh-context `claude-opus-5` reviewer and
+re-derived here. Recorded because several figures in this spike's tracked
+narrative are *file* counts, and the corpora contain multi-document descriptor
+files, so file counts understate the entity population:
+
+| Corpus | Pinned commit | Files | Entity documents | Δ | Parse errors |
+|---|---|---|---|---|---|
+| `community-plugins` | `92e9e4e09c76cc57f3475029b73e5ec84498a459` | 156 | 167 | +11 | 0 |
+| `rhdh-plugins` | `3b355ddfedb23c6656bd9effc8510f9926b765c1` | 38 | 39 | +1 | 0 |
+
+The `community-plugins` delta comes from exactly 11 two-document files; the
+`rhdh-plugins` delta from a single one,
+`workspaces/bulk-import/plugins/bulk-import-backend/catalog-info.yaml`. Both
+repository trees were retrieved with `truncated: false`. Every document has a
+string `metadata.name`; none is absent or non-string.
+
+Three limits, all of which must travel with these figures:
+
+1. **The 38/39 figure holds only for `basename == "catalog-info.yaml"`.** A
+   looser `endswith("catalog-info.yaml")` matcher additionally admits
+   `workspaces/bulk-import/examples/template/create-pr-with-catalog-info.yaml`,
+   giving 39/40 instead. `community-plugins` is unaffected — both matchers
+   return 156. State the matcher or the `rhdh-plugins` figure is wrong by one on
+   both axes.
+2. **These counts enumerate the full git tree, not the spike's input manifest.**
+   Exact agreement with the recorded figures on both corpora is strong evidence
+   that the two scopes coincide, but it is not proof, and neither the reviewer
+   nor this record asserts it. Anything depending on the manifest scope
+   specifically must establish it separately.
+3. **Two parsers, two methods, same answer.** The reviewer used PyYAML
+   `compose_all` counting non-`None` nodes; this re-derivation used the `yaml`
+   npm package's `parseAllDocuments` filtered on `contents !== null` — the same
+   library family the spike's own scratch tooling used. Agreement across two
+   independent parsers is a genuine cross-check, but both apply the same
+   *definition* of "document", so a disagreement about that definition would not
+   have been caught by either.
+
+**Scope.** Both findings above are narrative additions to this index. Neither
+changes any evidence artifact, hash, `EvidenceBundle`, task checkbox, FR, SC, or
+the recorded verdict, which remains `blocked` with `blockedShortfall =
+"envelope-or-scale-evidence-incomplete"`. Neither authorizes a re-run, a spike
+task, a `specs/009-**` contract amendment, a generator change, or any production
+adapter.
