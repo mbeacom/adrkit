@@ -1,0 +1,151 @@
+---
+title: Command reference
+description: Every adrkit CLI command, its options, and its documented exit codes.
+---
+
+The `adr` binary (published as `@adrkit/cli`) is a small set of deterministic
+commands. Run any of them with `--help`, or `adr help <command>`, to print the
+same text shown here. Global synopsis:
+
+```text
+adr lint [paths...] [--json] [--dir docs/adr]
+adr migrate --from madr [--dir docs/adr] [--dry-run] [--rename] [--json]
+adr new <title> [--status draft] [--dir docs/adr] [--json]
+adr graph [--dir docs/adr] [--format dot|json]
+adr explain <path> [--dir docs/adr] [--json]
+adr check <files...> [--dir docs/adr] [--json]
+adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
+adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
+
+adr help [command]        Show help, or help for one command
+adr --version             Print the @adrkit/cli version
+```
+
+## adr lint
+
+Validate the ADR corpus. With no paths, every discoverable record under `--dir`
+is checked.
+
+| Option | Meaning |
+|---|---|
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--json` | Emit `{ checked, findings }` as JSON |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` no error findings · `1` one or more error findings · `2`
+usage error.
+
+## adr migrate
+
+Migrate a MADR corpus in place, adding adrkit frontmatter and leaving the body
+untouched. One-way and non-destructive; round-trip sync is unsupported
+([ADR-0008](/adr/0008-import-and-migration-semantics/)).
+
+| Option | Meaning |
+|---|---|
+| `--from madr` | Source format (required; only `madr` is supported) |
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--dry-run` | Report what would change without writing |
+| `--rename` | Rename each migrated file to `<id>-<slug>.md` so corpus discovery can see it |
+| `--json` | Emit the migration result as JSON |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` migration ran (findings are reported but do not fail the
+run) · `2` usage error (missing or unsupported `--from`, unknown flag,
+positional argument).
+
+## adr new
+
+Scaffold a new ADR record.
+
+| Option | Meaning |
+|---|---|
+| `--status <status>` | Initial status (default: `draft`) |
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--json` | Emit `{ id, path }` as JSON |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` created · `1` refused to overwrite an existing file · `2`
+usage error.
+
+## adr graph
+
+Render the decision graph (`supersedes`, `relatesTo`, `conflictsWith`) for the
+corpus.
+
+| Option | Meaning |
+|---|---|
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--format dot\|json` | Output format (default: `dot`) |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` rendered · `2` usage error.
+
+## adr explain
+
+Report which decisions govern one repo-relative path, and why.
+
+| Option | Meaning |
+|---|---|
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--json` | Emit `{ path, governedBy, governing, activeProposals, history, findings }` |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` explained · `1` corpus has error findings · `2` usage error.
+
+## adr check
+
+Report the decisions governing a set of changed files, and validate any changed
+records. Deterministic and provider-agnostic — the primitive the CI Action
+builds on.
+
+| Option | Meaning |
+|---|---|
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--json` | Emit the `CheckOutcome` as JSON |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` ok · `1` a changed record has an error finding · `2` usage
+error.
+
+## adr evaluate
+
+Run the deterministic evaluator over one proposal against an offline snapshot
+bundle. The evaluator **routes; it never approves, persists, or writes.** There
+is no `--write`.
+
+| Option | Meaning |
+|---|---|
+| `--snapshot <path>` | Snapshot bundle (required) |
+| `--date <date>` | Evaluation date, `YYYY-MM-DD` (required) |
+| `--dir <path>` | ADR corpus directory |
+| `--json` | Emit the evaluation report as JSON |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` evaluated (including warn/info/inert and escalation) · `1`
+the proposal was returned on a rubric error · `2` usage error or a malformed
+snapshot bundle.
+
+## adr queue
+
+Emit the ARB operations queue report for the local ADR corpus to stdout — a
+read-only, deterministic projection of the corpus's `review` metadata. Identical
+inputs produce byte-for-byte identical output. See [Use in CI](/ci/) for the
+managed-issue Action.
+
+| Option | Meaning |
+|---|---|
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--as-of <date>` | UTC calendar date for SLA computation (default: today, UTC). Accepts `YYYY-MM-DD` or an ISO datetime with an explicit timezone (e.g. `2026-01-08T00:00:00Z`); timezone-less datetimes are rejected. |
+| `--format markdown\|json` | Output format (default: `markdown`) |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` report, no error findings · `1` report emitted with
+error-severity corpus findings · `2` usage error (invalid flag/value or
+unreachable corpus directory).
+
+## adr help · adr --version
+
+`adr help` prints the global synopsis; `adr help <command>` prints one command's
+help (identical to `adr <command> --help`). `adr --version` (or `-V`) prints the
+`@adrkit/cli` version. Both exit `0`.

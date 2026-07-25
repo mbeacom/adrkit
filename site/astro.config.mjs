@@ -13,6 +13,27 @@ export default defineConfig({
 			description:
 				'Decision memory for human- and agent-authored plans — machine-readable ADRs, enforceable in CI, legible to agents, without leaving git.',
 			customCss: ['./src/styles/custom.css'],
+			head: [
+				// Static social card (site/public/og.png). twitter:card is
+				// summary_large_image, so a shared link needs a real image or it
+				// renders blank. Absolute URLs are required by scrapers.
+				{
+					tag: 'meta',
+					attrs: { property: 'og:image', content: 'https://adrkit.dev/og.png' },
+				},
+				{
+					tag: 'meta',
+					attrs: { property: 'og:image:width', content: '1200' },
+				},
+				{
+					tag: 'meta',
+					attrs: { property: 'og:image:height', content: '630' },
+				},
+				{
+					tag: 'meta',
+					attrs: { name: 'twitter:image', content: 'https://adrkit.dev/og.png' },
+				},
+			],
 			components: {
 				Hero: './src/components/Hero.astro',
 				SiteTitle: './src/components/SiteTitle.astro',
@@ -32,8 +53,18 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Guides',
+					items: [
+						{ label: 'Use in CI', slug: 'ci' },
+						{ label: 'MCP setup', slug: 'mcp' },
+					],
+				},
+				{
 					label: 'Reference',
-					items: [{ label: 'JSON Schema', slug: 'schema' }],
+					items: [
+						{ label: 'Command reference', slug: 'commands' },
+						{ label: 'JSON Schema', slug: 'schema' },
+					],
 				},
 				{
 					label: 'Decision records',

@@ -3,50 +3,72 @@ title: Quickstart
 description: Install the adrkit CLI and run adr lint, new, graph, explain, and migrate.
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
 The `adr` CLI validates a decision corpus, scaffolds new records, explains which
-decisions govern a file, renders the decision graph, and migrates an existing
-MADR corpus in place.
+decisions govern a file, renders the decision graph, migrates an existing MADR
+corpus in place, emits the ARB operations queue, and runs the deterministic
+evaluator.
 
-<Aside type="note" title="Pre-alpha">
-	adrkit is not yet published to a registry. Today you run the CLI from a clone.
-	A published `@adrkit/cli` (runnable with `npx adr …`) is planned — see
-	[ADR-0010](/adr/0010-bun-toolchain/), which commits to Node-targeted published
-	artifacts.
+<Aside type="tip" title="Published on npm (v0.2.0)">
+	`@adrkit/cli` is live. Consumers install it with your Node package manager and
+	run the `adr` binary — no clone required. Published artifacts are Node-targeted
+	([ADR-0010](/adr/0010-bun-toolchain/)); Bun is used for developing adrkit
+	itself.
 </Aside>
 
 ## Install
 
-adrkit is built with [Bun](https://bun.com) ([ADR-0010](/adr/0010-bun-toolchain/)).
-Install Bun, then clone the repository and install dependencies.
+Add the CLI to a project, or run it one-off. It exposes the `adr` binary.
 
-<Steps>
+<Tabs>
+<TabItem label="npm / npx">
 
-1. Install Bun:
+```sh
+# add to a project
+npm install --save-dev @adrkit/cli
+npx adr lint
 
-   ```sh
-   curl -fsSL https://bun.sh/install | bash
-   ```
+# one-off, no install
+npx @adrkit/cli explain src/payments/api.ts
+```
 
-2. Clone and install:
+</TabItem>
+<TabItem label="Bun">
 
-   ```sh
-   git clone https://github.com/mbeacom/adrkit.git
-   cd adrkit
-   bun install
-   ```
+```sh
+# add to a project
+bun add --dev @adrkit/cli
+bunx adr lint
 
-3. Validate the bundled corpus to confirm the CLI works:
+# one-off, no install
+bunx @adrkit/cli explain src/payments/api.ts
+```
 
-   ```sh
-   bun run adr lint
-   ```
+</TabItem>
+</Tabs>
 
-</Steps>
+The pure library surfaces are independently installable when you only need the
+resolver or the evaluator:
 
-The examples below use `bun run adr <command>`. Once a published binary lands,
-the same commands run as `adr <command>` (or `npx adr <command>`).
+```sh
+npm install @adrkit/core @adrkit/evaluator
+```
+
+<Aside type="note" title="Contributing to adrkit itself?">
+	To hack on adrkit rather than consume it, clone the repo and use Bun — the
+	project's development toolchain ([ADR-0010](/adr/0010-bun-toolchain/)):
+
+	```sh
+	git clone https://github.com/mbeacom/adrkit.git
+	cd adrkit
+	bun install
+	bun run adr lint   # run the CLI from source
+	```
+</Aside>
+
+The examples below use the installed `adr` binary. Prefix with `npx`/`bunx` to
+run without installing, or `bun run adr` from a source checkout.
 
 ## Validate a corpus — `adr lint`
 
@@ -56,12 +78,12 @@ flag dangling references between records (`supersedes` / `supersededBy` /
 conflict via `conflictsWith`.
 
 ```sh
-bun run adr lint
+adr lint
 # lint a specific directory or files
-bun run adr lint --dir docs/adr
-bun run adr lint docs/adr/0001-record-architecture-decisions-in-git.md
+adr lint --dir docs/adr
+adr lint docs/adr/0001-record-architecture-decisions-in-git.md
 # machine-readable output for CI
-bun run adr lint --json
+adr lint --json
 ```
 
 `adr lint` exits non-zero when it finds errors, so it drops straight into a CI
@@ -72,9 +94,9 @@ gate.
 Scaffold a new record with the next sequential id and valid frontmatter.
 
 ```sh
-bun run adr new "Use server-side rendering for authenticated routes"
+adr new "Use server-side rendering for authenticated routes"
 # choose a starting status (accepted/superseded need extra fields and are refused)
-bun run adr new "Adopt OpenTelemetry" --status proposed
+adr new "Adopt OpenTelemetry" --status proposed
 ```
 
 Fill in `affects` — it is what makes a decision locatable by CI and agents. A
@@ -89,8 +111,8 @@ superseded, rejected, or deprecated records are listed under their own
 headings so a `rejected` decision is never presented as binding.
 
 ```sh
-bun run adr explain packages/core/src/schema/adr.schema.ts
-bun run adr explain package.json --json
+adr explain packages/core/src/schema/adr.schema.ts
+adr explain package.json --json
 ```
 
 ## Render the decision graph — `adr graph`
@@ -100,9 +122,9 @@ JSON.
 
 ```sh
 # Graphviz DOT (pipe into `dot -Tsvg`)
-bun run adr graph --format dot
+adr graph --format dot
 # structured JSON
-bun run adr graph --format json
+adr graph --format json
 ```
 
 ## Adopt an existing MADR corpus — `adr migrate`
@@ -118,9 +140,9 @@ nobody.
 
 ```sh
 # preview without writing
-bun run adr migrate --from madr --dry-run
+adr migrate --from madr --dry-run
 # apply
-bun run adr migrate --from madr --dir docs/adr
+adr migrate --from madr --dir docs/adr
 ```
 
 Corpus discovery requires `<id>-<slug>.md` filenames. If your MADR files use
@@ -128,10 +150,13 @@ descriptive names, migration warns that the records will not be discoverable —
 pass `--rename` to move each file to a discoverable name as part of the run:
 
 ```sh
-bun run adr migrate --from madr --dir docs/adr --rename
+adr migrate --from madr --dir docs/adr --rename
 ```
 
 ## Next steps
 
+- Enforce decisions on every PR — see [Use in CI](/ci/).
+- Give agents the decision graveyard — see [MCP setup](/mcp/).
+- Every flag and exit code — see the [Command reference](/commands/).
 - Reference the schema from your editor and CI — see the [JSON Schema](/schema/).
 - Read how adrkit governs itself in the [decision records](/adr/).
