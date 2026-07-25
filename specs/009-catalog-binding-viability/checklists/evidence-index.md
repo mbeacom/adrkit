@@ -457,11 +457,13 @@ zero parse errors, every document carrying a string `metadata.name`. The same
 enumeration produced the two named findings recorded below, and is subject to
 the same three limits stated there.
 
-**Method, stated precisely because a looser one gets a different answer.** Each
-document was parsed and the value read **structurally, from the `metadata.name`
-path of the parsed document object**. It was *not* obtained by scanning for
-`name:` keys in the file text. That distinction is load-bearing, and a
-re-derivation that skips it will over-count.
+**Method, stated precisely because a looser one can get a different answer.**
+Each document was parsed and the value read **structurally, from the
+`metadata.name` path of the parsed document object**. It was *not* obtained by
+scanning for `name:` keys in the file text. That distinction is worth stating
+because it is one of two independent choices that determine these figures — but,
+as the table below shows, it is **not** individually sufficient to change the
+placeholder count. Only combined with the looser file matcher does it over-count.
 
 The concrete trap is
 `workspaces/bulk-import/examples/template/create-pr-with-catalog-info.yaml`. A
@@ -599,16 +601,16 @@ Both satisfy the character-class regex completely and fail **only** on length:
 over-length names; its longest is 45 characters
 (`red-hat-developer-hub-bulk-import-backend-api`).
 
-**Why this case is the harder one.** Fourteen of the placeholder descriptors
+**Why this pair is the cleanest case.** Fourteen of the placeholder descriptors
 recorded above at least collide, so the contract aborts for an adjacent reason.
 The two over-length names do not — and neither, as it happens, do the
 `bulk-import` and `orchestrator` placeholders, for the same underlying reason.
 Each canonicalizes to a unique id, participates in no duplicate group, and
 passes through the contract's every check while being an entity Backstage's own
 validators reject. There is no incidental mechanism that catches any of them.
-The over-length pair is the cleanest case only because it fails on a different
-predicate clause, so it cannot be dismissed as an artefact of un-rendered
-templating.
+The over-length pair is the cleanest illustration only because it fails on a
+different predicate clause, so it cannot be dismissed as an artefact of
+un-rendered templating.
 
 **"Over 63" is not the count of invalid names.** The two above are the
 descriptors failing on *length*. In `community-plugins` the total failing
@@ -657,8 +659,10 @@ Three limits, all of which must travel with these figures:
    independent parsers is a genuine cross-check, but both apply the same
    *definition* of "document", so a disagreement about that definition would not
    have been caught by either. Both also extracted names structurally, from the
-   parsed `metadata.name` path; neither result would survive substituting a text
-   scan for `name:` keys.
+   parsed `metadata.name` path. Under the strict file matcher used here a text
+   scan happens to return the same answer, but that is a property of these
+   particular files rather than a guarantee; see the four-way table under
+   Correction 2.
 
 **Scope.** Both findings above are narrative additions to this index. Neither
 changes any evidence artifact, hash, `EvidenceBundle`, task checkbox, FR, SC, or
