@@ -75,20 +75,24 @@ Backstage's entity-name validators at any point. Whatever string appears at
 
 At the same pinned commit, Backstage does not treat those fields as free-form.
 `packages/catalog-model/src/validation/makeValidator.ts` binds four **distinct**
-per-field validators, and `FieldFormatEntityPolicy` applies them to every
-entity:
+per-field validators, and `FieldFormatEntityPolicy` applies them to every entity
+it is invoked on:
 
 | Field | Validator binding | Predicate | Applied |
 |---|---|---|---|
-| `apiVersion` | `isValidApiVersion` | prefix/suffix split on `/`, DNS-subdomain prefix, ≤63 per part | required |
+| `apiVersion` | `isValidApiVersion` → `CommonValidatorFunctions.isValidPrefixAndOrSuffix` | prefix is a DNS **subdomain** (`CommonValidatorFunctions.isValidDnsSubdomain`, ≤253 total, each dot-separated label ≤63); suffix is `/^[a-z0-9A-Z]+$/`, ≤63 | required |
 | `kind` | `isValidKind` | `/^[a-zA-Z][a-z0-9A-Z]*$/`, ≤63 | required |
 | `metadata.name` | `isValidEntityName` → `KubernetesValidatorFunctions.isValidObjectName` | `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 | required |
-| `metadata.namespace` | `isValidNamespace` → `KubernetesValidatorFunctions.isValidDnsLabel` | `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 | **only when present** |
+| `metadata.namespace` | `isValidNamespace` → `KubernetesValidatorFunctions.isValidNamespace` → `CommonValidatorFunctions.isValidDnsLabel` | `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 | **only when present** |
 
-The `metadata.name` row has been independently verified by the maintainer at the
-pinned commit. The other three rows are read from the same pinned files and
-**should be re-confirmed at ratification** rather than taken on this record's
-word.
+Two further properties of the `apiVersion` binding, since the split is not
+obvious from the predicate alone: `isValidPrefixAndOrSuffix` splits on `/` and
+**rejects any value containing two or more separators**, and a value with **no**
+separator is validated against the suffix predicate alone — so a bare `v1`
+passes without the subdomain rule ever being consulted.
+
+Every row in this table was verified by executing the pinned sources directly;
+see "How these bindings were checked" below.
 
 The consequence is a category error in the contract, and it is not hypothetical.
 Fifteen descriptors in the two corpora feature009 pinned — five in
@@ -118,10 +122,65 @@ descriptor demonstrating that the two conditions come apart.
 is the *classification*: a descriptor that is not a valid Backstage entity at all
 is being characterized as an identity collision *between valid entities*. Those
 are different defects with different remedies, and the contract currently cannot
-tell them apart, because it never asks the question Backstage itself asks first.
+tell them apart, because it never asks whether the descriptor is a valid entity
+in the first place.
 
 This record exists to close that gap. It is warranted by the validator bindings
 above and by nothing else.
+
+### How these bindings were checked
+
+Action item 2 of the first draft called for an independent review from a fresh
+context. That review was performed by a `claude-opus-5` reviewer with no
+authorship of this record, against
+`1121a4facd9e321179d0402c3f355e4a649e84d9`. **It returned FAIL**, with three
+blocking defects in the table above. All three are corrected here, and are
+recorded rather than quietly fixed:
+
+1. **A cited member did not exist.** The namespace row read `isValidNamespace` →
+   `KubernetesValidatorFunctions.isValidDnsLabel`. `KubernetesValidatorFunctions`
+   has no such member; the chain runs through
+   `KubernetesValidatorFunctions.isValidNamespace` to
+   `CommonValidatorFunctions.isValidDnsLabel`. The quoted regex was correct
+   throughout; the class attribution was not.
+2. **The `apiVersion` bound was understated.** "≤63 per part" was wrong for the
+   prefix, which is a DNS *subdomain*: ≤253 in total with each dot-separated
+   label ≤63. A 243-character prefix passes. The two-separator rejection and the
+   suffix-only path for unseparated values were also unstated.
+3. **An ordering claim exceeded the evidence.** The draft asserted that the
+   contract "never asks the question Backstage itself asks first" and that
+   Option A "matches Backstage's own ordering". Neither is established by the
+   four cited files: they contain no uniqueness, duplicate, conflict, collision
+   or dedup logic of any kind, and `FieldFormatEntityPolicy` is a per-entity
+   `EntityPolicy.enforce` with no cross-entity comparison. Catalog-wide
+   uniqueness lives in `plugin-catalog-backend`, outside this record's cited
+   evidence. Both phrases are **removed**, not substantiated.
+
+Defect 3 is the one worth dwelling on, because the correct response to it was to
+drop the claim rather than go looking for support. This record's stated warrant
+is the validator bindings "and nothing else"; an appeal to Backstage's internal
+ordering is outside that warrant even if it happens to be true. Ordering
+admissibility ahead of canonicalization is adrkit's own decision and needs no
+upstream precedent. Removing the appeal makes the record narrower and stronger.
+
+Every row of the table was subsequently re-verified by executing the pinned
+sources directly — `makeValidator.ts`, `KubernetesValidatorFunctions.ts` and
+`CommonValidatorFunctions.ts` fetched at the pinned commit and run — confirming
+that `isValidEntityName` and `isValidNamespace` are reference-identical to their
+`KubernetesValidatorFunctions` counterparts, that `KubernetesValidatorFunctions`
+exposes no `isValidDnsLabel`, and that a 243-character `apiVersion` prefix passes
+while a 254-character one, an over-63 label, and a two-separator value all fail.
+
+The reviewer pre-cleared the outcome of these corrections: *"On re-review after
+these three corrections, items 1, 2 and 4 stand verified and the record's core
+warrant is sound."* That is a conditional clearance of the corrections, **not** a
+ratification of the record, which remains `proposed`.
+
+**Residual limit.** "Applies them to every entity" above is now qualified to
+"every entity it is invoked on". The cited files show what
+`FieldFormatEntityPolicy.enforce` does when called; they do not show its
+installation in any particular catalog pipeline, and this record does not assert
+it.
 
 ## Decision
 
@@ -178,8 +237,13 @@ report says something truer about *why*.
 
 ### Option A: Validate before canonicalizing; distinct fatal `inadmissible-descriptor` class (chosen)
 
-Matches Backstage's own ordering, preserves fail-closed exactly, and corrects the
-classification. Strictly additive on the failure surface; removes no abort.
+Preserves fail-closed exactly and corrects the classification. Strictly additive
+on the failure surface; removes no abort. The ordering — admissibility before
+canonicalization — is adrkit's own design choice, made because a validity
+question and an identity question are different questions and the cheaper,
+per-descriptor one should not be answered by the more expensive cross-descriptor
+one. It is **not** claimed to mirror any ordering in Backstage; see "How these
+bindings were checked".
 
 ### Option B: Validate, then exclude inadmissible descriptors from the entity set
 
@@ -357,17 +421,17 @@ unusable afterwards, which is the test it needed to pass.
 
 ## Action items
 
-1. **Confirm the validator bindings at the pinned commit before ratification.**
-   The `metadata.name` binding is maintainer-verified; `apiVersion`, `kind`, and
-   `namespace` are not, and this record should not be ratified on its own
-   assertion of them.
-2. **Obtain one independent review from a fresh context** that did not author
-   this record, checking the four predicates against
-   `makeValidator.ts`, `KubernetesValidatorFunctions.ts`,
-   `CommonValidatorFunctions.ts`, and `FieldFormatEntityPolicy.ts` at
-   `1121a4fa…`. Per this repository's standing model policy the reviewer must be
-   `claude-opus-5`, or `gpt-5.6` for a second, different-lineage pass. No older
-   revision is acceptable; model identity is recorded as evidence.
+1. ~~**Confirm the validator bindings at the pinned commit before
+   ratification.**~~ **Done.** All four rows are now verified by execution
+   against the pinned sources, and the two defective rows were corrected. See
+   "How these bindings were checked".
+2. ~~**Obtain one independent review from a fresh context.**~~ **Done —
+   verdict FAIL**, by a `claude-opus-5` reviewer with no authorship of this
+   record, per the standing model policy. Three blocking defects were found and
+   are corrected and recorded above. A second, different-lineage `gpt-5.6` pass
+   remains **optional and unperformed**; the maintainer may still want one
+   before ratification, since the record has now been revised after the only
+   independent review it has had.
 3. **Only after ratification**, prepare the corresponding `specs/009-**`
    contract amendment as a separately-scoped change. No `specs/009-**` edit is
    authorized by this draft.
