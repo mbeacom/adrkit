@@ -164,10 +164,18 @@ export function buildQueueReport(input: QueueKernelInput): QueueReport {
   const { corpus, asOf } = input;
   const recordPaths = new Set(corpus.records.map((record) => record.path));
 
-  // Step 1–2: project excluded-file findings into CorpusFindings.
+  // Step 1–2: project excluded-file findings into CorpusFindings. A file is excluded
+  // when it failed to load or validate (`error`), or when discovery never saw it at all
+  // (`corpus-file-skipped`) — the latter yields no record and no queue item, so without
+  // it a misnamed or nested `proposed` record vanishes from the queue silently (#51).
   const excludedPaths = new Set(
     corpus.findings
-      .filter((f: Finding) => f.severity === 'error' && f.path != null && !recordPaths.has(f.path))
+      .filter(
+        (f: Finding) =>
+          (f.severity === 'error' || f.rule === 'corpus-file-skipped') &&
+          f.path != null &&
+          !recordPaths.has(f.path),
+      )
       .map((f) => f.path as string),
   );
   const corpusFindings: CorpusFinding[] = sortCorpusFindings(

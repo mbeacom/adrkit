@@ -33,7 +33,16 @@ export const RULE_TO_CORPUS_CODE: Readonly<Record<string, string>> = {
   'supersededBy-requires-superseded-status': 'corpus.schema-invalid',
   'accepted-requires-decider-unless-imported': 'corpus.schema-invalid',
   'agent-accepted-requires-ratifier': 'corpus.schema-invalid',
+  'corpus-file-skipped': 'corpus.file-skipped',
 };
+
+/**
+ * Codes that are reported at `warn` rather than `error`. A file corpus discovery could
+ * not see is a real gap — the record governs nothing and never reaches the queue — but
+ * it is not a corpus that fails to parse, so it must not fail the run or the managed-issue
+ * Action. Everything else stays `error`, exactly as before.
+ */
+const WARN_CORPUS_CODES: ReadonlySet<string> = new Set(['corpus.file-skipped']);
 
 function messageFor(code: string, finding: Finding): string {
   switch (code) {
@@ -47,8 +56,12 @@ function messageFor(code: string, finding: Finding): string {
   }
 }
 
-/** Map a single excluded-file `Finding` to a `CorpusFinding` (always error severity). */
+/**
+ * Map a single excluded-file `Finding` to a `CorpusFinding`. Severity is `error` for
+ * everything except the codes in {@link WARN_CORPUS_CODES}.
+ */
 export function mapFindingToCorpusFinding(finding: Finding, sourcePath: string): CorpusFinding {
   const code = RULE_TO_CORPUS_CODE[finding.rule] ?? 'corpus.schema-invalid';
-  return { sourcePath, code, severity: 'error', message: messageFor(code, finding) };
+  const severity = WARN_CORPUS_CODES.has(code) ? 'warn' : 'error';
+  return { sourcePath, code, severity, message: messageFor(code, finding) };
 }

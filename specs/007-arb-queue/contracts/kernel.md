@@ -110,9 +110,15 @@ An "excluded" file is one whose path (`Adr.path`) does NOT appear in
 parse into valid records (they produced error-severity findings).
 
 ```
-excludedPaths = Set of paths in findings with severity:error
+excludedPaths = Set of paths in findings with severity:error,
+                PLUS paths in findings with rule:corpus-file-skipped
                 MINUS paths present in corpus.records
 ```
+
+A `corpus-file-skipped` file is excluded even though its finding is `warn`: corpus
+discovery never saw it, so it yields no record and no queue item. Without it a
+misnamed or nested `proposed` record disappears from the queue with no signal
+anywhere in the report (#51).
 
 ### Step 2: Project CorpusFindings
 

@@ -48432,6 +48432,8 @@ var OPTIONAL_REMOVE_KEYS = new Set([
   "evaluation",
   "reviewBy"
 ]);
+// ../core/src/queue/findings.ts
+var WARN_CORPUS_CODES = new Set(["corpus.file-skipped"]);
 // src/changed-files.ts
 var LIST_FILES_CAP = 3000;
 var LOCKFILE = "bun.lock";

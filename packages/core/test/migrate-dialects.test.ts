@@ -30,6 +30,21 @@ describe('extractMadrBodyFields', () => {
     });
   });
 
+  test('reads a `* Deciders:` bullet as a list of identities', () => {
+    const body = '# T\n\n* Status: accepted\n* Deciders: @mbeacom, @someone, team:platform\n';
+    expect(extractMadrBodyFields(body).deciders).toEqual(['@mbeacom', '@someone', 'team:platform']);
+  });
+
+  test('drops decider entries that are not schema-valid identities', () => {
+    const body = '# T\n\n* Deciders: [list everyone involved in the decision]\n';
+    expect(extractMadrBodyFields(body).deciders).toBeUndefined();
+  });
+
+  test('keeps only the identities from a mixed decider list, and de-duplicates', () => {
+    const body = '# T\n\n* Deciders: @mbeacom, Some Person, @mbeacom, dev@example.com\n';
+    expect(extractMadrBodyFields(body).deciders).toEqual(['@mbeacom', 'dev@example.com']);
+  });
+
   test('reads a dash bullet and bold field labels', () => {
     expect(extractMadrBodyFields('# T\n\n- **Status**: accepted\n- **Date**: 2025-03-14\n')).toEqual({
       status: 'accepted',
@@ -155,8 +170,7 @@ describe('migrate --from madr across MADR dialects (#40)', () => {
     );
   });
 
-  test('resolves against a successor imported by an earlier run', async () => {
-    const root = await resetTestDir(DIR_NAME);
+  test('resolves against a successor imported by an earlier run', async () => {    const root = await resetTestDir(DIR_NAME);
     const dir = join(root, 'docs/adr');
     await writeText(join(dir, '0005-new.md'), '# Use PostgreSQL\n\n* Status: accepted\n* Date: 2025-03-14\n');
 
@@ -197,6 +211,47 @@ describe('migrate --from madr across MADR dialects (#40)', () => {
     await migrateMadr({ cwd: root, dir: 'docs/adr' });
 
     expect(await readFile(file, 'utf8')).toBe(afterFirst);
+  });
+
+  test('a `* Deciders:` bullet is imported, so import-incomplete does not fire (#50)', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-pg.md'),
+      '# Use PostgreSQL\n\n* Status: accepted\n* Deciders: @mbeacom, @someone\n* Date: 2026-03-02\n',
+    );
+
+    const result = await migrateMadr({ cwd: root, dir: 'docs/adr' });
+    const frontmatter = await migratedFrontmatter(root, '0001-pg.md');
+
+    expect(frontmatter.deciders).toEqual(['@mbeacom', '@someone']);
+    expect(result.findings.filter((f) => f.rule === 'import-incomplete')).toEqual([]);
+  });
+
+  test('frontmatter deciders win over a body bullet', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-pg.md'),
+      '---\nstatus: accepted\ndate: 2026-03-02\ndeciders: ["@fromfrontmatter"]\n---\n# Use PostgreSQL\n\n* Deciders: @frombullet\n',
+    );
+
+    await migrateMadr({ cwd: root, dir: 'docs/adr' });
+
+    expect((await migratedFrontmatter(root, '0001-pg.md')).deciders).toEqual(['@fromfrontmatter']);
+  });
+
+  test('a decider bullet holding only the template placeholder still reports import-incomplete', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-ph.md'),
+      '# Use PostgreSQL\n\n* Status: accepted\n* Deciders: [list everyone involved in the decision]\n',
+    );
+
+    const result = await migrateMadr({ cwd: root, dir: 'docs/adr' });
+
+    expect((await migratedFrontmatter(root, '0001-ph.md')).deciders).toEqual([]);
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({ rule: 'import-incomplete', field: 'deciders' }),
+    );
   });
 
   test('the MADR 2.x template placeholder is not mistaken for a real status', async () => {

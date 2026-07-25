@@ -53,6 +53,7 @@ export function extractMadrTitle(frontmatter: Record<string, unknown>, body: str
 export interface MadrBodyFields {
   status?: string;
   date?: string;
+  deciders?: string[];
 }
 
 /**
@@ -89,15 +90,17 @@ function cleanFieldValue(value: string): string {
     .trim();
 }
 
+type BodyField = 'status' | 'date' | 'deciders';
+
 /** `* Status: accepted`, `- Date: 2025-03-14`, `**Status:** accepted` — MADR 2.x. */
-function headerBulletValue(region: string, field: 'status' | 'date'): string | undefined {
+function headerBulletValue(region: string, field: BodyField): string | undefined {
   const pattern = new RegExp(`^[ \\t]*(?:[*+-][ \\t]+)?\\*{0,2}_{0,2}${field}_{0,2}\\*{0,2}[ \\t]*:[ \\t]*(.+)$`, 'im');
   const value = cleanFieldValue(pattern.exec(region)?.[1] ?? '');
   return value.length > 0 ? value : undefined;
 }
 
 /** `## Status` followed by the value on its own line — the Nygard dialect. */
-function sectionValue(body: string, field: 'status' | 'date'): string | undefined {
+function sectionValue(body: string, field: BodyField): string | undefined {
   const heading = new RegExp(`^#{2,6}[ \\t]+${field}[ \\t]*#*[ \\t]*$`, 'im').exec(body);
   if (!heading) return undefined;
 
@@ -110,19 +113,41 @@ function sectionValue(body: string, field: 'status' | 'date'): string | undefine
   return undefined;
 }
 
+/** `@handle`, `team:slug`, or an email address — the schema's `Identity` grammar. */
+const IDENTITY_PATTERN = /^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\s]+@[^@\s]+\.[^@\s]+)$/;
+
 /**
- * Recover `status` and `date` from the two widely deployed MADR dialects that keep them
- * in the body rather than in YAML frontmatter: MADR 2.x header bullets and Nygard
- * `## Status` sections. Without this, both dialects import as `proposed` dated
- * `1970-01-01` — a silent downgrade of decisions that were already accepted (#40).
+ * Split a `* Deciders: @a, @b` value into schema-valid identities. MADR leaves this
+ * field free-form, so entries that are not identities — the template's own
+ * `[list everyone involved in the decision]` placeholder, or a bare name — are dropped
+ * rather than written as frontmatter the schema would then reject.
+ */
+function parseDeciders(value: string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const identities = value
+    .split(/[,;]|\s+and\s+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => IDENTITY_PATTERN.test(entry));
+  const unique = [...new Set(identities)];
+  return unique.length > 0 ? unique : undefined;
+}
+
+/**
+ * Recover `status`, `date`, and `deciders` from the two widely deployed MADR dialects
+ * that keep them in the body rather than in YAML frontmatter: MADR 2.x header bullets
+ * and Nygard `## Status` sections. Without this, both dialects import as `proposed`
+ * dated `1970-01-01` with no deciders — a silent downgrade of decisions that were
+ * already accepted, attributed to nobody (#40, #50).
  */
 export function extractMadrBodyFields(body: string): MadrBodyFields {
   const region = headerRegion(body);
   const status = headerBulletValue(region, 'status') ?? sectionValue(body, 'status');
   const date = headerBulletValue(region, 'date') ?? sectionValue(body, 'date');
+  const deciders = parseDeciders(headerBulletValue(region, 'deciders') ?? sectionValue(body, 'deciders'));
   return {
     ...(status !== undefined ? { status } : {}),
     ...(date !== undefined ? { date } : {}),
+    ...(deciders !== undefined ? { deciders } : {}),
   };
 }
 

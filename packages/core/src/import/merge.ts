@@ -222,6 +222,12 @@ function initialCandidate(options: MergeMadrOptions, findings: Finding[]): Mutab
   if (status.supersededBy !== undefined && candidate.supersededBy === undefined) {
     candidate.supersededBy = status.supersededBy;
   }
+  // Frontmatter deciders win; the MADR 2.x `* Deciders:` bullet is the fallback. Without
+  // this an imported record is attributed to nobody, and `import-incomplete` then asks
+  // the user to backfill from a line the importer declined to read (#50).
+  if (!Array.isArray(candidate.deciders) && bodyFields.deciders !== undefined) {
+    candidate.deciders = [...bodyFields.deciders];
+  }
 
   for (const [key, value] of Object.entries(FALLBACKS)) {
     if (!(key in candidate) || candidate[key] === undefined || candidate[key] === null) {

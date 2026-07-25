@@ -111,9 +111,10 @@ Migrate a MADR corpus in place, additively and non-destructively. The migration
 is one-way; round-trip sync is deliberately unsupported
 ([ADR-0008](/adr/0008-import-and-migration-semantics/)).
 
-Status and date are read from MADR 3.x YAML frontmatter, MADR 2.x `* Status:`
-header bullets, and Nygard `## Status` sections, so an already-accepted corpus
-does not import as a backlog of proposals.
+Status, date, and deciders are read from MADR 3.x YAML frontmatter, MADR 2.x
+`* Status:` header bullets, and Nygard `## Status` sections, so an
+already-accepted corpus does not import as a backlog of proposals attributed to
+nobody.
 
 ```sh
 # preview without writing
