@@ -5,7 +5,33 @@
 
 version: 2
 updates:
+  # Root workspace dependencies (packages/*, packages/adapters/*).
   - package-ecosystem: "bun" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    groups:
+      root-bun:
+        patterns:
+          - "*"
+
+  # Docs site has its own bun.lock and is not part of the root workspace.
+  - package-ecosystem: "bun"
+    directory: "/site"
+    schedule:
+      interval: "weekly"
+    groups:
+      site-bun:
+        patterns:
+          - "*"
+
+  # GitHub Actions used across .github/workflows are SHA-pinned; keep the pins
+  # current (Dependabot updates the SHA and the trailing version comment).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
