@@ -58,3 +58,35 @@ them in sync when the tooling guidance changes:
 
 - Cursor: [`.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc`](./.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc)
 - GitHub Copilot / VS Code: [`.github/instructions/use-bun.instructions.md`](./.github/instructions/use-bun.instructions.md)
+
+## Agent working directories
+
+**Do not write to the maintainer's main checkout.** Agent runs work in a git
+worktree on their own branch, never in place on the primary clone.
+
+Before the first write in a session, check where you are:
+
+```bash
+git rev-parse --show-toplevel   # is this the main checkout?
+git worktree list               # the first entry is the main checkout
+git status --porcelain          # is someone else's work already here?
+```
+
+If the toplevel is the main checkout, stop and create a worktree instead:
+
+```bash
+git worktree add -b <branch> ../copilot-worktrees/adrkit/<name> origin/main
+```
+
+Two rules follow from this, and both have been violated in practice:
+
+- **A dirty main checkout is a hard stop**, not a state to work around. Staged
+  or modified files there are someone else's uncommitted work. Do not commit,
+  stash, reset, checkout, or "clean up" around them — the owning session may
+  still be running, and its work is invisible to `git worktree list`.
+- **Never `git worktree remove` or `git branch -D` on the strength of commit
+  ancestry alone.** Squash merges rewrite history, so a fully-merged branch is
+  *never* an ancestor of `main` and `git log main..<branch>` is not empty.
+  Compare *content* instead — `git diff <branch> origin/main -- <paths>` — and
+  gate the destructive command on that check actually passing, not merely on
+  having printed a warning.
