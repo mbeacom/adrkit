@@ -68,6 +68,30 @@ jobs:
       - name: Smoke test installed npm tarballs
         run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
+  audit:
+    # Fail the build on high/critical advisories in the resolved dependency tree.
+    # Kept a separate job because it needs network for the advisory database, so
+    # it never entangles the no-network clean-clone guarantee (ADR-0007).
+    # ADR-0016: observed failing on the pre-fix tree; the permanent negative case
+    # lives at scripts/__fixtures__/audit/prefix-high.json with unit coverage in
+    # scripts/audit-gate.test.ts.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Audit dependencies (fail on high/critical advisories)
+        run: bun run audit:gate
+
   self-dogfood:
     # Run the CI surface against the project that ships it: adr check on the PR's
     # changed files. Governs the corpus that defines the tool (rung-3 dogfood).
