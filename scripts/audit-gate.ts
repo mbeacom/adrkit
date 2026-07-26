@@ -18,6 +18,9 @@
 
 export type AdvisorySeverity = 'critical' | 'high' | 'moderate' | 'low' | 'info';
 
+const SEVERITIES: readonly AdvisorySeverity[] = ['critical', 'high', 'moderate', 'low', 'info'];
+const KNOWN_SEVERITY: ReadonlySet<string> = new Set(SEVERITIES);
+
 export interface Advisory {
   readonly id: number;
   readonly url: string;
@@ -37,22 +40,80 @@ export interface AuditEvaluation {
   readonly ok: boolean;
   /**
    * Why the gate could not pass. `undefined` means it was read successfully.
-   * 'no-output' / 'unparseable' are blind states: the audit could not be read,
-   * which ADR-0016 requires we surface rather than render as a clean pass.
+   * 'no-output' / 'unparseable' / 'unexpected-shape' are blind states: the audit
+   * could not be read, which ADR-0016 requires we surface rather than render as a
+   * clean pass.
    */
-  readonly reason?: 'blocking-advisories' | 'no-output' | 'unparseable';
+  readonly reason?: 'blocking-advisories' | 'no-output' | 'unparseable' | 'unexpected-shape';
   /** High- and critical-severity advisories that block the gate. */
   readonly blocking: BlockingAdvisory[];
   /** What was examined: advisory count per severity across every package. */
   readonly examinedBySeverity: Record<AdvisorySeverity, number>;
   /** Number of distinct packages carrying at least one advisory. */
   readonly examinedPackages: number;
+  /** Set only when `reason` is 'unexpected-shape': which field did not match. */
+  readonly shapeError?: string;
 }
 
 const BLOCKING: ReadonlySet<AdvisorySeverity> = new Set(['critical', 'high']);
 
 function emptySeverityTally(): Record<AdvisorySeverity, number> {
   return { critical: 0, high: 0, moderate: 0, low: 0, info: 0 };
+}
+
+function blind(
+  reason: 'no-output' | 'unparseable' | 'unexpected-shape',
+  shapeError?: string,
+): AuditEvaluation {
+  return {
+    ok: false,
+    reason,
+    blocking: [],
+    examinedBySeverity: emptySeverityTally(),
+    examinedPackages: 0,
+    ...(shapeError === undefined ? {} : { shapeError }),
+  };
+}
+
+/**
+ * Validate that `value` is the shape `bun audit --json` documents, returning a
+ * description of the first mismatch or `undefined` when it conforms.
+ *
+ * Deliberately strict, and deliberately fail-closed. An unrecognized report is
+ * not a clean tree — it means the gate no longer understands what it is reading,
+ * which is indistinguishable from not looking (ADR-0016). If a future bun release
+ * legitimately changes this shape, the build fails loudly and this function and
+ * its fixtures get updated together, rather than the gate silently greening.
+ */
+function findShapeError(value: unknown): string | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return `expected a JSON object of package -> advisories, got ${
+      value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value
+    }`;
+  }
+
+  for (const [pkg, advisories] of Object.entries(value)) {
+    if (!Array.isArray(advisories)) {
+      return `expected "${pkg}" to hold an array of advisories, got ${
+        advisories === null ? 'null' : typeof advisories
+      }`;
+    }
+    for (const [index, advisory] of advisories.entries()) {
+      const at = `"${pkg}"[${index}]`;
+      if (advisory === null || typeof advisory !== 'object' || Array.isArray(advisory)) {
+        return `expected ${at} to be an advisory object`;
+      }
+      const record = advisory as Record<string, unknown>;
+      if (typeof record.severity !== 'string' || !KNOWN_SEVERITY.has(record.severity)) {
+        return `unknown severity ${JSON.stringify(record.severity)} at ${at}; expected one of ${SEVERITIES.join(', ')}`;
+      }
+      if (typeof record.url !== 'string') return `expected ${at}.url to be a string`;
+      if (typeof record.title !== 'string') return `expected ${at}.title to be a string`;
+      if (typeof record.id !== 'number') return `expected ${at}.id to be a number`;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -63,37 +124,30 @@ export function evaluateAudit(raw: string): AuditEvaluation {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
     // ADR-0016: an absent report is "could not look", not "looked, found nothing".
-    return {
-      ok: false,
-      reason: 'no-output',
-      blocking: [],
-      examinedBySeverity: emptySeverityTally(),
-      examinedPackages: 0,
-    };
+    return blind('no-output');
   }
 
-  let parsed: BunAuditJson;
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(trimmed) as BunAuditJson;
+    parsed = JSON.parse(trimmed);
   } catch {
-    return {
-      ok: false,
-      reason: 'unparseable',
-      blocking: [],
-      examinedBySeverity: emptySeverityTally(),
-      examinedPackages: 0,
-    };
+    return blind('unparseable');
   }
+
+  // Valid JSON is not enough: a report we do not recognize must fail closed,
+  // otherwise an envelope change renders as "examined 0 packages — PASSED".
+  const shapeError = findShapeError(parsed);
+  if (shapeError !== undefined) return blind('unexpected-shape', shapeError);
 
   const examinedBySeverity = emptySeverityTally();
   const blocking: BlockingAdvisory[] = [];
   let examinedPackages = 0;
 
-  for (const [pkg, advisories] of Object.entries(parsed)) {
-    if (!Array.isArray(advisories) || advisories.length === 0) continue;
+  for (const [pkg, advisories] of Object.entries(parsed as BunAuditJson)) {
+    if (advisories.length === 0) continue;
     examinedPackages += 1;
     for (const advisory of advisories) {
-      examinedBySeverity[advisory.severity] = (examinedBySeverity[advisory.severity] ?? 0) + 1;
+      examinedBySeverity[advisory.severity] += 1;
       if (BLOCKING.has(advisory.severity)) {
         blocking.push({ ...advisory, package: pkg });
       }
@@ -116,6 +170,13 @@ export function formatEvaluation(evaluation: AuditEvaluation): string {
   }
   if (evaluation.reason === 'unparseable') {
     return 'audit-gate: FAILED — `bun audit --json` output was not valid JSON; the audit could not be read (blind).';
+  }
+  if (evaluation.reason === 'unexpected-shape') {
+    return (
+      'audit-gate: FAILED — `bun audit --json` output parsed but did not match the expected schema, ' +
+      `so the audit could not be read (blind): ${evaluation.shapeError}. ` +
+      'If bun legitimately changed its output, update scripts/audit-gate.ts and its fixtures together.'
+    );
   }
 
   const s = evaluation.examinedBySeverity;

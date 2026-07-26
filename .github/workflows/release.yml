@@ -22,6 +22,10 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
         with:
           fetch-depth: 0
+          # Keep the contents:write token out of .git/config while dependencies
+          # install and arbitrary build/test/publish code runs. The one step that
+          # needs to push authenticates explicitly, for its own duration only.
+          persist-credentials: false
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
@@ -92,4 +96,17 @@ jobs:
           fi
 
       - name: Update the major Action tag
-        run: bun run release:action-tag -- "$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The checkout does not persist credentials, so this is the only point
+          # in the job where a push-capable credential exists in Git config. It is
+          # removed on exit, including when the push fails.
+          set -euo pipefail
+          header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          cleanup() {
+            git config --local --unset-all 'http.https://github.com/.extraheader' || true
+          }
+          trap cleanup EXIT
+          git config --local 'http.https://github.com/.extraheader' "$header"
+          bun run release:action-tag -- "$GITHUB_REF_NAME"

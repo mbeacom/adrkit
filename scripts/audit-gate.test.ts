@@ -97,6 +97,73 @@ describe('audit-gate — evaluateAudit', () => {
   });
 });
 
+describe('audit-gate — schema shape (fail-closed on anything unrecognized)', () => {
+  // These are the fail-OPEN cases: input that parses as JSON but is not the
+  // shape `bun audit --json` produces. Before the shape check existed, every
+  // one of these returned ok:true with "examined 0 packages" — indistinguishable
+  // from a genuinely clean tree, which is the exact blind pass ADR-0016 governs.
+  // A gate that cannot tell "nothing to report" from "I no longer understand the
+  // report" is not a gate.
+
+  test('rejects an envelope whose values are not arrays', () => {
+    // The realistic regression: bun wraps output as { "advisories": { ... } }.
+    const evaluation = evaluateAudit(JSON.stringify({ advisories: { 'some-pkg': [] } }));
+    expect(evaluation.ok).toBe(false);
+    expect(evaluation.reason).toBe('unexpected-shape');
+    expect(formatEvaluation(evaluation)).toContain('could not be read');
+  });
+
+  test('rejects a top-level array', () => {
+    const evaluation = evaluateAudit(JSON.stringify([{ severity: 'high' }]));
+    expect(evaluation.ok).toBe(false);
+    expect(evaluation.reason).toBe('unexpected-shape');
+  });
+
+  test('rejects top-level null without throwing', () => {
+    // Object.entries(null) throws, so this crashed the gate rather than failing it.
+    const evaluation = evaluateAudit('null');
+    expect(evaluation.ok).toBe(false);
+    expect(evaluation.reason).toBe('unexpected-shape');
+  });
+
+  test('rejects a scalar', () => {
+    expect(evaluateAudit('42').reason).toBe('unexpected-shape');
+    expect(evaluateAudit('"clean"').reason).toBe('unexpected-shape');
+  });
+
+  test('rejects an unknown severity rather than tallying it as non-blocking', () => {
+    // If bun ever renames severities (e.g. uppercase), the old code incremented
+    // an unknown key and reported a clean pass while a real advisory sat there.
+    const renamed = JSON.stringify({
+      'bad-pkg': [{ id: 3, url: 'https://example.test/a', title: 'thing', severity: 'HIGH' }],
+    });
+    const evaluation = evaluateAudit(renamed);
+    expect(evaluation.ok).toBe(false);
+    expect(evaluation.reason).toBe('unexpected-shape');
+  });
+
+  test('rejects an advisory missing the fields the report renders', () => {
+    const missingUrl = JSON.stringify({ 'bad-pkg': [{ id: 4, title: 'thing', severity: 'high' }] });
+    expect(evaluateAudit(missingUrl).reason).toBe('unexpected-shape');
+
+    const notAnObject = JSON.stringify({ 'bad-pkg': ['high'] });
+    expect(evaluateAudit(notAnObject).reason).toBe('unexpected-shape');
+  });
+
+  test('names what did not match, so the operator can tell why it went blind', () => {
+    const evaluation = evaluateAudit(JSON.stringify({ advisories: { pkg: [] } }));
+    expect(evaluation.shapeError).toContain('advisories');
+    expect(formatEvaluation(evaluation)).toContain('advisories');
+  });
+
+  test('still accepts the real clean and dirty shapes', async () => {
+    expect(evaluateAudit(await readFixture('clean.json')).ok).toBe(true);
+    expect(evaluateAudit(await readFixture('prefix-high.json')).reason).toBe('blocking-advisories');
+    // An empty advisory array for a package is legitimate, not a shape error.
+    expect(evaluateAudit(JSON.stringify({ 'some-pkg': [] })).ok).toBe(true);
+  });
+});
+
 describe('audit-gate — argument handling', () => {
   // The gate takes no arguments, so silently ignoring them reproduces the exact
   // fail-quiet shape ADR-0016 governs: an operator passing `--input fixture.json`
