@@ -107,18 +107,24 @@ bootstrap described below.
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
 
-### One-time `@adrkit/mcp` bootstrap for v0.2.0
+### One-time `@adrkit/mcp` bootstrap for v0.2.0 (completed)
+
+This step is **done** and is kept only as a record. The workflow no longer
+passes any npm secret; the `NPM_BOOTSTRAP_TOKEN` wiring was removed from
+`release.yml` once `@adrkit/mcp` had its own Trusted Publisher.
 
 npm requires a package to exist before its Trusted Publisher can be configured.
-For v0.2.0 only, add a short-lived granular `NPM_TOKEN` to the protected `npm`
-environment with publish access limited to `@adrkit/mcp`. The workflow exposes
-it to the release script as `NPM_BOOTSTRAP_TOKEN`, and the script maps it to
-`NODE_AUTH_TOKEN` only for the `@adrkit/mcp` subprocess; the three existing
-packages continue to authenticate with OIDC. After the workflow succeeds:
+For v0.2.0 only, a short-lived granular `NPM_TOKEN` was added to the protected
+`npm` environment with publish access limited to `@adrkit/mcp`. The workflow
+exposed it to the release script as `NPM_BOOTSTRAP_TOKEN`, and the script mapped
+it to `NODE_AUTH_TOKEN` only for the `@adrkit/mcp` subprocess; the three existing
+packages continued to authenticate with OIDC. After the workflow succeeded:
 
-1. Configure `@adrkit/mcp` with the same GitHub Actions Trusted Publisher
+1. `@adrkit/mcp` was configured with the same GitHub Actions Trusted Publisher
    (`mbeacom/adrkit`, `release.yml`, environment `npm`).
-2. Require 2FA and disallow tokens for `@adrkit/mcp`.
-3. Delete the temporary `NPM_TOKEN` environment secret.
+2. 2FA was required and tokens disallowed for `@adrkit/mcp`.
+3. The temporary `NPM_TOKEN` environment secret was deleted.
 
-All releases after v0.2.0 are tokenless for all four packages.
+`publishEnvironment` in `scripts/release-publish.ts` still honours
+`NPM_BOOTSTRAP_TOKEN` if it is ever set, but nothing sets it. All releases after
+v0.2.0 are tokenless for all four packages.
