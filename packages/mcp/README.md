@@ -229,7 +229,7 @@ never opened.**
       "title": "Adopt Postgres",
       "status": "accepted",
       "sourcePath": "docs/adr/0007-adopt-postgres.md",
-      "firedMatchers": [ { "type": "glob", "pattern": "src/db/**" } ],
+      "firedMatchers": [ { "type": "path", "pattern": "src/db/**" } ],
       "relations": { "supersedes": [], "supersededBy": null, "relatesTo": [], "conflictsWith": [] }
     }
   ],

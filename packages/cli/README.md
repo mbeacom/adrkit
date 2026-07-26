@@ -2,17 +2,20 @@
 
 Git-native architecture decision record tooling from adrkit.
 
-Zero-install with `npx` (the published binary is `adr`):
+Zero-install with `npx`, naming the package (the published binary is `adr`, but a
+bare `npx adr` resolves an unrelated `adr` package on npm):
 
 ```sh
 npx @adrkit/cli lint
 ```
 
-Or add it as a dev dependency:
+Or add it as a dev dependency and invoke it through your runner, which puts
+`node_modules/.bin` on PATH — a bare `adr` will not be on an interactive shell's
+PATH:
 
 ```sh
 npm install --save-dev @adrkit/cli    # or: bun add --dev @adrkit/cli
-adr lint
+npx adr lint                          # or: bunx adr lint, or an npm script
 ```
 
 The `adr` binary includes `new`, `lint`, `graph`, `explain`, `check`, `queue`,

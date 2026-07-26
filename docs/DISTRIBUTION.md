@@ -31,24 +31,42 @@ GitHub repo, so a small number of prerequisites unblock several venues at once.
 *metadata only*; the npm package must already exist at the version named in
 `server.json`.
 
-### P2 — `mcpName` marker in `packages/mcp/package.json` (REQUIRED, not yet present)
+### P2 — `mcpName` in the **published** `@adrkit/mcp` (REQUIRED, not yet satisfied)
 
-The official registry verifies npm ownership by requiring an `mcpName` property in
-the package's `package.json` whose value **exactly** matches the `name` in
+The official registry verifies npm ownership by reading `mcpName` from the
+package metadata of the **exact published version** named in `server.json` — not
+from the working tree. Its value must **exactly** match the `name` in
 `server.json`. Without it, `mcp-publisher publish` fails with
 `Registry validation failed for package`.
 
-**This file is owned by another workstream and has not been changed here.** The
-required edit (do not merge until the namespace decision in A1 is final):
+`@adrkit/mcp@0.2.0` was published **without** `mcpName` (verify:
+`npm view @adrkit/mcp@0.2.0 mcpName` returns nothing). Adding the field to the
+source manifest is therefore **not sufficient** — the registry would still read
+0.2.0's metadata and reject the claim.
+
+The manifest edit lands in the merge-gate branch (`packages/mcp/package.json`
+now declares `"mcpName": "dev.adrkit/mcp"`):
 
 ```jsonc
 // packages/mcp/package.json
 {
   "name": "@adrkit/mcp",
-  "mcpName": "dev.adrkit/mcp",   // ← add; MUST equal server.json "name"
+  "mcpName": "dev.adrkit/mcp",   // ← MUST equal server.json "name"
   // ...
 }
 ```
+
+**Publishing therefore requires, in order:**
+
+1. Merge the manifest change and cut a **new release** (e.g. `v0.2.1`) so a
+   published version of `@adrkit/mcp` carries `mcpName`.
+2. Confirm it landed: `npm view @adrkit/mcp@0.2.1 mcpName` → `dev.adrkit/mcp`.
+3. Bump **both** version fields in `packages/mcp/server.json` — the top-level
+   `version` and `packages[0].version` — to that same new version.
+4. Only then run `mcp-publisher publish`.
+
+Publishing against `server.json` as currently pinned (0.2.0) will fail
+ownership validation no matter what the working tree says.
 
 `server.json` does **not** need to be added to the package's `files` allowlist —
 `mcp-publisher` reads it from the working directory at publish time and it is not
@@ -113,12 +131,13 @@ The TXT record **must** sit on the **apex** of `adrkit.dev` (e.g. `adrkit.dev`),
 placement, not DKIM-style selectors).
 
 ```sh
-# 1. Generate an Ed25519 keypair.
+# 1. Generate an Ed25519 keypair. The TXT record carries the public key
+#    **base64-encoded** (the private key below is hex — the two encodings differ).
 #    NOTE: needs OpenSSL 3.0+. macOS system LibreSSL cannot do Ed25519 in genpkey —
 #    use `brew install openssl@3` and call that openssl explicitly.
 openssl genpkey -algorithm Ed25519 -out adrkit-mcp-key.pem
 PRIVATE_KEY=$(openssl pkey -in adrkit-mcp-key.pem -text -noout | grep -A3 'priv:' | tail -n +2 | tr -d ' :\n')
-PUBLIC_KEY=$(openssl pkey -in adrkit-mcp-key.pem -pubout -outform DER | tail -c 32 | xxd -p -c 32)
+PUBLIC_KEY=$(openssl pkey -in adrkit-mcp-key.pem -pubout -outform DER | tail -c 32 | base64)
 
 # 2. Publish this TXT record at the apex of adrkit.dev via your DNS provider:
 echo "adrkit.dev. IN TXT \"v=MCPv1; k=ed25519; p=${PUBLIC_KEY}\""
@@ -365,11 +384,16 @@ public repo. The only blocker is the human steps above (namespace proof + the P2
 ## C. Zero-install demo (`npx @adrkit/cli`) — actually run
 
 Both sequences below were **run end-to-end** against the published `@adrkit/cli@0.2.0`
-in a scratch directory outside the repo. The output is real, not aspirational.
-The binary published by `@adrkit/cli` is `adr`, so `npx -y @adrkit/cli <cmd>` works
-with no install.
+in a scratch directory outside the repo. The output is real, not aspirational, and
+is pinned to **0.2.0** — later versions change some rendering (`explain`/`check`
+gained a `[status]` token after 0.2.0), so re-capture these blocks when the pinned
+version moves. The binary published by `@adrkit/cli` is `adr`, so
+`npx -y @adrkit/cli <cmd>` works with no install.
 
-### C1 — scaffold and enforce a decision (offline, ~2 min)
+### C1 — scaffold and enforce a decision (~2 min)
+
+Needs network for the `npx` fetches; the CLI itself makes no network or model
+calls once resolved.
 
 ```sh
 mkdir adrkit-demo && cd adrkit-demo && git init -q
@@ -397,7 +421,10 @@ npx -y @adrkit/cli explain src/db/pool.ts
 #   → 0001  Adopt PostgreSQL for the primary datastore
 #   →   via path: src/db/**
 
-# 5. The CI gate form — nonzero exit if a governed file changes without review.
+# 5. The CI gate form — same resolution as `explain`, plus corpus findings.
+#    Note: `check` exits nonzero only when a *changed ADR record* carries an
+#    error-severity finding; a governed source file changing is reported, not
+#    failed (packages/core/src/check/index.ts).
 npx -y @adrkit/cli check src/db/pool.ts
 #   → Decisions governing this change:
 #   →   0001  Adopt PostgreSQL for the primary datastore
@@ -485,6 +512,15 @@ Re-confirmed against `origin` on 2026-07-25 with `git ls-remote --tags origin`,
 > (`@efef89b…`) is therefore **mandatory, not a nicety**, until §D3 is performed.
 > Any doc that presents `@v0` as an available option for the queue Action is wrong
 > as of this date and should keep pinning the SHA.
+>
+> **Repository sweep (done in this PR).** `README.md` and this document already
+> pinned the SHA, but two runnable references did not and have been corrected:
+> `specs/007-arb-queue/quickstart.md` (workflow YAML → SHA pin) and
+> `specs/007-arb-queue/contracts/github-action.md` (keeps `@v0` as the *intended*
+> contract, with an explicit not-yet-resolvable note). The remaining `@v0` strings
+> in `specs/007-arb-queue/research.md` and `tasks.md` are design rationale and a
+> completed task record, not copy-pasteable instructions; `tasks.md` T049 already
+> says to advertise `@v0` only after the tag moves.
 
 ### D2 — there is no separate `queue@v0` tag
 
