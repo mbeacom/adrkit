@@ -5,7 +5,7 @@ decision records: parsing, schema validation, corpus invariants, MADR migration,
 graph construction, and `affects` resolution.
 
 ```sh
-bun add @adrkit/core
+npm install @adrkit/core      # or: bun add @adrkit/core
 ```
 
 ```ts
@@ -16,6 +16,10 @@ const findings = lintCorpus(records);
 
 The published ESM artifacts run on Node.js 22 or newer. Development in the
 adrkit repository uses Bun.
+
+See also [`@adrkit/mcp`](../mcp/README.md) — a local, read-only Model Context
+Protocol server that exposes this corpus (including superseded/rejected
+decisions) to coding agents.
 
 Documentation: <https://adrkit.dev>
 

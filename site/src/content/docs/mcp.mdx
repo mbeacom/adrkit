@@ -1,0 +1,120 @@
+---
+title: MCP setup
+description: Give an agent the read-only adrkit MCP server so it retrieves prior decisions — including the rejected ones — before proposing something already tried.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`@adrkit/mcp` is a local, **read-only** [Model Context Protocol](https://modelcontextprotocol.io)
+server that exposes adrkit decision retrieval over stdio. It answers three
+questions against one Git-backed corpus — *has this been decided?*, *what
+governs these files?*, *what replaced this?* — and nothing else.
+
+## Why it is different
+
+Most retrieval is a probabilistic index. This is not.
+
+- **Deterministic** — literal search and the corpus's own `affects` matchers.
+  No embeddings, no ranking model.
+- **Offline** — no network, no HTTP, no auth. Every call re-reads the corpus.
+- **Read-only** — no writes, no persistent index. Fixed `readOnlyHint: true`.
+- **No model calls** — the server never invokes an LLM. Your agent does the
+  reasoning; adrkit supplies the facts.
+- **Surfaces the graveyard** — `rejected`, `superseded`, and `deprecated`
+  decisions are included by default, so an agent stops re-proposing an idea the
+  team already tried and turned down.
+
+## Run it
+
+The published binary is `adrkit-mcp`. It targets Node 22+ and reads a
+Git-backed corpus.
+
+```sh
+npx -y @adrkit/mcp --cwd /path/to/repo --dir docs/adr
+# or, from a project that has it installed
+adrkit-mcp --cwd /path/to/repo --dir docs/adr
+```
+
+`--cwd` (env `ADRKIT_MCP_CWD`, default `process.cwd()`) must be a Git worktree
+root. `--dir` (env `ADRKIT_MCP_DIR`, default `docs/adr`) is resolved and
+contained within it. Flags win over environment variables. stdout carries only
+JSON-RPC frames; all diagnostics go to stderr.
+
+## Client configuration
+
+<Tabs>
+<TabItem label="Claude Desktop">
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "adrkit": {
+      "command": "npx",
+      "args": ["-y", "@adrkit/mcp", "--cwd", "/path/to/repo", "--dir", "docs/adr"]
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem label="VS Code">
+
+Add to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "adrkit": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@adrkit/mcp", "--cwd", "${workspaceFolder}", "--dir", "docs/adr"]
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Copilot CLI">
+
+Either run `/mcp add` in an interactive session and fill in the stdio fields, or
+write the server directly to `~/.copilot/mcp-config.json` (user-wide) or
+`.copilot/mcp-config.json` in the repository root (project-scoped, and read
+first):
+
+```json
+{
+  "mcpServers": {
+    "adrkit": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@adrkit/mcp", "--cwd", ".", "--dir", "docs/adr"]
+    }
+  }
+}
+```
+
+Confirm it registered with `/mcp show`.
+
+</TabItem>
+</Tabs>
+
+## The four tools
+
+The server exposes exactly four tools and nothing else. Every substantive
+response carries a `corpusHealth` sibling (`fingerprint` / `recordCount` /
+`excludedCount`) and a `findings` page of the corpus's own parse/validation
+findings.
+
+| Tool | Answers | Notable outcomes |
+|---|---|---|
+| `search_decisions` | Literal substring search over id, title, tags, and body (graveyard included). Filters: `status`/`scope` (any-of), `tags` (all-of), ANDed. | `results` |
+| `get_decision` | The complete typed frontmatter + body for one ref. | `found`, `not-found`, `ambiguous-local-id`, `federated-log-unavailable` |
+| `get_decision_context` | Governing / active-proposal / historical decisions for repo-relative `files[]`, via the corpus's `affects` matchers. Paths are matched, never opened. | `matches` |
+| `list_superseded` | Every superseded record with its direct local replacement state. | `resolved` / `dangling` / `ambiguous` / `federated-unavailable` |
+
+<Aside type="note">
+	See [`packages/mcp/README.md`](https://github.com/mbeacom/adrkit/blob/main/packages/mcp/README.md)
+	for the full tool contracts, pagination cursors, and cursor-restart rules.
+</Aside>

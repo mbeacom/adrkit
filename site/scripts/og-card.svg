@@ -1,0 +1,13 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+  <rect width="1200" height="630" fill="#191411"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#e56a4a"/>
+  <text x="90" y="150" fill="#b8ada4" font-size="30" font-weight="700" letter-spacing="2">DECISION MEMORY · IN GIT</text>
+  <text x="86" y="330" fill="#f2ede9" font-size="150" font-weight="800" letter-spacing="-4">adrkit</text>
+  <text x="90" y="420" fill="#f2ede9" font-size="44" font-weight="600">Decisions that reach the code.</text>
+  <text x="90" y="486" fill="#b8ada4" font-size="32" font-weight="400">Typed, locatable ADRs — enforceable in CI, legible to agents.</text>
+  <g transform="translate(90 548)">
+    <rect x="0" y="0" width="360" height="46" rx="23" fill="#e56a4a"/>
+    <text x="180" y="31" fill="#191411" font-size="24" font-weight="700" text-anchor="middle">v0.2.0 on npm · adrkit.dev</text>
+  </g>
+  <text x="1110" y="580" fill="#6f665f" font-size="24" font-weight="400" text-anchor="end">CLI · CI · MCP · evaluator</text>
+</svg>

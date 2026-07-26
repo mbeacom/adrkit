@@ -1,0 +1,33 @@
+# adrkit
+
+> Decision memory for human- and agent-authored plans. adrkit turns architecture
+> decision records into typed, machine-readable data that is enforceable in CI and
+> legible to agents — without leaving git. Published as `@adrkit/core`,
+> `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp` (v0.2.0 on npm), plus a
+> GitHub Action at `mbeacom/adrkit/packages/ci@v0`.
+
+Key facts an agent should know:
+
+- A decision record is typed YAML frontmatter with a markdown body. The `affects`
+  field declares what a decision governs (paths, packages, APIs, resources), which
+  lets a tool answer "which decisions govern this pull request?".
+- adrkit is deterministic and read-only where it matters: match resolution is a pure
+  function, the MCP server makes no model or network calls, and nothing is approved
+  automatically — it routes, and humans decide.
+- The graveyard (`rejected` / `superseded` / `deprecated` decisions) is retrievable,
+  so an agent can avoid re-proposing something already tried and turned down.
+
+## Docs
+
+- [Why adrkit](https://adrkit.dev/): the problem, the idea, and project status.
+- [Quickstart](https://adrkit.dev/quickstart/): install `@adrkit/cli` and run `adr lint`, `new`, `explain`, `graph`, `migrate`.
+- [Command reference](https://adrkit.dev/commands/): every command, option, and exit code.
+- [Use in CI](https://adrkit.dev/ci/): the governing-decisions PR-comment Action and the ARB queue Action.
+- [MCP setup](https://adrkit.dev/mcp/): the read-only `adrkit-mcp` server and its four tools.
+- [JSON Schema](https://adrkit.dev/schema/): the canonical ADR schema, hosted at its `$id`.
+
+## Source
+
+- [Repository](https://github.com/mbeacom/adrkit): the code, and the decision corpus that governs it.
+- [README](https://github.com/mbeacom/adrkit/blob/main/README.md): the authoritative overview.
+- [MCP server contract](https://github.com/mbeacom/adrkit/blob/main/packages/mcp/README.md): full tool contracts and limits.

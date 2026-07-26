@@ -18,16 +18,27 @@ hero:
 <div class="adr-home">
 	<section class="adr-status-band" aria-label="Project status">
 		<div class="adr-status-band__item">
+			<span class="adr-status adr-status--current">Published · v0.2.0</span>
+			<p>
+				<code>@adrkit/core</code>, <code>@adrkit/cli</code>,
+				<code>@adrkit/evaluator</code>, and <code>@adrkit/mcp</code> are on npm;
+				the CI Action ships at <code>mbeacom/adrkit/packages/ci@v0</code>.
+			</p>
+		</div>
+		<div class="adr-status-band__item">
 			<span class="adr-status adr-status--current">Works today</span>
-			<p>Schema, corpus validation, graphing, migration, and path explanation.</p>
+			<p>
+				Corpus validation, path explanation, graphing, migration, the ARB
+				queue, PR comments, the read-only MCP server, and the deterministic
+				Pass 0 evaluator.
+			</p>
 		</div>
 		<div class="adr-status-band__item">
-			<span class="adr-status adr-status--planned">Planned</span>
-			<p>Pull-request comments, deterministic evaluation, and MCP retrieval.</p>
-		</div>
-		<div class="adr-status-band__item">
-			<span class="adr-status adr-status--planned">Pre-alpha</span>
-			<p>Run from source today. Registry packages have not shipped.</p>
+			<span class="adr-status adr-status--planned">Honest about what's next</span>
+			<p>
+				Evaluator Passes 1–3 and catalog binding are not built, and
+				ADR-0014 rung-3 external validation is still open.
+			</p>
 		</div>
 	</section>
 
@@ -132,8 +143,9 @@ hero:
 			<li>
 				<h3>Surface the constraint</h3>
 				<p>
-					Today, <code>adr explain</code> prints it. The planned CI and MCP
-					surfaces will put it directly in review and agent context.
+					<code>adr explain</code> prints it, the CI Action comments it on
+					the pull request that touches it, and the MCP server hands it to an
+					agent before it drafts a plan.
 				</p>
 			</li>
 		</ol>
@@ -141,33 +153,62 @@ hero:
 
 	<section class="adr-home__section adr-roadmap" aria-labelledby="roadmap">
 		<header class="adr-section-heading">
-			<h2 id="roadmap">Built next, stated plainly.</h2>
+			<h2 id="roadmap">Shipped, and honestly still ahead.</h2>
 			<p>
-				These are committed directions, not shipping claims. Each remains
-				planned until the repository proves otherwise.
+				The surfaces once listed here as planned have shipped in v0.2.0. What
+				remains is stated plainly — no item claims more than the repository
+				proves.
 			</p>
 		</header>
 
 		<ul class="adr-roadmap__list">
 			<li class="adr-roadmap__item">
-				<span class="adr-status adr-status--planned">Planned</span>
+				<span class="adr-status adr-status--current">Works today</span>
 				<h3>Pull-request context</h3>
-				<p>Comment with the accepted decisions governing touched files.</p>
+				<p>
+					The <code>packages/ci</code> Action comments the accepted decisions
+					governing touched files, read-only, on the default token.
+				</p>
 			</li>
 			<li class="adr-roadmap__item">
-				<span class="adr-status adr-status--planned">Planned</span>
+				<span class="adr-status adr-status--current">Works today</span>
 				<h3>Agent retrieval</h3>
 				<p>
-					Expose accepted and rejected decisions through MCP before a new plan
-					repeats an old argument.
+					The <code>@adrkit/mcp</code> server exposes accepted <em>and</em>
+					rejected decisions over stdio, so a new plan does not repeat an old
+					argument.
+				</p>
+			</li>
+			<li class="adr-roadmap__item">
+				<span class="adr-status adr-status--current">Works today</span>
+				<h3>Deterministic evaluation</h3>
+				<p>
+					<code>adr evaluate</code> runs the model-free Pass 0 rubric and
+					routes to a named human — it never approves.
 				</p>
 			</li>
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--planned">Planned</span>
-				<h3>Deterministic evaluation</h3>
+				<h3>Evaluator Passes 1–3</h3>
 				<p>
-					Check published rules first, then route the conditions that need
-					human judgment.
+					Only the deterministic Pass 0 is built. The later probabilistic
+					passes are not.
+				</p>
+			</li>
+			<li class="adr-roadmap__item">
+				<span class="adr-status adr-status--planned">Blocked</span>
+				<h3>Catalog binding</h3>
+				<p>
+					Resolving decisions against a service catalog is recorded as blocked
+					pending a viability spike.
+				</p>
+			</li>
+			<li class="adr-roadmap__item">
+				<span class="adr-status adr-status--planned">Open</span>
+				<h3>External validation</h3>
+				<p>
+					The ARB queue is maintainer reference-verified; ADR-0014 rung-3
+					external/community validation is still open.
 				</p>
 			</li>
 		</ul>
