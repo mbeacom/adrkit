@@ -10,8 +10,8 @@
  * US1 wires empty registries; US3 (T042) constructs the real deterministic ports.
  */
 
-import { readFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { lintCorpus, normalizeDisplayPath } from '@adrkit/core';
 import {
   canonicalBytes,
@@ -58,6 +58,15 @@ export function isValidIsoDate(value: string): boolean {
   if (m < 1 || m > 12 || d < 1 || d > 31) return false;
   const date = new Date(Date.UTC(y, m - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+async function directoryExists(dir: string, cwd: string): Promise<boolean> {
+  const path = isAbsolute(dir) ? dir : resolve(cwd, dir);
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 /** Assemble the immutable Pass0Input from the loaded corpus + normalized snapshot. */
@@ -112,6 +121,11 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
     return { exitCode: 2, stdout: '', stderr: `adr evaluate: --date must be a valid YYYY-MM-DD (got "${options.date}")\n` };
   }
 
+  const dir = options.dir ?? dirname(options.proposalPath);
+  if (options.dir !== undefined && !(await directoryExists(options.dir, cwd))) {
+    return { exitCode: 2, stdout: '', stderr: `Corpus directory not found: '${options.dir}'.\n` };
+  }
+
   let snapshot: NormalizedSnapshot;
   try {
     const text = await readFile(options.snapshotPath, 'utf8');
@@ -127,7 +141,6 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
     };
   }
 
-  const dir = options.dir ?? dirname(options.proposalPath);
   const corpus = await lintCorpus({ paths: [dir, options.proposalPath], cwd });
   const proposalPath = normalizeDisplayPath(options.proposalPath, cwd);
 

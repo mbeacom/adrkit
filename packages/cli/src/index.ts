@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
+import { stat } from 'node:fs/promises';
 import {
   buildAdrGraph,
   bucketDecisions,
@@ -38,6 +39,23 @@ function writeStderr(text: string): void {
   process.stderr.write(text);
 }
 
+async function directoryExists(dir: string): Promise<boolean> {
+  try {
+    return (await stat(dir)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function corpusDirectoryNotFound(dir: string): number {
+  writeStderr(`Corpus directory not found: '${dir}'.\n`);
+  return 2;
+}
+
+function hasValueFlag(args: readonly string[], flag: string): boolean {
+  return args.some((arg) => arg === flag || arg.startsWith(`${flag}=`));
+}
+
 const USAGE = `Usage:
   adr lint [paths...] [--json] [--dir docs/adr]
   adr migrate --from madr [--dir docs/adr] [--dry-run] [--rename] [--json]
@@ -68,7 +86,8 @@ Options:
   --json          Emit { checked, findings } as JSON
   --help          Show this help and exit
 
-Exit codes: 0 = no error findings; 1 = one or more error findings; 2 = usage error.
+Exit codes: 0 = no error findings; 1 = one or more error findings;
+2 = usage error (invalid invocation or unreachable corpus directory).
 `,
   migrate: `Usage: adr migrate --from madr [options]
 
@@ -85,7 +104,8 @@ Options:
   --help          Show this help and exit
 
 Exit codes: 0 = migration ran (findings are reported but do not fail the run);
-2 = usage error (missing or unsupported --from, unknown flag, positional argument).
+2 = usage error (missing or unsupported --from, unknown flag, positional argument,
+or unreachable corpus directory).
 `,
   new: `Usage: adr new <title> [options]
 
@@ -108,7 +128,7 @@ Options:
   --format dot|json       Output format (default: dot)
   --help                  Show this help and exit
 
-Exit codes: 0 = rendered; 2 = usage error.
+Exit codes: 0 = rendered; 2 = usage error (invalid invocation or unreachable corpus directory).
 `,
   explain: `Usage: adr explain <path> [options]
 
@@ -119,7 +139,8 @@ Options:
   --json          Emit { path, governedBy, governing, activeProposals, history, findings }
   --help          Show this help and exit
 
-Exit codes: 0 = explained; 1 = corpus has error findings; 2 = usage error.
+Exit codes: 0 = explained; 1 = corpus has error findings;
+2 = usage error (invalid invocation or unreachable corpus directory).
 `,
   check: `Usage: adr check <files...> [options]
 
@@ -130,7 +151,8 @@ Options:
   --json          Emit the CheckOutcome as JSON
   --help          Show this help and exit
 
-Exit codes: 0 = ok; 1 = a changed record has an error finding; 2 = usage error.
+Exit codes: 0 = ok; 1 = a changed record has an error finding;
+2 = usage error (invalid invocation or unreachable corpus directory).
 `,
   evaluate: `Usage: adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [options]
 
@@ -146,8 +168,8 @@ Options:
 The evaluator routes; it never approves, persists, or writes. There is no --write.
 
 Exit codes: 0 = evaluated (including warn/info/inert and escalation);
-1 = the proposal was returned on a rubric error; 2 = usage error or a malformed
-snapshot bundle.
+1 = the proposal was returned on a rubric error; 2 = usage error, unreachable
+corpus directory, or malformed snapshot bundle.
 `,
   queue: QUEUE_USAGE,
 };
@@ -234,8 +256,13 @@ async function runLint(args: string[]): Promise<number> {
     return usage(error instanceof Error ? error.message : String(error));
   }
 
+  const dir = String(parsed.values.dir);
+  if ((parsed.positionals.length === 0 || hasValueFlag(args, '--dir')) && !(await directoryExists(dir))) {
+    return corpusDirectoryNotFound(dir);
+  }
+
   const result = await lintCorpus({
-    dir: String(parsed.values.dir),
+    dir,
     paths: parsed.positionals,
   });
   const findings = sortFindings(result.findings);
@@ -312,8 +339,11 @@ async function runMigrate(args: string[]): Promise<number> {
     );
   }
 
+  const dir = String(parsed.values.dir);
+  if (!(await directoryExists(dir))) return corpusDirectoryNotFound(dir);
+
   const result = await migrateMadr({
-    dir: String(parsed.values.dir),
+    dir,
     write: parsed.values['dry-run'] !== true,
     rename: parsed.values.rename === true,
   });
@@ -378,7 +408,10 @@ async function runGraph(args: string[]): Promise<number> {
   const format = String(parsed.values.format);
   if (format !== 'dot' && format !== 'json') return usage('adr graph --format must be dot or json');
 
-  const result = await lintCorpus({ dir: String(parsed.values.dir) });
+  const dir = String(parsed.values.dir);
+  if (!(await directoryExists(dir))) return corpusDirectoryNotFound(dir);
+
+  const result = await lintCorpus({ dir });
   const graph = buildAdrGraph(result.records);
   writeStdout(format === 'json' ? renderJsonGraph(graph) : renderDotGraph(graph));
   return 0;
@@ -399,7 +432,10 @@ async function runExplain(args: string[]): Promise<number> {
   const path = parsed.positionals[0];
   if (!path) return usage('adr explain requires exactly one path');
 
-  const corpus = await lintCorpus({ dir: String(parsed.values.dir) });
+  const dir = String(parsed.values.dir);
+  if (!(await directoryExists(dir))) return corpusDirectoryNotFound(dir);
+
+  const corpus = await lintCorpus({ dir });
   const corpusFindings = sortFindings(corpus.findings);
   if (exitCodeForFindings(corpusFindings) !== 0) {
     if (parsed.values.json) {
@@ -506,6 +542,8 @@ async function runCheck(args: string[]): Promise<number> {
   }
 
   const dir = String(parsed.values.dir);
+  if (!(await directoryExists(dir))) return corpusDirectoryNotFound(dir);
+
   const lint = await lintCorpus({ dir });
   const outcome = checkChanges({ lint, changedFiles: parsed.positionals, dir });
 
