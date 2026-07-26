@@ -146,7 +146,18 @@ async function runBunAuditJson(): Promise<{ stdout: string; exitCode: number }> 
   return { stdout, exitCode };
 }
 
-export async function main(): Promise<number> {
+const USAGE = 'usage: bun run audit:gate   (takes no arguments)';
+
+export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise<number> {
+  // The gate takes no arguments. Accepting and ignoring them is the same
+  // fail-quiet shape ADR-0016 exists to prevent: `audit-gate --input fixture.json`
+  // would silently audit the live tree and print a reassuring PASSED that says
+  // nothing about the file the operator believed was checked.
+  if (argv.length > 0) {
+    console.error(`audit-gate: unexpected argument(s): ${argv.join(' ')}\n${USAGE}`);
+    return 2;
+  }
+
   const { stdout, exitCode } = await runBunAuditJson();
   const evaluation = evaluateAudit(stdout);
   console.log(formatEvaluation(evaluation));

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { resolve } from 'node:path';
-import { evaluateAudit, formatEvaluation } from '../scripts/audit-gate.ts';
+import { evaluateAudit, formatEvaluation, main } from '../scripts/audit-gate.ts';
 
 const FIXTURES = resolve(import.meta.dir, '__fixtures__', 'audit');
 const readFixture = (name: string) => Bun.file(resolve(FIXTURES, name)).text();
@@ -94,5 +94,38 @@ describe('audit-gate — evaluateAudit', () => {
     const evaluation = evaluateAudit(critical);
     expect(evaluation.ok).toBe(false);
     expect(evaluation.blocking[0]?.severity).toBe('critical');
+  });
+});
+
+describe('audit-gate — argument handling', () => {
+  // The gate takes no arguments, so silently ignoring them reproduces the exact
+  // fail-quiet shape ADR-0016 governs: an operator passing `--input fixture.json`
+  // would get a PASSED that describes the live tree, not the file they named.
+  // These cases reject before any audit is spawned, so they need no network.
+  const captureStderr = async (argv: readonly string[]): Promise<{ code: number; err: string }> => {
+    const original = console.error;
+    let err = '';
+    console.error = (...args: unknown[]) => {
+      err += `${args.map(String).join(' ')}\n`;
+    };
+    try {
+      return { code: await main(argv), err };
+    } finally {
+      console.error = original;
+    }
+  };
+
+  test('rejects an unknown flag with exit 2 instead of auditing the live tree', async () => {
+    const { code, err } = await captureStderr(['--input', 'scripts/__fixtures__/audit/clean.json']);
+    expect(code).toBe(2);
+    expect(err).toContain('unexpected argument(s): --input scripts/__fixtures__/audit/clean.json');
+    expect(err).toContain('takes no arguments');
+    // Critically, it must not have rendered a verdict about a tree it never read.
+    expect(err).not.toContain('PASSED');
+  });
+
+  test('rejects a stray positional argument', async () => {
+    const { code } = await captureStderr(['clean.json']);
+    expect(code).toBe(2);
   });
 });
