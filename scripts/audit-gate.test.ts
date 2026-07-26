@@ -4,6 +4,7 @@ import { evaluateAudit, formatEvaluation, main } from '../scripts/audit-gate.ts'
 
 const FIXTURES = resolve(import.meta.dir, '__fixtures__', 'audit');
 const readFixture = (name: string) => Bun.file(resolve(FIXTURES, name)).text();
+const ACTIVE_ACCEPTANCE_AS_OF = '2026-07-25';
 
 describe('audit-gate — evaluateAudit', () => {
   // ADR-0016 permanent negative case. `prefix-high.json` is the real, unedited
@@ -38,12 +39,48 @@ describe('audit-gate — evaluateAudit', () => {
   });
 
   test('passes a clean audit ({} — audit ran, found nothing)', async () => {
-    const evaluation = evaluateAudit(await readFixture('clean.json'));
+    const evaluation = evaluateAudit(await readFixture('clean.json'), { asOf: ACTIVE_ACCEPTANCE_AS_OF });
     expect(evaluation.ok).toBe(true);
     expect(evaluation.reason).toBeUndefined();
     expect(evaluation.blocking).toEqual([]);
     expect(evaluation.examinedPackages).toBe(0);
     expect(formatEvaluation(evaluation)).toContain('PASSED');
+  });
+
+  test('states that the live gate audits the workspace resolved tree, not published consumer installs', async () => {
+    const evaluation = evaluateAudit(await readFixture('clean.json'), { asOf: ACTIVE_ACCEPTANCE_AS_OF });
+    const rendered = formatEvaluation(evaluation);
+
+    expect(rendered).toContain('scope: workspace-resolved-dependency-tree');
+    expect(rendered).toContain('after root package.json overrides');
+    expect(rendered).toContain('does not audit consumer installs of published @adrkit/* packages');
+  });
+
+  test('records the known upstream-blocked @adrkit/mcp consumer advisory without hiding the scope gap', async () => {
+    const evaluation = evaluateAudit(await readFixture('clean.json'), { asOf: ACTIVE_ACCEPTANCE_AS_OF });
+    const known = evaluation.knownConsumerAdvisories?.[0];
+
+    expect(evaluation.ok).toBe(true);
+    expect(known?.package).toBe('@hono/node-server');
+    expect(known?.url).toBe('https://github.com/advisories/GHSA-frvp-7c67-39w9');
+    expect(known?.affectedPublishedPackage).toBe('@adrkit/mcp');
+    expect(known?.affectedPublishedVersion).toBe('0.2.0');
+    expect(known?.acceptedUntil).toBe('2026-10-31');
+
+    const rendered = formatEvaluation(evaluation);
+    expect(rendered).toContain('known published-consumer exposure');
+    expect(rendered).toContain('GHSA-frvp-7c67-39w9');
+    expect(rendered).toContain('@modelcontextprotocol/sdk@1.29.0');
+    expect(rendered).toContain('@hono/node-server >=2.0.5');
+    expect(rendered).toContain('stdio MCP server does not use Hono serve-static');
+  });
+
+  test('fails closed once the known consumer advisory acceptance expires', async () => {
+    const evaluation = evaluateAudit(await readFixture('clean.json'), { asOf: '2026-11-01' });
+
+    expect(evaluation.ok).toBe(false);
+    expect(evaluation.reason).toBe('consumer-advisory-acceptance-expired');
+    expect(formatEvaluation(evaluation)).toContain('consumer advisory acceptance expired');
   });
 
   // The core ADR-0016 distinction: absence of output is "could not look", which
@@ -74,7 +111,7 @@ describe('audit-gate — evaluateAudit', () => {
         },
       ],
     });
-    const evaluation = evaluateAudit(moderateOnly);
+    const evaluation = evaluateAudit(moderateOnly, { asOf: ACTIVE_ACCEPTANCE_AS_OF });
     expect(evaluation.ok).toBe(true);
     expect(evaluation.examinedBySeverity.moderate).toBe(1);
     expect(evaluation.blocking).toEqual([]);
@@ -157,10 +194,10 @@ describe('audit-gate — schema shape (fail-closed on anything unrecognized)', (
   });
 
   test('still accepts the real clean and dirty shapes', async () => {
-    expect(evaluateAudit(await readFixture('clean.json')).ok).toBe(true);
+    expect(evaluateAudit(await readFixture('clean.json'), { asOf: ACTIVE_ACCEPTANCE_AS_OF }).ok).toBe(true);
     expect(evaluateAudit(await readFixture('prefix-high.json')).reason).toBe('blocking-advisories');
     // An empty advisory array for a package is legitimate, not a shape error.
-    expect(evaluateAudit(JSON.stringify({ 'some-pkg': [] })).ok).toBe(true);
+    expect(evaluateAudit(JSON.stringify({ 'some-pkg': [] }), { asOf: ACTIVE_ACCEPTANCE_AS_OF }).ok).toBe(true);
   });
 });
 
