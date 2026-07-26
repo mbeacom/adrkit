@@ -135,10 +135,11 @@ simulation before tagging.
    node .release/smoke/smoke.mjs "$PWD"
    bun .release/smoke/smoke.mjs "$PWD"
    bun run release:publish -- --dry-run
+   bun -e "const m = await Bun.file('.release/npm/manifest.json').json(); if (m.version !== '0.2.1' || m.artifacts.length !== 4 || !m.artifacts.every((a) => a.version === '0.2.1')) throw new Error('release manifest is not entirely 0.2.1');"
    ```
 
-   Verify that all commands exit 0 and `.release/npm/manifest.json` lists
-   `version: "0.2.1"` for all four public packages.
+   Verify that all commands exit 0; the final assertion fails if the release
+   manifest is missing or names any package version other than `0.2.1`.
 
 3. Create and push the immutable release tag.
 
@@ -150,50 +151,80 @@ simulation before tagging.
    Verify the release workflow started:
 
    ```sh
-   gh run list --workflow release.yml --event push --limit 1
+   release_sha=$(git rev-list -n 1 v0.2.1)
+   release_run_id=$(
+     gh run list \
+       --workflow release.yml \
+       --event push \
+       --commit "$release_sha" \
+       --limit 10 \
+       --json databaseId,headSha \
+       --jq "map(select(.headSha == \"$release_sha\")) | first | .databaseId // empty"
+   )
+   test -n "$release_run_id"
+   gh run view "$release_run_id" --json status,conclusion,headSha,url
    ```
 
 4. Approve the protected `npm` environment deployment in GitHub Actions.
 
-   Verify the release workflow succeeds:
+   Verify the exact release workflow run succeeds:
 
    ```sh
-   gh run list --workflow release.yml --event push --status success --limit 1
+   release_sha=$(git rev-list -n 1 v0.2.1)
+   release_run_id=$(
+     gh run list \
+       --workflow release.yml \
+       --event push \
+       --commit "$release_sha" \
+       --limit 10 \
+       --json databaseId,headSha \
+       --jq "map(select(.headSha == \"$release_sha\")) | first | .databaseId // empty"
+   )
+   test -n "$release_run_id"
+   gh run watch "$release_run_id" --exit-status
    ```
 
 5. Confirm all npm packages and the MCP ownership metadata are published.
 
    ```sh
    for package in @adrkit/core @adrkit/evaluator @adrkit/cli @adrkit/mcp; do
-     npm view "${package}@0.2.1" version
+     test "$(npm view "${package}@0.2.1" version)" = "0.2.1"
    done
-   npm view @adrkit/mcp@0.2.1 mcpName
+   test "$(npm view @adrkit/mcp@0.2.1 mcpName)" = "dev.adrkit/mcp"
    ```
 
-   Verify the first loop prints `0.2.1` four times and the MCP metadata prints
-   `dev.adrkit/mcp`.
+   Verify the command exits 0; any missing package, wrong version, or missing
+   `mcpName` fails the step.
 
 6. Confirm the GitHub release and moving major Action tag.
 
    ```sh
    gh release view v0.2.1
-   git ls-remote --tags origin refs/tags/v0 refs/tags/v0.2.1 'refs/tags/v0.2.1^{}'
+   release_sha=$(git rev-list -n 1 v0.2.1)
+   remote_release_sha=$(git ls-remote --tags origin 'refs/tags/v0.2.1^{}' | awk '{print $1}')
+   remote_major_sha=$(git ls-remote --tags origin refs/tags/v0 | awk '{print $1}')
+   test "$remote_release_sha" = "$release_sha"
+   test "$remote_major_sha" = "$release_sha"
    gh api 'repos/mbeacom/adrkit/contents/packages/ci/queue/action.yml?ref=v0' --jq .path
    ```
 
-   Verify the release exists, `v0` resolves to the v0.2.1 release commit, and the
-   contents API prints `packages/ci/queue/action.yml`.
+   Verify the release exists, both tag comparisons exit 0, and the contents API
+   prints `packages/ci/queue/action.yml`.
 
 7. Publish the official MCP registry entry after the npm checks pass.
 
    ```sh
    cd packages/mcp
    mcp-publisher publish
-   curl 'https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mcp'
+   curl --fail --silent --show-error \
+     'https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mcp' \
+     | grep -F 'dev.adrkit/mcp' \
+     | grep -F '0.2.1'
    ```
 
-   Verify the registry response includes `dev.adrkit/mcp` and package version
-   `0.2.1`. If namespace proof has not been completed yet, follow
+   Verify the command exits 0; the grep pipeline fails if the registry response
+   does not include both `dev.adrkit/mcp` and package version `0.2.1`. If
+   namespace proof has not been completed yet, follow
    [`docs/DISTRIBUTION.md`](./DISTRIBUTION.md) section A before publishing.
 
 8. De-pin queue Action examples only after `queue@v0` resolves.
