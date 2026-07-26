@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { chmod, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { cleanupTestDir, resetTestDir, writeText } from '../../core/test/helpers.ts';
+import { cleanupTestDir, recordMarkdown, resetTestDir, writeText } from '../../core/test/helpers.ts';
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const DIR_NAME = 'cli-corpus-dir';
@@ -70,5 +71,85 @@ describe('ADR corpus directory usage errors', () => {
       expect(result.stderr, name).not.toContain('ENOENT');
       expect(result.stderr, name).not.toContain(root);
     }
+  });
+
+  test('commands that read a corpus reject an unreadable --dir consistently', async () => {
+    if (typeof process.getuid === 'function' && process.getuid() === 0) return;
+
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'noread');
+    await writeText(join(dir, '0001-unreadable.md'), recordMarkdown('0001'));
+    await writeText(
+      join(root, 'proposal.md'),
+      [
+        '---',
+        'schemaVersion: 0.1.0',
+        'id: "0042"',
+        'title: Unreadable corpus candidate',
+        'status: proposed',
+        'date: 2026-07-19',
+        'deciders: []',
+        'tags: []',
+        'scope: component',
+        'reversibility: unknown',
+        'blastRadius: component',
+        'relatesTo: []',
+        'affects: []',
+        'provenance:',
+        '  authoredBy: human',
+        '---',
+        '',
+        '# Unreadable corpus candidate',
+        '',
+      ].join('\n'),
+    );
+    await writeText(join(root, 'snapshot.json'), JSON.stringify({ schemaVersion: 'adrkit.pass0.snapshot/v1' }));
+
+    await chmod(dir, 0o300);
+    try {
+      const stillReadable = await readdir(dir).then(
+        () => true,
+        () => false,
+      );
+      if (stillReadable) return;
+
+      const cases: ReadonlyArray<{ name: string; args: string[] }> = [
+        { name: 'lint', args: ['lint', '--dir', 'noread'] },
+        { name: 'graph', args: ['graph', '--dir', 'noread'] },
+        { name: 'explain', args: ['explain', 'src/x.ts', '--dir', 'noread'] },
+        { name: 'check', args: ['check', 'src/x.ts', '--dir', 'noread'] },
+        { name: 'migrate', args: ['migrate', '--from', 'madr', '--dir', 'noread'] },
+        {
+          name: 'evaluate',
+          args: ['evaluate', 'proposal.md', '--snapshot', 'snapshot.json', '--date', '2026-07-19', '--dir', 'noread'],
+        },
+      ];
+
+      const actual = [];
+      for (const { name, args } of cases) actual.push({ name, ...(await runAdr(args, root)) });
+      expect(actual).toEqual(
+        cases.map(({ name }) => ({
+          name,
+          stdout: '',
+          stderr: "Corpus directory not readable: 'noread'.\n",
+          exitCode: 2,
+        })),
+      );
+
+    } finally {
+      await chmod(dir, 0o700).catch(() => {});
+    }
+  });
+
+  test('lint treats --dir after -- as a positional path, not an option', async () => {
+    const root = await resetTestDir(DIR_NAME);
+
+    const result = await runAdr(['lint', '--', '--dir'], root);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('checked 1 records, 1 errors');
+    expect(result.stderr).toContain('file-read');
+    expect(result.stderr).toContain('--dir');
+    expect(result.stderr).not.toContain('Corpus directory not found');
   });
 });
