@@ -27,11 +27,12 @@ GitHub repo, so a small number of prerequisites unblock several venues at once.
 ### P1 — npm packages are published
 
 `@adrkit/mcp`, `@adrkit/cli`, `@adrkit/core`, `@adrkit/evaluator` are published at
-`0.2.0` (verify with `npm view @adrkit/mcp version`). The MCP registry hosts
-*metadata only*; the npm package must already exist at the version named in
-`server.json`.
+`0.2.0`; the v0.2.1 release is required before the registry submission below
+because `server.json` now names `0.2.1`. The MCP registry hosts *metadata only*;
+the npm package must already exist at the exact version named in `server.json`
+(verify with `npm view @adrkit/mcp@0.2.1 version` after the release).
 
-### P2 — `mcpName` in the **published** `@adrkit/mcp` (REQUIRED, not yet satisfied)
+### P2 — `mcpName` in the **published** `@adrkit/mcp` (REQUIRED; satisfied only after v0.2.1 publishes)
 
 The official registry verifies npm ownership by reading `mcpName` from the
 package metadata of the **exact published version** named in `server.json` — not
@@ -59,14 +60,14 @@ now declares `"mcpName": "dev.adrkit/mcp"`):
 **Publishing therefore requires, in order:**
 
 1. Merge the manifest change and cut a **new release** (e.g. `v0.2.1`) so a
-   published version of `@adrkit/mcp` carries `mcpName`.
+   published version of `@adrkit/mcp` carries `mcpName` and matches `server.json`.
 2. Confirm it landed: `npm view @adrkit/mcp@0.2.1 mcpName` → `dev.adrkit/mcp`.
-3. Bump **both** version fields in `packages/mcp/server.json` — the top-level
-   `version` and `packages[0].version` — to that same new version.
+3. Confirm **both** version fields in `packages/mcp/server.json` — the top-level
+   `version` and `packages[0].version` — name that same published version.
 4. Only then run `mcp-publisher publish`.
 
-Publishing against `server.json` as currently pinned (0.2.0) will fail
-ownership validation no matter what the working tree says.
+Publishing against a `server.json` version that is not yet on npm will fail
+validation no matter what the working tree says.
 
 `server.json` does **not** need to be added to the package's `files` allowlist —
 `mcp-publisher` reads it from the working directory at publish time and it is not
@@ -178,7 +179,7 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mc
   "name": "dev.adrkit/mcp",
   "title": "adrkit decision memory",
   "description": "Deterministic, offline, read-only ADR decision memory for coding agents. No model or network calls.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "websiteUrl": "https://adrkit.dev",
   "repository": {
     "url": "https://github.com/mbeacom/adrkit",
@@ -190,7 +191,7 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mc
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@adrkit/mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "runtimeHint": "npx",
       "transport": { "type": "stdio" },
       "environmentVariables": [
@@ -206,9 +207,10 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mc
 > release you are publishing. If a new release (e.g. the SDK-CVE patch) bumps
 > `@adrkit/mcp`, bump both fields here before re-publishing.
 
-**Listing criteria met?** Yes — schema-valid, npm package exists, stdio transport,
-public repo. The only blocker is the human steps above (namespace proof + the P2
-`mcpName` edit).
+**Listing criteria met?** Yes once v0.2.1 is published — schema-valid, npm package
+exists at the manifest version, stdio transport, public repo. The remaining
+blockers are the human namespace proof and the v0.2.1 npm publication that carries
+`mcpName`.
 
 ---
 
@@ -550,9 +552,10 @@ procedure only; the release is a human action.
 
 ## E. Changes needed from other workstreams (report only)
 
-| File (not owned here) | Needed change | Why |
-|---|---|---|
-| `packages/mcp/package.json` | Add `"mcpName": "dev.adrkit/mcp"` (must equal `server.json` `name`). | Required for official MCP registry npm-ownership verification (P2). |
+No distribution-blocking source edits are currently delegated to another
+workstream. `packages/mcp/package.json` now declares
+`"mcpName": "dev.adrkit/mcp"` (matching `server.json` `name`); v0.2.1 must be cut
+so that field exists in npm metadata.
 
 `server.json` does **not** need to be added to `packages/mcp/package.json` `files`.
 

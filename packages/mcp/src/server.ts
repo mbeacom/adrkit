@@ -14,7 +14,7 @@ import { registerGetDecisionContext } from './tools/get-decision-context.ts';
 import { registerListSuperseded } from './tools/list-superseded.ts';
 import type { ToolConfig } from './tools/shared.ts';
 
-export const SERVER_INFO = { name: '@adrkit/mcp', version: '0.1.0' } as const;
+export const SERVER_INFO = { name: '@adrkit/mcp', version: '0.2.1' } as const;
 
 /** Package-internal: build the concrete server with exactly the four ratified tools. */
 export function buildRegisteredServer(config: ToolConfig): McpServer {

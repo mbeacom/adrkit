@@ -9,7 +9,7 @@ Action:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.2.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.2.1`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
@@ -48,7 +48,7 @@ From a clean checkout:
 
 ```sh
 bun install --frozen-lockfile
-bun run release:pack -- --tag v0.2.0
+bun run release:pack -- --tag v0.2.1
 # With Node 22 selected in your Node version manager:
 node .release/smoke/smoke.mjs "$PWD"
 # Switch the same shell to Node 24, then run:
@@ -99,13 +99,114 @@ bootstrap described below.
    inter-package expectations and run `bun install` with stable Bun 1.3.14 when
    the lockfile changes.
 2. Merge the version change only after CI passes.
-3. Create and push the matching annotated tag, such as `v0.2.0`.
+3. Create and push the matching annotated tag, such as `v0.2.1`.
 4. Approve the protected `npm` environment deployment.
 5. Confirm the workflow published all packages, created the immutable GitHub
    release, and moved `v0` to the released commit.
 
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
+
+## v0.2.1 cutover runbook
+
+Run these steps only after the version-bump PR is the last change merged to
+`main`. If `audit-gate-published-scope`, `wave3-toward-1-0`, or
+`adr-0015-decision` lands first, refresh the changelog and re-run the local
+simulation before tagging.
+
+1. Start from the final release commit on `main`.
+
+   ```sh
+   git switch main
+   git pull --ff-only origin main
+   git log -1 --oneline
+   ```
+
+   Verify that the last commit is the intended v0.2.1 release-prep commit.
+
+2. Re-run the local release simulation.
+
+   ```sh
+   bun install --frozen-lockfile
+   bun run release:pack -- --tag v0.2.1
+   # With Node 22 selected:
+   node .release/smoke/smoke.mjs "$PWD"
+   # With Node 24 selected:
+   node .release/smoke/smoke.mjs "$PWD"
+   bun .release/smoke/smoke.mjs "$PWD"
+   bun run release:publish -- --dry-run
+   ```
+
+   Verify that all commands exit 0 and `.release/npm/manifest.json` lists
+   `version: "0.2.1"` for all four public packages.
+
+3. Create and push the immutable release tag.
+
+   ```sh
+   git tag -a v0.2.1 -m "adrkit v0.2.1"
+   git push origin v0.2.1
+   ```
+
+   Verify the release workflow started:
+
+   ```sh
+   gh run list --workflow release.yml --event push --limit 1
+   ```
+
+4. Approve the protected `npm` environment deployment in GitHub Actions.
+
+   Verify the release workflow succeeds:
+
+   ```sh
+   gh run list --workflow release.yml --event push --status success --limit 1
+   ```
+
+5. Confirm all npm packages and the MCP ownership metadata are published.
+
+   ```sh
+   for package in @adrkit/core @adrkit/evaluator @adrkit/cli @adrkit/mcp; do
+     npm view "${package}@0.2.1" version
+   done
+   npm view @adrkit/mcp@0.2.1 mcpName
+   ```
+
+   Verify the first loop prints `0.2.1` four times and the MCP metadata prints
+   `dev.adrkit/mcp`.
+
+6. Confirm the GitHub release and moving major Action tag.
+
+   ```sh
+   gh release view v0.2.1
+   git ls-remote --tags origin refs/tags/v0 refs/tags/v0.2.1 'refs/tags/v0.2.1^{}'
+   gh api 'repos/mbeacom/adrkit/contents/packages/ci/queue/action.yml?ref=v0' --jq .path
+   ```
+
+   Verify the release exists, `v0` resolves to the v0.2.1 release commit, and the
+   contents API prints `packages/ci/queue/action.yml`.
+
+7. Publish the official MCP registry entry after the npm checks pass.
+
+   ```sh
+   cd packages/mcp
+   mcp-publisher publish
+   curl 'https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mcp'
+   ```
+
+   Verify the registry response includes `dev.adrkit/mcp` and package version
+   `0.2.1`. If namespace proof has not been completed yet, follow
+   [`docs/DISTRIBUTION.md`](./DISTRIBUTION.md) section A before publishing.
+
+8. De-pin queue Action examples only after `queue@v0` resolves.
+
+   ```sh
+   gh api 'repos/mbeacom/adrkit/contents/packages/ci/queue/action.yml?ref=v0' --jq .sha
+   rg 'mbeacom/adrkit/packages/ci/queue@efef89b5d747ca175a1947f1ce2f4296dab54fa3'
+   ```
+
+   Verify the contents API returns the queue Action blob SHA. Then update
+   copy-pasteable documentation examples from the full commit pin to
+   `mbeacom/adrkit/packages/ci/queue@v0`; keep immutable pins where the text is
+   explicitly teaching reproducibility.
 
 ### One-time `@adrkit/mcp` bootstrap for v0.2.0 (completed)
 

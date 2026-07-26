@@ -3,7 +3,7 @@
 > Decision memory for human- and agent-authored plans. adrkit turns architecture
 > decision records into typed, machine-readable data that is enforceable in CI and
 > legible to agents — without leaving git. Published as `@adrkit/core`,
-> `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp` (v0.2.0 on npm), plus a
+> `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp` (v0.2.1 on npm), plus a
 > GitHub Action at `mbeacom/adrkit/packages/ci@v0`.
 
 Key facts an agent should know:
