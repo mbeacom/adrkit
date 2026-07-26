@@ -311,7 +311,10 @@ jobs:
       issues: write
     steps:
       - uses: actions/checkout@v4
-      - uses: mbeacom/adrkit/packages/ci/queue@v0
+      # `@v0` does not resolve yet — the moving v0 tag predates this Action.
+      # Pin the commit until a release containing packages/ci/queue is cut
+      # (see docs/DISTRIBUTION.md §D).
+      - uses: mbeacom/adrkit/packages/ci/queue@efef89b5d747ca175a1947f1ce2f4296dab54fa3
         with:
           dir: docs/adr
 ```

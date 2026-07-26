@@ -14,7 +14,7 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 				</svg>
 				CLI works today
 			</span>
-			<span>Pre-alpha · decision memory in git</span>
+			<span>v0.2.0 on npm · decision memory in git</span>
 		</div>
 
 		<h1 id="_top" data-page-title set:html={title} />
@@ -41,8 +41,9 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 		}
 
 		<p class="adr-hero__truth">
-			The schema, resolver, and CLI are implemented. CI comments, the evaluator,
-			and the MCP server are clearly marked as planned.
+			The schema, resolver, CLI, CI comments, deterministic Pass 0 evaluator,
+			and read-only MCP server are all published. Evaluator Passes 1–3 and
+			external validation of the ARB queue are the parts still marked open.
 		</p>
 	</div>
 

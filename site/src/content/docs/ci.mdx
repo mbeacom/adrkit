@@ -1,0 +1,102 @@
+---
+title: Use in CI
+description: Comment the decisions governing a pull request, and publish the ARB operations queue, with the adrkit GitHub Actions.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+adrkit ships two GitHub Actions from this repository. Both run with only the
+default `GITHUB_TOKEN`, hold no database, and never approve anything — they read
+the corpus and write a comment or an issue ([ADR-0004](/adr/)).
+
+## Comment governing decisions on a PR
+
+The `packages/ci` Action reads a pull request's changed files, resolves which
+accepted decisions govern them via each record's `affects` matchers, validates
+any changed ADR records, and posts a single comment. It is read-only and
+comment-only; on a read-only fork token it degrades to a log notice instead of
+failing the job.
+
+```yaml
+# .github/workflows/adr.yml
+name: ADR governing decisions
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  governing-decisions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mbeacom/adrkit/packages/ci@v0
+        # with:
+        #   dir: docs/adr          # ADR corpus directory (default: docs/adr)
+        #   token: ${{ github.token }}
+```
+
+`v0` is a moving major tag. Pin the immutable `v0.2.0` tag or a commit SHA for
+maximum reproducibility.
+
+## Publish the ARB operations queue
+
+The `packages/ci/queue` Action creates or updates exactly one dedicated issue
+whose body carries the deterministic `adr queue` Markdown report — the tiers,
+SLA state, approvals, and objections projected from the corpus's `review`
+metadata. It needs `issues: write`.
+
+```yaml
+# .github/workflows/adr-queue.yml
+name: ADR ARB queue
+
+on:
+  schedule:
+    - cron: '0 13 * * 1' # Monday 13:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  arb-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mbeacom/adrkit/packages/ci/queue@efef89b5d747ca175a1947f1ce2f4296dab54fa3
+        # with:
+        #   dir: docs/adr
+        #   issue-title: ADR ARB Queue
+```
+
+<Aside type="caution" title="Pin the queue Action to a commit">
+	The queue Action does **not** yet have a moving `queue@v0` tag. Until one is
+	published, pin it to the immutable commit
+	`efef89b5d747ca175a1947f1ce2f4296dab54fa3`, exactly as shown. Phase 6 is
+	landed and maintainer reference-verified; external validation
+	([ADR-0014](/adr/) rung 3) remains open.
+</Aside>
+
+The managed issue's body is the same report you get locally:
+
+```text
+# ARB Queue — 2026-07-25
+
+Corpus fingerprint: `96e7f31…903cb00`
+7 item(s) | 0 corpus finding(s) | 0 item(s) with findings
+
+## Queue Items
+
+| # | ID | Title | Tier | SLA State | Deadline | Approvals | Objections |
+|---|----|-------|------|-----------|----------|-----------|------------|
+| 1 | 0005 | Gate proposals with a deterministic-first evaluator … | arb | within-sla | 2027-01-18 | 0/- | 0 |
+| 2 | 0015 | Validate descriptors against Backstage field formats … | arb | within-sla | 2027-01-25 | 0/- | 0 |
+```
+
+Identical inputs produce byte-for-byte identical output, so a re-run only
+changes the issue when the corpus actually changed. Run the same projection
+locally with [`adr queue`](/commands/#adr-queue).

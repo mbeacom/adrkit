@@ -1,0 +1,36 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+#
+# adrkit-mcp is a LOCAL, read-only, stdio MCP server. Its four tools require a
+# real on-disk ADR corpus inside a git repository, so it is distributed as a
+# local (stdio) server that runs against the user's own checkout — not a hosted
+# deployment. See packages/mcp/README.md.
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      cwd:
+        type: string
+        title: Repository root
+        description: >-
+          Absolute path to the git repository whose ADRs to read. Must contain a
+          readable .git entry. Defaults to the launch working directory.
+      dir:
+        type: string
+        title: ADR directory
+        default: docs/adr
+        description: ADR directory, resolved against the repository root.
+    additionalProperties: false
+  commandFunction: |-
+    (config) => ({
+      command: 'npx',
+      args: [
+        '-y',
+        '@adrkit/mcp',
+        ...(config.cwd ? ['--cwd', config.cwd] : []),
+        '--dir', config.dir || 'docs/adr'
+      ]
+    })
+  exampleConfig:
+    dir: docs/adr
