@@ -20,9 +20,11 @@ avoiding for a first contribution:
 - **The CI Action bundle** (`packages/ci/dist`) must be rebuilt under
   linux/amd64, or the byte-for-byte diff gate fails on a Mac-built bundle (see
   "Changing the CI Action" below).
-- **The schema emit-parity gate** requires `schema/adr.schema.ts` and the
-  generated `schema/adr.schema.json` to stay in lockstep (see "Changing the
-  schema").
+- **The schema emit-parity gate** requires the Zod source
+  (`packages/core/src/schema/adr.schema.ts` — the single source of truth) and the
+  generated `schema/adr.schema.json` to stay in lockstep. The root
+  `schema/adr.schema.ts` is only a one-line compatibility re-export and is not
+  where you make the change (see "Changing the schema").
 
 Good first PRs steer clear of both and still matter a great deal:
 

@@ -44,10 +44,19 @@ Please include:
 
 ## Scope
 
-adrkit is deliberately narrow: match resolution is a pure function, the MCP
-server and CLI make no network or model calls, and no artifact requires
-credentials to build or run
-([ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md)). Reports
-that concern this trust boundary — for example, a path-containment escape in the
-MCP server or the CLI reading outside its corpus directory — are especially
+adrkit is deliberately narrow: match resolution is a pure function, and the MCP
+server and CLI make no network or model calls. Nothing requires credentials to
+**build**, and the local tools (`adr`, `@adrkit/mcp`, `@adrkit/core`,
+`@adrkit/evaluator`) require none to **run**
+([ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md)).
+
+The two shipped GitHub Actions are the deliberate exception, because their whole
+job is to write back to GitHub: the governing-decisions Action fails without a
+token (`packages/ci/src/index.ts`) and needs `pull-requests: write` to comment,
+and the queue Action needs `issues: write` to maintain its managed issue. Both
+accept the workflow's default `GITHUB_TOKEN`; neither asks for a personal token.
+
+Reports that concern this trust boundary — for example, a path-containment escape
+in the MCP server, the CLI reading outside its corpus directory, or an Action
+using its token beyond the scope documented in its `action.yml` — are especially
 valuable.

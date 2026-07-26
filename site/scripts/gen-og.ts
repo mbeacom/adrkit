@@ -5,14 +5,13 @@
 //
 //   bun run scripts/gen-og.ts
 //
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 const svgPath = fileURLToPath(new URL('./og-card.svg', import.meta.url));
 const outPath = fileURLToPath(new URL('../public/og.png', import.meta.url));
 
-const svg = readFileSync(svgPath);
+const svg = await Bun.file(svgPath).bytes();
 await sharp(svg, { density: 144 })
 	.resize(1200, 630)
 	.png()

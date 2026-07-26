@@ -12,8 +12,9 @@ New to the project? See the "Your first PR" section in CONTRIBUTING.md.
 - [ ] Commits are **DCO signed off** (`git commit -s`). No CLA is required.
 - [ ] If this changes a recorded decision in `docs/adr/`, an ADR is **added or
       supersedes** the affected record — with the argument, not just a status flip.
-- [ ] If the schema changed, I re-ran `bun run schema:emit` and committed both
-      `schema/adr.schema.ts` and the generated `schema/adr.schema.json`.
+- [ ] If the schema changed, I edited the Zod source
+      `packages/core/src/schema/adr.schema.ts` (not the root re-export), re-ran
+      `bun run schema:emit`, and committed the generated `schema/adr.schema.json`.
 - [ ] If `packages/ci/src` **or** `@adrkit/core` changed, I regenerated
       `packages/ci/dist` under **linux/amd64 bun 1.3.14** and committed it
       (see CONTRIBUTING.md — a Mac-built bundle fails the diff gate).

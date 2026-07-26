@@ -78,7 +78,10 @@ Add to `.vscode/mcp.json` in your workspace:
 </TabItem>
 <TabItem label="Copilot CLI">
 
-Register a stdio server so the agent can call it:
+Either run `/mcp add` in an interactive session and fill in the stdio fields, or
+write the server directly to `~/.copilot/mcp-config.json` (user-wide) or
+`.copilot/mcp-config.json` in the repository root (project-scoped, and read
+first):
 
 ```json
 {
@@ -91,6 +94,8 @@ Register a stdio server so the agent can call it:
   }
 }
 ```
+
+Confirm it registered with `/mcp show`.
 
 </TabItem>
 </Tabs>

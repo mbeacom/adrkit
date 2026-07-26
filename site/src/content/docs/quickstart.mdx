@@ -67,8 +67,11 @@ npm install @adrkit/core @adrkit/evaluator
 	```
 </Aside>
 
-The examples below use the installed `adr` binary. Prefix with `npx`/`bunx` to
-run without installing, or `bun run adr` from a source checkout.
+The examples below use the `adr` binary. From a project that has `@adrkit/cli`
+installed, `npx adr …` / `bunx adr …` resolves the local binary. Without an
+install you must name the package — `npx @adrkit/cli lint`, `bunx @adrkit/cli
+lint` — because a bare `npx adr` resolves an unrelated `adr` package on npm. From
+a source checkout, use `bun run adr`.
 
 ## Validate a corpus — `adr lint`
 

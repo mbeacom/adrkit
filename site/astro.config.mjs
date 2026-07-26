@@ -14,9 +14,10 @@ export default defineConfig({
 				'Decision memory for human- and agent-authored plans — machine-readable ADRs, enforceable in CI, legible to agents, without leaving git.',
 			customCss: ['./src/styles/custom.css'],
 			head: [
-				// Static social card (site/public/og.png). twitter:card is
-				// summary_large_image, so a shared link needs a real image or it
-				// renders blank. Absolute URLs are required by scrapers.
+				// Static social card (site/public/og.png). twitter:card must be
+				// declared explicitly — Starlight does not synthesize it — or a
+				// shared link renders without the image. Absolute URLs are
+				// required by scrapers.
 				{
 					tag: 'meta',
 					attrs: { property: 'og:image', content: 'https://adrkit.dev/og.png' },
@@ -28,6 +29,10 @@ export default defineConfig({
 				{
 					tag: 'meta',
 					attrs: { property: 'og:image:height', content: '630' },
+				},
+				{
+					tag: 'meta',
+					attrs: { name: 'twitter:card', content: 'summary_large_image' },
 				},
 				{
 					tag: 'meta',
