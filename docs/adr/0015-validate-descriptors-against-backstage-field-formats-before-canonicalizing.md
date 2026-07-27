@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0015"
 title: Validate descriptors against Backstage field formats before canonicalizing identity
-status: proposed
+status: accepted
 date: 2026-07-25
 deciders: ["@mbeacom"]
 tags: [catalog, governance, matching, core]
@@ -23,6 +23,7 @@ affects:
     pattern: "specs/009-catalog-binding-viability/contracts/entity-identity.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -57,10 +58,41 @@ reviewBy: 2027-01-25
 
 # ADR-0015: Validate descriptors against Backstage field formats before canonicalizing identity
 
-> **Status: `proposed`. This record is a draft for maintainer review and is not
-> ratified.** It authorizes nothing on its own. In particular it does not claim
-> that feature 009 is unblocked, does not authorize any spike task, re-run, or
-> generator invocation, and does not sanction any production catalog adapter.
+> **Status: `accepted`, ratified by `@mbeacom` on 2026-07-26.** This record
+> authorizes the admissibility-before-canonicalization rule described below, and
+> the follow-up spec/contract/code amendment that emits `inadmissible-descriptor`
+> as a fatal whole-operation trigger.
+>
+> It does **not** unblock feature 009. Acceptance is explicitly conditioned on the
+> three amendments recorded under "Conditions of acceptance"; in particular, the
+> `community-plugins` corpus carries a fully admissible duplicate that no
+> field-format rule can reach, so SC-010 remains unsatisfied and feature 009 stays
+> blocked pending a separate decision. This record sanctions no spike re-run, no
+> generator invocation, and no production catalog adapter.
+
+## Conditions of acceptance
+
+These three conditions were attached at ratification and are binding on any work
+that cites this record.
+
+1. **Fresh oracle re-freeze is a precondition, not a footnote.** Any future
+   feature-009 output must begin with a fresh T014 → T014a oracle re-freeze and
+   re-audit. The previously recorded evidence bundle registers
+   `derivedPathPatterns` in input order rather than `compareCodeUnits` order, and
+   that ordering must not be silently inherited. The bundle is scratch-only and
+   is not tracked in git, so nothing in the repository will stop someone from
+   reusing a stale copy — this clause is the only control.
+2. **The follow-up must carry `inadmissible-descriptor` onto the atomic
+   surfaces.** Adding the class to the identity contract alone is insufficient;
+   `specs/009-catalog-binding-viability/contracts/atomic-fail-closed.md` and
+   `data-model.md` must both name it as a fatal whole-operation trigger, or the
+   fail-closed guarantee ADR-0012 pins is described in one place and not another.
+3. **Feature 009 remains blocked.** Adopting this record reduces the number of
+   collisions and reclassifies the placeholder descriptors correctly. It does not
+   produce a populated `SnapshotEnvelope` for `community-plugins`. Feature 009 may
+   only leave `blocked` when the residual valid duplicate is separately resolved
+   or the success criterion is rescoped — and rescoping SC-010 is itself a
+   decision requiring a record.
 
 ## Context
 
@@ -337,9 +369,7 @@ report says something truer about *why*.
 
 ## Options considered
 
-### Option A: Validate before canonicalizing; distinct fatal `inadmissible-descriptor` class (proposed)
-
-If this record is accepted, this is the decision.
+### Option A: Validate before canonicalizing; distinct fatal `inadmissible-descriptor` class (chosen)
 
 Preserves fail-closed exactly and corrects the classification. Strictly additive
 on the failure surface; removes no abort. The ordering — admissibility before
