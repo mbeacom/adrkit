@@ -9,7 +9,7 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
-## [0.2.1] - 2026-07-25
+## [0.2.1] - 2026-07-27
 
 ### Added
 
@@ -35,6 +35,11 @@ Until `1.0.0`, minor releases may include breaking changes
   update.
 - Added a fail-closed `bun audit` gate that treats malformed audit output,
   unexpected schema shapes, unknown arguments, and any advisory as CI failures.
+  The gate states its scope in its own output — it examines this workspace's
+  resolved tree after root overrides, not consumer installs of the published
+  `@adrkit/*` manifests — and records known out-of-scope consumer exposures with
+  an expiry instead of hiding them
+  ([ADR-0017](docs/adr/0017-keep-dependency-audit-scope-explicit-and-release-scoped.md)).
 - Refreshed public README/site/package docs so Node-targeted `npx`/`npm` install
   paths are first-class while Bun remains the repository development toolchain.
 
@@ -49,6 +54,14 @@ Until `1.0.0`, minor releases may include breaking changes
   records that adrkit discovery cannot see.
 - `adr queue` reports skipped or undiscoverable ADR files instead of silently
   omitting them from the operations queue.
+- `adr lint`, `adr graph`, `adr explain`, `adr check`, `adr migrate`, and
+  `adr evaluate` now classify an unreachable `--dir` as a usage error — exit `2`
+  with `Corpus directory not found: '<dir>'` — instead of leaking a raw `ENOENT`
+  at exit `1`. This matches `adr queue` and the documented exit-code contract.
+- `adr lint` now rejects an `accepted` record whose `provenance.authoredBy` is
+  `agent-drafted` and that names no `provenance.ratifiedBy`. The ratification
+  gate previously checked only `agent`, so a machine-drafted decision could reach
+  `accepted` with no named human ratifier.
 - The MCP server reports a runtime `SERVER_INFO.version` matching the published
   package version.
 
@@ -58,6 +71,17 @@ Until `1.0.0`, minor releases may include breaking changes
   [GHSA-f88m-g3jw-g9cj](https://github.com/advisories/GHSA-f88m-g3jw-g9cj).
 - Added root overrides for vulnerable transitive releases of `fast-uri` and
   `@hono/node-server`, yielding a clean root `bun audit` before release.
+- Known, unfixed in this release: a consumer installing `@adrkit/mcp` still
+  resolves a vulnerable `@hono/node-server`
+  ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9)).
+  The root override is not published in the package manifest, and
+  `@modelcontextprotocol/sdk@1.29.0` pins `@hono/node-server` to `^1.19.9`,
+  which cannot resolve the patched `>=2.0.5`. Impact is limited — the advisory is
+  a Windows `serve-static` path traversal, and the stdio server neither uses Hono
+  `serve-static` nor serves HTTP static files — and it resolves when the SDK
+  widens that range. Recorded with a `2026-10-31` expiry after which CI fails
+  closed
+  ([ADR-0017](docs/adr/0017-keep-dependency-audit-scope-explicit-and-release-scoped.md)).
 
 ## [0.2.0] - 2026-07-20
 

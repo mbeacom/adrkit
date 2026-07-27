@@ -83,6 +83,35 @@ by git. The Node version manager is intentionally not prescribed; CI uses
 `actions/setup-node` for both supported versions. Do not substitute the npm
 `node` package through `bunx`: its executable resolution is platform-dependent.
 
+### Published-consumer advisory audit
+
+The PR CI `bun audit` gate deliberately scopes itself to this workspace's
+resolved tree and does **not** audit consumer installs of the published
+`@adrkit/*` manifests
+([ADR-0017](adr/0017-keep-dependency-audit-scope-explicit-and-release-scoped.md)).
+That audit is release evidence, so it runs here, against the packed tarballs:
+
+```sh
+consumer_dir=$(mktemp -d)
+(
+  cd "$consumer_dir"
+  npm init -y >/dev/null
+  npm install --no-audit --no-fund \
+    "$OLDPWD/.release/npm/adrkit-core-0.2.1.tgz" \
+    "$OLDPWD/.release/npm/adrkit-mcp-0.2.1.tgz"
+  npm audit
+)
+```
+
+Root overrides are not published in package manifests, so a consumer resolves a
+different tree than this workspace does. Reconcile every advisory `npm audit`
+reports against `KNOWN_CONSUMER_ADVISORY_ACCEPTANCES` in `scripts/audit-gate.ts`:
+each one must already be recorded there with a matching advisory id, an
+unexpired `acceptedUntil`, and an `affectedPublishedVersion` equal to the version
+being cut. An unrecorded advisory, or a recorded one whose observed version has
+moved, is a release blocker until the record is refreshed or the exposure is
+removed.
+
 ## One-time npm bootstrap (completed for v0.1.0)
 
 The npm scope and packages must exist before Trusted Publishers can be attached.
@@ -132,9 +161,12 @@ the moving major Action tag (`v0`, later `v1`, and so on).
 ## v0.2.1 cutover runbook
 
 Run these steps only after the version-bump PR is the last change merged to
-`main`. If `audit-gate-published-scope`, `wave3-toward-1-0`, or
-`adr-0015-decision` lands first, refresh the changelog and re-run the local
-simulation before tagging.
+`main`. The three branches this runbook originally waited on —
+`wave3-toward-1-0` (#60), `audit-gate-published-scope` (#62), and
+`adr-0015-decision` (#61) — plus `ratifier-gate` (#64) have all landed, and the
+v0.2.1 changelog was refreshed to cover them. If anything else merges ahead of
+the version bump, refresh the changelog and re-run the local simulation before
+tagging.
 
 1. Start from the final release commit on `main`.
 
@@ -161,7 +193,11 @@ simulation before tagging.
    ```
 
    Verify that all commands exit 0; the final assertion fails if the release
-   manifest is missing or names any package version other than `0.2.1`.
+   manifest is missing or names any package version other than `0.2.1`. Then run
+   the [published-consumer advisory audit](#published-consumer-advisory-audit)
+   against the tarballs just packed, and confirm every reported advisory is
+   already recorded in `scripts/audit-gate.ts` at `affectedPublishedVersion:
+   '0.2.1'` with an unexpired acceptance.
 
 3. Create and push the immutable release tag.
 

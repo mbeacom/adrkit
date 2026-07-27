@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { resolve } from 'node:path';
 import { evaluateAudit, formatEvaluation, main } from '../scripts/audit-gate.ts';
+import mcpManifest from '../packages/mcp/package.json' with { type: 'json' };
 
 const FIXTURES = resolve(import.meta.dir, '__fixtures__', 'audit');
 const readFixture = (name: string) => Bun.file(resolve(FIXTURES, name)).text();
@@ -64,7 +65,11 @@ describe('audit-gate — evaluateAudit', () => {
     expect(known?.package).toBe('@hono/node-server');
     expect(known?.url).toBe('https://github.com/advisories/GHSA-frvp-7c67-39w9');
     expect(known?.affectedPublishedPackage).toBe('@adrkit/mcp');
-    expect(known?.affectedPublishedVersion).toBe('0.2.0');
+    // Pinned to the manifest, not a literal: the recorded exposure must name the
+    // version this repository is about to ship, or the gate reports a consumer
+    // exposure for a version nobody installs and reads as false safety for the
+    // current one.
+    expect(known?.affectedPublishedVersion).toBe(mcpManifest.version);
     expect(known?.acceptedUntil).toBe('2026-10-31');
 
     const rendered = formatEvaluation(evaluation);
