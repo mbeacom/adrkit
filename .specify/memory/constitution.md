@@ -143,10 +143,10 @@ the record contract. `schema/adr.schema.ts` is only a compatibility re-export.
   differs from a fresh emit (`schema-emit-matches`). The JSON Schema MUST NOT be
   hand-edited.
 - Cross-field invariants (e.g. `superseded` requires `supersededBy`; an accepted
-  decision names a decider unless imported; an agent-authored record cannot reach
-  `accepted` without a named human ratifier; one-way-door decisions cannot take
-  the auto tier) are enforced by code and covered by tests — never by an ad-hoc
-  script.
+  decision names a decider unless imported; a machine-originated record
+  (`agent` or `agent-drafted`) cannot reach `accepted` without a named human
+  ratifier; one-way-door decisions cannot take the auto tier) are enforced by
+  code and covered by tests — never by an ad-hoc script.
 - The schema is versioned independently of the tooling and is treated as a
   one-way door: consumers pin it, so breaking changes require an explicit,
   superseding decision.

@@ -98,7 +98,7 @@ These are what make a record enforceable and routable rather than advisory.
 | `reversibility` | `two-way-door`, `one-way-door`, or `unknown`. A `one-way-door` decision may not take the auto-approve fast path. |
 | `blastRadius` | `component`, `team`, `cross-team`, or `org`. |
 | `supersedes` / `supersededBy` | Links the supersession graph. |
-| `provenance` | Who (or what agent) authored the record, and who ratified it. An agent-authored record cannot reach `accepted` without a named human ratifier. |
+| `provenance` | Who (or what agent) authored the record, and who ratified it. A machine-originated record (`agent` or `agent-drafted`) cannot reach `accepted` without a named human ratifier. |
 
 The schema is `additionalProperties: false` — unknown frontmatter keys are a hard
 error, so a typo fails validation instead of silently doing nothing.

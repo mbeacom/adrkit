@@ -290,11 +290,12 @@ export const AdrFrontmatter = strictObject({
   .refine(
     (a) =>
       a.status !== 'accepted' ||
-      a.provenance?.authoredBy !== 'agent' ||
+      (a.provenance?.authoredBy !== 'agent' &&
+        a.provenance?.authoredBy !== 'agent-drafted') ||
       Boolean(a.provenance?.ratifiedBy),
     {
       message:
-        'an agent-authored record cannot reach "accepted" without a named human ratifier',
+        'a machine-originated record cannot reach "accepted" without a named human ratifier',
       path: ['provenance', 'ratifiedBy'],
     },
   )
