@@ -33,7 +33,7 @@ is checked.
 | `--help` | Show help and exit |
 
 **Exit codes:** `0` no error findings · `1` one or more error findings · `2`
-usage error.
+usage error (invalid invocation or unreachable corpus directory).
 
 ## adr migrate
 
@@ -52,7 +52,7 @@ untouched. One-way and non-destructive; round-trip sync is unsupported
 
 **Exit codes:** `0` migration ran (findings are reported but do not fail the
 run) · `2` usage error (missing or unsupported `--from`, unknown flag,
-positional argument).
+positional argument, or unreachable corpus directory).
 
 ## adr new
 
@@ -79,7 +79,8 @@ corpus.
 | `--format dot\|json` | Output format (default: `dot`) |
 | `--help` | Show help and exit |
 
-**Exit codes:** `0` rendered · `2` usage error.
+**Exit codes:** `0` rendered · `2` usage error (invalid invocation or
+unreachable corpus directory).
 
 ## adr explain
 
@@ -91,7 +92,8 @@ Report which decisions govern one repo-relative path, and why.
 | `--json` | Emit `{ path, governedBy, governing, activeProposals, history, findings }` |
 | `--help` | Show help and exit |
 
-**Exit codes:** `0` explained · `1` corpus has error findings · `2` usage error.
+**Exit codes:** `0` explained · `1` corpus has error findings · `2` usage error
+(invalid invocation or unreachable corpus directory).
 
 ## adr check
 
@@ -106,7 +108,7 @@ builds on.
 | `--help` | Show help and exit |
 
 **Exit codes:** `0` ok · `1` a changed record has an error finding · `2` usage
-error.
+error (invalid invocation or unreachable corpus directory).
 
 ## adr evaluate
 
@@ -123,8 +125,8 @@ is no `--write`.
 | `--help` | Show help and exit |
 
 **Exit codes:** `0` evaluated (including warn/info/inert and escalation) · `1`
-the proposal was returned on a rubric error · `2` usage error or a malformed
-snapshot bundle.
+the proposal was returned on a rubric error · `2` usage error, unreachable
+corpus directory, or malformed snapshot bundle.
 
 ## adr queue
 

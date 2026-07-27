@@ -37,7 +37,7 @@ function ruleForIssue(issue: z.core.$ZodIssue): string {
     }
     if (
       issue.message ===
-      'an agent-authored record cannot reach "accepted" without a named human ratifier'
+      'a machine-originated record cannot reach "accepted" without a named human ratifier'
     ) {
       return 'agent-accepted-requires-ratifier';
     }

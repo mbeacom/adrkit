@@ -42,6 +42,28 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
 - The GitHub release and moving major Action tag are created only after every
   npm package succeeds.
 
+## SemVer and export-surface policy
+
+Until adrkit reaches `1.0.0`, the four public npm packages still move in
+lockstep: every release uses the same `0.x.y` version for `@adrkit/core`,
+`@adrkit/evaluator`, `@adrkit/cli`, and `@adrkit/mcp`, even when only one
+package changed.
+
+The public surface is:
+
+- each package's `package.json` `exports` map and binaries;
+- the runtime named exports of each public entrypoint, pinned by the package
+  surface tests;
+- documented CLI commands, flags, exit codes, and JSON output envelopes.
+
+Patch releases must be backward compatible: no removals, renames, exit-code
+reclassification, or incompatible output/type-shape changes. Minor releases may
+carry breaking changes before `1.0.0`, but the release notes must call them out
+explicitly. Adding a runtime export is not breaking, but it intentionally expands
+the API: update the matching surface test and mention the addition in the
+release notes. Any `exports` map or runtime named-export change that is not
+accompanied by a surface-test update is a release blocker.
+
 ## Local release simulation
 
 From a clean checkout:

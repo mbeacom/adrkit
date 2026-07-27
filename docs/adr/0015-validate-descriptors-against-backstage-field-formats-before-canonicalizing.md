@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0015"
 title: Validate descriptors against Backstage field formats before canonicalizing identity
-status: proposed
+status: accepted
 date: 2026-07-25
 deciders: ["@mbeacom"]
 tags: [catalog, governance, matching, core]
@@ -16,9 +16,14 @@ affects:
   - type: path
     pattern: "packages/adapters/catalog-*/**"
   - type: path
+    pattern: "specs/009-catalog-binding-viability/data-model.md"
+  - type: path
+    pattern: "specs/009-catalog-binding-viability/contracts/atomic-fail-closed.md"
+  - type: path
     pattern: "specs/009-catalog-binding-viability/contracts/entity-identity.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -53,10 +58,41 @@ reviewBy: 2027-01-25
 
 # ADR-0015: Validate descriptors against Backstage field formats before canonicalizing identity
 
-> **Status: `proposed`. This record is a draft for maintainer review and is not
-> ratified.** It authorizes nothing on its own. In particular it does not claim
-> that feature009 is unblocked, does not authorize any spike task, re-run, or
-> generator invocation, and does not sanction any production catalog adapter.
+> **Status: `accepted`, ratified by `@mbeacom` on 2026-07-26.** This record
+> authorizes the admissibility-before-canonicalization rule described below, and
+> the follow-up spec/contract/code amendment that emits `inadmissible-descriptor`
+> as a fatal whole-operation trigger.
+>
+> It does **not** unblock feature 009. Acceptance is explicitly conditioned on the
+> three amendments recorded under "Conditions of acceptance"; in particular, the
+> `community-plugins` corpus carries a fully admissible duplicate that no
+> field-format rule can reach, so SC-010 remains unsatisfied and feature 009 stays
+> blocked pending a separate decision. This record sanctions no spike re-run, no
+> generator invocation, and no production catalog adapter.
+
+## Conditions of acceptance
+
+These three conditions were attached at ratification and are binding on any work
+that cites this record.
+
+1. **Fresh oracle re-freeze is a precondition, not a footnote.** Any future
+   feature-009 output must begin with a fresh T014 → T014a oracle re-freeze and
+   re-audit. The previously recorded evidence bundle registers
+   `derivedPathPatterns` in input order rather than `compareCodeUnits` order, and
+   that ordering must not be silently inherited. The bundle is scratch-only and
+   is not tracked in git, so nothing in the repository will stop someone from
+   reusing a stale copy — this clause is the only control.
+2. **The follow-up must carry `inadmissible-descriptor` onto the atomic
+   surfaces.** Adding the class to the identity contract alone is insufficient;
+   `specs/009-catalog-binding-viability/contracts/atomic-fail-closed.md` and
+   `data-model.md` must both name it as a fatal whole-operation trigger, or the
+   fail-closed guarantee ADR-0012 pins is described in one place and not another.
+3. **Feature 009 remains blocked.** Adopting this record reduces the number of
+   collisions and reclassifies the placeholder descriptors correctly. It does not
+   produce a populated `SnapshotEnvelope` for `community-plugins`. Feature 009 may
+   only leave `blocked` when the residual valid duplicate is separately resolved
+   or the success criterion is rescoped — and rescoping SC-010 is itself a
+   decision requiring a record.
 
 ## Context
 
@@ -96,7 +132,7 @@ Every row in this table was verified by executing the pinned sources directly;
 see "How these bindings were checked" below.
 
 The consequence is a category error in the contract, and it is not hypothetical.
-Sixteen descriptors in the two corpora feature009 pinned — five in
+Sixteen descriptors in the two corpora feature 009 pinned — five in
 `community-plugins` at `92e9e4e09c76cc57f3475029b73e5ec84498a459`, eleven in
 `rhdh-plugins` at `3b355ddfedb23c6656bd9effc8510f9926b765c1` — carry an
 unsubstituted, un-rendered scaffolder placeholder at `metadata.name` rather than
@@ -371,7 +407,7 @@ incomplete.
 
 Rejected. The contract would go on knowingly canonicalizing input that
 Backstage's own field-format validators reject, and go on mis-reporting at least
-one real, recorded condition. The gap is independent of whether feature009 ever
+one real, recorded condition. The gap is independent of whether feature 009 ever
 executes again.
 
 ## Trade-offs
@@ -453,7 +489,7 @@ evidence gap **not at all**. Any future claim that catalog binding is
 empirically validated must still rest on synthetic fixtures for the derivation
 paths, exactly as it did before.
 
-### This rule does not clear the corpora, and does not unblock feature009
+### This rule does not clear the corpora, and does not unblock feature 009
 
 This is the most important limitation on this record, and it is stated here
 rather than buried in Consequences because it is the strongest available
@@ -477,7 +513,7 @@ the fail-closed abort is the correct outcome for it. No field-format rule can
 reach it, and none should. It is also still present on the upstream default
 branch, so re-pinning the corpus to a newer commit does not avoid it.
 
-The consequence for feature009 is direct. `spec.md` SC-010 names all three
+The consequence for feature 009 is direct. `spec.md` SC-010 names all three
 required real-corpus passes explicitly by corpus, so the `community-plugins`
 pass cannot be substituted away. Adopting this record would reduce the *number*
 of collisions in these corpora and would reclassify the placeholder descriptors
@@ -502,7 +538,11 @@ unusable afterwards, which is the test it needed to pass.
   loses none.
 - Reports distinguish "this is not a valid Backstage entity" from "these valid
   entities collide."
-- **The recorded feature009 verdict is unaffected by this record.** It remains
+- Implementing the accepted record requires updating the feature 009 contract
+  surfaces that carry entity identity, atomic trigger classes, and evidence shapes
+  before any new generator output is produced; until then the current contracts
+  remain the historical record of the blocked spike run.
+- **The recorded feature 009 verdict is unaffected by this record.** It remains
   `blocked` with `blockedShortfall = "envelope-or-scale-evidence-incomplete"`.
   Ratifying this record does not re-open, re-run, or re-decide that spike, and
   does not by itself make SC-010 satisfiable.
@@ -511,10 +551,10 @@ unusable afterwards, which is the test it needed to pass.
   genuine duplicate of a fully valid entity that no field-format rule can reach,
   and which is still present upstream. Adopting this record would not produce a
   populated envelope for that corpus. Anyone reading this record as a route to
-  unblocking feature009 is reading it wrong.
+  unblocking feature 009 is reading it wrong.
 - The carry-forward `reference-oracle.json` blocker recorded in
   `specs/009-catalog-binding-viability/checklists/evidence-index.md` is
-  untouched and remains in full force: any future feature009 execution must
+  untouched and remains in full force: any future feature 009 execution must
   still begin from a fresh T014 → T014a cycle before producing generator output.
 - No production catalog adapter is authorized, created, or implied. No
   `packages/adapters/catalog-*` package exists or is sanctioned by this record.
@@ -555,8 +595,15 @@ unusable afterwards, which is the test it needed to pass.
 
    This record does not presume which standard applies.
 3. **Only after ratification**, prepare the corresponding `specs/009-**`
-   contract amendment as a separately-scoped change. No `specs/009-**` edit is
-   authorized by this draft.
-4. **Decide separately** whether descriptor *exclusion* (Option B) is ever
+   contract amendment as a separately-scoped change. At minimum that amendment
+   updates the canonical identity precondition, the atomic trigger enumeration,
+   and the evidence/data-model surfaces that would carry
+   `inadmissible-descriptor`. No `specs/009-**` edit is authorized by this draft.
+4. **Before any future feature 009 re-run or landing PR**, start from a fresh
+   T014 → T014a cycle: correct the `reference-oracle.json`
+   `derivedPathPatterns` ordering, re-freeze, re-hash, and independently
+   re-audit the oracle before producing generator-derived output. Ratifying this
+   record does not make the current oracle reusable.
+5. **Decide separately** whether descriptor *exclusion* (Option B) is ever
    wanted. It is out of scope here and would require amending ADR-0012's
    fail-closed assertion.

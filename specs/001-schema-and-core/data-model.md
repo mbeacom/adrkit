@@ -39,7 +39,7 @@ A parsed record. Composed of:
 
 1. `status = superseded` ⇒ `supersededBy` present, and its converse.
 2. `status = accepted` ⇒ ≥1 `deciders`, unless `provenance.importedFrom` present.
-3. `provenance.authoredBy = agent` & `status = accepted` ⇒ `provenance.ratifiedBy`.
+3. `provenance.authoredBy = agent | agent-drafted` & `status = accepted` ⇒ `provenance.ratifiedBy`.
 4. `reversibility = one-way-door` ⇒ `review.tier ≠ auto`.
 5. Strict object: unknown frontmatter keys are rejected.
 

@@ -73,7 +73,10 @@ jobs:
         run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
   audit:
-    # Fail the build on high/critical advisories in the resolved dependency tree.
+    # Fail the build on high/critical advisories in this checkout's resolved
+    # workspace dependency tree after root package.json overrides are applied.
+    # This does not audit consumer installs of published @adrkit/* manifests; the
+    # gate output records the current known published-consumer exposure separately.
     # Kept a separate job because it needs network for the advisory database, so
     # it never entangles the no-network clean-clone guarantee (ADR-0007).
     # ADR-0016: observed failing on the pre-fix tree; the permanent negative case

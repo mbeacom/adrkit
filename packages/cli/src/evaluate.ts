@@ -10,8 +10,8 @@
  * US1 wires empty registries; US3 (T042) constructs the real deterministic ports.
  */
 
-import { readFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile, readdir } from 'node:fs/promises';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { lintCorpus, normalizeDisplayPath } from '@adrkit/core';
 import {
   canonicalBytes,
@@ -58,6 +58,42 @@ export function isValidIsoDate(value: string): boolean {
   if (m < 1 || m > 12 || d < 1 || d > 31) return false;
   const date = new Date(Date.UTC(y, m - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+type CorpusDirectoryErrorKind = 'not-found' | 'not-readable';
+
+function resolveFromCwd(path: string, cwd: string): string {
+  return isAbsolute(path) ? path : resolve(cwd, path);
+}
+
+function corpusDirectoryOutput(dir: string, kind: CorpusDirectoryErrorKind): EvaluateOutput {
+  const state = kind === 'not-readable' ? 'not readable' : 'not found';
+  return { exitCode: 2, stdout: '', stderr: `Corpus directory ${state}: '${dir}'.\n` };
+}
+
+function corpusDirectoryErrorKind(error: unknown, dir: string, cwd: string): CorpusDirectoryErrorKind | undefined {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : undefined;
+  if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'EACCES' && code !== 'EPERM') return undefined;
+
+  const path = typeof error === 'object' && error !== null && 'path' in error ? error.path : undefined;
+  if (typeof path === 'string' && resolveFromCwd(path, cwd) !== resolveFromCwd(dir, cwd)) return undefined;
+  return code === 'EACCES' || code === 'EPERM' ? 'not-readable' : 'not-found';
+}
+
+function handleCorpusDirectoryError(error: unknown, dir: string, cwd: string): EvaluateOutput | undefined {
+  const kind = corpusDirectoryErrorKind(error, dir, cwd);
+  return kind ? corpusDirectoryOutput(dir, kind) : undefined;
+}
+
+async function ensureCorpusDirectoryReadable(dir: string, cwd: string): Promise<EvaluateOutput | undefined> {
+  try {
+    await readdir(resolveFromCwd(dir, cwd));
+    return undefined;
+  } catch (error) {
+    const output = handleCorpusDirectoryError(error, dir, cwd);
+    if (output) return output;
+    throw error;
+  }
 }
 
 /** Assemble the immutable Pass0Input from the loaded corpus + normalized snapshot. */
@@ -112,6 +148,12 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
     return { exitCode: 2, stdout: '', stderr: `adr evaluate: --date must be a valid YYYY-MM-DD (got "${options.date}")\n` };
   }
 
+  const dir = options.dir ?? dirname(options.proposalPath);
+  if (options.dir !== undefined) {
+    const dirOutput = await ensureCorpusDirectoryReadable(options.dir, cwd);
+    if (dirOutput) return dirOutput;
+  }
+
   let snapshot: NormalizedSnapshot;
   try {
     const text = await readFile(options.snapshotPath, 'utf8');
@@ -127,8 +169,14 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
     };
   }
 
-  const dir = options.dir ?? dirname(options.proposalPath);
-  const corpus = await lintCorpus({ paths: [dir, options.proposalPath], cwd });
+  let corpus: Awaited<ReturnType<typeof lintCorpus>>;
+  try {
+    corpus = await lintCorpus({ paths: [dir, options.proposalPath], cwd });
+  } catch (error) {
+    const output = handleCorpusDirectoryError(error, dir, cwd);
+    if (output) return output;
+    throw error;
+  }
   const proposalPath = normalizeDisplayPath(options.proposalPath, cwd);
 
   const outcome = evaluatePass0(buildInput(proposalPath, corpus, snapshot, options.date));
