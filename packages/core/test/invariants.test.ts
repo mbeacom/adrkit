@@ -54,25 +54,37 @@ describe('intra-record contract invariants', () => {
     );
   });
 
-  test('agent-authored accepted records need a human ratifier', () => {
+  test('machine-originated accepted records need a human ratifier', () => {
+    for (const authoredBy of ['agent', 'agent-drafted']) {
+      expect(
+        rulesFor(
+          base({
+            status: 'accepted',
+            deciders: ['@mbeacom'],
+            provenance: { authoredBy, ratifiedBy: '@mbeacom' },
+          }),
+        ),
+      ).toEqual([]);
+      expect(
+        rulesFor(
+          base({
+            status: 'accepted',
+            deciders: ['@mbeacom'],
+            provenance: { authoredBy },
+          }),
+        ),
+      ).toContain('agent-accepted-requires-ratifier');
+    }
+
     expect(
       rulesFor(
         base({
           status: 'accepted',
           deciders: ['@mbeacom'],
-          provenance: { authoredBy: 'agent', ratifiedBy: '@mbeacom' },
+          provenance: { authoredBy: 'human' },
         }),
       ),
     ).toEqual([]);
-    expect(
-      rulesFor(
-        base({
-          status: 'accepted',
-          deciders: ['@mbeacom'],
-          provenance: { authoredBy: 'agent' },
-        }),
-      ),
-    ).toContain('agent-accepted-requires-ratifier');
   });
 
   test('one-way-door decisions may not take the auto tier', () => {

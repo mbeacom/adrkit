@@ -47390,8 +47390,8 @@ var AdrFrontmatter = strictObject2({
 }).refine((a) => a.status !== "accepted" || a.deciders.length > 0 || Boolean(a.provenance?.importedFrom), {
   message: "an accepted decision must name at least one decider, unless it was imported",
   path: ["deciders"]
-}).refine((a) => a.status !== "accepted" || a.provenance?.authoredBy !== "agent" || Boolean(a.provenance?.ratifiedBy), {
-  message: 'an agent-authored record cannot reach "accepted" without a named human ratifier',
+}).refine((a) => a.status !== "accepted" || a.provenance?.authoredBy !== "agent" && a.provenance?.authoredBy !== "agent-drafted" || Boolean(a.provenance?.ratifiedBy), {
+  message: 'a machine-originated record cannot reach "accepted" without a named human ratifier',
   path: ["provenance", "ratifiedBy"]
 }).refine((a) => !(a.reversibility === "one-way-door" && a.review?.tier === "auto"), {
   message: "one-way-door decisions may not take the auto-approve fast path",
@@ -47610,7 +47610,7 @@ function ruleForIssue(issue3) {
     if (issue3.message === "an accepted decision must name at least one decider, unless it was imported") {
       return "accepted-requires-decider-unless-imported";
     }
-    if (issue3.message === 'an agent-authored record cannot reach "accepted" without a named human ratifier') {
+    if (issue3.message === 'a machine-originated record cannot reach "accepted" without a named human ratifier') {
       return "agent-accepted-requires-ratifier";
     }
     if (issue3.message === "one-way-door decisions may not take the auto-approve fast path") {
