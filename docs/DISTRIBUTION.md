@@ -24,29 +24,28 @@ describes *what the tool is and does*, never *who uses it*.
 Most venues below ultimately read from the **official MCP registry** or from the
 GitHub repo, so a small number of prerequisites unblock several venues at once.
 
-### P1 — npm packages are published
+### P1 — npm packages are published ✅
 
-`@adrkit/mcp`, `@adrkit/cli`, `@adrkit/core`, `@adrkit/evaluator` are published at
-`0.2.0`; the v0.2.1 release is required before the registry submission below
-because `server.json` now names `0.2.1`. The MCP registry hosts *metadata only*;
-the npm package must already exist at the exact version named in `server.json`
-(verify with `npm view @adrkit/mcp@0.2.1 version` after the release).
+**Satisfied.** `@adrkit/mcp`, `@adrkit/cli`, `@adrkit/core`, and `@adrkit/evaluator`
+are published at `0.2.1` — the exact version `server.json` names. The MCP registry
+hosts *metadata only*; the npm package must already exist at the version named in
+`server.json`. Verified with `npm view @adrkit/mcp@0.2.1 version` → `0.2.1`.
 
-### P2 — `mcpName` in the **published** `@adrkit/mcp` (REQUIRED; satisfied only after v0.2.1 publishes)
+### P2 — `mcpName` in the **published** `@adrkit/mcp` ✅
 
-The official registry verifies npm ownership by reading `mcpName` from the
-package metadata of the **exact published version** named in `server.json` — not
-from the working tree. Its value must **exactly** match the `name` in
-`server.json`. Without it, `mcp-publisher publish` fails with
-`Registry validation failed for package`.
+**Satisfied.** `npm view @adrkit/mcp@0.2.1 mcpName` returns `dev.adrkit/mcp`,
+matching `server.json` `name` exactly.
+
+The requirement, and why the ordering mattered: the official registry verifies npm
+ownership by reading `mcpName` from the package metadata of the **exact published
+version** named in `server.json` — not from the working tree. Without a match,
+`mcp-publisher publish` fails with `Registry validation failed for package`.
 
 `@adrkit/mcp@0.2.0` was published **without** `mcpName` (verify:
 `npm view @adrkit/mcp@0.2.0 mcpName` returns nothing). Adding the field to the
-source manifest is therefore **not sufficient** — the registry would still read
-0.2.0's metadata and reject the claim.
-
-The manifest edit lands in the merge-gate branch (`packages/mcp/package.json`
-now declares `"mcpName": "dev.adrkit/mcp"`):
+source manifest was therefore **not sufficient** — the registry would still have
+read 0.2.0's metadata and rejected the claim. `packages/mcp/package.json` declares
+it now:
 
 ```jsonc
 // packages/mcp/package.json
@@ -57,14 +56,16 @@ now declares `"mcpName": "dev.adrkit/mcp"`):
 }
 ```
 
-**Publishing therefore requires, in order:**
+**Publishing therefore required, in order — all four now done:**
 
-1. Merge the manifest change and cut a **new release** (e.g. `v0.2.1`) so a
-   published version of `@adrkit/mcp` carries `mcpName` and matches `server.json`.
-2. Confirm it landed: `npm view @adrkit/mcp@0.2.1 mcpName` → `dev.adrkit/mcp`.
-3. Confirm **both** version fields in `packages/mcp/server.json` — the top-level
-   `version` and `packages[0].version` — name that same published version.
-4. Only then run `mcp-publisher publish`.
+1. ✅ Merge the manifest change and cut a **new release** (`v0.2.1`) so a published
+   version of `@adrkit/mcp` carries `mcpName` and matches `server.json`.
+2. ✅ Confirm it landed: `npm view @adrkit/mcp@0.2.1 mcpName` → `dev.adrkit/mcp`.
+3. ✅ Confirm **both** version fields in `packages/mcp/server.json` — the top-level
+   `version` and `packages[0].version` — name that same published version. Both are
+   `0.2.1`, and the document validates against the `2025-12-11` server schema.
+4. ⬜ Only then run `mcp-publisher publish`. **This is the one remaining step**, and
+   it is gated on namespace proof (P3/A3), not on anything above.
 
 Publishing against a `server.json` version that is not yet on npm will fail
 validation no matter what the working tree says.
@@ -576,9 +577,11 @@ itself, not a pin.
 ## E. Changes needed from other workstreams (report only)
 
 No distribution-blocking source edits are currently delegated to another
-workstream. `packages/mcp/package.json` now declares
-`"mcpName": "dev.adrkit/mcp"` (matching `server.json` `name`); v0.2.1 must be cut
-so that field exists in npm metadata.
+workstream. `packages/mcp/package.json` declares `"mcpName": "dev.adrkit/mcp"`
+(matching `server.json` `name`), and v0.2.1 has been cut, so that field exists in
+npm metadata. Nothing in this repository now blocks the registry submission — the
+only remaining gate is the namespace proof in A3, which is a DNS change plus a
+human-run `mcp-publisher` invocation.
 
 `server.json` does **not** need to be added to `packages/mcp/package.json` `files`.
 
