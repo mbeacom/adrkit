@@ -158,7 +158,12 @@ bootstrap described below.
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
 
-## v0.2.1 cutover runbook
+## v0.2.1 cutover runbook — **COMPLETE**
+
+**All eight steps are done.** v0.2.1 published on 2026-07-27 (npm, GitHub release,
+`v0` moved to `31bed03`); the MCP registry entry went live 2026-07-28; the queue
+Action examples were de-pinned to `@v0` in #65. This section is retained as the
+worked template for the next cutover — substitute the new version throughout.
 
 Run these steps only after the version-bump PR is the last change merged to
 `main`. The three branches this runbook originally waited on —

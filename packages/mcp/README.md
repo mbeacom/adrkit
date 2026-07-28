@@ -16,8 +16,10 @@ agents stop re-proposing paths the team already ruled out.
 
 Part of [adrkit](https://adrkit.dev). The corpus lives in git as one Markdown file
 per decision with typed YAML frontmatter (`@adrkit/core`); this server only reads
-it. Registry namespace: **`dev.adrkit/mcp`** (this is the Node/npm `@adrkit/mcp`
-package — unrelated to the `adr-kit` Python package on PyPI).
+it. Listed in the [official MCP registry](https://registry.modelcontextprotocol.io)
+as **`dev.adrkit/mcp`** (this is the Node/npm `@adrkit/mcp` package — unrelated to
+the `adr-kit` Python package on PyPI). A registry listing is distribution, not
+adoption; see Maturity below.
 
 ## Maturity
 

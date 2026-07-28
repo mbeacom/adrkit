@@ -1,21 +1,25 @@
-# Distribution & discoverability playbook (prepared, not submitted)
+# Distribution & discoverability playbook
 
 This document is a **prepared-submissions playbook** for giving `@adrkit/mcp` and
 the `@adrkit/*` CLI presence in the MCP and ADR-tooling ecosystems. It contains
 ready-to-paste content and exact procedures.
 
-> **Nothing here has been submitted.** Every outbound action — publishing to a
-> registry, opening a PR, filling a form, creating a git tag, or posting anywhere —
-> is left for a human to perform. This file only *prepares* those actions.
+> **Submission status.** The official MCP registry entry (§A) **has been published**
+> — `dev.adrkit/mcp` at `0.2.1`, status `active`, published 2026-07-28. Every other
+> venue below remains prepared but **not submitted**. Every outbound action —
+> publishing to a registry, opening a PR, filling a form, creating a git tag, or
+> posting anywhere — is performed by a human, never by tooling or an agent.
 
 ## Honesty guardrail (binding)
 
 Per [ADR-0014](./adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
 adrkit is **early**: phases 0–6 are *landed / reference-verified* (rungs 1–2), and
 rung-3 external/community validation is **openly not-yet-met**. A registry listing is
-**distribution, not adoption**. None of the copy below may state or imply that
-adrkit has external adopters, production users, or rung-3 validation. Listing copy
-describes *what the tool is and does*, never *who uses it*.
+**distribution, not adoption** — the §A publication below changes discoverability and
+nothing else; it is **not** evidence of external validation and does not move any
+rung. None of the copy below may state or imply that adrkit has external adopters,
+production users, or rung-3 validation. Listing copy describes *what the tool is and
+does*, never *who uses it*.
 
 ---
 
@@ -64,8 +68,8 @@ it now:
 3. ✅ Confirm **both** version fields in `packages/mcp/server.json` — the top-level
    `version` and `packages[0].version` — name that same published version. Both are
    `0.2.1`, and the document validates against the `2025-12-11` server schema.
-4. ⬜ Only then run `mcp-publisher publish`. **This is the one remaining step**, and
-   it is gated on namespace proof (P3/A3), not on anything above.
+4. ✅ Only then run `mcp-publisher publish`. **Done** — published 2026-07-28 via the
+   DNS namespace path (§A3); see §A4 for the verified registry response.
 
 Publishing against a `server.json` version that is not yet on npm will fail
 validation no matter what the working tree says.
@@ -96,7 +100,11 @@ confusion in every listing:
 
 ---
 
-## A. Official MCP registry (`registry.modelcontextprotocol.io`)
+## A. Official MCP registry (`registry.modelcontextprotocol.io`) — **PUBLISHED**
+
+**Status: published 2026-07-28** via the DNS namespace path. `dev.adrkit/mcp` is
+listed at `0.2.1` with status `active`; see §A4 for the verified response. The
+subsections below are retained as the procedure to repeat on each release.
 
 This is the highest-leverage venue: **PulseMCP, mcp.so, Glama, and Smithery all
 ingest or can ingest from it.** The registry is in public preview.
@@ -166,11 +174,30 @@ cd packages/mcp && mcp-publisher login github   # device flow at https://github.
 mcp-publisher publish
 ```
 
-### A4 — verify (human)
+### A4 — verify (human) ✅
 
 ```sh
 curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mcp"
 ```
+
+**Verified 2026-07-28.** The registry returns exactly one server:
+
+| Field | Value |
+|---|---|
+| `name` | `dev.adrkit/mcp` |
+| `version` | `0.2.1` |
+| `packages[0].identifier` / `version` | `@adrkit/mcp` / `0.2.1` |
+| `transport.type` | `stdio` |
+| `_meta…/official.status` | `active` |
+| `_meta…/official.isLatest` | `true` |
+| `_meta…/official.publishedAt` | `2026-07-28T13:22:42.967034Z` |
+
+`docs/RELEASING.md` step 7's exact assertion — the response containing both
+`dev.adrkit/mcp` and `0.2.1` — exits 0.
+
+A subsequent release must re-run `mcp-publisher publish` with `server.json`'s two
+version fields bumped; the registry pins a specific npm version and does not track
+`latest` on its own.
 
 ### A5 — the committed `server.json`
 
@@ -374,9 +401,9 @@ blockers are the human namespace proof and the v0.2.1 npm publication that carri
 
 | Venue | Machine format | Prerequisite | Ready to submit? | What the human must do |
 |---|---|---|---|---|
-| Official MCP registry | `server.json` (validated) | P2 `mcpName` edit + namespace proof | **Blocked on P2 + namespace proof** | Add `mcpName`, add DNS TXT (or GitHub login), run `mcp-publisher publish` |
+| Official MCP registry | `server.json` (validated) | P2 `mcpName` edit + namespace proof | **Published 2026-07-28** | Nothing — re-publish on each release with `server.json` bumped |
 | mcp.so | web form | public repo | **Yes** | Fill form at mcp.so/submit (free tier) |
-| PulseMCP | (ingests registry) | official-registry listing | **After A** | Publish A; optionally email hello@pulsemcp.com |
+| PulseMCP | (ingests registry) | official-registry listing | **Yes — A is published** | Nothing required; optionally email hello@pulsemcp.com |
 | Smithery | `smithery.yaml` (root) | file at repo root | **Placed at repo root (not submitted)** | Connect the repo at smithery.ai/new |
 | Glama | `glama.json` (root) | file at repo root | **Placed at repo root (not submitted)** | Nothing — Glama auto-crawls once merged and public |
 | awesome-mcp-servers | README PR | public repo | **Yes** | Open PR with the entry line |
@@ -578,10 +605,9 @@ itself, not a pin.
 
 No distribution-blocking source edits are currently delegated to another
 workstream. `packages/mcp/package.json` declares `"mcpName": "dev.adrkit/mcp"`
-(matching `server.json` `name`), and v0.2.1 has been cut, so that field exists in
-npm metadata. Nothing in this repository now blocks the registry submission — the
-only remaining gate is the namespace proof in A3, which is a DNS change plus a
-human-run `mcp-publisher` invocation.
+(matching `server.json` `name`), v0.2.1 has been cut, and the registry entry is
+**published** (§A4). Nothing in this repository blocks any remaining venue; what is
+left is per-venue human submission, tracked in the readiness table above.
 
 `server.json` does **not** need to be added to `packages/mcp/package.json` `files`.
 
