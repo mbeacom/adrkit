@@ -23,6 +23,8 @@ review:
   tierReason: >-
     Determines whether imported records carry governance authority they never
     earned. Low technical risk, high governance risk.
+  queuedAt: 2026-07-28T00:00:00Z
+  slaDays: 30
 ---
 
 # ADR-0008: Migrate MADR corpora in place and treat all other imports as one-way with a re-import diff

@@ -21,6 +21,8 @@ provenance:
 review:
   tier: arb
   tierReason: Determines distribution strategy and primary adoption channel.
+  queuedAt: 2026-07-28T00:00:00Z
+  slaDays: 30
 externalRefs:
   - type: doc
     url: https://github.github.com/spec-kit/

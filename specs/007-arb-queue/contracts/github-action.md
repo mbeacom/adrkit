@@ -21,11 +21,12 @@ Users reference it as:
 - uses: mbeacom/adrkit/packages/ci/queue@v0
 ```
 
-> **Not yet resolvable.** `@v0` is the *intended* contract, but the moving `v0`
-> tag currently points at a commit that predates this Action, so a `@v0`
-> reference fails to resolve. Until a release containing `packages/ci/queue` is
-> cut and `v0` is moved, use the full-commit pin
-> `@efef89b5d747ca175a1947f1ce2f4296dab54fa3` (see `docs/DISTRIBUTION.md` §D).
+> **Resolvable since v0.2.1.** The v0.2.1 release moved the `v0` tag to a commit
+> containing `packages/ci/queue`, so `@v0` now resolves as intended. Historical
+> note: before that release, `v0` pointed at a commit predating this Action and
+> `@v0` failed to resolve, so the full-commit pin
+> `@efef89b5d747ca175a1947f1ce2f4296dab54fa3` was mandatory (see
+> `docs/DISTRIBUTION.md` §D).
 
 This is a separate YAML from the existing `packages/ci/action.yml` (the PR
 governing-decisions action). Each action has distinct triggers, permissions, and

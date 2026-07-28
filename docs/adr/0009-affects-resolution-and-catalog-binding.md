@@ -23,6 +23,8 @@ review:
   tierReason: >-
     Every consumer depends on these semantics; changing them later silently
     changes which decisions govern which code.
+  queuedAt: 2026-07-28T00:00:00Z
+  slaDays: 30
 assertions:
   - id: resolution-is-pure
     description: >-

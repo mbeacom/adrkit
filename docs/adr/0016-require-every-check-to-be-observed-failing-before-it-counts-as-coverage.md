@@ -2,9 +2,9 @@
 schemaVersion: 0.1.0
 id: "0016"
 title: Require every check to be observed failing before it counts as coverage
-status: draft
+status: proposed
 date: 2026-07-25
-deciders: []
+deciders: ["@mbeacom"]
 tags: [governance, testing, evidence, quality]
 scope: org
 reversibility: two-way-door
@@ -23,6 +23,8 @@ review:
     Changes how contributors are expected to write and review checks across every
     package, but is a reversible process convention rather than a schema or
     interface commitment. No external consumer depends on it.
+  queuedAt: 2026-07-28T00:00:00Z
+  slaDays: 30
 ---
 
 # ADR-0016: Require every check to be observed failing before it counts as coverage

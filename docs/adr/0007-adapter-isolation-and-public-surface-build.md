@@ -25,6 +25,8 @@ review:
   tierReason: >-
     Sets the dependency boundary for every future integration and the IP
     boundary for the repository. Expensive to reverse once adapters exist.
+  queuedAt: 2026-07-28T00:00:00Z
+  slaDays: 30
 assertions:
   - id: core-has-no-adapter-deps
     description: >-

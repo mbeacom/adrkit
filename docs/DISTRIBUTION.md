@@ -482,17 +482,20 @@ one-way (round-trip sync is out of scope per ADR-0008), and surfaces honest find
 
 ---
 
-## D. The moving `queue@v0` tag
+## D. The moving `queue@v0` tag (resolved by v0.2.1)
 
-The README/plan pin the ARB-queue GitHub Action to a commit:
+**Status: resolved.** The v0.2.1 release moved the `v0` tag to `31bed03`, a commit
+that contains `packages/ci/queue/action.yml`, so adopters now reference the
+ARB-queue Action from its moving major tag like any other:
 
 ```yaml
-uses: mbeacom/adrkit/packages/ci/queue@efef89b5d747ca175a1947f1ce2f4296dab54fa3
+uses: mbeacom/adrkit/packages/ci/queue@v0
 ```
 
-…"until a moving `queue@v0` tag is published." Here is what that actually requires.
+The rest of this section is the historical record of why a full-commit pin was
+mandatory beforehand, and what it took to lift it.
 
-### D1 — current state (verified directly against the remote)
+### D1 — pre-release state (verified directly against the remote, 2026-07-25)
 
 Re-confirmed against `origin` on 2026-07-25 with `git ls-remote --tags origin`,
 `gh api repos/mbeacom/adrkit/git/ref/tags/v0`, and the GitHub contents API:
@@ -508,21 +511,24 @@ Re-confirmed against `origin` on 2026-07-25 with `git ls-remote --tags origin`,
   `66a1e7f…` (`v0`) is a git ancestor of `efef89b…`, i.e. the Action was added
   **after** the `v0.2.0`/`v0` commit.
 
-> **⚠️ Documentation-severity finding.** Anyone who follows a `@v0` reference for the
-> queue Action **today** — `uses: mbeacom/adrkit/packages/ci/queue@v0` — gets a
-> **missing action** and the workflow fails to resolve it. The full-commit-SHA pin
-> (`@efef89b…`) is therefore **mandatory, not a nicety**, until §D3 is performed.
-> Any doc that presents `@v0` as an available option for the queue Action is wrong
-> as of this date and should keep pinning the SHA.
+> **⚠️ Documentation-severity finding (historical — resolved by v0.2.1).** As of
+> 2026-07-25, anyone who followed a `@v0` reference for the queue Action —
+> `uses: mbeacom/adrkit/packages/ci/queue@v0` — got a **missing action** and the
+> workflow failed to resolve it. The full-commit-SHA pin (`@efef89b…`) was
+> therefore **mandatory, not a nicety**, until §D3 was performed. Since the
+> v0.2.1 release moved `v0` to `31bed03`, `@v0` resolves and the copy-pasteable
+> examples have been de-pinned to it.
 >
-> **Repository sweep (done in this PR).** `README.md` and this document already
-> pinned the SHA, but two runnable references did not and have been corrected:
+> **Repository sweep (done in the PR that recorded this finding).** `README.md` and
+> this document already pinned the SHA, but two runnable references did not and were
+> corrected at the time:
 > `specs/007-arb-queue/quickstart.md` (workflow YAML → SHA pin) and
-> `specs/007-arb-queue/contracts/github-action.md` (keeps `@v0` as the *intended*
-> contract, with an explicit not-yet-resolvable note). The remaining `@v0` strings
+> `specs/007-arb-queue/contracts/github-action.md` (kept `@v0` as the *intended*
+> contract, with an explicit not-yet-resolvable note). Both have since been
+> de-pinned back to `@v0` now that it resolves. The remaining `@v0` strings
 > in `specs/007-arb-queue/research.md` and `tasks.md` are design rationale and a
 > completed task record, not copy-pasteable instructions; `tasks.md` T049 already
-> says to advertise `@v0` only after the tag moves.
+> said to advertise `@v0` only after the tag moves.
 
 ### D2 — there is no separate `queue@v0` tag
 
@@ -532,7 +538,7 @@ subpath `packages/ci/queue`. `scripts/update-action-tag.ts` force-moves the
 new stable `vX.Y.Z` tag is pushed and the new version is newer than the tag's
 current target (see `docs/RELEASING.md`, "Subsequent releases").
 
-### D3 — procedure to make `queue@v0` resolve (human; do NOT run here)
+### D3 — procedure that made `queue@v0` resolve (performed by the v0.2.1 release)
 
 1. Cut the next release (e.g. `v0.2.1` or `v0.3.0`) whose release commit **includes**
    `packages/ci/queue/action.yml` — i.e. any release cut from current `main`.
@@ -545,8 +551,14 @@ current target (see `docs/RELEASING.md`, "Subsequent releases").
    contains `packages/ci/queue/action.yml`, and adopters can switch the pin from the
    commit SHA to `@v0`.
 
-**Do not create or push any tag as part of this wave.** This is documentation of the
-procedure only; the release is a human action.
+**Done.** v0.2.1 executed exactly this: `v0` and `v0.2.1^{}` both peel to
+`31bed03a179b6bfa4a62f7e69008c7441c62598f`, and
+`GET /repos/mbeacom/adrkit/contents/packages/ci/queue/action.yml?ref=v0` returns the
+861-byte blob. The copy-pasteable examples were de-pinned to `@v0` as
+`docs/RELEASING.md` step 8 requires; immutable SHA pins are kept only where the
+surrounding text is teaching reproducibility (the §D1 record above,
+`specs/007-arb-queue/checklists/reference-verification-evidence.md`, ADR-0014, and
+`plan.md`).
 
 ---
 

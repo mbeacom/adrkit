@@ -21,6 +21,8 @@ provenance:
 review:
   tier: arb
   tierReason: Licensing is effectively irreversible once external contributions land.
+  queuedAt: 2026-07-28T00:00:00Z
+  slaDays: 30
 ---
 
 # ADR-0006: License Apache-2.0 with a DCO and develop in a single monorepo

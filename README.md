@@ -151,8 +151,7 @@ answer where the next decision is actually being made.
 
 It never approves anything. It routes, and humans decide.
 
-Use the CI Action from its moving major tag; pin the queue Action to a commit until
-a moving `queue@v0` tag exists (see [Use in CI](https://adrkit.dev/ci/)):
+Use both CI Actions from their moving major tag (see [Use in CI](https://adrkit.dev/ci/)):
 
 ```yaml
 permissions:
