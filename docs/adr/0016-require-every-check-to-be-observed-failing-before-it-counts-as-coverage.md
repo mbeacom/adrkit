@@ -240,7 +240,7 @@ equality assertion would be cargo cult.
 
 ## Action items
 
-1. [ ] Ratify or reject — this record is `draft` and agent-drafted; it binds
+1. [ ] Ratify or reject — this record is `proposed` and agent-drafted; it binds
        nothing until a human accepts it.
 2. [x] Carry both directions for the two checks that motivated this. The tests
        accompanying `corpus-file-skipped` and `corpus.file-skipped` already

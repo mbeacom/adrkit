@@ -555,10 +555,21 @@ current target (see `docs/RELEASING.md`, "Subsequent releases").
 `31bed03a179b6bfa4a62f7e69008c7441c62598f`, and
 `GET /repos/mbeacom/adrkit/contents/packages/ci/queue/action.yml?ref=v0` returns the
 861-byte blob. The copy-pasteable examples were de-pinned to `@v0` as
-`docs/RELEASING.md` step 8 requires; immutable SHA pins are kept only where the
-surrounding text is teaching reproducibility (the §D1 record above,
-`specs/007-arb-queue/checklists/reference-verification-evidence.md`, ADR-0014, and
-`plan.md`).
+`docs/RELEASING.md` step 8 requires.
+
+Immutable `@efef89b…` pins are kept only where the surrounding text is teaching
+reproducibility or recording history. That set is exhaustively:
+
+- §D1 above (the pre-release verified state)
+- `specs/007-arb-queue/checklists/reference-verification-evidence.md`
+- `specs/007-arb-queue/contracts/github-action.md` (the historical resolvability note)
+- `specs/007-arb-queue/tasks.md` (the completed T018 record)
+- `docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md`
+- `plan.md`
+
+The SHA also appears once more in `docs/RELEASING.md` step 8, as the argument to
+the `rg` command that verifies the de-pin actually happened. That is the check
+itself, not a pin.
 
 ---
 
