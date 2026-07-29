@@ -7,10 +7,9 @@
  * here is local, offline, model-free, and credential-free.
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { McpServer, InMemoryTransport } from '@modelcontextprotocol/server';
+import { Client } from '@modelcontextprotocol/client';
+import type { CallToolResult } from '@modelcontextprotocol/server';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, readdir, readFile, rm, realpath, stat, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -35,7 +34,12 @@ export interface OpenServer {
 /** Connect an already-built McpServer to an in-process client. */
 export async function connectServer(server: McpServer): Promise<OpenServer> {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const client = new Client({ name: 'adrkit-mcp-test-client', version: '0.0.0' });
+  // v2 clients return an empty result for an unadvertised capability instead of
+  // sending the request; strict mode restores the v1 throw the surface tests assert.
+  const client = new Client(
+    { name: 'adrkit-mcp-test-client', version: '0.0.0' },
+    { enforceStrictCapabilities: true },
+  );
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   return {
     server,

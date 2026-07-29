@@ -1052,6 +1052,16 @@ exercised paths, not that raw native syscalls or future unenumerated APIs are im
 
 ## Assumptions
 
+> **Amended 2026-07-29.** A5 below named `@modelcontextprotocol/sdk@1.29.0` because
+> that was the stable line on 2026-07-20 and the SDK's v2 was then in beta. Both
+> facts changed on 2026-07-27/28. `@adrkit/mcp` now depends on
+> `@modelcontextprotocol/server@2.0.0` (plus a development-only
+> `@modelcontextprotocol/client@2.0.0`), and SC-013's "the pinned
+> `@modelcontextprotocol/sdk`" should be read as "the pinned MCP TypeScript SDK
+> server package" — the allow-list check it describes is unchanged and still
+> enforced, against the v2 package names. See
+> [ADR-0018](../../docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md).
+
 Documented, ADR-consistent defaults chosen so this spec stays testable without
 prescribing implementation; none is presented as a one-way door, and no
 maintainer-facing product decision remains open after the 2026-07-20 scope

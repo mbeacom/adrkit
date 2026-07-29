@@ -9,7 +9,7 @@ tags: [security, ci, dependencies, release, evidence]
 scope: org
 reversibility: two-way-door
 blastRadius: team
-relatesTo: ["0007", "0014", "0016"]
+relatesTo: ["0007", "0014", "0016", "0018"]
 affects:
   - type: path
     pattern: "scripts/audit-gate.ts"
@@ -164,6 +164,31 @@ gap is visible instead of implied away.
 1. [ ] Ratify or reject this proposed record.
 2. [ ] Add a release-time published-package consumer audit covering
        `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp`.
-3. [ ] Remove or renew the `GHSA-frvp-7c67-39w9` acceptance by 2026-10-31, or
+3. [x] Remove or renew the `GHSA-frvp-7c67-39w9` acceptance by 2026-10-31, or
        earlier if `@modelcontextprotocol/sdk` releases a range that reaches
        `@hono/node-server >=2.0.5`.
+       **Removed 2026-07-29**, ahead of expiry, by the second limb of the
+       recorded resolution condition — adrkit removed the transitive path rather
+       than waiting for upstream to widen its range. See the update below.
+
+## Update: 2026-07-29 — the recorded consumer exposure is resolved
+
+The `GHSA-frvp-7c67-39w9` acceptance recorded above has been removed from
+`scripts/audit-gate.ts`, along with the root `@hono/node-server` and `fast-uri`
+`overrides` this record's Context quotes.
+
+Neither the Context nor the Decision above is amended: both describe the situation
+that held while `@adrkit/mcp` depended on `@modelcontextprotocol/sdk@1.29.0`, and
+the scope discipline they establish still stands. What changed is the underlying
+fact. `@adrkit/mcp` migrated to `@modelcontextprotocol/server@2.0.0`
+([ADR-0018](0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)),
+whose only runtime dependencies are `@modelcontextprotocol/core` and `zod`. The
+SDK no longer pulls Hono, Express, or Ajv into the graph, so neither
+`@hono/node-server` nor `fast-uri` resolves anywhere in the tree and a published
+consumer can no longer reach either. `bun audit` is clean with no overrides in
+effect.
+
+The acceptance list is now empty rather than deleted, and the expiry machinery
+that would fail CI closed remains under test through an injected synthetic
+acceptance — so the next real acceptance is recorded and expires exactly as this
+record requires.

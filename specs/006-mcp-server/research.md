@@ -16,6 +16,17 @@ knowledge would have been formed.
 
 ## R0 — SDK package and version: stable `@modelcontextprotocol/sdk@1.29.0`; v2 is a separate, beta, split-package line
 
+> **Amended 2026-07-29 — this decision has been superseded.** Everything below was
+> true and correctly sourced on 2026-07-20. It stopped being true on 2026-07-27,
+> when the SDK published `@modelcontextprotocol/{core,client,server}@2.0.0` as
+> stable, and on 2026-07-28, when the MCP `2026-07-28` specification revision
+> shipped. `@adrkit/mcp` now depends on `@modelcontextprotocol/server@2.0.0` in
+> production and `@modelcontextprotocol/client@2.0.0` in development, and serves
+> both protocol eras over stdio. The reasoning that follows — prefer the stable,
+> production-recommended line and avoid pre-1.0 churn (ADR-0007) — is unchanged;
+> it now points at v2, because v2 is that line. See
+> [ADR-0018](../../docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md).
+
 **Decision**: depend on the single, unified, stable `@modelcontextprotocol/sdk`
 package at **exact `1.29.0`**, imported only via its `server/mcp.js`, `server/stdio.js`,
 `inMemory.js`, and (test-only) `client/index.js` subpaths. Do **not** depend on the

@@ -235,7 +235,7 @@ describe('evaluator dependency boundary (Phase 4)', () => {
 });
 
 describe('mcp dependency boundary (Phase 5)', () => {
-  test('allows exactly core, the pinned SDK, and zod, plus @types/bun in dev', async () => {
+  test('allows exactly core, the pinned SDK server, and zod, plus the dev-only SDK client and @types/bun', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeText(
       join(root, 'packages/mcp/package.json'),
@@ -243,8 +243,8 @@ describe('mcp dependency boundary (Phase 5)', () => {
         {
           name: '@adrkit/mcp',
           version: '0.1.0',
-          dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/sdk': '1.29.0', zod: '^4' },
-          devDependencies: { '@types/bun': 'latest' },
+          dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/server': '2.0.0', zod: '^4' },
+          devDependencies: { '@modelcontextprotocol/client': '2.0.0', '@types/bun': 'latest' },
         },
         null,
         2,
@@ -267,7 +267,7 @@ describe('mcp dependency boundary (Phase 5)', () => {
           version: '0.1.0',
           dependencies: {
             '@adrkit/core': 'workspace:*',
-            '@modelcontextprotocol/sdk': '1.29.0',
+            '@modelcontextprotocol/server': '2.0.0',
             zod: '^4',
             '@adrkit/adapter-example': 'workspace:*',
             undici: '^6',
@@ -302,7 +302,7 @@ describe('mcp dependency boundary (Phase 5)', () => {
         {
           name: '@adrkit/mcp',
           version: '0.1.0',
-          dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/sdk': '1.29.0', zod: '^4', '@modelcontextprotocol/server-everything': '^1' },
+          dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/server': '2.0.0', zod: '^4', '@modelcontextprotocol/server-everything': '^1' },
         },
         null,
         2,
@@ -318,7 +318,7 @@ describe('mcp dependency boundary (Phase 5)', () => {
     await writeText(
       join(root, 'packages/mcp/package.json'),
       JSON.stringify(
-        { name: '@adrkit/mcp', version: '0.1.0', dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/sdk': '1.29.0', zod: '^4', '@actions/github': '^6' } },
+        { name: '@adrkit/mcp', version: '0.1.0', dependencies: { '@adrkit/core': 'workspace:*', '@modelcontextprotocol/server': '2.0.0', zod: '^4', '@actions/github': '^6' } },
         null,
         2,
       ),

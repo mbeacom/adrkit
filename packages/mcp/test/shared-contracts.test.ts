@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { z } from 'zod';
 import {
   ANNOTATIONS,
   LIMITS,
@@ -162,9 +163,10 @@ describe('root-object output schemas with a nested discriminated union', () => {
     ['get_decision_context', getDecisionContextOutputSchema],
     ['list_superseded', listSupersededOutputSchema],
   ] as const) {
-    test(`${name} output raw shape has corpusHealth + result (union nested under result)`, () => {
-      const shape = builder();
-      expect(Object.keys(shape).sort()).toEqual(['corpusHealth', 'result']);
+    test(`${name} output schema is a root object of corpusHealth + result (union nested under result)`, () => {
+      const schema = builder();
+      expect(schema).toBeInstanceOf(z.ZodObject);
+      expect(Object.keys((schema as z.ZodObject).shape).sort()).toEqual(['corpusHealth', 'result']);
     });
   }
 });

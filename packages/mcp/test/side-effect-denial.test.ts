@@ -3,8 +3,8 @@ import { mkdtemp, readFile, readdir, writeFile, rm, realpath } from 'node:fs/pro
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import * as ts from 'typescript';
 import { repoFromFixture, snapshotTree, diffSnapshots, type TempRepo } from './helpers.ts';
 

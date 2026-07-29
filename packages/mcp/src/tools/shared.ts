@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 import { AdrFrontmatter, AdrRef, Status, Scope, type Finding, type FiredMatcher } from '@adrkit/core';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from '@modelcontextprotocol/server';
 import {
   loadCorpusProjection,
   CorpusUnavailableError,
@@ -265,7 +265,7 @@ export function renderResponseText(spec: TextSpec): string {
  * ------------------------------------------------------------------ */
 
 export type ToolInputSchema = z.ZodType;
-export type ToolOutputSchema = z.ZodRawShape;
+export type ToolOutputSchema = z.ZodType;
 
 const uniqueArray = <T>(schema: z.ZodType<T>, min: number, max: number) =>
   z
@@ -392,7 +392,7 @@ export function searchDecisionsOutputSchema(): ToolOutputSchema {
     sourcePath: z.string(),
     matchedFields: z.array(z.enum(['id', 'title', 'tag', 'body'])),
   });
-  return {
+  return z.object({
     corpusHealth: corpusHealthSchema().optional(),
     result: z.discriminatedUnion('outcome', [
       z.object({
@@ -404,7 +404,7 @@ export function searchDecisionsOutputSchema(): ToolOutputSchema {
       invalidCursorSchema(),
       corpusUnavailableSchema(),
     ]),
-  };
+  });
 }
 
 export function getDecisionOutputSchema(): ToolOutputSchema {
@@ -417,7 +417,7 @@ export function getDecisionOutputSchema(): ToolOutputSchema {
     frontmatter: AdrFrontmatter,
     body: z.string(),
   });
-  return {
+  return z.object({
     corpusHealth: corpusHealthSchema().optional(),
     result: z.discriminatedUnion('outcome', [
       z.object({ outcome: z.literal('found'), decision: fullDecision, findings: findingsPageSchema() }),
@@ -439,7 +439,7 @@ export function getDecisionOutputSchema(): ToolOutputSchema {
       invalidCursorSchema(),
       corpusUnavailableSchema(),
     ]),
-  };
+  });
 }
 
 export function getDecisionContextOutputSchema(): ToolOutputSchema {
@@ -451,7 +451,7 @@ export function getDecisionContextOutputSchema(): ToolOutputSchema {
     firedMatchers: z.array(z.object({ type: z.string(), pattern: z.string() })),
     relations: relationRefsSchema(),
   });
-  return {
+  return z.object({
     corpusHealth: corpusHealthSchema().optional(),
     result: z.discriminatedUnion('outcome', [
       z.object({
@@ -465,7 +465,7 @@ export function getDecisionContextOutputSchema(): ToolOutputSchema {
       invalidCursorSchema(),
       corpusUnavailableSchema(),
     ]),
-  };
+  });
 }
 
 export function listSupersededOutputSchema(): ToolOutputSchema {
@@ -493,7 +493,7 @@ export function listSupersededOutputSchema(): ToolOutputSchema {
     sourcePath: z.string(),
     supersededBy,
   });
-  return {
+  return z.object({
     corpusHealth: corpusHealthSchema().optional(),
     result: z.discriminatedUnion('outcome', [
       z.object({
@@ -505,7 +505,7 @@ export function listSupersededOutputSchema(): ToolOutputSchema {
       invalidCursorSchema(),
       corpusUnavailableSchema(),
     ]),
-  };
+  });
 }
 
 /* ------------------------------------------------------------------ *

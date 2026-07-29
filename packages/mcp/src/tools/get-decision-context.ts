@@ -7,7 +7,7 @@
  * page is partitioned by status.
  */
 
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import { decisionBucketFor, resolveAffects, type Adr, type Finding, type FiredMatcher } from '@adrkit/core';
 import { compareCodeUnits, sortFindingsCanonical } from '../corpus/ordering.ts';
 import { paginate, queryShapeHash } from '../pagination/cursor.ts';

@@ -9,6 +9,54 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- `@adrkit/mcp` now serves **MCP protocol revision `2026-07-28`** alongside the
+  2025-era revision on the same stdio connection. The opening exchange selects the
+  era and pins it for the connection's lifetime: a `server/discover` call (or any
+  request carrying a 2026 `_meta` envelope) gets the stateless 2026 revision, while
+  an `initialize` handshake is served exactly as before. Tool names, schemas,
+  annotations, and structured results are identical on both eras, and 2025-era
+  responses are unchanged from 0.2.1 apart from `tools/list` ordering (see below).
+- `tools/list` and `server/discover` are served with SEP-2549 cache fields
+  (`ttlMs: 300000`, `cacheScope: "public"`) on the 2026 revision. The four-tool
+  surface is immutable for the life of the process and carries no corpus content or
+  caller identity, so a client can reuse it instead of re-listing. Corpus reads stay
+  uncacheable — every `tools/call` still loads a fresh projection.
+
+### Changed
+
+- Migrated `@adrkit/mcp` from `@modelcontextprotocol/sdk@1.29.0` to the MCP
+  TypeScript SDK v2 package split: `@modelcontextprotocol/server@2.0.0` in
+  production and `@modelcontextprotocol/client@2.0.0` as a development-only test
+  driver. `zod` tightened to `^4.2.0` — v2 converts schemas through the authoring
+  instance's `~standard.jsonSchema`, which zod added in 4.2.0. On zod 4.0–4.1 the
+  SDK falls back to its own bundled converter with a one-time stderr warning and
+  silently drops `.describe()` field descriptions from the advertised JSON Schema,
+  so the declared range excludes those versions rather than relying on the resolved
+  version happening to be new enough.
+- Tool `outputSchema`s are now explicit `z.object(...)` schemas rather than raw Zod
+  shapes (v2 deprecates the raw-shape overloads). The advertised JSON Schema is
+  unchanged: still a root object of `corpusHealth` + `result`.
+- `tools/list` advertises the four tools in lexicographic order, so the catalog is
+  deterministic across restarts (`2026-07-28` minor change 3). This is the one
+  2025-era wire change in this release: the SDK serves registration order on both
+  eras, so legacy clients see the new order too. MCP treats `tools` as an unordered
+  set, so no client behavior depends on it; the order is asserted unsorted on both
+  eras so it cannot drift unobserved.
+
+### Removed
+
+- The root `@hono/node-server` and `fast-uri` `overrides`, and the recorded
+  `@adrkit/mcp` consumer-advisory acceptance for
+  [GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9). All
+  three are now dead: `@modelcontextprotocol/server@2.0.0` depends only on
+  `@modelcontextprotocol/core` and `zod`, so the SDK no longer drags Hono, Express,
+  Ajv, `cors`, or `zod-to-json-schema` into the tree, and neither `@hono/node-server`
+  nor `fast-uri` resolves anywhere in it. The advisory retired by its own recorded
+  `resolvesWhen` clause ("...or adrkit removes that transitive path"), ahead of its
+  `2026-10-31` expiry. `bun audit` is clean with no overrides in effect.
+
 ## [0.2.1] - 2026-07-27
 
 ### Added

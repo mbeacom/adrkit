@@ -97,33 +97,29 @@ const BLOCKING: ReadonlySet<AdvisorySeverity> = new Set(['critical', 'high']);
 const WORKSPACE_AUDIT_SCOPE: AuditScope = {
   id: 'workspace-resolved-dependency-tree',
   examined:
-    'the current checkout after root package.json overrides are applied by `bun install --frozen-lockfile`',
+    'the current checkout as resolved by `bun install --frozen-lockfile`, including any root package.json overrides in effect',
   notExamined:
-    'consumer installs of published @adrkit/* packages, whose manifests do not publish the root overrides',
+    'consumer installs of published @adrkit/* packages, which resolve from the published manifests and inherit no root overrides or workspace pins',
 };
 
-const KNOWN_CONSUMER_ADVISORY_ACCEPTANCES: readonly Omit<KnownConsumerAdvisory, 'expired'>[] = [
-  {
-    advisoryId: 'GHSA-frvp-7c67-39w9',
-    url: 'https://github.com/advisories/GHSA-frvp-7c67-39w9',
-    title:
-      'Node.js Adapter for Hono: Path traversal in `serve-static` on Windows via encoded backslash (`%5C`)',
-    severity: 'moderate',
-    package: '@hono/node-server',
-    observedVersion: '1.19.17',
-    vulnerableVersions: '<2.0.5',
-    affectedPublishedPackage: '@adrkit/mcp',
-    affectedPublishedVersion: '0.2.1',
-    dependencyPath: ['@adrkit/mcp', '@modelcontextprotocol/sdk@1.29.0', '@hono/node-server'],
-    acceptedUntil: '2026-10-31',
-    whyNotFixed:
-      '@modelcontextprotocol/sdk@1.29.0 is the latest release and still ranges @hono/node-server as ^1.19.9; adrkit root overrides do not constrain consumer installs.',
-    consequence:
-      'adrkit is a local stdio MCP server; the stdio MCP server does not use Hono serve-static or expose HTTP static files, so this Windows serve-static path traversal is low-consequence here.',
-    resolvesWhen:
-      'an @modelcontextprotocol/sdk release updates its @hono/node-server range so consumers resolve @hono/node-server >=2.0.5, or adrkit removes that transitive path.',
-  },
-];
+/**
+ * Narrow, expiring acceptances for advisories that reach a *published consumer* of an
+ * `@adrkit/*` package but not this workspace's audited tree (ADR-0017). Recorded here
+ * rather than suppressed, so the gate reports them and fails closed on expiry.
+ *
+ * Currently empty. The one entry this list has ever held —
+ * [GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9), a
+ * vulnerable `@hono/node-server` reached through
+ * `@adrkit/mcp › @modelcontextprotocol/sdk@1.29.0` — was retired by its own recorded
+ * `resolvesWhen` clause ("...or adrkit removes that transitive path"): the MCP SDK v2
+ * package split moved `@adrkit/mcp` onto `@modelcontextprotocol/server`, whose only
+ * runtime dependencies are `@modelcontextprotocol/core` and `zod`. Neither
+ * `@hono/node-server` nor `fast-uri` appears anywhere in the resolved tree now, so a
+ * consumer install can no longer reach either.
+ *
+ * The expiry machinery stays exercised through the injectable `acceptances` option.
+ */
+const KNOWN_CONSUMER_ADVISORY_ACCEPTANCES: readonly Omit<KnownConsumerAdvisory, 'expired'>[] = [];
 
 function emptySeverityTally(): Record<AdvisorySeverity, number> {
   return { critical: 0, high: 0, moderate: 0, low: 0, info: 0 };
@@ -191,6 +187,12 @@ function findShapeError(value: unknown): string | undefined {
 
 export interface AuditEvaluationOptions {
   readonly asOf?: string;
+  /**
+   * Override the recorded acceptance list. Test-only seam: it keeps the expiry and
+   * reporting machinery under test while the real list
+   * (`KNOWN_CONSUMER_ADVISORY_ACCEPTANCES`) is empty. Production callers omit it.
+   */
+  readonly acceptances?: readonly Omit<KnownConsumerAdvisory, 'expired'>[];
 }
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -213,8 +215,11 @@ function normalizeAsOf(value: string | undefined): { asOf: string; error?: strin
   return { asOf };
 }
 
-function buildKnownConsumerAdvisories(asOf: string): KnownConsumerAdvisory[] {
-  return KNOWN_CONSUMER_ADVISORY_ACCEPTANCES.map((advisory) => ({
+function buildKnownConsumerAdvisories(
+  asOf: string,
+  acceptances: readonly Omit<KnownConsumerAdvisory, 'expired'>[] = KNOWN_CONSUMER_ADVISORY_ACCEPTANCES,
+): KnownConsumerAdvisory[] {
+  return acceptances.map((advisory) => ({
     ...advisory,
     expired: asOf > advisory.acceptedUntil,
   }));
@@ -241,7 +246,7 @@ export function evaluateAudit(raw: string, options: AuditEvaluationOptions = {})
     return blind('invalid-as-of', normalizedAsOf.asOf, [], normalizedAsOf.error);
   }
   const { asOf } = normalizedAsOf;
-  const knownConsumerAdvisories = buildKnownConsumerAdvisories(asOf);
+  const knownConsumerAdvisories = buildKnownConsumerAdvisories(asOf, options.acceptances);
 
   const trimmed = raw.trim();
   if (trimmed.length === 0) {

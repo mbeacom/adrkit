@@ -125,11 +125,13 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
 
   if (packageName === '@adrkit/mcp') {
     // The MCP server surface may depend on core, the pinned Model Context Protocol
-    // SDK, and zod only — never an adapter, GitHub toolkit, network/auth/model/
-    // embedding/database/cache client, native addon, or worker helper (R2/R10).
+    // SDK server package, and zod only — never an adapter, GitHub toolkit, network/
+    // auth/model/embedding/database/cache client, native addon, or worker helper
+    // (R2/R10). The SDK client package is development-only: it drives the in-process
+    // and real-stdio conformance harnesses and is never imported by shipped code.
     return {
-      dependencies: new Set(['@adrkit/core', '@modelcontextprotocol/sdk', 'zod']),
-      devDependencies: new Set(['@types/bun']),
+      dependencies: new Set(['@adrkit/core', '@modelcontextprotocol/server', 'zod']),
+      devDependencies: new Set(['@modelcontextprotocol/client', '@types/bun']),
       peerDependencies: new Set(),
       optionalDependencies: new Set(),
     };

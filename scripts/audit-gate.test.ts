@@ -7,6 +7,28 @@ const FIXTURES = resolve(import.meta.dir, '__fixtures__', 'audit');
 const readFixture = (name: string) => Bun.file(resolve(FIXTURES, name)).text();
 const ACTIVE_ACCEPTANCE_AS_OF = '2026-07-25';
 
+/**
+ * A synthetic acceptance used to keep the expiry and reporting machinery under test
+ * while the real acceptance list is empty. Injected via `evaluateAudit`'s test-only
+ * `acceptances` option, so it never claims a real exposure.
+ */
+const SAMPLE_ACCEPTANCE = {
+  advisoryId: 'GHSA-example-0000-0000',
+  url: 'https://github.com/advisories/GHSA-example-0000-0000',
+  title: 'Example advisory used only to exercise the acceptance machinery',
+  severity: 'moderate',
+  package: 'example-transitive',
+  observedVersion: '1.0.0',
+  vulnerableVersions: '<2.0.0',
+  affectedPublishedPackage: '@adrkit/example',
+  affectedPublishedVersion: '0.0.0',
+  dependencyPath: ['@adrkit/example', 'example-upstream@1.0.0', 'example-transitive'],
+  acceptedUntil: '2026-10-31',
+  whyNotFixed: 'synthetic fixture; upstream range cannot resolve the patched version.',
+  consequence: 'synthetic fixture; no real consumer exposure.',
+  resolvesWhen: 'synthetic fixture; never.',
+} as const;
+
 describe('audit-gate — evaluateAudit', () => {
   // ADR-0016 permanent negative case. `prefix-high.json` is the real, unedited
   // `bun audit --json` output captured from this repository's tree BEFORE the
@@ -53,39 +75,58 @@ describe('audit-gate — evaluateAudit', () => {
     const rendered = formatEvaluation(evaluation);
 
     expect(rendered).toContain('scope: workspace-resolved-dependency-tree');
-    expect(rendered).toContain('after root package.json overrides');
+    expect(rendered).toContain('as resolved by `bun install --frozen-lockfile`');
     expect(rendered).toContain('does not audit consumer installs of published @adrkit/* packages');
   });
 
-  test('records the known upstream-blocked @adrkit/mcp consumer advisory without hiding the scope gap', async () => {
+  test('records no known published-consumer exposure now that the MCP SDK v2 split removed the path', async () => {
     const evaluation = evaluateAudit(await readFixture('clean.json'), { asOf: ACTIVE_ACCEPTANCE_AS_OF });
+
+    expect(evaluation.ok).toBe(true);
+    // The @hono/node-server acceptance retired when @adrkit/mcp moved to
+    // @modelcontextprotocol/server v2 (deps: @modelcontextprotocol/core + zod only).
+    expect(evaluation.knownConsumerAdvisories).toEqual([]);
+    expect(formatEvaluation(evaluation)).not.toContain('known published-consumer exposure');
+    // Guard against a stale acceptance outliving the exposure it describes: the
+    // manifest this repo is about to ship no longer reaches the vulnerable package.
+    expect(mcpManifest.dependencies).not.toHaveProperty('@modelcontextprotocol/sdk');
+  });
+
+  test('reports an active acceptance in full, without hiding the scope gap', async () => {
+    const evaluation = evaluateAudit(await readFixture('clean.json'), {
+      asOf: ACTIVE_ACCEPTANCE_AS_OF,
+      acceptances: [SAMPLE_ACCEPTANCE],
+    });
     const known = evaluation.knownConsumerAdvisories?.[0];
 
     expect(evaluation.ok).toBe(true);
-    expect(known?.package).toBe('@hono/node-server');
-    expect(known?.url).toBe('https://github.com/advisories/GHSA-frvp-7c67-39w9');
-    expect(known?.affectedPublishedPackage).toBe('@adrkit/mcp');
-    // Pinned to the manifest, not a literal: the recorded exposure must name the
-    // version this repository is about to ship, or the gate reports a consumer
-    // exposure for a version nobody installs and reads as false safety for the
-    // current one.
-    expect(known?.affectedPublishedVersion).toBe(mcpManifest.version);
+    expect(known?.package).toBe('example-transitive');
+    expect(known?.expired).toBe(false);
     expect(known?.acceptedUntil).toBe('2026-10-31');
 
     const rendered = formatEvaluation(evaluation);
     expect(rendered).toContain('known published-consumer exposure');
-    expect(rendered).toContain('GHSA-frvp-7c67-39w9');
-    expect(rendered).toContain('@modelcontextprotocol/sdk@1.29.0');
-    expect(rendered).toContain('@hono/node-server >=2.0.5');
-    expect(rendered).toContain('stdio MCP server does not use Hono serve-static');
+    expect(rendered).toContain('GHSA-example-0000-0000');
+    expect(rendered).toContain('accepted until 2026-10-31');
+    expect(rendered).toContain('why not fixed:');
+    expect(rendered).toContain('resolves when:');
   });
 
-  test('fails closed once the known consumer advisory acceptance expires', async () => {
-    const evaluation = evaluateAudit(await readFixture('clean.json'), { asOf: '2026-11-01' });
+  test('fails closed once a known consumer advisory acceptance expires', async () => {
+    const evaluation = evaluateAudit(await readFixture('clean.json'), {
+      asOf: '2026-11-01',
+      acceptances: [SAMPLE_ACCEPTANCE],
+    });
 
     expect(evaluation.ok).toBe(false);
     expect(evaluation.reason).toBe('consumer-advisory-acceptance-expired');
     expect(formatEvaluation(evaluation)).toContain('consumer advisory acceptance expired');
+  });
+
+  test('a clean tree with no recorded acceptances cannot expire', async () => {
+    const evaluation = evaluateAudit(await readFixture('clean.json'), { asOf: '2099-01-01' });
+    expect(evaluation.ok).toBe(true);
+    expect(evaluation.reason).toBeUndefined();
   });
 
   // The core ADR-0016 distinction: absence of output is "could not look", which

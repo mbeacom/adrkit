@@ -7,7 +7,7 @@
  * ambiguous-local-id. Relation refs are surfaced verbatim, never expanded.
  */
 
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import { parseAdrRef, type Adr } from '@adrkit/core';
 import { paginate, queryShapeHash, checkInapplicablePrimaryCursor } from '../pagination/cursor.ts';
 import {

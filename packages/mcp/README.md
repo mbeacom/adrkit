@@ -42,6 +42,30 @@ npx -y @adrkit/mcp --cwd /path/to/your/repo --dir docs/adr
 It speaks JSON-RPC over stdio, so you normally point an MCP client at it rather than
 running it by hand. Copy-pasteable client configs follow.
 
+### Protocol revisions
+
+The server speaks **both** MCP protocol eras on the same stdio connection, and the
+client picks. The opening exchange selects the era and pins it for the connection's
+lifetime:
+
+| Client opens with                                     | Server serves                                     |
+| ----------------------------------------------------- | ------------------------------------------------- |
+| `server/discover`, or any request carrying a 2026 `_meta` envelope | **`2026-07-28`** — stateless, no handshake |
+| `initialize` / `notifications/initialized`            | the 2025-era revision it negotiates               |
+
+On `2026-07-28` there is no `initialize` handshake and no session id: every request
+carries its own protocol version and client capabilities in `_meta`, and every result
+is self-describing (`resultType`, plus server identity in `_meta`). `tools/list` and
+`server/discover` are cacheable (SEP-2549) and are served with `ttlMs: 300000,
+cacheScope: "public"` — the four-tool surface is immutable for the life of the process
+and carries no corpus content, so a client may reuse it instead of re-listing. Corpus
+reads are never cacheable: every `tools/call` loads a fresh projection.
+
+Nothing else about the tools changes between eras — same names, same schemas, same
+annotations, same structured results. The server uses none of the features the
+`2026-07-28` revision deprecated (roots, sampling, logging) or removed (sessions,
+`ping`, `resources/subscribe`).
+
 ### Claude Desktop
 
 Edit `claude_desktop_config.json` (macOS:
@@ -284,7 +308,7 @@ the underlying SDK server, its registrations, or its transport:
 import { createAdrkitMcpServer } from '@adrkit/mcp';
 
 const server = createAdrkitMcpServer({ cwd: process.cwd(), dir: 'docs/adr' });
-await server.start();   // validates the root, connects exactly one stdio transport
+await server.start();   // validates the root, then serves one stdio connection
 // ... later:
 await server.close();
 ```
@@ -325,6 +349,6 @@ traversal.
 
 Developed and tested with Bun; published artifacts are ESM targeting Node.js `>=22`
 and are verified on Node 22 and 24. Runtime dependencies are exactly `@adrkit/core`,
-`@modelcontextprotocol/sdk`, and `zod`.
+`@modelcontextprotocol/server` (MCP TypeScript SDK v2), and `zod`.
 
 Apache-2.0.

@@ -7,7 +7,7 @@
  * finding templates.
  */
 
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import { parseAdrRef, type Adr, type Finding } from '@adrkit/core';
 import { sortFindingsCanonical } from '../corpus/ordering.ts';
 import { paginate, queryShapeHash } from '../pagination/cursor.ts';

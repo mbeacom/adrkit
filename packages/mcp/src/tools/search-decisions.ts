@@ -7,7 +7,7 @@
  * only — never a body, ranking score, or hidden index.
  */
 
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import type { Adr } from '@adrkit/core';
 import { compareCodeUnits } from '../corpus/ordering.ts';
 import { normalize } from '../search/normalize.ts';
