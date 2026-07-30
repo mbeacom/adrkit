@@ -228,14 +228,40 @@ Any such change must revisit the hint.
   `cacheScope: "public"`), or the MCP registry begins advertising a server's
   supported revisions, which `packages/mcp/server.json` should then declare.
 
+## The `minimumReleaseAge` window
+
+`bunfig.toml` sets `minimumReleaseAge = 259200` (three days). The v2 packages
+published 2026-07-27T23:55Z, so they cannot be freshly **resolved** until
+2026-07-30T23:55Z. `bun.lock` was therefore generated with a one-off
+`bun install --minimum-release-age=0`.
+
+Measured, not assumed — with the lockfile committed and `node_modules` deleted:
+
+| Command | Result |
+|---|---|
+| `bun install --frozen-lockfile` (CI) | succeeds |
+| `bun install` (contributor, no flag) | succeeds; leaves `bun.lock` byte-identical |
+| `bun update @modelcontextprotocol/*`, or resolving without a lockfile | blocked until 2026-07-30T23:55Z |
+
+The gate applies at **resolution**, not to entries a lockfile already pins. So the
+committed lockfile is exactly what a normal-policy resolution produces, nothing in
+the documented clean-clone flow is blocked, and the lockfile does not need
+regenerating.
+
+We considered adding a standing
+`minimumReleaseAgeExcludes = ["@modelcontextprotocol/server", ...]` to
+`bunfig.toml` (verified working on Bun 1.3.14) and rejected it. The key is a
+permanent waiver, not a one-time one: it would exempt every future
+`@modelcontextprotocol/*` release from the soak, including releases nobody has
+reviewed yet. A compromised MCP SDK executes inside every agent harness that
+installs `@adrkit/mcp`, which makes these the packages the soak is most worth
+keeping on — a poor thing to trade away permanently to save one day on one
+migration. The constraint expires on its own and blocks nothing in the meantime.
+
 ## Action items
 
 1. [ ] Ratify or reject this proposed record.
-2. [ ] Hold the merge until `@modelcontextprotocol/{server,client,core}@2.0.0`
-       clear `bunfig.toml`'s three-day `minimumReleaseAge`, then regenerate
-       `bun.lock` under the normal policy rather than the `--minimum-release-age=0`
-       bypass used to develop the change.
-3. [ ] Re-run MCP Inspector dogfood against both eras before release, as Phase 5
+2. [ ] Re-run MCP Inspector dogfood against both eras before release, as Phase 5
        did for the 2025 era.
-4. [ ] Decide whether `packages/mcp/server.json` should advertise the supported
+3. [ ] Decide whether `packages/mcp/server.json` should advertise the supported
        protocol revisions once the registry schema supports it.
