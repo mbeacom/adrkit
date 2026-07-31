@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { spawn } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { main, reportUnhandledRejection } from '../src/main-module.ts';
+import { main, reportTransportError, reportUnhandledRejection } from '../src/main-module.ts';
 import { MODERN_PROTOCOL_VERSION, SERVER_INFO } from '../src/server.ts';
 import { createRepo, repoFromFixture, type TempRepo } from './helpers.ts';
 
@@ -116,6 +117,74 @@ describe('adrkit-mcp bin — startup validation and exit codes', () => {
     );
     expect(diagnostic).toContain('unhandled rejection: background transport failed');
     expect(failed).toBe(true);
+  });
+
+  test('a transport error emits a stderr diagnostic and sets failure status', () => {
+    let diagnostic = '';
+    let failed = false;
+    reportTransportError(
+      new Error('EPIPE: broken pipe, write'),
+      (text) => {
+        diagnostic += text;
+      },
+      () => {
+        failed = true;
+      },
+    );
+    expect(diagnostic).toContain('transport error: EPIPE: broken pipe, write');
+    expect(failed).toBe(true);
+  });
+});
+
+describe('adrkit-mcp bin — transport failures are never silent', () => {
+  test('a client that dies mid-session produces a stderr diagnostic and a non-zero exit', async () => {
+    const repo = await repoFromFixture('status-corpus');
+    cleanups.push(repo.cleanup);
+
+    // `serveStdio` reports transport failures ONLY through its `onerror` callback
+    // (it consumes the rejected `start()` promise itself). Without that callback
+    // wired through to the bin, this exact sequence tears the connection down and
+    // still exits 0 — a dead server reporting success (ADR-0016).
+    const proc = spawn(process.execPath, [BIN_SRC, '--cwd', repo.root], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    let stdout = '';
+    proc.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8');
+    });
+    proc.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+    });
+
+    const initialize = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } },
+    };
+    proc.stdin.write(`${JSON.stringify(initialize)}\n`);
+
+    const deadline = Date.now() + 5000;
+    while (!stdout.includes('"id":1') && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(stdout).toContain('"id":1'); // the server is live before we break the pipe
+
+    proc.stdout.destroy(); // the client goes away
+    proc.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`); // forces a write to a dead pipe
+
+    const exitCode = await new Promise<number | 'timeout'>((resolve) => {
+      const timer = setTimeout(() => resolve('timeout'), 5000);
+      proc.on('exit', (code) => {
+        clearTimeout(timer);
+        resolve(code ?? -1);
+      });
+    });
+    proc.kill();
+
+    expect(stderr).toContain('transport error');
+    expect(exitCode).toBe(1);
   });
 });
 

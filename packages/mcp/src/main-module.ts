@@ -37,6 +37,25 @@ export function reportUnhandledRejection(
   fail();
 }
 
+/**
+ * Out-of-band transport failures reach the bin here.
+ *
+ * `serveStdio` reports them only through its `onerror` callback — it consumes
+ * the rejected `start()` promise itself — so this is the only path by which a
+ * broken transport can reach stderr and a non-zero exit status. Without it the
+ * connection tears down while the process still exits 0 (ADR-0016).
+ */
+export function reportTransportError(
+  error: Error,
+  write: (text: string) => void = writeStderr,
+  fail: () => void = () => {
+    process.exitCode = 1;
+  },
+): void {
+  write(`adrkit-mcp: transport error: ${error.message}\n`);
+  fail();
+}
+
 export async function main(
   argv: string[],
   env: Record<string, string | undefined>,
@@ -68,7 +87,7 @@ export async function main(
     throw error;
   }
 
-  const handle = createAdrkitMcpServer({ cwd, dir });
+  const handle = createAdrkitMcpServer({ cwd, dir, onError: (error) => reportTransportError(error) });
 
   const shutdown = (): void => {
     void handle.close().finally(() => process.exit(0));

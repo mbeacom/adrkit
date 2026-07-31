@@ -316,6 +316,12 @@ await server.close();
 `createAdrkitMcpServer(options?)` performs no filesystem access at construction and
 returns a frozen, null-prototype handle with exactly `start()` and `close()`.
 
+Transport failures — a transport that fails to start, or a background stream error
+such as the `EPIPE` from a client that has gone away — are reported through the
+optional `onError` option, which defaults to a stderr diagnostic. The `adrkit-mcp`
+binary additionally exits non-zero. Nothing is written to stdout: that is reserved
+for protocol frames.
+
 ## Limits
 
 `query` 1–256 code units (non-empty after trimming); `ref` 1–128; `files[]` 1–256

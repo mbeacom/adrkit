@@ -59,6 +59,16 @@ Until `1.0.0`, minor releases may include breaking changes
   `resolvesWhen` clause ("...or adrkit removes that transitive path"), ahead of its
   `2026-10-31` expiry. `bun audit` is clean with no overrides in effect.
 
+### Fixed
+
+- The `adrkit-mcp` binary no longer fails silently when its stdio transport
+  breaks. `serveStdio` reports transport failures only through its `onerror`
+  callback — it consumes the rejected `start()` promise itself — so a client that
+  went away mid-session tore the connection down while the process still exited
+  `0`, a dead server reporting success. `createAdrkitMcpServer` now takes an
+  `onError` option (defaulting to a stderr diagnostic) and the binary wires it to
+  a stderr diagnostic plus a non-zero exit. stdout remains protocol-only.
+
 ## [0.2.1] - 2026-07-27
 
 ### Added

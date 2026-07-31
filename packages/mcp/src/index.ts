@@ -16,11 +16,31 @@ import type { ToolConfig } from './tools/shared.ts';
 export interface AdrkitMcpServerOptions {
   readonly cwd: string;
   readonly dir: string;
+  /**
+   * Called for out-of-band transport failures: a transport that fails to start,
+   * and every background error the connection reports afterwards (an stdin or
+   * stdout stream error, such as the EPIPE from a client that has gone away).
+   *
+   * This is not optional plumbing. `serveStdio` reports these **only** through
+   * its `onerror` callback — it consumes the rejected `start()` promise
+   * deliberately — so without a callback a broken transport tears the connection
+   * down while the process still exits 0. That is a dead server reporting
+   * success, the fail-quiet shape ADR-0016 rejects, so the default writes a
+   * diagnostic to stderr rather than staying silent. `main-module.ts` supplies a
+   * reporter that also fails the exit status.
+   *
+   * Never writes to stdout: that is reserved for protocol frames.
+   */
+  readonly onError: (error: Error) => void;
 }
 
 export interface AdrkitMcpServerHandle {
   start(): Promise<void>;
   close(): Promise<void>;
+}
+
+function writeTransportDiagnostic(error: Error): void {
+  process.stderr.write(`adrkit-mcp: transport error: ${error.message}\n`);
 }
 
 /**
@@ -40,6 +60,7 @@ export function createAdrkitMcpServer(
 ): Readonly<AdrkitMcpServerHandle> {
   const cwd = resolve(options?.cwd ?? process.cwd());
   const dir = options?.dir ?? 'docs/adr';
+  const onError = options?.onError ?? writeTransportDiagnostic;
 
   let connection: StdioServerHandle | undefined;
   let startPromise: Promise<void> | undefined;
@@ -61,7 +82,7 @@ export function createAdrkitMcpServer(
           expectedCanonicalCwd: roots.canonicalCwd,
           maxSourceBytes: MAX_SOURCE_BYTES,
         };
-        connection = serveStdio(() => buildRegisteredServer(config));
+        connection = serveStdio(() => buildRegisteredServer(config), { onerror: onError });
       } catch (error) {
         connection = undefined;
         startPromise = undefined;
