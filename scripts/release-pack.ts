@@ -274,13 +274,19 @@ if (JSON.stringify(Object.getOwnPropertyNames(handle).sort()) !== JSON.stringify
 }
 if (mcp.buildRegisteredServer !== undefined) throw new Error('Installed @adrkit/mcp must not export its internal builder');
 
-async function runMcpStdio(bin, cwd) {
+const MCP_MODERN_META = {
+  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+  'io.modelcontextprotocol/clientCapabilities': {},
+  'io.modelcontextprotocol/clientInfo': { name: 'smoke', version: '0' },
+};
+
+async function runMcpStdio(bin, cwd, era) {
   const proc = spawn(bin, ['--cwd', cwd], { stdio: ['pipe', 'pipe', 'inherit'] });
   const messages = new Map();
   const wanted = [2, 3, 4, 5, 6];
   let buffer = '';
   await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('MCP stdio smoke timed out')), 20000);
+    const timer = setTimeout(() => reject(new Error('MCP stdio smoke timed out (' + era + ' era)')), 20000);
     proc.on('error', reject);
     proc.stdout.on('data', (chunk) => {
       buffer += chunk.toString('utf8');
@@ -298,31 +304,56 @@ async function runMcpStdio(bin, cwd) {
         }
       }
     });
-    const frames = [
-      { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } } },
-      { jsonrpc: '2.0', method: 'notifications/initialized' },
-      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
-      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'search_decisions', arguments: { query: 'git' } } },
-      { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get_decision', arguments: { ref: '0001' } } },
-      { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_decision_context', arguments: { files: ['README.md'] } } },
-      { jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'list_superseded', arguments: {} } },
-    ];
+    const _meta = era === 'modern' ? MCP_MODERN_META : undefined;
+    const call = (id, name, args) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: _meta ? { name, arguments: args, _meta } : { name, arguments: args } });
+    const frames = era === 'modern'
+      ? [
+          { jsonrpc: '2.0', id: 1, method: 'server/discover', params: { _meta } },
+          { jsonrpc: '2.0', id: 2, method: 'tools/list', params: { _meta } },
+        ]
+      : [
+          { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } } },
+          { jsonrpc: '2.0', method: 'notifications/initialized' },
+          { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+        ];
+    frames.push(
+      call(3, 'search_decisions', { query: 'git' }),
+      call(4, 'get_decision', { ref: '0001' }),
+      call(5, 'get_decision_context', { files: ['README.md'] }),
+      call(6, 'list_superseded', {}),
+    );
     proc.stdin.write(frames.map((f) => JSON.stringify(f) + '\\n').join(''));
   });
   proc.stdin.end();
   proc.kill();
+  for (const id of [1, 2, 3, 4, 5, 6]) {
+    const error = messages.get(id)?.error;
+    if (error) throw new Error('Installed adrkit-mcp answered id ' + id + ' with an error (' + era + ' era): ' + JSON.stringify(error));
+  }
   const list = messages.get(2);
-  const names = (list?.result?.tools ?? []).map((t) => t.name).sort();
+  // Asserted UNSORTED: tools/list order is wire-visible and deterministic.
+  const names = (list?.result?.tools ?? []).map((t) => t.name);
   const expected = ['get_decision', 'get_decision_context', 'list_superseded', 'search_decisions'];
-  if (JSON.stringify(names) !== JSON.stringify(expected)) throw new Error('Installed adrkit-mcp did not list the four tools: ' + names);
+  if (JSON.stringify(names) !== JSON.stringify(expected)) throw new Error('Installed adrkit-mcp did not list the four tools in order (' + era + ' era): ' + names);
+  if (era === 'modern') {
+    const supported = messages.get(1)?.result?.supportedVersions ?? [];
+    if (!supported.includes('2026-07-28')) throw new Error('Installed adrkit-mcp did not advertise 2026-07-28: ' + JSON.stringify(supported));
+  }
+  const outcomes = {};
   for (const id of [3, 4, 5, 6]) {
     const outcome = messages.get(id)?.result?.structuredContent?.result?.outcome;
-    if (!outcome) throw new Error('Installed adrkit-mcp tool call ' + id + ' did not return a structured outcome');
+    if (!outcome) throw new Error('Installed adrkit-mcp tool call ' + id + ' did not return a structured outcome (' + era + ' era)');
+    outcomes[id] = outcome;
   }
+  return outcomes;
 }
 
 const mcpBin = join(import.meta.dirname, 'node_modules', '.bin', process.platform === 'win32' ? 'adrkit-mcp.cmd' : 'adrkit-mcp');
-await runMcpStdio(mcpBin, repoRoot);
+const legacyOutcomes = await runMcpStdio(mcpBin, repoRoot, 'legacy');
+const modernOutcomes = await runMcpStdio(mcpBin, repoRoot, 'modern');
+if (JSON.stringify(legacyOutcomes) !== JSON.stringify(modernOutcomes)) {
+  throw new Error('Installed adrkit-mcp tool outcomes differ by protocol era: ' + JSON.stringify(legacyOutcomes) + ' vs ' + JSON.stringify(modernOutcomes));
+}
 
 const bin = join(import.meta.dirname, 'node_modules', '.bin', process.platform === 'win32' ? 'adr.cmd' : 'adr');
 const lint = spawnSync(bin, ['lint', join(repoRoot, 'docs/adr')], { cwd: repoRoot, encoding: 'utf8' });

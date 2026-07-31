@@ -196,6 +196,36 @@ describe('adrkit-mcp bin — protocol revision 2026-07-28 over real stdio', () =
     return client;
   }
 
+  /** A 2025-era client against the same bin, for era-equivalence comparison. */
+  async function spawnLegacyClient(repo: TempRepo): Promise<Client> {
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [BIN_SRC, '--cwd', repo.root],
+    });
+    const client = new Client({ name: 'bin-test-legacy', version: '0.0.0' });
+    await client.connect(transport);
+    cleanups.push(() => client.close());
+    return client;
+  }
+
+  /** Drive a paginated tool channel to exhaustion, collecting every item once. */
+  async function walkTool(
+    client: Client,
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<{ id: string }[]> {
+    const all: { id: string }[] = [];
+    let cursor: string | undefined;
+    for (let guard = 0; guard < 100; guard += 1) {
+      const call = await client.callTool({ name, arguments: { ...args, ...(cursor ? { cursor } : {}) } });
+      const result = (call.structuredContent as { result: { items: { id: string }[]; cursor: string | null } }).result;
+      all.push(...result.items);
+      if (result.cursor == null) return all;
+      cursor = result.cursor;
+    }
+    throw new Error('walkTool exceeded its page guard');
+  }
+
   test('a client pinned to 2026-07-28 negotiates the modern era and lists the four tools', async () => {
     const repo = await repoFromFixture('edge-corpus');
     cleanups.push(repo.cleanup);
@@ -212,13 +242,60 @@ describe('adrkit-mcp bin — protocol revision 2026-07-28 over real stdio', () =
     ]);
   });
 
-  test('tools/call answers the same structured result on the modern era as on the legacy era', async () => {
+  test('every tool answers byte-equal structured content and text on both eras', async () => {
     const repo = await repoFromFixture('edge-corpus');
     cleanups.push(repo.cleanup);
-    const client = await spawnPinnedModernClient(repo);
+    const modern = await spawnPinnedModernClient(repo);
+    const legacy = await spawnLegacyClient(repo);
 
-    const call = await client.callTool({ name: 'list_superseded', arguments: {} });
-    expect((call.structuredContent as { result: { outcome: string } }).result.outcome).toBe('entries');
+    // ADR-0018's central claim: results do not vary by era. Asserted per tool
+    // over the whole payload, not one field — the 2026 codec is a distinct
+    // encode seam, so anything it reshapes has to show up here.
+    const calls: Array<[string, Record<string, unknown>]> = [
+      ['search_decisions', { query: 'a' }],
+      ['get_decision', { ref: '0010' }], // duplicate id -> ambiguous-local-id + candidates
+      ['get_decision_context', { files: ['docs/adr/0001.md'] }],
+      ['list_superseded', {}], // dangling / ambiguous / federated supersededBy states
+    ];
+
+    for (const [name, args] of calls) {
+      const [m, l] = await Promise.all([
+        modern.callTool({ name, arguments: args }),
+        legacy.callTool({ name, arguments: args }),
+      ]);
+      expect(m.structuredContent, `${name} structuredContent`).toEqual(l.structuredContent);
+      expect(m.content, `${name} content`).toEqual(l.content);
+    }
+  });
+
+  test('a cursor minted on the modern era resumes on it, and the walk matches the legacy era', async () => {
+    const repo = await repoFromFixture('edge-corpus');
+    cleanups.push(repo.cleanup);
+    const modern = await spawnPinnedModernClient(repo);
+    const legacy = await spawnLegacyClient(repo);
+
+    // limit:1 forces a cursor to be minted, returned, and fed back through the
+    // 2026 codec on every hop — the round trip a single-page call never exercises.
+    const modernWalk = await walkTool(modern, 'list_superseded', { limit: 1 });
+    const legacyWalk = await walkTool(legacy, 'list_superseded', { limit: 1 });
+
+    expect(modernWalk.map((e) => e.id)).toEqual(['0011', '0012', '0013', '0014']);
+    expect(modernWalk).toEqual(legacyWalk);
+  });
+
+  test('an invalid cursor stays a structured outcome on the modern era, not a JSON-RPC error', async () => {
+    const repo = await repoFromFixture('edge-corpus');
+    cleanups.push(repo.cleanup);
+    const modern = await spawnPinnedModernClient(repo);
+
+    // The 2026 revision tightened result validation; a non-error outcome must not
+    // get promoted into a protocol error by the stricter codec.
+    const call = await modern.callTool({ name: 'list_superseded', arguments: { cursor: 'not-a-real-cursor' } });
+    expect(call.isError).toBeFalsy();
+    const result = (call.structuredContent as { result: { outcome: string; reason: string; message: string } }).result;
+    expect(result.outcome).toBe('invalid-cursor');
+    expect(result.reason).toBe('decode-failed');
+    expect(result.message).toBe('Cursor could not be decoded.');
   });
 
   test('a raw 2026-07-28 exchange needs no initialize handshake and carries its version in _meta', async () => {

@@ -62,7 +62,39 @@ if (JSON.stringify(Object.getOwnPropertyNames(mcpHandle).sort()) !== JSON.string
 const mcpBinPath = fileURLToPath(new URL('../packages/mcp/dist/bin.js', import.meta.url));
 const mcpPreloadPath = fileURLToPath(new URL('../packages/mcp/test/side-effect-denial-preload.mjs', import.meta.url));
 
-async function runBuiltMcpStdio() {
+// Both protocol eras are exercised against the BUILT artifact under Node, not just
+// against src/ under Bun: the 2026-07-28 revision is a distinct encode seam, and it
+// is the reason this release exists (ADR-0018).
+const MCP_TOOL_CALLS = [
+  { id: 3, name: 'search_decisions', arguments: { query: 'git' } },
+  { id: 4, name: 'get_decision', arguments: { ref: '0001' } },
+  { id: 5, name: 'get_decision_context', arguments: { files: ['README.md'] } },
+  { id: 6, name: 'list_superseded', arguments: {} },
+];
+
+function mcpFrames(era) {
+  if (era === 'legacy') {
+    return [
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } } },
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+      ...MCP_TOOL_CALLS.map(({ id, name, arguments: args }) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } })),
+    ];
+  }
+  // 2026-07-28: no handshake; every request carries its own envelope in _meta.
+  const _meta = {
+    'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+    'io.modelcontextprotocol/clientCapabilities': {},
+    'io.modelcontextprotocol/clientInfo': { name: 'smoke', version: '0' },
+  };
+  return [
+    { jsonrpc: '2.0', id: 1, method: 'server/discover', params: { _meta } },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list', params: { _meta } },
+    ...MCP_TOOL_CALLS.map(({ id, name, arguments: args }) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args, _meta } })),
+  ];
+}
+
+async function runBuiltMcpStdio(era) {
   const proc = spawn(process.execPath, ['--import', mcpPreloadPath, mcpBinPath, '--cwd', repoRoot], {
     stdio: ['pipe', 'pipe', 'inherit'],
   });
@@ -70,7 +102,7 @@ async function runBuiltMcpStdio() {
   const wanted = [2, 3, 4, 5, 6];
   let buffer = '';
   await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Built MCP stdio smoke timed out')), 20000);
+    const timer = setTimeout(() => reject(new Error(`Built MCP stdio smoke timed out (${era} era)`)), 20000);
     proc.on('error', reject);
     proc.stdout.on('data', (chunk) => {
       buffer += chunk.toString('utf8');
@@ -81,7 +113,7 @@ async function runBuiltMcpStdio() {
         if (!line.trim()) continue;
         const message = JSON.parse(line);
         if (message.jsonrpc !== '2.0') {
-          reject(new Error('Built adrkit-mcp emitted a non-JSON-RPC stdout line'));
+          reject(new Error(`Built adrkit-mcp emitted a non-JSON-RPC stdout line (${era} era)`));
           return;
         }
         if (typeof message.id === 'number') messages.set(message.id, message);
@@ -91,31 +123,48 @@ async function runBuiltMcpStdio() {
         }
       }
     });
-    const frames = [
-      { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } } },
-      { jsonrpc: '2.0', method: 'notifications/initialized' },
-      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
-      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'search_decisions', arguments: { query: 'git' } } },
-      { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get_decision', arguments: { ref: '0001' } } },
-      { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_decision_context', arguments: { files: ['README.md'] } } },
-      { jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'list_superseded', arguments: {} } },
-    ];
+    const frames = mcpFrames(era);
     proc.stdin.write(frames.map((f) => JSON.stringify(f) + '\n').join(''));
   });
   proc.stdin.end();
   proc.kill();
-  const names = (messages.get(2)?.result?.tools ?? []).map((t) => t.name).sort();
+  for (const id of [1, 2, ...MCP_TOOL_CALLS.map((c) => c.id)]) {
+    const error = messages.get(id)?.error;
+    if (error) throw new Error(`Built adrkit-mcp answered id ${id} with an error (${era} era): ${JSON.stringify(error)}`);
+  }
+  // Asserted UNSORTED: tools/list order is wire-visible and deterministic.
+  const names = (messages.get(2)?.result?.tools ?? []).map((t) => t.name);
   const expected = ['get_decision', 'get_decision_context', 'list_superseded', 'search_decisions'];
   if (JSON.stringify(names) !== JSON.stringify(expected)) {
-    throw new Error(`Built adrkit-mcp did not list the four tools: ${names}`);
+    throw new Error(`Built adrkit-mcp did not list the four tools in order (${era} era): ${names}`);
   }
-  for (const id of [3, 4, 5, 6]) {
+  const outcomes = {};
+  for (const { id, name } of MCP_TOOL_CALLS) {
     const outcome = messages.get(id)?.result?.structuredContent?.result?.outcome;
-    if (!outcome) throw new Error(`Built adrkit-mcp tool call ${id} did not return a structured outcome`);
+    if (!outcome) throw new Error(`Built adrkit-mcp tool call ${id} did not return a structured outcome (${era} era)`);
+    outcomes[name] = outcome;
   }
+  if (era === 'modern') {
+    const discover = messages.get(1)?.result ?? {};
+    if (!(discover.supportedVersions ?? []).includes('2026-07-28')) {
+      throw new Error(`Built adrkit-mcp did not advertise 2026-07-28 from server/discover: ${JSON.stringify(discover.supportedVersions)}`);
+    }
+    if (messages.get(2)?.result?.resultType !== 'complete') {
+      throw new Error('Built adrkit-mcp omitted the required 2026-07-28 resultType on tools/list');
+    }
+  }
+  return outcomes;
 }
 
-await runBuiltMcpStdio();
+// Serve both eras from the same built binary and require identical tool outcomes:
+// ADR-0018's claim is that results do not vary by era.
+const legacyOutcomes = await runBuiltMcpStdio('legacy');
+const modernOutcomes = await runBuiltMcpStdio('modern');
+if (JSON.stringify(legacyOutcomes) !== JSON.stringify(modernOutcomes)) {
+  throw new Error(
+    `Built adrkit-mcp tool outcomes differ by protocol era: legacy=${JSON.stringify(legacyOutcomes)} modern=${JSON.stringify(modernOutcomes)}`,
+  );
+}
 
 const cli = spawnSync(process.execPath, [cliPath, 'lint', 'docs/adr'], {
   cwd: repoRoot,
@@ -202,5 +251,5 @@ if (!action.stdout.includes('not a pull_request event')) {
   throw new Error('Expected the Action bundle to no-op outside a pull_request event');
 }
 
-console.log('smoke-node: built core import, evaluator import, MCP sealed handle + stdio tools, CLI lint, offline `adr evaluate`, `adr queue`, and Action bundle passed');
+console.log('smoke-node: built core import, evaluator import, MCP sealed handle + stdio tools on both protocol eras (2025 + 2026-07-28), CLI lint, offline `adr evaluate`, `adr queue`, and Action bundle passed');
 

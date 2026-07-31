@@ -65,7 +65,7 @@ jobs:
         run: bun run build
       - name: Pack and install publishable packages
         run: bun run release:pack -- --skip-build
-      - name: Smoke test built Node artifacts (core, evaluator, CLI incl. offline adr evaluate + adr queue, Action bundle)
+      - name: Smoke test built Node artifacts (core, evaluator, MCP on both protocol eras, CLI incl. offline adr evaluate + adr queue, Action bundle)
         run: node scripts/smoke-node.mjs
       - name: Smoke test committed queue Action bundle (corpus-load boundary, no network)
         run: node scripts/smoke-queue-node.mjs
@@ -74,9 +74,11 @@ jobs:
 
   audit:
     # Fail the build on high/critical advisories in this checkout's resolved
-    # workspace dependency tree after root package.json overrides are applied.
-    # This does not audit consumer installs of published @adrkit/* manifests; the
-    # gate output records the current known published-consumer exposure separately.
+    # workspace dependency tree as installed by `bun install --frozen-lockfile`.
+    # This does not audit consumer installs of published @adrkit/* manifests,
+    # which resolve from the published manifests and inherit no root overrides or
+    # workspace pins; the gate output records any known published-consumer
+    # exposure separately (there is none as of ADR-0018).
     # Kept a separate job because it needs network for the advisory database, so
     # it never entangles the no-network clean-clone guarantee (ADR-0007).
     # ADR-0016: observed failing on the pre-fix tree; the permanent negative case
