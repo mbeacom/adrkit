@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0018"
 title: Adopt MCP SDK v2 and serve protocol revision 2026-07-28 dual-era
-status: proposed
+status: accepted
 date: 2026-07-29
 deciders: ["@mbeacom"]
 tags: [mcp, dependencies, protocol, compatibility, security]
@@ -19,6 +19,7 @@ affects:
     pattern: "scripts/check-deps.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: >-
@@ -40,10 +41,6 @@ reviewBy: 2027-07-28
 ---
 
 # ADR-0018: Adopt MCP SDK v2 and serve protocol revision 2026-07-28 dual-era
-
-> **Status: `proposed`. This record is for maintainer review and is not
-> ratified.** It records the proposed migration and its compatibility posture,
-> but it does not become project law until a human accepts it.
 
 ## Context
 
@@ -260,7 +257,7 @@ migration. The constraint expires on its own and blocks nothing in the meantime.
 
 ## Action items
 
-1. [ ] Ratify or reject this proposed record.
+1. [x] Ratify or reject this proposed record. **Ratified by @mbeacom, 2026-07-31.**
 2. [ ] Re-run MCP Inspector dogfood against both eras before release, as Phase 5
        did for the 2025 era.
 3. [ ] Decide whether `packages/mcp/server.json` should advertise the supported

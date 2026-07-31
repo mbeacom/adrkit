@@ -1,7 +1,7 @@
 {
   "name": "@adrkit/mcp",
   "mcpName": "dev.adrkit/mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Local, read-only Model Context Protocol server exposing adrkit decision retrieval over stdio.",
   "type": "module",
   "license": "Apache-2.0",
