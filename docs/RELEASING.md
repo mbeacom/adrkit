@@ -9,7 +9,7 @@ Action:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.2.1`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.3.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
@@ -70,7 +70,7 @@ From a clean checkout:
 
 ```sh
 bun install --frozen-lockfile
-bun run release:pack -- --tag v0.2.1
+bun run release:pack -- --tag v0.3.0
 # With Node 22 selected in your Node version manager:
 node .release/smoke/smoke.mjs "$PWD"
 # Switch the same shell to Node 24, then run:
@@ -97,8 +97,8 @@ consumer_dir=$(mktemp -d)
   cd "$consumer_dir"
   npm init -y >/dev/null
   npm install --no-audit --no-fund \
-    "$OLDPWD/.release/npm/adrkit-core-0.2.1.tgz" \
-    "$OLDPWD/.release/npm/adrkit-mcp-0.2.1.tgz"
+    "$OLDPWD/.release/npm/adrkit-core-0.3.0.tgz" \
+    "$OLDPWD/.release/npm/adrkit-mcp-0.3.0.tgz"
   npm audit
 )
 ```
@@ -150,7 +150,7 @@ bootstrap described below.
    inter-package expectations and run `bun install` with stable Bun 1.3.14 when
    the lockfile changes.
 2. Merge the version change only after CI passes.
-3. Create and push the matching annotated tag, such as `v0.2.1`.
+3. Create and push the matching annotated tag, such as `v0.3.0`.
 4. Approve the protected `npm` environment deployment.
 5. Confirm the workflow published all packages, created the immutable GitHub
    release, and moved `v0` to the released commit.
@@ -158,20 +158,33 @@ bootstrap described below.
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
 
-## v0.2.1 cutover runbook — **COMPLETE**
+## v0.3.0 cutover runbook — **COMPLETE**
 
-**All eight steps are done.** v0.2.1 published on 2026-07-27 (npm, GitHub release,
-`v0` moved to `31bed03`); the MCP registry entry went live 2026-07-28; the queue
-Action examples were de-pinned to `@v0` in #65. This section is retained as the
-worked template for the next cutover — substitute the new version throughout.
+**All eight steps are done.** v0.3.0 published on 2026-07-31 from `3adefc7` (npm:
+`@adrkit/core`, `@adrkit/evaluator`, `@adrkit/cli`, `@adrkit/mcp`; GitHub release;
+`v0` moved to the release commit); the MCP registry entry was re-published at
+`0.3.0` the same day. Step 8 needed no work — the queue Action examples were
+already de-pinned to `@v0` during the v0.2.1 cutover (#65), and the one surviving
+full-commit pin is in `specs/007-arb-queue/checklists/reference-verification-evidence.md`,
+which is deliberately immutable because it records reproducible evidence.
+
+This section is retained as the worked template for the next cutover — substitute
+the new version throughout.
 
 Run these steps only after the version-bump PR is the last change merged to
-`main`. The three branches this runbook originally waited on —
-`wave3-toward-1-0` (#60), `audit-gate-published-scope` (#62), and
-`adr-0015-decision` (#61) — plus `ratifier-gate` (#64) have all landed, and the
-v0.2.1 changelog was refreshed to cover them. If anything else merges ahead of
-the version bump, refresh the changelog and re-run the local simulation before
-tagging.
+`main`; for v0.3.0 that was #68. If anything else merges ahead of the version
+bump, refresh the changelog and re-run the local simulation before tagging.
+
+Two notes worth carrying forward from the v0.3.0 cutover:
+
+- `bun run release:pack` triggers a **non-frozen** `bun install`, which can pull
+  transitive drift into the committed `packages/ci/dist` bundles. Check
+  `git status` after step 2; it was clean for v0.3.0.
+- The published-consumer advisory audit reported **0 vulnerabilities** at v0.3.0,
+  and `KNOWN_CONSUMER_ADVISORY_ACCEPTANCES` is now empty
+  ([ADR-0018](adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)
+  removed the last entry). Any advisory appearing in a future run is therefore an
+  unrecorded exposure and a release blocker until reconciled.
 
 1. Start from the final release commit on `main`.
 
@@ -181,40 +194,40 @@ tagging.
    git log -1 --oneline
    ```
 
-   Verify that the last commit is the intended v0.2.1 release-prep commit.
+   Verify that the last commit is the intended v0.3.0 release-prep commit.
 
 2. Re-run the local release simulation.
 
    ```sh
    bun install --frozen-lockfile
-   bun run release:pack -- --tag v0.2.1
+   bun run release:pack -- --tag v0.3.0
    # With Node 22 selected:
    node .release/smoke/smoke.mjs "$PWD"
    # With Node 24 selected:
    node .release/smoke/smoke.mjs "$PWD"
    bun .release/smoke/smoke.mjs "$PWD"
    bun run release:publish -- --dry-run
-   bun -e "const m = await Bun.file('.release/npm/manifest.json').json(); if (m.version !== '0.2.1' || m.artifacts.length !== 4 || !m.artifacts.every((a) => a.version === '0.2.1')) throw new Error('release manifest is not entirely 0.2.1');"
+   bun -e "const m = await Bun.file('.release/npm/manifest.json').json(); if (m.version !== '0.3.0' || m.artifacts.length !== 4 || !m.artifacts.every((a) => a.version === '0.3.0')) throw new Error('release manifest is not entirely 0.3.0');"
    ```
 
    Verify that all commands exit 0; the final assertion fails if the release
-   manifest is missing or names any package version other than `0.2.1`. Then run
+   manifest is missing or names any package version other than `0.3.0`. Then run
    the [published-consumer advisory audit](#published-consumer-advisory-audit)
    against the tarballs just packed, and confirm every reported advisory is
    already recorded in `scripts/audit-gate.ts` at `affectedPublishedVersion:
-   '0.2.1'` with an unexpired acceptance.
+   '0.3.0'` with an unexpired acceptance.
 
 3. Create and push the immutable release tag.
 
    ```sh
-   git tag -a v0.2.1 -m "adrkit v0.2.1"
-   git push origin v0.2.1
+   git tag -a v0.3.0 -m "adrkit v0.3.0"
+   git push origin v0.3.0
    ```
 
    Verify the release workflow started:
 
    ```sh
-   release_sha=$(git rev-list -n 1 v0.2.1)
+   release_sha=$(git rev-list -n 1 v0.3.0)
    release_run_id=$(
      gh run list \
        --workflow release.yml \
@@ -233,7 +246,7 @@ tagging.
    Verify the exact release workflow run succeeds:
 
    ```sh
-   release_sha=$(git rev-list -n 1 v0.2.1)
+   release_sha=$(git rev-list -n 1 v0.3.0)
    release_run_id=$(
      gh run list \
        --workflow release.yml \
@@ -251,9 +264,9 @@ tagging.
 
    ```sh
    for package in @adrkit/core @adrkit/evaluator @adrkit/cli @adrkit/mcp; do
-     test "$(npm view "${package}@0.2.1" version)" = "0.2.1"
+     test "$(npm view "${package}@0.3.0" version)" = "0.3.0"
    done
-   test "$(npm view @adrkit/mcp@0.2.1 mcpName)" = "dev.adrkit/mcp"
+   test "$(npm view @adrkit/mcp@0.3.0 mcpName)" = "dev.adrkit/mcp"
    ```
 
    Verify the command exits 0; any missing package, wrong version, or missing
@@ -262,9 +275,9 @@ tagging.
 6. Confirm the GitHub release and moving major Action tag.
 
    ```sh
-   gh release view v0.2.1
-   release_sha=$(git rev-list -n 1 v0.2.1)
-   remote_release_sha=$(git ls-remote --tags origin 'refs/tags/v0.2.1^{}' | awk '{print $1}')
+   gh release view v0.3.0
+   release_sha=$(git rev-list -n 1 v0.3.0)
+   remote_release_sha=$(git ls-remote --tags origin 'refs/tags/v0.3.0^{}' | awk '{print $1}')
    remote_major_sha=$(git ls-remote --tags origin refs/tags/v0 | awk '{print $1}')
    test "$remote_release_sha" = "$release_sha"
    test "$remote_major_sha" = "$release_sha"
@@ -282,11 +295,11 @@ tagging.
    curl --fail --silent --show-error \
      'https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mcp' \
      | grep -F 'dev.adrkit/mcp' \
-     | grep -F '0.2.1'
+     | grep -F '0.3.0'
    ```
 
    Verify the command exits 0; the grep pipeline fails if the registry response
-   does not include both `dev.adrkit/mcp` and package version `0.2.1`. If
+   does not include both `dev.adrkit/mcp` and package version `0.3.0`. If
    namespace proof has not been completed yet, follow
    [`docs/DISTRIBUTION.md`](./DISTRIBUTION.md) section A before publishing.
 
