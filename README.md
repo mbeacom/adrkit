@@ -89,6 +89,31 @@ JSON-RPC frames; diagnostics go to stderr; the graveyard is included by default.
 See the [MCP setup guide](https://adrkit.dev/mcp/) and
 [`packages/mcp/README.md`](packages/mcp/README.md) for the full tool contracts.
 
+## For spec-driven workflows: the Spec Kit extension
+
+[Spec Kit](https://github.com/github/spec-kit) takes you from `specify` to
+`plan` to `tasks` to `implement`. What it does not do is check the plan it just
+produced against the decisions you already made, or record the new decisions
+that plan contains — so every feature starts from an empty context and
+re-litigates settled questions.
+
+[`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) closes that loop:
+
+| Command | Purpose | Writes |
+|---|---|---|
+| `/speckit.adrkit.context` | Pull the governing decisions — including rejected and superseded ones — into context *before* planning | no |
+| `/speckit.adrkit.check` | Check a produced plan against the decisions that govern it | no |
+| `/speckit.adrkit.draft` | Scaffold a draft ADR from the plan artifact | one new record |
+
+Plus one `after_plan` hook that *offers* to run the check. It is optional by
+construction, and hooks can only reach commands that do not write — `draft` is
+deliberately unreachable from any hook, because a plan-phase hook creating
+records unprompted would manufacture decision memory rather than record it.
+
+Pinned to Spec Kit `>=0.13.0,<0.14.0`. Unit and contract evidence only
+([ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+rung 1): not reference-verified, not externally validated.
+
 ## The problem
 
 Your organization decides something. Six months later nobody remembers, the

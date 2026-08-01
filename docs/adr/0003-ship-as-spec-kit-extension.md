@@ -104,6 +104,13 @@ plans" needs more explanation than "ADR tool."
 
 ## Action items
 
-1. [ ] Spike the extension hooks against current Spec Kit
-2. [ ] Confirm the standalone CLI has zero dependency on the extension package
+1. [x] Spike the extension hooks against current Spec Kit — `specs/008-spec-kit-hook-viability/`,
+   executed 2026-07-22 and remediated post-merge. Recorded verdict `no-go`, driven
+   by a measurement artifact the spike disclosed itself; ADR-0019 records why that
+   verdict does not block the production package, and what does still bind.
+2. [x] Confirm the standalone CLI has zero dependency on the extension package —
+   enforced by `core-has-no-adapter-deps` (`scripts/check-deps.ts`). The rule was
+   vacuous until `packages/adapters/spec-kit/` existed; it has since been observed
+   failing against a deliberately introduced `@adrkit/core → @adrkit/spec-kit`
+   dependency, so it now genuinely guards something (ADR-0016).
 3. [ ] Draft the positioning one-pager: "decision memory for agent-authored plans"

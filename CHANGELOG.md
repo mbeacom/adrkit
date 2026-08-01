@@ -9,6 +9,46 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **`@adrkit/spec-kit` — the Spec Kit extension** (`packages/adapters/spec-kit/`),
+  the first package under `packages/adapters/*` and the second distribution
+  surface [ADR-0003](docs/adr/0003-ship-as-spec-kit-extension.md) commits to. It
+  adds three namespaced commands to a [Spec Kit](https://github.com/github/spec-kit)
+  project — `/speckit.adrkit.context` (pull the governing decisions into agent
+  context before planning), `/speckit.adrkit.check` (check a produced plan against
+  them, routing through the deterministic evaluator when a snapshot bundle is
+  configured), and `/speckit.adrkit.draft` (scaffold a draft ADR from the plan
+  artifact) — plus one **optional** `after_plan` hook that offers to run the check.
+  Pinned to Spec Kit `>=0.13.0,<0.14.0`, the single minor line whose hook behavior
+  was verified end-to-end.
+
+  Hooks can only reach commands that do not write: `draft` is the sole writing
+  command and is unreachable from any hook, because a plan-phase hook creating
+  records unprompted would manufacture decision memory rather than record it. That
+  boundary, the never-mandatory hook, the honest-failure contract, and `check`'s
+  zero-mutation guarantee are enforced by tests, each observed failing under a
+  deliberately introduced defect before being trusted
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
+
+  Authorized by [ADR-0019](docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md),
+  which records the `no-go` verdict from spike
+  [008](specs/008-spec-kit-hook-viability/) as a measurement artifact of that
+  spike's own verdict procedure — a byte-identical `git status` bar applied to
+  `install` and `remove`, lifecycle actions whose entire purpose is to write files
+  — rather than a finding against the mechanism, which the spike verified working
+  in every respect. Spike 008's verdict, evidence bundle, and audit history are
+  unmodified. Per [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+  the package sits on **rung 1 only**: unit and contract evidence, not
+  reference-verified and not externally validated.
+
+### Changed
+
+- ADR-0007's `core-has-no-adapter-deps` assertion is no longer vacuous. It had
+  nothing to guard while `packages/adapters/` was empty; with the first adapter
+  present it has been observed failing against a deliberately introduced
+  `@adrkit/core → @adrkit/spec-kit` dependency.
+
 ## [0.3.0] - 2026-07-31
 
 ### Added

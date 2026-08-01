@@ -14,6 +14,8 @@ affects:
   - type: path
     pattern: "packages/*/test/**"
   - type: path
+    pattern: "packages/adapters/*/test/**"
+  - type: path
     pattern: "packages/core/src/validate/**"
 provenance:
   authoredBy: agent-drafted

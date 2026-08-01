@@ -1,0 +1,39 @@
+{
+  "name": "@adrkit/spec-kit",
+  "version": "0.1.0",
+  "description": "Spec Kit extension that injects adrkit's governing decisions into the spec-driven plan loop.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/adapters/spec-kit"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "spec-kit",
+    "spec-driven-development",
+    "governance"
+  ],
+  "//": "Private until ADR-0019 action item 4 decides whether this publishes to npm or installs from the repository. It is deliberately absent from RELEASE_PACKAGES in scripts/release-pack.ts; `private` makes that state enforced rather than merely intended.",
+  "private": true,
+  "scripts": {
+    "build": "bun run typecheck",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../../tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "files": [
+    "extension.yml",
+    "commands",
+    "scripts",
+    "README.md"
+  ]
+}

@@ -1,0 +1,55 @@
+# adrkit — Spec Kit extension manifest (schema v1).
+#
+# Pinned to the one upstream minor line whose extension and hook behavior was
+# actually verified end-to-end (spike 008, Spec Kit v0.13.0 @ 9a30db48). This
+# specifier deliberately does not float to a future minor: per ADR-0007 an
+# adapter's semver contract is with its upstream, and widening it is a decision
+# to re-verify, not a version bump.
+schema_version: "1.0"
+
+extension:
+  id: "adrkit"
+  name: "adrkit — decision memory for spec-driven development"
+  version: "0.1.0"
+  description: "Pulls the decisions governing this work into agent context, checks produced plans against them, and drafts an ADR from a plan artifact."
+  author: "Mark Beacom (@mbeacom)"
+  repository: "https://github.com/mbeacom/adrkit"
+  license: "Apache-2.0"
+  homepage: "https://adrkit.dev"
+
+requires:
+  speckit_version: ">=0.13.0,<0.14.0"
+  tools:
+    - name: "adr"
+      version: ">=0.3.0"
+      required: true
+
+provides:
+  commands:
+    - name: "speckit.adrkit.context"
+      file: "commands/context.md"
+      description: "Retrieve the decisions governing this work, before planning against them. Read-only."
+    - name: "speckit.adrkit.check"
+      file: "commands/check.md"
+      description: "Check a produced plan against the governing decision corpus. Read-only."
+    - name: "speckit.adrkit.draft"
+      file: "commands/draft.md"
+      description: "Draft one new ADR from the current plan artifact. Writes a single new record."
+
+# Exactly one hook, and it is optional.
+#
+# `optional: true` is not a default being restated — it is the load-bearing
+# field. A mandatory hook renders as `**Automatic Hook**` / `EXECUTE_COMMAND:`
+# and fires without consent; this one renders as `**Optional Hook**` and asks.
+# A governance tool that seizes the plan loop is a governance tool people
+# uninstall.
+#
+# The hook targets `speckit.adrkit.check`, which writes nothing. `draft` is the
+# only command that writes, and it is deliberately unreachable from any hook —
+# see test/hook-boundary.test.ts, which fails if a hook is ever pointed at it.
+hooks:
+  after_plan:
+    command: "speckit.adrkit.check"
+    optional: true
+    prompt: "Check this plan against the decisions that govern it?"
+    description: "Runs adrkit's read-only check of this plan against the ADR corpus."
