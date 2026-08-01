@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0016"
 title: Require every check to be observed failing before it counts as coverage
-status: proposed
+status: accepted
 date: 2026-07-25
 deciders: ["@mbeacom"]
 tags: [governance, testing, evidence, quality]
@@ -17,6 +17,7 @@ affects:
     pattern: "packages/core/src/validate/**"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: >-
@@ -178,6 +179,45 @@ when they were introduced, and each shipped a period of false assurance. The
 cost is not the fix; it is the interval during which governance silently covered
 nothing.
 
+## Instances inside this repository, after drafting
+
+Two more instances landed during the v0.3.0 release session (2026-07-28 →
+2026-08-01), both authored by an agent that had already read this record. They
+are kept because a rule about invisible failure is worth more with instances that
+survived the rule's own author than with hypotheticals.
+
+**The MCP Inspector.** ADR-0018's action item asked for a dogfood against both
+protocol eras. The Inspector was run with its default configuration, observed
+sending `initialize` on the wire, and the record concluded the tool "cannot reach
+the 2026 era" and that the item was "not satisfiable". The Inspector reaches it
+fine — the era is opt-in per server via a `protocolEra` key in its config, with no
+CLI flag. What was observed was a *default*, and it was rendered as a *capability
+boundary*. A release note was then cited as the cause, which turned a guess into
+something that read as a diagnosis; the mechanism it named was also wrong, and
+the eventual `auto`-mode test disproved it outright. Corrected in #71 after a
+human said "the new MCP inspector is under version 2.0.0" — a nudge, not a
+counter-example, which is the cheapest form this correction could have taken and
+still required a person.
+
+**The registry schema.** The same record then said there was "nowhere to put"
+supported protocol revisions in `server.json`. The check searched the schema for
+a *named* protocol field. There is a general publisher-provided `_meta` extension
+point, so the mechanism existed; only a first-class field did not. Corrected in
+the same pass as this record's ratification.
+
+Both are clause 3: an absence was asserted where a specific observed value was
+available. Neither was caught by the suite — nothing here can test a claim about
+a third-party tool. The first was caught by a human; the second by re-reading
+the artifact when the first proved the habit.
+
+Two properties are worth naming, because they bear on Option B and Option C
+respectively. First, both were committed by an author who had read this record in
+the same session, which is further evidence that vigilance is not the constraint.
+Second, neither is a *check* that reports a count — they are conclusions drawn
+from one negative observation. That is outside what mutation testing would catch,
+so they are not evidence for Option C; they are evidence that the clause-3 habit
+should extend past assertions to any claim of the form "X is not there."
+
 ## Known instances outside this repository
 
 `mbeacom/adrkit-t018-dogfood` carries an instance in its own validation scripts:
@@ -240,14 +280,14 @@ equality assertion would be cargo cult.
 
 ## Action items
 
-1. [ ] Ratify or reject — this record is `proposed` and agent-drafted; it binds
-       nothing until a human accepts it.
+1. [x] Ratify or reject — this record is `proposed` and agent-drafted; it binds
+       nothing until a human accepts it. **Ratified by @mbeacom, 2026-08-01.**
 2. [x] Carry both directions for the two checks that motivated this. The tests
        accompanying `corpus-file-skipped` and `corpus.file-skipped` already
        assert both that they fire on a skipped file and that they stay silent on
        a clean corpus, and both were observed distinguishing the two before the
        fix landed.
-3. [ ] Fold the rule into `CONTRIBUTING.md` if accepted.
+3. [x] Fold the rule into `CONTRIBUTING.md` if accepted. **Done 2026-08-01**, on ratification.
 
 Every item above is completable from inside this repository. The external
 instance is recorded under "Known instances outside this repository" and is
