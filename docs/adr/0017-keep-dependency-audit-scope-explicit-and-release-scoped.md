@@ -162,8 +162,16 @@ gap is visible instead of implied away.
 ## Action items
 
 1. [ ] Ratify or reject this proposed record.
-2. [ ] Add a release-time published-package consumer audit covering
+2. [x] Add a release-time published-package consumer audit covering
        `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp`.
+       **Done 2026-08-01.** `docs/RELEASING.md` had the audit but ran it over
+       `@adrkit/core` + `@adrkit/mcp` only, which never reaches
+       `jsonpath-rfc9535` — the evaluator's sole third-party dependency, and the
+       only package in the tree not already pulled in by core or mcp. The
+       procedure now audits `.release/smoke/`, which `release:pack` builds from
+       the release manifest with every artifact wired as a `file:` dependency, so
+       the audited set is derived from what was packed rather than hand-listed
+       and cannot drift when a fifth package is published.
 3. [x] Remove or renew the `GHSA-frvp-7c67-39w9` acceptance by 2026-10-31, or
        earlier if `@modelcontextprotocol/sdk` releases a range that reaches
        `@hono/node-server >=2.0.5`.
