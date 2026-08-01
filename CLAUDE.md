@@ -11,9 +11,12 @@ The published `@adrkit/mcp` server has exactly four local stdio tools and serves
 opened by `server/discover` or a 2026 `_meta` envelope) and the 2025 era (opened
 by `initialize`) — via the SDK v2 `serveStdio` entry
 ([ADR-0018](./docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)).
-It passed real-session dogfood against the published artifact on each era: the
-official MCP Inspector for the 2025 era, and a conforming SDK v2 client pinned to
-`2026-07-28` for the modern era, which the Inspector cannot yet negotiate. Phase 6 ARB queue is
+It passed real-session dogfood against the published artifact on **both** eras,
+driven through the official MCP Inspector. The Inspector defaults to the 2025
+era; select the modern one with `"protocolEra": "modern"` (or `"auto"`) in the
+server's entry in the Inspector's `mcp.json` — there is no CLI flag for it.
+
+Phase 6 ARB queue is
 implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure
 `buildQueueReport` kernel and canonical JSON/Markdown formatters live in
 `@adrkit/core`, the `adr queue` CLI subcommand ships in `@adrkit/cli`, and a

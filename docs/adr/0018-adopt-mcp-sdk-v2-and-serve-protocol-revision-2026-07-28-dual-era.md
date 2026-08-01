@@ -259,64 +259,85 @@ migration. The constraint expires on its own and blocks nothing in the meantime.
 
 1. [x] Ratify or reject this proposed record. **Ratified by @mbeacom, 2026-07-31.**
 2. [x] Re-run MCP Inspector dogfood against both eras before release, as Phase 5
-       did for the 2025 era. **Done 2026-08-01, with a finding: the Inspector
-       cannot reach the 2026 era.** See the post-release verification below.
+       did for the 2025 era. **Done — both eras, via the Inspector's per-server
+       `protocolEra` config.** (A first attempt on 2026-08-01 wrongly concluded
+       the Inspector could not reach the 2026 era; corrected 2026-08-02.) See the
+       post-release verification below.
 3. [x] Decide whether `packages/mcp/server.json` should advertise the supported
        protocol revisions once the registry schema supports it. **Decided
        2026-08-01: not yet possible.** See below.
 
 ## Post-release verification (2026-08-01, against published `@adrkit/mcp@0.3.0`)
 
+> **Corrected 2026-08-02.** The first version of this section claimed the official
+> MCP Inspector could not reach the 2026 era. **That was wrong**, and so was the
+> cause it proposed. The Inspector does negotiate `2026-07-28` against this
+> server; the era is simply opt-in per server rather than a CLI flag, and the
+> first check was run against the default configuration without looking for one.
+> The corrected result is below. The original text is not preserved because it
+> asserted a false fact about a third-party tool.
+
 Both eras were exercised against the **published npm artifact** — not the working
 tree — over real stdio, against this repository's own 18-record corpus.
 
-### The Inspector validates the 2025 era only
+### The Inspector reaches both eras; the era is per-server config
 
 Official MCP Inspector `2.0.0` (published 2026-07-28, the first release built on
-SDK v2) connects and drives all four tools correctly:
+SDK v2) defaults to the 2025 era. That default is inherited from the SDK
+(`versionNegotiation: options.versionNegotiation ?? { mode: 'legacy' }`) and is
+not a limitation — the era is selected **per server** through the Inspector's own
+config, with a `protocolEra` key alongside `command`/`args`:
 
-| Tool | Outcome |
+```json
+{
+  "mcpServers": {
+    "adrkit": {
+      "type": "stdio",
+      "command": "adrkit-mcp",
+      "args": ["--cwd", "/path/to/repo"],
+      "protocolEra": "modern"
+    }
+  }
+}
+```
+
+`protocolEra` accepts `legacy`, `auto`, or `modern`; the Inspector maps `modern`
+to the SDK's `{ pin: '2026-07-28' }` and `auto` to `{ mode: 'auto' }`. There is no
+equivalent CLI flag, which is what made it easy to miss.
+
+Verified on the wire by teeing the client's stdin into a log:
+
+| `protocolEra` | Frames the Inspector sent |
 |---|---|
-| `search_decisions` (`query: "bun"`) | `results` — 5 decisions |
-| `get_decision` (`ref: "0018"`) | `found` — this record, `accepted` |
-| `get_decision_context` (`packages/mcp/src/server.ts`) | `matches` — 1 governing |
-| `list_superseded` | `entries` — 0 |
+| *(absent — default)* | `initialize` (offering `2025-11-25`), `notifications/initialized`, `tools/list` |
+| `modern` | `server/discover` @ `2026-07-28`, `tools/list` @ `2026-07-28` |
+| `auto` | `server/discover` @ `2026-07-28`, `tools/list` @ `2026-07-28` |
 
-But it does so on the **2025 era**. Teeing the client's frames into a log shows
-the Inspector opening with `initialize` offering `2025-11-25`, then
-`notifications/initialized` — never `server/discover`, and never a `2026-07-28`
-`_meta` envelope on any request.
+The `auto` row is the strongest single piece of evidence in this record: a
+third-party client's negotiation **probe succeeds** against this server and
+selects the modern era on its own. That exercises `server/discover` as a real
+capability-detection round trip, not just as a method that answers.
 
-This is not a configuration miss. The Inspector CLI exposes no era or
-negotiation option, and its `--metadata` flag cannot help: `serveStdio` pins the
-era on the *opening* exchange, and the Inspector's opening message is always
-`initialize`. The likely upstream cause is its dependency pin — Inspector 2.0.0
-depends on `@modelcontextprotocol/client@2.0.0-beta.5`, which predates the final
-2.0.0 alignment of the `DiscoverResult` wire (spec PR #3002 moved `serverInfo`
-from the body into result `_meta`); a pre-final client hard-rejects a conforming
-server's discover result and falls back to the handshake.
+### Both eras, all four tools, identical results
 
-So the action item as originally written — "Inspector dogfood against both eras"
-— is **not satisfiable with today's Inspector**. Recording that rather than
-quietly downgrading it: the Inspector evidence covers the 2025 era, which is
-still the era virtually every deployed client speaks, and it does prove the SDK
-v2 migration did not break existing clients.
+Driven through the Inspector on each era against the same published binary and
+the same corpus:
 
-### The 2026 era, validated by a conforming client instead
+| Tool | 2025 era | 2026-07-28 |
+|---|---|---|
+| `search_decisions` (`query: "bun"`) | `results` — 5 decisions | `results` — 5 decisions |
+| `get_decision` (`ref: "0018"`) | `found` — this record, `accepted` | `found` — this record, `accepted` |
+| `get_decision_context` (`packages/mcp/src/server.ts`) | `matches` — 1 governing | `matches` — 1 governing |
+| `list_superseded` | `entries` — 0 | `entries` — 0 |
 
-Substituted evidence for the era the Inspector cannot reach: a client on the
-final `@modelcontextprotocol/client@2.0.0` pinned to `{ pin: '2026-07-28' }`,
-against the same published binary.
+Rendered text was byte-identical across eras for all four. That is this record's
+central claim — results do not vary by era — now observed through a third-party
+client against the published artifact, not only in this repository's test suite.
 
-```
-negotiated era : modern
-server identity: {"name":"@adrkit/mcp","version":"0.3.0"}
-tools/list     : get_decision, get_decision_context, list_superseded, search_decisions
-```
-
-All four tools returned the **same outcomes and byte-identical rendered text** as
-the Inspector's 2025-era session above — which is this record's central claim,
-now observed against the published artifact rather than only in the test suite.
+A conforming SDK v2 client pinned to `{ pin: '2026-07-28' }` was also run
+directly against the same binary and reported `negotiated era: modern` with
+server identity `{"name":"@adrkit/mcp","version":"0.3.0"}` and the same four
+outcomes.
 
 ### `server.json` cannot advertise protocol revisions yet
 
@@ -328,4 +349,5 @@ claim, so `server.json` stays as it is.
 
 Re-check when the registry publishes a schema revision later than `2025-12-11`.
 Until then a server's supported revisions are discoverable only at runtime, via
-the `server/discover` RPC this server already answers.
+the `server/discover` RPC this server already answers — which the Inspector's
+`auto` probe above demonstrates working end to end.
