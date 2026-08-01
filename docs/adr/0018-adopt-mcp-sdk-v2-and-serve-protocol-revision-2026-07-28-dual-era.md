@@ -339,15 +339,41 @@ directly against the same binary and reported `negotiated era: modern` with
 server identity `{"name":"@adrkit/mcp","version":"0.3.0"}` and the same four
 outcomes.
 
-### `server.json` cannot advertise protocol revisions yet
+### `server.json` will not advertise protocol revisions
+
+> **Corrected 2026-08-01.** This section first said there was "nowhere to put the
+> claim". That is false — there is an extension point. The first check looked for
+> a *named* protocol field, found none, and concluded no mechanism existed. The
+> conclusion below is unchanged; the reason for it is not.
 
 `2025-12-11` remains the only published registry schema
 (`https://static.modelcontextprotocol.io/schemas/2026-01-01/…` and `…/latest/…`
-both 404), and it defines no `protocolVersion`, `protocolVersions`,
-`supportedVersions`, or `revision` field anywhere. There is nowhere to put the
-claim, so `server.json` stays as it is.
+both 404), and it defines no first-class `protocolVersion` / `protocolVersions` /
+`supportedVersions` / `revision` field.
 
-Re-check when the registry publishes a schema revision later than `2025-12-11`.
-Until then a server's supported revisions are discoverable only at runtime, via
-the `server/discover` RPC this server already answers — which the Inspector's
-`auto` probe above demonstrates working end to end.
+It does, however, define a general extension point on `ServerDetail`:
+`_meta["io.modelcontextprotocol.registry/publisher-provided"]`, an
+`additionalProperties: true` object described as "publisher-provided metadata for
+downstream registries". A `dev.adrkit/...` key could physically carry the
+revisions today.
+
+We will not use it, for three reasons:
+
+1. **No consumer and no convention.** The key would be ours alone. Nothing reads
+   it, and inventing a private spelling for a protocol-level fact invites a
+   different spelling to win later.
+2. **It creates a second source of truth that can go stale.** The registry record
+   is republished per release; the served revisions are a property of the running
+   binary. Drop legacy-era serving in some future version and the blob keeps
+   asserting two eras until someone remembers to republish. `server/discover`
+   cannot drift, because it *is* the server answering for itself.
+3. **Verifying the registry preserves and returns the field would require
+   republishing**, which `docs/DISTRIBUTION.md` binds to a human action. Claiming
+   it works without that check would be the same unverified-assertion shape this
+   record already had to correct once.
+
+Re-check when the registry defines a **first-class** field for supported
+revisions — at which point the claim has an agreed spelling and a consumer.
+Until then supported revisions are discoverable at runtime via the
+`server/discover` RPC this server already answers, which the Inspector's `auto`
+probe above demonstrates working end to end.
