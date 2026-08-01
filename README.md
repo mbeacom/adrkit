@@ -189,8 +189,12 @@ Early, under active development, and deliberately honest about what is proven.
 
 - **Published — v0.3.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
   the deterministic Pass 0 `@adrkit/evaluator`, and the read-only `@adrkit/mcp`
-  server are all implemented and released; the MCP server passed real-session
-  dogfood through the official MCP Inspector.
+  server are all implemented and released. The MCP server speaks both protocol
+  eras and passed real-session dogfood against the published artifact on each:
+  the official MCP Inspector for the 2025 era, and a conforming SDK v2 client
+  pinned to `2026-07-28` for the modern era — the Inspector cannot yet negotiate
+  that revision
+  ([ADR-0018](docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)).
 - **Landed, maintainer reference-verified — not yet externally validated.** The
   Phase 6 ARB queue (`adr queue` plus the managed-issue Action) is verified on
   rungs 1–2 of the

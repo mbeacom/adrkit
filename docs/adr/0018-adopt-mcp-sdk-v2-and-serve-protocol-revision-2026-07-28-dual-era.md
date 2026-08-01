@@ -258,7 +258,74 @@ migration. The constraint expires on its own and blocks nothing in the meantime.
 ## Action items
 
 1. [x] Ratify or reject this proposed record. **Ratified by @mbeacom, 2026-07-31.**
-2. [ ] Re-run MCP Inspector dogfood against both eras before release, as Phase 5
-       did for the 2025 era.
-3. [ ] Decide whether `packages/mcp/server.json` should advertise the supported
-       protocol revisions once the registry schema supports it.
+2. [x] Re-run MCP Inspector dogfood against both eras before release, as Phase 5
+       did for the 2025 era. **Done 2026-08-01, with a finding: the Inspector
+       cannot reach the 2026 era.** See the post-release verification below.
+3. [x] Decide whether `packages/mcp/server.json` should advertise the supported
+       protocol revisions once the registry schema supports it. **Decided
+       2026-08-01: not yet possible.** See below.
+
+## Post-release verification (2026-08-01, against published `@adrkit/mcp@0.3.0`)
+
+Both eras were exercised against the **published npm artifact** — not the working
+tree — over real stdio, against this repository's own 18-record corpus.
+
+### The Inspector validates the 2025 era only
+
+Official MCP Inspector `2.0.0` (published 2026-07-28, the first release built on
+SDK v2) connects and drives all four tools correctly:
+
+| Tool | Outcome |
+|---|---|
+| `search_decisions` (`query: "bun"`) | `results` — 5 decisions |
+| `get_decision` (`ref: "0018"`) | `found` — this record, `accepted` |
+| `get_decision_context` (`packages/mcp/src/server.ts`) | `matches` — 1 governing |
+| `list_superseded` | `entries` — 0 |
+
+But it does so on the **2025 era**. Teeing the client's frames into a log shows
+the Inspector opening with `initialize` offering `2025-11-25`, then
+`notifications/initialized` — never `server/discover`, and never a `2026-07-28`
+`_meta` envelope on any request.
+
+This is not a configuration miss. The Inspector CLI exposes no era or
+negotiation option, and its `--metadata` flag cannot help: `serveStdio` pins the
+era on the *opening* exchange, and the Inspector's opening message is always
+`initialize`. The likely upstream cause is its dependency pin — Inspector 2.0.0
+depends on `@modelcontextprotocol/client@2.0.0-beta.5`, which predates the final
+2.0.0 alignment of the `DiscoverResult` wire (spec PR #3002 moved `serverInfo`
+from the body into result `_meta`); a pre-final client hard-rejects a conforming
+server's discover result and falls back to the handshake.
+
+So the action item as originally written — "Inspector dogfood against both eras"
+— is **not satisfiable with today's Inspector**. Recording that rather than
+quietly downgrading it: the Inspector evidence covers the 2025 era, which is
+still the era virtually every deployed client speaks, and it does prove the SDK
+v2 migration did not break existing clients.
+
+### The 2026 era, validated by a conforming client instead
+
+Substituted evidence for the era the Inspector cannot reach: a client on the
+final `@modelcontextprotocol/client@2.0.0` pinned to `{ pin: '2026-07-28' }`,
+against the same published binary.
+
+```
+negotiated era : modern
+server identity: {"name":"@adrkit/mcp","version":"0.3.0"}
+tools/list     : get_decision, get_decision_context, list_superseded, search_decisions
+```
+
+All four tools returned the **same outcomes and byte-identical rendered text** as
+the Inspector's 2025-era session above — which is this record's central claim,
+now observed against the published artifact rather than only in the test suite.
+
+### `server.json` cannot advertise protocol revisions yet
+
+`2025-12-11` remains the only published registry schema
+(`https://static.modelcontextprotocol.io/schemas/2026-01-01/…` and `…/latest/…`
+both 404), and it defines no `protocolVersion`, `protocolVersions`,
+`supportedVersions`, or `revision` field anywhere. There is nowhere to put the
+claim, so `server.json` stays as it is.
+
+Re-check when the registry publishes a schema revision later than `2025-12-11`.
+Until then a server's supported revisions are discoverable only at runtime, via
+the `server/discover` RPC this server already answers.

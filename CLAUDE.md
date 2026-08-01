@@ -2,12 +2,18 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–6 landed and v0.2.0 is public. `@adrkit/core`,
+Status: early — phases 0–6 landed and v0.3.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `migrate --from madr`, `evaluate`) are published on npm; the
 repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
-The published `@adrkit/mcp` server has exactly four local stdio tools and passed
-real-session dogfood through the official MCP Inspector. Phase 6 ARB queue is
+The published `@adrkit/mcp` server has exactly four local stdio tools and serves
+**both** MCP protocol eras over one stdio connection — `2026-07-28` (stateless;
+opened by `server/discover` or a 2026 `_meta` envelope) and the 2025 era (opened
+by `initialize`) — via the SDK v2 `serveStdio` entry
+([ADR-0018](./docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)).
+It passed real-session dogfood against the published artifact on each era: the
+official MCP Inspector for the 2025 era, and a conforming SDK v2 client pinned to
+`2026-07-28` for the modern era, which the Inspector cannot yet negotiate. Phase 6 ARB queue is
 implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure
 `buildQueueReport` kernel and canonical JSON/Markdown formatters live in
 `@adrkit/core`, the `adr queue` CLI subcommand ships in `@adrkit/cli`, and a
