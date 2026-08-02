@@ -20,8 +20,8 @@ Until `1.0.0`, minor releases may include breaking changes
   them, routing through the deterministic evaluator when a snapshot bundle is
   configured), and `/speckit.adrkit.draft` (scaffold a draft ADR from the plan
   artifact) — plus one **optional** `after_plan` hook that offers to run the check.
-  Pinned to Spec Kit `>=0.13.0,<0.14.0`, the single minor line whose hook behavior
-  was verified end-to-end.
+  Pinned to Spec Kit `>=0.13.0,<0.16.0`, verified by installing and rendering
+  against 0.13.0, 0.14.4, and 0.15.1.
 
   Hooks can only reach commands that do not write: `draft` is the sole writing
   command and is unreachable from any hook, because a plan-phase hook creating
@@ -48,6 +48,21 @@ Until `1.0.0`, minor releases may include breaking changes
   nothing to guard while `packages/adapters/` was empty; with the first adapter
   present it has been observed failing against a deliberately introduced
   `@adrkit/core → @adrkit/spec-kit` dependency.
+
+### Fixed
+
+Two packaging defects that only surfaced by installing the extension for real,
+against live Spec Kit, rather than reasoning about it:
+
+- `specify extension add --dev` copies the extension directory verbatim and does
+  **not** skip `node_modules`. Bun's isolated linker had created one for a single
+  `@types/bun` devDependency, and the workspace symlink inside it aborted the
+  install partway through with a `shutil.Error`, leaving a half-installed
+  extension. `@adrkit/spec-kit` now declares no dependencies at all; types
+  resolve from the root tsconfig.
+- The install was depositing the extension's own test suite and `tsconfig.json`
+  into the consuming project's `.specify/extensions/adrkit/`. Now excluded via
+  `.extensionignore`, which upstream supports across the whole pinned range.
 
 ## [0.3.0] - 2026-07-31
 

@@ -27,9 +27,7 @@
     "lint": "bun run typecheck",
     "typecheck": "tsc --noEmit --customConditions bun --project ../../../tsconfig.json"
   },
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
+  "//dependencies": "Deliberately none, including devDependencies. `specify extension add --dev` copies this directory verbatim into a consuming project's .specify/extensions/, and it does not skip node_modules — a single declared dependency is enough for Bun's isolated linker to create one here, which then either lands as junk in someone else's repo or aborts the install outright on a workspace symlink. Types resolve from the root tsconfig. Enforced by test/packaging.test.ts.",
   "files": [
     "extension.yml",
     "commands",

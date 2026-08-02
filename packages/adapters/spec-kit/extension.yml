@@ -1,10 +1,12 @@
 # adrkit — Spec Kit extension manifest (schema v1).
 #
-# Pinned to the one upstream minor line whose extension and hook behavior was
-# actually verified end-to-end (spike 008, Spec Kit v0.13.0 @ 9a30db48). This
-# specifier deliberately does not float to a future minor: per ADR-0007 an
-# adapter's semver contract is with its upstream, and widening it is a decision
-# to re-verify, not a version bump.
+# The upper bound is a verification boundary, not a guess. The extension has been
+# installed and rendered against Spec Kit 0.13.0 (spike 008), 0.14.4, and 0.15.1;
+# `extensions/EXTENSION-API-REFERENCE.md` is byte-identical across that whole
+# range, and the loader's changes over it are additive. Widening past 0.16 is a
+# re-verification, not a version bump — per ADR-0007 an adapter's semver contract
+# is with its upstream, so breaking loudly on an unverified minor is the intended
+# behavior, not a defect.
 schema_version: "1.0"
 
 extension:
@@ -18,7 +20,7 @@ extension:
   homepage: "https://adrkit.dev"
 
 requires:
-  speckit_version: ">=0.13.0,<0.14.0"
+  speckit_version: ">=0.13.0,<0.16.0"
   tools:
     - name: "adr"
       version: ">=0.3.0"

@@ -93,8 +93,10 @@ Concretely:
    constrain the design below.
 4. The extension inherits the spike's verified constraints as production
    requirements, not as suggestions:
-   - `speckit_version` pinned to `>=0.13.0,<0.14.0` — the one minor line actually
-     verified. Widening it is a re-verification, not a version bump.
+   - `speckit_version` pinned to a bounded range whose upper edge is a
+     verification boundary. Widening it is a re-verification, not a version
+     bump. (Originally `<0.14.0`, the one minor line the spike verified; widened
+     to `<0.16.0` on 2026-08-01 — see the addendum above.)
    - Exactly one hook, `after_plan`, `optional: true`. Never a mandatory hook.
    - Hooks may only target commands that do not write. `speckit.adrkit.draft`
      writes, and is therefore reachable only by explicit human invocation.
@@ -107,6 +109,43 @@ Concretely:
 Per ADR-0014, this lands the extension on rung 1 only — unit and contract
 evidence. It is **not** reference-verified and **not** externally validated.
 Neither this decision nor the package claims otherwise.
+
+### Addendum, 2026-08-01: pin re-verification (action item 3)
+
+Action item 3 came due immediately: Spec Kit had already released `v0.14.x` and
+`v0.15.1` by the time this record was written, so the `<0.14.0` bound shipped
+unable to install on current upstream. Re-verified rather than widened on
+inference:
+
+| Evidence | Result |
+|---|---|
+| `extensions/EXTENSION-API-REFERENCE.md`, frozen `9a30db48` vs `v0.15.1` | byte-identical, 858 lines, empty diff |
+| `templates/commands/plan.md` (renders the hook) | one added `py:` script line; hook rendering unchanged |
+| `src/specify_cli/extensions/__init__.py` | changed, but additively — a new optional `events` section, and "must provide at least one command or hook" relaxed to "command, hook, or event". A manifest providing commands and hooks still satisfies it. |
+| Install + render on `v0.14.4` | clean; all three commands registered |
+| Install + render on `v0.15.1` | clean; commands rendered to `.github/agents/` and `.github/prompts/`, hook registered in `.specify/extensions.yml` as `optional: true` |
+| Installed script run end-to-end against the real built CLI and a real corpus | correct governing decisions returned, exit 0 |
+
+The bound is therefore widened to `<0.16.0`, verified at 0.13.0, 0.14.4, and
+0.15.1. Past 0.16 remains a re-verification, not a bump.
+
+Two packaging defects surfaced only because the extension was installed for real
+rather than reasoned about, and both are fixed:
+
+1. `specify extension add --dev` copies the extension directory verbatim and does
+   **not** skip `node_modules`. Bun's isolated linker had created one here for a
+   single `@types/bun` devDependency, and the workspace symlink inside it aborted
+   the install partway through with a `shutil.Error`. The package now declares no
+   dependencies at all.
+2. The install was depositing our test suite and `tsconfig.json` into the
+   consuming project. Now excluded via `.extensionignore`, which upstream
+   supports across the whole pinned range.
+
+This addendum's evidence is stronger than pure unit/contract work — it is real
+upstream, really installed, really executed. It is deliberately **not** claimed as
+ADR-0014 rung 2: the scratch projects were session-scoped and are gone, there is
+no tracked reference repository, no evidence index, and no independent review.
+The rung-1 scoping above stands unchanged.
 
 ## Options considered
 
@@ -171,5 +210,5 @@ until it does not.
 
 1. [x] Build the extension at `packages/adapters/spec-kit/` under the constraints above
 2. [x] Enforce the read-only hook boundary with a test observed failing first
-3. [ ] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it
+3. [x] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it — done 2026-08-01, see the addendum above; widened to `<0.16.0`, verified at 0.13.0, 0.14.4, 0.15.1
 4. [ ] Decide whether to publish `@adrkit/spec-kit` to npm, or install it from the repository

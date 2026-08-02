@@ -23,7 +23,9 @@ Plus one hook: `after_plan` offers to run `/speckit.adrkit.check`. It is
 
 ## Requirements
 
-- Spec Kit `>=0.13.0,<0.14.0`. The pin is deliberate and narrow; see
+- Spec Kit `>=0.13.0,<0.16.0`. Verified by installing and rendering against
+  0.13.0, 0.14.4, and 0.15.1; widening past 0.16 means re-verifying first, not
+  bumping. See
   [ADR-0019](../../../docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md).
 - The `adr` CLI (`npm install -g @adrkit/cli`), or `ADRKIT_CLI` pointing at its
   entry point.
@@ -71,6 +73,11 @@ under a deliberately introduced defect before it was trusted
   could not see the corpus" must never render as the same string.
 - **`check` mutates nothing**, verified by byte-comparing the whole project tree
   before and after.
+- **Nothing development-only reaches your repo.** `specify extension add --dev`
+  copies this directory verbatim, so `.extensionignore` keeps the test suite,
+  `tsconfig.json`, and `package.json` out of your `.specify/extensions/`. The
+  package declares no dependencies at all, so there is never a `node_modules/`
+  to copy — a workspace symlink in one aborts the install partway through.
 
 ## Provenance
 

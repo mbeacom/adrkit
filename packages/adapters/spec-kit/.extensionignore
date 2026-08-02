@@ -1,0 +1,23 @@
+# Files that exist to develop this extension, not to run it.
+#
+# `specify extension add --dev` copies this directory verbatim into a consuming
+# project's `.specify/extensions/adrkit/`. Everything below is build- or
+# test-time only, and shipping it means depositing our scaffolding in someone
+# else's repository. A governance tool that litters the repo it is supposed to
+# help govern does not stay installed.
+#
+# Gitignore semantics (upstream parses this with pathspec.GitIgnoreSpec).
+
+# Test suite and its TypeScript project.
+test/
+tsconfig.json
+
+# Workspace metadata. The installed extension is driven entirely by
+# extension.yml; package.json exists for the Bun workspace, not for consumers.
+package.json
+
+# Never ship a dependency tree. Bun's isolated linker would put workspace
+# symlinks here, which aborts the install partway through rather than merely
+# cluttering it. The package declares no dependencies precisely so this stays
+# empty, but excluding it is the belt to that suspenders.
+node_modules/

@@ -110,7 +110,8 @@ construction, and hooks can only reach commands that do not write — `draft` is
 deliberately unreachable from any hook, because a plan-phase hook creating
 records unprompted would manufacture decision memory rather than record it.
 
-Pinned to Spec Kit `>=0.13.0,<0.14.0`. Unit and contract evidence only
+Pinned to Spec Kit `>=0.13.0,<0.16.0` — installed and rendered against 0.13.0,
+0.14.4, and 0.15.1. Unit and contract evidence
 ([ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 rung 1): not reference-verified, not externally validated.
 

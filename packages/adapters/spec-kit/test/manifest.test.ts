@@ -41,10 +41,12 @@ describe('extension manifest', () => {
   });
 
   test('speckit_version is a bounded specifier, not a bare version', () => {
-    // Bounded on both ends on purpose. The extension and hook behavior was
-    // verified against exactly one minor line; floating into the next one is a
-    // decision to re-verify, not a range to widen pre-emptively.
-    expect(manifest.requires.speckit_version).toBe('>=0.13.0,<0.14.0');
+    // Bounded on both ends on purpose, and the upper bound is a verification
+    // boundary rather than a guess: installed and rendered against 0.13.0
+    // (spike 008), 0.14.4, and 0.15.1. Raising it means re-verifying against
+    // the new minor first — breaking loudly on an unverified one is ADR-0007's
+    // intended adapter behavior.
+    expect(manifest.requires.speckit_version).toBe('>=0.13.0,<0.16.0');
   });
 
   test('declares the adr CLI as a required tool', () => {
