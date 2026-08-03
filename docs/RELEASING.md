@@ -157,6 +157,14 @@ git tag spec-kit-v0.1.0
 git push origin spec-kit-v0.1.0
 ```
 
+An adapter release also attaches a catalog asset: `scripts/pack-extension-zip.ts`
+derives `<extension-id>.zip` from the already-packed, already-validated npm
+tarball — so the two artifacts cannot disagree about what the extension contains
+— drops `package.json`, and asserts `extension.yml` lands at the archive root,
+where Spec Kit looks first. That zip is what a
+[`catalog.community.json`](https://github.com/github/spec-kit/blob/main/extensions/catalog.community.json)
+entry's `download_url` points at.
+
 `release-pack` validates **every** package's manifest regardless of scope — an
 adapter release is still a good moment to notice the lockstep surface drifted —
 but narrows what is packed, and requires the tag to match the adapter's own

@@ -129,14 +129,34 @@ jobs:
           NPM_BOOTSTRAP_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
         run: bun run release:publish
 
+      - name: Build the catalog release asset
+        # The Spec Kit community catalog installs an extension from a .zip
+        # attached to its GitHub release, so an adapter release must carry one.
+        if: steps.scope.outputs.lockstep != 'true'
+        run: bun scripts/pack-extension-zip.ts
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          ADAPTER: ${{ steps.scope.outputs.adapter }}
         run: |
+          set -euo pipefail
+          assets=()
+          if [ -n "$ADAPTER" ]; then
+            # Exactly one asset, produced by the step above.
+            while IFS= read -r zip; do assets+=("$zip"); done < <(find .release -maxdepth 1 -name '*.zip')
+            if [ "${#assets[@]}" -ne 1 ]; then
+              echo "Expected exactly one catalog asset, found ${#assets[@]}" >&2
+              exit 1
+            fi
+          fi
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "GitHub release $GITHUB_REF_NAME already exists"
+            if [ "${#assets[@]}" -gt 0 ]; then
+              gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            fi
           else
-            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes "${assets[@]}"
           fi
 
       - name: Update the major Action tag

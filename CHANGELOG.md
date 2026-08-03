@@ -69,7 +69,9 @@ Until `1.0.0`, minor releases may include breaking changes
   ADR-0007's "versioned independently" true of the number and false of everything
   that matters. `release-pack` gains `--only`, the release manifest carries its
   own `tag`, and the workflow derives scope from the tag: installed-tarball
-  smoke and the `packages/ci/queue@v0` Action tag are lockstep-only.
+  smoke and the `packages/ci/queue@v0` Action tag are lockstep-only. An adapter
+  release also attaches a catalog `.zip` asset, derived from the packed tarball
+  so the npm and catalog artifacts cannot disagree.
 
 ### Changed
 
