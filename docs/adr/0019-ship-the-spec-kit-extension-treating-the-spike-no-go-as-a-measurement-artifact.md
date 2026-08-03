@@ -242,8 +242,8 @@ until it does not.
 2. [x] Enforce the read-only hook boundary with a test observed failing first
 3. [x] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it — done 2026-08-01, see the addendum above; widened to `<0.16.0`, verified at 0.13.0, 0.14.4, 0.15.1
 4. [x] Decide whether to publish `@adrkit/spec-kit` to npm, or install it from the repository — **both channels**, see the addendum below
-5. [ ] Submit the catalog entry to `github/spec-kit`'s `catalog.community.json` once a release asset exists
-6. [ ] Remove `@adrkit/spec-kit` from `BOOTSTRAP_PACKAGES` after its first publish, once Trusted Publishing is configured for the name
+5. [ ] Submit the catalog entry to `github/spec-kit` once a release asset exists — via the Extension Submission **issue template**; the publishing guide forbids editing `catalog.community.json` by PR
+6. [x] Remove `@adrkit/spec-kit` from `BOOTSTRAP_PACKAGES` after its first publish, once Trusted Publishing is configured for the name — done 2026-08-03; the set is now empty, which is its correct steady state. The `NPM_BOOTSTRAP_TOKEN` secret can be deleted.
 
 ### Addendum, 2026-08-02: distribution channels (action item 4)
 

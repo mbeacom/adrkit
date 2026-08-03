@@ -10,11 +10,16 @@ const REGISTRY = 'https://registry.npmjs.org';
  *
  * npm Trusted Publishing cannot be configured for a name that does not exist
  * yet, so the very first publish of a new package needs a credential. Every
- * subsequent publish uses OIDC. Remove a name from this set once it has been
- * published and Trusted Publishing is configured for it — leaving it here would
- * keep handing a token to a package that no longer needs one.
+ * subsequent publish uses OIDC.
+ *
+ * **This set is empty, and that is the correct steady state.** A name belongs
+ * here only between "the package does not exist on the registry" and "Trusted
+ * Publishing is configured for it". Leaving one here afterwards keeps handing a
+ * long-lived token to a package that no longer needs one — the credential
+ * sprawl the set exists to bound. `@adrkit/mcp` was bootstrapped for 0.2.0 and
+ * `@adrkit/spec-kit` for 0.1.0/0.1.1; both now publish over OIDC.
  */
-const BOOTSTRAP_PACKAGES: ReadonlySet<string> = new Set(['@adrkit/spec-kit']);
+const BOOTSTRAP_PACKAGES: ReadonlySet<string> = new Set();
 type RegistryFetch = (url: string) => Promise<Response>;
 
 function assert(condition: unknown, message: string): asserts condition {

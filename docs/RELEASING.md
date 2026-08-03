@@ -186,6 +186,11 @@ exist yet, so the very first publish needs a credential:
    either in place hands a long-lived token to a package that no longer needs
    one.
 
+An empty `BOOTSTRAP_PACKAGES` is the correct steady state, not an oversight. A
+name belongs in it only between "does not exist on the registry" and "Trusted
+Publishing is configured". `@adrkit/mcp` passed through it for 0.2.0 and
+`@adrkit/spec-kit` for 0.1.0; both publish over OIDC now.
+
 ## One-time npm bootstrap (completed for v0.1.0)
 
 The npm scope and packages must exist before Trusted Publishers can be attached.

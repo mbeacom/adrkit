@@ -9,6 +9,15 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Security
+
+- `BOOTSTRAP_PACKAGES` is empty again. `@adrkit/spec-kit` needed a credential for
+  its first publish because npm Trusted Publishing cannot be configured for a
+  name that does not exist yet; with the name established and Trusted Publishing
+  on, it publishes over OIDC and the `NPM_BOOTSTRAP_TOKEN` secret can be deleted.
+  A test asserts no package receives the credential, and was observed failing
+  against a name left in the set.
+
 ### Fixed
 
 - `@adrkit/spec-kit` **0.1.1** ships `LICENSE` and `NOTICE`. 0.1.0 did not: every
