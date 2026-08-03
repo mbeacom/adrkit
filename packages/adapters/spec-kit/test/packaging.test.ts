@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { packageRoot } from './manifest-fixture.ts';
+
+const repoRoot = dirname(dirname(dirname(packageRoot)));
 
 /**
  * Packaging constraints imposed by how Spec Kit installs an extension.
@@ -70,11 +72,45 @@ describe('packaging', () => {
       'scripts/context.sh',
       'scripts/check.sh',
       'scripts/draft.sh',
+      'LICENSE',
+      'NOTICE',
     ]) {
       expect({ required, present: existsSync(join(packageRoot, required)) }).toEqual({
         required,
         present: true,
       });
+    }
+  });
+
+  test('carries the license every install path can see', () => {
+    // Every sibling package copies LICENSE and NOTICE into `dist` at build time.
+    // This one has no build, and three install paths — npm, the catalog zip, and
+    // `specify extension add --dev` from a checkout — so the files are committed
+    // rather than generated. v0.1.0 shipped without them; that is what this
+    // guards against repeating.
+    for (const name of ['LICENSE', 'NOTICE']) {
+      const packaged = readFileSync(join(packageRoot, name), 'utf8');
+      const canonical = readFileSync(join(repoRoot, name), 'utf8');
+      expect({ name, identical: packaged === canonical }).toEqual({ name, identical: true });
+      expect(packaged.length).toBeGreaterThan(100);
+    }
+
+    const files = packageJson['files'] as string[];
+    expect(files).toContain('LICENSE');
+    expect(files).toContain('NOTICE');
+  });
+
+  test('the license reaches a --dev install, not just the tarball', () => {
+    // `.extensionignore` governs what `specify extension add --dev` copies. An
+    // exclusion here would ship the license on npm and withhold it from the
+    // install path the README documents first.
+    const patterns = readFileSync(join(packageRoot, '.extensionignore'), 'utf8')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'));
+
+    for (const name of ['LICENSE', 'NOTICE']) {
+      expect({ name, excluded: patterns.includes(name) }).toEqual({ name, excluded: false });
     }
   });
 

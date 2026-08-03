@@ -1,6 +1,6 @@
 {
   "name": "@adrkit/spec-kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Spec Kit extension that injects adrkit's governing decisions into the spec-driven plan loop.",
   "type": "module",
   "license": "Apache-2.0",
@@ -20,7 +20,7 @@
     "spec-driven-development",
     "governance"
   ],
-  "//versioning": "Independently versioned, per ADR-0007: an adapter's semver contract is with its upstream (Spec Kit), not with @adrkit/core. It does not move with the repository's release tag — see ReleaseVersioning in scripts/release-pack.ts. Publishing is idempotent, so an unchanged adapter is skipped rather than republished on the next core release.",
+  "//versioning": "Independently versioned, per ADR-0007: an adapter's semver contract is with its upstream (Spec Kit), not with @adrkit/core. It does not move with the repository's release tag \u2014 see ReleaseVersioning in scripts/release-pack.ts. Publishing is idempotent, so an unchanged adapter is skipped rather than republished on the next core release.",
   "publishConfig": {
     "access": "public"
   },
@@ -29,11 +29,13 @@
     "lint": "bun run typecheck",
     "typecheck": "tsc --noEmit --customConditions bun --project ../../../tsconfig.json"
   },
-  "//dependencies": "Deliberately none, including devDependencies. `specify extension add --dev` copies this directory verbatim into a consuming project's .specify/extensions/, and it does not skip node_modules — a single declared dependency is enough for Bun's isolated linker to create one here, which then either lands as junk in someone else's repo or aborts the install outright on a workspace symlink. Types resolve from the root tsconfig. Enforced by test/packaging.test.ts.",
+  "//dependencies": "Deliberately none, including devDependencies. `specify extension add --dev` copies this directory verbatim into a consuming project's .specify/extensions/, and it does not skip node_modules \u2014 a single declared dependency is enough for Bun's isolated linker to create one here, which then either lands as junk in someone else's repo or aborts the install outright on a workspace symlink. Types resolve from the root tsconfig. Enforced by test/packaging.test.ts.",
   "files": [
     "extension.yml",
     "commands",
     "scripts",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ]
 }

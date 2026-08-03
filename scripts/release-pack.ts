@@ -170,6 +170,8 @@ export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
     name: '@adrkit/spec-kit',
     directory: 'packages/adapters/spec-kit',
     expectedFiles: [
+      'LICENSE',
+      'NOTICE',
       'README.md',
       'commands/check.md',
       'commands/context.md',

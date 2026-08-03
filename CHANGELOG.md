@@ -9,6 +9,16 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Fixed
+
+- `@adrkit/spec-kit` **0.1.1** ships `LICENSE` and `NOTICE`. 0.1.0 did not: every
+  sibling package copies them into `dist` at build time, and this package has no
+  build, so nothing carried them. The files are committed rather than generated
+  because the extension has three install paths — npm, the catalog zip, and
+  `specify extension add --dev` from a checkout — and a generated file would be
+  absent from the last one. A test asserts they stay byte-identical to the root
+  copies, and that `.extensionignore` never excludes them.
+
 ### Added
 
 - **`@adrkit/spec-kit` — the Spec Kit extension** (`packages/adapters/spec-kit/`),
