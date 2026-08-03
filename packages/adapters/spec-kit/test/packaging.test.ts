@@ -40,12 +40,22 @@ describe('packaging', () => {
     expect(existsSync(join(packageRoot, 'node_modules'))).toBe(false);
   });
 
-  test('stays private while the publish decision is open', () => {
-    // ADR-0019 action item 4. `private` makes the undecided state enforced by
-    // npm rather than merely intended, and matches the documented install path
-    // (`specify extension add --dev`, straight from the repository).
-    expect(packageJson['private']).toBe(true);
-    expect(packageJson['publishConfig']).toBeUndefined();
+  test('is publishable, and independently versioned', () => {
+    // ADR-0019 action item 4 resolved to publishing on npm *and* the Spec Kit
+    // community catalog. ADR-0007 requires the adapter carry its own version
+    // rather than moving with the core release tag, so `release-pack` treats it
+    // as `versioning: 'independent'`.
+    expect(packageJson['private']).toBeUndefined();
+    expect(packageJson['publishConfig']).toEqual({ access: 'public' });
+    expect(packageJson['version']).not.toBe('0.3.0');
+  });
+
+  test('publishes no dist, because it builds nothing', () => {
+    const files = packageJson['files'];
+    expect(Array.isArray(files)).toBe(true);
+    expect(files as string[]).toContain('README.md');
+    expect(files as string[]).toContain('extension.yml');
+    expect(files as string[]).not.toContain('dist');
   });
 
   test('ships every file the installed extension needs at runtime', () => {

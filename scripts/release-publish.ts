@@ -5,7 +5,16 @@ const REPOSITORY_ROOT = resolve(import.meta.dir, '..');
 const RELEASE_DIR = join(REPOSITORY_ROOT, '.release', 'npm');
 const NPM_CLI_VERSION = '11.5.1';
 const REGISTRY = 'https://registry.npmjs.org';
-const BOOTSTRAP_PACKAGE = '@adrkit/mcp';
+/**
+ * Packages awaiting their first publish under this scope.
+ *
+ * npm Trusted Publishing cannot be configured for a name that does not exist
+ * yet, so the very first publish of a new package needs a credential. Every
+ * subsequent publish uses OIDC. Remove a name from this set once it has been
+ * published and Trusted Publishing is configured for it — leaving it here would
+ * keep handing a token to a package that no longer needs one.
+ */
+const BOOTSTRAP_PACKAGES: ReadonlySet<string> = new Set(['@adrkit/spec-kit']);
 type RegistryFetch = (url: string) => Promise<Response>;
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -50,7 +59,7 @@ export function publishEnvironment(
   const bootstrapToken = environment.NPM_BOOTSTRAP_TOKEN;
   delete environment.NPM_BOOTSTRAP_TOKEN;
   delete environment.NODE_AUTH_TOKEN;
-  if (packageName === BOOTSTRAP_PACKAGE && bootstrapToken) {
+  if (BOOTSTRAP_PACKAGES.has(packageName) && bootstrapToken) {
     environment.NODE_AUTH_TOKEN = bootstrapToken;
   }
   return environment;

@@ -21,7 +21,9 @@ Until `1.0.0`, minor releases may include breaking changes
   configured), and `/speckit.adrkit.draft` (scaffold a draft ADR from the plan
   artifact) — plus one **optional** `after_plan` hook that offers to run the check.
   Pinned to Spec Kit `>=0.13.0,<0.16.0`, verified by installing and rendering
-  against 0.13.0, 0.14.4, and 0.15.1.
+  against 0.13.0, 0.14.4, and 0.15.1. Distributed on **npm** and via the **Spec
+  Kit community catalog**; the manifest declares `category: process` and
+  `effect: read-write` for `specify extension info` and the catalog.
 
   Hooks can only reach commands that do not write: `draft` is the sole writing
   command and is unreachable from any hook, because a plan-phase hook creating
@@ -41,6 +43,17 @@ Until `1.0.0`, minor releases may include breaking changes
   unmodified. Per [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
   the package sits on **rung 1 only**: unit and contract evidence, not
   reference-verified and not externally validated.
+
+- The release pipeline now supports **independently versioned, dist-less
+  packages**. `scripts/release-pack.ts` previously asserted that every release
+  package shared one version and shipped a `dist` — both true of a single
+  lockstep Node surface, neither true of an adapter, and forcing them would have
+  contradicted ADR-0007's "adapters ... are versioned independently. Their
+  semver contract is with their upstream, not with our core." Definitions now
+  declare `versioning: 'lockstep' | 'independent'` and `shipsNodeArtifact`, and a
+  package that ships no Node artifact is *rejected* for publishing `dist`.
+  Workspace dependencies also now resolve against the dependency's own version
+  rather than the depender's.
 
 ### Changed
 

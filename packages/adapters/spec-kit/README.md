@@ -33,12 +33,24 @@ Plus one hook: `after_plan` offers to run `/speckit.adrkit.check`. It is
 
 ## Install
 
+From the Spec Kit catalog, once the entry lands:
+
+```sh
+specify extension add adrkit
+```
+
+Or straight from a checkout:
+
 ```sh
 specify extension add --dev path/to/packages/adapters/spec-kit
 ```
 
 Then `/speckit.adrkit.context` is available in your agent, and `/speckit.plan`
 will offer the `after_plan` hook.
+
+The package is also published on npm as `@adrkit/spec-kit`, versioned
+independently of the rest of the scope: its semver contract is with Spec Kit,
+not with `@adrkit/core` (ADR-0007).
 
 ## Configuration
 

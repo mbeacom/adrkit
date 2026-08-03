@@ -211,4 +211,38 @@ until it does not.
 1. [x] Build the extension at `packages/adapters/spec-kit/` under the constraints above
 2. [x] Enforce the read-only hook boundary with a test observed failing first
 3. [x] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it — done 2026-08-01, see the addendum above; widened to `<0.16.0`, verified at 0.13.0, 0.14.4, 0.15.1
-4. [ ] Decide whether to publish `@adrkit/spec-kit` to npm, or install it from the repository
+4. [x] Decide whether to publish `@adrkit/spec-kit` to npm, or install it from the repository — **both channels**, see the addendum below
+5. [ ] Submit the catalog entry to `github/spec-kit`'s `catalog.community.json` once a release asset exists
+6. [ ] Remove `@adrkit/spec-kit` from `BOOTSTRAP_PACKAGES` after its first publish, once Trusted Publishing is configured for the name
+
+### Addendum, 2026-08-02: distribution channels (action item 4)
+
+Two channels, because they serve different consumers:
+
+- **Spec Kit community catalog** — the idiomatic path. Extensions are installed
+  with `specify extension add`, and the ~40 community extensions distribute via a
+  GitHub release asset plus an entry in `github/spec-kit`'s
+  `catalog.community.json`. This is how a Spec Kit user will actually find and
+  install it, and it is why the manifest now declares `category` and `effect`.
+- **npm** — for programmatic and pinned installs alongside the rest of the scope.
+
+npm required extending the release pipeline rather than bending a decision.
+`scripts/release-pack.ts` asserted `versions.size === 1` across every release
+package, and that every package publish a `dist`. Both were true of a repository
+whose only published packages were one lockstep Node surface. Neither is true of
+an adapter, and forcing them would have contradicted ADR-0007's "adapters ...
+are versioned independently. Their semver contract is with their upstream, not
+with our core."
+
+So the pipeline now distinguishes the two:
+
+| Field | Meaning |
+|---|---|
+| `versioning: 'lockstep'` | Moves with the release tag. Core, evaluator, CLI, MCP — one API surface, pinned together. |
+| `versioning: 'independent'` | Carries its own version. The release tag names the lockstep version and says nothing about it. |
+| `shipsNodeArtifact: false` | No `dist` and no Node engine constraint required — and `dist` is now *rejected*, since a package of manifests, markdown, and shell scripts that ships one is misdeclared. |
+
+Publishing was already idempotent per artifact, so an unchanged adapter is
+skipped rather than republished on the next core release. A first publish of a
+new npm name cannot use Trusted Publishing, which requires the name to exist, so
+`@adrkit/spec-kit` is temporarily in `BOOTSTRAP_PACKAGES` (action item 6).

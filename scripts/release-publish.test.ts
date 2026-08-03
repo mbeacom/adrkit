@@ -65,8 +65,8 @@ describe('release registry safety', () => {
     expect(environment).toEqual({ PATH: '/bin' });
   });
 
-  test('maps the bootstrap credential only to the new MCP package', () => {
-    const environment = publishEnvironment('@adrkit/mcp', {
+  test('maps the bootstrap credential only to a package awaiting its first publish', () => {
+    const environment = publishEnvironment('@adrkit/spec-kit', {
       NPM_BOOTSTRAP_TOKEN: 'bootstrap-token',
       PATH: '/bin',
     });
@@ -75,6 +75,21 @@ describe('release registry safety', () => {
       NODE_AUTH_TOKEN: 'bootstrap-token',
       PATH: '/bin',
     });
+  });
+
+  test('an already-published package never receives the bootstrap credential', () => {
+    // @adrkit/mcp bootstrapped in 0.2.0 and has used OIDC ever since. Leaving a
+    // published name in the bootstrap set would hand it a token it no longer
+    // needs, which is exactly the credential sprawl the set exists to bound.
+    for (const published of ['@adrkit/core', '@adrkit/cli', '@adrkit/evaluator', '@adrkit/mcp']) {
+      expect({
+        published,
+        environment: publishEnvironment(published, {
+          NPM_BOOTSTRAP_TOKEN: 'bootstrap-token',
+          PATH: '/bin',
+        }),
+      }).toEqual({ published, environment: { PATH: '/bin' } });
+    }
   });
 
   test('uses OIDC for MCP after the bootstrap credential is removed', () => {

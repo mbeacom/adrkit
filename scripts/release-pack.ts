@@ -25,6 +25,14 @@ export interface ReleasePackageDefinition {
   directory: string;
   expectedFiles: readonly string[];
   workspaceDependencies: readonly string[];
+  versioning: ReleaseVersioning;
+  /**
+   * Whether the package ships a built Node artifact. A Spec Kit extension ships
+   * a manifest, command markdown, and shell scripts — there is no `dist` to
+   * require and no Node version it constrains, so asserting either would be
+   * asserting a fact about a different kind of package.
+   */
+  shipsNodeArtifact: boolean;
 }
 
 export interface ReleaseArtifact {
@@ -33,6 +41,20 @@ export interface ReleaseArtifact {
   tarball: string;
   integrity: string;
 }
+
+/**
+ * How a release package is versioned.
+ *
+ * `lockstep` — moves with the repository's release tag. Core, CLI, evaluator,
+ * and MCP form one API surface, so a consumer pinning one pins them all.
+ *
+ * `independent` — the package carries its own version. ADR-0007: "Adapters live
+ * under `packages/adapters/*`, are versioned independently... Their semver
+ * contract is with their upstream, not with our core." An adapter that broke
+ * because Spec Kit changed has nothing to say about `@adrkit/core`'s API, and
+ * dragging it through a major bump would say exactly that.
+ */
+export type ReleaseVersioning = 'lockstep' | 'independent';
 
 export interface ReleaseManifest {
   version: string;
@@ -55,6 +77,8 @@ export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
       'src/index.ts',
     ],
     workspaceDependencies: [],
+    versioning: 'lockstep',
+    shipsNodeArtifact: true,
   },
   {
     name: '@adrkit/evaluator',
@@ -69,6 +93,8 @@ export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
       'src/index.ts',
     ],
     workspaceDependencies: ['@adrkit/core'],
+    versioning: 'lockstep',
+    shipsNodeArtifact: true,
   },
   {
     name: '@adrkit/cli',
@@ -83,6 +109,8 @@ export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
       'src/index.ts',
     ],
     workspaceDependencies: ['@adrkit/core', '@adrkit/evaluator'],
+    versioning: 'lockstep',
+    shipsNodeArtifact: true,
   },
   {
     name: '@adrkit/mcp',
@@ -98,6 +126,29 @@ export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
       'src/index.ts',
     ],
     workspaceDependencies: ['@adrkit/core'],
+    versioning: 'lockstep',
+    shipsNodeArtifact: true,
+  },
+  {
+    // The first independently versioned package. Not a Node library: it ships a
+    // Spec Kit manifest, three command files, and the shell scripts behind them.
+    name: '@adrkit/spec-kit',
+    directory: 'packages/adapters/spec-kit',
+    expectedFiles: [
+      'README.md',
+      'commands/check.md',
+      'commands/context.md',
+      'commands/draft.md',
+      'extension.yml',
+      'package.json',
+      'scripts/adrkit-lib.sh',
+      'scripts/check.sh',
+      'scripts/context.sh',
+      'scripts/draft.sh',
+    ],
+    workspaceDependencies: [],
+    versioning: 'independent',
+    shipsNodeArtifact: false,
   },
 ] as const;
 
@@ -135,7 +186,9 @@ export function validateSourceManifests(
   manifests: ReadonlyMap<string, PackageManifest>,
   tag?: string,
 ): string {
-  const versions = new Set<string>();
+  const lockstepVersions = new Set<string>();
+  let sawLockstep = false;
+
   for (const definition of RELEASE_PACKAGES) {
     const manifest = manifests.get(definition.name);
     assert(manifest, `Missing source manifest for ${definition.name}`);
@@ -145,24 +198,66 @@ export function validateSourceManifests(
     assert(typeof manifest.description === 'string' && manifest.description.length > 0, `${definition.name} needs a description`);
     assert(manifest.repository?.url === REPOSITORY_URL, `${definition.name} repository URL must be ${REPOSITORY_URL}`);
     assert(manifest.repository?.directory === definition.directory, `${definition.name} repository directory is incorrect`);
-    assert(manifest.engines?.node === '>=22', `${definition.name} must require Node >=22`);
     assert(manifest.publishConfig?.access === 'public', `${definition.name} must publish with public access`);
-    assert(manifest.files?.includes('dist'), `${definition.name} must publish dist`);
     assert(manifest.files?.includes('README.md'), `${definition.name} must publish README.md`);
-    versions.add(manifest.version);
+
+    // Only meaningful for packages that ship executable JavaScript. A package of
+    // manifests, markdown, and shell scripts constrains no Node version and has
+    // no dist; requiring either would be asserting a fact about a package this
+    // is not.
+    if (definition.shipsNodeArtifact) {
+      assert(manifest.engines?.node === '>=22', `${definition.name} must require Node >=22`);
+      assert(manifest.files?.includes('dist'), `${definition.name} must publish dist`);
+    } else {
+      assert(
+        !manifest.files?.includes('dist'),
+        `${definition.name} declares no Node artifact but publishes dist`,
+      );
+    }
+
+    assert(
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(manifest.version),
+      `${definition.name} version ${manifest.version} must be stable SemVer`,
+    );
+
+    if (definition.versioning === 'lockstep') {
+      sawLockstep = true;
+      lockstepVersions.add(manifest.version);
+    }
   }
-  assert(versions.size === 1, `Release package versions must match: ${[...versions].join(', ')}`);
-  const [version] = versions;
+
+  // The release version is the lockstep surface's version, and the tag names it.
+  // Independently versioned adapters ride along at their own versions; the
+  // publish step skips any already on the registry at matching integrity, so an
+  // unchanged adapter is a no-op rather than a republish attempt.
+  assert(sawLockstep, 'Release must contain at least one lockstep package');
+  assert(
+    lockstepVersions.size === 1,
+    `Lockstep release package versions must match: ${[...lockstepVersions].join(', ')}`,
+  );
+  const [version] = lockstepVersions;
   assert(version, 'Release version is missing');
-  assert(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version), `Release version ${version} must be stable SemVer`);
   if (tag) assert(tag === `v${version}`, `Release tag ${tag} must match package version v${version}`);
   return version;
+}
+
+/** The version a given release package publishes at. */
+export function versionFor(
+  definition: ReleasePackageDefinition,
+  manifests: ReadonlyMap<string, PackageManifest>,
+  lockstepVersion: string,
+): string {
+  if (definition.versioning === 'lockstep') return lockstepVersion;
+  const manifest = manifests.get(definition.name);
+  assert(manifest?.version, `Missing source manifest version for ${definition.name}`);
+  return manifest.version;
 }
 
 export function validatePackedManifest(
   definition: ReleasePackageDefinition,
   manifest: PackageManifest,
   version: string,
+  versionOfDependency: (name: string) => string,
 ): void {
   assert(manifest.name === definition.name, `Packed package name mismatch for ${definition.name}`);
   assert(manifest.version === version, `Packed version mismatch for ${definition.name}`);
@@ -172,9 +267,14 @@ export function validatePackedManifest(
     `${definition.name} leaked workspace protocols at ${workspaceProtocols.join(', ')}`,
   );
   for (const dependency of definition.workspaceDependencies) {
+    // Resolve against the dependency's own version, not the depender's. They are
+    // the same number today for every lockstep package, and would silently stop
+    // being the same the moment an independently versioned package grew a
+    // workspace dependency.
+    const expected = versionOfDependency(dependency);
     assert(
-      manifest.dependencies?.[dependency] === version,
-      `${definition.name} must resolve ${dependency} to ${version}, got ${manifest.dependencies?.[dependency]}`,
+      manifest.dependencies?.[dependency] === expected,
+      `${definition.name} must resolve ${dependency} to ${expected}, got ${manifest.dependencies?.[dependency]}`,
     );
   }
 }
@@ -407,8 +507,15 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
   }
 
   const artifacts: ReleaseArtifact[] = [];
+  const versionOfDependency = (name: string): string => {
+    const definition = RELEASE_PACKAGES.find((candidate) => candidate.name === name);
+    assert(definition, `Unknown workspace dependency ${name}`);
+    return versionFor(definition, sourceManifests, version);
+  };
+
   for (const definition of RELEASE_PACKAGES) {
-    const filename = `${definition.name.slice(1).replace('/', '-')}-${version}.tgz`;
+    const packageVersion = versionFor(definition, sourceManifests, version);
+    const filename = `${definition.name.slice(1).replace('/', '-')}-${packageVersion}.tgz`;
     const packageDir = join(RELEASE_ROOT, definition.directory);
     await run(
       [
@@ -428,7 +535,7 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
       assert(entries.has(expectedFile), `${definition.name} tarball is missing ${expectedFile}`);
     }
     const packedManifest = await packedPackageJson(tarball);
-    validatePackedManifest(definition, packedManifest, version);
+    validatePackedManifest(definition, packedManifest, packageVersion, versionOfDependency);
     if (definition.name === '@adrkit/cli') {
       assert(packedManifest.bin?.adr === './dist/index.js', 'Packed CLI must expose the adr binary');
     }
@@ -437,7 +544,7 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
     }
     artifacts.push({
       name: definition.name,
-      version,
+      version: packageVersion,
       tarball: relative(npmDir, tarball),
       integrity: await sha512Integrity(tarball),
     });

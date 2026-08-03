@@ -20,8 +20,10 @@
     "spec-driven-development",
     "governance"
   ],
-  "//": "Private until ADR-0019 action item 4 decides whether this publishes to npm or installs from the repository. It is deliberately absent from RELEASE_PACKAGES in scripts/release-pack.ts; `private` makes that state enforced rather than merely intended.",
-  "private": true,
+  "//versioning": "Independently versioned, per ADR-0007: an adapter's semver contract is with its upstream (Spec Kit), not with @adrkit/core. It does not move with the repository's release tag — see ReleaseVersioning in scripts/release-pack.ts. Publishing is idempotent, so an unchanged adapter is skipped rather than republished on the next core release.",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "bun run typecheck",
     "lint": "bun run typecheck",
