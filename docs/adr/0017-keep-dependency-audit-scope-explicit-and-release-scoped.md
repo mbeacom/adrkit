@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0017"
 title: Keep dependency audit scope explicit and release-scoped
-status: proposed
+status: accepted
 date: 2026-07-25
 deciders: ["@mbeacom"]
 tags: [security, ci, dependencies, release, evidence]
@@ -21,6 +21,7 @@ affects:
     pattern: "packages/*/package.json"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: >-
@@ -37,10 +38,6 @@ reviewBy: 2026-10-31
 ---
 
 # ADR-0017: Keep dependency audit scope explicit and release-scoped
-
-> **Status: `proposed`. This record is for maintainer review and is not
-> ratified.** It records the proposed interpretation of the audit gate, but it
-> does not become project law until a human accepts it.
 
 ## Context
 
@@ -161,9 +158,17 @@ gap is visible instead of implied away.
 
 ## Action items
 
-1. [ ] Ratify or reject this proposed record.
-2. [ ] Add a release-time published-package consumer audit covering
+1. [x] Ratify or reject this proposed record. **Ratified by @mbeacom, 2026-08-01.**
+2. [x] Add a release-time published-package consumer audit covering
        `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp`.
+       **Done 2026-08-01.** `docs/RELEASING.md` had the audit but ran it over
+       `@adrkit/core` + `@adrkit/mcp` only, which never reaches
+       `jsonpath-rfc9535` — the evaluator's sole third-party dependency, and the
+       only package in the tree not already pulled in by core or mcp. The
+       procedure now audits `.release/smoke/`, which `release:pack` builds from
+       the release manifest with every artifact wired as a `file:` dependency, so
+       the audited set is derived from what was packed rather than hand-listed
+       and cannot drift when a fifth package is published.
 3. [x] Remove or renew the `GHSA-frvp-7c67-39w9` acceptance by 2026-10-31, or
        earlier if `@modelcontextprotocol/sdk` releases a range that reaches
        `@hono/node-server >=2.0.5`.

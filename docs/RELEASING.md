@@ -89,19 +89,28 @@ The PR CI `bun audit` gate deliberately scopes itself to this workspace's
 resolved tree and does **not** audit consumer installs of the published
 `@adrkit/*` manifests
 ([ADR-0017](adr/0017-keep-dependency-audit-scope-explicit-and-release-scoped.md)).
-That audit is release evidence, so it runs here, against the packed tarballs:
+That audit is release evidence, so it runs here, against the packed tarballs —
+**all four of them**. `release:pack` already builds `.release/smoke/` with every
+artifact in the release manifest wired as a `file:` dependency, so auditing there
+covers the whole published set and cannot drift out of sync with what was packed:
 
 ```sh
-consumer_dir=$(mktemp -d)
 (
-  cd "$consumer_dir"
-  npm init -y >/dev/null
-  npm install --no-audit --no-fund \
-    "$OLDPWD/.release/npm/adrkit-core-0.3.0.tgz" \
-    "$OLDPWD/.release/npm/adrkit-mcp-0.3.0.tgz"
+  cd .release/smoke
+  npm install --no-audit --no-fund   # already installed by the step 2 smoke run
   npm audit
 )
 ```
+
+Audit **all four** packages, not a subset. `@adrkit/evaluator` is the only path to
+`jsonpath-rfc9535`, and `@adrkit/cli` is the only path to the evaluator, so an
+audit of `@adrkit/core` + `@adrkit/mcp` alone never sees that subtree at all
+(ADR-0017 action item 2).
+
+The `overrides` block in that project pins the `@adrkit/*` packages to the local
+tarballs — which is the point, since the release is not published yet. It does not
+affect third-party resolution, so the transitive tree `npm audit` examines is the
+genuine consumer tree.
 
 Root overrides are not published in package manifests, so a consumer resolves a
 different tree than this workspace does. Reconcile every advisory `npm audit`

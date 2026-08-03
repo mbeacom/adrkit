@@ -85,6 +85,32 @@ device. See
 `packages/adapters/*`. Integrations are optional, separately versioned, and
 allowed to break on upstream churn. The core is not.
 
+**3. A check does not count as coverage until you have watched it fail.**
+
+When you add or tighten an assertion, lint rule, or CI gate, build an input it is
+supposed to reject and confirm it actually fails on that input. "The suite still
+passes" only establishes that your assertion does not crash. Keep the failing
+input as a permanent negative case — the artifact that proves a check works is
+the case that makes it fail.
+
+Prefer asserting a specific observed value over a count or an absence. `0`, `[]`,
+and "no X found" render identically whether the tool looked and found nothing or
+could not look at all, which is why a green check can mean "I am blind" and be
+trusted anyway. Where a count or absence really is the right assertion, the
+negative case is mandatory rather than advisory.
+
+This extends past assertions to any claim of the form "X is not there." One
+negative observation of a default configuration is not evidence a capability is
+missing — check whether you looked in the only place it could be.
+
+If you defer the work, hand over the failing case, not the instruction. "Please
+verify this fires" transfers the whole cost of constructing the input and leaves
+the recipient unable to tell whether you ever built one.
+
+Aimed at checks guarding a corpus or an input the tool must not silently skip;
+applying it to every trivial equality assertion is cargo cult. See
+[ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md).
+
 ## Changing a decision
 
 This project governs itself. If your change contradicts an accepted record in
