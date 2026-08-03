@@ -1,6 +1,6 @@
 {
   "name": "@adrkit/spec-kit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Spec Kit extension that injects adrkit's governing decisions into the spec-driven plan loop.",
   "type": "module",
   "license": "Apache-2.0",

@@ -20,6 +20,13 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Fixed
 
+- `@adrkit/spec-kit` **0.1.2** reports its own version correctly. 0.1.1 shipped
+  with `extension.yml` still saying `0.1.0`, so `specify extension info` and
+  `specify extension list` told every user they had 0.1.0. Two version fields —
+  `package.json` for npm, `extension.yml` for Spec Kit — with nothing keeping
+  them in sync. A test now asserts they match, and was observed failing against
+  the exact 0.1.1 state.
+
 - `@adrkit/spec-kit` **0.1.1** ships `LICENSE` and `NOTICE`. 0.1.0 did not: every
   sibling package copies them into `dist` at build time, and this package has no
   build, so nothing carried them. The files are committed rather than generated

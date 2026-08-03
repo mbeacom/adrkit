@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { loadManifest } from './manifest-fixture.ts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { loadManifest, packageRoot } from './manifest-fixture.ts';
 
 /**
  * The upstream validation rules from Spec Kit's EXTENSION-API-REFERENCE at the
@@ -25,6 +27,26 @@ describe('extension manifest', () => {
 
   test('extension version is a bare semver triple', () => {
     expect(manifest.extension.version).toMatch(SEMVER_PATTERN);
+  });
+
+  test('the manifest version matches the package version', () => {
+    // Two version fields, one artifact. `package.json` decides what npm
+    // publishes; `extension.yml` decides what `specify extension info` and the
+    // catalog report. 0.1.1 shipped with these out of sync and told every user
+    // it was 0.1.0 — nothing was watching, so nothing complained.
+    const packageJson = JSON.parse(
+      readFileSync(join(packageRoot, 'package.json'), 'utf8'),
+    ) as { version?: string };
+
+    // Assert presence before comparing: two missing versions are equal, and
+    // that is exactly the vacuous pass this guard must not have.
+    expect(typeof packageJson.version).toBe('string');
+    const packageVersion = packageJson.version ?? '(absent)';
+
+    expect({ source: 'extension.yml', version: manifest.extension.version }).toEqual({
+      source: 'extension.yml',
+      version: packageVersion,
+    });
   });
 
   test('description stays under the 200-character upstream limit', () => {

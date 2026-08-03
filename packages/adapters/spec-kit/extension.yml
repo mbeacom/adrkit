@@ -12,7 +12,7 @@ schema_version: "1.0"
 extension:
   id: "adrkit"
   name: "adrkit — decision memory for spec-driven development"
-  version: "0.1.0"
+  version: "0.1.2"
   description: "Pulls the decisions governing this work into agent context, checks produced plans against them, and drafts an ADR from a plan artifact."
   author: "Mark Beacom (@mbeacom)"
   repository: "https://github.com/mbeacom/adrkit"
