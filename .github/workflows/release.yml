@@ -83,6 +83,13 @@ jobs:
         run: bun .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
       - name: Publish npm packages with provenance
+        env:
+          # Only consumed for a package in BOOTSTRAP_PACKAGES — npm Trusted
+          # Publishing cannot be configured for a name that does not exist yet,
+          # so a first publish needs a credential. release-publish.ts scrubs it
+          # from the environment of every other package, and the secret should be
+          # deleted once the name is established (ADR-0019 action item 6).
+          NPM_BOOTSTRAP_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
         run: bun run release:publish
 
       - name: Create GitHub release

@@ -33,6 +33,15 @@ Until `1.0.0`, minor releases may include breaking changes
   deliberately introduced defect before being trusted
   ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
 
+  **Landed / reference-verified** on [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+  rungs 1–2. Rung 2 is a maintainer-owned isolated reference repository that
+  reinstalls the extension from a pinned adrkit commit into a real Spec Kit
+  project across all three declared upstream versions, on every push and weekly —
+  41 self-verifying, fail-closed assertions each. The gate was observed failing
+  on a deliberate divergence run before being trusted. Evidence index:
+  [`docs/reference-verification-spec-kit-extension.md`](docs/reference-verification-spec-kit-extension.md).
+  Not externally validated (rung 3 open).
+
   Authorized by [ADR-0019](docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md),
   which records the `no-go` verdict from spike
   [008](specs/008-spec-kit-hook-viability/) as a measurement artifact of that
@@ -40,9 +49,7 @@ Until `1.0.0`, minor releases may include breaking changes
   `install` and `remove`, lifecycle actions whose entire purpose is to write files
   — rather than a finding against the mechanism, which the spike verified working
   in every respect. Spike 008's verdict, evidence bundle, and audit history are
-  unmodified. Per [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-  the package sits on **rung 1 only**: unit and contract evidence, not
-  reference-verified and not externally validated.
+  unmodified.
 
 - The release pipeline now supports **independently versioned, dist-less
   packages**. `scripts/release-pack.ts` previously asserted that every release

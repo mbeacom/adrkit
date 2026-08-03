@@ -147,6 +147,36 @@ ADR-0014 rung 2: the scratch projects were session-scoped and are gone, there is
 no tracked reference repository, no evidence index, and no independent review.
 The rung-1 scoping above stands unchanged.
 
+> **Superseded 2026-08-02 by the rung-2 addendum below.** The paragraph above
+> described this record's state before reference verification existed. Rung 2 has
+> since been met; the caveats it names have been answered rather than restated.
+
+### Addendum, 2026-08-02: rung-2 reference verification
+
+The extension is now **landed / reference-verified** on ADR-0014 rungs 1–2.
+
+Rung 2 is met in [`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
+(PR [#9](https://github.com/mbeacom/adrkit-t018-dogfood/pull/9), merge
+`b559d32c48b0098510e0dae8d4fb994afd6f8053`) — the same maintainer-owned isolated
+repository that carries the Phase 6 evidence. Its workflow reinstalls this
+extension from the pinned adrkit commit `61f5910` into a real Spec Kit project,
+across all three declared upstream versions, on every push and weekly: **41
+self-verifying, fail-closed assertions per version.**
+
+The self-verifying criterion was demonstrated rather than asserted. A deliberate
+divergence run repointed the pin at `07658e4`, this extension's first commit,
+and all three legs went red — catching the defects that version really had
+(`INS-2`: the then-`<0.14.0` pin genuinely rejects 0.14.4 and 0.15.1;
+`PKG-*`: it shipped development files into the consumer's project). A gate only
+ever seen green is a gate nobody has watched work.
+
+Full evidence index, including hashes, run links, expected-vs-observed rows, and
+named limitations:
+[`docs/reference-verification-spec-kit-extension.md`](../reference-verification-spec-kit-extension.md).
+
+Rung 3 — external / community validation — remains **absent**. Nobody but the
+maintainer has run this extension in their own repository.
+
 ## Options considered
 
 ### Option A: Ship, and record the override as a decision (chosen)

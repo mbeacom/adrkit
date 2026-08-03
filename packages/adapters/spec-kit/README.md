@@ -101,8 +101,17 @@ disclosed itself; [ADR-0019](../../../docs/adr/0019-ship-the-spec-kit-extension-
 records why that verdict does not block this package, and what still binds.
 
 Per [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-this package sits on **rung 1** — unit and contract evidence. It is not
-reference-verified and not externally validated.
+this package is **landed / reference-verified** on rungs 1–2. Rung 2 is a
+maintainer-owned isolated reference repository,
+[`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood), which
+re-installs this extension from a pinned adrkit commit into a real Spec Kit
+project on every push and weekly, across all three declared upstream versions —
+41 self-verifying, fail-closed assertions each. The gate was observed failing on
+a deliberate divergence before being trusted. Evidence index:
+[`docs/reference-verification-spec-kit-extension.md`](../../../docs/reference-verification-spec-kit-extension.md).
+
+It is **not** externally validated (rung 3): nobody but the maintainer has run
+this in their own repository yet.
 
 ## License
 
