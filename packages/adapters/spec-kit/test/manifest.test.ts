@@ -56,6 +56,15 @@ describe('extension manifest', () => {
     expect(adr?.required).toBe(true);
   });
 
+  test('declares catalog metadata honestly', () => {
+    // `specify extension info` and the community catalog surface these. The
+    // effect must describe the *most* this extension can do, not the common
+    // case: `draft` writes a record, so `read-only` would be a convenient lie
+    // even though the hook surface and two of three commands write nothing.
+    expect(manifest.extension.category).toBe('process');
+    expect(manifest.extension.effect).toBe('read-write');
+  });
+
   test('provides exactly the three intended commands', () => {
     // Pinning the exact set is what makes every per-command loop below
     // meaningful: a manifest that lost its commands fails here first, instead

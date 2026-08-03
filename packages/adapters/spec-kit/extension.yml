@@ -18,6 +18,12 @@ extension:
   repository: "https://github.com/mbeacom/adrkit"
   license: "Apache-2.0"
   homepage: "https://adrkit.dev"
+  # Consumed by `specify extension info` and the community catalog. `effect` is
+  # `read-write` because `draft` writes one record — even though the hook surface
+  # and two of three commands write nothing. Claiming `read-only` for the
+  # majority case would be the convenient answer, not the true one.
+  category: "process"
+  effect: "read-write"
 
 requires:
   speckit_version: ">=0.13.0,<0.16.0"

@@ -32,6 +32,8 @@ export interface ExtensionManifest {
     repository: string;
     license: string;
     homepage?: string;
+    category?: string;
+    effect?: string;
   };
   requires: {
     speckit_version: string;
