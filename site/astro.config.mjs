@@ -62,6 +62,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Use in CI', slug: 'ci' },
 						{ label: 'MCP setup', slug: 'mcp' },
+						{ label: 'Spec Kit extension', slug: 'spec-kit' },
 					],
 				},
 				{

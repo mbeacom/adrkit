@@ -21,16 +21,18 @@ hero:
 			<span class="adr-status adr-status--current">Published · v0.3.0</span>
 			<p>
 				<code>@adrkit/core</code>, <code>@adrkit/cli</code>,
-				<code>@adrkit/evaluator</code>, and <code>@adrkit/mcp</code> are on npm;
-				the CI Action ships at <code>mbeacom/adrkit/packages/ci@v0</code>.
+				<code>@adrkit/evaluator</code>, and <code>@adrkit/mcp</code> are on npm,
+				plus the independently versioned <code>@adrkit/spec-kit</code>
+				extension; the CI Action ships at
+				<code>mbeacom/adrkit/packages/ci@v0</code>.
 			</p>
 		</div>
 		<div class="adr-status-band__item">
 			<span class="adr-status adr-status--current">Works today</span>
 			<p>
 				Corpus validation, path explanation, graphing, migration, the ARB
-				queue, PR comments, the read-only MCP server, and the deterministic
-				Pass 0 evaluator.
+				queue, PR comments, the read-only MCP server, the Spec Kit
+				extension, and the deterministic Pass 0 evaluator.
 			</p>
 		</div>
 		<div class="adr-status-band__item">
@@ -155,9 +157,10 @@ hero:
 		<header class="adr-section-heading">
 			<h2 id="roadmap">Shipped, and honestly still ahead.</h2>
 			<p>
-				The surfaces once listed here as planned have shipped in v0.2.0. What
-				remains is stated plainly — no item claims more than the repository
-				proves.
+				The surfaces once listed here as planned have shipped — the CI
+				comment, agent retrieval, and Pass 0 in v0.2.0, and the Spec Kit
+				extension since, on its own version line. What remains is stated
+				plainly — no item claims more than the repository proves.
 			</p>
 		</header>
 
@@ -188,6 +191,15 @@ hero:
 				</p>
 			</li>
 			<li class="adr-roadmap__item">
+				<span class="adr-status adr-status--current">Works today</span>
+				<h3>Spec-driven planning</h3>
+				<p>
+					<code>@adrkit/spec-kit</code> adds three namespaced commands to a
+					<a href="https://github.com/github/spec-kit">Spec Kit</a> project, so
+					a plan is written against the decisions that govern it.
+				</p>
+			</li>
+			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--planned">Planned</span>
 				<h3>Evaluator Passes 1–3</h3>
 				<p>
@@ -207,8 +219,9 @@ hero:
 				<span class="adr-status adr-status--planned">Open</span>
 				<h3>External validation</h3>
 				<p>
-					The ARB queue is maintainer reference-verified; ADR-0014 rung-3
-					external/community validation is still open.
+					The ARB queue and the Spec Kit extension are maintainer
+					reference-verified; ADR-0014 rung-3 external/community validation is
+					still open for both.
 				</p>
 			</li>
 		</ul>

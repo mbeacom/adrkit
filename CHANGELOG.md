@@ -121,6 +121,32 @@ against live Spec Kit, rather than reasoning about it:
   into the consuming project's `.specify/extensions/adrkit/`. Now excluded via
   `.extensionignore`, which upstream supports across the whole pinned range.
 
+### Documentation
+
+- **adrkit.dev documents the Spec Kit extension.** It had shipped, been released
+  three times, and existed nowhere on the site — no page, no sidebar entry, and
+  absent from the homepage's own list of published packages. A new
+  [Spec Kit extension](https://adrkit.dev/spec-kit/) guide joins "Use in CI" and
+  "MCP setup", covering the three commands, the optional hook and why `draft` is
+  unreachable from it, the environment-variable configuration, the tested
+  guarantees, and the honest ADR-0014 rung-2 status.
+
+- Stale versions swept out of the docs. The homepage hero still advertised
+  v0.2.1 two releases after v0.3.0 shipped; the roadmap still said "shipped in
+  v0.2.0"; the `queue@v0` pinning note explained the tag as of the v0.2.1
+  release though it has since moved to the v0.3.0 commit; and the bug-report
+  template suggested `0.2.0` as the version to report and offered no
+  `@adrkit/spec-kit` surface to file against.
+
+- `MANIFEST.md` is an inventory again rather than a seed-bundle snapshot. It had
+  not been touched since ADR-0013 and still claimed "13 records, ids 0001–0013"
+  with statuses six records out of date, no `packages/` tree, and a "not
+  included — add at repo creation" list of files that have existed for months.
+
+- `CLAUDE.md` documents `packages/adapters/spec-kit`, including the constraints
+  that have already been broken once each: the two version fields that must
+  agree, the independent release tag, and the no-dependencies/no-`dist` rule.
+
 ## [0.3.0] - 2026-07-31
 
 ### Added

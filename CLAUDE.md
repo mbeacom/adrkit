@@ -4,7 +4,8 @@ Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
 Status: early — phases 0–6 landed and v0.3.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
-`check`, `migrate --from madr`, `evaluate`) are published on npm; the
+`check`, `queue`, `migrate --from madr`, `evaluate`) are published on npm, as is
+the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.2); the
 repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
 The published `@adrkit/mcp` server has exactly four local stdio tools and serves
 **both** MCP protocol eras over one stdio connection — `2026-07-28` (stateless;
@@ -28,6 +29,42 @@ evidence ladder — unit/contract/conformance plus maintainer-owned isolated
 reference-repository validation ([`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood),
 queue Action pinned at `efef89b`). It is **not** yet externally validated; the
 rung-3 external/community signal is tracked honestly as open.
+
+## The Spec Kit extension (`packages/adapters/spec-kit`)
+
+`@adrkit/spec-kit` is the first package under `packages/adapters/*` and the
+second distribution surface
+([ADR-0003](./docs/adr/0003-ship-as-spec-kit-extension.md)). It adds three
+namespaced commands to a [Spec Kit](https://github.com/github/spec-kit) project
+— `/speckit.adrkit.context`, `/speckit.adrkit.check`, `/speckit.adrkit.draft` —
+plus one **optional** `after_plan` hook that offers to run the check. Pinned to
+Spec Kit `>=0.13.0,<0.16.0`, verified against 0.13.0, 0.14.4, and 0.15.1.
+Authorized by
+[ADR-0019](./docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md).
+**Landed / reference-verified** on ADR-0014 rungs 1–2; rung 3 open.
+
+Things that are load-bearing and easy to break:
+
+- **It is versioned independently** of the lockstep surface, per
+  [ADR-0007](./docs/adr/0007-adapter-isolation-and-public-surface-build.md) — its
+  semver contract is with Spec Kit, not with `@adrkit/core`. It releases on its
+  own `spec-kit-v<semver>` tag (see [`docs/RELEASING.md`](./docs/RELEASING.md)),
+  currently **0.1.2**, and does **not** move with the repository version.
+- **Two version fields must agree**: `package.json` (npm) and `extension.yml`
+  (Spec Kit). A test asserts they match — 0.1.1 shipped with them diverged and
+  told every user the wrong version.
+- **It ships no `dist` and declares no dependencies**, not even dev ones.
+  `specify extension add --dev` copies the directory verbatim, and a single
+  declared dependency is enough for Bun's isolated linker to create a
+  `node_modules/` here that then lands in someone else's repo or aborts their
+  install. `LICENSE` and `NOTICE` are committed rather than generated for the
+  same reason. Enforced by `test/packaging.test.ts`.
+- **Hooks can only reach commands that do not write.** `draft` is the only
+  writing command and is unreachable from any hook, by test.
+- `packages/core`, `packages/cli`, and `schema/` import nothing from
+  `packages/adapters/*`; CI enforces this, and the rule has been observed
+  failing against a deliberately introduced violation
+  ([ADR-0016](./docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
 
 ## `adr queue`
 
