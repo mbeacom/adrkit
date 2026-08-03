@@ -51,6 +51,20 @@ export function shouldPublishArtifact(
   return false;
 }
 
+/**
+ * The tag a manifest must be published from.
+ *
+ * Split out so it is testable: the assertion used to rebuild `v${version}`
+ * inline, which is right for a lockstep release and silently wrong for an
+ * adapter released under `spec-kit-v0.1.0`.
+ */
+export function assertPublishTag(manifest: ReleaseManifest, refName: string | undefined): void {
+  assert(
+    refName === manifest.tag,
+    `Tag ${refName ?? '(missing)'} must match ${manifest.tag}`,
+  );
+}
+
 export function publishEnvironment(
   packageName: string,
   source: Record<string, string | undefined> = Bun.env,
@@ -99,10 +113,10 @@ export async function publishRelease(args = Bun.argv.slice(2)): Promise<void> {
   if (!dryRun) {
     assert(Bun.env.GITHUB_ACTIONS === 'true', 'Real publication is restricted to GitHub Actions');
     assert(Bun.env.GITHUB_REF_TYPE === 'tag', 'Real publication requires a tag workflow');
-    assert(
-      Bun.env.GITHUB_REF_NAME === `v${manifest.version}`,
-      `Tag ${Bun.env.GITHUB_REF_NAME ?? '(missing)'} must match v${manifest.version}`,
-    );
+    // The manifest carries its own tag: a lockstep release publishes from
+    // `v0.3.0`, an adapter from `spec-kit-v0.1.0`. Rebuilding the expected tag
+    // from the version here would silently reintroduce the lockstep assumption.
+    assertPublishTag(manifest, Bun.env.GITHUB_REF_NAME);
   }
 
   for (const artifact of manifest.artifacts) {

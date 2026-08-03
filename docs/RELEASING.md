@@ -121,6 +121,63 @@ being cut. An unrecorded advisory, or a recorded one whose observed version has
 moved, is a release blocker until the record is refreshed or the exposure is
 removed.
 
+## Adapter releases (independently versioned packages)
+
+Adapters under `packages/adapters/*` are versioned independently — ADR-0007:
+"Their semver contract is with their upstream, not with our core." They release
+independently too, because the alternative is republishing four unchanged
+packages under a new version every time an adapter needs a fix for an upstream
+change, which makes "versioned independently" true of the number and false of
+everything that matters.
+
+| | Lockstep release | Adapter release |
+|---|---|---|
+| Tag | `v0.3.0` | `spec-kit-v0.1.0` |
+| Packages | core, evaluator, CLI, MCP (+ any adapter riding along) | exactly one adapter |
+| Installed-tarball smoke | runs | skipped — the smoke project imports the lockstep surface, and an adapter that ships no JavaScript has nothing for it to import |
+| `packages/ci/queue@v0` Action tag | updated | untouched |
+| GitHub release | created | created |
+
+The tag form is `<slug>-v<semver>`, where the slug is the package name after the
+scope. `@adrkit/spec-kit` → `spec-kit-v0.1.0`. The workflow derives the release
+scope from the tag and fails on an unrecognized one.
+
+To cut an adapter release:
+
+```sh
+# 1. Confirm the adapter's own version in its package.json is what you intend.
+#    It does not move with the repository version.
+git switch main && git pull
+
+# 2. Dry-run the exact pack the workflow will perform.
+bun run release:pack -- --only @adrkit/spec-kit --tag spec-kit-v0.1.0
+
+# 3. Tag and push. The Release workflow does the rest.
+git tag spec-kit-v0.1.0
+git push origin spec-kit-v0.1.0
+```
+
+`release-pack` validates **every** package's manifest regardless of scope — an
+adapter release is still a good moment to notice the lockstep surface drifted —
+but narrows what is packed, and requires the tag to match the adapter's own
+version. Publishing remains idempotent per artifact: an adapter already on the
+registry at matching integrity is skipped rather than republished.
+
+### First publish of a new adapter name
+
+npm Trusted Publishing cannot be configured for a package name that does not
+exist yet, so the very first publish needs a credential:
+
+1. Add `NPM_BOOTSTRAP_TOKEN` to the `npm` environment — a granular token with
+   publish rights for the `@adrkit` scope.
+2. Add the package name to `BOOTSTRAP_PACKAGES` in `scripts/release-publish.ts`.
+   It is scrubbed from every other package's environment.
+3. Release.
+4. Configure Trusted Publishing for the new name on npmjs.com.
+5. **Remove the name from `BOOTSTRAP_PACKAGES` and delete the secret.** Leaving
+   either in place hands a long-lived token to a package that no longer needs
+   one.
+
 ## One-time npm bootstrap (completed for v0.1.0)
 
 The npm scope and packages must exist before Trusted Publishers can be attached.

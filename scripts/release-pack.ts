@@ -58,7 +58,42 @@ export type ReleaseVersioning = 'lockstep' | 'independent';
 
 export interface ReleaseManifest {
   version: string;
+  /**
+   * The exact tag this release must be published from. Carried explicitly rather
+   * than rebuilt as `v${version}` downstream, because an independently versioned
+   * adapter releases under its own tag and that string is no longer derivable
+   * from the release version alone.
+   */
+  tag: string;
   artifacts: ReleaseArtifact[];
+}
+
+/**
+ * The tag a package releases under.
+ *
+ * Lockstep packages share the repository tag, `v0.3.0`. An adapter releases on
+ * its own, `spec-kit-v0.1.0`, so that shipping a fix for a Spec Kit change does
+ * not require republishing four unchanged packages under a new version — which
+ * would make "versioned independently" true of the number and false of
+ * everything that matters.
+ */
+export function releaseTagFor(definition: ReleasePackageDefinition, version: string): string {
+  if (definition.versioning === 'lockstep') return `v${version}`;
+  const slug = definition.name.split('/')[1];
+  assert(slug, `Cannot derive a release tag slug from ${definition.name}`);
+  return `${slug}-v${version}`;
+}
+
+/** Resolve `--only` to its definition, or undefined for a full lockstep release. */
+export function resolveOnly(only: string | undefined): ReleasePackageDefinition | undefined {
+  if (!only) return undefined;
+  const definition = RELEASE_PACKAGES.find((candidate) => candidate.name === only);
+  assert(definition, `--only ${only} is not a release package`);
+  assert(
+    definition.versioning === 'independent',
+    `--only is for independently versioned packages; ${only} is lockstep and releases with the repository tag`,
+  );
+  return definition;
 }
 
 export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
@@ -185,6 +220,7 @@ export function findWorkspaceProtocols(value: unknown, path = 'package.json'): s
 export function validateSourceManifests(
   manifests: ReadonlyMap<string, PackageManifest>,
   tag?: string,
+  only?: ReleasePackageDefinition,
 ): string {
   const lockstepVersions = new Set<string>();
   let sawLockstep = false;
@@ -237,7 +273,16 @@ export function validateSourceManifests(
   );
   const [version] = lockstepVersions;
   assert(version, 'Release version is missing');
-  if (tag) assert(tag === `v${version}`, `Release tag ${tag} must match package version v${version}`);
+
+  // Every manifest is validated above regardless of scope — an adapter-only
+  // release is still a good moment to notice that the lockstep surface drifted.
+  // Only the tag expectation narrows.
+  if (tag) {
+    const expected = only
+      ? releaseTagFor(only, versionFor(only, manifests, version))
+      : `v${version}`;
+    assert(tag === expected, `Release tag ${tag} must be ${expected}`);
+  }
   return version;
 }
 
@@ -284,11 +329,13 @@ function parseArguments(args: readonly string[]): {
   skipBuild: boolean;
   skipSmokeInstall: boolean;
   tag?: string;
+  only?: string;
 } {
   let outputDir = DEFAULT_OUTPUT_DIR;
   let skipBuild = false;
   let skipSmokeInstall = false;
   let tag: string | undefined;
+  let only: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === '--skip-build') {
@@ -299,6 +346,10 @@ function parseArguments(args: readonly string[]): {
       tag = args[index + 1];
       assert(tag, '--tag requires a value');
       index += 1;
+    } else if (argument === '--only') {
+      only = args[index + 1];
+      assert(only, '--only requires a value');
+      index += 1;
     } else if (argument === '--output') {
       const value = args[index + 1];
       assert(value, '--output requires a value');
@@ -308,7 +359,7 @@ function parseArguments(args: readonly string[]): {
       throw new Error(`Unknown release-pack argument: ${argument}`);
     }
   }
-  return { outputDir, skipBuild, skipSmokeInstall, tag };
+  return { outputDir, skipBuild, skipSmokeInstall, tag, only };
 }
 
 async function tarEntries(tarball: string): Promise<string[]> {
@@ -500,7 +551,11 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
       await readJson<PackageManifest>(join(RELEASE_ROOT, definition.directory, 'package.json')),
     );
   }
-  const version = validateSourceManifests(sourceManifests, options.tag);
+  const only = resolveOnly(options.only);
+  const version = validateSourceManifests(sourceManifests, options.tag, only);
+  // Scope narrows what is packed and published; it never narrows what is
+  // validated.
+  const selected = only ? [only] : RELEASE_PACKAGES;
 
   if (!options.skipBuild) {
     await run([process.execPath, 'run', 'build'], RELEASE_ROOT, 'building release packages');
@@ -513,7 +568,7 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
     return versionFor(definition, sourceManifests, version);
   };
 
-  for (const definition of RELEASE_PACKAGES) {
+  for (const definition of selected) {
     const packageVersion = versionFor(definition, sourceManifests, version);
     const filename = `${definition.name.slice(1).replace('/', '-')}-${packageVersion}.tgz`;
     const packageDir = join(RELEASE_ROOT, definition.directory);
@@ -550,10 +605,18 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
     });
   }
 
-  const manifest: ReleaseManifest = { version, artifacts };
+  const releaseVersion = only ? versionFor(only, sourceManifests, version) : version;
+  const tag = only ? releaseTagFor(only, releaseVersion) : `v${version}`;
+  const manifest: ReleaseManifest = { version: releaseVersion, tag, artifacts };
   await Bun.write(join(npmDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-  if (!options.skipSmokeInstall) await prepareSmokeProject(options.outputDir, artifacts);
-  console.log(`release-pack: prepared ${artifacts.length} packages at v${version}`);
+
+  // The smoke project imports the lockstep surface, so it is meaningless for an
+  // adapter-only release — and an adapter that ships no JavaScript has nothing
+  // for it to import in the first place.
+  if (!options.skipSmokeInstall && !only) {
+    await prepareSmokeProject(options.outputDir, artifacts);
+  }
+  console.log(`release-pack: prepared ${artifacts.length} package(s) for ${tag}`);
   return manifest;
 }
 

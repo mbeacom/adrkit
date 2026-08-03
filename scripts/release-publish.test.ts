@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  assertPublishTag,
   existingIntegrity,
   publishEnvironment,
   shouldPublishArtifact,
@@ -53,6 +54,21 @@ describe('release registry safety', () => {
     expect(() => shouldPublishArtifact(artifact, 'sha512-other')).toThrow(
       'already exists with different integrity',
     );
+  });
+
+  test('requires the exact tag the manifest names, not one rebuilt from the version', () => {
+    // A lockstep manifest and an adapter manifest can carry the same version and
+    // still require different tags. Deriving the expectation from the version
+    // would accept the wrong tag for the adapter.
+    const lockstep = { version: '0.3.0', tag: 'v0.3.0', artifacts: [] };
+    const adapter = { version: '0.1.0', tag: 'spec-kit-v0.1.0', artifacts: [] };
+
+    expect(() => assertPublishTag(lockstep, 'v0.3.0')).not.toThrow();
+    expect(() => assertPublishTag(adapter, 'spec-kit-v0.1.0')).not.toThrow();
+
+    expect(() => assertPublishTag(adapter, 'v0.1.0')).toThrow('must match spec-kit-v0.1.0');
+    expect(() => assertPublishTag(lockstep, 'spec-kit-v0.3.0')).toThrow('must match v0.3.0');
+    expect(() => assertPublishTag(adapter, undefined)).toThrow('(missing)');
   });
 
   test('keeps bootstrap credentials out of existing package publishes', () => {

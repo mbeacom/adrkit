@@ -3,6 +3,8 @@ import {
   RELEASE_PACKAGES,
   findWorkspaceProtocols,
   validatePackedManifest,
+  releaseTagFor,
+  resolveOnly,
   validateSourceManifests,
   versionFor,
   type PackageManifest,
@@ -86,6 +88,50 @@ describe('release package validation', () => {
         version: definition.versioning === 'lockstep' ? '0.1.0' : '9.9.9',
       });
     }
+  });
+
+  test('lockstep packages release under the repository tag', () => {
+    for (const definition of RELEASE_PACKAGES.filter((d) => d.versioning === 'lockstep')) {
+      expect({ name: definition.name, tag: releaseTagFor(definition, '0.3.0') }).toEqual({
+        name: definition.name,
+        tag: 'v0.3.0',
+      });
+    }
+  });
+
+  test('an adapter releases under its own slugged tag', () => {
+    const adapters = RELEASE_PACKAGES.filter((d) => d.versioning === 'independent');
+    expect(adapters.length).toBeGreaterThan(0);
+    for (const definition of adapters) {
+      const slug = definition.name.split('/')[1];
+      expect({ name: definition.name, tag: releaseTagFor(definition, '0.1.0') }).toEqual({
+        name: definition.name,
+        tag: `${slug}-v0.1.0`,
+      });
+    }
+  });
+
+  test('--only accepts an adapter and rejects a lockstep package', () => {
+    const adapter = RELEASE_PACKAGES.find((d) => d.versioning === 'independent')!;
+    expect(resolveOnly(adapter.name)?.name).toBe(adapter.name);
+    expect(resolveOnly(undefined)).toBeUndefined();
+
+    const lockstep = RELEASE_PACKAGES.find((d) => d.versioning === 'lockstep')!;
+    expect(() => resolveOnly(lockstep.name)).toThrow('is lockstep');
+    expect(() => resolveOnly('@adrkit/does-not-exist')).toThrow('is not a release package');
+  });
+
+  test('the expected tag follows the release scope', () => {
+    const adapter = RELEASE_PACKAGES.find((d) => d.versioning === 'independent')!;
+    const manifests = alignedManifests('0.1.0');
+
+    // Scoped to the adapter: its own tag is required, the repository tag is not.
+    expect(validateSourceManifests(manifests, 'spec-kit-v9.9.9', adapter)).toBe('0.1.0');
+    expect(() => validateSourceManifests(manifests, 'v0.1.0', adapter)).toThrow('must be spec-kit-v9.9.9');
+
+    // Unscoped: the repository tag is required, the adapter's is not.
+    expect(validateSourceManifests(manifests, 'v0.1.0')).toBe('0.1.0');
+    expect(() => validateSourceManifests(manifests, 'spec-kit-v9.9.9')).toThrow('must be v0.1.0');
   });
 
   test('a package shipping no Node artifact may not publish dist', () => {

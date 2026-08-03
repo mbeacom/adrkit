@@ -3,7 +3,13 @@ name: Release
 on:
   push:
     tags:
+      # Lockstep release: core, evaluator, CLI, MCP.
       - 'v*.*.*'
+      # Adapter release. Adapters are versioned independently (ADR-0007), so
+      # they release independently too — shipping a fix for an upstream change
+      # must not require republishing four unchanged packages under a new
+      # version.
+      - 'spec-kit-v*.*.*'
 
 concurrency:
   group: release-${{ github.repository }}
@@ -18,6 +24,25 @@ jobs:
       contents: write # gh release create + force-push the major Action tag
       id-token: write # npm Trusted Publishing (OIDC provenance)
     steps:
+      - name: Resolve release scope from the tag
+        id: scope
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            v*.*.*)
+              echo "adapter=" >> "$GITHUB_OUTPUT"
+              echo "lockstep=true" >> "$GITHUB_OUTPUT"
+              ;;
+            spec-kit-v*.*.*)
+              echo "adapter=@adrkit/spec-kit" >> "$GITHUB_OUTPUT"
+              echo "lockstep=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unrecognized release tag: $GITHUB_REF_NAME" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -60,14 +85,24 @@ jobs:
           bun run adr lint
 
       - name: Pack release artifacts
-        run: bun run release:pack -- --tag "$GITHUB_REF_NAME" --skip-build
+        env:
+          ADAPTER: ${{ steps.scope.outputs.adapter }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ADAPTER" ]; then
+            bun run release:pack -- --tag "$GITHUB_REF_NAME" --skip-build --only "$ADAPTER"
+          else
+            bun run release:pack -- --tag "$GITHUB_REF_NAME" --skip-build
+          fi
 
       - name: Set up Node 22 for installed-tarball smoke
+        if: steps.scope.outputs.lockstep == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22
 
       - name: Smoke installed tarballs on Node 22
+        if: steps.scope.outputs.lockstep == 'true'
         run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
       - name: Set up Node 24 for smoke and npm Trusted Publishing
@@ -77,9 +112,11 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Smoke installed tarballs on Node 24
+        if: steps.scope.outputs.lockstep == 'true'
         run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
       - name: Smoke installed tarballs on Bun
+        if: steps.scope.outputs.lockstep == 'true'
         run: bun .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
       - name: Publish npm packages with provenance
@@ -103,6 +140,10 @@ jobs:
           fi
 
       - name: Update the major Action tag
+        # `packages/ci/queue@v0` tracks the lockstep surface. An adapter release
+        # neither builds nor changes it, and moving it would misreport which
+        # commit the Action points at.
+        if: steps.scope.outputs.lockstep == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

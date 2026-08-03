@@ -62,6 +62,15 @@ Until `1.0.0`, minor releases may include breaking changes
   Workspace dependencies also now resolve against the dependency's own version
   rather than the depender's.
 
+- **Adapter releases.** Independently versioned packages now release on their own
+  tag (`spec-kit-v0.1.0`) rather than riding a lockstep release. Without this,
+  shipping an adapter fix would mean republishing core, evaluator, CLI, and MCP
+  under a new version despite no change to any of them — which would make
+  ADR-0007's "versioned independently" true of the number and false of everything
+  that matters. `release-pack` gains `--only`, the release manifest carries its
+  own `tag`, and the workflow derives scope from the tag: installed-tarball
+  smoke and the `packages/ci/queue@v0` Action tag are lockstep-only.
+
 ### Changed
 
 - ADR-0007's `core-has-no-adapter-deps` assertion is no longer vacuous. It had
