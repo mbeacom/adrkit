@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0020"
 title: Rescope SC-010 and authorize work toward the Backstage catalog adapter
-status: proposed
+status: accepted
 date: 2026-08-03
 deciders: ["@mbeacom"]
 tags: [catalog, governance, evidence, integration, strategy]
@@ -17,6 +17,7 @@ affects:
     pattern: "specs/009-catalog-binding-viability/spec.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -68,6 +69,31 @@ reviewBy: 2027-08-03
 ---
 
 # ADR-0020: Rescope SC-010 and authorize work toward the Backstage catalog adapter
+
+> **Status: `accepted`, ratified by `@mbeacom` on 2026-08-04.** This record
+> rescopes SC-010 and authorizes implementation work toward
+> `packages/adapters/catalog-backstage`. It does **not** authorize releasing the
+> adapter: release is deferred to a later record, gated on clause 5 and on
+> ADR-0012 gates 3 and 4, of which gate 3 is open.
+>
+> **How this record was ratified, and what was open at the time.** The maintainer
+> ratified it by instruction during an agent session, delegating the mechanical
+> edit rather than typing it. `ratifiedBy` names the deciding human, which is
+> accurate; the manner is recorded here because it is not otherwise checkable
+> from the repository, and because this is the first record ratified that way.
+>
+> Two things were knowingly open at ratification, and neither was treated as
+> resolved. **Round 4's own corrections had not been independently reviewed** —
+> across four rounds and eight reviews every round found at least one substantive
+> defect, three of them in the accept-path gate, each created by the previous
+> round's fix to it, so a further round would more likely than not find
+> something. And the earlier stated standard ("stop after round 3 if it is
+> clean") was **not** met on its own terms, because round 3 was not clean. The
+> maintainer overrode that standard deliberately. The decision clauses and the
+> SC-010 warrant have been stable since round 3; every finding after it landed on
+> the *enforceability* of clause 5 rather than on the warrant. Ratifying on that
+> basis is a judgement about where the remaining risk sits, not a claim that the
+> record is defect-free.
 
 ## Context
 
@@ -610,7 +636,8 @@ Four rounds, eight reviews, and every round found at least one substantive defec
 — three of them in the accept-path gate, each created by the previous round's fix
 to it. Review rounds here are not reliably convergent, and the ratification
 standard is the maintainer's to set rather than inherit. Round 4's own
-corrections have not themselves been reviewed.
+corrections have not themselves been reviewed; the record was ratified in that
+state, deliberately and on the record, as the banner above sets out.
 
 ## Action items
 
