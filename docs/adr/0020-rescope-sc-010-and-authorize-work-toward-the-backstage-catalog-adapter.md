@@ -38,13 +38,23 @@ assertions:
       maintainer-authored overlay and is NOT contingent on third-party adoption;
       no descriptor in the pinned corpora carries the annotation, so requiring an
       externally-authored one would gate release on external adoption, which
-      ADR-0014 forbids. The corpus, its overlay and its expected path matches
-      must be frozen and independently audited before any generator output is
-      produced, in the same cycle as the ADR-0012 gate 3 reference oracle. A
-      corpus in which every entity is annotation-absent does not satisfy this,
-      because it yields a populated envelope while exercising none of the
-      ownership derivation. Wholly synthetic entities do not satisfy it either;
-      spike 009 already proved that path.
+      ADR-0014 forbids. Two distinct steps are required, each recording its own
+      hashes and its own PASS/FAIL. Before any generator output is produced, the
+      corpus, its overlay, its expected path matches, and its recorded selection
+      basis and size are frozen and independently audited in the same cycle as
+      the ADR-0012 gate 3 reference oracle, and that audit must record an
+      explicit finding that the corpus is adequate for the claim being made; no
+      minimum entity count is fixed, because ADR-0012 requires production limits
+      be ratified from evidence rather than guessed. After the run, the
+      generator's derived ownership for every annotated entity is diffed against
+      those frozen expectations and must match with zero false positives and zero
+      false negatives; any mismatch fails this assertion, and the expectations
+      are never amended to fit the output. A populated envelope alone does not
+      satisfy this, because a digest proves integrity and not correctness. A
+      corpus in which every entity is annotation-absent does not satisfy it
+      either, because it yields a populated envelope while exercising none of the
+      ownership derivation. Nor do wholly synthetic entities; spike 009 already
+      proved that path.
     engine: custom
     expression: catalog-adapter-accept-path-needs-annotated-real-corpus
     input: catalog
@@ -276,7 +286,28 @@ releasing the adapter.**
    cycle, before any generator output is produced.** A one-off overlay on a
    hand-picked descriptor, audited by nobody, does not satisfy this clause. The
    corpus's selection basis and size are fixed and recorded in that same cycle,
-   not chosen afterwards.
+   not chosen afterwards, and **that audit must record an explicit finding that
+   the corpus is adequate for the claim being made**; an audit that passes on
+   integrity without reaching adequacy does not satisfy this clause. No minimum
+   entity count is fixed here, deliberately: ADR-0012 holds that production
+   limits are "**not** guessed now; they must be ratified from evidence," so
+   adequacy is a recorded judgement by an independent reviewer against the frozen
+   corpus, never a number invented by this record.
+
+   **Freezing the expected paths is not enough; the output must be compared
+   against them.** A populated, digest-verified envelope proves integrity, not
+   correctness — a semantically wrong envelope can carry a perfectly valid
+   self-digest. The gate is met only when the generator's derived ownership for
+   every annotated entity is diffed against the frozen expectations and matches
+   with **zero false positives and zero false negatives**; any mismatch fails the
+   gate, and the expectations are never amended to fit the output. This is the
+   standard ADR-0012 already names as production-readiness evidence — "bounded
+   zero false positives/negatives across positive/negative/overlap/absent/
+   collision/repo-mismatch cases" — and it is stated explicitly here because
+   spike 009's own oracle was, on its evidence index's admission, "not an
+   executed test harness": expectations were frozen and then never diffed against
+   anything. The pre-output freeze/audit and the post-output comparison are two
+   distinct steps, each recording its own hashes and its own PASS/FAIL.
 
    What that construction buys, and what it does not: it exercises the ownership
    derivation against real descriptor structure and real field shapes, at
@@ -450,8 +481,8 @@ unconditional green would deserve the suspicion.
 ## Review history
 
 Two independent adversarial reviews from fresh contexts, across two model
-lineages, over two rounds before ratification. The second round was bounded to
-the diff the first produced.
+lineages, over four rounds before ratification — eight reviews in total. Each
+round after the first was bounded to the diff the round before it produced.
 
 **Round 1: both returned FAIL.** Every finding was accepted; none was argued
 away.
@@ -536,9 +567,50 @@ Trade-offs section now states plainly that adoption is entirely ungated and the
 adapter could clear every gate here and release into zero demand.
 
 Three rounds found substantive defects in every round, and in two of three the
-defect was created by the previous round's correction. Review rounds here are not
-reliably convergent, and the ratification standard is the maintainer's to set
-rather than inherit.
+defect was created by the previous round's correction.
+
+**Round 4 split: one PASS, one FAIL — and the FAIL prevailed on the merits.**
+The PASS verified every round-3 correction against source, checked the assertion
+line-by-line against clause 5, and cleared the circularity question (the gating
+is a partial order: freeze/audit → generator output → gates → release decision).
+But it never asked the question the FAIL asked, and that question found the
+sharpest defect of the whole process: **clause 5 froze the expected paths and
+then never required anything to be compared against them.** A populated,
+digest-verified envelope proves integrity, not correctness; a semantically wrong
+envelope carries a perfectly valid self-digest. The gate could have been cleared
+by output that was simply wrong. Worse, this reproduced a defect the record was
+written to avoid — spike 009's own oracle was, on its evidence index's
+admission, "not an executed test harness," expectations frozen and never diffed.
+Clause 5 now requires a post-output comparison at zero false positives and zero
+false negatives, the standard ADR-0012 already names, as a step distinct from the
+pre-output audit.
+
+The same review found that "at least one annotated entity … a floor rather than a
+target" set no enforceable adequacy bar, so an audited single hand-picked
+descriptor still satisfied the letter. The defect is accepted; its proposed
+remedy — fix an exact minimum count — is **not**, because ADR-0012 requires that
+production limits "must be ratified from evidence" rather than guessed, and
+inventing a number here would breach the record it relies on. Instead the
+independent audit must now record an explicit adequacy finding, which converts an
+aspiration into a named judgement by a named party without guessing a threshold.
+
+Both reviews also considered whether the frontmatter assertion had drifted from
+clause 5 again, and **disagreed**. The PASS found the assertion "less detailed …
+but asserts nothing the body denies" and cleared it. The FAIL held that an
+assertion omitting the body's selection-basis and size controls is enforceable
+as written and therefore weaker than the clause it encodes. The FAIL was upheld:
+clause 8 designates this assertion as the rule a future CI gate compiles from, so
+"less detailed" is precisely the defect, and the PASS's own round-3 review had
+demanded the assertion be self-contained. The drafting session had independently
+found the same omission before either review returned. The assertion now carries
+the selection basis, the size, the adequacy finding and the post-output
+comparison.
+
+Four rounds, eight reviews, and every round found at least one substantive defect
+— three of them in the accept-path gate, each created by the previous round's fix
+to it. Review rounds here are not reliably convergent, and the ratification
+standard is the maintainer's to set rather than inherit. Round 4's own
+corrections have not themselves been reviewed.
 
 ## Action items
 
@@ -550,12 +622,16 @@ rather than inherit.
        third-party descriptors, admissible, collision-free, carrying a
        maintainer-authored `adrkit.io/owned-paths` overlay with expected paths
        fixed in advance — as part of the same T014 → T014a cycle as action item
-       2, and record its selection basis and size
-4. [ ] Build the clause-5 release gate as an executable CI check, and observe it
+       2, recording its selection basis and size and an explicit adequacy finding
+4. [ ] After the run, diff the generator's derived ownership for every annotated
+       entity against those frozen expectations, requiring zero false positives
+       and zero false negatives, and record that comparison's own PASS/FAIL
+       separately from the pre-output audit (clause 5)
+5. [ ] Build the clause-5 release gate as an executable CI check, and observe it
        failing before trusting it (ADR-0016)
-5. [ ] Enforce the ADR-0007 isolation boundary for the new package with a check
+6. [ ] Enforce the ADR-0007 isolation boundary for the new package with a check
        observed failing first
-6. [ ] Clear ADR-0012 gate 4 (clean-clone / offline / adapter-boundary / release
+7. [ ] Clear ADR-0012 gate 4 (clean-clone / offline / adapter-boundary / release
        evidence) once the package exists
-7. [ ] Decide release authorization and release vehicle in their own record, once
+8. [ ] Decide release authorization and release vehicle in their own record, once
        clause 5 and ADR-0012 gates 3 and 4 are all met — not here
