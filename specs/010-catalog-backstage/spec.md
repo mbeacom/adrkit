@@ -882,7 +882,42 @@ run build, typecheck, lint, test, and one generator invocation, and confirm all 
 
 #### Consumer-side validation before derivation
 
-- **FR-044**: Before deriving anything from an envelope, the consumer MUST apply the **five**
+**Where the consumer lives.** The envelope validator and `CatalogSnapshot`
+deriver live in their **own workspace package**, separate from both the adapter
+and `@adrkit/core` — working name `@adrkit/catalog-envelope`. Three constraints
+converge on that placement and none of them is satisfied by any other home:
+
+- It is **not** the adapter. **ADR-0020** clause 7 states "the generator writes
+  the envelope and nothing else."
+- It is **not** `@adrkit/core` or `@adrkit/cli`. **ADR-0007** and Constitution
+  Principle III keep them from learning an adapter exists, and
+  [`composition-and-release-boundary.md`](../009-catalog-binding-viability/contracts/composition-and-release-boundary.md)
+  §2 says they "receive only an already-validated `CatalogSnapshot`-shaped
+  artifact" — an artifact they consume, not a format they parse.
+- It is **not** `schema/`. **ADR-0012** and FR-005 keep the envelope out of the
+  published schema, which is `schema/adr.schema.json`, the canonical ADR JSON
+  Schema hosted at its `$id` per **ADR-0011**. That constraint is about the ADR
+  schema specifically and is unaffected by a separate package validating
+  envelopes.
+
+Constitution Principle III permits this directly: `@adrkit/core` and
+`@adrkit/cli` "MUST depend only on the filesystem, **their own workspace
+packages**, and a small set of vetted, deterministic, network-free,
+credential-free public libraries." A sibling workspace package is an explicitly
+permitted dependency, and because it sits outside `packages/adapters/**` the
+`core-has-no-adapter-deps` check is satisfied by construction rather than by
+exception.
+
+- **FR-044**: The envelope validator and `CatalogSnapshot` deriver MUST live in a
+  workspace package that is **not** under `packages/adapters/**`, MUST NOT import
+  from any adapter, and MUST NOT add the envelope to `schema/adr.schema.json`.
+  The adapter MUST NOT depend on it, and it MUST NOT depend on the adapter — the
+  envelope file is the only interface between them, exactly as
+  `composition-and-release-boundary.md` §2 requires. Its dependency direction and
+  its absence from `packages/adapters/**` MUST both be enforced by the
+  dependency-graph check, each observed failing first (**ADR-0016**).
+
+- **FR-045**: Before deriving anything from an envelope, the consumer MUST apply the **five**
   validation steps of
   [`snapshot-envelope.md`](../009-catalog-binding-viability/contracts/snapshot-envelope.md) §2 in
   order, each mapping one-to-one to a malformation kind (counted from that section's numbered
@@ -890,82 +925,82 @@ run build, typecheck, lint, test, and one generator invocation, and confirm all 
   by **exact value** — `schemaVersion`, `globDialect`, `capabilities`; (4) every `sources[]`
   digest present, correctly typed, and matching the actual bytes; (5)
   `completeness.identityOnly === false`.
-- **FR-045**: Only after all five validation steps pass may the consumer proceed to digest
+- **FR-046**: Only after all five validation steps pass may the consumer proceed to digest
   verification, then staleness evaluation, then repository-identity evaluation. No
   `derivedPaths` value may be read before all of those pass.
-- **FR-046**: Staleness MUST be evaluated as **exact inequality** of revision, never as a
+- **FR-047**: Staleness MUST be evaluated as **exact inequality** of revision, never as a
   chronological or "newer than" comparison
   ([`snapshot-envelope.md`](../009-catalog-binding-viability/contracts/snapshot-envelope.md) §4).
-- **FR-047**: An envelope whose `repository.id` does not match the consuming repository MUST be
+- **FR-048**: An envelope whose `repository.id` does not match the consuming repository MUST be
   rejected as misidentified
   ([`snapshot-envelope.md`](../009-catalog-binding-viability/contracts/snapshot-envelope.md) §5).
   Distinctly, a **valid** envelope for a different repository MUST be **accepted** as valid, with
   repository isolation expressed as the query returning no matches — isolation is a property of
   the query, not a rejection
   ([`snapshot-envelope.md`](../009-catalog-binding-viability/contracts/snapshot-envelope.md) §6).
-- **FR-048**: A `CatalogSnapshot`-shaped artifact MUST be derived from the envelope **only after**
+- **FR-049**: A `CatalogSnapshot`-shaped artifact MUST be derived from the envelope **only after**
   that envelope independently passes every validation and digest check (**ADR-0020 clause 7**,
   inheriting FR-023 of spike 009). An adapter's raw output MUST NOT be handed to core directly
   and unvalidated under any composition arrangement.
 
 #### Environment and toolchain
 
-- **FR-049**: A clean clone MUST build, typecheck, lint, and test green. Network access is
+- **FR-050**: A clean clone MUST build, typecheck, lint, and test green. Network access is
   permitted **only** during dependency installation with the committed lockfile; after install
   there MUST be no network access, no credential, and no running service required by build, test,
   or generator invocation (**Constitution Principle II**; **ADR-0007**).
-- **FR-050**: Development MUST use the Bun toolchain, and any published artifact MUST target
+- **FR-051**: Development MUST use the Bun toolchain, and any published artifact MUST target
   Node and be smoke-tested under Node, not only under Bun (**ADR-0010**). This requirement
   constrains the artifact's shape; it does not authorize publishing it (see Out of Scope).
-- **FR-051**: The generator MUST require no network, no credential, and no service at runtime,
+- **FR-052**: The generator MUST require no network, no credential, and no service at runtime,
   and MUST NOT degrade to a networked path when one is available.
 
 #### Evidence, gates, and honesty
 
-- **FR-052**: Per **ADR-0020 clause 6**, work MUST begin with a fresh T014 → T014a cycle:
+- **FR-053**: Per **ADR-0020 clause 6**, work MUST begin with a fresh T014 → T014a cycle:
   correct the `derivedPathPatterns` ordering to `compareCodeUnits`-sorted order, re-freeze,
   re-hash, and obtain a new independent pre-output audit — **before producing generator output**.
   This specification does not waive it and cannot.
-- **FR-053**: Per **ADR-0020 clause 5**, the accept corpus, its maintainer-authored
+- **FR-054**: Per **ADR-0020 clause 5**, the accept corpus, its maintainer-authored
   `adrkit.io/owned-paths` overlay, its expected path matches, and its **selection basis and size**
   MUST be frozen and independently audited within that same T014 → T014a cycle, before any
   generator output. The audit MUST record an **explicit finding that the corpus is adequate for
   the claim being made**; an audit that passes on integrity without reaching adequacy does not
   satisfy the clause.
-- **FR-054**: Per **ADR-0012** — "production limits are **not** guessed now; they must be
+- **FR-055**: Per **ADR-0012** — "production limits are **not** guessed now; they must be
   ratified from evidence" — and **ADR-0020 clause 5**, **no minimum entity count may be invented
   by this specification or by the implementation**. Adequacy is the independent auditor's
   recorded judgement against the frozen corpus.
-- **FR-055**: Per **ADR-0020 clause 5**, after generator output exists, derived ownership for
+- **FR-056**: Per **ADR-0020 clause 5**, after generator output exists, derived ownership for
   **every** annotated entity MUST be diffed against the frozen expectations and MUST match with
   **zero false positives and zero false negatives**. Any mismatch fails the gate. The
   expectations MUST NOT be amended to fit the output.
-- **FR-056**: The pre-output freeze/audit (FR-052, FR-053) and the post-output comparison
-  (FR-055) MUST be recorded as **two distinct steps, each recording its own hashes and its own
+- **FR-057**: The pre-output freeze/audit (FR-053, FR-054) and the post-output comparison
+  (FR-056) MUST be recorded as **two distinct steps, each recording its own hashes and its own
   PASS/FAIL** (**ADR-0020 clause 5**). Neither may inherit the other's verdict.
-- **FR-057**: A populated, digest-verified envelope MUST be reported as evidence of **integrity,
+- **FR-058**: A populated, digest-verified envelope MUST be reported as evidence of **integrity,
   not correctness**. No document or artifact produced under this feature may present a valid
   self-digest as evidence that the derived ownership is semantically right (**ADR-0020
   clause 5**).
-- **FR-058**: Per **ADR-0016**, no check counts as coverage until it has been **observed
+- **FR-059**: Per **ADR-0016**, no check counts as coverage until it has been **observed
   failing**, and the failing input MUST be retained as a permanent negative case. This applies to
   the adapter-isolation check (FR-003), every fatal trigger class (FR-035), every consumer
-  validation step (FR-044), and the clause-5 CI gate (FR-059).
-- **FR-059**: Per **ADR-0020 clause 8**, clause 5 MUST get an **executable CI gate tied to
+  validation step (FR-045), and the clause-5 CI gate (FR-060).
+- **FR-060**: Per **ADR-0020 clause 8**, clause 5 MUST get an **executable CI gate tied to
   release**, observed failing first. ADR-0020's own frontmatter assertion is **currently inert**:
   its `engine: custom` resolves through an optional registry port, and with no port registered
   the evaluator returns `status: 'inert'`, `reason: 'assertions-compile.engine-absent'`. It
   records the rule; it does not enforce it. This specification MUST NOT treat that assertion as
   enforcement.
-- **FR-060**: Per **ADR-0020 clause 7**, **no B/C/D comparison heuristic** from spike 009 carries
+- **FR-061**: Per **ADR-0020 clause 7**, **no B/C/D comparison heuristic** from spike 009 carries
   into production. Descriptor-parent, repository-root, and identity-only normalization MUST NOT
   appear in the adapter as inferred, authoritative, default, or opt-in ownership behavior.
-- **FR-061**: Per **ADR-0020**'s closing paragraph and **ADR-0014**, this work is authorized
+- **FR-062**: Per **ADR-0020**'s closing paragraph and **ADR-0014**, this work is authorized
   toward **rung 1 only**. Neither the package, its documentation, its tests, nor any evidence it
   produces may claim reference-verified (rung 2) or externally validated (rung 3) status. Where
   maintainer-owned verification occurs, it MUST NOT be described as external, third-party, or
   community adoption; only corpus **data** may be called third-party.
-- **FR-062**: Per **ADR-0012**'s "heuristics are not defaults" rule and **ADR-0020 clause 5**,
+- **FR-063**: Per **ADR-0012**'s "heuristics are not defaults" rule and **ADR-0020 clause 5**,
   the adapter's documentation MUST state that adoption of `adrkit.io/owned-paths` by anyone other
   than the maintainer is neither established nor gated by this feature.
 
@@ -1007,7 +1042,7 @@ The following are explicitly excluded and MUST NOT be introduced by this feature
 - Any claim, anywhere in the package or its documentation, of **ADR-0014 rung 2 or rung 3** —
   reference-verified, externally validated, adopted, or sustained adoption.
 - Any claim that this feature clears ADR-0012 gate 3, or that the clause-5 gate is met, in
-  advance of the two distinct recorded steps (FR-052 through FR-056) actually passing.
+  advance of the two distinct recorded steps (FR-053 through FR-057) actually passing.
 - **Spike 009's B/C/D comparison heuristics** (descriptor-parent, repository-root,
   identity-only), in any form — including as an opt-in, labeled, or diagnostic mode.
 - Spike 009's **evidence-bundle and three-way-verdict machinery** (`go-explicit` /
@@ -1163,7 +1198,7 @@ The following are explicitly excluded and MUST NOT be introduced by this feature
   table records gate 3 as `Unmet`: spike 009's reference oracle carries a known-wrong
   `derivedPathPatterns` ordering, recorded in input order rather than `compareCodeUnits`-sorted
   order. ADR-0020 clause 6 requires a fresh T014 → T014a cycle before any generator output. That
-  cycle is carried forward here as FR-052 and User Story 1, not resolved by this document. ADR-0015's
+  cycle is carried forward here as FR-053 and User Story 1, not resolved by this document. ADR-0015's
   Condition of Acceptance 1 notes the spike's scratch bundle is untracked, so nothing in the
   repository mechanically prevents reuse of a stale oracle copy; the control is the repeated
   clause, and this document repeats it.
@@ -1215,19 +1250,27 @@ The following are explicitly excluded and MUST NOT be introduced by this feature
   decision to release at all is made here; ADR-0020 clause 9 assigns both to a later record made
   once clause 5 and ADR-0012 gates 3 and 4 are all demonstrably met.
 
-### Open questions
+### Resolved questions
 
-- **[NEEDS CLARIFICATION: Which package owns the consumer-side envelope validation and
-  `CatalogSnapshot` derivation?]** ADR-0020 clause 7 states "the generator writes the envelope and
-  nothing else," so the adapter does not derive. ADR-0007 and Constitution Principle III state
-  that `packages/core` and `packages/cli` import nothing from `packages/adapters/**` and never
-  learn an adapter exists, and spike 009's
-  [`composition-and-release-boundary.md`](../009-catalog-binding-viability/contracts/composition-and-release-boundary.md)
-  §2 says they "receive only an already-validated `CatalogSnapshot`-shaped artifact." Meanwhile
-  ADR-0012 and FR-005 forbid the envelope becoming part of any published schema. Taken together
-  these place the validating/deriving consumer in neither the adapter nor core, and no ADR names
-  where it does live. This is load-bearing for FR-044 through FR-048 and cannot be resolved from
-  the ADRs; it requires a maintainer decision.
+- **Which package owns the consumer-side envelope validation and `CatalogSnapshot`
+  derivation?** **Resolved 2026-08-04 by maintainer decision: its own workspace package,
+  separate from both the adapter and `@adrkit/core`** (working name
+  `@adrkit/catalog-envelope`). Recorded as FR-044 and in the "Where the consumer lives"
+  note above it. ADR-0020 clause 7 places it outside the generator, ADR-0007 and
+  Constitution Principle III place it outside core and the CLI, and ADR-0012's
+  published-schema constraint is about `schema/adr.schema.json` specifically (ADR-0011),
+  which a separate validating package does not touch. Constitution Principle III
+  permits it directly — core and the CLI may depend on "their own workspace packages" —
+  and because the package sits outside `packages/adapters/**`, `core-has-no-adapter-deps`
+  is satisfied by construction rather than by exception.
+
+  Two consequences are deliberately **not** decided here and are out of scope for this
+  specification: whether the package is published or remains private to the workspace,
+  and if published, whether it versions in lockstep with the core surface or
+  independently (ADR-0007 distinguishes the two). Both belong with the release decision
+  ADR-0020 clause 9 defers.
+
+### Open questions
 
 - **[NEEDS CLARIFICATION: How, if at all, is `allRefs` populated beyond the primary
   `canonicalId` in production?]** `duplicate-canonical-ref` is a required fatal trigger class
@@ -1248,7 +1291,7 @@ The following are explicitly excluded and MUST NOT be introduced by this feature
   given that ADR-0020 clause 9 defers the release vehicle?]** ADR-0012's fourth production gate is
   "clean-clone / offline / adapter-boundary / **release** evidence passing," and ADR-0020's
   gate-status table records it as "Unmet, and not yet testable" because no package exists. This
-  feature can produce the clean-clone, offline, and adapter-boundary components (FR-049, FR-003,
+  feature can produce the clean-clone, offline, and adapter-boundary components (FR-050, FR-003,
   SC-015, SC-016). It cannot determine what "release evidence" means in the absence of a decided
   publish target, tag, and channel — which clause 9 explicitly defers. Whether gate 4 is
   therefore partially clearable by this feature, or must wait entirely on the later release

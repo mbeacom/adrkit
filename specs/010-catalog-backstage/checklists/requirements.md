@@ -34,21 +34,27 @@
 ### The one item deliberately left unchecked
 
 **"No [NEEDS CLARIFICATION] markers remain" does not pass, and must not be forced to pass.**
-Three markers remain, recorded under the spec's *Open questions* heading. All three are gaps at
+Two markers remain, recorded under the spec's *Open questions* heading. Both are gaps at
 the **ADR level**, not drafting omissions: each was traced to the point where the normative
 records stop short, and each is quoted against the record that declines to decide it.
 
+A third question — which package owns consumer-side envelope validation and
+`CatalogSnapshot` derivation — was **resolved on 2026-08-04 by maintainer decision**: its
+own workspace package, separate from both the adapter and `@adrkit/core`. It is recorded
+as FR-044 and under the spec's *Resolved questions* heading. Because it was load-bearing
+for FR-045 through FR-049, planning is no longer blocked on it.
+
 | # | Question | Why it is unresolvable from the ADRs |
 |---|---|---|
-| 1 | Which package owns consumer-side envelope validation and `CatalogSnapshot` derivation? | ADR-0020 clause 7 places it outside the adapter ("the generator writes the envelope and nothing else"); ADR-0007 and Constitution Principle III place it outside `packages/core` and `packages/cli`; ADR-0012 and FR-005 forbid the envelope entering any published schema. No record names the remaining home. |
-| 2 | How, if at all, is `allRefs` populated beyond the primary `canonicalId` in production? | Spike 009's `entity-identity.md` §2 sourced aliases from synthetic fixtures only and explicitly deferred the production mechanism as "an explicitly separate, later, out-of-scope design decision this contract does not make." No ADR makes it either. |
-| 3 | What constitutes the "release evidence" component of ADR-0012 gate 4? | Gate 4 reads "clean-clone / offline / adapter-boundary / **release** evidence passing," but ADR-0020 clause 9 defers the release vehicle (publish target, tag, channel) to a later record. The first three components are specifiable now; the fourth has no decidable referent. |
+| 1 | How, if at all, is `allRefs` populated beyond the primary `canonicalId` in production? | Spike 009's `entity-identity.md` §2 sourced aliases from synthetic fixtures only and explicitly deferred the production mechanism as "an explicitly separate, later, out-of-scope design decision this contract does not make." No ADR makes it either. |
+| 2 | What constitutes the "release evidence" component of ADR-0012 gate 4? | Gate 4 reads "clean-clone / offline / adapter-boundary / **release** evidence passing," but ADR-0020 clause 9 defers the release vehicle (publish target, tag, channel) to a later record. The first three components are specifiable now; the fourth has no decidable referent. |
 
 Resolving these by guess would violate the specification's own binding honesty rules (and
 ADR-0012's "production limits are **not** guessed now; they must be ratified from evidence").
 They are therefore **carried forward for a maintainer decision**, which is the correct disposition
-for an ADR-level gap, rather than closed by invention. Items 1 and 3 should be settled before the
-planning phase, since item 1 is load-bearing for FR-044 through FR-048.
+for an ADR-level gap, rather than closed by invention. Neither blocks planning: question 1
+affects only whether `duplicate-canonical-ref` is reachable outside fixtures, and question 2
+belongs with the release decision ADR-0020 clause 9 already defers.
 
 ### Validation notes for the checked items
 
@@ -59,7 +65,7 @@ planning phase, since item 1 is load-bearing for FR-044 through FR-048.
   dependency pin is a requirement, not an implementation leak. No internal module layout,
   function signature, or code structure is prescribed.
 - **Testability.** Every functional requirement is stated as an observable input/output or
-  abort condition. Requirements imposing process obligations (FR-052 through FR-062) are
+  abort condition. Requirements imposing process obligations (FR-053 through FR-063) are
   verifiable against recorded artifacts — frozen hashes, audit findings, observed-failing
   records — as ADR-0016 requires.
 - **Traceability.** Every requirement cites its normative source. Requirements derived rather
@@ -78,7 +84,7 @@ planning phase, since item 1 is load-bearing for FR-044 through FR-048.
   counts.
 - **Verified during review.** All ten relative document links resolve. The ADR-0015 validator
   table transcribed into FR-016 is byte-identical to ADR-0015 lines 120–123. FR numbering is
-  contiguous FR-001…FR-062, SC numbering contiguous SC-001…SC-017, and every internal `FR-`/`SC-`
+  contiguous FR-001…FR-063, SC numbering contiguous SC-001…SC-017, and every internal `FR-`/`SC-`
   cross-reference falls in range. A targeted sweep found no claim about Backstage-as-a-running-system,
   no release-authorization language, and no ADR-0014 rung 2 or rung 3 claim.
 - **Known correction made during review.** SC-007 originally required every one of the fifteen
@@ -106,9 +112,9 @@ planning phase, since item 1 is load-bearing for FR-044 through FR-048.
 
   Because the repository uses letter suffixes for tasks (`T014a`) but never for functional
   requirements, the two additions were absorbed by renumbering rather than by inventing an
-  `FR-018a` convention: former FR-019 became FR-020, and former FR-020…FR-060 became
-  FR-022…FR-062. The rewrite was applied by script across definitions and prose references
-  together, then re-verified — numbering is contiguous FR-001…FR-062, no suffixed or sentinel
+  `FR-018a` convention: former FR-019 became FR-020, and former FR-020…FR-061 became
+  FR-022…FR-063. The rewrite was applied by script across definitions and prose references
+  together, then re-verified — numbering is contiguous FR-001…FR-063, no suffixed or sentinel
   identifiers survive, and every internal reference resolves in range.
 
 ### Scope reminder for downstream phases
