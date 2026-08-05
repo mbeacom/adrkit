@@ -1,0 +1,92 @@
+{
+  "artifact": "adequacy-audit",
+  "schemaNote": "Independent T019 auditor adequacy finding for the accept corpus freeze (T018), plus the consolidated auditor verdict. Sibling to accept-corpus-freeze.json; deliberately NOT part of its canonical hash input.",
+  "task": "T019 (feature 010, Barrier B, ADR-0020 clause 6 oracle cycle, step T014a)",
+  "auditor": {
+    "role": "independent reviewer",
+    "authoringInvolvementInT014ToT018": false,
+    "baseCommitAudited": "4fff13d"
+  },
+  "requirement3_adequacyFinding": {
+    "mandate": "ADR-0020 clause 5(a) requires an explicit adequacy judgement on the accept corpus; an integrity/hash confirmation alone does not satisfy it. The authoring session fixed size = 24 (one entity per eligible workspace, first 24 of 79 eligible workspaces in compareCodeUnits order) and stated its reasoning. This auditor judges that reasoning.",
+    "claimTheCorpusGates": "Technical compatibility only (ADR-0020 clause 5 step (a)): that the ownership-derivation contract can be exercised end-to-end against real Backstage descriptor structure and that the frozen oracle's ordering and dedup behaviour are the contract-admissible ones. The freeze explicitly does NOT claim scale ratification (ADR-0012 / FR-055), correctness of the generator, SC-010 satisfaction, or adoption. The adequacy judgement is scoped to that narrow claim.",
+    "coverageVerifiedIndependently": {
+      "ownershipStates": {
+        "explicit-paths": 22,
+        "explicit-empty": 1,
+        "annotation-absent": 1,
+        "note": "All three ownership states from the ownership model are present. explicit-paths carries >=2 instances (22); explicit-empty and annotation-absent carry exactly 1 each."
+      },
+      "globFeatureCatalogue": "Positions 0-21 (the explicit-paths entities, in frozen selection order) realise 11 distinct deduped expectedPaths arrays, each carried by exactly two distinct canonical ids (a mod-11 assignment repeated across positions 0-10 and 11-21). Independently recomputed: exactly 11 distinct arrays, every one appearing exactly twice. Each documented ordering/dedup trap therefore has >=2 independent instances: uppercase-vs-lowercase (src/Utils vs src/utils), punctuation ordering (a/b, a-b, a., a/ family), duplicate-collapse (packages/core/** listed twice; docs/** repeated), numeric-vs-lexical version segments (v2/v10/v_next), and the bare '**' catch-all.",
+      "overlapNoExclusiveWinner": "The (acr, bazaar) pair share identical owned paths under distinct canonical ids, exercising entity-identity.md \u00a74's 'no exclusive winner' overlap case; the mod-11 mirroring gives 11 such overlap instances rather than one.",
+      "overlayEntityReconciliation": "23 overlay rows vs 24 entities reconciles exactly: 22 explicit-paths + 1 explicit-empty carry an annotation value (23 overlay rows); the single annotation-absent entity (cost-insights-common) has no annotation to overlay and correctly carries no overlay row. Not a defect."
+    },
+    "reasoningJudged": {
+      "upperBound": "Reviewability. Expected paths are hand-authored so they can be checked line-by-line by a reviewer; a materially larger corpus would force code-derived expectations, which clause 6 constrains. This auditor accepts the upper bound as sound for a hand-verifiable oracle.",
+      "lowerBound": "Coverage-with-repetition: every ownership state and every catalogued glob/dedup feature exercised with >=2 independent instances so that a single transcription slip cannot silently pass. This auditor independently confirmed the >=2 repetition holds for all 11 catalogue entries and for each ordering trap. The lower bound is met by the data, not merely asserted.",
+      "selectionDeterminism": "Selection is 'first 24 of 79 eligible workspaces in compareCodeUnits order' \u2014 a deterministic, restatable rule fixed before entities were known (see pre-commitment finding below), not a hand-picked convenience sample."
+    },
+    "finding": "ADEQUATE for the technical-compatibility claim it gates (ADR-0020 clause 5 step (a)).",
+    "reasoning": "Size 24 is adequate because it simultaneously (1) covers all three ownership states, (2) exercises every documented glob ordering/dedup trap with at least two independent instances, (3) provides 11 independent overlap/no-exclusive-winner instances, and (4) is selected by a deterministic, pre-committed rule rather than a convenience sample \u2014 while remaining small enough to be verified by hand, which the upper bound requires. The corpus is fit for the narrow purpose of demonstrating the contract runs against real descriptor structure and that the oracle's ordering is contract-admissible. This auditor did NOT invent a minimum count; per ADR-0012 and FR-055 a production/scale limit must be ratified from evidence, and this freeze explicitly disclaims making any scale-ratification claim. The adequacy judgement is therefore that 24 is sufficient for what is claimed and no more, NOT that 24 is a ratified production sample size.",
+    "boundedLimitation": "The pinned Backstage corpus (github.com/backstage/community-plugins @ 92e9e4e09c76cc57f3475029b73e5ec84498a459) is NOT checked out in this repository. This auditor could therefore NOT re-run the four FR-016 validator predicates or entity-identity canonicalisation against the actual descriptor files. The funnel figures (167 documents / 7 inadmissible / 2 colliding / 158 satisfying P / 79 eligible) were verified for internal arithmetic consistency, for agreement with research.md R14 and admissibility.md, and for cross-artifact consistency \u2014 but their ground truth against the pin is accepted on the authoring session's disclosed re-derivation, not independently reproduced. This is a bounded, disclosed limitation of the audit, not a defect in the freeze. It does not affect the adequacy finding, which turns on the structure and coverage of the 24 selected entities (fully inspectable here), not on the exact upstream funnel counts."
+  },
+  "funnelReDerivation": {
+    "entityDocuments": 167,
+    "inadmissibleP4": 7,
+    "collidingP5": 2,
+    "satisfyingP": 158,
+    "arithmetic_167_minus_7_minus_2_equals_158": true,
+    "eligibleWorkspaces": 79,
+    "selectedCount": 24,
+    "selected_le_eligible": true,
+    "invalidNameSplitPreserved": "5 fail on character class + 2 fail on length alone = 7 documents with invalid metadata.name; the two populations ('invalid' vs 'over 63 chars') are kept distinct and NOT collapsed, matching research.md R14 and admissibility.md \u00a72.1.",
+    "crossArtifactAgreement": "All 24 entities' expectedPaths arrays are byte-identical between accept-corpus-freeze.json and frozen-expectation-set.json (0 missing, 0 mismatch), matched by canonicalId.",
+    "verdict": "PASS \u2014 internally consistent and cross-artifact consistent; ground-truth-against-pin not independently reproduced (see boundedLimitation)."
+  },
+  "exclusionReasoning": {
+    "fivePlaceholders": {
+      "claim": "The 5 unsubstituted skeleton descriptors are excluded on INADMISSIBILITY, not collision \u2014 they carry '${{ values.name | dump }}' as metadata.name, fail isValidObjectName, and never acquire a canonical id.",
+      "checkedAgainst": "admissibility.md \u00a74.1 (an inadmissible descriptor never acquires a canonical id and cannot participate in a duplicate determination) and spec.md FR-020 (inadmissibility is the earlier, more specific defect). The 5 placeholders are a subset of the 7 P4-inadmissible documents.",
+      "verdict": "CONSISTENT."
+    },
+    "nexusPair": {
+      "claim": "The Nexus pair (workspaces/nexus-repository-manager/.../catalog-info.yaml, two documents both canonicalising to component:default/backstage-community-nexus-repository-manager) is the residual VALID duplicate; BOTH documents are excluded, and that workspace contributes no entity.",
+      "checkedAgainst": "ADR-0015 Condition of Acceptance 3 (the irreducible valid duplicate that no admissibility rule can or should reach) and ADR-0020's identification of this pair as why spike-009 SC-010 was unsatisfiable under frozen inputs. Both documents are admissible, so exclusion is by collision (P5), not inadmissibility \u2014 correctly the opposite basis from the placeholders.",
+      "verdict": "CONSISTENT \u2014 the two exclusion mechanisms are correctly distinguished: placeholders never reach canonicalisation; the Nexus pair does and collides."
+    }
+  },
+  "supplementaryChecks": {
+    "preCommitment": {
+      "claim": "Commit 654031b contains only the selection RULE (naming no selected entity); commit 4fff13d adds selection-basis.md \u00a78 with 124 insertions, 0 deletions, proving \u00a71-\u00a77 were untouched after entities were known.",
+      "verifiedBy": "git diff --numstat 654031b 4fff13d on selection-basis.md => 124 insertions, 0 deletions; the added block is entirely \u00a78; the rule commit names no selected canonical id.",
+      "verdict": "CONFIRMED independently."
+    },
+    "barrierClaim": {
+      "claim": "No generator was run: no catalog-backstage adapter package, no generator-derived output, no SnapshotEnvelope, no input manifest, no comparison harness exists.",
+      "verifiedBy": "Inspecting the tree, not the assertion: no catalog-backstage package under packages/; no SnapshotEnvelope or InputManifest fields present anywhere under specs/010-catalog-backstage/evidence/; no comparison harness.",
+      "verdict": "CONFIRMED independently."
+    },
+    "toolchain": {
+      "bunTest": "857 pass, 0 fail (after bun install \u2014 see note)",
+      "typecheck": "exit 0",
+      "adrLint": "checked 20 records, 0 errors, 0 warnings, exit 0",
+      "note": "On first run bun test showed 123 failures; root-caused to the worktree never having had `bun install` run (node_modules/@adrkit absent, CLI failing with 'Cannot find module @adrkit/core'). The tree was clean (no auditor changes) at that point, so this was purely an uninitialised-workspace state, not a defect in the artifacts and not caused by this audit. After `bun install` all 857 tests pass."
+    }
+  },
+  "requirement4_auditorVerdict": {
+    "verdict": "PASS",
+    "inTheAuditorsWords": "As the independent T019 reviewer, I find the Barrier B oracle freeze sound for the technical-compatibility claim it makes. Both content hashes recompute exactly from the artifact bytes using a serializer I wrote from scratch (e641ae5e...c695c2430c and f98e6d46...c9294aca), so the recorded values are honest and the freeze is byte-stable. derivedPathPatterns is in compareCodeUnits order, not input order \u2014 the spike-009 defect is absent \u2014 and I confirmed this against the frozen comparator's actual semantics, including that a locale-aware sort would give a different, wrong answer for the deliberately-present case and punctuation data. The corpus of 24 is ADEQUATE for the narrow technical-compatibility claim: it covers every ownership state and every documented glob/dedup trap with at least two independent instances under a deterministic, pre-committed selection rule, while staying hand-verifiable. The pre-commitment and no-generator-run claims both hold under direct inspection. The one honest limitation is that the pinned upstream corpus is not checked out here, so the funnel counts are verified for consistency but not reproduced against ground truth; this does not affect the adequacy finding. I found no defect in the audited artifacts. I record PASS.",
+    "explicitNonClaims": [
+      "This PASS does NOT clear Barrier B: T020-T024 of the oracle cycle remain.",
+      "This PASS does NOT assert ADR-0014 rung 2 or rung 3.",
+      "This PASS does NOT assert SC-010 is satisfied beyond the technical-compatibility step this freeze gates.",
+      "This PASS does NOT ratify 24 (or any number) as a production/scale sample size \u2014 no minimum count was invented, per ADR-0012 and FR-055."
+    ],
+    "defectsFound": [],
+    "concernsAndLimitations": [
+      "BOUNDED LIMITATION (disclosed): the pinned Backstage corpus is not checked out, so the four validator predicates and canonicalisation could not be re-run against ground truth; funnel figures were verified for internal/cross-artifact consistency only.",
+      "RESIDUAL NON-FALSIFIABILITY (clause 6): the disclosed 'hand-derived then checked against compareCodeUnits' process is not falsifiable from the artifact bytes alone; judged CONSISTENT with clause 6 because the admissible ordering is uniquely fixed by the owned-paths-annotation.md \u00a73 contract, leaving no room to game the oracle, so the gaming risk the clause guards against is nil regardless.",
+      "ENVIRONMENTAL (not a defect): the worktree required `bun install` before the test suite would pass; recorded for reproducibility."
+    ]
+  }
+}

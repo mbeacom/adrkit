@@ -329,7 +329,7 @@ concurrently with Phase A and with nothing else.
       Discharges: FR-054 (same-cycle freeze)
       Depends: T015, T016, T017
 
-- [ ] T019 [US1] **The independent audit (the T014a step).** A reviewer with no
+- [X] T019 [US1] **The independent audit (the T014a step).** A reviewer with no
       authoring involvement in T014–T018 **recomputes** both content hashes from the
       artifacts themselves — never copies the recorded values — confirms the
       `derivedPathPatterns` ordering is `compareCodeUnits` and not input order, records

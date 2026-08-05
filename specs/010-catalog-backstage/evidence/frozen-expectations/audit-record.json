@@ -1,0 +1,60 @@
+{
+  "artifact": "audit-record",
+  "schemaNote": "Independent T019 auditor record for the re-frozen oracle (T017) and the derivedPathPatterns ordering. This is a sibling file to frozen-expectation-set.json and is deliberately NOT part of that artifact's canonical hash input (README.md audit-records-as-siblings rule).",
+  "task": "T019 (feature 010, Barrier B, ADR-0020 clause 6 oracle cycle, step T014a)",
+  "auditor": {
+    "role": "independent reviewer",
+    "authoringInvolvementInT014ToT018": false,
+    "attestation": "This session performed no authoring of T014-T018. All values recorded by the authoring session were treated as claims to be independently verified, never copied. The recorded contentHash values were never trusted as inputs; they were only compared against values this auditor recomputed from the artifact bytes with an independently written serializer.",
+    "baseCommitAudited": "4fff13d"
+  },
+  "requirement1_contentHashRecomputation": {
+    "method": "Serializer written from scratch by this auditor (not the authoring session's), implementing evidence/README.md \u00a73 canonical form: top-level object; remove ONLY the contentHash key; keys ascending by compareCodeUnits (UTF-16 code-unit order via JS relational operators, never localeCompare); array order preserved; no insignificant whitespace; JSON string escaping; UTF-8; no trailing newline. SHA-256 over the resulting bytes. Cross-checked under both Node and Bun runtimes; byte-for-byte agreement.",
+    "results": [
+      {
+        "file": "frozen-expectations/frozen-expectation-set.json",
+        "canonicalBytes": 9746,
+        "recomputed": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+        "recordedInArtifact": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+        "match": true
+      },
+      {
+        "file": "accept-corpus-freeze/accept-corpus-freeze.json",
+        "canonicalBytes": 21984,
+        "recomputed": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+        "recordedInArtifact": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+        "match": true
+      }
+    ],
+    "verdict": "PASS",
+    "note": "Both recorded contentHash values are honest and the freeze is byte-stable. No astral-plane characters appear in either artifact, so UTF-16 code-unit ordering coincides with code-point ordering here; the canonical-form key sort is therefore unambiguous for this data."
+  },
+  "requirement2_derivedPathPatternsOrdering": {
+    "claimUnderAudit": "derivedPathPatterns is in compareCodeUnits order, not input order (the exact defect carried forward from spike 009).",
+    "evidence": {
+      "elementCount": 25,
+      "isCompareCodeUnitsSorted": true,
+      "localeAwareSortGivesSameOrder": false,
+      "firstCompareCodeUnitsVsLocaleDivergence": {
+        "index": 0,
+        "compareCodeUnits": "**",
+        "localeCompare": ".github/**"
+      },
+      "independentReDerivation": "Rebuilt derivedPathPatterns from first principles as the deduplicated union of every entity's expectedPaths across all 24 entities, sorted by compareCodeUnits. The re-derived sequence equals the recorded derivedPathPatterns exactly.",
+      "recordedFirstElement": "**",
+      "inputFirstAppearanceFirstElement": "workspaces/alpha-tools/**",
+      "differsFromInputOrder": true
+    },
+    "comparatorSemanticsVerified": "compareCodeUnits(a,b) = a < b ? -1 : a > b ? 1 : 0 in packages/core/src/ordering/index.ts (a frozen repository primitive introduced by commit 1c21361 during Phase 6, predating feature 010). JS relational operators on strings are UTF-16 code-unit comparison, matching this comparator. A locale-aware sort demonstrably reorders the deliberately-present uppercase/lowercase (src/Utils vs src/utils) and punctuation (a/b, a-b, a., a/) cases, so the choice of comparator is load-bearing and was verified, not assumed.",
+    "verdict": "PASS",
+    "note": "The spike-009 defect (input order leaking into the frozen ordering) is not present. Ordering is contract-mandated by owned-paths-annotation.md \u00a73; the recorded order is the only admissible one under that contract."
+  },
+  "clause6Concern_handDerivedThenChecked": {
+    "disclosureUnderReview": "The authoring session disclosed (selection-basis.md and accept-corpus-freeze.json disclosedArithmeticCheck) that the sort/dedup results were hand-authored and then checked against compareCodeUnits, rather than produced by running compareCodeUnits as a generator.",
+    "auditorJudgement": "CONSISTENT with ADR-0020 clause 6.",
+    "reasoning": "clause 6 bars using the generator-under-test (or its derived-ownership machinery) to manufacture the oracle. compareCodeUnits is neither: it is a frozen -1/0/1 primitive that computes no ownership and predates feature 010. R4's proscribed 'generator output' is a SnapshotEnvelope or a derived-ownership result; a two-element comparison is neither. Even under the stricter reading, the sorted+deduped ordering is fully determined by the frozen contract owned-paths-annotation.md \u00a73, so there is no degree of freedom for the author to covertly tune the oracle to match generator behaviour \u2014 the source of truth is a contract, not the generator. Disclosing this rather than burying it is to the freeze's credit.",
+    "residualLimitation": "The assertion 'these values were checked against, not generated by, compareCodeUnits' is a process claim that is not independently falsifiable from the artifact bytes alone. However, because the admissible ordering is uniquely fixed by contract, the backfill/gaming risk this clause guards against is nil regardless of which mechanical path produced the identical bytes."
+  },
+  "overallVerdictThisRecord": "PASS",
+  "scope": "This record covers requirement 1 (both hashes) and requirement 2 (ordering) plus the clause-6 concern. The corpus ADEQUACY finding (requirement 3) and the auditor's consolidated PASS/FAIL (requirement 4) are recorded in the sibling accept-corpus-freeze/adequacy-audit.json."
+}
