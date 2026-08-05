@@ -231,3 +231,42 @@ verbatim by `scripts/check-deps.test.ts`.
 A line number is a reference that nothing checks. A reason string is a reference the
 test suite checks on every run, so a citation that goes stale fails the build rather
 than quietly misleading a reader.
+
+---
+
+## §6. Reading an installed dependency's version — permitted, and why it is not loader behaviour
+
+**Decided by the maintainer, 2026-08-05.**
+
+FR-029 / T063 require the `picomatch` version be **read at runtime from the resolved
+dependency, never transcribed**, so that the frozen glob engine recorded in a snapshot is
+the engine that actually ran. ADR-0013 and FR-002 separately forbid any dynamic runtime
+adapter/plugin loader, and the guard enforcing that
+(`packages/adapters/catalog-backstage/test/no-dynamic-loader.test.ts`) bans
+`import.meta.resolve` anywhere in the adapter.
+
+Read naively, those two requirements collide.
+
+**They do not.** The permitted implementation is a **filesystem read of the installed
+dependency's manifest** — walking up from the module to `node_modules/picomatch/package.json`
+and reading its `version` field. This satisfies FR-029 because the value comes from the
+installed artifact rather than from a literal in our source, and it does not engage the
+loader-guard's concern because it invokes no resolver, imports no module, and cannot load
+code.
+
+The distinction the guard protects is **dynamic module loading**, not **filesystem access**:
+
+| | Loads code | Resolver invoked | Permitted |
+|---|---|---|---|
+| `import.meta.resolve(...)`, dynamic `import()`, `require.resolve` | yes | yes | **no** — ADR-0013, FR-002 |
+| Reading `node_modules/<dep>/package.json` as a file | no | no | **yes** — this section |
+
+Recorded here rather than left in a source comment because it looked, to the session that
+implemented it, like a route *around* the guard rather than a path *through* it — and a
+future reader deciding the same question deserves the reasoning, not an inference from
+what happened to be committed.
+
+**The observation still applies.** A test asserting the read value matches the lockfile is
+required and must be observed failing (ADR-0016), because a read that silently returns
+`undefined` and a read that returns the right version are indistinguishable from a green
+suite alone.

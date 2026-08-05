@@ -37,11 +37,35 @@ export const CONSUMER_PACKAGE_NAME = '@adrkit/catalog-envelope';
  *
  * This is asserted to be exactly this set. An exclusion list that can grow
  * without anyone noticing is the same defect the scans are guarding against.
+ *
+ * **A guard that must name what it forbids belongs here.** The scans are
+ * deliberately literal — `importSpecifiers` matches `from '…'` and
+ * `import '…'` textually rather than resolving them — so a file that *states*
+ * a rule is indistinguishable to it from a file that *breaks* one. Feature 010
+ * hit this three times: the consumer's two boundary guards (which must name
+ * `schema/adr.schema.json` to hash it, and `@adrkit/catalog-backstage` to
+ * forbid importing it), and, more surprisingly, ordinary prose and string data
+ * — the literal `'bulk-import'`, which is ADR-0015's own plugin name, scanned
+ * as a side-effecting `import '…'`.
+ *
+ * Adding an entry is the correct fix and is preferred over renaming around
+ * the scanner, which is what two sessions did before this list was extended.
+ * Renaming leaves the trap armed for the next writer; listing the file is
+ * visible, reviewable, and asserted. Do **not** loosen the patterns to make a
+ * false positive go away — a scan that misses a real edge is worse than one
+ * that occasionally over-matches, and this list is the intended relief valve.
+ *
+ * @see specs/010-catalog-backstage/contracts/package-boundary.md §4
  */
 export const EXCLUDED_FROM_SCAN: readonly string[] = [
   'packages/adapters/catalog-backstage/test/envelope-shape-locality.test.ts',
   'packages/adapters/catalog-backstage/test/no-dynamic-loader.test.ts',
   'packages/adapters/catalog-backstage/test/source-scan.ts',
+  // Consumer-side boundary guards. Each must name the very thing it forbids:
+  // the schema file it pins by hash, and the adapter package it proves is
+  // never imported. See package-boundary.md §4.
+  'packages/catalog-envelope/test/no-core-schema-change.test.ts',
+  'packages/catalog-envelope/test/no-adapter-import.test.ts',
 ];
 
 export interface ScannedFile {
