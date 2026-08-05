@@ -107,7 +107,7 @@ describe('FR-002 — no dynamic loader anywhere in the adapter source', () => {
     expect(files.length).toBeGreaterThan(0);
   });
 
-  test('the excluded-from-scan set is exactly the five self-referential guard files', () => {
+  test('the excluded-from-scan set is exactly the six self-referential guard files', () => {
     // These files contain the rule literals themselves. The exclusion is pinned
     // so it cannot grow into a way of hiding a violation: adding an entry fails
     // this test until someone updates it deliberately, which is the point.
@@ -117,10 +117,14 @@ describe('FR-002 — no dynamic loader anywhere in the adapter source', () => {
     // it proves is never imported — so both were unscannable without an entry
     // here. The alternative two sessions reached for first was renaming around
     // the scanner, which leaves the trap armed for the next writer.
+    //
+    // The Phase E entry (`envelope-only.test.ts`) was added for the same reason:
+    // FR-038's guard must name `CatalogSnapshot` in order to forbid it.
     expect([...EXCLUDED_FROM_SCAN]).toEqual([
       'packages/adapters/catalog-backstage/test/envelope-shape-locality.test.ts',
       'packages/adapters/catalog-backstage/test/no-dynamic-loader.test.ts',
       'packages/adapters/catalog-backstage/test/source-scan.ts',
+      'packages/adapters/catalog-backstage/test/envelope-only.test.ts',
       'packages/catalog-envelope/test/no-core-schema-change.test.ts',
       'packages/catalog-envelope/test/no-adapter-import.test.ts',
     ]);

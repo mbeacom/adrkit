@@ -1,0 +1,12 @@
+diff --git a/packages/adapters/catalog-backstage/src/envelope/shape.ts b/packages/adapters/catalog-backstage/src/envelope/shape.ts
+index efc794a..57e02af 100644
+--- a/packages/adapters/catalog-backstage/src/envelope/shape.ts
++++ b/packages/adapters/catalog-backstage/src/envelope/shape.ts
+@@ -193,6 +193,7 @@ export interface EntityRecordInput {
+  */
+ export function entityRecord(input: EntityRecordInput): SnapshotEntityRecord {
+   return {
++    ...input,
+     identity: { canonicalId: input.canonicalId, allRefs: input.allRefs },
+     ownershipState: input.ownershipState,
+     derivedPaths: input.derivedPaths,

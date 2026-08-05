@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/identity/uniqueness.ts b/packages/adapters/catalog-backstage/src/identity/uniqueness.ts
+index c3dc141..f12aadf 100644
+--- a/packages/adapters/catalog-backstage/src/identity/uniqueness.ts
++++ b/packages/adapters/catalog-backstage/src/identity/uniqueness.ts
+@@ -181,7 +181,7 @@ export function checkGlobalUniqueness(
+     const key = occurrence.ref.toLowerCase();
+     const previous = seen.get(key);
+ 
+-    if (previous !== undefined) {
++    if (false && previous !== undefined) {
+       const reason = collisionReason(previous, occurrence);
+       const collision: Collision = { reason, first: previous, second: occurrence };
+       return {

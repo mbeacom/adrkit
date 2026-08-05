@@ -1,0 +1,109 @@
+
+packages/adapters/catalog-backstage/test/sc-013.test.ts:
+(pass) T085 / SC-013 — exactly one envelope is produced > the destination directory holds exactly one file [0.11ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > that file is one envelope, not an array or a stream of them [0.02ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > it covers exactly one repository [0.01ms]
+(pass) T085 / SC-013 — each entity record carries exactly five fields > the fixture has several entities, so the check is not about one record
+(pass) T085 / SC-013 — each entity record carries exactly five fields > every record has exactly the five defined fields [0.03ms]
+(pass) T085 / SC-013 — each entity record carries exactly five fields > no snapshot-shaped artifact was written alongside it [0.11ms]
+152 |   });
+153 | });
+154 | 
+155 | describe('T085 / SC-013 — the digest matches an independent recomputation', () => {
+156 |   test('the independent recomputation agrees with the recorded digest', () => {
+157 |     expect(recomputeIndependently(parsed)).toBe(parsed['digest'] as string);
+                                                 ^
+error: expect(received).toBe(expected)
+
+Expected: "776f6d9595df76be1634bed882c7e5b6ea9233d1eeb13a8b4502faa708392eb2"
+Received: "66e635e3565ae4201327e664ee4ff259f31c7779f379fa1273ec2a51028d438d"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-013.test.ts:157:44)
+(fail) T085 / SC-013 — the digest matches an independent recomputation > the independent recomputation agrees with the recorded digest [0.33ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is genuinely independent — it detects a mutation [0.15ms]
+176 |     // than the one intended.
+177 |     const reordered: Record<string, unknown> = {};
+178 |     for (const key of [...Object.keys(parsed)].reverse()) reordered[key] = parsed[key];
+179 | 
+180 |     expect(Object.keys(reordered)).not.toEqual(Object.keys(parsed));
+181 |     expect(recomputeIndependently(reordered)).toBe(parsed['digest'] as string);
+                                                    ^
+error: expect(received).toBe(expected)
+
+Expected: "776f6d9595df76be1634bed882c7e5b6ea9233d1eeb13a8b4502faa708392eb2"
+Received: "66e635e3565ae4201327e664ee4ff259f31c7779f379fa1273ec2a51028d438d"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-013.test.ts:181:47)
+(fail) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is order-insensitive at every nesting level [0.16ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the digest is 64 lowercase hex characters [0.01ms]
+(pass) T085 — the scope of what a matching digest establishes > a match establishes integrity, and this test claims nothing more [0.03ms]
+
+packages/adapters/catalog-backstage/test/envelope-digest.test.ts:
+(pass) T081 — the rendering `snapshot-envelope.md` §3 requires > 64 lowercase hexadecimal characters [0.05ms]
+(pass) T081 — the rendering `snapshot-envelope.md` §3 requires > the algorithm is sha256
+(pass) T081 — the digest field itself is excluded from its own input > the canonical form has no top-level `digest` key [0.06ms]
+(pass) T081 — the digest field itself is excluded from its own input > the canonical form does contain every other top-level field [0.06ms]
+(pass) T081 — the digest field itself is excluded from its own input > `sources[].digest` is not excluded — only the envelope’s own digest is [0.02ms]
+109 |     const form = canonicalEnvelopeForm(unsigned);
+110 | 
+111 |     // Top level: the emitted envelope declares `schemaVersion` first, so a canonical
+112 |     // form starting with `capabilities` is evidence the sort actually happened rather
+113 |     // than the declaration order being reused.
+114 |     expect(form.startsWith('{"capabilities"')).toBe(true);
+                                                     ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-digest.test.ts:114:48)
+(fail) T081 — the canonical form is canonical > keys are sorted by code units at every nesting level [0.07ms]
+(pass) T081 — the canonical form is canonical > arrays keep their declaration order and are never re-sorted [0.08ms]
+(pass) T081 — the canonical form is canonical > the serialization is compact — no insignificant whitespace [0.02ms]
+(pass) T081 — the canonical form is canonical > an undefined field is omitted rather than serialized as null [0.01ms]
+144 |   test('recomputing from the canonical form with node:crypto matches the recorded digest', () => {
+145 |     // Independent of `envelope/digest.ts`'s own helper: this hashes the canonical form
+146 |     // directly, so a fault in `computeEnvelopeDigest`'s wrapper is visible.
+147 |     const { digest: declared, ...unsigned } = envelope;
+148 |     const recomputed = createHash('sha256').update(canonicalStringify(unsigned), 'utf8').digest('hex');
+149 |     expect(recomputed).toBe(declared);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: "3bad01678c3a3375d3bba76ad4e7efa8ed8abac0e98d93f2f957af27e62b7776"
+Received: "06a08e28f59138bb50a0295f93903dfddb04b12c4d6848744fb1c550eabd548f"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-digest.test.ts:149:24)
+(fail) T081 — an independent recomputation agrees > recomputing from the canonical form with node:crypto matches the recorded digest [0.13ms]
+(pass) T081 — an independent recomputation agrees > verifyEnvelopeDigest reports a match on an untouched envelope [0.03ms]
+(pass) T081 — an independent recomputation agrees > a naive mutation is detected [0.03ms]
+(pass) T081 — an independent recomputation agrees > an adversary who recomputes the digest is NOT detected, as FR-041 states [0.04ms]
+(pass) T081 — an independent recomputation agrees > verifyEnvelopeDigest does not mutate its input [0.02ms]
+200 |       globDialect: unsigned.globDialect,
+201 |       generatorVersion: unsigned.generatorVersion,
+202 |       repository: unsigned.repository,
+203 |       schemaVersion: unsigned.schemaVersion,
+204 |     };
+205 |     expect(computeEnvelopeDigest(reordered)).toBe(declared);
+                                                   ^
+error: expect(received).toBe(expected)
+
+Expected: "3bad01678c3a3375d3bba76ad4e7efa8ed8abac0e98d93f2f957af27e62b7776"
+Received: "9575e11c46cfd56783edcddaf48cce635d784da87ae6a104e2c5c4448e6cd1e5"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-digest.test.ts:205:46)
+(fail) T081 — the digest is a function of content, not of field order > reordering top-level keys leaves the digest unchanged [0.07ms]
+(pass) T081 — the digest is a function of content, not of field order > changing any content changes the digest [0.01ms]
+
+5 tests failed:
+(fail) T085 / SC-013 — the digest matches an independent recomputation > the independent recomputation agrees with the recorded digest [0.33ms]
+(fail) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is order-insensitive at every nesting level [0.16ms]
+(fail) T081 — the canonical form is canonical > keys are sorted by code units at every nesting level [0.07ms]
+(fail) T081 — an independent recomputation agrees > recomputing from the canonical form with node:crypto matches the recorded digest [0.13ms]
+(fail) T081 — the digest is a function of content, not of field order > reordering top-level keys leaves the digest unchanged [0.07ms]
+
+ 22 pass
+ 5 fail
+ 62 expect() calls
+Ran 27 tests across 2 files. [142.00ms]
+bun test v1.3.14 (0d9b296a)

@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/pipeline.ts b/packages/adapters/catalog-backstage/src/pipeline.ts
+index e362b2b..49d6a5a 100644
+--- a/packages/adapters/catalog-backstage/src/pipeline.ts
++++ b/packages/adapters/catalog-backstage/src/pipeline.ts
+@@ -444,7 +444,7 @@ export async function runGeneration(request: GenerationRequest): Promise<Generat
+     capabilities: ['pathOwnership'],
+     completeness: completeness(request.identityOnly ?? false),
+     sources,
+-    entities,
++    entities: [...entities].sort(() => Math.random() - 0.5),
+   } satisfies Omit<SnapshotEnvelope, 'digest'>;
+ 
+   const envelope = assembleEnvelope({

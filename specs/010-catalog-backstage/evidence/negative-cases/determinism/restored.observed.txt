@@ -1,0 +1,27 @@
+bun test v1.3.14 (0d9b296a)
+
+test/sc-001-determinism.test.ts:
+(pass) T084 / SC-001 — the accept path > 5 runs all succeed [59.35ms]
+(pass) T084 / SC-001 — the accept path > 5 runs serialize byte-identically [52.34ms]
+(pass) T084 / SC-001 — the accept path > every array’s ordering is identical across runs [48.49ms]
+(pass) T084 / SC-001 — the accept path > the digest is identical across runs [47.07ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over a duplicate canonical id reject identically [44.64ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over an inadmissible descriptor reject identically [44.12ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over a rejected pattern reject identically [40.67ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over a repeated YAML key reject identically [52.70ms]
+(pass) T084 / SC-001 — the reject path > an input violating several rules at once reports the same one every run [42.08ms]
+(pass) T084 / SC-001 — the reject path > a rejecting run writes nothing on any of the runs [43.45ms]
+
+test/byte-identical.test.ts:
+(pass) T083 — the fixture is varied enough for a difference to show > it spans all three ownership states and several source files [9.97ms]
+(pass) T083 — the fixture is varied enough for a difference to show > a declared pattern order differing from the sorted order is normalized [9.04ms]
+(pass) T083 / FR-042 — repeated runs are byte-identical > two runs over identical input serialize identically [17.74ms]
+(pass) T083 / FR-042 — repeated runs are byte-identical > two files written by two runs have identical bytes [18.56ms]
+(pass) T083 / FR-042 — repeated runs are byte-identical > the stage trace is identical too [17.65ms]
+(pass) T083 — output is a function of content, not of input ordering > listing the same sources in a different manifest order yields the same entities [17.07ms]
+(pass) T083 — output is a function of content, not of input ordering > any content change changes the bytes [16.89ms]
+
+ 17 pass
+ 0 fail
+ 50 expect() calls
+Ran 17 tests across 2 files. [694.00ms]

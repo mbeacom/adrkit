@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/failure/classify.ts b/packages/adapters/catalog-backstage/src/failure/classify.ts
+index 0b37ace..67d70a0 100644
+--- a/packages/adapters/catalog-backstage/src/failure/classify.ts
++++ b/packages/adapters/catalog-backstage/src/failure/classify.ts
+@@ -129,7 +129,7 @@ export const REASON_TRIGGER_REGISTRY: Readonly<Record<string, TriggerClass>> = {
+ 
+   // ── The backstop. `atomic-fail-closed.md` §4.2. See `failure/triggers.ts` for why
+   //    this is genuinely reachable rather than a formality.
+-  'provenance-declaration-missing': 'other-invalid-input',
++  'provenance-declaration-missing': 'incomplete-required-source',
+   'provenance-declaration-unknown-source': 'other-invalid-input',
+   'provenance-declaration-unrecognized-value': 'other-invalid-input',
+ };

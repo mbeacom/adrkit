@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/envelope/completeness.ts b/packages/adapters/catalog-backstage/src/envelope/completeness.ts
+index c231997..327295a 100644
+--- a/packages/adapters/catalog-backstage/src/envelope/completeness.ts
++++ b/packages/adapters/catalog-backstage/src/envelope/completeness.ts
+@@ -56,7 +56,7 @@ export interface EnvelopeCompleteness {
+  * generator side.
+  */
+ export function completeness(identityOnly: boolean): EnvelopeCompleteness {
+-  return { wholeCatalog: WHOLE_CATALOG_COMPLETENESS, identityOnly };
++  return { wholeCatalog: true, identityOnly };
+ }
+ 
+ /**

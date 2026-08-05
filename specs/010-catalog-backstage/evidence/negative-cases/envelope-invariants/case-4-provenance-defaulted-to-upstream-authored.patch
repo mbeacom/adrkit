@@ -1,0 +1,15 @@
+diff --git a/packages/adapters/catalog-backstage/src/envelope/provenance.ts b/packages/adapters/catalog-backstage/src/envelope/provenance.ts
+index 1631479..3096f20 100644
+--- a/packages/adapters/catalog-backstage/src/envelope/provenance.ts
++++ b/packages/adapters/catalog-backstage/src/envelope/provenance.ts
+@@ -192,8 +192,8 @@ export function provenanceFor(
+   declaration: ProvenanceDeclaration,
+   sourcePath: string,
+ ): AnnotationProvenance {
+-  const value = declaration.bySourcePath[sourcePath];
+-  if (value === undefined) {
++  const value = declaration.bySourcePath[sourcePath] ?? 'upstream-authored';
++  if (false) {
+     throw new Error(
+       `no annotation provenance declared for ${JSON.stringify(sourcePath)}. ` +
+         'checkProvenanceDeclaration must run before any entity record is built.',

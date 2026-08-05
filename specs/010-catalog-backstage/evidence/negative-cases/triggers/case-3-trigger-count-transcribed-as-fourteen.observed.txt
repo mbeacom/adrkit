@@ -1,0 +1,34 @@
+
+packages/adapters/catalog-backstage/test/backstop-trigger.test.ts:
+29 | describe('T074 — the enumeration is closed, and its count is fifteen', () => {
+30 |   test('there are fifteen classes, counted from the declaration', () => {
+31 |     // `contracts/atomic-fail-closed.md` §4: "Closed Type of **Fifteen** Values".
+32 |     // `data-model.md` §8 lists the same fifteen. Spike 009's fourteen is correct about
+33 |     // spike 009 and wrong here (FR-035).
+34 |     expect(FATAL_TRIGGER_COUNT).toBe(15);
+                                     ^
+error: expect(received).toBe(expected)
+
+Expected: 15
+Received: 14
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/backstop-trigger.test.ts:34:33)
+(fail) T074 — the enumeration is closed, and its count is fifteen > there are fifteen classes, counted from the declaration [0.64ms]
+(pass) T074 — the enumeration is closed, and its count is fifteen > the fifteenth is `inadmissible-descriptor`, ADR-0015 Condition of Acceptance 2 [0.03ms]
+(pass) T074 — the enumeration is closed, and its count is fifteen > this module re-exports the one declaration rather than making a second [0.58ms]
+(pass) T074 — the enumeration is closed, and its count is fifteen > the closed type is closed at runtime too [0.01ms]
+(pass) T075 — the backstop is always present > `other-invalid-input` is a member of the closed enumeration
+(pass) T075 — the backstop is always present > the other fourteen are named, and the backstop is not among them [0.02ms]
+(pass) T075 — the backstop is always present > `otherInvalidInput` produces the backstop class and keeps the reason distinct [0.05ms]
+(pass) T075 — the backstop is not dead code: a real input reaches it > a request omitting a listed source’s provenance is `other-invalid-input` [0.13ms]
+(pass) T075 — the backstop is not dead code: a real input reaches it > a declaration naming a source the manifest never listed also reaches it [0.05ms]
+(pass) T075 — the backstop is not dead code: a real input reaches it > a value outside the closed provenance domain also reaches it [0.03ms]
+(pass) T075 — the backstop is not dead code: a real input reaches it > exactly three reasons map to the backstop, and none of them has a named class [0.07ms]
+(pass) T075 / FR-036 — the backstop never absorbs a case that has its own class > every registered reason with a named class keeps that class [0.04ms]
+(pass) T075 / FR-036 — the backstop never absorbs a case that has its own class > all fourteen named classes are actually claimed by at least one reason [0.02ms]
+
+ 12 pass
+ 1 fail
+ 26 expect() calls
+Ran 13 tests across 1 file. [47.00ms]
+bun test v1.3.14 (0d9b296a)

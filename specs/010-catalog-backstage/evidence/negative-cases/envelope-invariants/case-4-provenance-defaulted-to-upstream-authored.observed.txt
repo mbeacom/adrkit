@@ -1,0 +1,36 @@
+
+packages/adapters/catalog-backstage/test/envelope-provenance.test.ts:
+(pass) T082 — the domain is closed at exactly two values > `data-model.md` §10’s two values, and no third [0.03ms]
+(pass) T082 — the domain is closed at exactly two values > a value outside the domain is rejected rather than passed through [0.11ms]
+(pass) T082 — the declaration is exhaustive and has no default > a complete declaration passes [0.03ms]
+(pass) T082 — the declaration is exhaustive and has no default > a missing entry is rejected, never defaulted [0.02ms]
+(pass) T082 — the declaration is exhaustive and has no default > the rejection explains why no default is available [0.01ms]
+(pass) T082 — the declaration is exhaustive and has no default > the reported path does not depend on key insertion order [0.01ms]
+78 |     expect(first.rejection.detail).toBe(second.rejection.detail);
+79 |     expect(first.rejection.detail).toContain('a.yaml');
+80 |   });
+81 | 
+82 |   test('provenanceFor throws rather than substituting a value', () => {
+83 |     expect(() => provenanceFor({ bySourcePath: {} }, 'a.yaml')).toThrow(
+                                                                     ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "no annotation provenance declared"
+
+Received function did not throw
+Received value: "upstream-authored"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-provenance.test.ts:83:65)
+(fail) T082 — the declaration is exhaustive and has no default > provenanceFor throws rather than substituting a value [0.35ms]
+(pass) T082 — the two provenances survive side by side, unmerged > one envelope carries both values, each on its own entity [17.47ms]
+(pass) T082 — the two provenances survive side by side, unmerged > the frozen accept corpus’ own construction maps to maintainer-overlay [9.05ms]
+(pass) T082 — provenance alone is not an adoption claim; the pair is > an annotation-absent entity is never an adoption claim, whatever its provenance [0.03ms]
+(pass) T082 — provenance alone is not an adoption claim; the pair is > an existing annotation declared upstream-authored IS an adoption claim
+(pass) T082 — provenance alone is not an adoption claim; the pair is > an existing annotation declared maintainer-overlay is not
+(pass) T082 — provenance alone is not an adoption claim; the pair is > a run over an unannotated corpus makes no adoption claim [8.25ms]
+
+ 12 pass
+ 1 fail
+ 27 expect() calls
+Ran 13 tests across 1 file. [117.00ms]
+bun test v1.3.14 (0d9b296a)

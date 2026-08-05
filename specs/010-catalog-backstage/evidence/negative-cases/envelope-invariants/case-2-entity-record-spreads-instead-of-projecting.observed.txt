@@ -1,0 +1,120 @@
+
+packages/adapters/catalog-backstage/test/sc-013.test.ts:
+(pass) T085 / SC-013 — exactly one envelope is produced > the destination directory holds exactly one file [0.11ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > that file is one envelope, not an array or a stream of them [0.02ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > it covers exactly one repository [0.01ms]
+(pass) T085 / SC-013 — each entity record carries exactly five fields > the fixture has several entities, so the check is not about one record
+132 |     expect((parsed['entities'] as unknown[]).length).toBe(3);
+133 |   });
+134 | 
+135 |   test('every record has exactly the five defined fields', () => {
+136 |     for (const entity of parsed['entities'] as Record<string, unknown>[]) {
+137 |       expect(Object.keys(entity)).toHaveLength(5);
+                                        ^
+error: expect(received).toHaveLength(expected)
+
+Expected length: 5
+Received length: 9
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-013.test.ts:137:35)
+(fail) T085 / SC-013 — each entity record carries exactly five fields > every record has exactly the five defined fields [0.41ms]
+(pass) T085 / SC-013 — each entity record carries exactly five fields > no snapshot-shaped artifact was written alongside it [0.11ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the independent recomputation agrees with the recorded digest [0.18ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is genuinely independent — it detects a mutation [0.13ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is order-insensitive at every nesting level [0.07ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the digest is 64 lowercase hex characters [0.04ms]
+(pass) T085 — the scope of what a matching digest establishes > a match establishes integrity, and this test claims nothing more [0.04ms]
+
+packages/adapters/catalog-backstage/test/envelope-shape.test.ts:
+(pass) T080 — the fixture is rich enough for the checks to mean something > three entities, spanning several kinds, namespaces and ownership states [0.06ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > the declared list has nine entries
+(pass) T080 / data-model.md §9 — nine top-level fields > the emitted object carries exactly those nine, no more and no fewer [0.01ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > field order in the emitted JSON follows the contract’s order
+(pass) T080 / data-model.md §9 — nine top-level fields > schemaVersion and capabilities are the exact values the consumer validates [0.03ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > globDialect records the engine and options actually used [0.04ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > the nested objects carry their declared fields [0.03ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > the declared list has five entries
+117 |     expect(ENTITY_RECORD_FIELDS).toHaveLength(5);
+118 |   });
+119 | 
+120 |   test('every emitted record carries exactly those five', () => {
+121 |     for (const entity of parsed['entities'] as Record<string, unknown>[]) {
+122 |       expect(Object.keys(entity).sort()).toEqual([...ENTITY_RECORD_FIELDS].sort());
+                                               ^
+error: expect(received).toEqual(expected)
+
+  [
++   "allRefs",
++   "canonicalId",
+    "derivedPaths",
++   "documentIndexInFile",
+    "identity",
+    "ownershipState",
+    "provenance",
+    "sourceDocument",
++   "sourcePath",
+  ]
+
+- Expected  - 0
++ Received  + 4
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-shape.test.ts:122:42)
+(fail) T080 / data-model.md §10 — exactly five fields per entity record > every emitted record carries exactly those five [0.11ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > the identity projection is `{ canonicalId, allRefs }` and nothing else [0.03ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > the sourceDocument reference is `{ sourcePath, documentIndexInFile }` [0.02ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > a multi-document file yields distinct documentIndexInFile values [0.02ms]
+155 | 
+156 | describe('T080 — the flatter shape is forbidden', () => {
+157 |   test('no entity record carries a flat canonicalId, refs or paths field', () => {
+158 |     for (const entity of parsed['entities'] as Record<string, unknown>[]) {
+159 |       for (const forbidden of FORBIDDEN_FLAT_ENTITY_FIELDS) {
+160 |         expect(Object.hasOwn(entity, forbidden)).toBe(false);
+                                                       ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-shape.test.ts:160:50)
+(fail) T080 — the flatter shape is forbidden > no entity record carries a flat canonicalId, refs or paths field [0.07ms]
+(pass) T080 — the flatter shape is forbidden > the forbidden list is checked by name, not inferred from a field count [0.01ms]
+(pass) T080 — the flatter shape is forbidden > the authoring fields §1 excludes are not serialized [0.01ms]
+194 |       // A field the projection must ignore. A spread-based implementation would carry
+195 |       // it through, which is the failure this check exists for.
+196 |       ...({ rawKind: 'Component' } as unknown as Record<string, never>),
+197 |     });
+198 | 
+199 |     expect(Object.keys(record).sort()).toEqual([...ENTITY_RECORD_FIELDS].sort());
+                                             ^
+error: expect(received).toEqual(expected)
+
+  [
++   "allRefs",
++   "canonicalId",
+    "derivedPaths",
++   "documentIndexInFile",
+    "identity",
+    "ownershipState",
+    "provenance",
++   "rawKind",
+    "sourceDocument",
++   "sourcePath",
+  ]
+
+- Expected  - 0
++ Received  + 5
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-shape.test.ts:199:40)
+(fail) T080 — entityRecord projects rather than spreads > an input carrying extra fields does not leak them into the record [0.05ms]
+
+4 tests failed:
+(fail) T085 / SC-013 — each entity record carries exactly five fields > every record has exactly the five defined fields [0.41ms]
+(fail) T080 / data-model.md §10 — exactly five fields per entity record > every emitted record carries exactly those five [0.11ms]
+(fail) T080 — the flatter shape is forbidden > no entity record carries a flat canonicalId, refs or paths field [0.07ms]
+(fail) T080 — entityRecord projects rather than spreads > an input carrying extra fields does not leak them into the record [0.05ms]
+
+ 23 pass
+ 4 fail
+ 74 expect() calls
+Ran 27 tests across 2 files. [139.00ms]
+bun test v1.3.14 (0d9b296a)

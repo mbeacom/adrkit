@@ -61,6 +61,10 @@ export const EXCLUDED_FROM_SCAN: readonly string[] = [
   'packages/adapters/catalog-backstage/test/envelope-shape-locality.test.ts',
   'packages/adapters/catalog-backstage/test/no-dynamic-loader.test.ts',
   'packages/adapters/catalog-backstage/test/source-scan.ts',
+  // Phase E's FR-038 guard. It must name `CatalogSnapshot` to forbid the generator
+  // reaching for it, so it is unscannable without an entry here — the same shape as
+  // the two consumer guards below.
+  'packages/adapters/catalog-backstage/test/envelope-only.test.ts',
   // Consumer-side boundary guards. Each must name the very thing it forbids:
   // the schema file it pins by hash, and the adapter package it proves is
   // never imported. See package-boundary.md §4.

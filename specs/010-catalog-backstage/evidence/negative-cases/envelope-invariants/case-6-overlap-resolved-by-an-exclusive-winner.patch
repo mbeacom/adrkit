@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/identity/overlap.ts b/packages/adapters/catalog-backstage/src/identity/overlap.ts
+index 1b64db4..ed870bf 100644
+--- a/packages/adapters/catalog-backstage/src/identity/overlap.ts
++++ b/packages/adapters/catalog-backstage/src/identity/overlap.ts
+@@ -72,7 +72,7 @@ export function ownersOf(
+     )
+     .map((claim) => claim.canonicalId);
+ 
+-  return [...new Set(owners)].sort(compareCodeUnits);
++  return [...new Set(owners)].sort(compareCodeUnits).slice(0, 1);
+ }
+ 
+ /** One pattern shared by two or more distinct canonical ids. */

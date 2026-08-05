@@ -1,0 +1,57 @@
+bun test v1.3.14 (0d9b296a)
+
+test/sc-002-mixed-batch.test.ts:
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the five without the offender produce a populated envelope [30.06ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the same five plus the offender abort with duplicate-canonical-id [19.13ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > no envelope exists — not even one covering the five that would have validated [28.18ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the five without the offender produce a populated envelope [18.55ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the same five plus the offender abort with inadmissible-descriptor [18.09ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > no envelope exists — not even one covering the five that would have validated [26.00ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the five without the offender produce a populated envelope [19.51ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the same five plus the offender abort with invalid-pattern [18.35ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > no envelope exists — not even one covering the five that would have validated [28.45ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the five without the offender produce a populated envelope [20.81ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the same five plus the offender abort with duplicate-yaml-key [18.11ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > no envelope exists — not even one covering the five that would have validated [26.29ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the five without the offender produce a populated envelope [19.12ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the same five plus the offender abort with invalid-annotation-parse [17.40ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > no envelope exists — not even one covering the five that would have validated [27.76ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > the abort is not a filtered result with five entities in it [20.37ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > the consequence does not vary by which trigger fired [86.88ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > an offender placed first aborts exactly as one placed last does [19.49ms]
+
+test/uniqueness.test.ts:
+(pass) T071 — the three collision classes §3 enumerates > all three are members of the closed trigger enumeration [0.03ms]
+(pass) T071 — the three collision classes §3 enumerates > a distinct set passes, so the rejections below are not vacuous [0.07ms]
+(pass) T071 — row 1: identical canonical ids are `duplicate-canonical-id` > two descriptors canonicalizing alike collide [0.04ms]
+(pass) T071 — row 1: identical canonical ids are `duplicate-canonical-id` > the case-only pair §1 canonicalizes together arrives here already identical [0.02ms]
+(pass) T071 — row 2: an alias colliding with a different entity’s id is `duplicate-canonical-ref` > §3’s worked example, on a synthetic identity set [0.02ms]
+(pass) T071 — row 2: an alias colliding with a different entity’s id is `duplicate-canonical-ref` > an alias-vs-alias collision is also `duplicate-canonical-ref` [0.01ms]
+(pass) T071 — row 3: a case-only variant is `duplicate-canonical-ref` > an alias differing only by case collides [0.02ms]
+(pass) T071 — row 3: a case-only variant is `duplicate-canonical-ref` > the class is `duplicate-canonical-ref` and specifically not `duplicate-canonical-id` [0.02ms]
+(pass) T071 — row 3: a case-only variant is `duplicate-canonical-ref` > two identical primary ids belonging to the SAME entity are not row 1
+(pass) T071 — first-wins and last-wins are both forbidden > a collision returns a rejection, never a surviving member [0.02ms]
+(pass) T071 — first-wins and last-wins are both forbidden > the reported collision does not depend on which member came first [0.03ms]
+(pass) T071 — first-wins and last-wins are both forbidden > the detail names the prohibition, so an abort is legible without the contract [0.01ms]
+(pass) T071 — uniqueness is over every ref, not only primary ids > a ref repeated within one entity is a violation [0.02ms]
+(pass) T071 — uniqueness is over every ref, not only primary ids > the comparison walks aliases as well as primary ids [0.01ms]
+(pass) T071 — uniqueness is over every ref, not only primary ids > folded refs are sorted and deduplicated, so a report is reproducible [0.04ms]
+
+test/abort.test.ts:
+(pass) T073 — the failure branch carries no envelope > a valid batch produces one, so the negative case below means something [7.98ms]
+(pass) T073 — the failure branch carries no envelope > an aborting batch carries no envelope, and no field could hold one [9.33ms]
+(pass) T073 — the failure branch carries no envelope > exactly one failure record, never a list [9.40ms]
+(pass) T073 / §3 — no output exists for the five entities that would have validated > the destination path is never created [8.61ms]
+(pass) T073 / §3 — no output exists for the five entities that would have validated > no side file is left in the destination directory either [8.76ms]
+(pass) T073 / §3 — no output exists for the five entities that would have validated > the five valid entities really would have validated on their own [8.79ms]
+(pass) T073 / FR-034 — non-zero process exit status > the mapping is 0 on success and 1 on abort [15.44ms]
+(pass) T073 / FR-034 — non-zero process exit status > a real process exits non-zero, observed rather than asserted [69.39ms]
+(pass) T073 — the write is atomic, so no truncated envelope is observable > the destination holds the complete serialization, byte for byte [9.28ms]
+(pass) T073 — the write is atomic, so no truncated envelope is observable > no temporary file survives a successful write [8.26ms]
+(pass) T073 — abortRecord carries the location the pipeline knew > an absent location is undefined rather than invented [0.04ms]
+(pass) T073 — abortRecord carries the location the pipeline knew > a supplied location is carried verbatim [0.02ms]
+
+ 45 pass
+ 0 fail
+ 117 expect() calls
+Ran 45 tests across 3 files. [734.00ms]

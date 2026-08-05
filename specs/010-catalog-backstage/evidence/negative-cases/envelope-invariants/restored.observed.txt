@@ -1,0 +1,106 @@
+bun test v1.3.14 (0d9b296a)
+
+test/envelope-provenance.test.ts:
+(pass) T082 — the domain is closed at exactly two values > `data-model.md` §10’s two values, and no third [0.04ms]
+(pass) T082 — the domain is closed at exactly two values > a value outside the domain is rejected rather than passed through [0.11ms]
+(pass) T082 — the declaration is exhaustive and has no default > a complete declaration passes [0.03ms]
+(pass) T082 — the declaration is exhaustive and has no default > a missing entry is rejected, never defaulted [0.02ms]
+(pass) T082 — the declaration is exhaustive and has no default > the rejection explains why no default is available [0.01ms]
+(pass) T082 — the declaration is exhaustive and has no default > the reported path does not depend on key insertion order [0.02ms]
+(pass) T082 — the declaration is exhaustive and has no default > provenanceFor throws rather than substituting a value [0.04ms]
+(pass) T082 — the two provenances survive side by side, unmerged > one envelope carries both values, each on its own entity [17.13ms]
+(pass) T082 — the two provenances survive side by side, unmerged > the frozen accept corpus’ own construction maps to maintainer-overlay [8.41ms]
+(pass) T082 — provenance alone is not an adoption claim; the pair is > an annotation-absent entity is never an adoption claim, whatever its provenance [0.02ms]
+(pass) T082 — provenance alone is not an adoption claim; the pair is > an existing annotation declared upstream-authored IS an adoption claim
+(pass) T082 — provenance alone is not an adoption claim; the pair is > an existing annotation declared maintainer-overlay is not
+(pass) T082 — provenance alone is not an adoption claim; the pair is > a run over an unannotated corpus makes no adoption claim [8.43ms]
+
+test/overlap.test.ts:
+(pass) T072 — the fixture genuinely overlaps > overlap is present, so nothing below passes vacuously [0.18ms]
+(pass) T072 — the fixture genuinely overlaps > the overlapping pattern is named, and both claimants are listed [0.04ms]
+(pass) T072 — the fixture genuinely overlaps > a set with no shared pattern reports no overlap [0.02ms]
+(pass) T072 — the fixture genuinely overlaps > one entity listing a pattern twice is not an overlap with itself [0.01ms]
+(pass) T072 / §4 — overlap does not trigger the abort > the distinct canonical ids pass the uniqueness check [0.02ms]
+(pass) T072 / §4 — overlap does not trigger the abort > a real run over two overlapping entities produces an envelope with both [9.04ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > both entities own a file matching the shared pattern [0.35ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > a file matching only one pattern is owned by only that entity [0.05ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > a file matching nothing is owned by nobody [0.04ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > the result is a list, so a caller cannot read "the owner" off it [0.05ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > ownership does not depend on the order the claims are listed in [0.07ms]
+
+test/envelope-only.test.ts:
+(pass) T079 — exactly one file is written > a successful run leaves one file, and it is the envelope [9.73ms]
+(pass) T079 — exactly one file is written > a second run into the same directory still leaves one file [19.18ms]
+(pass) T079 — exactly one file is written > a pre-existing unrelated file is left alone rather than cleaned up [18.83ms]
+(pass) T079 — exactly one file is written > the write reports the one path it wrote [8.73ms]
+(pass) T079 — no CatalogSnapshot-shaped artifact is ever written > the written file is envelope-shaped and not snapshot-shaped [9.31ms]
+(pass) T079 — no CatalogSnapshot-shaped artifact is ever written > no adapter source names the core catalog snapshot types [8.19ms]
+(pass) T079 — no CatalogSnapshot-shaped artifact is ever written > that rule has been observed firing, so its silence means something [0.04ms]
+(pass) T079 — diagnostics are returned, never written > the stage trace is a returned value and appears in no file [18.26ms]
+(pass) T079 — diagnostics are returned, never written > the serialization contains only the envelope’s own fields [9.08ms]
+(pass) T079 — writeEnvelope writes one file and creates its directory > a nested destination directory is created [8.45ms]
+
+test/sc-013.test.ts:
+(pass) T085 / SC-013 — exactly one envelope is produced > the destination directory holds exactly one file [0.10ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > that file is one envelope, not an array or a stream of them [0.02ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > it covers exactly one repository [0.01ms]
+(pass) T085 / SC-013 — each entity record carries exactly five fields > the fixture has several entities, so the check is not about one record
+(pass) T085 / SC-013 — each entity record carries exactly five fields > every record has exactly the five defined fields [0.03ms]
+(pass) T085 / SC-013 — each entity record carries exactly five fields > no snapshot-shaped artifact was written alongside it [0.09ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the independent recomputation agrees with the recorded digest [0.13ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is genuinely independent — it detects a mutation [0.12ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is order-insensitive at every nesting level [0.12ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the digest is 64 lowercase hex characters [0.01ms]
+(pass) T085 — the scope of what a matching digest establishes > a match establishes integrity, and this test claims nothing more [0.05ms]
+
+test/completeness-always-false.test.ts:
+(pass) T070 — the value is false, and it is one value not two > the boundary constant is false [0.04ms]
+(pass) T070 — the value is false, and it is one value not two > the envelope module re-exports that constant rather than declaring a second [0.02ms]
+(pass) T070 — no parameter can set it > identityOnly false leaves wholeCatalog false [0.02ms]
+(pass) T070 — no parameter can set it > identityOnly true still leaves wholeCatalog false
+(pass) T070 — no parameter can set it > the function takes exactly one parameter, and it is not wholeCatalog
+(pass) T070 — every envelope a real run produces carries false > a single-entity run [8.66ms]
+(pass) T070 — every envelope a real run produces carries false > a run over all three ownership states and several sources [10.56ms]
+(pass) T070 — every envelope a real run produces carries false > a run over a multi-document source file [8.04ms]
+(pass) T070 — every envelope a real run produces carries false > a run with identityOnly requested still reports wholeCatalog false [8.51ms]
+
+test/envelope-shape.test.ts:
+(pass) T080 — the fixture is rich enough for the checks to mean something > three entities, spanning several kinds, namespaces and ownership states [0.07ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > the declared list has nine entries [0.01ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > the emitted object carries exactly those nine, no more and no fewer [0.01ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > field order in the emitted JSON follows the contract’s order
+(pass) T080 / data-model.md §9 — nine top-level fields > schemaVersion and capabilities are the exact values the consumer validates [0.01ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > globDialect records the engine and options actually used [0.02ms]
+(pass) T080 / data-model.md §9 — nine top-level fields > the nested objects carry their declared fields [0.03ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > the declared list has five entries
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > every emitted record carries exactly those five [0.02ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > the identity projection is `{ canonicalId, allRefs }` and nothing else [0.02ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > the sourceDocument reference is `{ sourcePath, documentIndexInFile }` [0.01ms]
+(pass) T080 / data-model.md §10 — exactly five fields per entity record > a multi-document file yields distinct documentIndexInFile values [0.02ms]
+(pass) T080 — the flatter shape is forbidden > no entity record carries a flat canonicalId, refs or paths field [0.01ms]
+(pass) T080 — the flatter shape is forbidden > the forbidden list is checked by name, not inferred from a field count
+(pass) T080 — the flatter shape is forbidden > the authoring fields §1 excludes are not serialized [0.01ms]
+(pass) T080 — entityRecord projects rather than spreads > an input carrying extra fields does not leak them into the record [0.03ms]
+
+test/envelope-digest.test.ts:
+(pass) T081 — the rendering `snapshot-envelope.md` §3 requires > 64 lowercase hexadecimal characters [0.04ms]
+(pass) T081 — the rendering `snapshot-envelope.md` §3 requires > the algorithm is sha256
+(pass) T081 — the digest field itself is excluded from its own input > the canonical form has no top-level `digest` key [0.06ms]
+(pass) T081 — the digest field itself is excluded from its own input > the canonical form does contain every other top-level field [0.05ms]
+(pass) T081 — the digest field itself is excluded from its own input > `sources[].digest` is not excluded — only the envelope’s own digest is [0.09ms]
+(pass) T081 — the canonical form is canonical > keys are sorted by code units at every nesting level [0.03ms]
+(pass) T081 — the canonical form is canonical > arrays keep their declaration order and are never re-sorted [0.02ms]
+(pass) T081 — the canonical form is canonical > the serialization is compact — no insignificant whitespace [0.02ms]
+(pass) T081 — the canonical form is canonical > an undefined field is omitted rather than serialized as null
+(pass) T081 — an independent recomputation agrees > recomputing from the canonical form with node:crypto matches the recorded digest [0.03ms]
+(pass) T081 — an independent recomputation agrees > verifyEnvelopeDigest reports a match on an untouched envelope [0.03ms]
+(pass) T081 — an independent recomputation agrees > a naive mutation is detected [0.05ms]
+(pass) T081 — an independent recomputation agrees > an adversary who recomputes the digest is NOT detected, as FR-041 states [0.04ms]
+(pass) T081 — an independent recomputation agrees > verifyEnvelopeDigest does not mutate its input [0.04ms]
+(pass) T081 — the digest is a function of content, not of field order > reordering top-level keys leaves the digest unchanged [0.03ms]
+(pass) T081 — the digest is a function of content, not of field order > changing any content changes the digest [0.05ms]
+
+ 86 pass
+ 0 fail
+ 220 expect() calls
+Ran 86 tests across 7 files. [488.00ms]

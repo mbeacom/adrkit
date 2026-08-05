@@ -1,0 +1,105 @@
+
+packages/adapters/catalog-backstage/test/sc-003-all-triggers.test.ts:
+(pass) T078 — the closed enumeration is fifteen > fifteen classes, counted from the declaration [0.02ms]
+(pass) T078 — the four manifest-request-level classes > invalid-manifest-shape — an unrecognized top-level field [1.49ms]
+(pass) T078 — the four manifest-request-level classes > unsupported-manifest-version [0.51ms]
+(pass) T078 — the four manifest-request-level classes > unsupported-snapshot-version [0.35ms]
+(pass) T078 — the four manifest-request-level classes > unsupported-capability [0.31ms]
+(pass) T078 — the four manifest-request-level classes > incomplete-required-source — a listed source absent from the checkout [9.31ms]
+(pass) T078 — repository identity > repository-mismatch [8.03ms]
+(pass) T078 — descriptor parse: the pair §4.3 says must not collapse > duplicate-yaml-key [12.95ms]
+(pass) T078 — descriptor parse: the pair §4.3 says must not collapse > invalid-yaml-syntax [9.07ms]
+(pass) T078 — admissibility, the class ADR-0015 adds > inadmissible-descriptor [9.31ms]
+(pass) T078 — identity uniqueness > duplicate-canonical-id [9.48ms]
+(pass) T078 — identity uniqueness > duplicate-canonical-ref — at the stage kernel, on a synthetic identity set [0.09ms]
+(pass) T078 — annotation decode and the frozen glob dialect > invalid-annotation-parse — the annotation is not valid JSON [9.15ms]
+(pass) T078 — annotation decode and the frozen glob dialect > invalid-annotation-shape — the annotation decodes to an object [8.26ms]
+(pass) T078 — annotation decode and the frozen glob dialect > invalid-pattern — a brace, which the dialect rejects at rule 6 [8.52ms]
+192 |   declaration: ProvenanceDeclaration,
+193 |   sourcePath: string,
+194 | ): AnnotationProvenance {
+195 |   const value = declaration.bySourcePath[sourcePath];
+196 |   if (value === undefined) {
+197 |     throw new Error(
+                    ^
+error: no annotation provenance declared for "prov-b/catalog-info.yaml". checkProvenanceDeclaration must run before any entity record is built.
+      at provenanceFor (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/src/envelope/provenance.ts:197:15)
+      at runGeneration (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/src/pipeline.ts:415:21)
+      at async pipelineCase (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-003-all-triggers.test.ts:84:25)
+      at async <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-003-all-triggers.test.ts:339:11)
+(fail) T078 — the backstop, reached by a genuinely invalid request > other-invalid-input — an undeclared source provenance [9.00ms]
+(pass) T078 — the backstop, reached by a genuinely invalid request > invalid-manifest-shape — a manifest that is not there [0.07ms]
+376 | 
+377 | describe('T078 / SC-003 — every one of the fifteen was observed', () => {
+378 |   test('all fifteen classes appear in the observed set', () => {
+379 |     const observed = [...OBSERVED_TRIGGERS.keys()].sort();
+380 |     const expected = [...TRIGGER_CLASSES].sort();
+381 |     expect(observed).toEqual(expected);
+                           ^
+error: expect(received).toEqual(expected)
+
+  [
+    "duplicate-canonical-id",
+    "duplicate-canonical-ref",
+    "duplicate-yaml-key",
+    "inadmissible-descriptor",
+    "incomplete-required-source",
+    "invalid-annotation-parse",
+    "invalid-annotation-shape",
+    "invalid-manifest-shape",
+    "invalid-pattern",
+    "invalid-yaml-syntax",
+-   "other-invalid-input",
+    "repository-mismatch",
+    "unsupported-capability",
+    "unsupported-manifest-version",
+    "unsupported-snapshot-version",
+  ]
+
+- Expected  - 1
++ Received  + 0
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-003-all-triggers.test.ts:381:22)
+(fail) T078 / SC-003 — every one of the fifteen was observed > all fifteen classes appear in the observed set [0.18ms]
+(pass) T078 / SC-003 — every one of the fifteen was observed > each observation carries its own distinct reason string [0.04ms]
+(pass) T078 / SC-003 — every one of the fifteen was observed > every observation carries a non-empty detail [0.03ms]
+(pass) T078 / SC-003 — every one of the fifteen was observed > exactly one of the fifteen was reached other than through the full pipeline [0.01ms]
+
+packages/adapters/catalog-backstage/test/backstop-trigger.test.ts:
+(pass) T074 — the enumeration is closed, and its count is fifteen > there are fifteen classes, counted from the declaration [0.02ms]
+(pass) T074 — the enumeration is closed, and its count is fifteen > the fifteenth is `inadmissible-descriptor`, ADR-0015 Condition of Acceptance 2
+(pass) T074 — the enumeration is closed, and its count is fifteen > this module re-exports the one declaration rather than making a second [0.03ms]
+(pass) T074 — the enumeration is closed, and its count is fifteen > the closed type is closed at runtime too [0.01ms]
+(pass) T075 — the backstop is always present > `other-invalid-input` is a member of the closed enumeration
+(pass) T075 — the backstop is always present > the other fourteen are named, and the backstop is not among them
+(pass) T075 — the backstop is always present > `otherInvalidInput` produces the backstop class and keeps the reason distinct [0.01ms]
+75 | });
+76 | 
+77 | describe('T075 — the backstop is not dead code: a real input reaches it', () => {
+78 |   test('a request omitting a listed source\u2019s provenance is `other-invalid-input`', () => {
+79 |     const outcome = checkProvenanceDeclaration({ bySourcePath: {} }, ['catalog-info.yaml']);
+80 |     expect(outcome.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/backstop-trigger.test.ts:80:24)
+(fail) T075 — the backstop is not dead code: a real input reaches it > a request omitting a listed source’s provenance is `other-invalid-input` [0.07ms]
+(pass) T075 — the backstop is not dead code: a real input reaches it > a declaration naming a source the manifest never listed also reaches it [0.02ms]
+(pass) T075 — the backstop is not dead code: a real input reaches it > a value outside the closed provenance domain also reaches it [0.02ms]
+(pass) T075 — the backstop is not dead code: a real input reaches it > exactly three reasons map to the backstop, and none of them has a named class [0.05ms]
+(pass) T075 / FR-036 — the backstop never absorbs a case that has its own class > every registered reason with a named class keeps that class [0.03ms]
+(pass) T075 / FR-036 — the backstop never absorbs a case that has its own class > all fourteen named classes are actually claimed by at least one reason [0.02ms]
+
+3 tests failed:
+(fail) T078 — the backstop, reached by a genuinely invalid request > other-invalid-input — an undeclared source provenance [9.00ms]
+(fail) T078 / SC-003 — every one of the fifteen was observed > all fifteen classes appear in the observed set [0.18ms]
+(fail) T075 — the backstop is not dead code: a real input reaches it > a request omitting a listed source’s provenance is `other-invalid-input` [0.07ms]
+
+ 31 pass
+ 3 fail
+ 107 expect() calls
+Ran 34 tests across 2 files. [179.00ms]
+bun test v1.3.14 (0d9b296a)

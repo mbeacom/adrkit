@@ -1,0 +1,113 @@
+
+packages/adapters/catalog-backstage/test/completeness-always-false.test.ts:
+(pass) T070 — the value is false, and it is one value not two > the boundary constant is false [0.03ms]
+(pass) T070 — the value is false, and it is one value not two > the envelope module re-exports that constant rather than declaring a second
+49 |   });
+50 | });
+51 | 
+52 | describe('T070 — no parameter can set it', () => {
+53 |   test('identityOnly false leaves wholeCatalog false', () => {
+54 |     expect(completeness(false)).toEqual({ wholeCatalog: false, identityOnly: false });
+                                     ^
+error: expect(received).toEqual(expected)
+
+  {
+    "identityOnly": false,
+-   "wholeCatalog": false,
++   "wholeCatalog": true,
+  }
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/completeness-always-false.test.ts:54:33)
+(fail) T070 — no parameter can set it > identityOnly false leaves wholeCatalog false [0.14ms]
+53 |   test('identityOnly false leaves wholeCatalog false', () => {
+54 |     expect(completeness(false)).toEqual({ wholeCatalog: false, identityOnly: false });
+55 |   });
+56 | 
+57 |   test('identityOnly true still leaves wholeCatalog false', () => {
+58 |     expect(completeness(true)).toEqual({ wholeCatalog: false, identityOnly: true });
+                                    ^
+error: expect(received).toEqual(expected)
+
+  {
+    "identityOnly": true,
+-   "wholeCatalog": false,
++   "wholeCatalog": true,
+  }
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/completeness-always-false.test.ts:58:32)
+(fail) T070 — no parameter can set it > identityOnly true still leaves wholeCatalog false [0.03ms]
+(pass) T070 — no parameter can set it > the function takes exactly one parameter, and it is not wholeCatalog
+74 |       'manifest-one.json',
+75 |     );
+76 |     const outcome = await runGeneration(request);
+77 |     expect(outcome.ok).toBe(true);
+78 |     if (!outcome.ok) return;
+79 |     expect(outcome.envelope.completeness.wholeCatalog).toBe(false);
+                                                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/completeness-always-false.test.ts:79:56)
+(fail) T070 — every envelope a real run produces carries false > a single-entity run [16.97ms]
+ 97 |     expect(outcome.envelope.entities.map((entity) => entity.ownershipState).sort()).toEqual([
+ 98 |       'annotation-absent',
+ 99 |       'explicit-empty',
+100 |       'explicit-paths',
+101 |     ]);
+102 |     expect(outcome.envelope.completeness.wholeCatalog).toBe(false);
+                                                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/completeness-always-false.test.ts:102:56)
+(fail) T070 — every envelope a real run produces carries false > a run over all three ownership states and several sources [10.85ms]
+117 |     const outcome = await runGeneration(request);
+118 |     expect(outcome.ok).toBe(true);
+119 |     if (!outcome.ok) return;
+120 | 
+121 |     expect(outcome.envelope.entities).toHaveLength(2);
+122 |     expect(outcome.envelope.completeness.wholeCatalog).toBe(false);
+                                                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/completeness-always-false.test.ts:122:56)
+(fail) T070 — every envelope a real run produces carries false > a run over a multi-document source file [8.96ms]
+131 |     );
+132 |     const outcome = await runGeneration({ ...request, identityOnly: true });
+133 |     expect(outcome.ok).toBe(true);
+134 |     if (!outcome.ok) return;
+135 | 
+136 |     expect(outcome.envelope.completeness).toEqual({ wholeCatalog: false, identityOnly: true });
+                                                ^
+error: expect(received).toEqual(expected)
+
+  {
+    "identityOnly": true,
+-   "wholeCatalog": false,
++   "wholeCatalog": true,
+  }
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/completeness-always-false.test.ts:136:43)
+(fail) T070 — every envelope a real run produces carries false > a run with identityOnly requested still reports wholeCatalog false [9.00ms]
+
+ 3 pass
+ 6 fail
+ 15 expect() calls
+Ran 9 tests across 1 file. [129.00ms]
+bun test v1.3.14 (0d9b296a)

@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/envelope/provenance.ts b/packages/adapters/catalog-backstage/src/envelope/provenance.ts
+index 1631479..7384615 100644
+--- a/packages/adapters/catalog-backstage/src/envelope/provenance.ts
++++ b/packages/adapters/catalog-backstage/src/envelope/provenance.ts
+@@ -135,7 +135,7 @@ export function checkProvenanceDeclaration(
+   const listed = [...new Set(sourcePaths)].sort(compareCodeUnits);
+ 
+   for (const path of listed) {
+-    if (!Object.hasOwn(declared, path)) {
++    if (false && !Object.hasOwn(declared, path)) {
+       return {
+         ok: false,
+         rejection: otherInvalidInput(

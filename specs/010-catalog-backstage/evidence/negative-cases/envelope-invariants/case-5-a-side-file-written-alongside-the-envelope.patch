@@ -1,0 +1,11 @@
+diff --git a/packages/adapters/catalog-backstage/src/envelope/write.ts b/packages/adapters/catalog-backstage/src/envelope/write.ts
+index da9291d..04d86dd 100644
+--- a/packages/adapters/catalog-backstage/src/envelope/write.ts
++++ b/packages/adapters/catalog-backstage/src/envelope/write.ts
+@@ -114,5 +114,6 @@ export async function writeEnvelope(
+     throw error;
+   }
+ 
++  await Bun.write(`${destination}.stages.log`, 'manifest\nrepository\n');
+   return { path: destination, byteLength: bytes.byteLength };
+ }

@@ -1,0 +1,96 @@
+
+packages/adapters/catalog-backstage/test/sc-001-determinism.test.ts:
+(pass) T084 / SC-001 — the accept path > 5 runs all succeed [59.63ms]
+81 | 
+82 |   test(`${RUNS} runs serialize byte-identically`, async () => {
+83 |     const outcomes = await repeat(RUNS, () => runGeneration(request));
+84 |     const serialized = outcomes.map((outcome) => (outcome.ok ? serializeEnvelope(outcome.envelope) : 'ABORTED'));
+85 | 
+86 |     expect(new Set(serialized).size).toBe(1);
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 4
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-001-determinism.test.ts:86:38)
+(fail) T084 / SC-001 — the accept path > 5 runs serialize byte-identically [49.12ms]
+ 98 |             derivedPaths: outcome.envelope.entities.map((entity) => entity.derivedPaths),
+ 99 |             allRefs: outcome.envelope.entities.map((entity) => entity.identity.allRefs),
+100 |           })
+101 |         : 'ABORTED',
+102 |     );
+103 |     expect(new Set(arrays).size).toBe(1);
+                                       ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 4
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-001-determinism.test.ts:103:34)
+(fail) T084 / SC-001 — the accept path > every array’s ordering is identical across runs [49.39ms]
+104 |   });
+105 | 
+106 |   test('the digest is identical across runs', async () => {
+107 |     const outcomes = await repeat(RUNS, () => runGeneration(request));
+108 |     const digests = outcomes.map((outcome) => (outcome.ok ? outcome.envelope.digest : 'ABORTED'));
+109 |     expect(new Set(digests).size).toBe(1);
+                                        ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 5
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-001-determinism.test.ts:109:35)
+(fail) T084 / SC-001 — the accept path > the digest is identical across runs [49.61ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over a duplicate canonical id reject identically [44.01ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over an inadmissible descriptor reject identically [44.31ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over a rejected pattern reject identically [41.92ms]
+(pass) T084 / SC-001 — the reject path > 5 runs over a repeated YAML key reject identically [43.02ms]
+(pass) T084 / SC-001 — the reject path > an input violating several rules at once reports the same one every run [43.45ms]
+(pass) T084 / SC-001 — the reject path > a rejecting run writes nothing on any of the runs [44.69ms]
+
+packages/adapters/catalog-backstage/test/byte-identical.test.ts:
+(pass) T083 — the fixture is varied enough for a difference to show > it spans all three ownership states and several source files [9.71ms]
+(pass) T083 — the fixture is varied enough for a difference to show > a declared pattern order differing from the sorted order is normalized [8.83ms]
+102 | 
+103 |     expect(first.ok).toBe(true);
+104 |     expect(second.ok).toBe(true);
+105 |     if (!first.ok || !second.ok) return;
+106 | 
+107 |     expect(serializeEnvelope(second.envelope)).toBe(serializeEnvelope(first.envelope));
+                                                     ^
+error: expect(received).toBe(expected)
+
+- "{"schemaVersion":"1","repository":{"id":"github.com/mbeacom/adrkit-phase-e-fixture","revision":"bb5e3c4c895314cc190b69f500586f7002c13d1c"},"generatorVersion":"@adrkit/catalog-backstage@0.0.0","globDialect":{"engine":"picomatch","version":"4.0.5","options":{"dot":false,"nocase":false,"nonegate":true}},"capabilities":["pathOwnership"],"completeness":{"wholeCatalog":false,"identityOnly":false},"sources":[{"path":"aaa/catalog-info.yaml","digestAlgorithm":"sha256","digest":"47572295f24cc26433b0006664bf58dcfcd3b80ba23c4b7ff347ec006587ffe5"},{"path":"mmm/catalog-info.yaml","digestAlgorithm":"sha256","digest":"a8f8b078cc4cb25d6047c39b55afda2430834858aeba4c211836855230e9f4df"},{"path":"nnn/catalog-info.yaml","digestAlgorithm":"sha256","digest":"a4855d851b0cb84440e0b12258377858bc70e51a8f301c53e47eeff37aa4fbda"},{"path":"zzz/catalog-info.yaml","digestAlgorithm":"sha256","digest":"d0433fd690c9de4bd49d6801a4933837b0ef7ddac4ca17cb92995654e91b6011"}],"entities":[{"identity":{"canonicalId":"component:default/mmmmiddle","allRefs":["component:default/mmmmiddle"]},"ownershipState":"annotation-absent","derivedPaths":[],"sourceDocument":{"sourcePath":"mmm/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"component:default/zzzlast","allRefs":["component:default/zzzlast"]},"ownershipState":"explicit-paths","derivedPaths":["packages/z/**","shared/**"],"sourceDocument":{"sourcePath":"zzz/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"component:default/zulu","allRefs":["component:default/zulu"]},"ownershipState":"explicit-paths","derivedPaths":["alpha/**","middle/**","zeta/**"],"sourceDocument":{"sourcePath":"aaa/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"component:default/nnnother","allRefs":["component:default/nnnother"]},"ownershipState":"explicit-paths","derivedPaths":["shared/**"],"sourceDocument":{"sourcePath":"nnn/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"api:payments/yankee","allRefs":["api:payments/yankee"]},"ownershipState":"explicit-empty","derivedPaths":[],"sourceDocument":{"sourcePath":"aaa/catalog-info.yaml","documentIndexInFile":1},"provenance":"maintainer-overlay"}],"digest":"e0ca00b69780d834911e062cc09d4c548932f59616e82648ac4c23017ecffd9b"}
++ "{"schemaVersion":"1","repository":{"id":"github.com/mbeacom/adrkit-phase-e-fixture","revision":"bb5e3c4c895314cc190b69f500586f7002c13d1c"},"generatorVersion":"@adrkit/catalog-backstage@0.0.0","globDialect":{"engine":"picomatch","version":"4.0.5","options":{"dot":false,"nocase":false,"nonegate":true}},"capabilities":["pathOwnership"],"completeness":{"wholeCatalog":false,"identityOnly":false},"sources":[{"path":"aaa/catalog-info.yaml","digestAlgorithm":"sha256","digest":"47572295f24cc26433b0006664bf58dcfcd3b80ba23c4b7ff347ec006587ffe5"},{"path":"mmm/catalog-info.yaml","digestAlgorithm":"sha256","digest":"a8f8b078cc4cb25d6047c39b55afda2430834858aeba4c211836855230e9f4df"},{"path":"nnn/catalog-info.yaml","digestAlgorithm":"sha256","digest":"a4855d851b0cb84440e0b12258377858bc70e51a8f301c53e47eeff37aa4fbda"},{"path":"zzz/catalog-info.yaml","digestAlgorithm":"sha256","digest":"d0433fd690c9de4bd49d6801a4933837b0ef7ddac4ca17cb92995654e91b6011"}],"entities":[{"identity":{"canonicalId":"component:default/zulu","allRefs":["component:default/zulu"]},"ownershipState":"explicit-paths","derivedPaths":["alpha/**","middle/**","zeta/**"],"sourceDocument":{"sourcePath":"aaa/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"component:default/mmmmiddle","allRefs":["component:default/mmmmiddle"]},"ownershipState":"annotation-absent","derivedPaths":[],"sourceDocument":{"sourcePath":"mmm/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"component:default/nnnother","allRefs":["component:default/nnnother"]},"ownershipState":"explicit-paths","derivedPaths":["shared/**"],"sourceDocument":{"sourcePath":"nnn/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"component:default/zzzlast","allRefs":["component:default/zzzlast"]},"ownershipState":"explicit-paths","derivedPaths":["packages/z/**","shared/**"],"sourceDocument":{"sourcePath":"zzz/catalog-info.yaml","documentIndexInFile":0},"provenance":"maintainer-overlay"},{"identity":{"canonicalId":"api:payments/yankee","allRefs":["api:payments/yankee"]},"ownershipState":"explicit-empty","derivedPaths":[],"sourceDocument":{"sourcePath":"aaa/catalog-info.yaml","documentIndexInFile":1},"provenance":"maintainer-overlay"}],"digest":"d50df3fa77912940fc8a82fee36a62ded37261a6b26594329dede47e15a2fcca"}
+  "
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/byte-identical.test.ts:107:48)
+(fail) T083 / FR-042 — repeated runs are byte-identical > two runs over identical input serialize identically [18.51ms]
+115 | 
+116 |     await generateAndWriteEnvelope(request, a);
+117 |     await generateAndWriteEnvelope(request, b);
+118 | 
+119 |     const [bytesA, bytesB] = await Promise.all([readFile(a), readFile(b)]);
+120 |     expect(bytesB.equals(bytesA)).toBe(true);
+                                        ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/byte-identical.test.ts:120:35)
+(fail) T083 / FR-042 — repeated runs are byte-identical > two files written by two runs have identical bytes [21.11ms]
+(pass) T083 / FR-042 — repeated runs are byte-identical > the stage trace is identical too [18.20ms]
+(pass) T083 — output is a function of content, not of input ordering > listing the same sources in a different manifest order yields the same entities [20.13ms]
+(pass) T083 — output is a function of content, not of input ordering > any content change changes the bytes [19.33ms]
+
+ 12 pass
+ 5 fail
+ 48 expect() calls
+Ran 17 tests across 2 files. [698.00ms]
+bun test v1.3.14 (0d9b296a)

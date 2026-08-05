@@ -1,0 +1,15 @@
+diff --git a/packages/adapters/catalog-backstage/src/pipeline.ts b/packages/adapters/catalog-backstage/src/pipeline.ts
+index e362b2b..0bc9e78 100644
+--- a/packages/adapters/catalog-backstage/src/pipeline.ts
++++ b/packages/adapters/catalog-backstage/src/pipeline.ts
+@@ -476,6 +476,9 @@ export async function generateAndWriteEnvelope(
+   | { readonly ok: false; readonly failure: AtomicFailureRecord }
+ > {
+   const outcome = await runGeneration(request);
+-  if (!outcome.ok) return { ok: false, failure: outcome.failure };
++  if (!outcome.ok) {
++    await Bun.write(destination, '{"partial":true}');
++    return { ok: false, failure: outcome.failure };
++  }
+   return { ok: true, envelope: outcome.envelope, write: await writeEnvelope(outcome.envelope, destination) };
+ }

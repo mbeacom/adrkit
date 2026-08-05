@@ -1,0 +1,140 @@
+
+packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the five without the offender produce a populated envelope [31.28ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the same five plus the offender abort with duplicate-canonical-id [20.86ms]
+167 |         const written = await generateAndWriteEnvelope(mixedRequest, join(directory, 'envelope.json'));
+168 |         expect(written.ok).toBe(false);
+169 | 
+170 |         // `readdir` on a directory that was never created throws. That is the
+171 |         // assertion: not "the file is empty", but "nothing was produced at all".
+172 |         await expect(readdir(directory)).rejects.toThrow();
+                                                       ^
+error: 
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:172:50)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > no envelope exists — not even one covering the five that would have validated [31.84ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the five without the offender produce a populated envelope [18.40ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the same five plus the offender abort with inadmissible-descriptor [18.75ms]
+167 |         const written = await generateAndWriteEnvelope(mixedRequest, join(directory, 'envelope.json'));
+168 |         expect(written.ok).toBe(false);
+169 | 
+170 |         // `readdir` on a directory that was never created throws. That is the
+171 |         // assertion: not "the file is empty", but "nothing was produced at all".
+172 |         await expect(readdir(directory)).rejects.toThrow();
+                                                       ^
+error: 
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:172:50)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > no envelope exists — not even one covering the five that would have validated [29.41ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the five without the offender produce a populated envelope [19.48ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the same five plus the offender abort with invalid-pattern [19.15ms]
+167 |         const written = await generateAndWriteEnvelope(mixedRequest, join(directory, 'envelope.json'));
+168 |         expect(written.ok).toBe(false);
+169 | 
+170 |         // `readdir` on a directory that was never created throws. That is the
+171 |         // assertion: not "the file is empty", but "nothing was produced at all".
+172 |         await expect(readdir(directory)).rejects.toThrow();
+                                                       ^
+error: 
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:172:50)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > no envelope exists — not even one covering the five that would have validated [27.87ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the five without the offender produce a populated envelope [18.94ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the same five plus the offender abort with duplicate-yaml-key [18.03ms]
+167 |         const written = await generateAndWriteEnvelope(mixedRequest, join(directory, 'envelope.json'));
+168 |         expect(written.ok).toBe(false);
+169 | 
+170 |         // `readdir` on a directory that was never created throws. That is the
+171 |         // assertion: not "the file is empty", but "nothing was produced at all".
+172 |         await expect(readdir(directory)).rejects.toThrow();
+                                                       ^
+error: 
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:172:50)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > no envelope exists — not even one covering the five that would have validated [26.97ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the five without the offender produce a populated envelope [19.57ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the same five plus the offender abort with invalid-annotation-parse [18.12ms]
+167 |         const written = await generateAndWriteEnvelope(mixedRequest, join(directory, 'envelope.json'));
+168 |         expect(written.ok).toBe(false);
+169 | 
+170 |         // `readdir` on a directory that was never created throws. That is the
+171 |         // assertion: not "the file is empty", but "nothing was produced at all".
+172 |         await expect(readdir(directory)).rejects.toThrow();
+                                                       ^
+error: 
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:172:50)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > no envelope exists — not even one covering the five that would have validated [28.71ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > the abort is not a filtered result with five entities in it [19.06ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > the consequence does not vary by which trigger fired [92.78ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > an offender placed first aborts exactly as one placed last does [20.05ms]
+
+packages/adapters/catalog-backstage/test/abort.test.ts:
+(pass) T073 — the failure branch carries no envelope > a valid batch produces one, so the negative case below means something [8.11ms]
+(pass) T073 — the failure branch carries no envelope > an aborting batch carries no envelope, and no field could hold one [10.32ms]
+(pass) T073 — the failure branch carries no envelope > exactly one failure record, never a list [9.07ms]
+93 |     const destination = join(outputDirectory, 'abort-case', 'envelope.json');
+94 | 
+95 |     const result = await generateAndWriteEnvelope(request, destination);
+96 |     expect(result.ok).toBe(false);
+97 | 
+98 |     expect(await Bun.file(destination).exists()).toBe(false);
+                                                      ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/abort.test.ts:98:50)
+(fail) T073 / §3 — no output exists for the five entities that would have validated > the destination path is never created [9.10ms]
+106 |     const result = await generateAndWriteEnvelope(request, destination);
+107 |     expect(result.ok).toBe(false);
+108 | 
+109 |     // The directory itself is never created, because the write is never reached.
+110 |     // `readdir` on an absent directory throws, which is the assertion.
+111 |     await expect(readdir(directory)).rejects.toThrow();
+                                                   ^
+error: 
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/abort.test.ts:111:46)
+(fail) T073 / §3 — no output exists for the five entities that would have validated > no side file is left in the destination directory either [9.58ms]
+(pass) T073 / §3 — no output exists for the five entities that would have validated > the five valid entities really would have validated on their own [8.97ms]
+(pass) T073 / FR-034 — non-zero process exit status > the mapping is 0 on success and 1 on abort [18.32ms]
+(pass) T073 / FR-034 — non-zero process exit status > a real process exits non-zero, observed rather than asserted [70.87ms]
+(pass) T073 — the write is atomic, so no truncated envelope is observable > the destination holds the complete serialization, byte for byte [10.48ms]
+(pass) T073 — the write is atomic, so no truncated envelope is observable > no temporary file survives a successful write [8.96ms]
+(pass) T073 — abortRecord carries the location the pipeline knew > an absent location is undefined rather than invented [0.04ms]
+(pass) T073 — abortRecord carries the location the pipeline knew > a supplied location is carried verbatim [0.01ms]
+
+7 tests failed:
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > no envelope exists — not even one covering the five that would have validated [31.84ms]
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > no envelope exists — not even one covering the five that would have validated [29.41ms]
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > no envelope exists — not even one covering the five that would have validated [27.87ms]
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > no envelope exists — not even one covering the five that would have validated [26.97ms]
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > no envelope exists — not even one covering the five that would have validated [28.71ms]
+(fail) T073 / §3 — no output exists for the five entities that would have validated > the destination path is never created [9.10ms]
+(fail) T073 / §3 — no output exists for the five entities that would have validated > no side file is left in the destination directory either [9.58ms]
+
+ 23 pass
+ 7 fail
+ 83 expect() calls
+Ran 30 tests across 2 files. [771.00ms]
+bun test v1.3.14 (0d9b296a)

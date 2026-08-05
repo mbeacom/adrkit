@@ -1,0 +1,208 @@
+
+packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the five without the offender produce a populated envelope [32.06ms]
+148 |         expect(control.envelope.entities).toHaveLength(5);
+149 |       });
+150 | 
+151 |       test(`the same five plus the offender abort with ${testCase.triggerClass}`, async () => {
+152 |         const { mixed } = await mixedBatch(testCase.prefix, testCase.offenderPath, testCase.offenderText);
+153 |         expect(mixed.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:153:26)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the same five plus the offender abort with duplicate-canonical-id [20.66ms]
+159 |         const { mixed, mixedRequest } = await mixedBatch(
+160 |           testCase.prefix,
+161 |           testCase.offenderPath,
+162 |           testCase.offenderText,
+163 |         );
+164 |         expect(mixed.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:164:26)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > no envelope exists — not even one covering the five that would have validated [20.94ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the five without the offender produce a populated envelope [20.83ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the same five plus the offender abort with inadmissible-descriptor [19.28ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > no envelope exists — not even one covering the five that would have validated [27.93ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the five without the offender produce a populated envelope [21.22ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the same five plus the offender abort with invalid-pattern [19.27ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > no envelope exists — not even one covering the five that would have validated [28.63ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the five without the offender produce a populated envelope [21.10ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the same five plus the offender abort with duplicate-yaml-key [19.05ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > no envelope exists — not even one covering the five that would have validated [28.35ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the five without the offender produce a populated envelope [20.74ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the same five plus the offender abort with invalid-annotation-parse [18.24ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > no envelope exists — not even one covering the five that would have validated [29.85ms]
+183 |     const { mixed } = await mixedBatch(
+184 |       'skip',
+185 |       'skip/sixth/catalog-info.yaml',
+186 |       validDescriptor('skipalpha'),
+187 |     );
+188 |     expect(mixed.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:188:22)
+(fail) T077 / §1 — "skip the bad entity and keep going" is not what happens > the abort is not a filtered result with five entities in it [20.20ms]
+195 |     // backstop, fired". Checked across every case above rather than on one. The
+196 |     // fixtures are re-staged unchanged — an earlier version re-prefixed them, which
+197 |     // silently made the duplicate-id offender stop duplicating anything.
+198 |     for (const testCase of CASES) {
+199 |       const { mixed } = await mixedBatch(testCase.prefix, testCase.offenderPath, testCase.offenderText);
+200 |       expect(mixed.ok).toBe(false);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:200:24)
+(fail) T077 / §1 — "skip the bad entity and keep going" is not what happens > the consequence does not vary by which trigger fired [19.78ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > an offender placed first aborts exactly as one placed last does [20.85ms]
+
+packages/adapters/catalog-backstage/test/uniqueness.test.ts:
+(pass) T071 — the three collision classes §3 enumerates > all three are members of the closed trigger enumeration [0.03ms]
+(pass) T071 — the three collision classes §3 enumerates > a distinct set passes, so the rejections below are not vacuous [0.07ms]
+59 |   test('two descriptors canonicalizing alike collide', () => {
+60 |     const outcome = checkGlobalUniqueness([
+61 |       identity('component:default/payments'),
+62 |       identity('component:default/payments'),
+63 |     ]);
+64 |     expect(outcome.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:64:24)
+(fail) T071 — row 1: identical canonical ids are `duplicate-canonical-id` > two descriptors canonicalizing alike collide [0.08ms]
+76 |     // entire id. So §1's worked example lands on row 1, not on row 3.
+77 |     const outcome = checkGlobalUniqueness([
+78 |       identity('Component:Default/Payments'.toLowerCase()),
+79 |       identity('component:default/payments'),
+80 |     ]);
+81 |     expect(outcome.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:81:24)
+(fail) T071 — row 1: identical canonical ids are `duplicate-canonical-id` > the case-only pair §1 canonicalizes together arrives here already identical [0.04ms]
+89 |     // Synthetic: `allRefs` beyond `canonicalId` has no descriptor-sourced route.
+90 |     const outcome = checkGlobalUniqueness([
+91 |       identity('component:default/billing', 'component:default/billing-legacy'),
+92 |       identity('component:default/billing-legacy'),
+93 |     ]);
+94 |     expect(outcome.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:94:24)
+(fail) T071 — row 2: an alias colliding with a different entity’s id is `duplicate-canonical-ref` > §3’s worked example, on a synthetic identity set [0.04ms]
+103 |   test('an alias-vs-alias collision is also `duplicate-canonical-ref`', () => {
+104 |     const outcome = checkGlobalUniqueness([
+105 |       identity('component:default/a', 'component:default/shared'),
+106 |       identity('component:default/b', 'component:default/shared'),
+107 |     ]);
+108 |     expect(outcome.ok).toBe(false);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:108:24)
+(fail) T071 — row 2: an alias colliding with a different entity’s id is `duplicate-canonical-ref` > an alias-vs-alias collision is also `duplicate-canonical-ref` [0.04ms]
+115 |   test('an alias differing only by case collides', () => {
+116 |     const outcome = checkGlobalUniqueness([
+117 |       identity('component:default/billing', 'Component:Default/Billing-Legacy'),
+118 |       identity('component:default/billing-legacy'),
+119 |     ]);
+120 |     expect(outcome.ok).toBe(false);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:120:24)
+(fail) T071 — row 3: a case-only variant is `duplicate-canonical-ref` > an alias differing only by case collides [0.04ms]
+(pass) T071 — row 3: a case-only variant is `duplicate-canonical-ref` > the class is `duplicate-canonical-ref` and specifically not `duplicate-canonical-id` [0.04ms]
+(pass) T071 — row 3: a case-only variant is `duplicate-canonical-ref` > two identical primary ids belonging to the SAME entity are not row 1
+159 |   test('a collision returns a rejection, never a surviving member', () => {
+160 |     const outcome = checkGlobalUniqueness([
+161 |       identity('component:default/a'),
+162 |       identity('component:default/a'),
+163 |     ]);
+164 |     expect(outcome.ok).toBe(false);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:164:24)
+(fail) T071 — first-wins and last-wins are both forbidden > a collision returns a rejection, never a surviving member [0.04ms]
+176 |     const backwards = checkGlobalUniqueness([
+177 |       identity('component:default/a'),
+178 |       identity('component:default/a'),
+179 |       identity('component:default/b'),
+180 |     ]);
+181 |     expect(forwards.ok).toBe(false);
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:181:25)
+(fail) T071 — first-wins and last-wins are both forbidden > the reported collision does not depend on which member came first [0.04ms]
+187 |   test('the detail names the prohibition, so an abort is legible without the contract', () => {
+188 |     const outcome = checkGlobalUniqueness([
+189 |       identity('component:default/a'),
+190 |       identity('component:default/a'),
+191 |     ]);
+192 |     if (outcome.ok) throw new Error('expected a collision');
+                                                                ^
+error: expected a collision
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:192:59)
+(fail) T071 — first-wins and last-wins are both forbidden > the detail names the prohibition, so an abort is legible without the contract [0.04ms]
+200 |     // unique." §3's table lists only cross-entity kinds, so this reading is recorded
+201 |     // in `identity/uniqueness.ts` rather than left implicit.
+202 |     const outcome = checkGlobalUniqueness([
+203 |       { canonicalId: 'component:default/a', allRefs: ['component:default/a', 'component:default/a'] },
+204 |     ]);
+205 |     expect(outcome.ok).toBe(false);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/uniqueness.test.ts:205:24)
+(fail) T071 — uniqueness is over every ref, not only primary ids > a ref repeated within one entity is a violation [0.04ms]
+(pass) T071 — uniqueness is over every ref, not only primary ids > the comparison walks aliases as well as primary ids [0.03ms]
+(pass) T071 — uniqueness is over every ref, not only primary ids > folded refs are sorted and deduplicated, so a report is reproducible [0.07ms]
+
+ 20 pass
+ 13 fail
+ 54 expect() calls
+Ran 33 tests across 2 files. [500.00ms]
+bun test v1.3.14 (0d9b296a)

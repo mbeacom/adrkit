@@ -1,0 +1,78 @@
+
+packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the five without the offender produce a populated envelope [30.40ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > the same five plus the offender abort with duplicate-canonical-id [21.00ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §3’s own worked example — a sixth entity with a duplicate canonical id > no envelope exists — not even one covering the five that would have validated [28.84ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the five without the offender produce a populated envelope [19.84ms]
+148 |         expect(control.envelope.entities).toHaveLength(5);
+149 |       });
+150 | 
+151 |       test(`the same five plus the offender abort with ${testCase.triggerClass}`, async () => {
+152 |         const { mixed } = await mixedBatch(testCase.prefix, testCase.offenderPath, testCase.offenderText);
+153 |         expect(mixed.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:153:26)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > the same five plus the offender abort with inadmissible-descriptor [17.05ms]
+159 |         const { mixed, mixedRequest } = await mixedBatch(
+160 |           testCase.prefix,
+161 |           testCase.offenderPath,
+162 |           testCase.offenderText,
+163 |         );
+164 |         expect(mixed.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:164:26)
+(fail) T077 / SC-002 — one invalid entity aborts the whole run > §5’s variant — the sixth entity is inadmissible instead > no envelope exists — not even one covering the five that would have validated [17.89ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the five without the offender produce a populated envelope [17.94ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > the same five plus the offender abort with invalid-pattern [17.25ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity declares a pattern the frozen dialect rejects > no envelope exists — not even one covering the five that would have validated [28.29ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the five without the offender produce a populated envelope [19.44ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > the same five plus the offender abort with duplicate-yaml-key [17.80ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity repeats a YAML mapping key > no envelope exists — not even one covering the five that would have validated [26.36ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the five without the offender produce a populated envelope [20.08ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > the same five plus the offender abort with invalid-annotation-parse [18.25ms]
+(pass) T077 / SC-002 — one invalid entity aborts the whole run > the sixth entity’s annotation is not valid JSON > no envelope exists — not even one covering the five that would have validated [28.82ms]
+(pass) T077 / §1 — "skip the bad entity and keep going" is not what happens > the abort is not a filtered result with five entities in it [19.41ms]
+195 |     // backstop, fired". Checked across every case above rather than on one. The
+196 |     // fixtures are re-staged unchanged — an earlier version re-prefixed them, which
+197 |     // silently made the duplicate-id offender stop duplicating anything.
+198 |     for (const testCase of CASES) {
+199 |       const { mixed } = await mixedBatch(testCase.prefix, testCase.offenderPath, testCase.offenderText);
+200 |       expect(mixed.ok).toBe(false);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:200:24)
+(fail) T077 / §1 — "skip the bad entity and keep going" is not what happens > the consequence does not vary by which trigger fired [36.59ms]
+228 |     );
+229 | 
+230 |     const firstOutcome = await runGeneration(first);
+231 |     const lastOutcome = await runGeneration(last);
+232 | 
+233 |     expect(firstOutcome.ok).toBe(false);
+                                  ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-002-mixed-batch.test.ts:233:29)
+(fail) T077 / §1 — "skip the bad entity and keep going" is not what happens > an offender placed first aborts exactly as one placed last does [21.66ms]
+
+ 14 pass
+ 4 fail
+ 39 expect() calls
+Ran 18 tests across 1 file. [500.00ms]
+bun test v1.3.14 (0d9b296a)

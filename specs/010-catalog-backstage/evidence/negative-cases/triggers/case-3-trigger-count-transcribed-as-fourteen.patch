@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/failure/triggers.ts b/packages/adapters/catalog-backstage/src/failure/triggers.ts
+index 7b3f74d..5c9d150 100644
+--- a/packages/adapters/catalog-backstage/src/failure/triggers.ts
++++ b/packages/adapters/catalog-backstage/src/failure/triggers.ts
+@@ -47,7 +47,7 @@ export { TRIGGER_CLASSES, type Rejection, type TriggerClass };
+  * enumeration changed underneath it, which is the failure mode the whole
+  * fourteen-versus-fifteen trap consists of.
+  */
+-export const FATAL_TRIGGER_COUNT: number = TRIGGER_CLASSES.length;
++export const FATAL_TRIGGER_COUNT: number = 14;
+ 
+ /**
+  * The deliberate, always-present backstop.

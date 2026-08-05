@@ -888,7 +888,7 @@ whatsoever runs concurrently with Phase E.** Phase E is where generator-derived 
 first exists; the whole point of Barrier B is that this moment comes after the freeze
 and the audit.
 
-- [ ] T069 [US2] Compose the Phase D units into `<ADAPTER>/src/pipeline.ts` in fixed
+- [X] T069 [US2] Compose the Phase D units into `<ADAPTER>/src/pipeline.ts` in fixed
       stage order: manifest → repository → digests → descriptor read → admissibility →
       canonicalization → ownership → glob → envelope. Composition only; no new
       validation logic.
@@ -896,7 +896,7 @@ and the audit.
       Discharges: none — enables FR-014, FR-023, FR-024, FR-034…FR-043
       Depends: T024, T046, T056, T068
 
-- [ ] T070 [US2] Set `completeness.wholeCatalog === false` unconditionally, in every
+- [X] T070 [US2] Set `completeness.wholeCatalog === false` unconditionally, in every
       envelope, on every path. There is no configuration, flag, or input that can make
       it `true`.
       Files: `<ADAPTER>/src/envelope/completeness.ts`,
@@ -905,7 +905,7 @@ and the audit.
       Discharges: FR-014
       Depends: T024, T069
 
-- [ ] T071 [US5] Enforce **global canonical uniqueness over every ref**, emitting
+- [X] T071 [US5] Enforce **global canonical uniqueness over every ref**, emitting
       `duplicate-canonical-id`, `duplicate-canonical-ref`, and `duplicate-yaml-key` as
       three distinct classes. First-wins and last-wins resolution are forbidden — a
       collision aborts.
@@ -922,7 +922,7 @@ and the audit.
       > synthetic fixtures is unknown, and SC-003 may be satisfiable only synthetically
       > for that one class.
 
-- [ ] T072 [US5] Establish that **overlap between distinct canonical ids is not a
+- [X] T072 [US5] Establish that **overlap between distinct canonical ids is not a
       collision** — two entities may derive overlapping paths, and no exclusive winner
       is selected.
       Files: `<ADAPTER>/src/identity/overlap.ts`, `<ADAPTER>/test/overlap.test.ts`.
@@ -931,7 +931,7 @@ and the audit.
       Depends: T024, T071
       Contract: `entity-identity.md` §4
 
-- [ ] T073 [US5] Implement whole-operation abort: any fatal trigger aborts the entire
+- [X] T073 [US5] Implement whole-operation abort: any fatal trigger aborts the entire
       operation, exits non-zero, and leaves **no usable partial output** — no partial
       envelope, no partial file, no truncated stream.
       Files: `<ADAPTER>/src/failure/abort.ts`, `<ADAPTER>/test/abort.test.ts`.
@@ -940,7 +940,7 @@ and the audit.
       Depends: T024, T069
       Contract: `atomic-fail-closed.md` §1, §2
 
-- [ ] T074 [US5] Declare the closed **fifteen**-value fatal trigger enumeration as a
+- [X] T074 [US5] Declare the closed **fifteen**-value fatal trigger enumeration as a
       string-literal union at `<ADAPTER>/src/failure/triggers.ts`. This feature's count
       is **fifteen** — spike 009's fourteen **plus** `inadmissible-descriptor`, added by
       ADR-0015 Condition of Acceptance 2. The enumeration, verbatim from
@@ -957,7 +957,7 @@ and the audit.
       Depends: T024, T073
       Contract: `atomic-fail-closed.md` §4
 
-- [ ] T075 [US5] Implement `other-invalid-input` as a **deliberate, always-present
+- [X] T075 [US5] Implement `other-invalid-input` as a **deliberate, always-present
       backstop** — never removed as unreachable, never treated as dead code, and never
       used to absorb a case that has its own class.
       Files: `<ADAPTER>/src/failure/triggers.ts`,
@@ -967,7 +967,7 @@ and the audit.
       Depends: T024, T074
       Contract: `atomic-fail-closed.md` §4.2
 
-- [ ] T076 [US5] Enforce that each abort carries **exactly one** trigger class, and
+- [X] T076 [US5] Enforce that each abort carries **exactly one** trigger class, and
       that it is the **correct** one — including for the collapsible pairs the contract
       identifies as most at risk of being merged.
       Files: `<ADAPTER>/src/failure/classify.ts`,
@@ -977,7 +977,7 @@ and the audit.
       Depends: T024, T075
       Contract: `atomic-fail-closed.md` §4.3
 
-- [ ] T077 [US5] Assert **whole-operation atomicity over a mixed batch** — a batch
+- [X] T077 [US5] Assert **whole-operation atomicity over a mixed batch** — a batch
       containing both valid and invalid entities produces no output at all. This is a
       *separate property* from the per-rule tests in Phase D, which is precisely why
       `plan.md` places it behind the barrier under the R4 definition even though the
@@ -1001,14 +1001,14 @@ and the audit.
       > only via a synthetic fixture. Record that plainly here rather than presenting a
       > synthetic case as a corpus-derived one.
 
-- [ ] T079 [US6] Emit the versioned envelope as the **only** output: no side files, no
+- [X] T079 [US6] Emit the versioned envelope as the **only** output: no side files, no
       logs presented as output, no auxiliary artifacts.
       Files: `<ADAPTER>/src/envelope/write.ts`, `<ADAPTER>/test/envelope-only.test.ts`.
       Barrier: BEHIND
       Discharges: FR-038
       Depends: T024, T069
 
-- [ ] T080 [US6] Implement the envelope's declared fields and **exactly five** fields
+- [X] T080 [US6] Implement the envelope's declared fields and **exactly five** fields
       per `entities[]` record. The flatter triple shape is forbidden.
       Files: `<ADAPTER>/src/envelope/shape.ts`, `<ADAPTER>/test/envelope-shape.test.ts`.
       Barrier: BEHIND
@@ -1016,7 +1016,7 @@ and the audit.
       Depends: T024, T079
       Contract: `snapshot-envelope.md` §1 (see also `data-model.md` §9, §10)
 
-- [ ] T081 [US6] Compute the envelope digest using `@adrkit/core`'s `canonicalStringify`
+- [X] T081 [US6] Compute the envelope digest using `@adrkit/core`'s `canonicalStringify`
       (`packages/core/src/fingerprint/index.ts:16`, exported at
       `packages/core/src/index.ts:24`), SHA-256, rendered as 64 lowercase hex
       characters. **Never** use the same-named function at
@@ -1032,7 +1032,7 @@ and the audit.
       Depends: T024, T080
       Contract: `package-boundary.md` §2.2
 
-- [ ] T082 [US6] Maintain the provenance boundary in the envelope: upstream-authored
+- [X] T082 [US6] Maintain the provenance boundary in the envelope: upstream-authored
       descriptor content and maintainer-authored overlay content are recorded as
       distinct provenances and never merged into an undifferentiated whole.
       Files: `<ADAPTER>/src/envelope/provenance.ts`,
@@ -1041,14 +1041,14 @@ and the audit.
       Discharges: FR-043
       Depends: T024, T081
 
-- [ ] T083 [US2] Produce **byte-identical** output across repeated runs over identical
+- [X] T083 [US2] Produce **byte-identical** output across repeated runs over identical
       input.
       Files: `<ADAPTER>/test/byte-identical.test.ts`.
       Barrier: BEHIND
       Discharges: FR-042
       Depends: T024, T082
 
-- [ ] T084 [US2] Assert determinism across **at least three** runs, on the **accept
+- [X] T084 [US2] Assert determinism across **at least three** runs, on the **accept
       path and the reject path alike** — a deterministic rejection is as much a
       requirement as a deterministic envelope.
       Files: `<ADAPTER>/test/sc-001-determinism.test.ts`.
@@ -1056,7 +1056,7 @@ and the audit.
       Discharges: SC-001
       Depends: T024, T083
 
-- [ ] T085 [US6] SC-013 close-out: exactly one envelope is produced; each
+- [X] T085 [US6] SC-013 close-out: exactly one envelope is produced; each
       `entities[]` record carries exactly five fields; the recorded digest matches an
       **independent** recomputation, not the generator's own.
       Files: `<ADAPTER>/test/sc-013.test.ts`.

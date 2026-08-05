@@ -1,0 +1,50 @@
+
+packages/adapters/catalog-backstage/test/overlap.test.ts:
+(pass) T072 — the fixture genuinely overlaps > overlap is present, so nothing below passes vacuously [0.16ms]
+(pass) T072 — the fixture genuinely overlaps > the overlapping pattern is named, and both claimants are listed [0.03ms]
+(pass) T072 — the fixture genuinely overlaps > a set with no shared pattern reports no overlap [0.02ms]
+(pass) T072 — the fixture genuinely overlaps > one entity listing a pattern twice is not an overlap with itself
+(pass) T072 / §4 — overlap does not trigger the abort > the distinct canonical ids pass the uniqueness check [0.12ms]
+(pass) T072 / §4 — overlap does not trigger the abort > a real run over two overlapping entities produces an envelope with both [17.25ms]
+ 95 | });
+ 96 | 
+ 97 | describe('T072 / §4 — no exclusive winner: a changed file is owned by every match', () => {
+ 98 |   test('both entities own a file matching the shared pattern', () => {
+ 99 |     const owners = ownersOf(CLAIMS, 'packages/shared/util.ts', createGlobCompiler());
+100 |     expect(owners).toEqual(['component:default/billing', 'component:default/invoicing']);
+                         ^
+error: expect(received).toEqual(expected)
+
+  [
+    "component:default/billing",
+-   "component:default/invoicing",
+  ]
+
+- Expected  - 1
++ Received  + 0
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/overlap.test.ts:100:20)
+(fail) T072 / §4 — no exclusive winner: a changed file is owned by every match > both entities own a file matching the shared pattern [0.35ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > a file matching only one pattern is owned by only that entity [0.08ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > a file matching nothing is owned by nobody [0.11ms]
+116 |   test('the result is a list, so a caller cannot read "the owner" off it', () => {
+117 |     const owners = ownersOf(CLAIMS, 'packages/shared/util.ts', createGlobCompiler());
+118 |     expect(Array.isArray(owners)).toBe(true);
+119 |     // ADR-0009's union-not-winner semantics, mirrored: the second entity is not a
+120 |     // runner-up, it is an owner.
+121 |     expect(owners[1]).toBe('component:default/invoicing');
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: "component:default/invoicing"
+Received: undefined
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/overlap.test.ts:121:23)
+(fail) T072 / §4 — no exclusive winner: a changed file is owned by every match > the result is a list, so a caller cannot read "the owner" off it [0.10ms]
+(pass) T072 / §4 — no exclusive winner: a changed file is owned by every match > ownership does not depend on the order the claims are listed in [0.12ms]
+
+ 9 pass
+ 2 fail
+ 16 expect() calls
+Ran 11 tests across 1 file. [100.00ms]
+bun test v1.3.14 (0d9b296a)

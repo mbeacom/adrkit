@@ -1,0 +1,158 @@
+
+packages/adapters/catalog-backstage/test/envelope-only.test.ts:
+53 | describe('T079 — exactly one file is written', () => {
+54 |   test('a successful run leaves one file, and it is the envelope', async () => {
+55 |     const directory = join(output, 'one-file');
+56 |     await generateInto(directory, 'onlyone');
+57 | 
+58 |     expect((await readdir(directory)).sort()).toEqual(['envelope.json']);
+                                                   ^
+error: expect(received).toEqual(expected)
+
+  [
+    "envelope.json",
++   "envelope.json.stages.log",
+  ]
+
+- Expected  - 0
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-only.test.ts:58:47)
+(fail) T079 — exactly one file is written > a successful run leaves one file, and it is the envelope [19.07ms]
+62 |     // Catches an implementation that accumulates timestamped or numbered side files.
+63 |     const directory = join(output, 'twice');
+64 |     await generateInto(directory, 'twicea');
+65 |     await generateInto(directory, 'twiceb');
+66 | 
+67 |     expect((await readdir(directory)).sort()).toEqual(['envelope.json']);
+                                                   ^
+error: expect(received).toEqual(expected)
+
+  [
+    "envelope.json",
++   "envelope.json.stages.log",
+  ]
+
+- Expected  - 0
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-only.test.ts:67:47)
+(fail) T079 — exactly one file is written > a second run into the same directory still leaves one file [19.95ms]
+72 |     const directory = join(output, 'preexisting');
+73 |     await generateInto(directory, 'preexistinga');
+74 |     await writeFile(join(directory, 'unrelated.txt'), 'kept', 'utf8');
+75 |     await generateInto(directory, 'preexistingb');
+76 | 
+77 |     expect((await readdir(directory)).sort()).toEqual(['envelope.json', 'unrelated.txt']);
+                                                   ^
+error: expect(received).toEqual(expected)
+
+  [
+    "envelope.json",
++   "envelope.json.stages.log",
+    "unrelated.txt",
+  ]
+
+- Expected  - 0
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-only.test.ts:77:47)
+(fail) T079 — exactly one file is written > a pre-existing unrelated file is left alone rather than cleaned up [19.85ms]
+(pass) T079 — exactly one file is written > the write reports the one path it wrote [8.66ms]
+(pass) T079 — no CatalogSnapshot-shaped artifact is ever written > the written file is envelope-shaped and not snapshot-shaped [9.25ms]
+(pass) T079 — no CatalogSnapshot-shaped artifact is ever written > no adapter source names the core catalog snapshot types [6.88ms]
+(pass) T079 — no CatalogSnapshot-shaped artifact is ever written > that rule has been observed firing, so its silence means something [0.03ms]
+168 |     expect(outcome.stages.length).toBeGreaterThan(0);
+169 | 
+170 |     await generateAndWriteEnvelope(request, join(directory, 'envelope.json'));
+171 |     const written = await Bun.file(join(directory, 'envelope.json')).text();
+172 |     expect(written).not.toContain('"stages"');
+173 |     expect((await readdir(directory)).sort()).toEqual(['envelope.json']);
+                                                    ^
+error: expect(received).toEqual(expected)
+
+  [
+    "envelope.json",
++   "envelope.json.stages.log",
+  ]
+
+- Expected  - 0
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-only.test.ts:173:47)
+(fail) T079 — diagnostics are returned, never written > the stage trace is a returned value and appears in no file [18.03ms]
+(pass) T079 — diagnostics are returned, never written > the serialization contains only the envelope’s own fields [9.03ms]
+202 | 
+203 |     const directory = join(output, 'deep', 'deeper', 'deepest');
+204 |     const result = await writeEnvelope(outcome.envelope, join(directory, 'envelope.json'));
+205 | 
+206 |     expect(result.path).toBe(join(directory, 'envelope.json'));
+207 |     expect((await readdir(directory)).sort()).toEqual(['envelope.json']);
+                                                    ^
+error: expect(received).toEqual(expected)
+
+  [
+    "envelope.json",
++   "envelope.json.stages.log",
+  ]
+
+- Expected  - 0
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/envelope-only.test.ts:207:47)
+(fail) T079 — writeEnvelope writes one file and creates its directory > a nested destination directory is created [9.21ms]
+
+packages/adapters/catalog-backstage/test/sc-013.test.ts:
+108 |   return createHash('sha256').update(canonicalize(unsigned), 'utf8').digest('hex');
+109 | }
+110 | 
+111 | describe('T085 / SC-013 — exactly one envelope is produced', () => {
+112 |   test('the destination directory holds exactly one file', async () => {
+113 |     expect((await readdir(join(output, 'sc013'))).sort()).toEqual(['envelope.json']);
+                                                                ^
+error: expect(received).toEqual(expected)
+
+  [
+    "envelope.json",
++   "envelope.json.stages.log",
+  ]
+
+- Expected  - 0
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-013.test.ts:113:59)
+(fail) T085 / SC-013 — exactly one envelope is produced > the destination directory holds exactly one file [0.17ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > that file is one envelope, not an array or a stream of them [0.03ms]
+(pass) T085 / SC-013 — exactly one envelope is produced > it covers exactly one repository [0.01ms]
+(pass) T085 / SC-013 — each entity record carries exactly five fields > the fixture has several entities, so the check is not about one record
+(pass) T085 / SC-013 — each entity record carries exactly five fields > every record has exactly the five defined fields [0.03ms]
+142 |   test('no snapshot-shaped artifact was written alongside it', async () => {
+143 |     // SC-013's second clause. Checked from the directory, so a second file of any
+144 |     // shape would fail it. The forbidden core type is not named literally here: the
+145 |     // guard that must name it is `test/envelope-only.test.ts`, which is listed in
+146 |     // `EXCLUDED_FROM_SCAN` for exactly that reason.
+147 |     expect((await readdir(join(output, 'sc013'))).sort()).toEqual(['envelope.json']);
+                                                                ^
+error: expect(received).toEqual(expected)
+
+  [
+    "envelope.json",
++   "envelope.json.stages.log",
+  ]
+
+- Expected  - 0
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-potential-potato/packages/adapters/catalog-backstage/test/sc-013.test.ts:147:59)
+(fail) T085 / SC-013 — each entity record carries exactly five fields > no snapshot-shaped artifact was written alongside it [0.13ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the independent recomputation agrees with the recorded digest [0.16ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is genuinely independent — it detects a mutation [0.12ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the recomputation is order-insensitive at every nesting level [0.07ms]
+(pass) T085 / SC-013 — the digest matches an independent recomputation > the digest is 64 lowercase hex characters [0.01ms]
+(pass) T085 — the scope of what a matching digest establishes > a match establishes integrity, and this test claims nothing more [0.04ms]
+
+ 14 pass
+ 7 fail
+ 49 expect() calls
+Ran 21 tests across 2 files. [250.00ms]
+bun test v1.3.14 (0d9b296a)

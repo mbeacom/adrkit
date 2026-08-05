@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/envelope/digest.ts b/packages/adapters/catalog-backstage/src/envelope/digest.ts
+index 2602599..397672e 100644
+--- a/packages/adapters/catalog-backstage/src/envelope/digest.ts
++++ b/packages/adapters/catalog-backstage/src/envelope/digest.ts
+@@ -69,7 +69,7 @@ export const DIGEST_ALGORITHM = 'sha256';
+  * *where* two envelopes differ; comparing digests only says *that* they differ.
+  */
+ export function canonicalEnvelopeForm(envelope: UnsignedEnvelope): string {
+-  return canonicalStringify(envelope);
++  return JSON.stringify(envelope);
+ }
+ 
+ /**

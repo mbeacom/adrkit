@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/failure/classify.ts b/packages/adapters/catalog-backstage/src/failure/classify.ts
+index 0b37ace..8b9112b 100644
+--- a/packages/adapters/catalog-backstage/src/failure/classify.ts
++++ b/packages/adapters/catalog-backstage/src/failure/classify.ts
+@@ -66,7 +66,7 @@ export const REASON_TRIGGER_REGISTRY: Readonly<Record<string, TriggerClass>> = {
+   // is no file here" and "this file is not JSON" are different findings with different
+   // fixes. `manifest/schema.ts` cannot own it: that module starts from text.
+   'manifest-unreadable': 'invalid-manifest-shape',
+-  'unrecognized-top-level-field': 'invalid-manifest-shape',
++  'unrecognized-top-level-field': 'unsupported-manifest-version',
+   'missing-required-field': 'invalid-manifest-shape',
+   'field-wrong-type': 'invalid-manifest-shape',
+   'multiple-repositories': 'invalid-manifest-shape',

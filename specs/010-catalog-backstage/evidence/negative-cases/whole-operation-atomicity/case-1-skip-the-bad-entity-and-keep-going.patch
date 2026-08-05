@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/admissibility/index.ts b/packages/adapters/catalog-backstage/src/admissibility/index.ts
+index 6beee3a..684d00c 100644
+--- a/packages/adapters/catalog-backstage/src/admissibility/index.ts
++++ b/packages/adapters/catalog-backstage/src/admissibility/index.ts
+@@ -136,7 +136,7 @@ export function collectAdmitted(
+   for (const document of documents) {
+     const outcome = admit(document);
+     if (!outcome.admissible) {
+-      return { ok: false, result: outcome.result, rejection: outcome.rejection };
++      continue;
+     }
+     admitted.push(outcome.admitted);
+   }
