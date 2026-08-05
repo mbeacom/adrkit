@@ -1,0 +1,22 @@
+{
+  "task": "T023",
+  "observationOf": "scripts/check-freeze-hashes.ts (R5 mechanism 2 — CI freeze-hash drift check)",
+  "adr": "ADR-0016 (a check must be observed failing before it counts as coverage)",
+  "mutation": {
+    "artifact": "frozen-expectations/frozen-expectation-set.json",
+    "kind": "single-byte value flip",
+    "change": "workspaces/alpha/src/** -> workspaces/blpha/src/**",
+    "bytesChanged": 1,
+    "jsonStillParseable": true,
+    "performedOn": "an isolated copy; the live frozen artifact was never left mutated"
+  },
+  "observedFail": {
+    "stderr": "frozen-expectations/frozen-expectation-set.json: recorded contentHash does not match recomputed canonical hash (freeze drift) recorded=e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c recomputed=311e54427cce1b1564adb1e4467c7c57b868b61e2a8cc13e2483007cc4e1413f",
+    "exitCode": 1
+  },
+  "restore": {
+    "action": "restore the flipped byte",
+    "observedResult": "check-freeze-hashes: ok",
+    "exitCode": 0
+  }
+}

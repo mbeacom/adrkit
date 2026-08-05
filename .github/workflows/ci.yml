@@ -38,6 +38,8 @@ jobs:
         run: git diff --exit-code packages/ci/dist
       - name: Verify dependency boundaries (adapters + toolkit confinement)
         run: bun run check:deps
+      - name: Verify frozen oracle hashes match (feature 010 Barrier B, R5 mechanism 2)
+        run: bun run check:freeze-hashes
       - name: Lint ADR corpus
         run: bun run adr lint
 

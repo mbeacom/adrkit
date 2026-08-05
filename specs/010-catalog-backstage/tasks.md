@@ -341,7 +341,7 @@ concurrently with Phase A and with nothing else.
       Discharges: FR-057 (step (a) half), SC-010
       Depends: T018
 
-- [ ] T020 [US1] **Observed failing.** Construct an oracle variant whose
+- [x] T020 [US1] **Observed failing.** Construct an oracle variant whose
       `derivedPathPatterns` are in input order rather than `compareCodeUnits` order;
       run the T019 audit against it; observe the audit return FAIL and record the
       exact reason; restore the correct artifact; observe PASS. Retain the failing
@@ -350,7 +350,7 @@ concurrently with Phase A and with nothing else.
       Discharges: none — supplies the ADR-0016 observation for FR-053
       Depends: T019
 
-- [ ] T021 [US1] **Observed failing.** Construct an audit run that confirms hash
+- [x] T021 [US1] **Observed failing.** Construct an audit run that confirms hash
       integrity but never reaches an adequacy finding; observe it recorded as FAIL
       against SC-010 rather than silently accepted; restore; observe PASS. Retain at
       `<EVIDENCE>/negative-cases/audit-integrity-only/`.
@@ -358,7 +358,7 @@ concurrently with Phase A and with nothing else.
       Discharges: none — supplies the ADR-0016 observation for SC-010
       Depends: T019, T020
 
-- [ ] T022 [US1] Build the CI freeze-hash drift check — **R5 mechanism 2**. It
+- [x] T022 [US1] Build the CI freeze-hash drift check — **R5 mechanism 2**. It
       re-derives the content hashes of everything under `<EVIDENCE>/frozen-expectations/`
       and `<EVIDENCE>/accept-corpus-freeze/` and fails the build on any drift.
       Files: `scripts/check-freeze-hashes.ts`, `scripts/check-freeze-hashes.test.ts`,
@@ -367,7 +367,7 @@ concurrently with Phase A and with nothing else.
       Discharges: none — implements R5 mechanism 2
       Depends: T019
 
-- [ ] T023 [US1] **Observed failing.** Mutate a single byte of one frozen artifact;
+- [x] T023 [US1] **Observed failing.** Mutate a single byte of one frozen artifact;
       run the T022 check; observe it fail and record the exact reason; restore the byte;
       observe the pass.
       Files: `scripts/check-freeze-hashes.test.ts`,
@@ -376,7 +376,7 @@ concurrently with Phase A and with nothing else.
       Discharges: none — supplies the ADR-0016 observation for R5 mechanism 2
       Depends: T022
 
-- [ ] T024 [US1] **BARRIER B CHECKPOINT — HARD GATE.** Confirm and record all three
+- [x] T024 [US1] **BARRIER B CHECKPOINT — HARD GATE.** Confirm and record all three
       R5 mechanisms simultaneously:
       **(1) input absence** — no input manifest exists anywhere in the tree, and the
       adapter contains no recursive walking or glob discovery that could substitute for

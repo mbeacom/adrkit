@@ -1,0 +1,11 @@
+{
+  "artifact": "adequacy-audit",
+  "note": "DELIBERATE NEGATIVE CASE (T021). This audit confirmed hash integrity but never reached an adequacy determination. Per ADR-0020 clause 5(a)/SC-010 this MUST be recorded as FAIL, not silently accepted.",
+  "requirement1_contentHashRecomputation": {
+    "verdict": "PASS",
+    "note": "hashes match"
+  },
+  "requirement3_adequacyFinding": {
+    "note": "intentionally omitted — no finding field present"
+  }
+}

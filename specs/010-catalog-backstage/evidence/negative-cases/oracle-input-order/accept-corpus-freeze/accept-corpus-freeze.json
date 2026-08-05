@@ -1,0 +1,447 @@
+{
+  "//": "T018 — AcceptCorpusFreeze, data-model.md §17. The ADR-0020 clause-5 gate artifact, assembled in the SAME CYCLE as T014 (selection basis and size), T015 (overlay), T016 (expected paths) and T017 (the re-frozen oracle). This artifact and the T017 oracle are frozen together or not at all.",
+  "task": "T018",
+  "barrierSide": "IS THE BARRIER",
+  "discharges": [
+    "FR-054 (same-cycle freeze)"
+  ],
+  "frozenAt": "2026-08-05T03:43:58Z",
+  "corpusRef": {
+    "repository": "github.com/backstage/community-plugins",
+    "commit": "92e9e4e09c76cc57f3475029b73e5ec84498a459"
+  },
+  "selectionBasis": "Recorded in full at accept-corpus-freeze/selection-basis.md, and committed BEFORE it was applied (that file, §7). In summary: over all 167 entity documents of the pinned corpus, a document satisfies P when its file basename is exactly `catalog-info.yaml`; it parses as YAML with uniqueKeys and zero parse errors; it is entity-shaped; it is admissible under ADR-0015's four field validators as reproduced at spec.md FR-016 and pinned to Backstage commit 1121a4facd9e321179d0402c3f355e4a649e84d9; and its canonical id (entity-identity.md §1) is unique across all admissible documents of the corpus, with EVERY member of any colliding group excluded rather than one member kept — keeping one would be last-wins resolution, which entity-identity.md §3 forbids, moved earlier so it is harder to see. The corpus is then one entity per workspace: workspaces ordered ascending by compareCodeUnits, a workspace eligible when at least one of its documents satisfies P, and from each eligible workspace the compareCodeUnits-least satisfying document by sourcePath with documentIndexInFile ascending as tiebreak — taken from the first 24 eligible workspaces. 158 of 167 documents satisfy P; 79 workspaces are eligible; 24 are selected.",
+  "size": 24,
+  "sizeIsNotAMinimum": "ADR-0012 holds that production limits are not guessed now but ratified from evidence, and ADR-0020 clause 5 declines to fix a minimum entity count for that reason; spec.md FR-055 forbids the specification or the implementation inventing one. 24 is the size of THIS frozen corpus. It is not a minimum, not a threshold, and not a production limit, and nothing here ratifies a scale bound. Whether 24 is adequate is the independent auditor's explicit finding to make at T019, not this artifact's to assert.",
+  "corpusFacts": {
+    "note": "Each figure was re-derived from the pin by applying FR-016's four validator predicates and entity-identity.md §1 directly, and each reproduced research.md R14 exactly. None is asserted from R14 without re-derivation, and none was adjusted to fit.",
+    "descriptorFilesExactBasename": 156,
+    "entityDocuments": 167,
+    "filesCarryingAnyAnnotations": 23,
+    "documentsCarryingOwnedPathsAnnotationUpstream": 0,
+    "unsubstitutedSkeletonFiles": 5,
+    "documentsWithInvalidMetadataName": {
+      "total": 7,
+      "failingOnCharacterClass": 5,
+      "failingOnLengthAlone": 2
+    },
+    "twoPopulationsThatAreNotOnePopulation": "\"Over 63 characters\" and \"invalid\" are different sets (research.md R14; contracts/admissibility.md §2.1). Of the 7, five fail on character class and two fail on length ALONE. Any figure that collapses them is wrong even when its total is right.",
+    "documentsFailingP4Inadmissible": 7,
+    "documentsFailingP5CollidingCanonicalId": 2,
+    "documentsSatisfyingP": 158,
+    "eligibleWorkspaces": 79,
+    "excludedPlaceholderPopulation": "All 5 unsubstituted skeleton descriptors carry `${{ values.name | dump }}` as metadata.name, which fails isValidObjectName. They are excluded on INADMISSIBILITY, not on collision: contracts/admissibility.md §4.1 is explicit that an inadmissible descriptor never acquires a canonical id and so can never participate in a duplicate determination in either direction, and spec.md FR-020 fixes inadmissibility as the earlier and more specific defect.",
+    "excludedResidualValidDuplicate": "workspaces/nexus-repository-manager/plugins/nexus-repository-manager/catalog-info.yaml holds two documents, both fully admissible, both canonicalizing to component:default/backstage-community-nexus-repository-manager. This is the pair ADR-0020 names as the reason spike 009's SC-010 was unsatisfiable under the frozen inputs, and the residual valid duplicate ADR-0015 Condition of Acceptance 3 says no admissibility rule can or should reach. BOTH documents are excluded, never one. That workspace has no other qualifying document and is therefore not eligible, contributing no entity. The corpus is free of duplicate canonical ids because this pair was identified and excluded, not because the corpus happened to be clean.",
+    "whatExclusionDoesNotMean": "Excluding a descriptor from this accept corpus is a statement about this freeze and nothing else. It is not a claim the descriptor is defective, nor licence for the generator to skip anything at run time — spec.md FR-018 requires an inadmissible descriptor to abort the entire operation, never to be skipped, filtered, downgraded, or set aside so the remainder of a batch can succeed."
+  },
+  "sameCycleAttestation": {
+    "requirement": "ADR-0020 clause 5 requires the corpus, its overlay, its expected paths, and its selection basis and size to be frozen within the same T014 → T014a cycle, before any generator output; SC-010 and tasks.md T018 repeat that this artifact and the T017 oracle are frozen together or not at all.",
+    "howItWasSatisfied": "T014 through T018 were authored in one uninterrupted session and landed across exactly two commits. The first commit contains ONLY the rule (selection-basis.md §1–§6, naming no entity, no canonical id and no sourcePath) plus the T013 evidence tree. The second commit — the commit that adds this file — contains the enumeration and every artifact derived from the rule, and does not modify §1–§6.",
+    "ruleCommit": "654031b3ef84f3a625bc8d06d274c4ae83056b84",
+    "freezeCommit": "The commit that adds this file. Resolve it with: git log --diff-filter=A --format=%H -- specs/010-catalog-backstage/evidence/accept-corpus-freeze/accept-corpus-freeze.json",
+    "whatTheAuditorShouldCheck": "That `git diff <ruleCommit> <freezeCommit> -- .../selection-basis.md` shows additions only, none of them above §8. Any change to §1–§6 between those commits invalidates this freeze, and the correct response is to redo the cycle rather than amend the record.",
+    "noGeneratorExisted": "At neither commit does packages/adapters/catalog-backstage exist, and no generator has been written, built, or run. No SnapshotEnvelope exists. No derived-ownership result for any descriptor-sourced entity exists — not persisted, not in memory, not asserted in a test (research.md R4). No input manifest exists anywhere in the tree, and no comparison harness exists anywhere in the repository."
+  },
+  "overlay": [
+    {
+      "sourcePath": "workspaces/acr/plugins/acr/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"workspaces/alpha/src/**\",\"workspaces/alpha-tools/**\",\"workspaces/alpha.config/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/adr/plugins/adr-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/**\",\"packages/core/**\",\"packages/cli/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"**\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/allure/plugins/allure/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"src/utils/**\",\"src/Utils/**\",\"src/README.md\"]"
+    },
+    {
+      "sourcePath": "workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"scripts/build-?.ts\",\"scripts/*.test.ts\",\"scripts/build.ts\"]"
+    },
+    {
+      "sourcePath": "workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/src/**\",\"packages/core/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"plugins/v2/**\",\"plugins/v10/**\",\"plugins/v_next/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\".github/workflows/**\",\"Makefile\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\",\"examples/**\",\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/badges/plugins/badges-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"a/b/**\",\"a-b/**\",\"a/**\",\"a.b/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"workspaces/alpha/src/**\",\"workspaces/alpha-tools/**\",\"workspaces/alpha.config/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bitbucket-pull-requests/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/**\",\"packages/core/**\",\"packages/cli/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bitrise/plugins/bitrise/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"**\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"src/utils/**\",\"src/Utils/**\",\"src/README.md\"]"
+    },
+    {
+      "sourcePath": "workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"scripts/build-?.ts\",\"scripts/*.test.ts\",\"scripts/build.ts\"]"
+    },
+    {
+      "sourcePath": "workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/src/**\",\"packages/core/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"plugins/v2/**\",\"plugins/v10/**\",\"plugins/v_next/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/code-climate/plugins/code-climate/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\".github/workflows/**\",\"Makefile\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\",\"examples/**\",\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/codescene/plugins/codescene/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"a/b/**\",\"a-b/**\",\"a/**\",\"a.b/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/copilot/plugins/copilot-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[]"
+    }
+  ],
+  "overlayProvenance": {
+    "authorship": "maintainer-authored",
+    "entries": 23,
+    "ordering": "Ascending `compareCodeUnits` on `sourcePath`, with `documentIndexInFile` ascending as tiebreak. For this corpus that order coincides with the frozen selection order of selection-basis.md §3, because each of the 24 selected entities comes from a distinct workspace and no selected workspace name is a strict prefix of another.",
+    "statedPlainly": "Zero descriptors in the pinned corpus carry adrkit.io/owned-paths — R14 records it and this freeze re-derived it. Every annotation value is the maintainer's own, written over real upstream descriptors left otherwise unmodified. ADR-0020 clause 5 adopts ADR-0012 gate 3's named construction, \"synthetic explicit annotations over pinned public corpora under independent adversarial review\"; the independent adversarial review half is T019. Only the corpus data is third-party — never the validation (ADR-0014 honesty rules).",
+    "ownershipStatesExercised": {
+      "explicit-paths": 22,
+      "explicit-empty": 1,
+      "annotation-absent": 1
+    },
+    "clause5Floor": "Clause 5 requires at least one non-empty annotation on a real entity; this overlay carries 22, so the all-annotation-absent corpus clause 5 warns satisfies nothing is not what was frozen."
+  },
+  "expectedPaths": [
+    {
+      "canonicalId": "component:default/backstage-community-acr",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/acr/plugins/acr/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "workspaces/alpha-tools/**",
+        "workspaces/alpha.config/**",
+        "workspaces/alpha/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-adr-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/adr/plugins/adr-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "packages/cli/**",
+        "packages/core/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-agent-forge",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "**",
+        ".github/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-airbrake-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "docs/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-allure",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/allure/plugins/allure/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "src/README.md",
+        "src/Utils/**",
+        "src/utils/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-analytics-module-ga4",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "scripts/*.test.ts",
+        "scripts/build-?.ts",
+        "scripts/build.ts"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-apache-airflow",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "packages/core/**",
+        "packages/core/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-apollo-explorer",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "plugins/v10/**",
+        "plugins/v2/**",
+        "plugins/v_next/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-azure-devops-common",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        ".github/**",
+        ".github/workflows/**",
+        "Makefile"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-azure-sites-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "docs/**",
+        "examples/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-badges-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/badges/plugins/badges-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "a-b/**",
+        "a.b/**",
+        "a/**",
+        "a/b/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-bazaar-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "workspaces/alpha-tools/**",
+        "workspaces/alpha.config/**",
+        "workspaces/alpha/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-bitrise",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bitrise/plugins/bitrise/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "**",
+        ".github/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-catalog-backend-module-codeowners",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "src/README.md",
+        "src/Utils/**",
+        "src/utils/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-checkmarx-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "scripts/*.test.ts",
+        "scripts/build-?.ts",
+        "scripts/build.ts"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cicd-statistics-module-buildkite",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "packages/core/**",
+        "packages/core/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cloudbuild",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "plugins/v10/**",
+        "plugins/v2/**",
+        "plugins/v_next/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-code-climate",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/code-climate/plugins/code-climate/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        ".github/**",
+        ".github/workflows/**",
+        "Makefile"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-code-coverage-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "docs/**",
+        "examples/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-codescene",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/codescene/plugins/codescene/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "a-b/**",
+        "a.b/**",
+        "a/**",
+        "a/b/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-copilot-backend",
+      "ownershipState": "explicit-empty",
+      "sourcePath": "workspaces/copilot/plugins/copilot-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [],
+      "//": "The annotation IS present and IS a string scalar; it decodes via JSON.parse to an array of length zero. owned-paths-annotation.md §3 requires this to be a decoded-value check, never a raw-string equality check, and §4 requires it not to be confused with a single empty-string element, which would instead be rejected at the glob dialect's `empty` rule."
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cost-insights-common",
+      "ownershipState": "annotation-absent",
+      "sourcePath": "workspaces/cost-insights/plugins/cost-insights-common/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [],
+      "//": "The annotation key is wholly absent — there is no overlay entry for this entity. owned-paths-annotation.md §1 step 1 decides presence by an explicit discriminant, never by inferring it from a raw value being undefined, and §3's non-conflation rule forbids treating this as equivalent to the explicit-empty entity above."
+    },
+    {
+      "canonicalId": "component:default/bitbucket-pull-requests",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bitbucket-pull-requests/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "packages/cli/**",
+        "packages/core/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/example-website",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "docs/**"
+      ]
+    }
+  ],
+  "expectedPathsProvenance": {
+    "entries": 24,
+    "ordering": "Ascending `compareCodeUnits` on `canonicalId`.",
+    "howProduced": "By hand, by applying the frozen contracts to the maintainer-authored overlay values in overlay.json. Nothing here was produced by, checked against, or adjusted to match any generator. No generator exists at this point: no package has been created, and Phase E may not begin until T024.",
+    "disclosedArithmeticCheck": "Each `expectedPaths` array below was written by hand and then checked against `compareCodeUnits` — whose entire definition is `a < b ? -1 : a > b ? 1 : 0` over UTF-16 code units (packages/core/src/ordering/index.ts) — to confirm the hand ordering was not miscounted. This is disclosed rather than done silently. It is not generator output under research.md R4: a two-line comparator promoted into `@adrkit/core` is a frozen repository primitive, not the assembled generator, and it computes no ownership result. All eleven arrays and the 25-element union matched the hand-written values on the first check.",
+    "agreementWithTheOracle": "Every (canonicalId, expectedPaths) pair here is identical to the corresponding entry in frozen-expectations/frozen-expectation-set.json. The two artifacts are two views of one freeze, and a divergence between them is a freeze failure, not a discrepancy to be reconciled."
+  },
+  "contentHash": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+  "contentHashNotes": {
+    "algorithm": "Lowercase-hex SHA-256 over the canonical form defined in ../README.md §3: this top-level object with the `contentHash` key removed and nothing else removed, keys ordered ascending by compareCodeUnits, array order preserved, no insignificant whitespace, UTF-8, no trailing newline.",
+    "forTheAuditor": "Recompute it from this artifact. Do not copy it. data-model.md §16: \"An audit that transcribes the author's declared hash has verified nothing.\""
+  },
+  "warrantAndLimits": {
+    "whatThisFreezeBuys": "It fixes, in advance and in the open, what ownership derivation over this corpus is expected to produce. Per ADR-0020 clause 5 it exercises derivation against real descriptor structure and real field shapes, and it gates TECHNICAL COMPATIBILITY ONLY.",
+    "whatItDoesNotBuy": [
+      "It does not evidence that the mapping reflects anyone's actual ownership.",
+      "It does not evidence that anyone else wants the annotation, and adoption remains entirely ungated.",
+      "It does not evidence that adoption risk has fallen.",
+      "It is not correctness evidence. A populated, digest-verified envelope would prove INTEGRITY, NOT CORRECTNESS — a semantically wrong envelope can carry a perfectly valid self-digest (ADR-0020 clause 5; spec.md FR-058; SC-012). Correctness is claimed only on FR-056 / SC-011, in Phase F, recording its own hashes and its own PASS/FAIL and inheriting nothing from this step.",
+      "It says nothing about Backstage as a running system. The admissibility warrant is exactly what the four pinned validator predicates return at Backstage commit 1121a4facd9e321179d0402c3f355e4a649e84d9.",
+      "ADR-0014 rung 1 only — not reference-verified, not externally validated, and no release is scheduled, prepared, or implied."
+    ]
+  }
+}

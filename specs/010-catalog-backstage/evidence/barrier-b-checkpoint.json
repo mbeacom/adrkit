@@ -1,0 +1,58 @@
+{
+  "task": "T024",
+  "title": "Barrier B checkpoint — hard gate",
+  "feature": "010-catalog-backstage",
+  "recordedBy": "independent auditor session (author of the T019 audit procedure and the R5 mechanism-2 drift check; NOT the author of the T014-T018 freeze)",
+  "timestamp": "2026-08-05T04:12:34Z",
+  "scopesInspected": {
+    "worktreeBranch": "mbeacom-t019-independent-audit",
+    "worktreeHead": "307669e51c03568a076a05eebec6ea954a032152",
+    "originMain": "99ba8d2500eaf37625ea164f66b4a17870e40dad",
+    "note": "origin was re-fetched at checkpoint time; Phase A merged to origin/main as 99ba8d2 (PR #84) after this worktree was branched, so origin/main was inspected in addition to this worktree, plus all local/remote branches and scratch locations (session-state files/, /tmp, .test-output)."
+  },
+  "BARRIER_B_CLEARED": true,
+  "confirmations": {
+    "mechanism1_inputAbsence": {
+      "cleared": true,
+      "claim": "No input manifest exists anywhere in the tree, and the adapter contains no recursive walking or glob discovery that could substitute for one.",
+      "evidence": [
+        "No input-manifest artifact and no SnapshotEnvelope instance exists under specs/010-catalog-backstage/ (git ls-files over that tree returns none).",
+        "The only 'input-manifest'/'snapshot-envelope' paths in the repo are spike 009 CONTRACT SPECIFICATIONS (specs/009-catalog-binding-viability/contracts/input-manifest.md and snapshot-envelope.md) — prose describing a would-be format, not an actual manifest the oracle freeze consumes. They are out of feature-010's Barrier B scope.",
+        "The adapter packages/adapters/catalog-backstage/ on origin/main is a Phase A placeholder: src/index.ts exports only the constant PACKAGE_NAME = '@adrkit/catalog-backstage' and has no side effect, no reader, no generator, no discovery.",
+        "The adapter's own guard test test/no-dynamic-loader.test.ts scans the adapter source (via test/source-scan.ts) for dynamic import()/require/createRequire/require.resolve/import.meta.resolve/Module._load and any registerAdapter/adapterRegistry/discoverAdapter-style hook, asserts the scan actually read src/index.ts by name, and drives every rule against a fixture that must trip it — so the 'no loader/discovery' conclusion is observed-firing coverage (ADR-0016), not an untested absence.",
+        "The consumer packages/catalog-envelope/ on origin/main is likewise a Phase A placeholder (PACKAGE_NAME only) and documents in-source that it is an integrity validator, explicitly NOT a correctness oracle."
+      ],
+      "notedDistinction": "The scanned()/readdirSync({recursive:true}) inside the adapter's test helper walks the ADAPTER'S OWN src/ and test/ to check it; that is the guard scanner inspecting the adapter, not the adapter discovering catalog inputs. It does not constitute input discovery by the adapter."
+    },
+    "mechanism2_hashMatch": {
+      "cleared": true,
+      "claim": "The T022 drift check is green over both frozen trees.",
+      "evidence": [
+        "scripts/check-freeze-hashes.ts re-derives the canonical content hash of every frozen artifact carrying a recorded contentHash and fails on any drift.",
+        "Baseline run: 'check-freeze-hashes: ok (2 artifacts: frozen-expectations/frozen-expectation-set.json, accept-corpus-freeze/accept-corpus-freeze.json)' exit 0.",
+        "Wired into CI as the 'Verify frozen oracle hashes match' step in .github/workflows/ci.yml (bun run check:freeze-hashes) and as the check:freeze-hashes package script.",
+        "The check was observed genuinely FAILING under a one-byte mutation (T023) with reason 'recorded contentHash does not match recomputed canonical hash (freeze drift)' exit 1, then restored to green — see evidence/negative-cases/freeze-drift/."
+      ],
+      "recordedHashes": {
+        "frozen-expectations/frozen-expectation-set.json": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+        "accept-corpus-freeze/accept-corpus-freeze.json": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca"
+      }
+    },
+    "mechanism3_ordering": {
+      "cleared": true,
+      "claim": "No comparison harness exists anywhere in the repository, in any branch of this worktree, or in any scratch location.",
+      "evidence": [
+        "No generator-vs-oracle comparison harness exists in this worktree (tracked or untracked), on origin/main, on any local or remote branch, or in scratch locations (session-state files/, /tmp, .test-output).",
+        "The only path matching 'harness' repo-wide is packages/adapters/spec-kit/test/harness.ts, which is the Spec Kit extension's sandbox test scaffold (feature 003); it references neither envelope, catalog, backstage, nor compareCodeUnits and is unrelated to feature-010 oracle comparison.",
+        "packages/evaluator/src/compare.ts is the pre-existing generic deterministic code-unit comparator primitive (byCodeUnit, @adrkit/evaluator, referenced by ADR-0015/FR-005) — a comparator, not a harness that runs a generator and diffs output against the oracle. Its single 'envelope hash' mention is a doc comment explaining why locale-compare is banned.",
+        "derivedPathPatterns ordering is contract-fixed to compareCodeUnits order and was independently verified in the T019 audit; no run-time comparison harness produces or checks it."
+      ]
+    }
+  },
+  "barrierStatement": "IS THE BARRIER. All three R5 mechanisms hold simultaneously and by inspection. No task in Phase E, F, or G may begin until this task is checked complete.",
+  "limitationsDisclosed": [
+    "The adapter and consumer packages (packages/adapters/catalog-backstage, packages/catalog-envelope) do not exist in THIS worktree (branched before Phase A merged); they were inspected on origin/main via git show/git ls-tree at 99ba8d2. This cross-tree inspection is stated explicitly rather than implied.",
+    "input-manifest.md §5 (cited by T024 mechanism 1) is a spike-009 contract document, not a feature-010 artifact; the mechanism-1 conclusion rests on the absence of any input-manifest INSTANCE in feature-010's tree plus the adapter placeholder's absence of discovery, which is the substance the clause is guarding.",
+    "Mechanism (2)'s 'green in CI' is confirmed by the wired step running green locally; the CI run itself will execute on push. The check logic and its wiring are both present and were observed both passing and failing."
+  ]
+}
