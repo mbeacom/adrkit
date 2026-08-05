@@ -334,13 +334,30 @@ describe('T086a — acquisition is not reachable from generation (FR-018, FR-052
   test('exactly one script names the corpus host, and it is the acquisition script', async () => {
     // A weaker guard than the import checks and stated as such: it catches a second
     // fetcher being added beside the generator, not every conceivable route to a network.
+    //
+    // Matched as a *hostname token* rather than as the substring "https://api.github.com".
+    // Two reasons, and the second is the one that matters:
+    //
+    //  1. A full-URL substring test misses `http://api.github.com` and protocol-relative
+    //     `//api.github.com`. Matching the host itself catches every scheme, so this is
+    //     the stronger check, not merely a differently-spelled one.
+    //  2. CodeQL flags `text.includes('https://api.github.com')` under
+    //     `js/incomplete-url-substring-sanitization` — the rule against validating an
+    //     untrusted URL by substring, where `https://api.github.com.evil.com` would pass.
+    //     That concern does not apply here (this scans our own source text; it sanitizes
+    //     nothing), but the rule is right that the *pattern* is a poor way to reason about
+    //     URLs, and the token form is both accurate and unambiguous about its intent.
+    //
+    // The trailing `(?![\w.-])` is what keeps it honest: it prevents `api.github.com.evil`
+    // from matching, which is the very defect the CodeQL rule exists to name.
+    const CORPUS_HOST = /\bapi\.github\.com(?![\w.-])/u;
     const files = (await sources('scripts')).filter(
       (file) => !EXCLUDED_FROM_HOST_SCAN.includes(file),
     );
     const fetchers: string[] = [];
     for (const file of files) {
       const text = await readFile(join(REPO_ROOT, file), 'utf8');
-      if (text.includes('https://api.github.com')) fetchers.push(file);
+      if (CORPUS_HOST.test(text)) fetchers.push(file);
     }
     expect(fetchers).toEqual(['scripts/vendor-accept-corpus.ts']);
   });
