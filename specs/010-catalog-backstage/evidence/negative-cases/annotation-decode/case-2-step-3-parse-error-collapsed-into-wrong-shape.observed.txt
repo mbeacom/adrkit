@@ -1,0 +1,152 @@
+bun test v1.3.14 (0d9b296a)
+
+test/annotation-decode.test.ts:
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 1 — a well-formed string scalar proceeds [0.17ms]
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 2 — a YAML sequence yields `annotation-value-not-a-string` [0.03ms]
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 3 — a JSON object yields `wrong-shape` [0.01ms]
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 4 — a bare string yields `wrong-shape`, never a single-element array
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 5 — an array with a non-string element yields `wrong-shape` [0.02ms]
+66 | 
+67 |   test('row 6 — malformed JSON yields `parse-error`', () => {
+68 |     const result = decodeAnnotation(true, '["packages/payments/**');
+69 |     expect(result.ok).toBe(false);
+70 |     if (result.ok) return;
+71 |     expect(result.rejection.reason).toBe('parse-error');
+                                         ^
+error: expect(received).toBe(expected)
+
+Expected: "parse-error"
+Received: "wrong-shape"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:71:37)
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 6 — malformed JSON yields `parse-error` [0.12ms]
+(pass) T058 step 1 — presence, via an explicit discriminant > an absent annotation stops at step 1 with no rejection [0.01ms]
+(pass) T058 step 1 — presence, via an explicit discriminant > no string check, JSON parse, or shape check is attempted for an absent key
+(pass) T058 step 1 — presence, via an explicit discriminant > presence is not inferred from the value — a present null reaches step 2
+(pass) T058 step 2 — the string-scalar check, before any parse > a YAML sequence is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > a YAML mapping is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > a number is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > a boolean is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > null is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > the detail records that the value was never passed to JSON.parse
+137 |     '',
+138 |   ])('%j is rejected as `parse-error`', (raw) => {
+139 |     const result = decodeAnnotation(true, raw);
+140 |     expect(result.ok).toBe(false);
+141 |     if (result.ok) return;
+142 |     expect(result.rejection.reason).toBe('parse-error');
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "parse-error"
+Received: "wrong-shape"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:142:37)
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "[\"packages/**\"" is rejected as `parse-error` [0.03ms]
+137 |     '',
+138 |   ])('%j is rejected as `parse-error`', (raw) => {
+139 |     const result = decodeAnnotation(true, raw);
+140 |     expect(result.ok).toBe(false);
+141 |     if (result.ok) return;
+142 |     expect(result.rejection.reason).toBe('parse-error');
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "parse-error"
+Received: "wrong-shape"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:142:37)
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "[packages/**]" is rejected as `parse-error` [0.02ms]
+137 |     '',
+138 |   ])('%j is rejected as `parse-error`', (raw) => {
+139 |     const result = decodeAnnotation(true, raw);
+140 |     expect(result.ok).toBe(false);
+141 |     if (result.ok) return;
+142 |     expect(result.rejection.reason).toBe('parse-error');
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "parse-error"
+Received: "wrong-shape"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:142:37)
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "{\"a\": }" is rejected as `parse-error` [0.02ms]
+137 |     '',
+138 |   ])('%j is rejected as `parse-error`', (raw) => {
+139 |     const result = decodeAnnotation(true, raw);
+140 |     expect(result.ok).toBe(false);
+141 |     if (result.ok) return;
+142 |     expect(result.rejection.reason).toBe('parse-error');
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "parse-error"
+Received: "wrong-shape"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:142:37)
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "not json at all" is rejected as `parse-error` [0.02ms]
+137 |     '',
+138 |   ])('%j is rejected as `parse-error`', (raw) => {
+139 |     const result = decodeAnnotation(true, raw);
+140 |     expect(result.ok).toBe(false);
+141 |     if (result.ok) return;
+142 |     expect(result.rejection.reason).toBe('parse-error');
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "parse-error"
+Received: "wrong-shape"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:142:37)
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "" is rejected as `parse-error` [0.02ms]
+(pass) T058 step 3 — JSON decode, reached only by a present string scalar > a parse failure is never coerced into a fallback empty array [0.01ms]
+(pass) T058 step 4 — shape: exactly array<string> > a JSON object is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > a bare string is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > a bare number is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > a bare boolean is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > null is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > an array containing a number is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > an array containing an object is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > an array containing null is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > an array containing a nested array is rejected as `wrong-shape`
+(pass) T058 step 4 — shape: exactly array<string> > nothing is coerced — a bare string is never treated as a one-element array
+(pass) T058 step 4 — shape: exactly array<string> > an empty array is a valid shape, and reaches step 5
+(pass) T058 — the reasons are three distinct values, one per failing step > each step maps to its own reason
+204 |       decodeAnnotation(true, ['[]']),
+205 |       decodeAnnotation(true, '["a/**"'),
+206 |       decodeAnnotation(true, '{"a": 1}'),
+207 |     ].map((result) => (result.ok ? 'accepted' : result.rejection.reason));
+208 | 
+209 |     expect(reasons).toEqual(['annotation-value-not-a-string', 'parse-error', 'wrong-shape']);
+                          ^
+error: expect(received).toEqual(expected)
+
+  [
+    "annotation-value-not-a-string",
+-   "parse-error",
++   "wrong-shape",
+    "wrong-shape",
+  ]
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:209:21)
+(fail) T058 — the reasons are three distinct values, one per failing step > the three reasons observed together are mutually distinct [0.11ms]
+(pass) T058 — the reasons are three distinct values, one per failing step > the annotation key is the one ADR-0012 names
+
+7 tests failed:
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 6 — malformed JSON yields `parse-error` [0.12ms]
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "[\"packages/**\"" is rejected as `parse-error` [0.03ms]
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "[packages/**]" is rejected as `parse-error` [0.02ms]
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "{\"a\": }" is rejected as `parse-error` [0.02ms]
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "not json at all" is rejected as `parse-error` [0.02ms]
+(fail) T058 step 3 — JSON decode, reached only by a present string scalar > "" is rejected as `parse-error` [0.02ms]
+(fail) T058 — the reasons are three distinct values, one per failing step > the three reasons observed together are mutually distinct [0.11ms]
+
+ 28 pass
+ 7 fail
+ 103 expect() calls
+Ran 35 tests across 1 file. [6.00ms]
+
+exit 1

@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/manifest/version.ts b/packages/adapters/catalog-backstage/src/manifest/version.ts
+index 8f9b654..1d23f6a 100644
+--- a/packages/adapters/catalog-backstage/src/manifest/version.ts
++++ b/packages/adapters/catalog-backstage/src/manifest/version.ts
+@@ -75,7 +75,7 @@ export function checkManifestVersions(
+     );
+   }
+ 
+-  if (manifest.requestedSnapshotSchemaVersion !== SUPPORTED_SNAPSHOT_SCHEMA_VERSION) {
++  if (false && manifest.requestedSnapshotSchemaVersion !== SUPPORTED_SNAPSHOT_SCHEMA_VERSION) {
+     return rejected(
+       'unsupported-snapshot-version',
+       'unsupported-snapshot-version',

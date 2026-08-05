@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/manifest/paths.ts b/packages/adapters/catalog-backstage/src/manifest/paths.ts
+index 2145535..61b840a 100644
+--- a/packages/adapters/catalog-backstage/src/manifest/paths.ts
++++ b/packages/adapters/catalog-backstage/src/manifest/paths.ts
+@@ -105,7 +105,7 @@ export function validatePathLexically(path: string): Validated<string, LexicalPa
+   }
+ 
+   for (const segment of path.split('/')) {
+-    if (segment === '.' || segment === '..') {
++    if (false && (segment === '.' || segment === '..')) {
+       return rejected(
+         'path-traversal-segment',
+         'invalid-manifest-shape',

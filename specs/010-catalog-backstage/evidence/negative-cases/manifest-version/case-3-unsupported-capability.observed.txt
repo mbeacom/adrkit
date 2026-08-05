@@ -1,0 +1,47 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-version.test.ts:
+(pass) T040 — the three version/capability rejections (FR-008) > the accepted values are exactly the ones `input-manifest.md` §2 names [0.02ms]
+(pass) T040 — the three version/capability rejections (FR-008) > the contract-shaped manifest passes all three [0.36ms]
+(pass) T040 — the three version/capability rejections (FR-008) > `unsupported-manifest-version` — an unsupported manifestSchemaVersion [0.07ms]
+(pass) T040 — the three version/capability rejections (FR-008) > `unsupported-snapshot-version` — an unsupported requestedSnapshotSchemaVersion [0.04ms]
+72 | 
+73 |   test('`unsupported-capability` — any string other than pathOwnership in the array', () => {
+74 |     const result = checkManifestVersions(
+75 |       manifest({ requiredCapabilities: ['pathOwnership', 'entityGraph'] }),
+76 |     );
+77 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-version.test.ts:77:23)
+(fail) T040 — the three version/capability rejections (FR-008) > `unsupported-capability` — any string other than pathOwnership in the array [0.15ms]
+(pass) T040 — the three version/capability rejections (FR-008) > the three reasons are mutually distinct [0.13ms]
+(pass) T040 — the three version/capability rejections (FR-008) > all three trigger classes are members of the closed enumeration [0.02ms]
+(pass) T040 — the three version/capability rejections (FR-008) > a manifest violating two rules reports the first, deterministically [0.04ms]
+(pass) T040 — what §2’s capability rule does and does not say > the rejection is triggered by a present offending string [0.02ms]
+(pass) T040 — what §2’s capability rule does and does not say > a repeated supported capability contains no offending string [0.03ms]
+135 |     ).toBe(true);
+136 |   });
+137 | 
+138 |   test('capability matching is exact, never case-insensitive', () => {
+139 |     const result = checkManifestVersions(manifest({ requiredCapabilities: ['pathownership'] }));
+140 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-version.test.ts:140:23)
+(fail) T040 — what §2’s capability rule does and does not say > capability matching is exact, never case-insensitive [0.07ms]
+
+ 9 pass
+ 2 fail
+ 22 expect() calls
+Ran 11 tests across 1 file. [7.00ms]
+
+exit 1

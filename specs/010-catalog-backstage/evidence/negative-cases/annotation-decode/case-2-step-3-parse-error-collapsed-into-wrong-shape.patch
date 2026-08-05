@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/ownership/annotation.ts b/packages/adapters/catalog-backstage/src/ownership/annotation.ts
+index 853276c..191e143 100644
+--- a/packages/adapters/catalog-backstage/src/ownership/annotation.ts
++++ b/packages/adapters/catalog-backstage/src/ownership/annotation.ts
+@@ -164,7 +164,7 @@ export function decodeAnnotation(present: boolean, rawNode: unknown): Annotation
+     decoded = JSON.parse(rawNode) as unknown;
+   } catch (error) {
+     return reject(
+-      'parse-error',
++      'wrong-shape',
+       {
+         annotationPresent: true,
+         rawNodeIsString: true,

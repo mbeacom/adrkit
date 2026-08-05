@@ -1,0 +1,14 @@
+diff --git a/packages/adapters/catalog-backstage/src/glob/validate.ts b/packages/adapters/catalog-backstage/src/glob/validate.ts
+index 67f337f..a931290 100644
+--- a/packages/adapters/catalog-backstage/src/glob/validate.ts
++++ b/packages/adapters/catalog-backstage/src/glob/validate.ts
+@@ -123,8 +123,7 @@ const RULES: readonly {
+     outcome: 'malformed-double-star',
+     // "Only a segment that is *exactly* `**` is the allowed whole-segment
+     // double-star." `a**b`, `**b`, `a**`, `foo/**bar` all violate this.
+-    violates: (p) =>
+-      p.split('/').some((segment) => segment.includes('**') && segment !== '**'),
++    violates: () => false,
+   },
+ ];
+ 

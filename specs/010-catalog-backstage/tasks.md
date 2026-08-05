@@ -536,7 +536,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
 
 ### D2 — Input boundary (`[US2]`)
 
-- [ ] T038 [US2] Implement the closed input-manifest schema at
+- [X] T038 [US2] Implement the closed input-manifest schema at
       `<ADAPTER>/src/manifest/schema.ts`: any unrecognized top-level field is rejected
       rather than ignored.
       Barrier: BEFORE
@@ -544,7 +544,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T001
       Contract: `input-manifest.md` §1
 
-- [ ] T039 [US2] Enforce single-repository binding: one manifest describes exactly one
+- [X] T039 [US2] Enforce single-repository binding: one manifest describes exactly one
       repository, and a manifest naming more than one is rejected.
       Files: `<ADAPTER>/src/manifest/schema.ts`, `<ADAPTER>/test/manifest-single-repo.test.ts`.
       Barrier: BEFORE
@@ -552,7 +552,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §1
 
-- [ ] T040 [US2] Implement the three version and capability rejections —
+- [X] T040 [US2] Implement the three version and capability rejections —
       `unsupported-manifest-version`, `unsupported-snapshot-version`,
       `unsupported-capability` — each **observed failing** with its own exact reason,
       then restored and observed passing.
@@ -564,7 +564,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §2
 
-- [ ] T041 [US2] Obtain repository identity and revision through separate git tooling
+- [X] T041 [US2] Obtain repository identity and revision through separate git tooling
       at `<ADAPTER>/src/repository/identity.ts` — **never** from a descriptor
       annotation or any content under the repository being described.
       **Fixture constraint (`input-manifest.md` §3.1):** the mismatch fixture must be a
@@ -578,7 +578,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §3, §3.1
 
-- [ ] T042 [US2] Enforce **exact string equality** on repository identity and revision;
+- [X] T042 [US2] Enforce **exact string equality** on repository identity and revision;
       a partial, prefix, or normalized match aborts the operation. Observe a
       near-miss revision failing; record the reason; restore; observe the pass.
       Files: `<ADAPTER>/src/repository/identity.ts`,
@@ -589,7 +589,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T041
       Contract: `input-manifest.md` §3
 
-- [ ] T043 [P] [US2] Verify every declared per-source digest **before any entity is
+- [X] T043 [P] [US2] Verify every declared per-source digest **before any entity is
       processed**; a mismatch or a missing source yields `incomplete-required-source`.
       Observe it failing; record the reason; restore; observe the pass.
       Files: `<ADAPTER>/src/manifest/digests.ts`,
@@ -600,7 +600,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §4
 
-- [ ] T044 [P] [US2] Implement **two-stage** path validation at
+- [X] T044 [P] [US2] Implement **two-stage** path validation at
       `<ADAPTER>/src/manifest/paths.ts`: a lexical rejection stage, then a confined
       realpath stage. Both stages observed failing independently, each with its own
       reason; restored; observed passing.
@@ -611,7 +611,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §4.1
 
-- [ ] T045 [P] [US2] Close the input boundary: assert the adapter never follows
+- [X] T045 [P] [US2] Close the input boundary: assert the adapter never follows
       `Location.spec.targets`, never invokes a Backstage processor, plugin, or
       ingestion path, and never performs recursive walking or glob discovery to find
       descriptors. Include the `Location` worked example as a test.
@@ -622,7 +622,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §5, §6
 
-- [ ] T046 [US2] SC-008 close-out: a consolidated test asserting every input reaching
+- [X] T046 [US2] SC-008 close-out: a consolidated test asserting every input reaching
       the adapter arrived through the declared manifest and through no other route.
       Files: `<ADAPTER>/test/sc-008.test.ts`.
       Barrier: BEFORE
@@ -631,7 +631,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
 
 ### D1a — Admissibility and identity (`[US3]`)
 
-- [ ] T047 [P] [US3] Implement descriptor reading at `<ADAPTER>/src/descriptor/read.ts`
+- [X] T047 [P] [US3] Implement descriptor reading at `<ADAPTER>/src/descriptor/read.ts`
       using `yaml`'s `parseDocument` with `uniqueKeys` left at its default `true`.
       Observe `duplicate-yaml-key` and `invalid-yaml-syntax` emerging as **two distinct
       outcomes**, never collapsed into one; record both reason strings; restore;
@@ -642,7 +642,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Discharges: none — supports FR-023, which is discharged at T071
       Depends: T001
 
-- [ ] T048 [US3] Enforce that admissibility is evaluated **before** canonicalization,
+- [X] T048 [US3] Enforce that admissibility is evaluated **before** canonicalization,
       structurally rather than by convention.
       Files: `<ADAPTER>/src/admissibility/index.ts`,
       `<ADAPTER>/test/admissibility-ordering.test.ts`.
@@ -651,7 +651,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T047
       Contract: `admissibility.md` §4, §4.1
 
-- [ ] T049 [US3] Implement the **four** admissibility field validators at
+- [X] T049 [US3] Implement the **four** admissibility field validators at
       `<ADAPTER>/src/admissibility/validators.ts`, each **separately attributed** so a
       rejection names which validator rejected. Observe each of the four failing
       independently; record four distinct reason strings; restore; observe the pass.
@@ -663,7 +663,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T048
       Contract: `admissibility.md` §2, §2.1
 
-- [ ] T050 [US3] Implement the separator rule: an identity string with **two or more**
+- [X] T050 [US3] Implement the separator rule: an identity string with **two or more**
       separators is rejected; one with **no** separator is evaluated by the suffix
       predicate alone, so a bare `v1` passes. Observe both branches.
       Files: `<ADAPTER>/src/admissibility/separator.ts`,
@@ -673,7 +673,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T049
       Contract: `admissibility.md` §3
 
-- [ ] T051 [US3] Implement `inadmissible-descriptor` classification and its failure
+- [X] T051 [US3] Implement `inadmissible-descriptor` classification and its failure
       semantics.
       Files: `<ADAPTER>/src/admissibility/classify.ts`,
       `<ADAPTER>/test/admissibility-classify.test.ts`.
@@ -682,7 +682,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T049, T050
       Contract: `admissibility.md` §5
 
-- [ ] T052 [US3] Ensure every inadmissibility record identifies **all three** of:
+- [X] T052 [US3] Ensure every inadmissibility record identifies **all three** of:
       the descriptor path, the failing field, and the rejecting validator — and is
       distinguishable from a `duplicate-canonical-id` record.
       Files: `<ADAPTER>/src/admissibility/classify.ts`,
@@ -692,7 +692,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T051
       Contract: `admissibility.md` §5, §5.1
 
-- [ ] T053 [US3] Enforce that **no inadmissible descriptor participates in a
+- [X] T053 [US3] Enforce that **no inadmissible descriptor participates in a
       uniqueness comparison** — duplicate detection is not a validity test and must
       never be reached by an inadmissible input.
       Files: `<ADAPTER>/src/admissibility/index.ts`,
@@ -702,7 +702,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T052
       Contract: `admissibility.md` §6
 
-- [ ] T054 [US3] **Observed failing — permanent negative case.** Construct a descriptor
+- [X] T054 [US3] **Observed failing — permanent negative case.** Construct a descriptor
       that is simultaneously **inadmissible and canonically unique**. Observe it
       produce `inadmissible-descriptor` and **not** `duplicate-canonical-id`; record
       both the emitted reason and the absence of the wrong one; restore; observe the
@@ -714,7 +714,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Discharges: FR-021
       Depends: T053
 
-- [ ] T055 [US3] Implement **two-step** canonicalization at
+- [X] T055 [US3] Implement **two-step** canonicalization at
       `<ADAPTER>/src/identity/canonicalize.ts`: default-namespace substitution first,
       then lowercase the **entire** identity string — not merely the name component.
       Barrier: BEFORE
@@ -722,7 +722,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T054
       Contract: `entity-identity.md` §1
 
-- [ ] T056 [US3] SC-004 close-out: a consolidated test asserting inadmissibility is
+- [X] T056 [US3] SC-004 close-out: a consolidated test asserting inadmissibility is
       decided before canonical identity is computed, for every admissibility failure
       mode.
       Files: `<ADAPTER>/test/sc-004.test.ts`.
@@ -733,7 +733,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
 
 ### D1b — Ownership and glob (`[US4]`)
 
-- [ ] T057 [P] [US4] Derive ownership from the `adrkit.io/owned-paths` annotation
+- [X] T057 [P] [US4] Derive ownership from the `adrkit.io/owned-paths` annotation
       **alone** at `<ADAPTER>/src/ownership/derive.ts`. No inference from the
       descriptor's file location, its parent directory, the repository root, or any
       other signal.
@@ -754,7 +754,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T057
       Contract: `owned-paths-annotation.md` §1
 
-- [ ] T059 [US4] **Observed failing — permanent negative case.** Step 2's string-scalar
+- [X] T059 [US4] **Observed failing — permanent negative case.** Step 2's string-scalar
       check runs against the **raw YAML node**, before `JSON.parse`. Therefore the
       annotation value `["[]"]` — a YAML sequence, not a string — must yield
       `annotation-value-not-a-string`, and must **never** be silently coerced into
@@ -767,7 +767,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T058
       Contract: `owned-paths-annotation.md` §1
 
-- [ ] T060 [US4] Keep the **three** ownership states distinct and never conflated, and
+- [X] T060 [US4] Keep the **three** ownership states distinct and never conflated, and
       decide `explicit-empty` on the **decoded** value — so `'[]'`, `'[ ]'`, and
       `'[\n]'` all qualify — never by raw-string equality.
       Files: `<ADAPTER>/src/ownership/states.ts`,
@@ -777,7 +777,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T059
       Contract: `owned-paths-annotation.md` §1
 
-- [ ] T061 [US4] SC-005 close-out: a consolidated test over the three ownership states.
+- [X] T061 [US4] SC-005 close-out: a consolidated test over the three ownership states.
       Files: `<ADAPTER>/test/sc-005.test.ts`.
       Barrier: BEFORE
       Discharges: SC-005
@@ -790,7 +790,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Discharges: SC-006
       Depends: T060, T061
 
-- [ ] T063 [P] [US4] Implement the restricted glob dialect and freeze the engine and
+- [X] T063 [P] [US4] Implement the restricted glob dialect and freeze the engine and
       its options at `<ADAPTER>/src/glob/dialect.ts`. The `picomatch` version must be
       **read at runtime from the resolved dependency**, never transcribed into a
       literal — a transcribed version silently goes stale.
@@ -799,14 +799,14 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T001
       Contract: `glob-dialect.md` §1, §6
 
-- [ ] T064 [US4] Implement the **fifteen** ordered rules with first-match-wins
+- [X] T064 [US4] Implement the **fifteen** ordered rules with first-match-wins
       semantics at `<ADAPTER>/src/glob/validate.ts`.
       Barrier: BEFORE
       Discharges: FR-030
       Depends: T063
       Contract: `glob-dialect.md` §3
 
-- [ ] T065 [US4] **Observed failing for rules 1–14 only.** For each of rules 1 through
+- [X] T065 [US4] **Observed failing for rules 1–14 only.** For each of rules 1 through
       14, supply a pattern that violates *that* rule and no earlier one; observe the
       rule fire; record its exact rejection reason; restore; observe the pass.
       **Rule 15 (`invalid-glob-compile-failure`) is a defensive backstop that its own
@@ -820,7 +820,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T064
       Contract: `glob-dialect.md` §3
 
-- [ ] T066 [US4] Assert rule-specific rejection reasons hold when a **mixed batch** of
+- [X] T066 [US4] Assert rule-specific rejection reasons hold when a **mixed batch** of
       patterns is validated, each pattern evaluated in isolation so no pattern's
       outcome influences another's.
       Files: `<ADAPTER>/test/glob-mixed-batch.test.ts`.
@@ -829,7 +829,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T065
       Contract: `glob-dialect.md` §3
 
-- [ ] T067 [US4] Compile each pattern **once per run** and reuse the compiled matcher,
+- [X] T067 [US4] Compile each pattern **once per run** and reuse the compiled matcher,
       so validation and matching cannot diverge.
       Files: `<ADAPTER>/src/glob/dialect.ts`, `<ADAPTER>/test/glob-compile-once.test.ts`.
       Barrier: BEFORE
@@ -837,7 +837,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T066
       Contract: `glob-dialect.md` §6
 
-- [ ] T068 [US4] Sort `derivedPaths` with `compareCodeUnits`
+- [X] T068 [US4] Sort `derivedPaths` with `compareCodeUnits`
       (`packages/core/src/ordering/index.ts:12`) and deduplicate.
       Files: `<ADAPTER>/src/glob/order.ts`, `<ADAPTER>/test/glob-order.test.ts`.
       Barrier: BEFORE

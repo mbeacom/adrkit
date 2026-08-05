@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/admissibility/validators.ts b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+index a2ecf3b..1bafeae 100644
+--- a/packages/adapters/catalog-backstage/src/admissibility/validators.ts
++++ b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+@@ -167,7 +167,7 @@ export function validateApiVersion(value: unknown): boolean {
+   const split = splitOnSeparator(value);
+   switch (split.kind) {
+     case 'too-many-separators':
+-      return false;
++      return true;
+     case 'suffix-only':
+       return split.suffix.length <= FIELD_MAX && API_VERSION_SUFFIX.test(split.suffix);
+     case 'prefix-and-suffix':

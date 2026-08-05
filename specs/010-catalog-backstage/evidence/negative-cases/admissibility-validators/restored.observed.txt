@@ -1,0 +1,38 @@
+bun test v1.3.14 (0d9b296a)
+
+test/admissibility-validators.test.ts:
+(pass) T049 — the table has exactly four rows, bound as ADR-0015 binds them > four fields, in ADR-0015’s table order [0.03ms]
+(pass) T049 — the table has exactly four rows, bound as ADR-0015 binds them > four validators, one per field [0.03ms]
+(pass) T049 — the table has exactly four rows, bound as ADR-0015 binds them > each validator records the pinned binding it reproduces [0.01ms]
+(pass) T049 — the table has exactly four rows, bound as ADR-0015 binds them > the pin is ADR-0012’s commit, carried unchanged
+(pass) T049 — the table has exactly four rows, bound as ADR-0015 binds them > the bounds are the ones ADR-0015 states
+(pass) T049 — `validateApiVersion` > the four facts ADR-0015 recorded as executed against the pin [0.21ms]
+(pass) T049 — `validateApiVersion` > a bare `v1` passes without the subdomain rule being consulted (FR-017) [0.01ms]
+(pass) T049 — `validateApiVersion` > the ordinary Backstage form passes [0.01ms]
+(pass) T049 — `validateApiVersion` > the suffix predicate is `/^[a-z0-9A-Z]+$/`, so punctuation fails [0.01ms]
+(pass) T049 — `validateApiVersion` > the prefix is a DNS subdomain, so uppercase and underscores fail
+(pass) T049 — `validateApiVersion` > a non-string is not a valid apiVersion [0.03ms]
+(pass) T049 — `validateKind` is `/^[a-zA-Z][a-z0-9A-Z]*$/`, ≤63 > ordinary kinds pass [0.02ms]
+(pass) T049 — `validateKind` is `/^[a-zA-Z][a-z0-9A-Z]*$/`, ≤63 > a leading digit fails — the first character class excludes it
+(pass) T049 — `validateKind` is `/^[a-zA-Z][a-z0-9A-Z]*$/`, ≤63 > punctuation fails
+(pass) T049 — `validateKind` is `/^[a-zA-Z][a-z0-9A-Z]*$/`, ≤63 > the ≤63 bound holds at the boundary
+(pass) T049 — `validateKind` is `/^[a-zA-Z][a-z0-9A-Z]*$/`, ≤63 > a non-string is not a valid kind
+(pass) T049 — `validateEntityName` is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 > ordinary names pass, including mixed case, `-`, `_` and `.` [0.02ms]
+(pass) T049 — `validateEntityName` is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 > a leading or trailing separator fails
+(pass) T049 — `validateEntityName` is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 > the unsubstituted scaffolder placeholders ADR-0015 names all fail
+(pass) T049 — `validateEntityName` is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 > the ≤63 bound holds at the boundary [0.01ms]
+(pass) T049 — `validateEntityName` is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 > length and character class are different populations (§2.1)
+(pass) T049 — `validateEntityName` is `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, ≤63 > an empty name fails
+(pass) T049 — `validateNamespace` is `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 > ordinary DNS labels pass [0.01ms]
+(pass) T049 — `validateNamespace` is `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 > uppercase fails — this is where ADR-0015 and `admissibility.md` §2 diverge
+(pass) T049 — `validateNamespace` is `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 > a leading or trailing hyphen fails
+(pass) T049 — `validateNamespace` is `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 > an empty namespace fails — present-and-empty is not omitted
+(pass) T049 — `validateNamespace` is `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/`, ≤63 > the ≤63 bound holds at the boundary
+(pass) T049 — the four predicates are independent > each rejects an input the other three accept in their own field [0.01ms]
+
+ 28 pass
+ 0 fail
+ 92 expect() calls
+Ran 28 tests across 1 file. [7.00ms]
+
+exit 0

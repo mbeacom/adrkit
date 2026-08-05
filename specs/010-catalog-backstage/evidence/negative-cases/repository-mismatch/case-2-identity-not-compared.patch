@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/repository/identity.ts b/packages/adapters/catalog-backstage/src/repository/identity.ts
+index 244af3b..dd4b7e6 100644
+--- a/packages/adapters/catalog-backstage/src/repository/identity.ts
++++ b/packages/adapters/catalog-backstage/src/repository/identity.ts
+@@ -163,7 +163,7 @@ export function compareRepositoryIdentity(
+   const observedRepositoryId = normalizeRepositoryId(observed.remoteRaw);
+   const manifestRepositoryId = normalizeRepositoryId(manifest.id);
+ 
+-  const idMatches = manifestRepositoryId === observedRepositoryId;
++  const idMatches = true;
+   const revisionMatches = manifest.revision === observed.head;
+ 
+   const check: RepositoryIdentityCheck = {

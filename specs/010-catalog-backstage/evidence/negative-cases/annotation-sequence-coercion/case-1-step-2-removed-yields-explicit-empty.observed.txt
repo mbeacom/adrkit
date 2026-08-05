@@ -1,0 +1,98 @@
+bun test v1.3.14 (0d9b296a)
+
+test/annotation-step2-raw-node.test.ts:
+(pass) T059 — the coercion this check exists to prevent is real > `JSON.parse` coerces a one-element sequence to `"[]"` and returns `[]` [0.56ms]
+(pass) T059 — the coercion this check exists to prevent is real > so an implementation without step 2 would classify it `explicit-empty` [0.01ms]
+(pass) T059 — the YAML sequence really is a sequence by the time it is checked > the raw node read from the descriptor is an array, not a string [6.77ms]
+84 | });
+85 | 
+86 | describe('T059 — the correct reason is produced, and the wrong one is absent', () => {
+87 |   test('`decodeAnnotation` yields `annotation-value-not-a-string`', () => {
+88 |     const result = decodeAnnotation(true, ['[]']);
+89 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-step2-raw-node.test.ts:89:23)
+(fail) T059 — the correct reason is produced, and the wrong one is absent > `decodeAnnotation` yields `annotation-value-not-a-string` [0.22ms]
+91 |     expect(result.rejection.reason).toBe('annotation-value-not-a-string');
+92 |   });
+93 | 
+94 |   test('and never `explicit-empty` — the absence of the wrong outcome', () => {
+95 |     const result = decodeAnnotation(true, ['[]']);
+96 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-step2-raw-node.test.ts:96:23)
+(fail) T059 — the correct reason is produced, and the wrong one is absent > and never `explicit-empty` — the absence of the wrong outcome [0.04ms]
+101 |     const [document] = readDescriptorDocuments('catalog-info.yaml', DESCRIPTOR);
+102 |     if (document === undefined) throw new Error('fixture did not parse');
+103 |     const node = readAnnotationNode(document, 'adrkit.io/owned-paths');
+104 | 
+105 |     const derivation = deriveOwnership(node.present, node.value);
+106 |     expect(derivation.ok).toBe(false);
+                                ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-step2-raw-node.test.ts:106:27)
+(fail) T059 — the correct reason is produced, and the wrong one is absent > the whole derivation, end to end from the YAML [0.59ms]
+(pass) T059 — the correct reason is produced, and the wrong one is absent > a genuine `explicit-empty` is still reachable — the check is not a blanket ban [0.02ms]
+128 |     // were skipped, this would surface as `parse-error` — a different reason for
+129 |     // the same defect, and the one that would hide the ordering bug.
+130 |     const result = decodeAnnotation(true, { a: 1 });
+131 |     expect(result.ok).toBe(false);
+132 |     if (result.ok) return;
+133 |     expect(result.rejection.reason).toBe('annotation-value-not-a-string');
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "annotation-value-not-a-string"
+Received: "parse-error"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-step2-raw-node.test.ts:133:37)
+(fail) T059 — step 2 runs before step 3, not merely instead of it > a non-string that would ALSO fail JSON parsing still reports step 2 [0.12ms]
+138 |     // `3` stringifies to `"3"`, which parses to the number 3 — so without step 2
+139 |     // this would reach step 4 and report `wrong-shape`, again masking the ordering.
+140 |     const result = decodeAnnotation(true, 3);
+141 |     expect(result.ok).toBe(false);
+142 |     if (result.ok) return;
+143 |     expect(result.rejection.reason).toBe('annotation-value-not-a-string');
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "annotation-value-not-a-string"
+Received: "wrong-shape"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-step2-raw-node.test.ts:143:37)
+(fail) T059 — step 2 runs before step 3, not merely instead of it > a number that would parse cleanly still reports step 2 [0.06ms]
+144 |     expect(result.rejection.reason).not.toBe('wrong-shape');
+145 |   });
+146 | 
+147 |   test('the diagnostics record shows step 3 was never reached', () => {
+148 |     const result = decodeAnnotation(true, ['[]']);
+149 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-step2-raw-node.test.ts:149:23)
+(fail) T059 — step 2 runs before step 3, not merely instead of it > the diagnostics record shows step 3 was never reached [0.08ms]
+
+ 4 pass
+ 6 fail
+ 19 expect() calls
+Ran 10 tests across 1 file. [48.00ms]
+
+exit 1

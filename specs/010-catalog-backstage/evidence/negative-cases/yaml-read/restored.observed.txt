@@ -1,0 +1,24 @@
+bun test v1.3.14 (0d9b296a)
+
+test/descriptor-read.test.ts:
+(pass) T047 — a well-formed descriptor parses > the outcome is `parsed` and the raw fields are carried [5.12ms]
+(pass) T047 — a well-formed descriptor parses > a document is addressed by (sourcePath, documentIndexInFile) [0.36ms]
+(pass) T047 — the two failure outcomes are distinct > a repeated top-level key is `duplicate-yaml-key` [0.48ms]
+(pass) T047 — the two failure outcomes are distinct > a repeated nested key is also `duplicate-yaml-key` [0.23ms]
+(pass) T047 — the two failure outcomes are distinct > an unterminated quoted scalar is `invalid-yaml-syntax`, not a duplicate [0.32ms]
+(pass) T047 — the two failure outcomes are distinct > a malformed flow collection is `invalid-yaml-syntax` [1.05ms]
+(pass) T047 — the two failure outcomes are distinct > the two reasons, and the two trigger classes, are different values [0.29ms]
+(pass) T047 — the two failure outcomes are distinct > a duplicate key in the second document does not contaminate the first [0.36ms]
+(pass) T047 — a duplicate key still resolves to a value, and that is the trap > the reported outcome is the error, never the last-wins value [0.12ms]
+(pass) T047 — `uniqueKeys` is left at its library default > the module never names `uniqueKeys` [0.61ms]
+(pass) T047 — reading the annotation node > a present string scalar is reported present, with a string value [0.39ms]
+(pass) T047 — reading the annotation node > a YAML sequence arrives as an array, so a `typeof` check can reject it [0.32ms]
+(pass) T047 — reading the annotation node > an absent annotation is reported absent [0.15ms]
+(pass) T047 — reading the annotation node > presence is an explicit discriminant, not `value !== undefined` [0.26ms]
+
+ 14 pass
+ 0 fail
+ 47 expect() calls
+Ran 14 tests across 1 file. [30.00ms]
+
+exit 0

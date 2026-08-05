@@ -1,0 +1,34 @@
+bun test v1.3.14 (0d9b296a)
+
+test/repository-exact-match.test.ts:
+(pass) T042 — exact string equality on both values (FR-010) > both agreeing is the only match [0.23ms]
+31 |     expect(result.value.outcome).toBe('match');
+32 |   });
+33 | 
+34 |   test('an abbreviated revision is a mismatch, not a prefix match', () => {
+35 |     const result = compareRepositoryIdentity({ id: ID, revision: HEAD.slice(0, 7) }, OBSERVED);
+36 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/repository-exact-match.test.ts:36:23)
+(fail) T042 — exact string equality on both values (FR-010) > an abbreviated revision is a mismatch, not a prefix match [0.12ms]
+(pass) T042 — exact string equality on both values (FR-010) > a revision differing in one character is a mismatch [0.06ms]
+(pass) T042 — exact string equality on both values (FR-010) > an uppercase revision is a mismatch — comparison is not case-normalized [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > a partial match — revision agrees, identity does not — still aborts [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > a partial match the other way — identity agrees, revision does not — still aborts [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > both disagreeing reports both halves [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > a repository-id prefix is a mismatch [0.01ms]
+(pass) T042 — exact string equality on both values (FR-010) > the check records the values it compared, both sides [0.01ms]
+(pass) T042 — exact string equality on both values (FR-010) > an unrecognized remote normalizes to `invalid` and mismatches [0.01ms]
+(pass) T042 — exact string equality on both values (FR-010) > the observed values are compared, not re-read from the manifest
+
+ 10 pass
+ 1 fail
+ 27 expect() calls
+Ran 11 tests across 1 file. [6.00ms]
+
+exit 1

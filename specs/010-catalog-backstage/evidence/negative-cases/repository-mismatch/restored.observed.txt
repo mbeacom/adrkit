@@ -1,0 +1,21 @@
+bun test v1.3.14 (0d9b296a)
+
+test/repository-exact-match.test.ts:
+(pass) T042 — exact string equality on both values (FR-010) > both agreeing is the only match [0.25ms]
+(pass) T042 — exact string equality on both values (FR-010) > an abbreviated revision is a mismatch, not a prefix match [0.06ms]
+(pass) T042 — exact string equality on both values (FR-010) > a revision differing in one character is a mismatch [0.03ms]
+(pass) T042 — exact string equality on both values (FR-010) > an uppercase revision is a mismatch — comparison is not case-normalized [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > a partial match — revision agrees, identity does not — still aborts [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > a partial match the other way — identity agrees, revision does not — still aborts [0.04ms]
+(pass) T042 — exact string equality on both values (FR-010) > both disagreeing reports both halves [0.03ms]
+(pass) T042 — exact string equality on both values (FR-010) > a repository-id prefix is a mismatch [0.01ms]
+(pass) T042 — exact string equality on both values (FR-010) > the check records the values it compared, both sides [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > an unrecognized remote normalizes to `invalid` and mismatches [0.01ms]
+(pass) T042 — exact string equality on both values (FR-010) > the observed values are compared, not re-read from the manifest
+
+ 11 pass
+ 0 fail
+ 31 expect() calls
+Ran 11 tests across 1 file. [6.00ms]
+
+exit 0

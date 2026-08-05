@@ -1,0 +1,73 @@
+bun test v1.3.14 (0d9b296a)
+
+test/repository-exact-match.test.ts:
+(pass) T042 — exact string equality on both values (FR-010) > both agreeing is the only match [0.22ms]
+(pass) T042 — exact string equality on both values (FR-010) > an abbreviated revision is a mismatch, not a prefix match [0.05ms]
+(pass) T042 — exact string equality on both values (FR-010) > a revision differing in one character is a mismatch [0.02ms]
+(pass) T042 — exact string equality on both values (FR-010) > an uppercase revision is a mismatch — comparison is not case-normalized [0.02ms]
+61 |   test('a partial match — revision agrees, identity does not — still aborts', () => {
+62 |     const result = compareRepositoryIdentity(
+63 |       { id: 'github.com/mbeacom/some-other-repo', revision: HEAD },
+64 |       OBSERVED,
+65 |     );
+66 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/repository-exact-match.test.ts:66:23)
+(fail) T042 — exact string equality on both values (FR-010) > a partial match — revision agrees, identity does not — still aborts [0.09ms]
+(pass) T042 — exact string equality on both values (FR-010) > a partial match the other way — identity agrees, revision does not — still aborts [0.02ms]
+83 |       { id: 'github.com/mbeacom/other', revision: '0'.repeat(40) },
+84 |       OBSERVED,
+85 |     );
+86 |     expect(result.ok).toBe(false);
+87 |     if (result.ok) return;
+88 |     expect(result.rejection.detail).toContain('repository id:');
+                                         ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "repository id:"
+Received: "revision: manifest \"0000000000000000000000000000000000000000\" !== observed \"3f5a1c9e8b2d4f6a0c7e1b3d5f7a9c1e3b5d7f90\""
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/repository-exact-match.test.ts:88:37)
+(fail) T042 — exact string equality on both values (FR-010) > both disagreeing reports both halves [0.04ms]
+94 |     // an implementation using `startsWith` for identity would accept this.
+95 |     const result = compareRepositoryIdentity(
+96 |       { id: 'github.com/mbeacom/adrkit', revision: HEAD },
+97 |       OBSERVED,
+98 |     );
+99 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/repository-exact-match.test.ts:99:23)
+(fail) T042 — exact string equality on both values (FR-010) > a repository-id prefix is a mismatch [0.03ms]
+(pass) T042 — exact string equality on both values (FR-010) > the check records the values it compared, both sides [0.01ms]
+112 |   test('an unrecognized remote normalizes to `invalid` and mismatches', () => {
+113 |     const result = compareRepositoryIdentity(
+114 |       { id: ID, revision: HEAD },
+115 |       { remoteRaw: 'https://gitlab.com/mbeacom/adrkit.git', head: HEAD },
+116 |     );
+117 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/repository-exact-match.test.ts:117:23)
+(fail) T042 — exact string equality on both values (FR-010) > an unrecognized remote normalizes to `invalid` and mismatches [0.03ms]
+(pass) T042 — exact string equality on both values (FR-010) > the observed values are compared, not re-read from the manifest [0.01ms]
+
+ 7 pass
+ 4 fail
+ 25 expect() calls
+Ran 11 tests across 1 file. [6.00ms]
+
+exit 1

@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/ownership/annotation.ts b/packages/adapters/catalog-backstage/src/ownership/annotation.ts
+index 853276c..ebb5f31 100644
+--- a/packages/adapters/catalog-backstage/src/ownership/annotation.ts
++++ b/packages/adapters/catalog-backstage/src/ownership/annotation.ts
+@@ -143,7 +143,7 @@ export function decodeAnnotation(present: boolean, rawNode: unknown): Annotation
+   if (!present) return { ok: true, value: { diagnostics: ABSENT, patterns: undefined } };
+ 
+   // Step 2 — string-scalar check on the raw node, BEFORE any JSON.parse.
+-  if (typeof rawNode !== 'string') {
++  if (false && typeof rawNode !== 'string') {
+     return reject(
+       'annotation-value-not-a-string',
+       {

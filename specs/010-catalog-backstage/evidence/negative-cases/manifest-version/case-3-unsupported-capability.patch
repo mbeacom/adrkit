@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/manifest/version.ts b/packages/adapters/catalog-backstage/src/manifest/version.ts
+index 8f9b654..ff4e2b7 100644
+--- a/packages/adapters/catalog-backstage/src/manifest/version.ts
++++ b/packages/adapters/catalog-backstage/src/manifest/version.ts
+@@ -84,7 +84,7 @@ export function checkManifestVersions(
+   }
+ 
+   for (const [index, capability] of manifest.requiredCapabilities.entries()) {
+-    if (capability !== SUPPORTED_CAPABILITY) {
++    if (false && capability !== SUPPORTED_CAPABILITY) {
+       return rejected(
+         'unsupported-capability',
+         'unsupported-capability',

@@ -1,0 +1,71 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-paths.test.ts:
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > a clean repo-relative path passes stage 1 [0.19ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "" is rejected as path-empty [0.04ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "." is rejected as path-dot-or-dotdot
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > ".." is rejected as path-dot-or-dotdot
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "/etc/passwd" is rejected as path-absolute
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "C:\\Windows\\system32" is rejected as path-drive-prefix
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages\\payments\\catalog-info.yaml" is rejected as path-backslash
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "\\\\host\\share\\file.yaml" is rejected as path-backslash
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "../../secret.yaml" is rejected as path-traversal-segment
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/./catalog-info.yaml" is rejected as path-traversal-segment
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/../../etc/passwd" is rejected as path-traversal-segment
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/\u0000/catalog-info.yaml" is rejected as path-control-character [0.05ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages//catalog-info.yaml" is rejected as path-control-character
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/\ncatalog-info.yaml" is rejected as path-control-character
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > the drive prefix rule fires before the backslash rule [0.02ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > stage 1 rejects without any filesystem access [0.05ms]
+(pass) T044 stage 2 — confined realpath > containment is strict — a sibling sharing a name prefix is not beneath [0.03ms]
+(pass) T044 stage 2 — confined realpath > a real file beneath the root is accepted [0.20ms]
+117 |     // This is the case stage 1 cannot see: no `..`, no leading slash, nothing a
+118 |     // string check could catch.
+119 |     expect(validatePathLexically('escape/secret.yaml').ok).toBe(true);
+120 | 
+121 |     const result = await validatePathConfined(checkoutRoot, 'escape/secret.yaml');
+122 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:122:23)
+(fail) T044 stage 2 — confined realpath > a lexically-clean path escaping through a symlink fails closed [0.18ms]
+126 |     expect(result.rejection.detail).toContain('not beneath the verified checkout root');
+127 |   });
+128 | 
+129 |   test('the same escape is rejected through the combined two-stage entry point', async () => {
+130 |     const result = await validateSourcePath(checkoutRoot, 'escape/secret.yaml');
+131 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:131:23)
+(fail) T044 stage 2 — confined realpath > the same escape is rejected through the combined two-stage entry point [0.12ms]
+(pass) T044 stage 2 — confined realpath > a nonexistent path beneath the root is not an escape [0.15ms]
+142 | 
+143 |   test('the two stages emit different reasons for their own failures', async () => {
+144 |     const stageOne = await validateSourcePath(checkoutRoot, '../secret.yaml');
+145 |     const stageTwo = await validateSourcePath(checkoutRoot, 'escape/secret.yaml');
+146 |     expect(stageOne.ok).toBe(false);
+147 |     expect(stageTwo.ok).toBe(false);
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:147:25)
+(fail) T044 stage 2 — confined realpath > the two stages emit different reasons for their own failures [0.15ms]
+
+ 19 pass
+ 3 fail
+ 56 expect() calls
+Ran 22 tests across 1 file. [10.00ms]
+
+exit 1

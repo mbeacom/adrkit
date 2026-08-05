@@ -1,0 +1,21 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-version.test.ts:
+(pass) T040 — the three version/capability rejections (FR-008) > the accepted values are exactly the ones `input-manifest.md` §2 names [0.02ms]
+(pass) T040 — the three version/capability rejections (FR-008) > the contract-shaped manifest passes all three [0.40ms]
+(pass) T040 — the three version/capability rejections (FR-008) > `unsupported-manifest-version` — an unsupported manifestSchemaVersion [0.05ms]
+(pass) T040 — the three version/capability rejections (FR-008) > `unsupported-snapshot-version` — an unsupported requestedSnapshotSchemaVersion [0.02ms]
+(pass) T040 — the three version/capability rejections (FR-008) > `unsupported-capability` — any string other than pathOwnership in the array [0.06ms]
+(pass) T040 — the three version/capability rejections (FR-008) > the three reasons are mutually distinct [0.14ms]
+(pass) T040 — the three version/capability rejections (FR-008) > all three trigger classes are members of the closed enumeration [0.02ms]
+(pass) T040 — the three version/capability rejections (FR-008) > a manifest violating two rules reports the first, deterministically [0.06ms]
+(pass) T040 — what §2’s capability rule does and does not say > the rejection is triggered by a present offending string [0.03ms]
+(pass) T040 — what §2’s capability rule does and does not say > a repeated supported capability contains no offending string [0.02ms]
+(pass) T040 — what §2’s capability rule does and does not say > capability matching is exact, never case-insensitive [0.02ms]
+
+ 11 pass
+ 0 fail
+ 26 expect() calls
+Ran 11 tests across 1 file. [7.00ms]
+
+exit 0

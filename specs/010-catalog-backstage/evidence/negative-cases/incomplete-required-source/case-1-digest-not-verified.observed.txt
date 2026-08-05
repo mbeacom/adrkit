@@ -1,0 +1,70 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-digests.test.ts:
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > the fixture digest is 64 lowercase hex characters [0.05ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > a well-formed digest passes the shape check [0.06ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > an uppercase-hex digest is rejected before any file is opened [0.04ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > a truncated digest is rejected [0.01ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > a non-hex digest is rejected [0.02ms]
+(pass) T043 — digest verification against bytes > bytes matching the declared digest are accepted [0.03ms]
+91 |     expect(result.value.observedDigest).toBe(CONTENT_DIGEST);
+92 |   });
+93 | 
+94 |   test('a single changed byte is a mismatch', () => {
+95 |     const result = verifySourceBytes(source(), new TextEncoder().encode(`${CONTENT} `));
+96 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-digests.test.ts:96:23)
+(fail) T043 — digest verification against bytes > a single changed byte is a mismatch [0.10ms]
+105 |     // perfectly well-formed. An implementation that only shape-checked the
+106 |     // declared digest would accept this.
+107 |     const wrongButWellFormed = sha256Hex(new TextEncoder().encode('something else'));
+108 |     expect(wrongButWellFormed).toMatch(/^[0-9a-f]{64}$/u);
+109 |     const result = verifySourceBytes(source({ digest: wrongButWellFormed }), CONTENT_BYTES);
+110 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-digests.test.ts:110:23)
+(fail) T043 — digest verification against bytes > the digest is recomputed, never trusted from the manifest [0.09ms]
+(pass) T043 — verification over the whole source set > a fully-agreeing source set is accepted [0.28ms]
+(pass) T043 — verification over the whole source set > a manifest-listed path absent from disk is `source-missing` [0.08ms]
+(pass) T043 — verification over the whole source set > one bad source among several rejects the set — never a per-entity skip [0.10ms]
+(pass) T043 — verification over the whole source set > nothing is returned when any source fails — no partial verified set [0.10ms]
+(pass) T043 — verification over the whole source set > the failure reported for two bad sources is deterministic (manifest order) [0.10ms]
+176 |     const missing = await verifySourceDigests([source({ path: 'not-here.yaml' })], resolve);
+177 |     const mismatch = await verifySourceDigests([source({ digest: 'a'.repeat(64) })], resolve);
+178 |     const reasons = [malformed, missing, mismatch].map((result) =>
+179 |       result.ok ? 'accepted' : result.rejection.reason,
+180 |     );
+181 |     expect(reasons).toEqual(['digest-malformed', 'source-missing', 'digest-mismatch']);
+                          ^
+error: expect(received).toEqual(expected)
+
+  [
+    "digest-malformed",
+    "source-missing",
+-   "digest-mismatch",
++   "accepted",
+  ]
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-digests.test.ts:181:21)
+(fail) T043 — verification over the whole source set > the three reasons are mutually distinct [0.24ms]
+
+ 11 pass
+ 3 fail
+ 30 expect() calls
+Ran 14 tests across 1 file. [10.00ms]
+
+exit 1

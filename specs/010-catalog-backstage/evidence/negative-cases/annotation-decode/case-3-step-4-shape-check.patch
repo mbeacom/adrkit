@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/ownership/annotation.ts b/packages/adapters/catalog-backstage/src/ownership/annotation.ts
+index 853276c..3f8063e 100644
+--- a/packages/adapters/catalog-backstage/src/ownership/annotation.ts
++++ b/packages/adapters/catalog-backstage/src/ownership/annotation.ts
+@@ -178,7 +178,7 @@ export function decodeAnnotation(present: boolean, rawNode: unknown): Annotation
+ 
+   // Step 4 — shape. Exactly `array<string>`; nothing is ever coerced.
+   const shapeFailure = describeShapeFailure(decoded);
+-  if (shapeFailure !== undefined) {
++  if (false && shapeFailure !== undefined) {
+     return reject(
+       'wrong-shape',
+       {
