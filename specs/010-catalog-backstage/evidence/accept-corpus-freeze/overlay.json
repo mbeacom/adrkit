@@ -1,0 +1,145 @@
+{
+  "//": "T015 — the maintainer-authored adrkit.io/owned-paths overlay for the clause-5 accept corpus. The `overlay` array below is exactly the `overlay` member of AcceptCorpusFreeze (data-model.md §17) and is embedded verbatim in accept-corpus-freeze.json.",
+  "task": "T015",
+  "barrierSide": "IS THE BARRIER",
+  "discharges": ["FR-054 (overlay half)"],
+  "provenance": {
+    "annotationAuthorship": "maintainer-authored",
+    "descriptorAuthorship": "third-party, authored upstream, left otherwise unmodified",
+    "statedPlainly": "No descriptor in the pinned corpus carries `adrkit.io/owned-paths`. research.md R14 records the count as zero and this freeze re-derived it as zero. Every annotation value below was written by the maintainer. None was read from upstream, and none may be described as an upstream, third-party, external, or community annotation.",
+    "authority": "ADR-0020 clause 5 adopts ADR-0012 gate 3's named construction — 'synthetic explicit annotations over pinned public corpora under independent adversarial review'. The independent adversarial review half is T019, not this file.",
+    "notDerivable": "These values are authored data. No adapter code path computes them, and none may. spec.md FR-061 / ADR-0020 clause 7 forbid descriptor-parent, repository-root, and identity-only normalization from appearing in the adapter as inferred, authoritative, default, or opt-in ownership behavior. The assignment rule in selection-basis.md §4 is positional precisely so that it cannot be mistaken for such an inference: an entity's annotation is a function of its index in a frozen order, never of its descriptor's location.",
+    "notAClaimOfOwnership": "ADR-0020 clause 5 is explicit that this construction gates technical compatibility only. Nothing here evidences that any listed path is a path anyone actually owns."
+  },
+  "assignment": {
+    "rule": "selection-basis.md §4 — positions 0–21 receive catalogue entry C[i mod 11] in the catalogue's authored input order; position 22 receives the `explicit-empty` value `[]`; position 23 receives no overlay entry at all.",
+    "positionsCovered": "0–22",
+    "positionWithoutAnEntry": 23,
+    "whyPosition23HasNoEntry": "`annotation-absent` means the key is wholly absent from metadata.annotations. owned-paths-annotation.md §1 step 1 decides presence by an explicit discriminant, never by inferring it from a raw value being undefined — so an overlay entry carrying an empty or null annotationValue would be the wrong construction. Absence is represented by absence.",
+    "ownershipStatesExercised": {
+      "explicit-paths": 22,
+      "explicit-empty": 1,
+      "annotation-absent": 1
+    },
+    "whyAllThree": "owned-paths-annotation.md §3's non-conflation rule requires `explicit-empty` and `annotation-absent` to remain distinguishable even though both yield an empty derivedPaths array. A corpus carrying only one of them cannot demonstrate that they were not fused.",
+    "clause5Floor": "ADR-0020 clause 5 requires at least one non-empty annotation on a real entity. This overlay carries 22, and is therefore not the all-`annotation-absent` corpus clause 5 warns satisfies nothing."
+  },
+  "ordering": "Ascending `compareCodeUnits` on `sourcePath`, with `documentIndexInFile` ascending as tiebreak. For this corpus that order coincides with the frozen selection order of selection-basis.md §3, because each of the 24 selected entities comes from a distinct workspace and no selected workspace name is a strict prefix of another.",
+  "overlay": [
+    {
+      "sourcePath": "workspaces/acr/plugins/acr/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"workspaces/alpha/src/**\",\"workspaces/alpha-tools/**\",\"workspaces/alpha.config/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/adr/plugins/adr-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/**\",\"packages/core/**\",\"packages/cli/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"**\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/allure/plugins/allure/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"src/utils/**\",\"src/Utils/**\",\"src/README.md\"]"
+    },
+    {
+      "sourcePath": "workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"scripts/build-?.ts\",\"scripts/*.test.ts\",\"scripts/build.ts\"]"
+    },
+    {
+      "sourcePath": "workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/src/**\",\"packages/core/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"plugins/v2/**\",\"plugins/v10/**\",\"plugins/v_next/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\".github/workflows/**\",\"Makefile\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\",\"examples/**\",\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/badges/plugins/badges-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"a/b/**\",\"a-b/**\",\"a/**\",\"a.b/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"workspaces/alpha/src/**\",\"workspaces/alpha-tools/**\",\"workspaces/alpha.config/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bitbucket-pull-requests/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/**\",\"packages/core/**\",\"packages/cli/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bitrise/plugins/bitrise/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"**\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"src/utils/**\",\"src/Utils/**\",\"src/README.md\"]"
+    },
+    {
+      "sourcePath": "workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"scripts/build-?.ts\",\"scripts/*.test.ts\",\"scripts/build.ts\"]"
+    },
+    {
+      "sourcePath": "workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"packages/core/src/**\",\"packages/core/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"plugins/v2/**\",\"plugins/v10/**\",\"plugins/v_next/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/code-climate/plugins/code-climate/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\".github/workflows/**\",\"Makefile\",\".github/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"docs/**\",\"examples/**\",\"docs/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/codescene/plugins/codescene/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[\"a/b/**\",\"a-b/**\",\"a/**\",\"a.b/**\"]"
+    },
+    {
+      "sourcePath": "workspaces/copilot/plugins/copilot-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "annotationValue": "[]"
+    }
+  ]
+}

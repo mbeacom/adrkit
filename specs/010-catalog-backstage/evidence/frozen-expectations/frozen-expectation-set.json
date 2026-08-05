@@ -1,0 +1,275 @@
+{
+  "//": "T017 — the re-frozen oracle. FrozenExpectationSet, data-model.md §16. This is the fresh T014 step of ADR-0020 clause 6's T014 → T014a cycle. The T014a step (the independent audit) is T019 and is recorded in the sibling file audit-record.json, which does not exist yet and must not be written by the author of this file.",
+  "task": "T017",
+  "barrierSide": "IS THE BARRIER",
+  "discharges": [
+    "FR-053"
+  ],
+  "frozenAt": "2026-08-05T03:43:58Z",
+  "correction": {
+    "whatWasWrong": "Spike 009 froze `derivedPathPatterns` in INPUT order. ADR-0012 gate 3 records the consequence: 'The oracle exists but carries a known-wrong expected result and must be re-frozen.'",
+    "whatIsRightAndWhyItIsRight": "`derivedPathPatterns` below is in `compareCodeUnits`-sorted order. data-model.md §16 names this correction directly, and it follows from owned-paths-annotation.md §3, which requires an `explicit-paths` derivation to be sorted and deduplicated. An oracle recording input order is asserting an expectation the derivation contract forbids.",
+    "whyReuseWasNotAnOption": "ADR-0020 clause 6 requires a FRESH cycle — correct the ordering, re-freeze, re-hash, obtain a NEW independent pre-output audit — rather than an amendment to the spike's artifact. ADR-0015's Condition of Acceptance 1 records why: the spike's evidence bundle is untracked and scratch-only, so 'nothing in the repository will stop someone reusing a stale copy.' Nothing in this file is copied from, or reconciled against, that bundle.",
+    "howAnAuditorFalsifiesTheOrdering": "Sort `derivedPathPatterns` with `compareCodeUnits` (`a < b ? -1 : a > b ? 1 : 0`, packages/core/src/ordering/index.ts) and compare element-by-element with the array as recorded. They must be identical. Then confirm the array is NOT merely the concatenation of the overlay's annotation values in authored order — for this corpus the two disagree at the first element (`**` sorted, `workspaces/alpha/src/**` in input order), so the distinction is visible immediately rather than only in the tail."
+  },
+  "derivedPathPatterns": [
+    "**",
+    ".github/**",
+    ".github/workflows/**",
+    "Makefile",
+    "a-b/**",
+    "a.b/**",
+    "a/**",
+    "a/b/**",
+    "docs/**",
+    "examples/**",
+    "packages/cli/**",
+    "packages/core/**",
+    "packages/core/src/**",
+    "plugins/v10/**",
+    "plugins/v2/**",
+    "plugins/v_next/**",
+    "scripts/*.test.ts",
+    "scripts/build-?.ts",
+    "scripts/build.ts",
+    "src/README.md",
+    "src/Utils/**",
+    "src/utils/**",
+    "workspaces/alpha-tools/**",
+    "workspaces/alpha.config/**",
+    "workspaces/alpha/src/**"
+  ],
+  "derivedPathPatternsProvenance": {
+    "definition": "The deduplicated union of every pattern appearing in any entity's `expectedPaths`, in ascending `compareCodeUnits` order.",
+    "count": 25,
+    "sourceOfTruth": "accept-corpus-freeze/expected-paths.json, itself hand-derived from accept-corpus-freeze/overlay.json under the frozen contracts. Not produced by any generator; none exists.",
+    "orderingTrapsItEncodes": [
+      "`*` (0x2A) precedes `.` (0x2E), so a bare `**` sorts before `.github/**`.",
+      "`M` (0x4D) precedes every lowercase letter, so `Makefile` sorts before `a-b/**`.",
+      "`-` (0x2D) < `.` (0x2E) < `/` (0x2F), so `a-b/**` and `a.b/**` both precede `a/**`.",
+      "`*` precedes letters within a shared prefix, so `a/**` precedes `a/b/**` and `packages/core/**` precedes `packages/core/src/**`.",
+      "digits sort lexically, so `plugins/v10/**` precedes `plugins/v2/**`; `_` (0x5F) follows digits, so `plugins/v_next/**` is last of the three.",
+      "uppercase precedes lowercase, so `src/README.md` < `src/Utils/**` < `src/utils/**`."
+    ]
+  },
+  "expectedByEntity": [
+    {
+      "canonicalId": "component:default/backstage-community-acr",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "workspaces/alpha-tools/**",
+        "workspaces/alpha.config/**",
+        "workspaces/alpha/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-adr-backend",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "packages/cli/**",
+        "packages/core/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-agent-forge",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "**",
+        ".github/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-airbrake-backend",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "docs/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-allure",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "src/README.md",
+        "src/Utils/**",
+        "src/utils/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-analytics-module-ga4",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "scripts/*.test.ts",
+        "scripts/build-?.ts",
+        "scripts/build.ts"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-apache-airflow",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "packages/core/**",
+        "packages/core/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-apollo-explorer",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "plugins/v10/**",
+        "plugins/v2/**",
+        "plugins/v_next/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-azure-devops-common",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        ".github/**",
+        ".github/workflows/**",
+        "Makefile"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-azure-sites-backend",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "docs/**",
+        "examples/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-badges-backend",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "a-b/**",
+        "a.b/**",
+        "a/**",
+        "a/b/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-bazaar-backend",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "workspaces/alpha-tools/**",
+        "workspaces/alpha.config/**",
+        "workspaces/alpha/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-bitrise",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "**",
+        ".github/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-catalog-backend-module-codeowners",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "src/README.md",
+        "src/Utils/**",
+        "src/utils/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-checkmarx-backend",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "scripts/*.test.ts",
+        "scripts/build-?.ts",
+        "scripts/build.ts"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cicd-statistics-module-buildkite",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "packages/core/**",
+        "packages/core/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cloudbuild",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "plugins/v10/**",
+        "plugins/v2/**",
+        "plugins/v_next/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-code-climate",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        ".github/**",
+        ".github/workflows/**",
+        "Makefile"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-code-coverage-backend",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "docs/**",
+        "examples/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-codescene",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "a-b/**",
+        "a.b/**",
+        "a/**",
+        "a/b/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-copilot-backend",
+      "ownershipState": "explicit-empty",
+      "expectedPaths": []
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cost-insights-common",
+      "ownershipState": "annotation-absent",
+      "expectedPaths": []
+    },
+    {
+      "canonicalId": "component:default/bitbucket-pull-requests",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "packages/cli/**",
+        "packages/core/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/example-website",
+      "ownershipState": "explicit-paths",
+      "expectedPaths": [
+        "docs/**"
+      ]
+    }
+  ],
+  "expectedByEntityNotes": {
+    "ordering": "Ascending `compareCodeUnits` on `canonicalId`.",
+    "count": 24,
+    "whyOwnershipStateIsPresent": "data-model.md §16 sketches `expectedByEntity` as `{ canonicalId, expectedPaths }`. `ownershipState` is carried in addition because owned-paths-annotation.md §3's non-conflation rule requires the discriminator to be an explicit field: `explicit-empty` and `annotation-absent` both yield an empty array, and the rule forbids inferring the distinction from `derivedPaths` alone. An oracle recording only the two sketched fields could not express a distinction the derivation contract mandates. The addition is a superset of §16's shape and removes nothing from it.",
+    "whyAuditRecordIsNotHere": "data-model.md §16 gives FrozenExpectationSet an `auditRecord` member. It is deliberately absent from this file. Writing the audit into the artifact it audits would change that artifact's bytes and therefore its hash, so the recorded hash could never match a re-derivation. The audit is written by T019 to the sibling file `audit-record.json`, which is also what T019's own task line specifies. The composed §16 type is the pair taken together; `contentHash` covers the frozen half."
+  },
+  "contentHash": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+  "contentHashNotes": {
+    "algorithm": "Lowercase-hex SHA-256 over the canonical form defined in ../README.md §3: this top-level object with the `contentHash` key removed and nothing else removed, serialized with object keys ordered ascending by `compareCodeUnits`, array order preserved, no insignificant whitespace, UTF-8, no trailing newline.",
+    "forTheAuditor": "Recompute it. Do not copy it. data-model.md §16 states the rule for a reason: 'An audit that transcribes the author's declared hash has verified nothing.'"
+  },
+  "warrantAndLimits": {
+    "whatThisArtifactIs": "A statement of what the derivation is EXPECTED to produce, fixed before any generator exists.",
+    "whatItIsNot": [
+      "It is not evidence that any generator produces these values. No generator has been written or run.",
+      "It is not correctness evidence. Correctness is claimed only on FR-056 / SC-011's post-output comparison at zero false positives and zero false negatives, which is a separate step in Phase F recording its own hashes and its own PASS/FAIL and inheriting nothing from this one.",
+      "It is not a claim about Backstage as a running system.",
+      "It is ADR-0014 rung 1 only — not reference-verified, not externally validated. Only the corpus data is third-party; this oracle is the maintainer's own."
+    ]
+  }
+}

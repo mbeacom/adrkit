@@ -276,7 +276,7 @@ matches, and the recorded selection basis and size to be frozen in the **same cy
 with the audit recording its own hashes and its own PASS/FAIL. Phase B may run
 concurrently with Phase A and with nothing else.
 
-- [ ] T013 [US1] Create the tracked evidence tree — `<EVIDENCE>/README.md`,
+- [X] T013 [US1] Create the tracked evidence tree — `<EVIDENCE>/README.md`,
       `<EVIDENCE>/frozen-expectations/`, `<EVIDENCE>/accept-corpus-freeze/`.
       These artifacts must be **git-tracked**: R5 mechanism 2 depends on CI being able
       to re-derive their hashes, and ADR-0015 Condition of Acceptance 1 requires them
@@ -285,7 +285,7 @@ concurrently with Phase A and with nothing else.
       Discharges: none — enables FR-053, FR-054, FR-055
       Depends: none
 
-- [ ] T014 [US1] **Record the accept-corpus selection basis and size before acting on
+- [X] T014 [US1] **Record the accept-corpus selection basis and size before acting on
       it.** Write `<EVIDENCE>/accept-corpus-freeze/selection-basis.md` stating how the
       corpus was chosen and how large it is, and how the populations documented in
       `research.md` R14 were handled — specifically the invalid-`metadata.name`
@@ -296,14 +296,14 @@ concurrently with Phase A and with nothing else.
       Discharges: FR-055
       Depends: T013
 
-- [ ] T015 [US1] Author the maintainer-authored `adrkit.io/owned-paths` overlay at
+- [X] T015 [US1] Author the maintainer-authored `adrkit.io/owned-paths` overlay at
       `<EVIDENCE>/accept-corpus-freeze/overlay.json`. This content is maintainer-authored,
       never upstream-authored, and the record must say so.
       Barrier: IS THE BARRIER
       Discharges: FR-054 (overlay half)
       Depends: T014
 
-- [ ] T016 [US1] Author the expected path matches per canonical id at
+- [X] T016 [US1] Author the expected path matches per canonical id at
       `<EVIDENCE>/accept-corpus-freeze/expected-paths.json`. These are **hand-derived
       from the frozen contracts**, never produced by, checked against, or adjusted to
       match any generator — no generator exists at this point, and Phase E may not
@@ -312,7 +312,7 @@ concurrently with Phase A and with nothing else.
       Discharges: FR-054 (expected-paths half)
       Depends: T015
 
-- [ ] T017 [US1] **Re-freeze the oracle (the fresh T014 step).** Write
+- [X] T017 [US1] **Re-freeze the oracle (the fresh T014 step).** Write
       `<EVIDENCE>/frozen-expectations/frozen-expectation-set.json` containing
       `derivedPathPatterns` in `compareCodeUnits`-sorted order — this ordering is the
       correction the fresh cycle exists to make; input order is the defect — plus
@@ -321,7 +321,7 @@ concurrently with Phase A and with nothing else.
       Discharges: FR-053
       Depends: T014
 
-- [ ] T018 [US1] Assemble `<EVIDENCE>/accept-corpus-freeze/accept-corpus-freeze.json`
+- [X] T018 [US1] Assemble `<EVIDENCE>/accept-corpus-freeze/accept-corpus-freeze.json`
       — `corpusRef`, `selectionBasis`, `size`, `overlay`, `expectedPaths`, `contentHash`
       — **in the same cycle** as T014–T017. This artifact and the T017 oracle are
       frozen together or not at all.

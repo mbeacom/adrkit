@@ -1,0 +1,207 @@
+{
+  "//": "T016 — expected path matches per canonical id, hand-derived from the frozen contracts. The `expectedPaths` array below is exactly the `expectedPaths` member of AcceptCorpusFreeze (data-model.md §17) and is embedded verbatim in accept-corpus-freeze.json.",
+  "task": "T016",
+  "barrierSide": "IS THE BARRIER",
+  "discharges": ["FR-054 (expected-paths half)"],
+  "derivation": {
+    "howTheseWereProduced": "By hand, by applying the frozen contracts to the maintainer-authored overlay values in overlay.json. Nothing here was produced by, checked against, or adjusted to match any generator. No generator exists at this point: no package has been created, and Phase E may not begin until T024.",
+    "rulesApplied": [
+      "owned-paths-annotation.md §1 — decode-then-validate order: presence discriminant, then string-scalar check, then JSON.parse, then array<string> shape, then per-pattern validation. Every annotationValue in overlay.json is a present YAML string scalar carrying well-formed JSON that decodes to an array of strings, so every one of them reaches per-pattern validation.",
+      "glob-dialect.md §3 — the fifteen ordered validation rules. Every pattern is POSIX segments over `A-Za-z0-9_-.` plus `*`, whole-segment `**`, and `?`; none has a leading `/` or `!`, a backslash, a brace, a bracket, a parenthesis, a comma, a control character, a `.` or `..` segment, an empty segment, a disallowed character, or a `**` sharing a segment with other characters. All therefore reach rule 15 and are `accepted`.",
+      "owned-paths-annotation.md §3 — `explicit-paths` requires the resulting array to be sorted by `compareCodeUnits` and deduplicated. That sort-and-dedupe is the whole of the transformation between an overlay `annotationValue` and the `expectedPaths` recorded here.",
+      "entity-identity.md §1 — canonical id is `kind:namespace/name` with the namespace defaulted to `default` when omitted, then the ENTIRE string lowercased."
+    ],
+    "disclosedArithmeticCheck": "Each `expectedPaths` array below was written by hand and then checked against `compareCodeUnits` — whose entire definition is `a < b ? -1 : a > b ? 1 : 0` over UTF-16 code units (packages/core/src/ordering/index.ts) — to confirm the hand ordering was not miscounted. This is disclosed rather than done silently. It is not generator output under research.md R4: a two-line comparator promoted into `@adrkit/core` is a frozen repository primitive, not the assembled generator, and it computes no ownership result. All eleven arrays and the 25-element union matched the hand-written values on the first check.",
+    "orderingTrapsDeliberatelyIncluded": "`-` (0x2D) < `.` (0x2E) < `/` (0x2F), so `a-b/**` and `a.b/**` precede `a/**`; `*` (0x2A) precedes every letter, so `packages/core/**` precedes `packages/core/src/**`; uppercase precedes lowercase, so `src/Utils/**` precedes `src/utils/**`; digits sort lexically, so `plugins/v10/**` precedes `plugins/v2/**`. Each of these is a case where input order and `compareCodeUnits` order visibly disagree — which is the point, since recording input order is the defect this cycle exists to correct."
+  },
+  "ownershipStateIsCarriedExplicitly": "owned-paths-annotation.md §3's non-conflation rule requires each entity's record to carry the discriminator as its own explicit field, because `explicit-empty` and `annotation-absent` both yield an empty array and MUST NOT be inferred from `expectedPaths` alone. `ownershipState` below is therefore required by a frozen contract, not decoration.",
+  "ordering": "Ascending `compareCodeUnits` on `canonicalId`.",
+  "coverage": {
+    "entities": 24,
+    "explicit-paths": 22,
+    "explicit-empty": 1,
+    "annotation-absent": 1,
+    "distinctPatternsAcrossCorpus": 25,
+    "overlappingPairs": "Eleven pairs of distinct canonical ids share an identical expectedPaths array, and further partial overlaps exist across catalogue entries (`packages/core/**` between C1 and C6; `docs/**` between C3 and C9; `.github/**` between C2 and C8). entity-identity.md §4 requires overlapping owned paths between distinct canonical ids to derive successfully and never to be treated as a collision; this corpus supplies eleven independent instances of that case rather than one."
+  },
+  "expectedPaths": [
+    {
+      "canonicalId": "component:default/backstage-community-acr",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/acr/plugins/acr/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "workspaces/alpha-tools/**",
+        "workspaces/alpha.config/**",
+        "workspaces/alpha/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-adr-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/adr/plugins/adr-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["packages/cli/**", "packages/core/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-agent-forge",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["**", ".github/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-airbrake-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["docs/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-allure",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/allure/plugins/allure/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["src/README.md", "src/Utils/**", "src/utils/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-analytics-module-ga4",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["scripts/*.test.ts", "scripts/build-?.ts", "scripts/build.ts"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-apache-airflow",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["packages/core/**", "packages/core/src/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-apollo-explorer",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["plugins/v10/**", "plugins/v2/**", "plugins/v_next/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-azure-devops-common",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [".github/**", ".github/workflows/**", "Makefile"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-azure-sites-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["docs/**", "examples/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-badges-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/badges/plugins/badges-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["a-b/**", "a.b/**", "a/**", "a/b/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-bazaar-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [
+        "workspaces/alpha-tools/**",
+        "workspaces/alpha.config/**",
+        "workspaces/alpha/src/**"
+      ]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-bitrise",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bitrise/plugins/bitrise/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["**", ".github/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-catalog-backend-module-codeowners",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["src/README.md", "src/Utils/**", "src/utils/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-checkmarx-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["scripts/*.test.ts", "scripts/build-?.ts", "scripts/build.ts"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cicd-statistics-module-buildkite",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["packages/core/**", "packages/core/src/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cloudbuild",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["plugins/v10/**", "plugins/v2/**", "plugins/v_next/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-code-climate",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/code-climate/plugins/code-climate/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [".github/**", ".github/workflows/**", "Makefile"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-code-coverage-backend",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["docs/**", "examples/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-codescene",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/codescene/plugins/codescene/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["a-b/**", "a.b/**", "a/**", "a/b/**"]
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-copilot-backend",
+      "ownershipState": "explicit-empty",
+      "sourcePath": "workspaces/copilot/plugins/copilot-backend/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [],
+      "//": "The annotation IS present and IS a string scalar; it decodes via JSON.parse to an array of length zero. owned-paths-annotation.md §3 requires this to be a decoded-value check, never a raw-string equality check, and §4 requires it not to be confused with a single empty-string element, which would instead be rejected at the glob dialect's `empty` rule."
+    },
+    {
+      "canonicalId": "component:default/backstage-plugin-cost-insights-common",
+      "ownershipState": "annotation-absent",
+      "sourcePath": "workspaces/cost-insights/plugins/cost-insights-common/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": [],
+      "//": "The annotation key is wholly absent — there is no overlay entry for this entity. owned-paths-annotation.md §1 step 1 decides presence by an explicit discriminant, never by inferring it from a raw value being undefined, and §3's non-conflation rule forbids treating this as equivalent to the explicit-empty entity above."
+    },
+    {
+      "canonicalId": "component:default/bitbucket-pull-requests",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bitbucket-pull-requests/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["packages/cli/**", "packages/core/**"]
+    },
+    {
+      "canonicalId": "component:default/example-website",
+      "ownershipState": "explicit-paths",
+      "sourcePath": "workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml",
+      "documentIndexInFile": 0,
+      "expectedPaths": ["docs/**"]
+    }
+  ]
+}

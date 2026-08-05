@@ -300,3 +300,127 @@ response is to redo the cycle rather than to amend the record.
 *Sections below this line were added after the rule above was committed. They are
 the result of applying it, and they are recorded here so the rule and its outcome
 travel together.*
+
+## 8. The result of applying the rule
+
+**Rule commit**: `654031b3ef84f3a625bc8d06d274c4ae83056b84`
+**Enumeration commit**: the commit that added this section. Resolve it with
+`git log --format=%H -1 -- <this file>` after checking out the freeze, or read it
+off `git log --follow -p -- <this file>`; the diff between the two commits must be
+additions only, none of them above this section.
+
+### 8.1 The funnel, from the whole corpus to the accept corpus
+
+| Stage | Count |
+| --- | --- |
+| Entity documents in the pinned corpus | 167 |
+| — failing `P`.4 (inadmissible under ADR-0015) | 7 |
+| — failing `P`.5 (canonical id not unique corpus-wide) | 2 |
+| Documents satisfying `P` | **158** |
+| Documents satisfying `P` that lie outside `workspaces/` | 0 |
+| Eligible workspaces (§3.2) | **79** |
+| Workspaces taken (the first 24 in `compareCodeUnits` order) | **24** |
+| **Accept corpus size** | **24** |
+| Distinct canonical ids in the accept corpus | **24** |
+
+`nexus-repository-manager` is **not** among the 79 eligible workspaces. Its only
+descriptor file holds the residual valid duplicate of §5.3, both documents of
+which `P`.5 excludes, leaving that workspace with nothing to contribute.
+
+`azure-devops` is worth reading as a check that `P` filters before `S` orders.
+That workspace holds four descriptor files. The `compareCodeUnits`-least of them
+by `sourcePath` is `plugins/azure-devops-backend/catalog-info.yaml`, but its
+`metadata.name` is 72 characters and fails `isValidObjectName` on length, so it
+does not satisfy `P`.4 and is not a candidate. The least **candidate** —
+`plugins/azure-devops-common/catalog-info.yaml` — is what `S`.3 selects.
+
+### 8.2 The accept corpus
+
+Positions are the frozen order of §3. The overlay column is the assignment fixed
+in §4 before these entities were known: `C[i mod 11]` for positions 0–21,
+`explicit-empty` at 22, `annotation-absent` at 23.
+
+| # | Workspace | Canonical id | `sourcePath` (`#documentIndexInFile`) | Overlay |
+| --- | --- | --- | --- | --- |
+| 0 | `acr` | `component:default/backstage-community-acr` | `workspaces/acr/plugins/acr/catalog-info.yaml` `#0` | `C0` |
+| 1 | `adr` | `component:default/backstage-plugin-adr-backend` | `workspaces/adr/plugins/adr-backend/catalog-info.yaml` `#0` | `C1` |
+| 2 | `agent-forge` | `component:default/backstage-plugin-agent-forge` | `workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml` `#0` | `C2` |
+| 3 | `airbrake` | `component:default/backstage-plugin-airbrake-backend` | `workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml` `#0` | `C3` |
+| 4 | `allure` | `component:default/backstage-plugin-allure` | `workspaces/allure/plugins/allure/catalog-info.yaml` `#0` | `C4` |
+| 5 | `analytics` | `component:default/backstage-plugin-analytics-module-ga4` | `workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml` `#0` | `C5` |
+| 6 | `apache-airflow` | `component:default/backstage-plugin-apache-airflow` | `workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml` `#0` | `C6` |
+| 7 | `apollo-explorer` | `component:default/backstage-plugin-apollo-explorer` | `workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml` `#0` | `C7` |
+| 8 | `azure-devops` | `component:default/backstage-plugin-azure-devops-common` | `workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml` `#0` | `C8` |
+| 9 | `azure-sites` | `component:default/backstage-plugin-azure-sites-backend` | `workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml` `#0` | `C9` |
+| 10 | `badges` | `component:default/backstage-plugin-badges-backend` | `workspaces/badges/plugins/badges-backend/catalog-info.yaml` `#0` | `C10` |
+| 11 | `bazaar` | `component:default/backstage-plugin-bazaar-backend` | `workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml` `#0` | `C0` |
+| 12 | `bitbucket-pull-requests` | `component:default/bitbucket-pull-requests` | `workspaces/bitbucket-pull-requests/catalog-info.yaml` `#0` | `C1` |
+| 13 | `bitrise` | `component:default/backstage-plugin-bitrise` | `workspaces/bitrise/plugins/bitrise/catalog-info.yaml` `#0` | `C2` |
+| 14 | `bookmarks` | `component:default/example-website` | `workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml` `#0` | `C3` |
+| 15 | `catalog` | `component:default/backstage-plugin-catalog-backend-module-codeowners` | `workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml` `#0` | `C4` |
+| 16 | `checkmarx` | `component:default/backstage-plugin-checkmarx-backend` | `workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml` `#0` | `C5` |
+| 17 | `cicd-statistics` | `component:default/backstage-plugin-cicd-statistics-module-buildkite` | `workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml` `#0` | `C6` |
+| 18 | `cloudbuild` | `component:default/backstage-plugin-cloudbuild` | `workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml` `#0` | `C7` |
+| 19 | `code-climate` | `component:default/backstage-plugin-code-climate` | `workspaces/code-climate/plugins/code-climate/catalog-info.yaml` `#0` | `C8` |
+| 20 | `code-coverage` | `component:default/backstage-plugin-code-coverage-backend` | `workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml` `#0` | `C9` |
+| 21 | `codescene` | `component:default/backstage-plugin-codescene` | `workspaces/codescene/plugins/codescene/catalog-info.yaml` `#0` | `C10` |
+| 22 | `copilot` | `component:default/backstage-plugin-copilot-backend` | `workspaces/copilot/plugins/copilot-backend/catalog-info.yaml` `#0` | `explicit-empty` |
+| 23 | `cost-insights` | `component:default/backstage-plugin-cost-insights-common` | `workspaces/cost-insights/plugins/cost-insights-common/catalog-info.yaml` `#0` | `annotation-absent` |
+
+Two entities are worth noting because their canonical id does not follow from
+their workspace name, which is exactly why the frozen record names entities by
+canonical id and by `sourcePath` rather than by workspace:
+
+- position 14, workspace `bookmarks`, is `component:default/example-website` —
+  its only descriptor sits under `plugins/bookmarks/examples/component/`;
+- position 12, workspace `bitbucket-pull-requests`, is
+  `component:default/bitbucket-pull-requests` — its descriptor is at the
+  workspace root rather than under `plugins/`.
+
+### 8.3 How the corpus facts in §5 were re-derived
+
+Applying `../../spec.md` FR-016's four validator predicates and
+`entity-identity.md` §1's canonicalization directly to the pinned checkout,
+outside this repository, over all 156 `catalog-info.yaml` files. Every figure in
+§5 reproduced `research.md` R14 exactly, including the split of the seven invalid
+names into **5** on character class and **2** on **length alone** — the two
+populations `../../contracts/admissibility.md` §2.1 warns must never be reported
+as one.
+
+**No ownership was derived at any point.** Nothing decoded an annotation,
+compiled a glob, or matched a path. Admissibility and identity canonicalization
+are `plan.md` Phase D concerns, placed **before** Barrier B, and ADR-0020 clause 5
+requires both of them in order to select an admissible, collision-free corpus at
+all — a corpus could not be selected under clause 5's own conditions if computing
+them were barred.
+
+### 8.4 Recorded hashes
+
+| Artifact | `contentHash` |
+| --- | --- |
+| `../frozen-expectations/frozen-expectation-set.json` | `e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c` |
+| `accept-corpus-freeze.json` | `f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca` |
+
+Computed per `../README.md` §3. **T019 must recompute both from the artifacts
+rather than copy them from this table** — `../../data-model.md` §16: "An audit that
+transcribes the author's declared hash has verified nothing."
+
+### 8.5 What has *not* been done, and must not be inferred from this document
+
+- **No generator was run**, because none exists. `packages/adapters/catalog-backstage`
+  has not been created. No `SnapshotEnvelope` exists. No derived-ownership result
+  for any descriptor-sourced entity exists — not persisted, not held in memory, not
+  asserted in a test (`research.md` R4).
+- **No input manifest exists anywhere in the tree**, and nothing in this evidence
+  tree is one (`../README.md` §4).
+- **No comparison harness exists.** Phase F authors it, after this freeze and after
+  its audit, so that ADR-0020 clause 5's two steps stay two steps.
+- **This freeze is not audited yet.** T019 is the independent audit, and it must be
+  performed by a reviewer with **no authoring involvement in T014–T018**. An audit
+  by the author of this document would not be an independent audit, and recording
+  one as such would defeat the control rather than implement it. Until T019 records
+  its own PASS/FAIL and its own **explicit adequacy finding**, SC-010 is **not**
+  satisfied and no part of it may be reported as satisfied.
+- **T020, T021, T023's observed-failing runs have not been performed**, so under
+  ADR-0016 none of the checks over this freeze counts as coverage yet.
+- **Barrier B has not cleared.** T024 is the gate, and it is unchecked.
