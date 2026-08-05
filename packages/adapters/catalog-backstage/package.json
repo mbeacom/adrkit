@@ -1,0 +1,45 @@
+{
+  "name": "@adrkit/catalog-backstage",
+  "version": "0.0.0",
+  "description": "Standalone offline generator that reads Backstage catalog descriptors named by one explicit local manifest and writes one versioned snapshot envelope.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/adapters/catalog-backstage"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "backstage",
+    "catalog",
+    "governance"
+  ],
+  "//versioning": "Independently versioned, per ADR-0007: an adapter's semver contract is with its upstream (Backstage), not with @adrkit/core. It does not move with the repository's release tag \u2014 see ReleaseVersioning in scripts/release-pack.ts. The @adrkit/core dependency declared below is for canonicalization primitives only (canonicalStringify, compareCodeUnits) and does NOT couple this package's version to core's API. package-boundary.md \u00a76 requires that be recorded here, because a reader seeing a core dependency would otherwise reasonably infer coupled versioning and be wrong.",
+  "//release": "Not released, and no release is scheduled or prepared. ADR-0020 clause 9 defers both the release vehicle and the decision to release at all to a later record. This package is deliberately absent from RELEASE_PACKAGES in scripts/release-pack.ts, ships no dist, declares no exports map, and carries version 0.0.0 to state that plainly. publishConfig below fixes the access level a future release would use; it does not authorize one.",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun run typecheck",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/core": "workspace:*",
+    "picomatch": "^4",
+    "yaml": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/picomatch": "^4"
+  }
+}

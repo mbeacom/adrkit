@@ -1,0 +1,40 @@
+{
+  "name": "@adrkit/catalog-envelope",
+  "version": "0.0.0",
+  "description": "Validates a catalog snapshot envelope for integrity and derives a CatalogSnapshot-shaped artifact from it. Reads envelopes; never generates them.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/catalog-envelope"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "catalog",
+    "governance"
+  ],
+  "//placement": "Deliberately NOT under packages/adapters/. spec.md FR-044 requires the envelope validator and CatalogSnapshot deriver to live in a workspace package outside packages/adapters/**. isAdapterPackage() in scripts/check-deps.ts classifies by path prefix alone, so this package is a non-adapter as a matter of its location rather than by an allowlisted exception \u2014 package-boundary.md \u00a73.1. Moving it under packages/adapters/ would silently invert that classification.",
+  "//boundary": "There is no dependency edge in either direction between this package and @adrkit/catalog-backstage, and there must never be one (FR-044; package-boundary.md \u00a73). The envelope file on disk is the entire interface. Both packages declare the envelope's shape independently, which is the single deliberate duplication in this design (\u00a75): a shared type module would be an import edge, and it is exactly that independence that makes this package's structural validation a check rather than a tautology.",
+  "//release": "Not released, and no release is scheduled or prepared. ADR-0020 clause 9 defers the release decision to a later record. Absent from RELEASE_PACKAGES in scripts/release-pack.ts, ships no dist, declares no exports map, version 0.0.0.",
+  "//wiring": "Wiring this package into @adrkit/cli or @adrkit/core is explicitly out of scope for feature 010 (package-boundary.md \u00a77) and would require amending allowedDependenciesFor('@adrkit/cli'), which must not be done under this feature.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "bun run typecheck",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

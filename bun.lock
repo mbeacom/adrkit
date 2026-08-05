@@ -10,9 +10,32 @@
         "zod": "^4",
       },
     },
+    "packages/adapters/catalog-backstage": {
+      "name": "@adrkit/catalog-backstage",
+      "version": "0.0.0",
+      "dependencies": {
+        "@adrkit/core": "workspace:*",
+        "picomatch": "^4",
+        "yaml": "latest",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "@types/picomatch": "^4",
+      },
+    },
     "packages/adapters/spec-kit": {
       "name": "@adrkit/spec-kit",
-      "version": "0.1.0",
+      "version": "0.1.2",
+    },
+    "packages/catalog-envelope": {
+      "name": "@adrkit/catalog-envelope",
+      "version": "0.0.0",
+      "dependencies": {
+        "@adrkit/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
     },
     "packages/ci": {
       "name": "@adrkit/ci",
@@ -93,6 +116,10 @@
     "@actions/http-client": ["@actions/http-client@4.0.1", "", { "dependencies": { "tunnel": "^0.0.6", "undici": "^6.23.0" } }, "sha512-+Nvd1ImaOZBSoPbsUtEhv+1z99H12xzncCkz0a3RuehINE81FZSe2QTj3uvAPTcJX/SCzUQHQ0D1GrPMbrPitg=="],
 
     "@actions/io": ["@actions/io@3.0.2", "", {}, "sha512-nRBchcMM+QK1pdjO7/idu86rbJI5YHUKCvKs0KxnSYbVe3F51UfGxuZX4Qy/fWlp6l7gWFwIkrOzN+oUK03kfw=="],
+
+    "@adrkit/catalog-backstage": ["@adrkit/catalog-backstage@workspace:packages/adapters/catalog-backstage"],
+
+    "@adrkit/catalog-envelope": ["@adrkit/catalog-envelope@workspace:packages/catalog-envelope"],
 
     "@adrkit/ci": ["@adrkit/ci@workspace:packages/ci"],
 

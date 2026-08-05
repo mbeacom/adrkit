@@ -148,6 +148,47 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
     };
   }
 
+  if (packageName === '@adrkit/catalog-backstage') {
+    // Feature 010's offline Backstage snapshot generator. The surface is frozen by
+    // `specs/010-catalog-backstage/contracts/package-boundary.md` §2: core for
+    // canonicalization primitives only (`canonicalStringify`, `compareCodeUnits` —
+    // never the same-named function in the evaluator, which is a different
+    // signature), plus `picomatch` for the restricted glob dialect and `yaml` for
+    // descriptor decoding. Both registry dependencies are already resolved in the
+    // committed lockfile, so neither adds a new registry surface.
+    //
+    // It must NOT reach `@adrkit/catalog-envelope`: the envelope file on disk is
+    // the entire interface between generator and consumer (§3), and an import edge
+    // would make the consumer's digest check compare the generator against itself.
+    return {
+      dependencies: new Set(['@adrkit/core', 'picomatch', 'yaml']),
+      devDependencies: new Set(['@types/bun', '@types/picomatch']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
+  if (packageName === '@adrkit/catalog-envelope') {
+    // Feature 010's envelope consumer — a non-adapter workspace library, which it
+    // is by *location* (`packages/catalog-envelope/`, outside `packages/adapters/`)
+    // rather than by any exception granted here; `isAdapterPackage()` above
+    // classifies on the path prefix alone. It may reach core and nothing else, and
+    // in particular never `@adrkit/catalog-backstage` (`package-boundary.md` §3).
+    return {
+      dependencies: new Set(['@adrkit/core']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
+  // Reached by any package with no entry above — and note what that means: the
+  // allowed-surface guard below is then skipped entirely, so such a package is
+  // *silently unconstrained* and passes `check:deps` no matter what it declares
+  // (`package-boundary.md` §4). Omitting an entry does not produce a failure; it
+  // produces a green check that means nothing. The only proof an entry is present
+  // is to add a disallowed dependency and watch a violation appear, which is why
+  // the two entries above each carry a negative case in `check-deps.test.ts`.
   return undefined;
 }
 
