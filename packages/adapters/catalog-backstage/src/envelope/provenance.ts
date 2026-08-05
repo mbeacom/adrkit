@@ -47,7 +47,7 @@
  * source is invalid input, not a guess. See `failure/triggers.ts` for why that lands on
  * the `other-invalid-input` backstop rather than on one of the fourteen named classes.
  *
- * # One gap, reported rather than papered over
+ * # What `provenance` means when there is no annotation
  *
  * The domain has **no** value for "this descriptor carries no annotation at all", and
  * `ownershipState: 'annotation-absent'` is the overwhelmingly common real-corpus case
@@ -69,7 +69,12 @@
  * asserts that a third party adopted the annotation. {@link isAdoptionClaim} names that
  * pair so a check can assert on it directly.
  *
- * The gap itself belongs to `data-model.md` §10 and is reported, not fixed here.
+ * This was reported as a gap in `data-model.md` §10 while implementing this module, and
+ * **the contract has since been reconciled to match** (2026-08-05): §10 now states that
+ * `provenance` is a declaration about the *source*, carried onto every derived entity
+ * and **vacuous** for `annotation-absent` ones, that only the pair is unambiguous, and
+ * that the declaration is required with no default in either direction. The reasoning
+ * above is therefore the contract's, not a local workaround.
  *
  * @see `specs/010-catalog-backstage/data-model.md` §10
  * @see `specs/010-catalog-backstage/spec.md` FR-043
@@ -210,9 +215,9 @@ export function provenanceFor(
  * `annotation-absent` is never an adoption claim whatever its provenance, because
  * there is no annotation to have been adopted.
  *
- * This is the predicate that makes the module note's gap safe, and it is exported so a
- * check can assert on the pair rather than on `provenance` in isolation — which is
- * where the misreading would otherwise happen.
+ * This is the predicate `data-model.md` §10 names when it says only the pair is
+ * unambiguous, and it is exported so a check can assert on the pair rather than on
+ * `provenance` in isolation — which is where the misreading would otherwise happen.
  */
 export function isAdoptionClaim(
   ownershipState: OwnershipState,
