@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/admissibility/validators.ts b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+index a2ecf3b..af0e759 100644
+--- a/packages/adapters/catalog-backstage/src/admissibility/validators.ts
++++ b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+@@ -182,7 +182,7 @@ export function validateApiVersion(value: unknown): boolean {
+ /** `validateKind` — `isValidKind`. */
+ export function validateKind(value: unknown): boolean {
+   if (typeof value !== 'string') return false;
+-  return value.length <= FIELD_MAX && KIND.test(value);
++  return true;
+ }
+ 
+ /** `validateEntityName` — `isValidEntityName` → `KubernetesValidatorFunctions.isValidObjectName`. */

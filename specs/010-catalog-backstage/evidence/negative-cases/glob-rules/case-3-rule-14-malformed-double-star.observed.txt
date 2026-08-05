@@ -1,0 +1,182 @@
+bun test v1.3.14 (0d9b296a)
+
+test/glob-rules.test.ts:
+(pass) T065 — the rule set > there are fifteen rules [0.01ms]
+(pass) T065 — the rule set > fourteen of them require exercise [0.01ms]
+(pass) T065 — the rule set > a fixture exists for every rule requiring exercise, and for no other [0.01ms]
+(pass) T065 — the rule set > the fourteen outcomes are fourteen distinct values [0.02ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 1 on "" [0.05ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 2 on "/packages/**"
+(pass) T065 — each of rules 1–14, observed firing > rule 3 on "C:/packages/**" [0.03ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 4 on "packages\\payments"
+(pass) T065 — each of rules 1–14, observed firing > rule 5 on "packages/\u0000/payments" [0.03ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 6 on "packages/{a}/**"
+(pass) T065 — each of rules 1–14, observed firing > rule 7 on "packages/[ab]/**" [0.01ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 8 on "packages/(a)/**"
+(pass) T065 — each of rules 1–14, observed firing > rule 9 on "packages/a,b/**"
+(pass) T065 — each of rules 1–14, observed firing > rule 10 on "!packages/**" [0.02ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 11 on "packages/../etc" [0.02ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 12 on "packages//payments" [0.01ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 13 on "packages/@scope/**" [0.02ms]
+92 | describe('T065 — each of rules 1\u201314, observed firing', () => {
+93 |   test.each(RULE_FIXTURES.map((fixture) => [fixture.rule, fixture.pattern, fixture] as const))(
+94 |     'rule %d on %j',
+95 |     (_rule, _pattern, fixture) => {
+96 |       const result = validateGlobPattern(fixture.pattern);
+97 |       expect(result.outcome).toBe(fixture.outcome);
+                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "malformed-double-star"
+Received: "accepted"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/glob-rules.test.ts:97:30)
+(fail) T065 — each of rules 1–14, observed firing > rule 14 on "packages/**bar" [0.85ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 1’s fixture "" violates no earlier rule [0.01ms]
+(pass) T065 — each of rules 1–14, observed firing > rule 2’s fixture "/packages/**" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 3’s fixture "C:/packages/**" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 4’s fixture "packages\\payments" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 5’s fixture "packages/\u0000/payments" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 6’s fixture "packages/{a}/**" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 7’s fixture "packages/[ab]/**" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 8’s fixture "packages/(a)/**" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 9’s fixture "packages/a,b/**" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 10’s fixture "!packages/**" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 11’s fixture "packages/../etc" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 12’s fixture "packages//payments" violates no earlier rule
+(pass) T065 — each of rules 1–14, observed firing > rule 13’s fixture "packages/@scope/**" violates no earlier rule
+105 |     (_rule, _pattern, fixture) => {
+106 |       // If it did, the reported reason would be the earlier rule's, and this fixture
+107 |       // would be exercising a rule it was not chosen for.
+108 |       const result = validateGlobPattern(fixture.pattern);
+109 |       expect(result.rule).not.toBeLessThan(fixture.rule);
+110 |       expect(result.rule).toBe(fixture.rule);
+                                ^
+error: expect(received).toBe(expected)
+
+Expected: 14
+Received: 15
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/glob-rules.test.ts:110:27)
+(fail) T065 — each of rules 1–14, observed firing > rule 14’s fixture "packages/**bar" violates no earlier rule [0.07ms]
+(pass) T065 — first-match-wins, demonstrated where it matters > §3’s worked example: the brace/traversal near-miss [0.02ms]
+(pass) T065 — first-match-wins, demonstrated where it matters > a leading slash reports rule 2, not rule 12’s empty segment [0.01ms]
+(pass) T065 — first-match-wins, demonstrated where it matters > a drive prefix reports rule 3, not rule 4’s backslash or rule 13 [0.01ms]
+(pass) T065 — first-match-wins, demonstrated where it matters > a UNC path reports rule 3, not rule 4
+(pass) T065 — first-match-wins, demonstrated where it matters > a brace with a comma reports rule 6, not rule 9
+(pass) T065 — first-match-wins, demonstrated where it matters > a leading bang on an otherwise disallowed pattern reports rule 10, not 13
+(pass) T065 — first-match-wins, demonstrated where it matters > a pattern violating several rules reports the same one every time [0.07ms]
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "@" violates none of rules 1–12 and is caught by rule 13 [0.01ms]
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "#" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "%" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "~" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "+" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "=" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > ":" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > ";" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "<" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > ">" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "|" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "&" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "^" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "é" violates none of rules 1–12 and is caught by rule 13
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > "中" violates none of rules 1–12 and is caught by rule 13 [0.02ms]
+(pass) T065 — rule 13 closes the gap a blacklist cannot (§3) > a colon not at position 2 is rule 13, not rule 3’s drive prefix [0.01ms]
+181 | describe('T065 — rule 14: only a whole-segment `**` is allowed', () => {
+182 |   test.each(['a**b', '**b', 'a**', 'foo/**bar', 'foo/a**/b'])(
+183 |     '%j is `malformed-double-star`',
+184 |     (pattern) => {
+185 |       const result = validateGlobPattern(pattern);
+186 |       expect(result.outcome).toBe('malformed-double-star');
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: "malformed-double-star"
+Received: "accepted"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/glob-rules.test.ts:186:30)
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "a**b" is `malformed-double-star` [0.08ms]
+181 | describe('T065 — rule 14: only a whole-segment `**` is allowed', () => {
+182 |   test.each(['a**b', '**b', 'a**', 'foo/**bar', 'foo/a**/b'])(
+183 |     '%j is `malformed-double-star`',
+184 |     (pattern) => {
+185 |       const result = validateGlobPattern(pattern);
+186 |       expect(result.outcome).toBe('malformed-double-star');
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: "malformed-double-star"
+Received: "accepted"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/glob-rules.test.ts:186:30)
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "**b" is `malformed-double-star` [0.12ms]
+181 | describe('T065 — rule 14: only a whole-segment `**` is allowed', () => {
+182 |   test.each(['a**b', '**b', 'a**', 'foo/**bar', 'foo/a**/b'])(
+183 |     '%j is `malformed-double-star`',
+184 |     (pattern) => {
+185 |       const result = validateGlobPattern(pattern);
+186 |       expect(result.outcome).toBe('malformed-double-star');
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: "malformed-double-star"
+Received: "accepted"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/glob-rules.test.ts:186:30)
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "a**" is `malformed-double-star` [0.03ms]
+181 | describe('T065 — rule 14: only a whole-segment `**` is allowed', () => {
+182 |   test.each(['a**b', '**b', 'a**', 'foo/**bar', 'foo/a**/b'])(
+183 |     '%j is `malformed-double-star`',
+184 |     (pattern) => {
+185 |       const result = validateGlobPattern(pattern);
+186 |       expect(result.outcome).toBe('malformed-double-star');
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: "malformed-double-star"
+Received: "accepted"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/glob-rules.test.ts:186:30)
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "foo/**bar" is `malformed-double-star` [0.04ms]
+181 | describe('T065 — rule 14: only a whole-segment `**` is allowed', () => {
+182 |   test.each(['a**b', '**b', 'a**', 'foo/**bar', 'foo/a**/b'])(
+183 |     '%j is `malformed-double-star`',
+184 |     (pattern) => {
+185 |       const result = validateGlobPattern(pattern);
+186 |       expect(result.outcome).toBe('malformed-double-star');
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: "malformed-double-star"
+Received: "accepted"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/glob-rules.test.ts:186:30)
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "foo/a**/b" is `malformed-double-star` [0.05ms]
+(pass) T065 — rule 14: only a whole-segment `**` is allowed > a segment that is exactly `**` is the allowed form [0.08ms]
+(pass) T065 — rule 14: only a whole-segment `**` is allowed > a single `*` is unaffected [0.05ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > "packages/payments/**" is accepted at rule 15 [0.03ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > "packages/**" is accepted at rule 15 [0.01ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > "**" is accepted at rule 15
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > "docs/*.md" is accepted at rule 15 [0.01ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > "src/a?c.ts" is accepted at rule 15 [0.03ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > ".github/**" is accepted at rule 15 [0.02ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > "a-b_c.d/**" is accepted at rule 15 [0.02ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > rule 15 not firing its rejection is conformant, and is not a coverage gap [0.02ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > the compile really is invoked, so `accepted` is a compile result [0.02ms]
+(pass) T065 — rule 15’s `accepted` outcome is exercised; its rejection is not required > a rejected pattern never reaches the compile
+
+7 tests failed:
+(fail) T065 — each of rules 1–14, observed firing > rule 14 on "packages/**bar" [0.85ms]
+(fail) T065 — each of rules 1–14, observed firing > rule 14’s fixture "packages/**bar" violates no earlier rule [0.07ms]
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "a**b" is `malformed-double-star` [0.08ms]
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "**b" is `malformed-double-star` [0.12ms]
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "a**" is `malformed-double-star` [0.03ms]
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "foo/**bar" is `malformed-double-star` [0.04ms]
+(fail) T065 — rule 14: only a whole-segment `**` is allowed > "foo/a**/b" is `malformed-double-star` [0.05ms]
+
+ 65 pass
+ 7 fail
+ 148 expect() calls
+Ran 72 tests across 1 file. [12.00ms]
+
+exit 1

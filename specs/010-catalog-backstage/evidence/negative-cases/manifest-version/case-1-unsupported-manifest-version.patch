@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/manifest/version.ts b/packages/adapters/catalog-backstage/src/manifest/version.ts
+index 8f9b654..1a560de 100644
+--- a/packages/adapters/catalog-backstage/src/manifest/version.ts
++++ b/packages/adapters/catalog-backstage/src/manifest/version.ts
+@@ -67,7 +67,7 @@ export type ManifestVersionReason =
+ export function checkManifestVersions(
+   manifest: InputManifest,
+ ): Validated<InputManifest, ManifestVersionReason> {
+-  if (manifest.manifestSchemaVersion !== SUPPORTED_MANIFEST_SCHEMA_VERSION) {
++  if (false && manifest.manifestSchemaVersion !== SUPPORTED_MANIFEST_SCHEMA_VERSION) {
+     return rejected(
+       'unsupported-manifest-version',
+       'unsupported-manifest-version',

@@ -1,0 +1,9 @@
+# Restored: no adapter edge
+
+$ bun run check:deps
+
+core-has-no-adapter-deps: ok
+
+$ bun run scripts/check-deps.ts
+
+exit 0

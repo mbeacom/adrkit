@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/manifest/paths.ts b/packages/adapters/catalog-backstage/src/manifest/paths.ts
+index 2145535..c9d7c49 100644
+--- a/packages/adapters/catalog-backstage/src/manifest/paths.ts
++++ b/packages/adapters/catalog-backstage/src/manifest/paths.ts
+@@ -215,7 +215,7 @@ export async function validatePathConfined(
+ 
+   const resolved = await realpathOfDeepestExistingAncestor(joined);
+ 
+-  if (!isBeneath(resolvedRoot, resolved)) {
++  if (false && !isBeneath(resolvedRoot, resolved)) {
+     return rejected(
+       'path-escapes-checkout-root',
+       'incomplete-required-source',

@@ -1,0 +1,58 @@
+{
+  "//": "Pin table for `test/no-core-schema-change.test.ts` (T026, spec.md FR-004/FR-005). Digests read at 99ba8d2500eaf37625ea164f66b4a17870e40dad in this worktree. See that file's header for why these live in data rather than in the test source.",
+  "protectedFiles": [
+    {
+      "path": "packages/core/src/affects/catalog.ts",
+      "sha256": "7d0f3f30e5ff7e98a4ba931df6c242118a7a3dd9a6c726d7cfdf6ca69d52122e",
+      "why": "CatalogPort / CatalogSnapshot / CatalogSnapshotEntity — the types FR-004 names and FR-005 forbids the envelope becoming a field on"
+    },
+    {
+      "path": "packages/core/src/affects/index.ts",
+      "sha256": "bc347e49280412413a005c5f96aec1943f838213c1fc9c7df6b86bdfadc7b66c",
+      "why": "the affects resolution entry point — FR-004's matcher semantics"
+    },
+    {
+      "path": "packages/core/src/affects/inert.ts",
+      "sha256": "a1a1803a8f63c28628b14203303d17a214d0318c559f13319f51c50036f7a9ae",
+      "why": "inert-matcher degradation — FR-004's matcher semantics"
+    },
+    {
+      "path": "packages/core/src/affects/matchers/package.ts",
+      "sha256": "262dee9be89be0d13b843a61d48d6bc5b028cef0adb9d1ac65ba69ba38f0753a",
+      "why": "package matcher — FR-004's matcher semantics"
+    },
+    {
+      "path": "packages/core/src/affects/matchers/path.ts",
+      "sha256": "fe2c49011f5f9458182923cc0eb0006e09837f566a68c496245f7fd839719ae3",
+      "why": "path matcher — FR-004's matcher semantics"
+    },
+    {
+      "path": "packages/core/src/schema/adr.schema.ts",
+      "sha256": "eae1b3c1fe203e8f2ca20657777c6508391f94df4c9e39399bf4b7385ad13e10",
+      "why": "the Zod ADR schema FR-004 names"
+    },
+    {
+      "path": "schema/adr.schema.json",
+      "sha256": "1e1841151174cc5a8ed22dadae070f087477e5068bd928d5292c3acd2e2681cc",
+      "why": "the published ADR JSON Schema — FR-004, and FR-005's 'never part of any published schema'"
+    }
+  ],
+  "publishedSchemaPath": "schema/adr.schema.json",
+  "affectsDirectory": "packages/core/src/affects",
+  "affectsFiles": [
+    "catalog.ts",
+    "index.ts",
+    "inert.ts",
+    "matchers/package.ts",
+    "matchers/path.ts"
+  ],
+  "forbiddenSchemaVocabulary": [
+    "snapshotEnvelope",
+    "SnapshotEnvelope",
+    "derivedPaths",
+    "globDialect",
+    "ownershipState",
+    "identityOnly",
+    "generatorVersion"
+  ]
+}

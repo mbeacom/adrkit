@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/admissibility/validators.ts b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+index a2ecf3b..6fa6a21 100644
+--- a/packages/adapters/catalog-backstage/src/admissibility/validators.ts
++++ b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+@@ -188,7 +188,7 @@ export function validateKind(value: unknown): boolean {
+ /** `validateEntityName` — `isValidEntityName` → `KubernetesValidatorFunctions.isValidObjectName`. */
+ export function validateEntityName(value: unknown): boolean {
+   if (typeof value !== 'string') return false;
+-  return value.length <= FIELD_MAX && OBJECT_NAME.test(value);
++  return true;
+ }
+ 
+ /**

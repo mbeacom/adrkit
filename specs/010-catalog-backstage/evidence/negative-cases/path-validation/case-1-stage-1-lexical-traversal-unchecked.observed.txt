@@ -1,0 +1,96 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-paths.test.ts:
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > a clean repo-relative path passes stage 1 [0.17ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "" is rejected as path-empty [0.02ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "." is rejected as path-dot-or-dotdot
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > ".." is rejected as path-dot-or-dotdot
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "/etc/passwd" is rejected as path-absolute
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "C:\\Windows\\system32" is rejected as path-drive-prefix
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages\\payments\\catalog-info.yaml" is rejected as path-backslash
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "\\\\host\\share\\file.yaml" is rejected as path-backslash
+70 |     ['packages/\u0000/catalog-info.yaml', 'path-control-character'],
+71 |     ['packages/\u007f/catalog-info.yaml', 'path-control-character'],
+72 |     ['packages/\ncatalog-info.yaml', 'path-control-character'],
+73 |   ] as const)('%j is rejected as %s', (path, expected) => {
+74 |     const result = validatePathLexically(path);
+75 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:75:23)
+(fail) T044 stage 1 — lexical rejection, before the filesystem is touched > "../../secret.yaml" is rejected as path-traversal-segment [0.11ms]
+70 |     ['packages/\u0000/catalog-info.yaml', 'path-control-character'],
+71 |     ['packages/\u007f/catalog-info.yaml', 'path-control-character'],
+72 |     ['packages/\ncatalog-info.yaml', 'path-control-character'],
+73 |   ] as const)('%j is rejected as %s', (path, expected) => {
+74 |     const result = validatePathLexically(path);
+75 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:75:23)
+(fail) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/./catalog-info.yaml" is rejected as path-traversal-segment [0.03ms]
+70 |     ['packages/\u0000/catalog-info.yaml', 'path-control-character'],
+71 |     ['packages/\u007f/catalog-info.yaml', 'path-control-character'],
+72 |     ['packages/\ncatalog-info.yaml', 'path-control-character'],
+73 |   ] as const)('%j is rejected as %s', (path, expected) => {
+74 |     const result = validatePathLexically(path);
+75 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:75:23)
+(fail) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/../../etc/passwd" is rejected as path-traversal-segment [0.03ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/\u0000/catalog-info.yaml" is rejected as path-control-character
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages//catalog-info.yaml" is rejected as path-control-character
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/\ncatalog-info.yaml" is rejected as path-control-character
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > the drive prefix rule fires before the backslash rule [0.01ms]
+92 |     // The root does not exist. A stage-1 failure must still be a rejection rather
+93 |     // than a thrown ENOENT, which is only possible if stage 1 really did run first.
+94 |     const result = await validateSourcePath(NONEXISTENT_ROOT, '../../secret.yaml');
+95 |     expect(result.ok).toBe(false);
+96 |     if (result.ok) return;
+97 |     expect(result.rejection.reason).toBe('path-traversal-segment');
+                                         ^
+error: expect(received).toBe(expected)
+
+Expected: "path-traversal-segment"
+Received: "path-escapes-checkout-root"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:97:37)
+(fail) T044 stage 1 — lexical rejection, before the filesystem is touched > stage 1 rejects without any filesystem access [0.33ms]
+(pass) T044 stage 2 — confined realpath > containment is strict — a sibling sharing a name prefix is not beneath [0.01ms]
+(pass) T044 stage 2 — confined realpath > a real file beneath the root is accepted [0.08ms]
+(pass) T044 stage 2 — confined realpath > a lexically-clean path escaping through a symlink fails closed [0.09ms]
+(pass) T044 stage 2 — confined realpath > the same escape is rejected through the combined two-stage entry point [0.07ms]
+(pass) T044 stage 2 — confined realpath > a nonexistent path beneath the root is not an escape [0.08ms]
+144 |     const stageOne = await validateSourcePath(checkoutRoot, '../secret.yaml');
+145 |     const stageTwo = await validateSourcePath(checkoutRoot, 'escape/secret.yaml');
+146 |     expect(stageOne.ok).toBe(false);
+147 |     expect(stageTwo.ok).toBe(false);
+148 |     if (stageOne.ok || stageTwo.ok) return;
+149 |     expect(stageOne.rejection.reason).not.toBe(stageTwo.rejection.reason);
+                                                ^
+error: expect(received).not.toBe(expected)
+
+Expected: not "path-escapes-checkout-root"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-paths.test.ts:149:43)
+(fail) T044 stage 2 — confined realpath > the two stages emit different reasons for their own failures [0.18ms]
+
+ 17 pass
+ 5 fail
+ 55 expect() calls
+Ran 22 tests across 1 file. [10.00ms]
+
+exit 1

@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/admissibility/classify.ts b/packages/adapters/catalog-backstage/src/admissibility/classify.ts
+index 370ce9c..c1cd464 100644
+--- a/packages/adapters/catalog-backstage/src/admissibility/classify.ts
++++ b/packages/adapters/catalog-backstage/src/admissibility/classify.ts
+@@ -157,7 +157,7 @@ export function classifyAdmissibility(document: DescriptorDocument): Admissibili
+   }
+ 
+   return {
+-    admissible: attributions.length === 0,
++    admissible: true,
+     failedFields: attributions.map((attribution) => attribution.field),
+     attributions,
+   };

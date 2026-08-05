@@ -1,0 +1,83 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-digests.test.ts:
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > the fixture digest is 64 lowercase hex characters [0.05ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > a well-formed digest passes the shape check [0.04ms]
+60 |     expect(checkDigestShape(source()).ok).toBe(true);
+61 |   });
+62 | 
+63 |   test('an uppercase-hex digest is rejected before any file is opened', () => {
+64 |     const result = checkDigestShape(source({ digest: CONTENT_DIGEST.toUpperCase() }));
+65 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-digests.test.ts:65:23)
+(fail) T043 — digest shape (FR-011’s "wrongly typed") > an uppercase-hex digest is rejected before any file is opened [0.11ms]
+68 |     expect(result.rejection.triggerClass).toBe('incomplete-required-source');
+69 |   });
+70 | 
+71 |   test('a truncated digest is rejected', () => {
+72 |     const result = checkDigestShape(source({ digest: CONTENT_DIGEST.slice(0, 32) }));
+73 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-digests.test.ts:73:23)
+(fail) T043 — digest shape (FR-011’s "wrongly typed") > a truncated digest is rejected [0.04ms]
+75 |     expect(result.rejection.reason).toBe('digest-malformed');
+76 |   });
+77 | 
+78 |   test('a non-hex digest is rejected', () => {
+79 |     const result = checkDigestShape(source({ digest: 'z'.repeat(64) }));
+80 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-digests.test.ts:80:23)
+(fail) T043 — digest shape (FR-011’s "wrongly typed") > a non-hex digest is rejected [0.04ms]
+(pass) T043 — digest verification against bytes > bytes matching the declared digest are accepted [0.03ms]
+(pass) T043 — digest verification against bytes > a single changed byte is a mismatch [0.03ms]
+(pass) T043 — digest verification against bytes > the digest is recomputed, never trusted from the manifest [0.02ms]
+(pass) T043 — verification over the whole source set > a fully-agreeing source set is accepted [0.26ms]
+(pass) T043 — verification over the whole source set > a manifest-listed path absent from disk is `source-missing` [0.08ms]
+(pass) T043 — verification over the whole source set > one bad source among several rejects the set — never a per-entity skip [0.10ms]
+(pass) T043 — verification over the whole source set > nothing is returned when any source fails — no partial verified set [0.09ms]
+(pass) T043 — verification over the whole source set > the failure reported for two bad sources is deterministic (manifest order) [0.11ms]
+176 |     const missing = await verifySourceDigests([source({ path: 'not-here.yaml' })], resolve);
+177 |     const mismatch = await verifySourceDigests([source({ digest: 'a'.repeat(64) })], resolve);
+178 |     const reasons = [malformed, missing, mismatch].map((result) =>
+179 |       result.ok ? 'accepted' : result.rejection.reason,
+180 |     );
+181 |     expect(reasons).toEqual(['digest-malformed', 'source-missing', 'digest-mismatch']);
+                          ^
+error: expect(received).toEqual(expected)
+
+  [
+-   "digest-malformed",
++   "digest-mismatch",
+    "source-missing",
+    "digest-mismatch",
+  ]
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/manifest-digests.test.ts:181:21)
+(fail) T043 — verification over the whole source set > the three reasons are mutually distinct [0.30ms]
+
+ 10 pass
+ 4 fail
+ 30 expect() calls
+Ran 14 tests across 1 file. [10.00ms]
+
+exit 1

@@ -1,0 +1,40 @@
+# Observed: the README claims rung-2 standing
+
+$ bun test packages/catalog-envelope/test/no-correctness-claim.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/no-correctness-claim.test.ts:
+(pass) the exported surface makes no correctness claim > no exported name asserts correctness [0.62ms]
+(pass) the exported surface makes no correctness claim > the exported vocabulary is about admission and checking, not judgement [0.57ms]
+(pass) the strings this package emits make no correctness claim > no emitted string carries a forbidden claim [2.10ms]
+(pass) the strings this package emits make no correctness claim > the one string that mentions correctness denies it [0.01ms]
+(pass) the documentation makes no correctness claim > no document carries a forbidden claim [1.11ms]
+(pass) the documentation makes no correctness claim > the README states the distinction before it states anything else [0.20ms]
+237 |             offending.push(`${doc.name}: ${term}`);
+238 |           }
+239 |         }
+240 |       }
+241 |     }
+242 |     expect(offending).toEqual([]);
+                            ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "README.md: battle-tested",
++ ]
+
+- Expected  - 1
++ Received  + 3
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/no-correctness-claim.test.ts:242:23)
+(fail) the documentation makes no correctness claim > no document claims rung 2 or rung 3 standing [0.91ms]
+
+ 6 pass
+ 1 fail
+ 412 expect() calls
+Ran 7 tests across 1 file. [50.00ms]
+
+exit 1

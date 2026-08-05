@@ -1,0 +1,20 @@
+bun test v1.3.14 (0d9b296a)
+
+test/annotation-step2-raw-node.test.ts:
+(pass) T059 — the coercion this check exists to prevent is real > `JSON.parse` coerces a one-element sequence to `"[]"` and returns `[]` [0.59ms]
+(pass) T059 — the coercion this check exists to prevent is real > so an implementation without step 2 would classify it `explicit-empty` [0.50ms]
+(pass) T059 — the YAML sequence really is a sequence by the time it is checked > the raw node read from the descriptor is an array, not a string [5.63ms]
+(pass) T059 — the correct reason is produced, and the wrong one is absent > `decodeAnnotation` yields `annotation-value-not-a-string` [0.12ms]
+(pass) T059 — the correct reason is produced, and the wrong one is absent > and never `explicit-empty` — the absence of the wrong outcome [0.02ms]
+(pass) T059 — the correct reason is produced, and the wrong one is absent > the whole derivation, end to end from the YAML [0.44ms]
+(pass) T059 — the correct reason is produced, and the wrong one is absent > a genuine `explicit-empty` is still reachable — the check is not a blanket ban [0.07ms]
+(pass) T059 — step 2 runs before step 3, not merely instead of it > a non-string that would ALSO fail JSON parsing still reports step 2 [0.01ms]
+(pass) T059 — step 2 runs before step 3, not merely instead of it > a number that would parse cleanly still reports step 2
+(pass) T059 — step 2 runs before step 3, not merely instead of it > the diagnostics record shows step 3 was never reached [0.04ms]
+
+ 10 pass
+ 0 fail
+ 30 expect() calls
+Ran 10 tests across 1 file. [49.00ms]
+
+exit 0

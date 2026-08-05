@@ -1,0 +1,27 @@
+bun test v1.3.14 (0d9b296a)
+
+test/inadmissible-and-unique.test.ts:
+(pass) T054 — the fixture is genuinely inadmissible > bulk-import descriptor fails `validateEntityName` on character class [0.08ms]
+(pass) T054 — the fixture is genuinely inadmissible > orchestrator descriptor fails `validateEntityName` on character class
+(pass) T054 — the fixture is genuinely inadmissible > bulk-import descriptor classifies as inadmissible, attributed to metadata.name [5.43ms]
+(pass) T054 — the fixture is genuinely inadmissible > orchestrator descriptor classifies as inadmissible, attributed to metadata.name [0.41ms]
+(pass) T054 — the fixture is genuinely canonically unique > the two outliers would canonicalize distinctly from each other [0.02ms]
+(pass) T054 — the fixture is genuinely canonically unique > each outlier collides with nothing in a batch of otherwise-distinct entities [0.04ms]
+(pass) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > bulk-import descriptor: the emitted trigger class [0.39ms]
+(pass) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > orchestrator descriptor: the emitted trigger class [0.32ms]
+(pass) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > bulk-import descriptor: alone in a run, with nothing to collide with [0.34ms]
+(pass) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > orchestrator descriptor: alone in a run, with nothing to collide with [0.27ms]
+(pass) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > bulk-import descriptor: among valid, distinct entities [0.59ms]
+(pass) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > orchestrator descriptor: among valid, distinct entities [0.43ms]
+(pass) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > the record carries all three attributions, as FR-020 requires [0.12ms]
+(pass) T054 — the colliding form is rejected for the same reason, not a different one > `${{ values.name | dump }}` also yields `inadmissible-descriptor` [0.11ms]
+(pass) T054 — the colliding form is rejected for the same reason, not a different one > two copies of the colliding form still report inadmissibility, not the collision [0.43ms]
+(pass) T054 — the colliding form is rejected for the same reason, not a different one > a genuine collision between two ADMISSIBLE descriptors is still available [0.47ms]
+(pass) T054 — the two fourteens are not the same fourteen > the placeholder count and the trigger count are different numbers [0.01ms]
+
+ 17 pass
+ 0 fail
+ 45 expect() calls
+Ran 17 tests across 1 file. [30.00ms]
+
+exit 0

@@ -1,0 +1,12 @@
+diff --git a/packages/catalog-envelope/src/identity/repository.ts b/packages/catalog-envelope/src/identity/repository.ts
+index 2a08fc6..ba8c2e8 100644
+--- a/packages/catalog-envelope/src/identity/repository.ts
++++ b/packages/catalog-envelope/src/identity/repository.ts
+@@ -123,7 +123,6 @@ export function queryEntitiesForRepository(
+     repositoriesConsidered.push(envelope.repository.id);
+     if (envelope.repository.id !== scopedRepositoryId) {
+       envelopesOutOfScope += 1;
+-      continue;
+     }
+     returnedEntities.push(...envelope.entities);
+   }

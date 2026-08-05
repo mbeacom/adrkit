@@ -1,0 +1,88 @@
+bun test v1.3.14 (0d9b296a)
+
+test/descriptor-read.test.ts:
+(pass) T047 — a well-formed descriptor parses > the outcome is `parsed` and the raw fields are carried [4.85ms]
+(pass) T047 — a well-formed descriptor parses > a document is addressed by (sourcePath, documentIndexInFile) [0.26ms]
+49 | });
+50 | 
+51 | describe('T047 — the two failure outcomes are distinct', () => {
+52 |   test('a repeated top-level key is `duplicate-yaml-key`', () => {
+53 |     const document = only('kind: Component\nkind: API\n');
+54 |     expect(document.parseOutcome).toBe('duplicate-yaml-key');
+                                       ^
+error: expect(received).toBe(expected)
+
+Expected: "duplicate-yaml-key"
+Received: "yaml-parse-error"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/descriptor-read.test.ts:54:35)
+(fail) T047 — the two failure outcomes are distinct > a repeated top-level key is `duplicate-yaml-key` [0.36ms]
+58 |   });
+59 | 
+60 |   test('a repeated nested key is also `duplicate-yaml-key`', () => {
+61 |     // R8 relies on the library reporting a duplicate "at any level".
+62 |     const document = only('metadata:\n  name: a\n  name: b\n');
+63 |     expect(document.parseOutcome).toBe('duplicate-yaml-key');
+                                       ^
+error: expect(received).toBe(expected)
+
+Expected: "duplicate-yaml-key"
+Received: "yaml-parse-error"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/descriptor-read.test.ts:63:35)
+(fail) T047 — the two failure outcomes are distinct > a repeated nested key is also `duplicate-yaml-key` [0.19ms]
+(pass) T047 — the two failure outcomes are distinct > an unterminated quoted scalar is `invalid-yaml-syntax`, not a duplicate [0.20ms]
+(pass) T047 — the two failure outcomes are distinct > a malformed flow collection is `invalid-yaml-syntax` [0.76ms]
+78 |   });
+79 | 
+80 |   test('the two reasons, and the two trigger classes, are different values', () => {
+81 |     const duplicate = only('kind: Component\nkind: API\n');
+82 |     const syntax = only('kind: "Component\n');
+83 |     expect(duplicate.rejection?.reason).not.toBe(syntax.rejection?.reason);
+                                                 ^
+error: expect(received).not.toBe(expected)
+
+Expected: not "invalid-yaml-syntax"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/descriptor-read.test.ts:83:45)
+(fail) T047 — the two failure outcomes are distinct > the two reasons, and the two trigger classes, are different values [0.24ms]
+86 |   });
+87 | 
+88 |   test('a duplicate key in the second document does not contaminate the first', () => {
+89 |     const documents = readDescriptorDocuments('multi.yaml', '---\nkind: A\n---\nkind: B\nkind: C\n');
+90 |     expect(documents[0]?.parseOutcome).toBe('parsed');
+91 |     expect(documents[1]?.parseOutcome).toBe('duplicate-yaml-key');
+                                            ^
+error: expect(received).toBe(expected)
+
+Expected: "duplicate-yaml-key"
+Received: "yaml-parse-error"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/descriptor-read.test.ts:91:40)
+(fail) T047 — the two failure outcomes are distinct > a duplicate key in the second document does not contaminate the first [0.19ms]
+ 96 |   test('the reported outcome is the error, never the last-wins value', () => {
+ 97 |     // `yaml` resolves `kind: Component` / `kind: API` last-wins *and* records
+ 98 |     // DUPLICATE_KEY. An implementation reading `toJSON()` without checking
+ 99 |     // `errors` would see a plausible descriptor and never notice.
+100 |     const document = only('kind: Component\nkind: API\n');
+101 |     expect(document.parseOutcome).toBe('duplicate-yaml-key');
+                                        ^
+error: expect(received).toBe(expected)
+
+Expected: "duplicate-yaml-key"
+Received: "yaml-parse-error"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/descriptor-read.test.ts:101:35)
+(fail) T047 — a duplicate key still resolves to a value, and that is the trap > the reported outcome is the error, never the last-wins value [0.14ms]
+(pass) T047 — `uniqueKeys` is left at its library default > the module never names `uniqueKeys` [0.61ms]
+(pass) T047 — reading the annotation node > a present string scalar is reported present, with a string value [0.50ms]
+(pass) T047 — reading the annotation node > a YAML sequence arrives as an array, so a `typeof` check can reject it [0.43ms]
+(pass) T047 — reading the annotation node > an absent annotation is reported absent [0.21ms]
+(pass) T047 — reading the annotation node > presence is an explicit discriminant, not `value !== undefined` [0.28ms]
+
+ 9 pass
+ 5 fail
+ 39 expect() calls
+Ran 14 tests across 1 file. [30.00ms]
+
+exit 1

@@ -1,0 +1,14 @@
+diff --git a/packages/catalog-envelope/README.md b/packages/catalog-envelope/README.md
+index 9a41e17..50ae925 100644
+--- a/packages/catalog-envelope/README.md
++++ b/packages/catalog-envelope/README.md
+@@ -5,6 +5,9 @@ every check passes — derives a `CatalogSnapshot`-shaped artifact from it.
+ 
+ This package reads envelopes. It never generates them.
+ 
++A digest match means the recorded ownership is correct ownership, and the check
++is tamper-proof.
++
+ ---
+ 
+ ## An integrity validator, not a correctness oracle

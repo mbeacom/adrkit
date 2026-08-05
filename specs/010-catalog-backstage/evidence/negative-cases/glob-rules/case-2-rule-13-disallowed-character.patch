@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/glob/validate.ts b/packages/adapters/catalog-backstage/src/glob/validate.ts
+index 67f337f..e54de03 100644
+--- a/packages/adapters/catalog-backstage/src/glob/validate.ts
++++ b/packages/adapters/catalog-backstage/src/glob/validate.ts
+@@ -116,7 +116,7 @@ const RULES: readonly {
+   {
+     rule: 13,
+     outcome: 'disallowed-character',
+-    violates: (p) => [...p].some((character) => !ALLOWED_CHARACTER.test(character)),
++    violates: () => false,
+   },
+   {
+     rule: 14,

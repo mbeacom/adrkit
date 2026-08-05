@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "1",
+  "repository": {
+    "id": "github.com/mbeacom/adrkit-envelope-consumer-fixture",
+    "revision": "1e0f3c9a8b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f"
+  },
+  "generatorVersion": "010-consumer-fixture-0.0.0",
+  "globDialect": {
+    "engine": "picomatch",
+    "version": "4.0.5",
+    "options": {
+      "dot": false,
+      "nocase": false,
+      "nonegate": true
+    }
+  },
+  "capabilities": [
+    "pathOwnership"
+  ],
+  "completeness": {
+    "wholeCatalog": false,
+    "identityOnly": false
+  },
+  "sources": [
+    {
+      "path": "catalog-info.yaml",
+      "digestAlgorithm": "sha256"
+    }
+  ],
+  "entities": [
+    {
+      "identity": {
+        "canonicalId": "component:default/payments",
+        "allRefs": [
+          "component:default/payments"
+        ]
+      },
+      "ownershipState": "explicit-paths",
+      "derivedPaths": [
+        "apis/payments/**",
+        "packages/payments/**"
+      ],
+      "sourceDocument": {
+        "sourcePath": "catalog-info.yaml",
+        "documentIndexInFile": 0
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "identity": {
+        "canonicalId": "component:default/ledger",
+        "allRefs": [
+          "component:default/ledger"
+        ]
+      },
+      "ownershipState": "explicit-empty",
+      "derivedPaths": [],
+      "sourceDocument": {
+        "sourcePath": "catalog-info.yaml",
+        "documentIndexInFile": 1
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "identity": {
+        "canonicalId": "component:default/gateway",
+        "allRefs": [
+          "component:default/gateway"
+        ]
+      },
+      "ownershipState": "annotation-absent",
+      "derivedPaths": [],
+      "sourceDocument": {
+        "sourcePath": "catalog-info.yaml",
+        "documentIndexInFile": 2
+      },
+      "provenance": "synthetic"
+    }
+  ],
+  "digest": "08b544b48fb8c3f1672c249623ad7bffb3b025cd2a8cabea208d98800e279df2"
+}

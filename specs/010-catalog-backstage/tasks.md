@@ -148,7 +148,7 @@ already exist, e.g. `scripts/check-deps.test.ts`).
 **Barrier side: BEFORE.** No task in this phase reads a descriptor, computes an
 ownership result, or produces an envelope. Phase A may run concurrently with Phase B.
 
-- [ ] T001 [P] Create the adapter package skeleton at `<ADAPTER>` — `package.json`
+- [X] T001 [P] Create the adapter package skeleton at `<ADAPTER>` — `package.json`
       (name `@adrkit/catalog-backstage`, `type: module`, `publishConfig.access: public`,
       and the `"//versioning"` note citing ADR-0007 and `ReleaseVersioning` in
       `scripts/release-pack.ts`, following the `packages/adapters/spec-kit/` precedent),
@@ -158,7 +158,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: none
       Contract: `package-boundary.md` §2, §6
 
-- [ ] T002 [P] Create the consumer package skeleton at `<CONSUMER>` — `package.json`
+- [X] T002 [P] Create the consumer package skeleton at `<CONSUMER>` — `package.json`
       (name `@adrkit/catalog-envelope` — working name, `type: module`),
       `tsconfig.json`, `src/index.ts`. This package is **not** under
       `packages/adapters/` and must not be.
@@ -167,7 +167,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: none
       Contract: `package-boundary.md` §3
 
-- [ ] T003 Confirm both packages are picked up by the existing root `workspaces`
+- [X] T003 Confirm both packages are picked up by the existing root `workspaces`
       globs `["packages/*", "packages/adapters/*"]` (root `package.json` lines 18–21)
       **without modifying them** — a needed change to those globs is a signal that
       placement is wrong. Declare the Node target in each package's `engines` field;
@@ -178,20 +178,20 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Discharges: FR-051
       Depends: T001, T002
 
-- [ ] T004 [P] [US9] Write `<ADAPTER>/README.md` using ADR-0014 rung-1 language only,
+- [X] T004 [P] [US9] Write `<ADAPTER>/README.md` using ADR-0014 rung-1 language only,
       with no rung-2 or rung-3 synonyms, and carrying the FR-063 adoption statement:
       what a downstream consumer may and may not conclude from this adapter's output.
       Barrier: BEFORE
       Discharges: FR-062, FR-063 (documentation half), SC-017
       Depends: T001
 
-- [ ] T005 [P] Write `<CONSUMER>/README.md` under the same rung-1 honesty constraint,
+- [X] T005 [P] Write `<CONSUMER>/README.md` under the same rung-1 honesty constraint,
       framing the package as an integrity validator and never as a correctness oracle.
       Barrier: BEFORE
       Discharges: none — supports SC-017
       Depends: T002
 
-- [ ] T006 [P] [US9] Add a structural assertion test proving the adapter is reachable
+- [X] T006 [P] [US9] Add a structural assertion test proving the adapter is reachable
       only by explicit static import and registers no dynamic loader, plugin registry,
       or discovery hook.
       Files: `<ADAPTER>/test/no-dynamic-loader.test.ts`.
@@ -199,7 +199,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Discharges: FR-002
       Depends: T001
 
-- [ ] T007 [P] Add a locality guard test asserting that neither new package writes to
+- [X] T007 [P] Add a locality guard test asserting that neither new package writes to
       or regenerates `schema/`, and that the envelope shape each package needs is
       declared locally rather than in a shared schema module.
       Files: `<ADAPTER>/test/envelope-shape-locality.test.ts`.
@@ -208,7 +208,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T001, T002
       Contract: `package-boundary.md` §5
 
-- [ ] T008 Add explicit `allowedDependenciesFor()` entries for `@adrkit/catalog-backstage`
+- [X] T008 Add explicit `allowedDependenciesFor()` entries for `@adrkit/catalog-backstage`
       (deps `@adrkit/core`, `picomatch`, `yaml`; devDeps `@types/bun`, `@types/picomatch`)
       and `@adrkit/catalog-envelope` (deps `@adrkit/core`; devDeps `@types/bun`).
       Do **not** amend the existing `@adrkit/cli` entry.
@@ -218,19 +218,31 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T001, T002
       Contract: `package-boundary.md` §2, §4
 
-- [ ] T009 [US9] **Observed failing.** Introduce a dependency edge from `@adrkit/core`
-      (then `@adrkit/cli`, then a `schema/`-owning package) onto the adapter; run
-      `bun run check:deps`; observe the failure and record the exact emitted reason
-      string; remove the edge; observe the pass. Retain the failing inputs as a
-      permanent negative case.
+- [X] T009 [US9] **Observed failing.** Introduce a dependency edge from `@adrkit/core`,
+      then `@adrkit/cli`, then the `schema/` surface, onto the adapter; observe the
+      isolation check fail in each case and record the exact emitted reason string;
+      remove the edge; observe the pass. Retain the failing inputs as permanent
+      negative cases.
+      **The three surfaces are not observed by the same command, and the deposit MUST
+      name which command produced each failure.** `core` and `cli` fail
+      `bun run check:deps`. **`schema/` cannot**: it has no `package.json`, so
+      `readWorkspacePackages()` never visits it and `check:deps` returns exit 0 — and no
+      change to `check-deps.ts` fixes that without teaching it to scan sources rather
+      than manifests. That clause is held instead by `bunfig.toml`'s isolated linker,
+      observed via `bun run typecheck` failing with `TS2307: Cannot find module`.
+      SC-015 is discharged because it requires "the **isolation check**" to fail, not
+      `check:deps` specifically — but the deviation must be recorded, not smoothed over.
+      This is `package-boundary.md` §4's trap one level up: there, a *package* with no
+      allowlist entry is silently unconstrained; here, a *directory* with no manifest is
+      invisible outright. Both fail in the direction of a check that cannot fail.
       Files: `scripts/check-deps.test.ts`, `<EVIDENCE>/negative-cases/dep-core-to-adapter/`.
       Barrier: BEFORE
       Discharges: SC-015
       Depends: T008
 
-- [ ] T010 [US9] **Observed failing.** Add `@adrkit/catalog-backstage` to the consumer's
+- [X] T010 [US9] **Observed failing.** Add `@adrkit/catalog-backstage` to the consumer's
       dependencies; run `bun run check:deps`; observe the guard at
-      `scripts/check-deps.ts:175–182` emit `non-adapter workspace depends on an
+      `scripts/check-deps.ts` emits `non-adapter workspace depends on an
       adapter package`; record the exact string; remove; observe the pass.
       Files: `scripts/check-deps.test.ts`, `<EVIDENCE>/negative-cases/dep-consumer-to-adapter/`.
       Barrier: BEFORE
@@ -238,9 +250,9 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T008, T009
       Contract: `package-boundary.md` §3
 
-- [ ] T011 [US9] **Observed failing.** Add `@adrkit/catalog-envelope` to the adapter's
+- [X] T011 [US9] **Observed failing.** Add `@adrkit/catalog-envelope` to the adapter's
       dependencies; run `bun run check:deps`; observe the guard at
-      `scripts/check-deps.ts:196–204` emit `<name> declares a dependency outside its
+      `scripts/check-deps.ts` emits `<name> declares a dependency outside its
       allowed public surface`; record the exact string; remove; observe the pass.
       Files: `scripts/check-deps.test.ts`, `<EVIDENCE>/negative-cases/dep-adapter-to-consumer/`.
       Barrier: BEFORE
@@ -248,9 +260,9 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T008, T010
       Contract: `package-boundary.md` §3
 
-- [ ] T012 [US9] **Observed failing — closes the silent-unconstrained trap.**
+- [X] T012 [US9] **Observed failing — closes the silent-unconstrained trap.**
       `allowedDependenciesFor()` returns `undefined` for any package with no entry
-      (`scripts/check-deps.ts:151`), and the allowed-surface guard is then skipped
+      (`allowedDependenciesFor()` returns `undefined`), and the allowed-surface guard is then skipped
       entirely — so a package with no entry passes `check:deps` no matter what it
       declares. The only proof T008's entries actually exist is to add a disallowed
       dependency to each new package and observe a violation. Do so for both packages
@@ -277,7 +289,13 @@ with the audit recording its own hashes and its own PASS/FAIL. Phase B may run
 concurrently with Phase A and with nothing else.
 
 - [X] T013 [US1] Create the tracked evidence tree — `<EVIDENCE>/README.md`,
-      `<EVIDENCE>/frozen-expectations/`, `<EVIDENCE>/accept-corpus-freeze/`.
+      `<EVIDENCE>/frozen-expectations/`, `<EVIDENCE>/accept-corpus-freeze/`, and
+      `<EVIDENCE>/negative-cases/`.
+      **`negative-cases/` is a SHARED, CROSS-PHASE tree.** Roughly twenty tasks spanning
+      phases A–G deposit into it, each owning its **own subdirectory** — which is what makes
+      it safe for concurrent worktree sessions, since different subdirectories never collide
+      on merge. Do not write an index of it: an enumeration goes stale on the next deposit,
+      which is the exact failure ADR-0016 exists to prevent.
       These artifacts must be **git-tracked**: R5 mechanism 2 depends on CI being able
       to re-derive their hashes, and ADR-0015 Condition of Acceptance 1 requires them
       to be inspectable in the repository.
@@ -405,7 +423,7 @@ envelope it is *given*; it never generates one. Its expected values come from
 whole phase is barrier-free under the R4 distinguishing test. Phase C may run
 concurrently with Phase D.
 
-- [ ] T025 [P] [US8] Declare the consumer's **own independent** envelope shape at
+- [X] T025 [P] [US8] Declare the consumer's **own independent** envelope shape at
       `<CONSUMER>/src/envelope-shape.ts`. This duplication of the adapter's shape is
       deliberate: a shared module would create exactly the coupling FR-005 forbids.
       Barrier: BEFORE
@@ -413,7 +431,7 @@ concurrently with Phase D.
       Depends: T002, T007
       Contract: `package-boundary.md` §5
 
-- [ ] T026 [P] [US8] Add a guard test proving this feature leaves
+- [X] T026 [P] [US8] Add a guard test proving this feature leaves
       `packages/core/src/affects/**` (including `packages/core/src/affects/catalog.ts`),
       `packages/core/src/schema/adr.schema.ts`, and `schema/adr.schema.json` unchanged.
       Files: `<CONSUMER>/test/no-core-schema-change.test.ts`.
@@ -421,14 +439,20 @@ concurrently with Phase D.
       Discharges: FR-004
       Depends: T002
 
-- [ ] T027 [P] [US8] Author the envelope fixtures under `<CONSUMER>/test/fixtures/` —
+- [X] T027 [P] [US8] Author the envelope fixtures under `<CONSUMER>/test/fixtures/` —
       one malformed fixture per validation step (five), plus mutated-payload, stale,
-      foreign-repository, and valid.
+      foreign-repository, valid, and the **all-annotation-absent acceptance contrast
+      case**: **ten** in total.
+      The tenth is required by `snapshot-envelope.md` §7 row 1b — an otherwise-valid
+      envelope whose entities are *all* `annotation-absent` with `identityOnly: false`,
+      which MUST be **accepted**. It is the case step 5's wording exists to protect, and
+      without it the fixture set contains only rejections, which cannot prove the
+      validator does not **over**-reject.
       Barrier: BEFORE
       Discharges: none — enables FR-045…FR-049
       Depends: T002
 
-- [ ] T028 [US8] Implement the **five ordered validation steps** at
+- [X] T028 [US8] Implement the **five ordered validation steps** at
       `<CONSUMER>/src/validate/index.ts`, each rejecting at its own step with its own
       distinct reason.
       Barrier: BEFORE
@@ -436,7 +460,7 @@ concurrently with Phase D.
       Depends: T025, T027
       Contract: `snapshot-envelope.md` §2
 
-- [ ] T029 [US8] **Observed failing, per step, individually.** Drive each of the five
+- [X] T029 [US8] **Observed failing, per step, individually.** Drive each of the five
       malformed fixtures through T028; observe five *distinct* failures; record each
       exact reason string; confirm no fixture fails at a step earlier than its target;
       restore; observe the pass.
@@ -446,14 +470,14 @@ concurrently with Phase D.
       Discharges: none — supplies the ADR-0016 observations for SC-014
       Depends: T028
 
-- [ ] T030 [US8] Add the ordering guard: no `derivedPaths` value is read before all
+- [X] T030 [US8] Add the ordering guard: no `derivedPaths` value is read before all
       five steps pass, and any attempt to derive before validation is refused.
       Files: `<CONSUMER>/src/validate/index.ts`, `<CONSUMER>/test/no-early-read.test.ts`.
       Barrier: BEFORE
       Discharges: FR-046
       Depends: T028, T029
 
-- [ ] T031 [P] [US8] Implement digest recomputation at `<CONSUMER>/src/digest/index.ts`,
+- [X] T031 [P] [US8] Implement digest recomputation at `<CONSUMER>/src/digest/index.ts`,
       with every claim scoped to **integrity**, never correctness. Observe the
       mutated-payload fixture failing; record the reason; restore; observe the pass.
       Barrier: BEFORE
@@ -461,7 +485,7 @@ concurrently with Phase D.
       Depends: T027, T028
       Contract: `snapshot-envelope.md` §3
 
-- [ ] T032 [P] [US8] Implement staleness as **exact revision inequality** at
+- [X] T032 [P] [US8] Implement staleness as **exact revision inequality** at
       `<CONSUMER>/src/identity/staleness.ts` — never an ordering, chronological, or
       ancestry comparison. Observe the stale fixture failing; record the reason;
       restore; observe the pass.
@@ -470,7 +494,7 @@ concurrently with Phase D.
       Depends: T027, T028
       Contract: `snapshot-envelope.md` §4
 
-- [ ] T033 [P] [US8] Implement repository identity handling at
+- [X] T033 [P] [US8] Implement repository identity handling at
       `<CONSUMER>/src/identity/repository.ts`: an envelope whose repository does not
       match is **rejected as misidentified**; a *valid* envelope from a *different*
       repository is **accepted**, and a query against it simply returns no matches.
@@ -480,14 +504,14 @@ concurrently with Phase D.
       Depends: T027, T028
       Contract: `snapshot-envelope.md` §5, §6
 
-- [ ] T034 [US8] Implement `CatalogSnapshot`-shaped derivation at
+- [X] T034 [US8] Implement `CatalogSnapshot`-shaped derivation at
       `<CONSUMER>/src/snapshot/index.ts`, reachable only after all five steps, the
       digest recomputation, the staleness check, and the identity check have passed.
       Barrier: BEFORE
       Discharges: FR-049
       Depends: T030, T031, T032, T033
 
-- [ ] T035 [US8] Add the integrity-is-not-correctness framing to the consumer's public
+- [X] T035 [US8] Add the integrity-is-not-correctness framing to the consumer's public
       surface and README, plus a test asserting no correctness-claim language appears
       in the package's exported types, error strings, or documentation.
       Files: `<CONSUMER>/README.md`, `<CONSUMER>/test/no-correctness-claim.test.ts`.
@@ -495,7 +519,7 @@ concurrently with Phase D.
       Discharges: FR-058 (consumer framing half), SC-012 (framing half)
       Depends: T031, T034
 
-- [ ] T036 [US8] SC-014 close-out: a consolidated test asserting every malformed
+- [X] T036 [US8] SC-014 close-out: a consolidated test asserting every malformed
       envelope is rejected **at its own step** with its own reason, and that no
       `derivedPaths` value was read in any rejected case.
       Files: `<CONSUMER>/test/sc-014.test.ts`.
@@ -504,7 +528,7 @@ concurrently with Phase D.
       Depends: T029, T030, T034
       Contract: `snapshot-envelope.md` §7
 
-- [ ] T037 [US8] FR-044 behavioural half: assert the consumer imports nothing from
+- [X] T037 [US8] FR-044 behavioural half: assert the consumer imports nothing from
       `packages/adapters/**` at build time or runtime — a build-graph assertion, not
       only a `package.json` inspection.
       Files: `<CONSUMER>/test/no-adapter-import.test.ts`.
@@ -536,7 +560,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
 
 ### D2 — Input boundary (`[US2]`)
 
-- [ ] T038 [US2] Implement the closed input-manifest schema at
+- [X] T038 [US2] Implement the closed input-manifest schema at
       `<ADAPTER>/src/manifest/schema.ts`: any unrecognized top-level field is rejected
       rather than ignored.
       Barrier: BEFORE
@@ -544,7 +568,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T001
       Contract: `input-manifest.md` §1
 
-- [ ] T039 [US2] Enforce single-repository binding: one manifest describes exactly one
+- [X] T039 [US2] Enforce single-repository binding: one manifest describes exactly one
       repository, and a manifest naming more than one is rejected.
       Files: `<ADAPTER>/src/manifest/schema.ts`, `<ADAPTER>/test/manifest-single-repo.test.ts`.
       Barrier: BEFORE
@@ -552,7 +576,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §1
 
-- [ ] T040 [US2] Implement the three version and capability rejections —
+- [X] T040 [US2] Implement the three version and capability rejections —
       `unsupported-manifest-version`, `unsupported-snapshot-version`,
       `unsupported-capability` — each **observed failing** with its own exact reason,
       then restored and observed passing.
@@ -564,7 +588,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §2
 
-- [ ] T041 [US2] Obtain repository identity and revision through separate git tooling
+- [X] T041 [US2] Obtain repository identity and revision through separate git tooling
       at `<ADAPTER>/src/repository/identity.ts` — **never** from a descriptor
       annotation or any content under the repository being described.
       **Fixture constraint (`input-manifest.md` §3.1):** the mismatch fixture must be a
@@ -578,7 +602,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §3, §3.1
 
-- [ ] T042 [US2] Enforce **exact string equality** on repository identity and revision;
+- [X] T042 [US2] Enforce **exact string equality** on repository identity and revision;
       a partial, prefix, or normalized match aborts the operation. Observe a
       near-miss revision failing; record the reason; restore; observe the pass.
       Files: `<ADAPTER>/src/repository/identity.ts`,
@@ -589,7 +613,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T041
       Contract: `input-manifest.md` §3
 
-- [ ] T043 [P] [US2] Verify every declared per-source digest **before any entity is
+- [X] T043 [P] [US2] Verify every declared per-source digest **before any entity is
       processed**; a mismatch or a missing source yields `incomplete-required-source`.
       Observe it failing; record the reason; restore; observe the pass.
       Files: `<ADAPTER>/src/manifest/digests.ts`,
@@ -600,7 +624,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §4
 
-- [ ] T044 [P] [US2] Implement **two-stage** path validation at
+- [X] T044 [P] [US2] Implement **two-stage** path validation at
       `<ADAPTER>/src/manifest/paths.ts`: a lexical rejection stage, then a confined
       realpath stage. Both stages observed failing independently, each with its own
       reason; restored; observed passing.
@@ -611,7 +635,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §4.1
 
-- [ ] T045 [P] [US2] Close the input boundary: assert the adapter never follows
+- [X] T045 [P] [US2] Close the input boundary: assert the adapter never follows
       `Location.spec.targets`, never invokes a Backstage processor, plugin, or
       ingestion path, and never performs recursive walking or glob discovery to find
       descriptors. Include the `Location` worked example as a test.
@@ -622,7 +646,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T038
       Contract: `input-manifest.md` §5, §6
 
-- [ ] T046 [US2] SC-008 close-out: a consolidated test asserting every input reaching
+- [X] T046 [US2] SC-008 close-out: a consolidated test asserting every input reaching
       the adapter arrived through the declared manifest and through no other route.
       Files: `<ADAPTER>/test/sc-008.test.ts`.
       Barrier: BEFORE
@@ -631,7 +655,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
 
 ### D1a — Admissibility and identity (`[US3]`)
 
-- [ ] T047 [P] [US3] Implement descriptor reading at `<ADAPTER>/src/descriptor/read.ts`
+- [X] T047 [P] [US3] Implement descriptor reading at `<ADAPTER>/src/descriptor/read.ts`
       using `yaml`'s `parseDocument` with `uniqueKeys` left at its default `true`.
       Observe `duplicate-yaml-key` and `invalid-yaml-syntax` emerging as **two distinct
       outcomes**, never collapsed into one; record both reason strings; restore;
@@ -642,7 +666,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Discharges: none — supports FR-023, which is discharged at T071
       Depends: T001
 
-- [ ] T048 [US3] Enforce that admissibility is evaluated **before** canonicalization,
+- [X] T048 [US3] Enforce that admissibility is evaluated **before** canonicalization,
       structurally rather than by convention.
       Files: `<ADAPTER>/src/admissibility/index.ts`,
       `<ADAPTER>/test/admissibility-ordering.test.ts`.
@@ -651,7 +675,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T047
       Contract: `admissibility.md` §4, §4.1
 
-- [ ] T049 [US3] Implement the **four** admissibility field validators at
+- [X] T049 [US3] Implement the **four** admissibility field validators at
       `<ADAPTER>/src/admissibility/validators.ts`, each **separately attributed** so a
       rejection names which validator rejected. Observe each of the four failing
       independently; record four distinct reason strings; restore; observe the pass.
@@ -663,7 +687,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T048
       Contract: `admissibility.md` §2, §2.1
 
-- [ ] T050 [US3] Implement the separator rule: an identity string with **two or more**
+- [X] T050 [US3] Implement the separator rule: an identity string with **two or more**
       separators is rejected; one with **no** separator is evaluated by the suffix
       predicate alone, so a bare `v1` passes. Observe both branches.
       Files: `<ADAPTER>/src/admissibility/separator.ts`,
@@ -673,7 +697,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T049
       Contract: `admissibility.md` §3
 
-- [ ] T051 [US3] Implement `inadmissible-descriptor` classification and its failure
+- [X] T051 [US3] Implement `inadmissible-descriptor` classification and its failure
       semantics.
       Files: `<ADAPTER>/src/admissibility/classify.ts`,
       `<ADAPTER>/test/admissibility-classify.test.ts`.
@@ -682,7 +706,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T049, T050
       Contract: `admissibility.md` §5
 
-- [ ] T052 [US3] Ensure every inadmissibility record identifies **all three** of:
+- [X] T052 [US3] Ensure every inadmissibility record identifies **all three** of:
       the descriptor path, the failing field, and the rejecting validator — and is
       distinguishable from a `duplicate-canonical-id` record.
       Files: `<ADAPTER>/src/admissibility/classify.ts`,
@@ -692,7 +716,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T051
       Contract: `admissibility.md` §5, §5.1
 
-- [ ] T053 [US3] Enforce that **no inadmissible descriptor participates in a
+- [X] T053 [US3] Enforce that **no inadmissible descriptor participates in a
       uniqueness comparison** — duplicate detection is not a validity test and must
       never be reached by an inadmissible input.
       Files: `<ADAPTER>/src/admissibility/index.ts`,
@@ -702,7 +726,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T052
       Contract: `admissibility.md` §6
 
-- [ ] T054 [US3] **Observed failing — permanent negative case.** Construct a descriptor
+- [X] T054 [US3] **Observed failing — permanent negative case.** Construct a descriptor
       that is simultaneously **inadmissible and canonically unique**. Observe it
       produce `inadmissible-descriptor` and **not** `duplicate-canonical-id`; record
       both the emitted reason and the absence of the wrong one; restore; observe the
@@ -714,7 +738,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Discharges: FR-021
       Depends: T053
 
-- [ ] T055 [US3] Implement **two-step** canonicalization at
+- [X] T055 [US3] Implement **two-step** canonicalization at
       `<ADAPTER>/src/identity/canonicalize.ts`: default-namespace substitution first,
       then lowercase the **entire** identity string — not merely the name component.
       Barrier: BEFORE
@@ -722,7 +746,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T054
       Contract: `entity-identity.md` §1
 
-- [ ] T056 [US3] SC-004 close-out: a consolidated test asserting inadmissibility is
+- [X] T056 [US3] SC-004 close-out: a consolidated test asserting inadmissibility is
       decided before canonical identity is computed, for every admissibility failure
       mode.
       Files: `<ADAPTER>/test/sc-004.test.ts`.
@@ -733,7 +757,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
 
 ### D1b — Ownership and glob (`[US4]`)
 
-- [ ] T057 [P] [US4] Derive ownership from the `adrkit.io/owned-paths` annotation
+- [X] T057 [P] [US4] Derive ownership from the `adrkit.io/owned-paths` annotation
       **alone** at `<ADAPTER>/src/ownership/derive.ts`. No inference from the
       descriptor's file location, its parent directory, the repository root, or any
       other signal.
@@ -743,9 +767,15 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Contract: `owned-paths-annotation.md` §1
 
 - [ ] T058 [US4] Implement the **five** ordered annotation decode steps at
-      `<ADAPTER>/src/ownership/annotation.ts`, each with its own distinct rejection
-      reason. Observe each of the five failing independently; record five distinct
-      reason strings; restore; observe the pass.
+      `<ADAPTER>/src/ownership/annotation.ts`. **Three** of the five can reject, each with
+      its own distinct reason: step 2 → `annotation-value-not-a-string`, step 3 →
+      `parse-error`, step 4 → `wrong-shape`. Observe each of those three failing
+      independently; record three distinct reason strings; restore; observe the pass.
+      **Step 1 (presence) does not reject** — an absent annotation is the legitimate
+      `annotation-absent` ownership state (`owned-paths-annotation.md` §1 step 1).
+      **Step 5 (per-pattern) does not produce an annotation-decode reason** — it delegates
+      to the glob dialect, whose reasons belong to that contract and are covered by SC-007.
+      Five steps, three reasons; do not conflate the counts.
       Files: `<ADAPTER>/src/ownership/annotation.ts`,
       `<ADAPTER>/test/annotation-decode.test.ts`,
       `<EVIDENCE>/negative-cases/annotation-decode/`.
@@ -754,7 +784,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T057
       Contract: `owned-paths-annotation.md` §1
 
-- [ ] T059 [US4] **Observed failing — permanent negative case.** Step 2's string-scalar
+- [X] T059 [US4] **Observed failing — permanent negative case.** Step 2's string-scalar
       check runs against the **raw YAML node**, before `JSON.parse`. Therefore the
       annotation value `["[]"]` — a YAML sequence, not a string — must yield
       `annotation-value-not-a-string`, and must **never** be silently coerced into
@@ -767,7 +797,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T058
       Contract: `owned-paths-annotation.md` §1
 
-- [ ] T060 [US4] Keep the **three** ownership states distinct and never conflated, and
+- [X] T060 [US4] Keep the **three** ownership states distinct and never conflated, and
       decide `explicit-empty` on the **decoded** value — so `'[]'`, `'[ ]'`, and
       `'[\n]'` all qualify — never by raw-string equality.
       Files: `<ADAPTER>/src/ownership/states.ts`,
@@ -777,20 +807,24 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T059
       Contract: `owned-paths-annotation.md` §1
 
-- [ ] T061 [US4] SC-005 close-out: a consolidated test over the three ownership states.
+- [X] T061 [US4] SC-005 close-out: a consolidated test over the three ownership states.
       Files: `<ADAPTER>/test/sc-005.test.ts`.
       Barrier: BEFORE
       Discharges: SC-005
       Depends: T060
 
-- [ ] T062 [US4] SC-006 close-out: a consolidated test over the five annotation decode
-      steps, each rejecting at its own step with its own reason.
+- [ ] T062 [US4] SC-006 close-out: a consolidated test over the **five** annotation decode
+      steps, asserting that the **three** rejecting steps each reject at their own step with
+      their own reason, and documenting why the other two do not — step 1 yields the
+      `annotation-absent` state rather than a rejection, and step 5 delegates to the glob
+      dialect (SC-007). The test MUST assert the five-step *ordering* as well as the three
+      reasons, so that a reordering which happened to preserve the reasons still fails.
       Files: `<ADAPTER>/test/sc-006.test.ts`.
       Barrier: BEFORE
       Discharges: SC-006
       Depends: T060, T061
 
-- [ ] T063 [P] [US4] Implement the restricted glob dialect and freeze the engine and
+- [X] T063 [P] [US4] Implement the restricted glob dialect and freeze the engine and
       its options at `<ADAPTER>/src/glob/dialect.ts`. The `picomatch` version must be
       **read at runtime from the resolved dependency**, never transcribed into a
       literal — a transcribed version silently goes stale.
@@ -799,14 +833,14 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T001
       Contract: `glob-dialect.md` §1, §6
 
-- [ ] T064 [US4] Implement the **fifteen** ordered rules with first-match-wins
+- [X] T064 [US4] Implement the **fifteen** ordered rules with first-match-wins
       semantics at `<ADAPTER>/src/glob/validate.ts`.
       Barrier: BEFORE
       Discharges: FR-030
       Depends: T063
       Contract: `glob-dialect.md` §3
 
-- [ ] T065 [US4] **Observed failing for rules 1–14 only.** For each of rules 1 through
+- [X] T065 [US4] **Observed failing for rules 1–14 only.** For each of rules 1 through
       14, supply a pattern that violates *that* rule and no earlier one; observe the
       rule fire; record its exact rejection reason; restore; observe the pass.
       **Rule 15 (`invalid-glob-compile-failure`) is a defensive backstop that its own
@@ -820,7 +854,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T064
       Contract: `glob-dialect.md` §3
 
-- [ ] T066 [US4] Assert rule-specific rejection reasons hold when a **mixed batch** of
+- [X] T066 [US4] Assert rule-specific rejection reasons hold when a **mixed batch** of
       patterns is validated, each pattern evaluated in isolation so no pattern's
       outcome influences another's.
       Files: `<ADAPTER>/test/glob-mixed-batch.test.ts`.
@@ -829,7 +863,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T065
       Contract: `glob-dialect.md` §3
 
-- [ ] T067 [US4] Compile each pattern **once per run** and reuse the compiled matcher,
+- [X] T067 [US4] Compile each pattern **once per run** and reuse the compiled matcher,
       so validation and matching cannot diverge.
       Files: `<ADAPTER>/src/glob/dialect.ts`, `<ADAPTER>/test/glob-compile-once.test.ts`.
       Barrier: BEFORE
@@ -837,7 +871,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T066
       Contract: `glob-dialect.md` §6
 
-- [ ] T068 [US4] Sort `derivedPaths` with `compareCodeUnits`
+- [X] T068 [US4] Sort `derivedPaths` with `compareCodeUnits`
       (`packages/core/src/ordering/index.ts:12`) and deduplicate.
       Files: `<ADAPTER>/src/glob/order.ts`, `<ADAPTER>/test/glob-order.test.ts`.
       Barrier: BEFORE
@@ -1200,6 +1234,14 @@ Phase F completes.
       scoped to what a pure validator predicate returns at the pinned commit
       `1121a4facd9e321179d0402c3f355e4a649e84d9`;
       (vi) only corpus **data** is described as third-party; the validation never is.
+      **The check MUST match claims, not vocabulary.** ADR-0014's terms are binding, so
+      the maximally honest phrasing — "**not** `reference-verified` (rung 2), **not**
+      `externally validated` (rung 3)" — necessarily contains the very strings a naive
+      grep would flag. A check that fails on bare occurrence punishes the documentation
+      that is being most honest and rewards silence. Match assertion patterns (a claim
+      *of* the status) and treat negations and prohibitions as conformant, then verify
+      the check itself on both a real claim and a real denial before trusting it
+      (ADR-0016).
       Files: `<EVIDENCE>/honesty-close-out.md`,
       `scripts/check-honesty-close-out.test.ts`.
       Barrier: BEHIND

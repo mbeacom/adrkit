@@ -1108,9 +1108,15 @@ The following are explicitly excluded and MUST NOT be introduced by this feature
   `explicit-empty`, `annotation-absent`; no two are treated as equivalent; and no path is ever
   derived for an `annotation-absent` entity.
 
-- **SC-006** *(annotation decode order)*: Each of the annotation's ordered decode/validate steps
-  produces its own distinct rejection reason when violated in isolation, and a non-string YAML
-  node is rejected by the string-scalar check **before** any JSON parse is attempted.
+- **SC-006** *(annotation decode order)*: The annotation's **five** ordered decode/validate
+  steps are evaluated in order, and the **three** steps that can reject each produce their own
+  distinct rejection reason when violated in isolation — `annotation-value-not-a-string`
+  (step 2), `parse-error` (step 3), `wrong-shape` (step 4). A non-string YAML node is rejected
+  by the string-scalar check **before** any JSON parse is attempted. Step 1 (presence) does not
+  reject: an absent annotation is the legitimate `annotation-absent` ownership state. Step 5
+  (per-pattern) does not produce an annotation-decode reason: it delegates to the glob dialect,
+  whose rejection reasons belong to that contract and are covered by SC-007. **Five steps,
+  three reasons — the counts are deliberately different and must not be conflated.**
 
 - **SC-007** *(glob dialect)*: Each of rules 1–14 in
   [`glob-dialect.md`](../009-catalog-binding-viability/contracts/glob-dialect.md) §3's fifteen

@@ -1,0 +1,250 @@
+bun test v1.3.14 (0d9b296a)
+
+test/annotation-decode.test.ts:
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 1 — a well-formed string scalar proceeds [0.19ms]
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 2 — a YAML sequence yields `annotation-value-not-a-string` [0.04ms]
+42 |     expect(result.rejection.reason).toBe('annotation-value-not-a-string');
+43 |   });
+44 | 
+45 |   test('row 3 — a JSON object yields `wrong-shape`', () => {
+46 |     const result = decodeAnnotation(true, '{"paths": ["a/**"]}');
+47 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:47:23)
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 3 — a JSON object yields `wrong-shape` [0.15ms]
+49 |     expect(result.rejection.reason).toBe('wrong-shape');
+50 |   });
+51 | 
+52 |   test('row 4 — a bare string yields `wrong-shape`, never a single-element array', () => {
+53 |     const result = decodeAnnotation(true, '"packages/payments/**"');
+54 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:54:23)
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 4 — a bare string yields `wrong-shape`, never a single-element array [0.08ms]
+56 |     expect(result.rejection.reason).toBe('wrong-shape');
+57 |   });
+58 | 
+59 |   test('row 5 — an array with a non-string element yields `wrong-shape`', () => {
+60 |     const result = decodeAnnotation(true, '["packages/payments/**", 3]');
+61 |     expect(result.ok).toBe(false);
+                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:61:23)
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 5 — an array with a non-string element yields `wrong-shape` [0.04ms]
+(pass) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 6 — malformed JSON yields `parse-error` [0.04ms]
+(pass) T058 step 1 — presence, via an explicit discriminant > an absent annotation stops at step 1 with no rejection
+(pass) T058 step 1 — presence, via an explicit discriminant > no string check, JSON parse, or shape check is attempted for an absent key [0.01ms]
+(pass) T058 step 1 — presence, via an explicit discriminant > presence is not inferred from the value — a present null reaches step 2
+(pass) T058 step 2 — the string-scalar check, before any parse > a YAML sequence is rejected as `annotation-value-not-a-string` [0.01ms]
+(pass) T058 step 2 — the string-scalar check, before any parse > a YAML mapping is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > a number is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > a boolean is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > null is rejected as `annotation-value-not-a-string`
+(pass) T058 step 2 — the string-scalar check, before any parse > the detail records that the value was never passed to JSON.parse [0.01ms]
+(pass) T058 step 3 — JSON decode, reached only by a present string scalar > "[\"packages/**\"" is rejected as `parse-error` [0.01ms]
+(pass) T058 step 3 — JSON decode, reached only by a present string scalar > "[packages/**]" is rejected as `parse-error`
+(pass) T058 step 3 — JSON decode, reached only by a present string scalar > "{\"a\": }" is rejected as `parse-error`
+(pass) T058 step 3 — JSON decode, reached only by a present string scalar > "not json at all" is rejected as `parse-error`
+(pass) T058 step 3 — JSON decode, reached only by a present string scalar > "" is rejected as `parse-error`
+(pass) T058 step 3 — JSON decode, reached only by a present string scalar > a parse failure is never coerced into a fallback empty array [0.02ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > a JSON object is rejected as `wrong-shape` [0.03ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > a bare string is rejected as `wrong-shape` [0.02ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > a bare number is rejected as `wrong-shape` [0.02ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > a bare boolean is rejected as `wrong-shape` [0.02ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > null is rejected as `wrong-shape` [0.02ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > an array containing a number is rejected as `wrong-shape` [0.02ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > an array containing an object is rejected as `wrong-shape` [0.03ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > an array containing null is rejected as `wrong-shape` [0.02ms]
+163 |     ['an array containing an object', '["a/**", {}]'],
+164 |     ['an array containing null', '["a/**", null]'],
+165 |     ['an array containing a nested array', '["a/**", ["b/**"]]'],
+166 |   ])('%s is rejected as `wrong-shape`', (_label, raw) => {
+167 |     const result = decodeAnnotation(true, raw);
+168 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:168:23)
+(fail) T058 step 4 — shape: exactly array<string> > an array containing a nested array is rejected as `wrong-shape` [0.02ms]
+172 |     expect(result.diagnostics.shapeOutcome).toBe('wrong-shape');
+173 |   });
+174 | 
+175 |   test('nothing is coerced — a bare string is never treated as a one-element array', () => {
+176 |     const result = decodeAnnotation(true, '"packages/payments/**"');
+177 |     expect(result.ok).toBe(false);
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:177:23)
+(fail) T058 step 4 — shape: exactly array<string> > nothing is coerced — a bare string is never treated as a one-element array [0.03ms]
+(pass) T058 step 4 — shape: exactly array<string> > an empty array is a valid shape, and reaches step 5 [0.01ms]
+(pass) T058 — the reasons are three distinct values, one per failing step > each step maps to its own reason
+204 |       decodeAnnotation(true, ['[]']),
+205 |       decodeAnnotation(true, '["a/**"'),
+206 |       decodeAnnotation(true, '{"a": 1}'),
+207 |     ].map((result) => (result.ok ? 'accepted' : result.rejection.reason));
+208 | 
+209 |     expect(reasons).toEqual(['annotation-value-not-a-string', 'parse-error', 'wrong-shape']);
+                          ^
+error: expect(received).toEqual(expected)
+
+  [
+    "annotation-value-not-a-string",
+    "parse-error",
+-   "wrong-shape",
++   "accepted",
+  ]
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/annotation-decode.test.ts:209:21)
+(fail) T058 — the reasons are three distinct values, one per failing step > the three reasons observed together are mutually distinct [0.15ms]
+(pass) T058 — the reasons are three distinct values, one per failing step > the annotation key is the one ADR-0012 names
+
+14 tests failed:
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 3 — a JSON object yields `wrong-shape` [0.15ms]
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 4 — a bare string yields `wrong-shape`, never a single-element array [0.08ms]
+(fail) T058 — `owned-paths-annotation.md` §1’s worked-example table > row 5 — an array with a non-string element yields `wrong-shape` [0.04ms]
+(fail) T058 step 4 — shape: exactly array<string> > a JSON object is rejected as `wrong-shape` [0.03ms]
+(fail) T058 step 4 — shape: exactly array<string> > a bare string is rejected as `wrong-shape` [0.02ms]
+(fail) T058 step 4 — shape: exactly array<string> > a bare number is rejected as `wrong-shape` [0.02ms]
+(fail) T058 step 4 — shape: exactly array<string> > a bare boolean is rejected as `wrong-shape` [0.02ms]
+(fail) T058 step 4 — shape: exactly array<string> > null is rejected as `wrong-shape` [0.02ms]
+(fail) T058 step 4 — shape: exactly array<string> > an array containing a number is rejected as `wrong-shape` [0.02ms]
+(fail) T058 step 4 — shape: exactly array<string> > an array containing an object is rejected as `wrong-shape` [0.03ms]
+(fail) T058 step 4 — shape: exactly array<string> > an array containing null is rejected as `wrong-shape` [0.02ms]
+(fail) T058 step 4 — shape: exactly array<string> > an array containing a nested array is rejected as `wrong-shape` [0.02ms]
+(fail) T058 step 4 — shape: exactly array<string> > nothing is coerced — a bare string is never treated as a one-element array [0.03ms]
+(fail) T058 — the reasons are three distinct values, one per failing step > the three reasons observed together are mutually distinct [0.15ms]
+
+ 21 pass
+ 14 fail
+ 81 expect() calls
+Ran 35 tests across 1 file. [12.00ms]
+
+exit 1

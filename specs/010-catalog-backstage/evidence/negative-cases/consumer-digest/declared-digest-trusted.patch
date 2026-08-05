@@ -1,0 +1,13 @@
+diff --git a/packages/catalog-envelope/src/digest/index.ts b/packages/catalog-envelope/src/digest/index.ts
+index df9a4c2..d0063c9 100644
+--- a/packages/catalog-envelope/src/digest/index.ts
++++ b/packages/catalog-envelope/src/digest/index.ts
+@@ -92,7 +92,7 @@ export function recomputeEnvelopeDigest(envelope: SnapshotEnvelope): string {
+  */
+ export function checkEnvelopeDigest(validated: StructurallyValidEnvelope): DigestCheckResult {
+   const envelope = envelopeOf(validated);
+-  const recomputedDigest = recomputeEnvelopeDigest(envelope);
++  const recomputedDigest = envelope.digest;
+   return {
+     declaredDigest: envelope.digest,
+     recomputedDigest,

@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/descriptor/read.ts b/packages/adapters/catalog-backstage/src/descriptor/read.ts
+index 84c433c..6899623 100644
+--- a/packages/adapters/catalog-backstage/src/descriptor/read.ts
++++ b/packages/adapters/catalog-backstage/src/descriptor/read.ts
+@@ -101,7 +101,7 @@ export function readDescriptorDocuments(
+ 
+     if (firstError !== undefined) {
+       const reason: DescriptorReadReason =
+-        firstError.code === DUPLICATE_KEY_CODE ? 'duplicate-yaml-key' : 'invalid-yaml-syntax';
++        'invalid-yaml-syntax';
+ 
+       return {
+         sourcePath,

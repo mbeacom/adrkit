@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/admissibility/validators.ts b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+index a2ecf3b..1474cb7 100644
+--- a/packages/adapters/catalog-backstage/src/admissibility/validators.ts
++++ b/packages/adapters/catalog-backstage/src/admissibility/validators.ts
+@@ -204,7 +204,7 @@ export function validateEntityName(value: unknown): boolean {
+  */
+ export function validateNamespace(value: unknown): boolean {
+   if (typeof value !== 'string') return false;
+-  return value.length <= FIELD_MAX && DNS_LABEL.test(value);
++  return true;
+ }
+ 
+ /** The four validators, keyed by name, so the composition can iterate them. */

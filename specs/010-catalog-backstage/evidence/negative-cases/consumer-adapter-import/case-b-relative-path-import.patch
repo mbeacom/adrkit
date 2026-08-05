@@ -1,0 +1,17 @@
+diff --git a/packages/catalog-envelope/src/index.ts b/packages/catalog-envelope/src/index.ts
+index c16dc0e..23d680d 100644
+--- a/packages/catalog-envelope/src/index.ts
++++ b/packages/catalog-envelope/src/index.ts
+@@ -39,8 +39,12 @@
+  * statically importing this module, rather than asserting an absence and calling
+  * that coverage (ADR-0016 clause 3).
+  */
++import { PACKAGE_NAME as ADAPTER_NAME } from '../../adapters/catalog-backstage/src/index.ts';
++
+ export const PACKAGE_NAME = '@adrkit/catalog-envelope';
+ 
++export const OBSERVED_ADAPTER_NAME = ADAPTER_NAME;
++
+ export {
+   ENTITY_RECORD_FIELDS,
+   ENVELOPE_SCHEMA_VERSION,

@@ -1,0 +1,167 @@
+bun test v1.3.14 (0d9b296a)
+
+test/inadmissible-and-unique.test.ts:
+(pass) T054 — the fixture is genuinely inadmissible > bulk-import descriptor fails `validateEntityName` on character class [0.07ms]
+(pass) T054 — the fixture is genuinely inadmissible > orchestrator descriptor fails `validateEntityName` on character class
+67 |     expect(raw.length).toBeLessThanOrEqual(63);
+68 |   });
+69 | 
+70 |   test.each(OUTLIERS)('%s classifies as inadmissible, attributed to metadata.name', (_n, spec) => {
+71 |     const result = classifyAdmissibility(descriptor(spec));
+72 |     expect(result.admissible).toBe(false);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:72:31)
+(fail) T054 — the fixture is genuinely inadmissible > bulk-import descriptor classifies as inadmissible, attributed to metadata.name [5.29ms]
+67 |     expect(raw.length).toBeLessThanOrEqual(63);
+68 |   });
+69 | 
+70 |   test.each(OUTLIERS)('%s classifies as inadmissible, attributed to metadata.name', (_n, spec) => {
+71 |     const result = classifyAdmissibility(descriptor(spec));
+72 |     expect(result.admissible).toBe(false);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:72:31)
+(fail) T054 — the fixture is genuinely inadmissible > orchestrator descriptor classifies as inadmissible, attributed to metadata.name [0.41ms]
+(pass) T054 — the fixture is genuinely canonically unique > the two outliers would canonicalize distinctly from each other [0.02ms]
+(pass) T054 — the fixture is genuinely canonically unique > each outlier collides with nothing in a batch of otherwise-distinct entities [0.02ms]
+100 | });
+101 | 
+102 | describe('T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id`', () => {
+103 |   test.each(OUTLIERS)('%s: the emitted trigger class', (_name, spec) => {
+104 |     const outcome = admit(descriptor(spec, 'packages/plugin/catalog-info.yaml'));
+105 |     expect(outcome.admissible).toBe(false);
+                                     ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:105:32)
+(fail) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > bulk-import descriptor: the emitted trigger class [0.38ms]
+100 | });
+101 | 
+102 | describe('T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id`', () => {
+103 |   test.each(OUTLIERS)('%s: the emitted trigger class', (_name, spec) => {
+104 |     const outcome = admit(descriptor(spec, 'packages/plugin/catalog-info.yaml'));
+105 |     expect(outcome.admissible).toBe(false);
+                                     ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:105:32)
+(fail) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > orchestrator descriptor: the emitted trigger class [0.30ms]
+118 |   test.each(OUTLIERS)('%s: alone in a run, with nothing to collide with', (_name, spec) => {
+119 |     // A batch of one. There is no pair, so no duplicate rule could possibly fire —
+120 |     // which means the rejection that does fire can only have come from
+121 |     // admissibility.
+122 |     const admission = collectAdmitted([descriptor(spec)]);
+123 |     expect(admission.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:123:26)
+(fail) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > bulk-import descriptor: alone in a run, with nothing to collide with [0.37ms]
+118 |   test.each(OUTLIERS)('%s: alone in a run, with nothing to collide with', (_name, spec) => {
+119 |     // A batch of one. There is no pair, so no duplicate rule could possibly fire —
+120 |     // which means the rejection that does fire can only have come from
+121 |     // admissibility.
+122 |     const admission = collectAdmitted([descriptor(spec)]);
+123 |     expect(admission.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:123:26)
+(fail) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > orchestrator descriptor: alone in a run, with nothing to collide with [0.35ms]
+129 |     const admission = collectAdmitted([
+130 |       descriptor({ ...ADMISSIBLE, name: 'payments' }),
+131 |       descriptor({ ...ADMISSIBLE, name: 'billing' }),
+132 |       descriptor(spec),
+133 |     ]);
+134 |     expect(admission.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:134:26)
+(fail) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > bulk-import descriptor: among valid, distinct entities [0.58ms]
+129 |     const admission = collectAdmitted([
+130 |       descriptor({ ...ADMISSIBLE, name: 'payments' }),
+131 |       descriptor({ ...ADMISSIBLE, name: 'billing' }),
+132 |       descriptor(spec),
+133 |     ]);
+134 |     expect(admission.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:134:26)
+(fail) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > orchestrator descriptor: among valid, distinct entities [0.55ms]
+177 | ): Rejection<InadmissibilityReason> {
+178 |   if (result.admissible) {
+179 |     throw new Error(
+180 |       'inadmissibleRejection was called for an admissible result. Building a rejection ' +
+181 |         'for a descriptor that passed would fabricate a determination that never happened.',
+182 |     );
+          ^
+error: inadmissibleRejection was called for an admissible result. Building a rejection for a descriptor that passed would fabricate a determination that never happened.
+      at inadmissibleRejection (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/src/admissibility/classify.ts:182:5)
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:143:20)
+(fail) T054 — it produces `inadmissible-descriptor` and NOT `duplicate-canonical-id` > the record carries all three attributions, as FR-020 requires [0.18ms]
+150 | describe('T054 — the colliding form is rejected for the same reason, not a different one', () => {
+151 |   test('`${{ values.name | dump }}` also yields `inadmissible-descriptor`', () => {
+152 |     // The point of the contrast: the fourteen and the two get the *same* verdict.
+153 |     // ADR-0015: they "are exactly as invalid as the other fourteen".
+154 |     const outcome = admit(descriptor(INADMISSIBLE_AND_COLLIDING));
+155 |     expect(outcome.admissible).toBe(false);
+                                     ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:155:32)
+(fail) T054 — the colliding form is rejected for the same reason, not a different one > `${{ values.name | dump }}` also yields `inadmissible-descriptor` [0.12ms]
+160 |   test('two copies of the colliding form still report inadmissibility, not the collision', () => {
+161 |     const admission = collectAdmitted([
+162 |       descriptor(INADMISSIBLE_AND_COLLIDING, 'a.yaml'),
+163 |       descriptor(INADMISSIBLE_AND_COLLIDING, 'b.yaml'),
+164 |     ]);
+165 |     expect(admission.ok).toBe(false);
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-symmetrical-disco/packages/adapters/catalog-backstage/test/inadmissible-and-unique.test.ts:165:26)
+(fail) T054 — the colliding form is rejected for the same reason, not a different one > two copies of the colliding form still report inadmissibility, not the collision [0.20ms]
+(pass) T054 — the colliding form is rejected for the same reason, not a different one > a genuine collision between two ADMISSIBLE descriptors is still available [0.32ms]
+(pass) T054 — the two fourteens are not the same fourteen > the placeholder count and the trigger count are different numbers
+
+ 6 pass
+ 11 fail
+ 24 expect() calls
+Ran 17 tests across 1 file. [29.00ms]
+
+exit 1

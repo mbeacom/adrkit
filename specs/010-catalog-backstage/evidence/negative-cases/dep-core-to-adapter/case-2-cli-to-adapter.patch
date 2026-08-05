@@ -1,0 +1,12 @@
+diff --git a/packages/cli/package.json b/packages/cli/package.json
+index 3de5bef..eea40b8 100644
+--- a/packages/cli/package.json
++++ b/packages/cli/package.json
+@@ -44,6 +44,7 @@
+     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+   },
+   "dependencies": {
++    "@adrkit/catalog-backstage": "workspace:*",
+     "@adrkit/core": "workspace:*",
+     "@adrkit/evaluator": "workspace:*"
+   },

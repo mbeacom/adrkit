@@ -1,0 +1,12 @@
+diff --git a/schema/adr.schema.json b/schema/adr.schema.json
+index 87c4c19..594469c 100644
+--- a/schema/adr.schema.json
++++ b/schema/adr.schema.json
+@@ -1,6 +1,6 @@
+ {
+   "$id": "https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json",
+-  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "x-derivedPaths": [], "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "additionalProperties": false,
+   "description": "Typed frontmatter for a decision record. A superset of MADR: every MADR field is present or derivable, plus governance, routing, provenance, and enforcement metadata. The markdown body below the frontmatter carries the prose.",
+   "properties": {

@@ -1,0 +1,32 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-paths.test.ts:
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > a clean repo-relative path passes stage 1 [0.22ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "" is rejected as path-empty [0.03ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "." is rejected as path-dot-or-dotdot
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > ".." is rejected as path-dot-or-dotdot
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "/etc/passwd" is rejected as path-absolute
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "C:\\Windows\\system32" is rejected as path-drive-prefix
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages\\payments\\catalog-info.yaml" is rejected as path-backslash
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "\\\\host\\share\\file.yaml" is rejected as path-backslash
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "../../secret.yaml" is rejected as path-traversal-segment
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/./catalog-info.yaml" is rejected as path-traversal-segment
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/../../etc/passwd" is rejected as path-traversal-segment
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/\u0000/catalog-info.yaml" is rejected as path-control-character [0.03ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages//catalog-info.yaml" is rejected as path-control-character
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > "packages/\ncatalog-info.yaml" is rejected as path-control-character
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > the drive prefix rule fires before the backslash rule [0.01ms]
+(pass) T044 stage 1 — lexical rejection, before the filesystem is touched > stage 1 rejects without any filesystem access [0.05ms]
+(pass) T044 stage 2 — confined realpath > containment is strict — a sibling sharing a name prefix is not beneath [0.04ms]
+(pass) T044 stage 2 — confined realpath > a real file beneath the root is accepted [0.26ms]
+(pass) T044 stage 2 — confined realpath > a lexically-clean path escaping through a symlink fails closed [0.12ms]
+(pass) T044 stage 2 — confined realpath > the same escape is rejected through the combined two-stage entry point [0.09ms]
+(pass) T044 stage 2 — confined realpath > a nonexistent path beneath the root is not an escape [0.13ms]
+(pass) T044 stage 2 — confined realpath > the two stages emit different reasons for their own failures [0.13ms]
+
+ 22 pass
+ 0 fail
+ 62 expect() calls
+Ran 22 tests across 1 file. [10.00ms]
+
+exit 0

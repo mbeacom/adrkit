@@ -107,8 +107,10 @@ DescriptorDocument {
   sourcePath:          string
   documentIndexInFile: integer   // 0-based
   parseOutcome:        "parsed" | "duplicate-yaml-key" | "yaml-parse-error"
+  rawApiVersion:       unknown   // pre-validation; type not assumed
   rawKind:             unknown   // pre-validation; type not assumed
   rawMetadata:         unknown   // pre-validation; type not assumed
+  raw:                 unknown   // the whole document node, for annotation access
 }
 ```
 
@@ -117,10 +119,18 @@ fails to parse for a YAML syntax reason *other than* a duplicate key must not
 be reported under the duplicate-key outcome. They map to two distinct trigger
 classes in §8.
 
-**`rawKind` / `rawMetadata` are deliberately `unknown`.** They hold whatever
-the YAML node contained, before any admissibility or shape check. Typing them
-optimistically would defeat §4, whose whole purpose is to decide whether they
-are usable at all.
+**`rawApiVersion` is required, not optional.** An earlier revision named only
+`rawKind` and `rawMetadata`. A record built to that shape could not be
+admissibility-checked at all, because §4 evaluates all four of ADR-0015's
+validators and `isValidApiVersion` had no field to read. `raw` is carried for
+the same reason at one remove: `adrkit.io/owned-paths` lives under
+`metadata.annotations`, and ownership resolution needs the document node rather
+than a pre-selected projection of it.
+
+**`rawApiVersion` / `rawKind` / `rawMetadata` are deliberately `unknown`.** They
+hold whatever the YAML node contained, before any admissibility or shape check.
+Typing them optimistically would defeat §4, whose whole purpose is to decide
+whether they are usable at all.
 
 ---
 
@@ -136,8 +146,17 @@ AdmissibilityResult {
   failedFields:   readonly AdmissibilityField[]   // empty iff admissible
 }
 
-AdmissibilityField = "kind" | "metadata.name" | "metadata.namespace" | "spec.type"
+AdmissibilityField = "apiVersion" | "kind" | "metadata.name" | "metadata.namespace"
 ```
+
+> **This union is exactly ADR-0015's four validator-table rows, and nothing else.**
+> An earlier revision omitted `apiVersion` — which ADR-0015 requires and binds
+> through `isValidApiVersion` — and added `spec.type`, which no validator in that
+> table covers. It was wrong in both directions: a record built to the earlier
+> union could not report the field that actually failed when `apiVersion` was
+> malformed, and invited an implementation to validate a field the pinned commit
+> never validates. FR-016's "exactly the four field validators in ADR-0015's
+> table" is the governing wording.
 
 **Ordering rule, and why it is load-bearing.** This check runs **before**
 canonicalization (§5). ADR-0015's decision is that admissibility is a
@@ -413,9 +432,36 @@ SnapshotEntityRecord {
   ownershipState: OwnershipState
   derivedPaths:   readonly string[]
   sourceDocument: { sourcePath: string, documentIndexInFile: integer }
-  provenance:     string
+  provenance:     AnnotationProvenance
 }
+
+AnnotationProvenance = "upstream-authored" | "maintainer-overlay"
 ```
+
+**`provenance` describes the ANNOTATION, not the descriptor.** This distinction is the
+whole point of the field and is easy to get backwards. Under **ADR-0020 clause 5** the
+descriptors are upstream-authored in *both* cases — the clause requires them "authored
+upstream and otherwise unmodified" — so a value meaning "the descriptor came from
+upstream" would be true always and would distinguish nothing.
+
+| Value | Meaning |
+|---|---|
+| `upstream-authored` | The `adrkit.io/owned-paths` annotation was already present in the real upstream descriptor as found. |
+| `maintainer-overlay` | The annotation was authored by us and overlaid onto an otherwise-unmodified upstream descriptor. |
+
+That is what makes **FR-043** satisfiable: clause 5's "only the corpus data is
+third-party, never the validation" boundary becomes legible from the artifact itself.
+
+**It also doubles as a live adoption signal.** Zero third-party descriptors in the pinned
+corpora carry the annotation, so every corpus today is `maintainer-overlay`;
+`upstream-authored` only becomes reachable if real adoption occurs. The field is not dead
+metadata.
+
+*Decided by the maintainer on 2026-08-05. An earlier revision typed this a bare `string`
+with no frozen domain, while consumer validation step 2 required "a recognized
+`provenance`" — an unsatisfiable pairing. Phase C correctly implemented non-empty-string
+and flagged the gap rather than inventing a vocabulary that would have made the consumer
+reject conformant generator output.*
 
 This is the **serialized projection** of the generator's internal entity
 record, not that record field-for-field. `snapshot-envelope.md` §1 fixes the

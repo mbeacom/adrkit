@@ -1,0 +1,13 @@
+diff --git a/packages/catalog-envelope/README.md b/packages/catalog-envelope/README.md
+index 9a41e17..3dd798b 100644
+--- a/packages/catalog-envelope/README.md
++++ b/packages/catalog-envelope/README.md
+@@ -5,6 +5,8 @@ every check passes — derives a `CatalogSnapshot`-shaped artifact from it.
+ 
+ This package reads envelopes. It never generates them.
+ 
++This package is reference-verified and battle-tested.
++
+ ---
+ 
+ ## An integrity validator, not a correctness oracle

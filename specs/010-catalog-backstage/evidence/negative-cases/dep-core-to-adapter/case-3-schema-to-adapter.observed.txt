@@ -1,0 +1,11 @@
+# command 1 of 2 — the command T009 names:
+$ bun run check:deps
+$ bun run scripts/check-deps.ts
+core-has-no-adapter-deps: ok
+EXIT=0
+
+# command 2 of 2 — the command that actually rejects this edge:
+$ bun run typecheck
+$ tsc --noEmit --customConditions bun
+schema/adr.schema.ts(2,30): error TS2307: Cannot find module '@adrkit/catalog-backstage' or its corresponding type declarations.
+EXIT=2

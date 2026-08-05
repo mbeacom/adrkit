@@ -125,13 +125,13 @@ no entry anywhere granting the consumer permission to be a non-adapter; it simpl
 The two guards in `scripts/check-deps.ts` that matter here (all line numbers read in this
 worktree):
 
-- Lines 175–182: a non-adapter workspace declaring a dependency on an adapter is a violation
+- The guard emitting `non-adapter workspace depends on an adapter package`: a non-adapter workspace declaring a dependency on an adapter is a violation
   with reason `non-adapter workspace depends on an adapter package`.
-- Lines 196–204: a package declaring a dependency outside its allowed public surface is a
+- The guard emitting `<name> declares a dependency outside its allowed public surface`: a package declaring a dependency outside its allowed public surface is a
   violation with reason `<name> declares a dependency outside its allowed public surface`.
 
 **The trap:** `allowedDependenciesFor()` returns `undefined` for any package it has no entry for
-(`scripts/check-deps.ts:151`), and the second guard is then skipped entirely. A package with no
+(`allowedDependenciesFor()` returns `undefined`), and the second guard is then skipped entirely. A package with no
 allowlist entry is **silently unconstrained** — it passes `check:deps` no matter what it
 declares.
 
@@ -218,3 +218,16 @@ Repeated here per `contracts/README.md` §4:
 4. **ADR-0014 rung 1 only.** Nothing here is external, third-party, or community validation.
 5. **Genuine unknowns are marked.** This contract carries none of its own. The name
    `@adrkit/catalog-envelope` is a working name, not an unknown (§1).
+
+
+## §5. Citation rule for this contract
+
+Guards in `scripts/check-deps.ts` are cited **by the reason string they emit**, never
+by line number. Line numbers drift with any edit above them — feature 010 Phase A's own
+allowlist additions shifted both guards by 41 lines, silently invalidating every citation
+here and in `tasks.md` — while the reason strings are stable and are already asserted
+verbatim by `scripts/check-deps.test.ts`.
+
+A line number is a reference that nothing checks. A reason string is a reference the
+test suite checks on every run, so a citation that goes stale fails the build rather
+than quietly misleading a reader.

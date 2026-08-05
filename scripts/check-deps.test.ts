@@ -234,6 +234,214 @@ describe('evaluator dependency boundary (Phase 4)', () => {
   });
 });
 
+describe('catalog adapter and consumer dependency boundary (feature 010)', () => {
+  const ADAPTER_MANIFEST = 'packages/adapters/catalog-backstage/package.json';
+  const CONSUMER_MANIFEST = 'packages/catalog-envelope/package.json';
+
+  function adapterManifest(extra: Record<string, string> = {}): string {
+    return JSON.stringify(
+      {
+        name: '@adrkit/catalog-backstage',
+        version: '0.0.0',
+        dependencies: { '@adrkit/core': 'workspace:*', picomatch: '^4', yaml: 'latest', ...extra },
+        devDependencies: { '@types/bun': 'latest', '@types/picomatch': '^4' },
+      },
+      null,
+      2,
+    );
+  }
+
+  function consumerManifest(extra: Record<string, string> = {}): string {
+    return JSON.stringify(
+      {
+        name: '@adrkit/catalog-envelope',
+        version: '0.0.0',
+        dependencies: { '@adrkit/core': 'workspace:*', ...extra },
+        devDependencies: { '@types/bun': 'latest' },
+      },
+      null,
+      2,
+    );
+  }
+
+  test('allows exactly the surfaces package-boundary.md §2 freezes for both packages', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, ADAPTER_MANIFEST), adapterManifest());
+    await writeText(join(root, CONSUMER_MANIFEST), consumerManifest());
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  // T009 / SC-015 — a deliberately introduced edge from core, then the CLI, onto
+  // the adapter. Observed failing against the real workspace tree before being
+  // recorded here; these are the retained inputs (ADR-0016 clause 2).
+  test('rejects @adrkit/core depending on the catalog adapter', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, ADAPTER_MANIFEST), adapterManifest());
+    await writeText(
+      join(root, 'packages/core/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/core',
+          version: '0.1.0',
+          dependencies: {
+            picomatch: '^4',
+            semver: '^7',
+            yaml: 'latest',
+            zod: '^4',
+            '@adrkit/catalog-backstage': 'workspace:*',
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason).sort()).toEqual([
+      '@adrkit/core declares a dependency outside its allowed public surface',
+      'non-adapter workspace depends on an adapter package',
+    ]);
+  });
+
+  test('rejects @adrkit/cli depending on the catalog adapter', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, ADAPTER_MANIFEST), adapterManifest());
+    await writeText(
+      join(root, 'packages/cli/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/cli',
+          version: '0.1.0',
+          dependencies: {
+            '@adrkit/core': 'workspace:*',
+            '@adrkit/evaluator': 'workspace:*',
+            '@adrkit/catalog-backstage': 'workspace:*',
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(
+      'non-adapter workspace depends on an adapter package',
+    );
+  });
+
+  test('does NOT see a manifest-less directory such as schema/, and this records that limitation', async () => {
+    // FR-003 covers `schema/` as well as core and the CLI, but `schema/` carries
+    // no package.json, so `readWorkspacePackages()` never visits it and this
+    // check cannot express the rule for it. Observed directly: adding
+    // `import … from '@adrkit/catalog-backstage'` to `schema/adr.schema.ts` in
+    // the real tree leaves `bun run check:deps` at exit 0, printing
+    // `core-has-no-adapter-deps: ok`.
+    //
+    // The clause is held instead by `bunfig.toml`'s `linker = "isolated"` — root
+    // level files get no `node_modules/@adrkit/`, so the same edge fails
+    // `bun run typecheck` with `TS2307: Cannot find module
+    // '@adrkit/catalog-backstage'`. That is Constitution Principle III's stated
+    // reason the isolated linker is load-bearing, observed working.
+    //
+    // Recorded as a specific observed value rather than left as an assumption
+    // that this check covers schema/, which it does not (ADR-0016 clause 3).
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, ADAPTER_MANIFEST), adapterManifest());
+    await writeText(
+      join(root, 'schema/adr.schema.ts'),
+      "import { PACKAGE_NAME } from '@adrkit/catalog-backstage';\nexport const leaked = PACKAGE_NAME;\n",
+    );
+
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  // T010 / FR-044 direction (i) — the consumer must not reach the adapter.
+  test('rejects @adrkit/catalog-envelope depending on the adapter', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, ADAPTER_MANIFEST), adapterManifest());
+    await writeText(
+      join(root, CONSUMER_MANIFEST),
+      consumerManifest({ '@adrkit/catalog-backstage': 'workspace:*' }),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason).sort()).toEqual([
+      '@adrkit/catalog-envelope declares a dependency outside its allowed public surface',
+      'non-adapter workspace depends on an adapter package',
+    ]);
+  });
+
+  // T011 / FR-044 direction (ii) — the adapter must not reach the consumer. Only
+  // the allowed-surface guard fires here: the adapter *is* an adapter package, so
+  // the non-adapter guard correctly does not apply, and the allowlist is the only
+  // thing standing between the two packages in this direction.
+  test('rejects the adapter depending on @adrkit/catalog-envelope', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, ADAPTER_MANIFEST),
+      adapterManifest({ '@adrkit/catalog-envelope': 'workspace:*' }),
+    );
+    await writeText(join(root, CONSUMER_MANIFEST), consumerManifest());
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toEqual([
+      '@adrkit/catalog-backstage declares a dependency outside its allowed public surface',
+    ]);
+  });
+
+  // T012 — the only proof the two allowlist entries actually exist. A package
+  // with no entry is silently unconstrained (`check-deps.ts` returns undefined
+  // and the allowed-surface guard is skipped), so a green check on such a package
+  // is evidence of nothing. Each entry is proven present by watching a disallowed
+  // dependency produce a violation.
+  test('proves the adapter allowlist entry exists, by rejecting a disallowed dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, ADAPTER_MANIFEST), adapterManifest({ undici: '^6' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => `${violation.dependency}: ${violation.reason}`)).toEqual([
+      'undici: @adrkit/catalog-backstage declares a dependency outside its allowed public surface',
+    ]);
+  });
+
+  test('proves the consumer allowlist entry exists, by rejecting a disallowed dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, CONSUMER_MANIFEST), consumerManifest({ undici: '^6' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => `${violation.dependency}: ${violation.reason}`)).toEqual([
+      'undici: @adrkit/catalog-envelope declares a dependency outside its allowed public surface',
+    ]);
+  });
+
+  test('the trap itself: a package with no allowlist entry passes with the same disallowed dependency', async () => {
+    // This is what makes the two tests above mean something. Observed directly in
+    // the real tree: removing the adapter's `allowedDependenciesFor()` entry while
+    // leaving `undici` declared returns `check:deps` to exit 0 and
+    // `core-has-no-adapter-deps: ok` — the identical output a clean tree produces.
+    // Absence of a rule and a satisfied rule are the same string here, which is
+    // exactly why package-boundary.md §4 calls the omission a green check that
+    // means nothing.
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/adapters/unlisted/package.json'),
+      JSON.stringify(
+        { name: '@adrkit/adapter-unlisted', version: '0.1.0', dependencies: { undici: '^6' } },
+        null,
+        2,
+      ),
+    );
+
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+});
+
 describe('mcp dependency boundary (Phase 5)', () => {
   test('allows exactly core, the pinned SDK server, and zod, plus the dev-only SDK client and @types/bun', async () => {
     const root = await resetTestDir(DIR_NAME);

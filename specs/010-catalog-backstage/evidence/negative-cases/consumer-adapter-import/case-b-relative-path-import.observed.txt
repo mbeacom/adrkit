@@ -1,0 +1,55 @@
+# Observed: the consumer reaches across the workspace by relative path
+
+$ bun test packages/catalog-envelope/test/no-adapter-import.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/no-adapter-import.test.ts:
+115 |     expect(modules.length).toBeGreaterThan(20);
+116 |     expect(modules.some((path) => path.includes('packages/catalog-envelope/src/'))).toBe(true);
+117 |     expect(modules.some((path) => path.includes('packages/core/src/'))).toBe(true);
+118 | 
+119 |     const offending = modules.filter((path) => path.includes(FORBIDDEN_PATH_SEGMENT));
+120 |     expect(offending).toEqual([]);
+                            ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "packages/adapters/catalog-backstage/src/index.ts",
++ ]
+
+- Expected  - 1
++ Received  + 3
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/no-adapter-import.test.ts:120:23)
+(fail) the consumer imports nothing from an adapter > the build graph contains no module under packages/adapters/ [10.05ms]
+151 |           offending.push(`${file.slice(PACKAGE_ROOT.length + 1)}: ${specifier}`);
+152 |         }
+153 |       }
+154 |     }
+155 | 
+156 |     expect(offending).toEqual([]);
+                            ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "src/index.ts: ../../adapters/catalog-backstage/src/index.ts",
++ ]
+
+- Expected  - 1
++ Received  + 3
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/no-adapter-import.test.ts:156:23)
+(fail) the consumer imports nothing from an adapter > no source file names any adapter package or its path [0.74ms]
+(pass) the consumer imports nothing from an adapter > the consumer declares no dependency on any adapter [0.13ms]
+(pass) the consumer imports nothing from an adapter > the package under test is the consumer, statically imported [0.08ms]
+
+ 2 pass
+ 2 fail
+ 14 expect() calls
+Ran 4 tests across 1 file. [56.00ms]
+
+exit 1

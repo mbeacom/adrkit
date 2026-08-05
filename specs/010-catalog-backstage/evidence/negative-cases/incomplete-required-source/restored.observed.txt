@@ -1,0 +1,24 @@
+bun test v1.3.14 (0d9b296a)
+
+test/manifest-digests.test.ts:
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > the fixture digest is 64 lowercase hex characters [0.04ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > a well-formed digest passes the shape check [0.07ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > an uppercase-hex digest is rejected before any file is opened [0.04ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > a truncated digest is rejected [0.01ms]
+(pass) T043 — digest shape (FR-011’s "wrongly typed") > a non-hex digest is rejected [0.02ms]
+(pass) T043 — digest verification against bytes > bytes matching the declared digest are accepted [0.03ms]
+(pass) T043 — digest verification against bytes > a single changed byte is a mismatch [0.03ms]
+(pass) T043 — digest verification against bytes > the digest is recomputed, never trusted from the manifest [0.02ms]
+(pass) T043 — verification over the whole source set > a fully-agreeing source set is accepted [0.24ms]
+(pass) T043 — verification over the whole source set > a manifest-listed path absent from disk is `source-missing` [0.07ms]
+(pass) T043 — verification over the whole source set > one bad source among several rejects the set — never a per-entity skip [0.09ms]
+(pass) T043 — verification over the whole source set > nothing is returned when any source fails — no partial verified set [0.06ms]
+(pass) T043 — verification over the whole source set > the failure reported for two bad sources is deterministic (manifest order) [0.08ms]
+(pass) T043 — verification over the whole source set > the three reasons are mutually distinct [0.14ms]
+
+ 14 pass
+ 0 fail
+ 35 expect() calls
+Ran 14 tests across 1 file. [9.00ms]
+
+exit 0

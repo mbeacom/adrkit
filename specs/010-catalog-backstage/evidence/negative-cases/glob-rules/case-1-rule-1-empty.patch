@@ -1,0 +1,13 @@
+diff --git a/packages/adapters/catalog-backstage/src/glob/validate.ts b/packages/adapters/catalog-backstage/src/glob/validate.ts
+index 67f337f..53eda4c 100644
+--- a/packages/adapters/catalog-backstage/src/glob/validate.ts
++++ b/packages/adapters/catalog-backstage/src/glob/validate.ts
+@@ -79,7 +79,7 @@ const RULES: readonly {
+   readonly outcome: Exclude<GlobOutcome, 'accepted' | 'invalid-glob-compile-failure'>;
+   readonly violates: (pattern: string) => boolean;
+ }[] = [
+-  { rule: 1, outcome: 'empty', violates: (p) => p === '' },
++  { rule: 1, outcome: 'empty', violates: () => false },
+   { rule: 2, outcome: 'leading-slash', violates: (p) => p.startsWith('/') },
+   {
+     rule: 3,
