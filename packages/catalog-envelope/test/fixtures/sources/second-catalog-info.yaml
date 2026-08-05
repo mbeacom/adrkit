@@ -1,0 +1,10 @@
+# Synthetic fixture descriptor for the second-repository envelope.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: billing
+  namespace: default
+spec:
+  type: service
+  owner: team-billing
+  lifecycle: production

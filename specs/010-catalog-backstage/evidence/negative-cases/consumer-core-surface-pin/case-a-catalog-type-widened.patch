@@ -1,0 +1,12 @@
+diff --git a/packages/core/src/affects/catalog.ts b/packages/core/src/affects/catalog.ts
+index 4a6c7b9..4d8f12c 100644
+--- a/packages/core/src/affects/catalog.ts
++++ b/packages/core/src/affects/catalog.ts
+@@ -2,6 +2,7 @@ export type EntityId = string;
+ 
+ export interface CatalogSnapshotEntity {
+   id: EntityId;
++  ownershipState?: string;
+   refs?: readonly string[];
+   paths?: readonly string[];
+ }

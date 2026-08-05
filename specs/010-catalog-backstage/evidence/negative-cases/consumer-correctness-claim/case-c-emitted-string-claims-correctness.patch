@@ -1,0 +1,13 @@
+diff --git a/packages/catalog-envelope/src/digest/index.ts b/packages/catalog-envelope/src/digest/index.ts
+index df9a4c2..6a68468 100644
+--- a/packages/catalog-envelope/src/digest/index.ts
++++ b/packages/catalog-envelope/src/digest/index.ts
+@@ -60,7 +60,7 @@ export interface DigestCheckResult {
+ }
+ 
+ export const DIGEST_GUARANTEE_SCOPE =
+-  'Detects accidental corruption and naive mutation only. Does not resist an adversary who mutates content and recomputes the same digest. A digest match proves integrity, not correctness: a semantically wrong envelope can carry a valid self-digest.' as const;
++  'This check is tamper-proof. Detects accidental corruption and naive mutation only. Does not resist an adversary who mutates content and recomputes the same digest. A digest match proves integrity, not correctness: a semantically wrong envelope can carry a valid self-digest.' as const;
+ 
+ /**
+  * The canonical form the digest is taken over: every field of the envelope

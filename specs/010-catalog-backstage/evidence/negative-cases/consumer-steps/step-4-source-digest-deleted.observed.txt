@@ -1,0 +1,169 @@
+# Observed: step 4 (every source digest present and matching) deleted
+
+$ bun test packages/catalog-envelope/test/validate-steps.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/validate-steps.test.ts:
+(pass) five ordered validation steps > the reason-to-step mapping is 1:1 and closed [0.52ms]
+(pass) five ordered validation steps > malformed-invalid-json.json is rejected at step 1 as invalid-json [0.21ms]
+(pass) five ordered validation steps > malformed-missing-or-wrong-field.json is rejected at step 2 as missing-or-wrong-required-field [0.37ms]
+(pass) five ordered validation steps > malformed-unrecognized.json is rejected at step 3 as unrecognized-schema-or-dialect-or-capability [0.06ms]
+82 | 
+83 |   for (const testCase of CASES) {
+84 |     test(`${testCase.fixture} is rejected at step ${testCase.step} as ${testCase.reason}`, () => {
+85 |       const result = validateEnvelope(fixtureText(testCase.fixture), VALIDATE_OPTIONS);
+86 | 
+87 |       expect(result.outcome).toBe('rejected');
+                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "rejected"
+Received: "valid"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:87:30)
+(fail) five ordered validation steps > malformed-missing-source-digest.json is rejected at step 4 as missing-source-digest [0.14ms]
+(pass) five ordered validation steps > malformed-identity-only.json is rejected at step 5 as identity-only-true [0.07ms]
+ 99 |   }
+100 | 
+101 |   test('the five rejections are five distinct reasons at five distinct steps', () => {
+102 |     const observed = CASES.map((testCase) => {
+103 |       const result = validateEnvelope(fixtureText(testCase.fixture), VALIDATE_OPTIONS);
+104 |       if (result.outcome !== 'rejected') throw new Error(`${testCase.fixture} was not rejected`);
+                                                                                                     ^
+error: malformed-missing-source-digest.json was not rejected
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:104:96)
+      at map (1:11)
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:102:28)
+(fail) five ordered validation steps > the five rejections are five distinct reasons at five distinct steps [0.26ms]
+112 |   test('step 4 is reached only after steps 2 and 3 have passed', () => {
+113 |     // The missing-source-digest fixture is structurally complete and carries the
+114 |     // frozen dialect, so it exercises the ordering directly: a validator that
+115 |     // folded digest-presence into the shape check would reject it at step 2.
+116 |     const result = validateEnvelope(fixtureText('malformed-missing-source-digest.json'), VALIDATE_OPTIONS);
+117 |     expect(result.outcome).toBe('rejected');
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: "rejected"
+Received: "valid"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:117:28)
+(fail) five ordered validation steps > step 4 is reached only after steps 2 and 3 have passed [0.08ms]
+124 |   test('step 5 is reached only after every source digest has been verified', () => {
+125 |     const result = validateEnvelope(fixtureText('malformed-identity-only.json'), VALIDATE_OPTIONS);
+126 |     expect(result.outcome).toBe('rejected');
+127 |     if (result.outcome !== 'rejected') return;
+128 |     expect(result.failedStep).toBe(5);
+129 |     expect(result.examined.sourcesVerified).toEqual(['catalog-info.yaml']);
+                                                  ^
+error: expect(received).toEqual(expected)
+
+- [
+-   "catalog-info.yaml",
+- ]
++ []
+
+- Expected  - 3
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:129:45)
+(fail) five ordered validation steps > step 5 is reached only after every source digest has been verified [0.09ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects an unrecognized schemaVersion at step 3 [0.07ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects a globDialect.version other than 4.0.5 at step 3 [0.04ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects globDialect.options.dot true at step 3 [0.04ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects globDialect.options.nocase true at step 3 [0.04ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects globDialect.options.nonegate false at step 3 [0.05ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects an empty capabilities array at step 3 [0.04ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects an extra capability at step 3 [0.03ms]
+(pass) step 3 checks the frozen matcher contract by exact value > rejects a different single capability at step 3 [0.03ms]
+211 |   test('a source digest that does not match the actual bytes is rejected at step 4', () => {
+212 |     const envelope = JSON.parse(fixtureText('valid.json')) as Record<string, unknown>;
+213 |     (envelope['sources'] as Record<string, unknown>[])[0]!['digest'] = 'f'.repeat(64);
+214 |     const result = validateEnvelope(JSON.stringify(envelope), VALIDATE_OPTIONS);
+215 | 
+216 |     expect(result.outcome).toBe('rejected');
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: "rejected"
+Received: "valid"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:216:28)
+(fail) step 4 rejects a mismatching digest as well as a missing one > a source digest that does not match the actual bytes is rejected at step 4 [0.07ms]
+225 |   test('a source whose file cannot be read is rejected at step 4, naming the path', () => {
+226 |     const envelope = JSON.parse(fixtureText('valid.json')) as Record<string, unknown>;
+227 |     (envelope['sources'] as Record<string, unknown>[])[0]!['path'] = 'no-such-descriptor.yaml';
+228 |     const result = validateEnvelope(JSON.stringify(envelope), VALIDATE_OPTIONS);
+229 | 
+230 |     expect(result.outcome).toBe('rejected');
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: "rejected"
+Received: "valid"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:230:28)
+(fail) step 4 rejects a mismatching digest as well as a missing one > a source whose file cannot be read is rejected at step 4, naming the path [0.07ms]
+(pass) step 5 reads the boolean and nothing else > an envelope whose entities are all annotation-absent is accepted [0.04ms]
+253 | 
+254 |     expect(result.outcome).toBe('valid');
+255 |     if (result.outcome !== 'valid') return;
+256 |     expect(result.reason).toBeUndefined();
+257 |     expect(result.failedStep).toBeUndefined();
+258 |     expect(result.examined).toEqual({
+                                  ^
+error: expect(received).toEqual(expected)
+
+  {
+    "entityRecordsInspected": 3,
+-   "sourcesVerified": [
+-     "catalog-info.yaml",
+-   ],
++   "sourcesVerified": [],
+    "stepsReached": 5,
+  }
+
+- Expected  - 3
++ Received  + 1
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/validate-steps.test.ts:258:29)
+(fail) step 5 reads the boolean and nothing else > the valid fixture passes all five steps [0.07ms]
+(pass) step 2 checks every nesting level > rejects repository.revision missing at step 2 [0.04ms]
+(pass) step 2 checks every nesting level > rejects globDialect.options.nocase not a boolean at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects completeness.wholeCatalog not a boolean at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects entities[0].derivedPaths not a string array at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects entities[0].sourceDocument.documentIndexInFile not an integer at step 2 [0.04ms]
+(pass) step 2 checks every nesting level > rejects entities[2].ownershipState not recognized at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects entities[0].provenance empty at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects entities[0].identity.allRefs empty at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects an entity record carrying a sixth field at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects a flatter canonicalId/refs/paths triple at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects an unrecognized top-level field at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects sources not an array at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing schemaVersion at step 2 [0.04ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing repository at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing generatorVersion at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing globDialect at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing capabilities at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing completeness at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing sources at step 2 [0.03ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing entities at step 2 [0.02ms]
+(pass) step 2 checks every nesting level > rejects an envelope missing digest at step 2 [0.02ms]
+
+7 tests failed:
+(fail) five ordered validation steps > malformed-missing-source-digest.json is rejected at step 4 as missing-source-digest [0.14ms]
+(fail) five ordered validation steps > the five rejections are five distinct reasons at five distinct steps [0.26ms]
+(fail) five ordered validation steps > step 4 is reached only after steps 2 and 3 have passed [0.08ms]
+(fail) five ordered validation steps > step 5 is reached only after every source digest has been verified [0.09ms]
+(fail) step 4 rejects a mismatching digest as well as a missing one > a source digest that does not match the actual bytes is rejected at step 4 [0.07ms]
+(fail) step 4 rejects a mismatching digest as well as a missing one > a source whose file cannot be read is rejected at step 4, naming the path [0.07ms]
+(fail) step 5 reads the boolean and nothing else > the valid fixture passes all five steps [0.07ms]
+
+ 35 pass
+ 7 fail
+ 147 expect() calls
+Ran 42 tests across 1 file. [47.00ms]
+
+exit 1

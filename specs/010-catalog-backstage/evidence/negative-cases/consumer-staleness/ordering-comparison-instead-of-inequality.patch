@@ -1,0 +1,13 @@
+diff --git a/packages/catalog-envelope/src/identity/staleness.ts b/packages/catalog-envelope/src/identity/staleness.ts
+index 8a0270b..f9d474f 100644
+--- a/packages/catalog-envelope/src/identity/staleness.ts
++++ b/packages/catalog-envelope/src/identity/staleness.ts
+@@ -106,7 +106,7 @@ export function checkStaleness(
+     };
+   }
+ 
+-  if (declaredRevision !== expectedRevision) {
++  if (declaredRevision < expectedRevision) {
+     return {
+       expectedRevision,
+       declaredRevision,

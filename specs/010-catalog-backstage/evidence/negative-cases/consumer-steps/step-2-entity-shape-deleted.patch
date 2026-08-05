@@ -1,0 +1,12 @@
+diff --git a/packages/catalog-envelope/src/validate/index.ts b/packages/catalog-envelope/src/validate/index.ts
+index 0018320..8336f37 100644
+--- a/packages/catalog-envelope/src/validate/index.ts
++++ b/packages/catalog-envelope/src/validate/index.ts
+@@ -179,6 +179,7 @@ function examination(
+  * `test/no-early-read.test.ts` counts these reads and enforces that discipline.
+  */
+ function checkEntityRecord(record: unknown, index: number): string | undefined {
++  return undefined;
+   if (!isPlainObject(record)) return `entities[${index}] is not an object`;
+ 
+   const extra = Object.keys(record).filter(

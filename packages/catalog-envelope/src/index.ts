@@ -22,14 +22,14 @@
  * shape would change it on both sides at once, and this package's validation
  * would be comparing the generator against itself.
  *
- * **What exists today.** Phase A of feature `010-catalog-backstage` creates this
- * package's placement, its dependency boundary, and this entry point, and nothing
- * else. The five ordered validation steps, digest recomputation, staleness
- * evaluation, repository-identity handling, and snapshot derivation are
- * requirements on a later phase, not behaviour this package has.
+ * **The ordering, which is the contract.** Five validation steps, then digest
+ * recomputation, then staleness, then repository identity — and only then
+ * derivation. {@link admitEnvelope} is the single entry that runs all of it, and
+ * {@link deriveCatalogSnapshot} refuses anything it did not admit.
  *
  * @see {@link ../README.md}
  * @see `specs/010-catalog-backstage/contracts/package-boundary.md`
+ * @see `specs/009-catalog-binding-viability/contracts/snapshot-envelope.md`
  */
 
 /**
@@ -40,3 +40,76 @@
  * that coverage (ADR-0016 clause 3).
  */
 export const PACKAGE_NAME = '@adrkit/catalog-envelope';
+
+export {
+  ENTITY_RECORD_FIELDS,
+  ENVELOPE_SCHEMA_VERSION,
+  ENVELOPE_TOP_LEVEL_FIELDS,
+  FROZEN_CAPABILITIES,
+  FROZEN_GLOB_DIALECT,
+  RECOGNIZED_DIGEST_ALGORITHM,
+  RECOGNIZED_OWNERSHIP_STATES,
+  isRecognizedProvenance,
+  type EnvelopeCompleteness,
+  type EnvelopeGlobDialect,
+  type EnvelopeGlobOptions,
+  type EnvelopeRepository,
+  type EnvelopeSource,
+  type OwnershipState,
+  type SerializedEntityIdentity,
+  type SerializedSourceDocument,
+  type SnapshotEntityRecord,
+  type SnapshotEnvelope,
+} from './envelope-shape.ts';
+
+export {
+  REASON_STEP,
+  envelopeOf,
+  isStructurallyValidEnvelope,
+  validateEnvelope,
+  validateParsedEnvelope,
+  type EnvelopeExamination,
+  type EnvelopeRejectionReason,
+  type EnvelopeValidationRejected,
+  type EnvelopeValidationResult,
+  type EnvelopeValidationValid,
+  type StructurallyValidEnvelope,
+  type ValidateOptions,
+  type ValidationStep,
+} from './validate/index.ts';
+
+export {
+  DIGEST_GUARANTEE_SCOPE,
+  canonicalFormOf,
+  checkEnvelopeDigest,
+  recomputeEnvelopeDigest,
+  type DigestCheckResult,
+} from './digest/index.ts';
+
+export {
+  STALENESS_COMPARISON,
+  checkStaleness,
+  type StalenessCheckResult,
+} from './identity/staleness.ts';
+
+export {
+  checkRepositoryIdentity,
+  queryEntitiesForRepository,
+  type RepositoryIdentityCheckResult,
+  type RepositoryIsolationQueryResult,
+} from './identity/repository.ts';
+
+export {
+  EnvelopeDerivationRefusedError,
+  admitEnvelope,
+  admittedEnvelopeOf,
+  deriveCatalogSnapshot,
+  isAdmittedEnvelope,
+  type AdmissionAdmitted,
+  type AdmissionRefused,
+  type AdmissionResult,
+  type AdmissionStage,
+  type AdmitOptions,
+  type AdmittedEnvelope,
+  type DerivedCatalogSnapshot,
+} from './snapshot/index.ts';

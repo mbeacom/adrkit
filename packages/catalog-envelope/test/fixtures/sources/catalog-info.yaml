@@ -1,0 +1,12 @@
+# Synthetic fixture descriptor for @adrkit/catalog-envelope tests.
+# Hand-authored. No external adopter is involved, and nothing here is
+# third-party content.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payments
+  namespace: default
+spec:
+  type: service
+  owner: team-payments
+  lifecycle: production

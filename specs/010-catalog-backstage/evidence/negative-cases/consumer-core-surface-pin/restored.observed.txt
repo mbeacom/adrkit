@@ -1,0 +1,28 @@
+# Restored
+
+$ bun test packages/catalog-envelope/test/no-core-schema-change.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/no-core-schema-change.test.ts:
+(pass) the protected core and schema surfaces are unchanged > the pin table covers seven files, each with a digest and a stated reason [0.08ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/catalog.ts is byte-identical to its pin [0.16ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/index.ts is byte-identical to its pin [0.03ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/inert.ts is byte-identical to its pin [0.02ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/matchers/package.ts is byte-identical to its pin [0.02ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/matchers/path.ts is byte-identical to its pin [0.03ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/schema/adr.schema.ts is byte-identical to its pin [0.02ms]
+(pass) the protected core and schema surfaces are unchanged > schema/adr.schema.json is byte-identical to its pin [0.02ms]
+(pass) the protected core and schema surfaces are unchanged > no file has been added to or removed from the affects tree [0.13ms]
+(pass) the envelope is not smuggled into the core types > CatalogSnapshotEntity still has exactly id, refs and paths [0.02ms]
+(pass) the envelope is not smuggled into the core types > CatalogSnapshot still has exactly entities
+(pass) the envelope is not smuggled into the core types > CatalogPort still has exactly its three methods [0.02ms]
+(pass) the envelope is not smuggled into the core types > the published schema mentions no envelope vocabulary [0.07ms]
+
+ 13 pass
+ 0 fail
+ 29 expect() calls
+Ran 13 tests across 1 file. [13.00ms]
+
+exit 0

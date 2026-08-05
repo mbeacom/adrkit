@@ -1,0 +1,22 @@
+# Restored
+
+$ bun test packages/catalog-envelope/test/no-correctness-claim.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/no-correctness-claim.test.ts:
+(pass) the exported surface makes no correctness claim > no exported name asserts correctness [0.61ms]
+(pass) the exported surface makes no correctness claim > the exported vocabulary is about admission and checking, not judgement [0.54ms]
+(pass) the strings this package emits make no correctness claim > no emitted string carries a forbidden claim [2.02ms]
+(pass) the strings this package emits make no correctness claim > the one string that mentions correctness denies it [0.02ms]
+(pass) the documentation makes no correctness claim > no document carries a forbidden claim [0.82ms]
+(pass) the documentation makes no correctness claim > the README states the distinction before it states anything else [0.13ms]
+(pass) the documentation makes no correctness claim > no document claims rung 2 or rung 3 standing [0.59ms]
+
+ 7 pass
+ 0 fail
+ 412 expect() calls
+Ran 7 tests across 1 file. [48.00ms]
+
+exit 0

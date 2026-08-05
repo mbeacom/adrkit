@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1",
+  "repository": {
+    "id": "github.com/mbeacom/adrkit-envelope-consumer-fixture",
+    "revision": "f0e9d8c7b6a594837261504938271605948372a1"
+  },
+  "generatorVersion": "010-consumer-fixture-0.0.0",
+  "globDialect": {
+    "engine": "picomatch",
+    "version": "4.0.5",
+    "options": {
+      "dot": false,
+      "nocase": false,
+      "nonegate": true
+    }
+  },
+  "capabilities": [
+    "pathOwnership"
+  ],
+  "completeness": {
+    "wholeCatalog": false,
+    "identityOnly": false
+  },
+  "sources": [
+    {
+      "path": "catalog-info.yaml",
+      "digestAlgorithm": "sha256",
+      "digest": "6f31b25031729ba75d4770966a589227570ee918e9fdf0d8cee0273aab285778"
+    }
+  ],
+  "entities": [
+    {
+      "identity": {
+        "canonicalId": "component:default/payments",
+        "allRefs": [
+          "component:default/payments"
+        ]
+      },
+      "ownershipState": "explicit-paths",
+      "derivedPaths": [
+        "apis/payments/**",
+        "packages/payments/**"
+      ],
+      "sourceDocument": {
+        "sourcePath": "catalog-info.yaml",
+        "documentIndexInFile": 0
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "identity": {
+        "canonicalId": "component:default/ledger",
+        "allRefs": [
+          "component:default/ledger"
+        ]
+      },
+      "ownershipState": "explicit-empty",
+      "derivedPaths": [],
+      "sourceDocument": {
+        "sourcePath": "catalog-info.yaml",
+        "documentIndexInFile": 1
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "identity": {
+        "canonicalId": "component:default/gateway",
+        "allRefs": [
+          "component:default/gateway"
+        ]
+      },
+      "ownershipState": "annotation-absent",
+      "derivedPaths": [],
+      "sourceDocument": {
+        "sourcePath": "catalog-info.yaml",
+        "documentIndexInFile": 2
+      },
+      "provenance": "synthetic"
+    }
+  ],
+  "digest": "90e075fb107ba7f045ac2b1fc6c82ccc33baf12b22e4610cc17abef948179423"
+}

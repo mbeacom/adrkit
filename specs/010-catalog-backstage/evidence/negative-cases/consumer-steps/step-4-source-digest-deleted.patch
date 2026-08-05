@@ -1,0 +1,13 @@
+diff --git a/packages/catalog-envelope/src/validate/index.ts b/packages/catalog-envelope/src/validate/index.ts
+index 0018320..aea7629 100644
+--- a/packages/catalog-envelope/src/validate/index.ts
++++ b/packages/catalog-envelope/src/validate/index.ts
+@@ -403,7 +403,7 @@ export function validateParsedEnvelope(
+   const verified: string[] = [];
+   const at4 = (): EnvelopeExamination => examination(4, inspected, [...verified]);
+ 
+-  for (let index = 0; index < sources.length; index += 1) {
++  for (let index = 0; index < 0; index += 1) {
+     const entry = sources[index] as Record<string, unknown>;
+     const path = entry['path'] as string;
+     const declared = entry['digest'];

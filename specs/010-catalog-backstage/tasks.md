@@ -405,7 +405,7 @@ envelope it is *given*; it never generates one. Its expected values come from
 whole phase is barrier-free under the R4 distinguishing test. Phase C may run
 concurrently with Phase D.
 
-- [ ] T025 [P] [US8] Declare the consumer's **own independent** envelope shape at
+- [X] T025 [P] [US8] Declare the consumer's **own independent** envelope shape at
       `<CONSUMER>/src/envelope-shape.ts`. This duplication of the adapter's shape is
       deliberate: a shared module would create exactly the coupling FR-005 forbids.
       Barrier: BEFORE
@@ -413,7 +413,7 @@ concurrently with Phase D.
       Depends: T002, T007
       Contract: `package-boundary.md` §5
 
-- [ ] T026 [P] [US8] Add a guard test proving this feature leaves
+- [X] T026 [P] [US8] Add a guard test proving this feature leaves
       `packages/core/src/affects/**` (including `packages/core/src/affects/catalog.ts`),
       `packages/core/src/schema/adr.schema.ts`, and `schema/adr.schema.json` unchanged.
       Files: `<CONSUMER>/test/no-core-schema-change.test.ts`.
@@ -421,14 +421,14 @@ concurrently with Phase D.
       Discharges: FR-004
       Depends: T002
 
-- [ ] T027 [P] [US8] Author the envelope fixtures under `<CONSUMER>/test/fixtures/` —
+- [X] T027 [P] [US8] Author the envelope fixtures under `<CONSUMER>/test/fixtures/` —
       one malformed fixture per validation step (five), plus mutated-payload, stale,
       foreign-repository, and valid.
       Barrier: BEFORE
       Discharges: none — enables FR-045…FR-049
       Depends: T002
 
-- [ ] T028 [US8] Implement the **five ordered validation steps** at
+- [X] T028 [US8] Implement the **five ordered validation steps** at
       `<CONSUMER>/src/validate/index.ts`, each rejecting at its own step with its own
       distinct reason.
       Barrier: BEFORE
@@ -436,7 +436,7 @@ concurrently with Phase D.
       Depends: T025, T027
       Contract: `snapshot-envelope.md` §2
 
-- [ ] T029 [US8] **Observed failing, per step, individually.** Drive each of the five
+- [X] T029 [US8] **Observed failing, per step, individually.** Drive each of the five
       malformed fixtures through T028; observe five *distinct* failures; record each
       exact reason string; confirm no fixture fails at a step earlier than its target;
       restore; observe the pass.
@@ -446,14 +446,14 @@ concurrently with Phase D.
       Discharges: none — supplies the ADR-0016 observations for SC-014
       Depends: T028
 
-- [ ] T030 [US8] Add the ordering guard: no `derivedPaths` value is read before all
+- [X] T030 [US8] Add the ordering guard: no `derivedPaths` value is read before all
       five steps pass, and any attempt to derive before validation is refused.
       Files: `<CONSUMER>/src/validate/index.ts`, `<CONSUMER>/test/no-early-read.test.ts`.
       Barrier: BEFORE
       Discharges: FR-046
       Depends: T028, T029
 
-- [ ] T031 [P] [US8] Implement digest recomputation at `<CONSUMER>/src/digest/index.ts`,
+- [X] T031 [P] [US8] Implement digest recomputation at `<CONSUMER>/src/digest/index.ts`,
       with every claim scoped to **integrity**, never correctness. Observe the
       mutated-payload fixture failing; record the reason; restore; observe the pass.
       Barrier: BEFORE
@@ -461,7 +461,7 @@ concurrently with Phase D.
       Depends: T027, T028
       Contract: `snapshot-envelope.md` §3
 
-- [ ] T032 [P] [US8] Implement staleness as **exact revision inequality** at
+- [X] T032 [P] [US8] Implement staleness as **exact revision inequality** at
       `<CONSUMER>/src/identity/staleness.ts` — never an ordering, chronological, or
       ancestry comparison. Observe the stale fixture failing; record the reason;
       restore; observe the pass.
@@ -470,7 +470,7 @@ concurrently with Phase D.
       Depends: T027, T028
       Contract: `snapshot-envelope.md` §4
 
-- [ ] T033 [P] [US8] Implement repository identity handling at
+- [X] T033 [P] [US8] Implement repository identity handling at
       `<CONSUMER>/src/identity/repository.ts`: an envelope whose repository does not
       match is **rejected as misidentified**; a *valid* envelope from a *different*
       repository is **accepted**, and a query against it simply returns no matches.
@@ -480,14 +480,14 @@ concurrently with Phase D.
       Depends: T027, T028
       Contract: `snapshot-envelope.md` §5, §6
 
-- [ ] T034 [US8] Implement `CatalogSnapshot`-shaped derivation at
+- [X] T034 [US8] Implement `CatalogSnapshot`-shaped derivation at
       `<CONSUMER>/src/snapshot/index.ts`, reachable only after all five steps, the
       digest recomputation, the staleness check, and the identity check have passed.
       Barrier: BEFORE
       Discharges: FR-049
       Depends: T030, T031, T032, T033
 
-- [ ] T035 [US8] Add the integrity-is-not-correctness framing to the consumer's public
+- [X] T035 [US8] Add the integrity-is-not-correctness framing to the consumer's public
       surface and README, plus a test asserting no correctness-claim language appears
       in the package's exported types, error strings, or documentation.
       Files: `<CONSUMER>/README.md`, `<CONSUMER>/test/no-correctness-claim.test.ts`.
@@ -495,7 +495,7 @@ concurrently with Phase D.
       Discharges: FR-058 (consumer framing half), SC-012 (framing half)
       Depends: T031, T034
 
-- [ ] T036 [US8] SC-014 close-out: a consolidated test asserting every malformed
+- [X] T036 [US8] SC-014 close-out: a consolidated test asserting every malformed
       envelope is rejected **at its own step** with its own reason, and that no
       `derivedPaths` value was read in any rejected case.
       Files: `<CONSUMER>/test/sc-014.test.ts`.
@@ -504,7 +504,7 @@ concurrently with Phase D.
       Depends: T029, T030, T034
       Contract: `snapshot-envelope.md` §7
 
-- [ ] T037 [US8] FR-044 behavioural half: assert the consumer imports nothing from
+- [X] T037 [US8] FR-044 behavioural half: assert the consumer imports nothing from
       `packages/adapters/**` at build time or runtime — a build-graph assertion, not
       only a `package.json` inspection.
       Files: `<CONSUMER>/test/no-adapter-import.test.ts`.

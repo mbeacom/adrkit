@@ -1,0 +1,9 @@
+# Observed: the consumer reaches across the workspace by relative path — what the manifest-level dependency check says about it
+
+$ bun run check:deps
+
+core-has-no-adapter-deps: ok
+
+$ bun run scripts/check-deps.ts
+
+exit 0

@@ -1,0 +1,13 @@
+diff --git a/packages/catalog-envelope/src/validate/index.ts b/packages/catalog-envelope/src/validate/index.ts
+index 0018320..36934e9 100644
+--- a/packages/catalog-envelope/src/validate/index.ts
++++ b/packages/catalog-envelope/src/validate/index.ts
+@@ -363,7 +363,7 @@ export function validateParsedEnvelope(
+       at3(),
+     );
+   }
+-  if (globDialect['engine'] !== FROZEN_GLOB_DIALECT.engine) {
++  if (false && globDialect['engine'] !== FROZEN_GLOB_DIALECT.engine) {
+     return reject(
+       'unrecognized-schema-or-dialect-or-capability',
+       `globDialect.engine is ${JSON.stringify(globDialect['engine'])}, expected ${JSON.stringify(FROZEN_GLOB_DIALECT.engine)}`,

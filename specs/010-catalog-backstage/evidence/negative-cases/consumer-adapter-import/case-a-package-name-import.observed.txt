@@ -1,0 +1,21 @@
+# Observed: the consumer imports the adapter by package name
+
+$ bun test packages/catalog-envelope/test/no-adapter-import.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/no-adapter-import.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+error: Cannot find module '@adrkit/catalog-backstage' from '/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/src/index.ts'
+-------------------------------
+
+
+ 0 pass
+ 1 fail
+ 1 error
+Ran 1 test across 1 file. [12.00ms]
+
+exit 1

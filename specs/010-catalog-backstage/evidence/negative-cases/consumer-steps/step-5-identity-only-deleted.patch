@@ -1,0 +1,13 @@
+diff --git a/packages/catalog-envelope/src/validate/index.ts b/packages/catalog-envelope/src/validate/index.ts
+index 0018320..366ce4e 100644
+--- a/packages/catalog-envelope/src/validate/index.ts
++++ b/packages/catalog-envelope/src/validate/index.ts
+@@ -442,7 +442,7 @@ export function validateParsedEnvelope(
+   // ---- Step 5: completeness.identityOnly === false ----
+   const at5 = (): EnvelopeExamination => examination(5, inspected, [...verified]);
+ 
+-  if (completeness['identityOnly'] !== false) {
++  if (false && completeness['identityOnly'] !== false) {
+     return reject(
+       'identity-only-true',
+       'completeness.identityOnly is true, so this envelope is partial/identity-only and unusable for path-ownership matching',

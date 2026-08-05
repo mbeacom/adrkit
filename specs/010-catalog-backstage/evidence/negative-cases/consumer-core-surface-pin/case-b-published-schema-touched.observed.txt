@@ -1,0 +1,59 @@
+# Observed: the published ADR schema gains envelope vocabulary
+
+$ bun test packages/catalog-envelope/test/no-core-schema-change.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/no-core-schema-change.test.ts:
+(pass) the protected core and schema surfaces are unchanged > the pin table covers seven files, each with a digest and a stated reason [0.07ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/catalog.ts is byte-identical to its pin [0.12ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/index.ts is byte-identical to its pin [0.03ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/inert.ts is byte-identical to its pin [0.02ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/matchers/package.ts is byte-identical to its pin [0.02ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/affects/matchers/path.ts is byte-identical to its pin [0.03ms]
+(pass) the protected core and schema surfaces are unchanged > packages/core/src/schema/adr.schema.ts is byte-identical to its pin [0.03ms]
+102 |     }
+103 |   });
+104 | 
+105 |   for (const pin of PINS.protectedFiles) {
+106 |     test(`${pin.path} is byte-identical to its pin`, () => {
+107 |       expect(digestOf(pin.path)).toBe(pin.sha256);
+                                       ^
+error: expect(received).toBe(expected)
+
+Expected: "1e1841151174cc5a8ed22dadae070f087477e5068bd928d5292c3acd2e2681cc"
+Received: "29c7ecb183d56afbb8e38e70bf5f23539ccc077e8bdb6b8524a904f15c485068"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/no-core-schema-change.test.ts:107:34)
+(fail) the protected core and schema surfaces are unchanged > schema/adr.schema.json is byte-identical to its pin [0.14ms]
+(pass) the protected core and schema surfaces are unchanged > no file has been added to or removed from the affects tree [0.12ms]
+(pass) the envelope is not smuggled into the core types > CatalogSnapshotEntity still has exactly id, refs and paths [0.01ms]
+(pass) the envelope is not smuggled into the core types > CatalogSnapshot still has exactly entities
+(pass) the envelope is not smuggled into the core types > CatalogPort still has exactly its three methods [0.01ms]
+144 |     // meaningful; this states the specific thing FR-005 forbids.
+145 |     expect(published.length).toBeGreaterThan(1000);
+146 |     expect(PINS.forbiddenSchemaVocabulary.length).toBeGreaterThanOrEqual(5);
+147 | 
+148 |     const found = PINS.forbiddenSchemaVocabulary.filter((term) => published.includes(term));
+149 |     expect(found).toEqual([]);
+                        ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "derivedPaths",
++ ]
+
+- Expected  - 1
++ Received  + 3
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-super-succotash/packages/catalog-envelope/test/no-core-schema-change.test.ts:149:19)
+(fail) the envelope is not smuggled into the core types > the published schema mentions no envelope vocabulary [0.11ms]
+
+ 11 pass
+ 2 fail
+ 29 expect() calls
+Ran 13 tests across 1 file. [15.00ms]
+
+exit 1

@@ -1,0 +1,19 @@
+# Restored: no adapter edge
+
+$ bun test packages/catalog-envelope/test/no-adapter-import.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/no-adapter-import.test.ts:
+(pass) the consumer imports nothing from an adapter > the build graph contains no module under packages/adapters/ [11.86ms]
+(pass) the consumer imports nothing from an adapter > no source file names any adapter package or its path [0.73ms]
+(pass) the consumer imports nothing from an adapter > the consumer declares no dependency on any adapter [0.12ms]
+(pass) the consumer imports nothing from an adapter > the package under test is the consumer, statically imported [0.05ms]
+
+ 4 pass
+ 0 fail
+ 14 expect() calls
+Ran 4 tests across 1 file. [58.00ms]
+
+exit 0

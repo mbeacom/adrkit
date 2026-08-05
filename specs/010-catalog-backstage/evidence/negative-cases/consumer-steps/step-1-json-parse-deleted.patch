@@ -1,0 +1,17 @@
+diff --git a/packages/catalog-envelope/src/validate/index.ts b/packages/catalog-envelope/src/validate/index.ts
+index 0018320..4e0f656 100644
+--- a/packages/catalog-envelope/src/validate/index.ts
++++ b/packages/catalog-envelope/src/validate/index.ts
+@@ -467,11 +467,6 @@ export function validateParsedEnvelope(
+  * before any structural claim is made about it.
+  */
+ export function validateEnvelope(text: string, options: ValidateOptions): EnvelopeValidationResult {
+-  let parsed: unknown;
+-  try {
+-    parsed = JSON.parse(text);
+-  } catch (error) {
+-    return reject('invalid-json', `envelope does not parse as JSON: ${String(error)}`, examination(1, 0, []));
+-  }
++  const parsed: unknown = JSON.parse(text);
+   return validateParsedEnvelope(parsed, options);
+ }

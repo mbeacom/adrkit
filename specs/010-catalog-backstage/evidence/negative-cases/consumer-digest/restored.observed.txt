@@ -1,0 +1,63 @@
+# Restored: every check present
+
+$ bun test packages/catalog-envelope/test/digest.test.ts packages/catalog-envelope/test/identity.test.ts packages/catalog-envelope/test/derive.test.ts
+
+bun test v1.3.14 (0d9b296a)
+
+
+packages/catalog-envelope/test/derive.test.ts:
+(pass) admission runs every check in order before permitting derivation > the valid fixture is admitted with all four verdicts recorded [1.78ms]
+(pass) admission runs every check in order before permitting derivation > the refusal stage is named for every fixture that cannot be admitted [0.52ms]
+(pass) admission runs every check in order before permitting derivation > the all-annotation-absent contrast case is admitted, not refused [0.08ms]
+(pass) admission runs every check in order before permitting derivation > admission without a configured revision or repository still runs digest [0.08ms]
+(pass) derivation output > every entity maps to a CatalogSnapshotEntity of id, refs and paths [0.10ms]
+(pass) derivation output > the derived snapshot carries only the three core fields, never envelope fields [0.07ms]
+(pass) derivation output > provenance for the derivation is recorded outside the snapshot [0.06ms]
+(pass) derivation output > derivation is deterministic [0.13ms]
+(pass) derivation output > the snapshot does not alias the envelope arrays [0.07ms]
+(pass) the mapping is lossy by design > explicit-empty and annotation-absent both map to an empty paths array [0.09ms]
+(pass) the mapping is lossy by design > an all-annotation-absent envelope derives a snapshot with no paths anywhere [0.08ms]
+
+packages/catalog-envelope/test/identity.test.ts:
+(pass) staleness is exact inequality > the stale fixture passes the digest check cleanly first [0.23ms]
+(pass) staleness is exact inequality > a different revision for the same repository is stale [0.10ms]
+(pass) staleness is exact inequality > an exactly equal revision is ok [0.05ms]
+(pass) staleness is exact inequality > inequality is symmetric — direction is never inferred [0.09ms]
+(pass) staleness is exact inequality > a lexicographically smaller revision is just as stale as a larger one [0.09ms]
+(pass) staleness is exact inequality > with no expectation configured, the outcome is not-configured rather than ok [0.05ms]
+(pass) staleness is exact inequality > the comparison is declared on the result and names no ordering [0.05ms]
+(pass) staleness is exact inequality > an expectation configured for another repository yields no staleness verdict [0.05ms]
+(pass) staleness is exact inequality > the scoping does not weaken the check for the repository it is about [0.04ms]
+(pass) staleness is exact inequality > admission refuses the stale fixture at the staleness stage, not the digest stage [0.09ms]
+(pass) repository identity mismatch is a rejection > the wrong-repository fixture passes the digest check cleanly first [0.07ms]
+(pass) repository identity mismatch is a rejection > a different repository id is a mismatch [0.05ms]
+(pass) repository identity mismatch is a rejection > the expected repository id is ok [0.05ms]
+(pass) repository identity mismatch is a rejection > with no expectation configured, the outcome is not-configured rather than ok [0.05ms]
+(pass) repository identity mismatch is a rejection > admission refuses at the identity stage, after staleness has passed [0.06ms]
+(pass) repository identity mismatch is a rejection > the same refusal holds with no revision expectation at all [0.07ms]
+(pass) repository isolation is acceptance, not rejection > a valid envelope from a different repository is admitted on its own terms [0.06ms]
+(pass) repository isolation is acceptance, not rejection > a query scoped to one repository returns only that repository's entities [0.13ms]
+(pass) repository isolation is acceptance, not rejection > no entity from one repository ever leaks into the other repository's result [0.10ms]
+(pass) repository isolation is acceptance, not rejection > a query scoped to a repository nobody loaded returns nothing and says so [0.09ms]
+(pass) repository isolation is acceptance, not rejection > neither envelope is rejected by the query, and both remain independently valid [0.17ms]
+
+packages/catalog-envelope/test/digest.test.ts:
+(pass) canonicalization > the digest field itself is excluded and every other field is included [0.12ms]
+(pass) canonicalization > object keys are sorted at every nesting level, arrays are not [0.08ms]
+(pass) canonicalization > the digest is 64 lowercase hex over the UTF-8 bytes of the canonical form [0.10ms]
+(pass) canonicalization > reordering the keys of an envelope does not change its digest [0.08ms]
+(pass) canonicalization > recomputation is stable across repeated runs [0.10ms]
+(pass) digest verification > the valid fixture matches [0.10ms]
+(pass) digest verification > the tampered fixture is rejected, and the mismatch is named [0.07ms]
+(pass) digest verification > admission refuses the tampered fixture at the digest stage, not earlier [0.08ms]
+(pass) digest verification > a single flipped character anywhere in the payload is detected [0.08ms]
+(pass) digest verification > the declared digest is never trusted unconditionally [0.13ms]
+(pass) the guarantee scope travels with the result > every digest result carries the scope statement [0.17ms]
+(pass) the guarantee scope travels with the result > the scope statement names both limits and claims neither strength [0.02ms]
+
+ 44 pass
+ 0 fail
+ 131 expect() calls
+Ran 44 tests across 3 files. [50.00ms]
+
+exit 0
