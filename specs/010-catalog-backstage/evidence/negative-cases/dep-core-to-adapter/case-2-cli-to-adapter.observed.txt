@@ -1,3 +1,4 @@
+$ bun run check:deps
 $ bun run scripts/check-deps.ts
 packages/cli/package.json: @adrkit/cli dependencies.@adrkit/catalog-backstage - non-adapter workspace depends on an adapter package
 packages/cli/package.json: @adrkit/cli dependencies.@adrkit/catalog-backstage - @adrkit/cli declares a dependency outside its allowed public surface
