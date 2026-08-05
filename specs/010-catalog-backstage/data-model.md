@@ -449,6 +449,31 @@ upstream" would be true always and would distinguish nothing.
 | `upstream-authored` | The `adrkit.io/owned-paths` annotation was already present in the real upstream descriptor as found. |
 | `maintainer-overlay` | The annotation was authored by us and overlaid onto an otherwise-unmodified upstream descriptor. |
 
+**It is a declaration about the SOURCE, not a per-entity derivation — and this is what
+makes `annotation-absent` entities representable.** Both rows above describe an annotation
+that *exists*, yet `annotation-absent` is the overwhelmingly common real-corpus case: of
+156 `community-plugins` descriptor files, **zero** carry the annotation. Neither row is
+literally true of such an entity, and an earlier revision of this section did not say what
+`provenance` meant for one.
+
+It is not a third value. `provenance` is **declared for the source** as part of the
+generation request and carried onto every entity derived from it. For an entity whose
+ownership state is `annotation-absent`, the declaration is carried but **vacuous**: there
+is no annotation for it to describe, and the entity makes **no adoption claim** in either
+direction.
+
+**Only the pair `(ownershipState, provenance)` is unambiguous.** `provenance` alone is
+not, and code that branches on it without the ownership state is reading a claim that may
+not have been made. An entity asserts third-party adoption of the annotation **only** when
+its ownership state is `explicit-paths` or `explicit-empty` *and* its provenance is
+`upstream-authored`.
+
+**The declaration is required and exhaustive; there is no default.** Defaulting to
+`upstream-authored` would silently convert an omission into a third-party adoption claim —
+exactly the claim ADR-0020 clause 5 and ADR-0014's honesty rules exist to keep honest.
+Defaulting to `maintainer-overlay` would be safer but would still fabricate a declaration
+nobody made. An absent declaration is invalid input.
+
 That is what makes **FR-043** satisfiable: clause 5's "only the corpus data is
 third-party, never the validation" boundary becomes legible from the artifact itself.
 
