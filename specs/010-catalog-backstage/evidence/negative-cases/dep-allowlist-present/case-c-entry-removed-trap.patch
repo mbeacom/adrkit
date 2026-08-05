@@ -1,0 +1,43 @@
+diff --git a/packages/adapters/catalog-backstage/package.json b/packages/adapters/catalog-backstage/package.json
+index a9b3301..8d9d986 100644
+--- a/packages/adapters/catalog-backstage/package.json
++++ b/packages/adapters/catalog-backstage/package.json
+@@ -34,6 +34,7 @@
+     "typecheck": "tsc --noEmit --customConditions bun --project ../../../tsconfig.json"
+   },
+   "dependencies": {
++    "undici": "^6",
+     "@adrkit/core": "workspace:*",
+     "picomatch": "^4",
+     "yaml": "latest"
+diff --git a/scripts/check-deps.ts b/scripts/check-deps.ts
+index 855c5c1..fcca55c 100644
+--- a/scripts/check-deps.ts
++++ b/scripts/check-deps.ts
+@@ -148,26 +148,6 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection,
+     };
+   }
+ 
+-  if (packageName === '@adrkit/catalog-backstage') {
+-    // Feature 010's offline Backstage snapshot generator. The surface is frozen by
+-    // `specs/010-catalog-backstage/contracts/package-boundary.md` §2: core for
+-    // canonicalization primitives only (`canonicalStringify`, `compareCodeUnits` —
+-    // never the same-named function in the evaluator, which is a different
+-    // signature), plus `picomatch` for the restricted glob dialect and `yaml` for
+-    // descriptor decoding. Both registry dependencies are already resolved in the
+-    // committed lockfile, so neither adds a new registry surface.
+-    //
+-    // It must NOT reach `@adrkit/catalog-envelope`: the envelope file on disk is
+-    // the entire interface between generator and consumer (§3), and an import edge
+-    // would make the consumer's digest check compare the generator against itself.
+-    return {
+-      dependencies: new Set(['@adrkit/core', 'picomatch', 'yaml']),
+-      devDependencies: new Set(['@types/bun', '@types/picomatch']),
+-      peerDependencies: new Set(),
+-      optionalDependencies: new Set(),
+-    };
+-  }
+-
+   if (packageName === '@adrkit/catalog-envelope') {
+     // Feature 010's envelope consumer — a non-adapter workspace library, which it
+     // is by *location* (`packages/catalog-envelope/`, outside `packages/adapters/`)

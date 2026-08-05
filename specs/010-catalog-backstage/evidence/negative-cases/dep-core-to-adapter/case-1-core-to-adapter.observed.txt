@@ -1,0 +1,5 @@
+$ bun run scripts/check-deps.ts
+packages/core/package.json: @adrkit/core dependencies.@adrkit/catalog-backstage - non-adapter workspace depends on an adapter package
+packages/core/package.json: @adrkit/core dependencies.@adrkit/catalog-backstage - @adrkit/core declares a dependency outside its allowed public surface
+error: script "check:deps" exited with code 1
+EXIT=1

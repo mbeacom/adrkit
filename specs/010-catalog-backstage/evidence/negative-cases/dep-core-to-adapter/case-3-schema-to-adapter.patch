@@ -1,0 +1,8 @@
+diff --git a/schema/adr.schema.ts b/schema/adr.schema.ts
+index d0c486e..91c3885 100644
+--- a/schema/adr.schema.ts
++++ b/schema/adr.schema.ts
+@@ -1 +1,3 @@
+ export * from '../packages/core/src/schema/adr.schema.ts';
++import { PACKAGE_NAME } from "@adrkit/catalog-backstage";
++export const leaked = PACKAGE_NAME;

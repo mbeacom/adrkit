@@ -1,0 +1,8 @@
+$ bun run check:deps
+$ bun run scripts/check-deps.ts
+core-has-no-adapter-deps: ok
+EXIT=0
+
+$ bun run typecheck
+$ tsc --noEmit --customConditions bun
+EXIT=0

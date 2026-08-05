@@ -218,7 +218,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T001, T002
       Contract: `package-boundary.md` §2, §4
 
-- [ ] T009 [US9] **Observed failing.** Introduce a dependency edge from `@adrkit/core`
+- [X] T009 [US9] **Observed failing.** Introduce a dependency edge from `@adrkit/core`
       (then `@adrkit/cli`, then a `schema/`-owning package) onto the adapter; run
       `bun run check:deps`; observe the failure and record the exact emitted reason
       string; remove the edge; observe the pass. Retain the failing inputs as a
@@ -228,7 +228,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Discharges: SC-015
       Depends: T008
 
-- [ ] T010 [US9] **Observed failing.** Add `@adrkit/catalog-backstage` to the consumer's
+- [X] T010 [US9] **Observed failing.** Add `@adrkit/catalog-backstage` to the consumer's
       dependencies; run `bun run check:deps`; observe the guard at
       `scripts/check-deps.ts:175–182` emit `non-adapter workspace depends on an
       adapter package`; record the exact string; remove; observe the pass.
@@ -238,7 +238,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T008, T009
       Contract: `package-boundary.md` §3
 
-- [ ] T011 [US9] **Observed failing.** Add `@adrkit/catalog-envelope` to the adapter's
+- [X] T011 [US9] **Observed failing.** Add `@adrkit/catalog-envelope` to the adapter's
       dependencies; run `bun run check:deps`; observe the guard at
       `scripts/check-deps.ts:196–204` emit `<name> declares a dependency outside its
       allowed public surface`; record the exact string; remove; observe the pass.
@@ -248,7 +248,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T008, T010
       Contract: `package-boundary.md` §3
 
-- [ ] T012 [US9] **Observed failing — closes the silent-unconstrained trap.**
+- [X] T012 [US9] **Observed failing — closes the silent-unconstrained trap.**
       `allowedDependenciesFor()` returns `undefined` for any package with no entry
       (`scripts/check-deps.ts:151`), and the allowed-surface guard is then skipped
       entirely — so a package with no entry passes `check:deps` no matter what it

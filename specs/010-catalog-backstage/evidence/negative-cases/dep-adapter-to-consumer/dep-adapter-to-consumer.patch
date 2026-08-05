@@ -1,0 +1,12 @@
+diff --git a/packages/adapters/catalog-backstage/package.json b/packages/adapters/catalog-backstage/package.json
+index a9b3301..5f10369 100644
+--- a/packages/adapters/catalog-backstage/package.json
++++ b/packages/adapters/catalog-backstage/package.json
+@@ -34,6 +34,7 @@
+     "typecheck": "tsc --noEmit --customConditions bun --project ../../../tsconfig.json"
+   },
+   "dependencies": {
++    "@adrkit/catalog-envelope": "workspace:*",
+     "@adrkit/core": "workspace:*",
+     "picomatch": "^4",
+     "yaml": "latest"
