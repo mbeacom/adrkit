@@ -1,0 +1,6 @@
+compare-accept-corpus: --observe-failing — the comparison INPUT was deliberately mutated at workspaces/adr/plugins/adr-backend/catalog-info.yaml[0]. The frozen expectations were not touched, and no report was written.
+compare-accept-corpus: FAIL — 24 expected entities, 1 false positive(s), 1 false negative(s), 1 other mismatch(es)
+  false-negative component:default/backstage-plugin-adr-backend: expected path was not derived — expected "packages/cli/**"; derivedPaths = ["packages/clx/**","packages/core/**"]
+  false-positive component:default/backstage-plugin-adr-backend: derived path is not in the frozen expectation — derived "packages/clx/**"; expectedPaths = ["packages/cli/**","packages/core/**"]
+  other-mismatch (corpus-wide): the union of derived patterns does not match the oracle derivedPathPatterns — oracle records 25 patterns, output yields 26: ["**",".github/**",".github/workflows/**","Makefile","a-b/**","a.b/**","a/**","a/b/**","docs/**","examples/**","packages/cli/**","packages/clx/**","packages/core/**","packages/core/src/**","plugins/v10/**","plugins/v2/**","plugins/v_next/**","scripts/*.test.ts","scripts/build-?.ts","scripts/build.ts","src/README.md","src/Utils/**","src/utils/**","workspaces/alpha-tools/**","workspaces/alpha.config/**","workspaces/alpha/src/**"]
+exit=1

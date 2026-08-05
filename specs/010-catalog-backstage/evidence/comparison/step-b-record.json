@@ -1,0 +1,94 @@
+{
+  "//": "T090 — ADR-0020 clause 5 step (b)’s own record. Step (b) inherits nothing from step (a): it recomputes the frozen hashes rather than trusting them, records hashes of its own that did not exist at step (a), and renders its own verdict. Written by scripts/compare-accept-corpus.ts.",
+  "task": "T090",
+  "barrierSide": "BEHIND",
+  "discharges": [
+    "FR-057 (step (b) half)"
+  ],
+  "step": "ADR-0020 clause 5 step (b) — post-output comparison",
+  "verdict": "PASS",
+  "inheritsFromStepA": false,
+  "whyItInheritsNothing": "FR-057: \"The pre-output freeze/audit (FR-053, FR-054) and the post-output comparison (FR-056) MUST be recorded as two distinct steps, each recording its own hashes and its own PASS/FAIL. Neither may inherit the other’s verdict.\" Step (a)’s PASS is not evidence for this one, and this one’s PASS is not evidence that step (a) was right — it is evidence that the generator agrees with what step (a) froze.",
+  "recomputedFrozenHashes": {
+    "frozen-expectations/frozen-expectation-set.json": {
+      "recorded": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+      "recomputed": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+      "match": true
+    },
+    "accept-corpus-freeze/accept-corpus-freeze.json": {
+      "recorded": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+      "recomputed": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+      "match": true
+    }
+  },
+  "recomputationNote": "Recorded values are read from the artifacts; recomputed values are derived with the canonical form of evidence/README.md §3 (contentHash key removed, keys ascending by compareCodeUnits, array order preserved, no insignificant whitespace, UTF-8, no trailing newline). A `match: false` here is a freeze failure and fails this record’s verdict.",
+  "ownHashes": {
+    "note": "Hashes that belong to step (b) and did not exist at step (a). The corpus was not vendored, no overlaid input existed, and no envelope existed when the freeze was written.",
+    "vendoredCorpusSha256": {
+      "workspaces/acr/plugins/acr/catalog-info.yaml": "220d3b8ea574bccce6d8fcd8297566d53b9f22a3f2e60586a5a60fb003544673",
+      "workspaces/adr/plugins/adr-backend/catalog-info.yaml": "ef777c111a23d1ab714aeb2407e1403e9bfee84b61694dcc75c30534942cf527",
+      "workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml": "7b7a57dd12c6e60dde41833037b3bd77f8fb3c8cb7b4a113f3d3c5aeb7540849",
+      "workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml": "f12c328e2c2a9e219f631b5a6a2bb179c4883dd3f1f01e2d12d5363afcd2af7f",
+      "workspaces/allure/plugins/allure/catalog-info.yaml": "70d8db4a983b8afac837e5179c25b032009c3ea08ff9607bf7d1de6d3f432afe",
+      "workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml": "117b126e92e30e49dd6444cb441519d1db898021b113755140b3da1d3987a58e",
+      "workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml": "f1bafbb958155dd813c1e10d3a7f8d3ab632c31adf0e535475204ee14a7d7fe6",
+      "workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml": "fa5d34aebc5214880e9c89490d5937cfcd48fdc6dae290ce67ade97755576275",
+      "workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml": "ba961f94c5718d2bb9e61c4fa1ad4f22dbe384db99572e2c57d144f7bf3280d7",
+      "workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml": "847a38e3525f0ed2e6bd291c1b05295043407704f6005414ce9e02a41d333e69",
+      "workspaces/badges/plugins/badges-backend/catalog-info.yaml": "802effad65014eae49868aa6c58f33a28fd936ff3ee27cce1927a17f814855d0",
+      "workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml": "f29955f93d8d86ac590447eb5739d94a46dfd7ffa67c5d7778c55b3f30285871",
+      "workspaces/bitbucket-pull-requests/catalog-info.yaml": "caf63c13bc985053afd9177c6746e9a771ce85a1411991964af7b35efa9fbb0b",
+      "workspaces/bitrise/plugins/bitrise/catalog-info.yaml": "3ac10cd165437e2635b6be691385350d592134d4446847b3f177aaaa1cb74a20",
+      "workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml": "d2e57cf42130dd65243d41613dedcaafbd9dfa1dd54f3b31f37046dec426d68e",
+      "workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml": "1ac0c4ef588570bef861a2da35ddce18b7f66d8d555d4ed6549759ecb2537b01",
+      "workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml": "9a746e20e8b82b8d5af9bae1c94bb87fe5dc6a32b6867eb5a59863077577b48e",
+      "workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml": "6c6711934fed735785325e1e52838003c76cc6b3268d9f196aa96e9be77b82ca",
+      "workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml": "59049aa4342bdc43e284cd9e67e654ae9221a1223b938c3318d3585a401560a1",
+      "workspaces/code-climate/plugins/code-climate/catalog-info.yaml": "f20b9ba12a185e6abe23dda6b311c46f1a9378cce2daa1a80a039d51425c7ce4",
+      "workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml": "eca711137951f49b96a05840c1fceee73128657b13eb3d7536b3734175cc9471",
+      "workspaces/codescene/plugins/codescene/catalog-info.yaml": "71ccfddf6aa1157746870fbb84ff7dcaff49ebd54e1eda8489bf0c4451312a35",
+      "workspaces/copilot/plugins/copilot-backend/catalog-info.yaml": "642ed324ea086ac9c56ae952865f9ee65f576b36418b9d3f9bba6eddb2947177",
+      "workspaces/cost-insights/plugins/cost-insights-common/catalog-info.yaml": "9c98f90b3e03427f6c6dabd4b81125f6e4034c68fea6225e7110c99807a38c5a"
+    },
+    "overlaidSourceDigests": {
+      "workspaces/acr/plugins/acr/catalog-info.yaml": "7c5fab4b696f05191c7f0fe7146a763420e0001d3a84f06798f7538e109bf119",
+      "workspaces/adr/plugins/adr-backend/catalog-info.yaml": "e554bf163ef443d82796c4cfe2bc84c3fdbb0bc12d4238ad1a90b7795a40b135",
+      "workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml": "dfd5953b68413178c38778cd19ed6bf9ebdf81923d40f2cbfff1b0891151e3c9",
+      "workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml": "41e083da37cc30236aca2d8997b8752776352c9cd6e5ce8041c61561a250ecab",
+      "workspaces/allure/plugins/allure/catalog-info.yaml": "d511efbae314c83194a41091e03588c6594392daacd0534931d20cffee7145ba",
+      "workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml": "e68e5acf25bf7b037285ee704d34d76aeadb604cf3844ac682e0b8a06b2d743e",
+      "workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml": "4611848b1432a6c911485e58943727527a6843a1f9a7d9de2a85589b84a876a2",
+      "workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml": "7911cf828ad1887ee0bbae555d12ac853bd1626ed3513334d7368a1c11166439",
+      "workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml": "4752c7801b07290d187e40b9b142673e817da94b81cf8a2d562d2f439aec791d",
+      "workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml": "698e412be4d6307f6333d5426f36ab4ba516e056e1d7a612c1887094e346341d",
+      "workspaces/badges/plugins/badges-backend/catalog-info.yaml": "35979b164b4e069497e29c9c3b01a0d2590bb1a729827861c8af8cbbcd2c6f75",
+      "workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml": "3ad0877eed08d67abf32b590ea6bc493d027a8c339190230dd3a8b4568c086dd",
+      "workspaces/bitbucket-pull-requests/catalog-info.yaml": "f8410aa3765c6a92eb7c050cd4e93c011bc87e00b43cebaf4a0003052ad59330",
+      "workspaces/bitrise/plugins/bitrise/catalog-info.yaml": "2848fe749ec27918e23a7209029aa6c27158721f9a0561f8c9e31535f0e578c8",
+      "workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml": "b255ca12e3df990fc934b5e305ddd001fb3cf92e16e793b861392c422761d138",
+      "workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml": "e688087325945d5e47bb89d5ec1ea3ca63fa85e3d9289636157468c22ab187b9",
+      "workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml": "ec936633e122754c4cbc095d5c004d2313270c4cddca1c0fc025165e933a6ccd",
+      "workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml": "e915fd8817060d9d9887b3f6c3937ee04247e04aeed4eab2614287d507e8d526",
+      "workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml": "63702bff21e209749d559884c018b1d3060c9eafabf9bc9951bb5f5097ee809b",
+      "workspaces/code-climate/plugins/code-climate/catalog-info.yaml": "c8d454c4cd4fa5fe5f358e9d13120d25c0242f6cc298a94bb33d955e89508631",
+      "workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml": "d65ee4d9e0f836504b9be936ea30e97793ba196006d9ef037a753c162f1d7d76",
+      "workspaces/codescene/plugins/codescene/catalog-info.yaml": "c50ac781577e2ef76317f05f9e1cb35e8ff9e2b148d184744d9f7df55badd8b4",
+      "workspaces/copilot/plugins/copilot-backend/catalog-info.yaml": "48c3749e49b7960890e14c1f9d0beee877fe29069709be8975cf6b372ac0c998",
+      "workspaces/cost-insights/plugins/cost-insights-common/catalog-info.yaml": "9c98f90b3e03427f6c6dabd4b81125f6e4034c68fea6225e7110c99807a38c5a"
+    },
+    "envelopeDigest": "45995d938a690aa11d8b139f58d396f3d7eb80fc61f143f23688ff74b1a87836",
+    "envelopeDigestMeans": "INTEGRITY, not correctness. A semantically wrong envelope can carry a perfectly valid self-digest (ADR-0020 clause 5, FR-058, SC-012). What speaks to the derivation is the comparison, and what the comparison speaks to is agreement with a maintainer-authored expectation set — not correctness in any absolute sense."
+  },
+  "counts": {
+    "expectedEntities": 24,
+    "envelopeEntities": 25,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "otherMismatches": 0
+  },
+  "honesty": {
+    "rung": "ADR-0014 rung 1 only. Maintainer-owned verification, which is not external, third-party, or community adoption. Only the corpus DATA is third-party.",
+    "release": "No release is scheduled, prepared, or implied. ADR-0020 clause 9 defers both the vehicle and the decision to release at all to a later record.",
+    "backstage": "No claim is made about Backstage as a running system. The admissibility warrant is exactly what the four pinned validator predicates return at Backstage commit 1121a4facd9e321179d0402c3f355e4a649e84d9."
+  }
+}

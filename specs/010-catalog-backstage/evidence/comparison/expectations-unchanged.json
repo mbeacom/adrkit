@@ -1,0 +1,33 @@
+{
+  "//": "T091 — the clause-5 prohibition, enforced rather than asserted: the frozen expectations were never amended to fit the output. Phase B’s hash values are read from barrier-b-checkpoint.json (written by the independent auditor session, not by the freeze’s author) and compared against values recomputed from the live artifacts now, after all of Phase E and Phase F.",
+  "task": "T091",
+  "barrierSide": "BEHIND",
+  "discharges": [],
+  "enforces": "ADR-0020 clause 5 — \"the expectations are never amended to fit the output\"",
+  "phaseBSource": "specs/010-catalog-backstage/evidence/barrier-b-checkpoint.json → confirmations.mechanism2_hashMatch.recordedHashes",
+  "alsoRecordedAt": "accept-corpus-freeze/selection-basis.md §8.4 carries the same two values in a table, independently written.",
+  "comparisons": [
+    {
+      "artifact": "frozen-expectations/frozen-expectation-set.json",
+      "phaseBRecordedHash": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+      "recomputedNow": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+      "recordedInArtifactNow": "e641ae5e4201a099e92e98fbaa7683bc0eb0290adb01f93abbd474c695c2430c",
+      "unchangedSincePhaseB": true,
+      "selfConsistentNow": true
+    },
+    {
+      "artifact": "accept-corpus-freeze/accept-corpus-freeze.json",
+      "phaseBRecordedHash": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+      "recomputedNow": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+      "recordedInArtifactNow": "f98e6d464b53ba334298c1e5b76bbd0222ff2a460f7637439f0e8d54c9294aca",
+      "unchangedSincePhaseB": true,
+      "selfConsistentNow": true
+    }
+  ],
+  "allUnchanged": true,
+  "whyThisIsNotCircular": "The recomputation derives each hash from the artifact’s bytes; the baseline comes from a record written before any generator existed. An artifact edited to fit output would recompute to a different value than the one Phase B recorded, whatever its own contentHash field says. scripts/check-freeze-hashes.ts catches the narrower case where the bytes moved but the recorded hash did not, and has been observed genuinely failing on a one-byte mutation (negative-cases/freeze-drift/).",
+  "honesty": {
+    "rung": "ADR-0014 rung 1 only.",
+    "scope": "This shows the expectations did not move. It does not show they were right — that is not a property any hash can carry."
+  }
+}

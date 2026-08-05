@@ -20,24 +20,30 @@
  * commit `92e9e4e09c76cc57f3475029b73e5ec84498a459`
  * (`evidence/accept-corpus-freeze/accept-corpus-freeze.json`).
  *
- * **Those descriptor files are not present in this repository.** The freeze records the
- * corpus's *metadata* — source paths, canonical ids, the overlay values, the expected
- * paths — but not the descriptors themselves. Every fixture in this file is
- * maintainer-authored, so none of them meets clause 5's conditions, and asserting
- * otherwise would present a synthetic corpus as a third-party one.
+ * **When Phase E wrote this file those descriptor files were not present in this
+ * repository.** The freeze records the corpus's *metadata* — source paths, canonical ids,
+ * the overlay values, the expected paths — but not the descriptors themselves. Every
+ * fixture in this file is maintainer-authored, so none of them meets clause 5's
+ * conditions, and asserting otherwise would present a synthetic corpus as a third-party
+ * one.
  *
  * Reconstructing descriptors from the freeze was considered and rejected twice over: the
  * reconstruction would be maintainer-authored (so still not clause-5 conforming), and
  * feeding a corpus derived from the freeze back in would make the input a function of
  * the expectations — which is the circularity Barrier B exists to prevent.
  *
- * Materializing the pinned corpus is **Phase F's** concern: T088 diffs "every annotated
- * entity in the frozen accept corpus" against the frozen expectations and cannot run
- * without it either. {@link acceptCorpusIsMaterialized} below is an executable record of
- * the gap: it fails the day someone vendors the corpus, which is the day this limb
- * becomes dischargeable and this file should be completed.
+ * **That gap is now closed.** T086a vendored the 24 descriptors verbatim from the pin
+ * into `specs/010-catalog-backstage/corpus/`, verified against the content address the
+ * pinned commit fixes (`scripts/vendor-accept-corpus.ts`). The block below is updated to
+ * record the new fact rather than left asserting a false one — but it is updated *only*
+ * to that extent.
  *
- * T086 is therefore left unchecked in `tasks.md`, with this reason.
+ * **Limb 2 is still not discharged here, and T086 stays unchecked.** Discharging it means
+ * asserting, in this file, that a pass over the frozen accept corpus produces a populated
+ * envelope. That pass is Phase F's (`scripts/compare-accept-corpus.ts`, T088), and wiring
+ * its result into SC-009's close-out is T086's own remaining work — outside the scope of
+ * the session that vendored the corpus. What the block below now records is the state of
+ * the repository, which is the fact it was always about.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -66,10 +72,11 @@ afterAll(async () => {
 });
 
 /**
- * Whether the pinned accept corpus's descriptor files exist anywhere in this repository.
+ * Whether the pinned accept corpus's descriptor files exist in this repository.
  *
- * Looks for a vendored corpus directory rather than for the freeze metadata, which is
- * committed and is not the corpus.
+ * Looks for the vendored corpus directory rather than for the freeze metadata, which is
+ * committed and is not the corpus. Phase E wrote this to record an absence; T086a made
+ * it a presence, so it now reports which.
  */
 function acceptCorpusIsMaterialized(): boolean {
   const candidates = [
@@ -186,17 +193,20 @@ describe('T086 / SC-009 limb 1 — every pass yields an envelope or a clean reje
   });
 });
 
-describe('T086 / SC-009 limb 2 — NOT discharged, and why', () => {
-  test('the frozen accept corpus is not materialized in this repository', () => {
-    // An executable record of the gap rather than a prose note. When someone vendors
-    // the pinned corpus this test fails, which is the signal that limb 2 has become
-    // dischargeable and this file should be completed.
-    expect(acceptCorpusIsMaterialized()).toBe(false);
+describe('T086 / SC-009 limb 2 — still NOT discharged here, and why', () => {
+  test('the frozen accept corpus is now materialized in this repository (T086a)', () => {
+    // Phase E recorded the opposite, because it was true then. T086a vendored the 24
+    // pinned descriptors, so the fact changed and this record changed with it. What has
+    // NOT changed is that limb 2 is undischarged: a populated envelope over this corpus
+    // is produced by Phase F's harness, and wiring that result into SC-009's close-out
+    // is T086's remaining work.
+    expect(acceptCorpusIsMaterialized()).toBe(true);
   });
 
-  test('the freeze records the corpus metadata, not the descriptors', async () => {
-    // Evidence for the claim above: what is committed is the selection basis, the
-    // overlay, and the expected paths — never a descriptor file.
+  test('the freeze still records the corpus metadata, not the descriptors', async () => {
+    // Unchanged and load-bearing: the descriptors are vendored OUTSIDE the freeze tree.
+    // evidence/README.md §4 requires the freeze tree to carry no corpus the generator
+    // could read, because R5 mechanism 1 (input absence) depends on it.
     const freeze = (await Bun.file(
       join(REPO_ROOT, 'specs', '010-catalog-backstage', 'evidence', 'accept-corpus-freeze', 'accept-corpus-freeze.json'),
     ).json()) as Record<string, unknown>;
@@ -209,10 +219,11 @@ describe('T086 / SC-009 limb 2 — NOT discharged, and why', () => {
     expect(Object.hasOwn(freeze, 'sources')).toBe(false);
   });
 
-  test('every fixture in this suite is maintainer-authored, so none meets clause 5', async () => {
+  test('every fixture in THIS suite is still maintainer-authored, so none meets clause 5', async () => {
     // Stated as an assertion so no reader mistakes a passing accept case above for a
     // clause-5 conforming pass. Clause 5 requires descriptors "authored upstream and
-    // otherwise unmodified"; these were written by this test file.
+    // otherwise unmodified"; these were written by this test file. The vendored corpus
+    // is not used here — it is used by scripts/compare-accept-corpus.ts.
     const { request } = await stage(
       checkout,
       { 'sc009-prov/catalog-info.yaml': validDescriptor('sconineprov', '["packages/p/**"]') },

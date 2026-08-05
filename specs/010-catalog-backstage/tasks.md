@@ -1084,7 +1084,39 @@ is ready."** Authoring the comparison harness before the freeze and the audit wo
 collapse ADR-0020 clause 5's two distinct steps into one, which is the exact failure
 the barrier exists to prevent.
 
-- [ ] T087 [US7] **Author the comparison harness now, and not before.** Write
+- [X] T086a [US7] **Vendor the frozen accept corpus.** New work, not in the original
+      task list, added by maintainer decision 2026-08-05 after Phase E discovered that
+      the accept corpus is **not materialized in this repository**: the freeze records
+      corpus *metadata* (paths, canonical ids, overlay values, expected paths), never
+      descriptor files, and `<EVIDENCE>/README.md` §4 requires the freeze tree to stay
+      that way because R5 mechanism 1 (input absence) depends on it. T088 cannot run
+      without the descriptors, and neither can SC-009 limb 2.
+      Vendor the 24 selected descriptors **verbatim** from
+      `backstage/community-plugins` at the pinned commit, verify each against the
+      content address that commit fixes, and **abort on any mismatch** — a mismatch
+      means the pin moved or the fetch is wrong, and neither is papered over.
+      **Vendor PRISTINE upstream bytes; keep the overlay separate.** ADR-0020 clause 5
+      requires the descriptors be "authored upstream and otherwise unmodified", which is
+      provable by digest only if what lands on disk is byte-identical to upstream;
+      `data-model.md` §10's `provenance` exists to keep that boundary legible, and a
+      pre-merged file destroys it. The overlay stays in
+      `<EVIDENCE>/accept-corpus-freeze/overlay.json` and is applied by T087's harness at
+      generation time, into a temporary directory that is deleted.
+      **Acquisition is not generation.** Fetching is a one-time step whose output is
+      committed; FR-018 and FR-052 keep generation offline, credential-free, and
+      network-free, so the acquisition script must not be reachable from the generator
+      or from the comparison harness.
+      Files: `scripts/vendor-accept-corpus.ts`, `scripts/vendor-accept-corpus.test.ts`,
+      `specs/010-catalog-backstage/corpus/**` (24 descriptors, `VENDOR-MANIFEST.json`,
+      `README.md`).
+      Barrier: BEHIND — it materializes an input the generator can read, so it may not
+      precede T024. It is nonetheless **not** generator output under R4: it produces no
+      ownership result, and its content is fixed by an upstream commit rather than by
+      anything derived from the frozen expectations.
+      Discharges: none — unblocks T088, and unblocks SC-009 limb 2 for T086
+      Depends: T024, T086
+
+- [X] T087 [US7] **Author the comparison harness now, and not before.** Write
       `scripts/compare-accept-corpus.ts` and `scripts/compare-accept-corpus.test.ts`.
       Record explicitly, at `<EVIDENCE>/comparison/harness-provenance.md`, that no
       comparison harness existed prior to T024's confirmation and prior to Phase E
@@ -1094,7 +1126,7 @@ the barrier exists to prevent.
       Discharges: none — implements R5 mechanism 3
       Depends: T024, T086
 
-- [ ] T088 [US7] Diff the derived ownership for **every annotated entity in the frozen
+- [X] T088 [US7] Diff the derived ownership for **every annotated entity in the frozen
       accept corpus** against the frozen expectations, requiring **zero false positives
       and zero false negatives**.
       Files: `scripts/compare-accept-corpus.ts`,
@@ -1103,7 +1135,7 @@ the barrier exists to prevent.
       Discharges: FR-056, SC-011
       Depends: T024, T087
 
-- [ ] T089 [US7] **Observed failing.** Introduce a deliberate mismatch into the
+- [X] T089 [US7] **Observed failing.** Introduce a deliberate mismatch into the
       comparison input; observe the gate FAIL and record the exact reason; remove the
       mismatch; observe the PASS. Retain the mismatch as a permanent negative case at
       `<EVIDENCE>/negative-cases/comparison-mismatch/`.
@@ -1111,14 +1143,14 @@ the barrier exists to prevent.
       Discharges: none — supplies the ADR-0016 observation for SC-011
       Depends: T024, T088
 
-- [ ] T090 [US7] Record step (b)'s **own** hashes and **own** PASS/FAIL at
+- [X] T090 [US7] Record step (b)'s **own** hashes and **own** PASS/FAIL at
       `<EVIDENCE>/comparison/step-b-record.json`. Step (b) inherits nothing from step
       (a): it recomputes, and it renders its own verdict.
       Barrier: BEHIND
       Discharges: FR-057 (step (b) half)
       Depends: T024, T089
 
-- [ ] T091 [US7] **Prohibition guard: expectations are never amended to fit output.**
+- [X] T091 [US7] **Prohibition guard: expectations are never amended to fit output.**
       Assert that every hash under `<EVIDENCE>/frozen-expectations/` and
       `<EVIDENCE>/accept-corpus-freeze/` is unchanged from its Phase B value, across
       the whole of Phase E and Phase F. A comparison that passes because the
@@ -1129,7 +1161,7 @@ the barrier exists to prevent.
       Discharges: none — enforces the clause-5 prohibition
       Depends: T024, T090
 
-- [ ] T092 [US7] Reporting-honesty close-out: assert that no Phase F artifact presents
+- [X] T092 [US7] Reporting-honesty close-out: assert that no Phase F artifact presents
       the populated, digest-verified envelope as evidence of **correctness**. A digest
       establishes integrity. The comparison establishes agreement with a maintainer-authored
       expectation set. Neither establishes that the adapter is correct, and no artifact

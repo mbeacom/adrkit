@@ -31,8 +31,9 @@ mechanism 2 together with that Condition of Acceptance.
 | `frozen-expectations/audit-record.json` | The independent audit of the oracle | T019 (**not** T014–T018) |
 | `accept-corpus-freeze/` | The clause-5 gate artifact — `AcceptCorpusFreeze` (`../data-model.md` §17) | T014–T016, T018 |
 | `accept-corpus-freeze/adequacy-audit.json` | The independent adequacy finding | T019 (**not** T014–T018) |
-| `negative-cases/` | Retained failing inputs, per ADR-0016 | T020, T021, T023 |
+| `negative-cases/` | Retained failing inputs, per ADR-0016 | T020, T021, T023, T089 |
 | `barrier-b-checkpoint.json` | The `BARRIER_B_CLEARED` record | T024 |
+| `comparison/` | ADR-0020 clause 5 **step (b)** — the post-output comparison | T087–T092 (**Phase F**, after the barrier cleared) |
 
 ## 3. The content-hash rule
 
@@ -84,6 +85,37 @@ confirmed by T024, this tree contains and must continue to contain:
 - **No generator output.** No `SnapshotEnvelope`, and no derived-ownership result
   for any descriptor-sourced entity — not persisted, not in memory, not asserted
   in a test (`research.md` R4).
+
+### 4.1 What §4 binds, now that Phase F has deposited (added by T087–T092)
+
+**The three absences above are statements about the freeze**, and they still hold
+of `frozen-expectations/` and `accept-corpus-freeze/` exactly as written. Nothing
+in Phase F wrote to either; `comparison/expectations-unchanged.json` compares each
+frozen hash, recomputed after all of Phase E and Phase F, against the value T024
+recorded before any generator existed, and `scripts/check-freeze-hashes.ts` fails
+the build on drift.
+
+They were also, at the time they were written, true of this whole directory,
+because Barrier B had not yet cleared. That is no longer the case, and saying so
+is better than leaving a claim that quietly stopped being true:
+
+- `comparison/` **does** hold generator output — `diff-report.json` records derived
+  ownership for all 24 frozen entities, and `step-b-record.json` records the
+  envelope's digest. That is the point of step (b). It could not exist before
+  T024, and it is written only by tasks that list T024 in `Depends`.
+- `comparison/` **is** where the harness's provenance record lives, and the
+  harness itself lives in `scripts/`, not here. The third bullet above anticipated
+  this: "the harness … is authored in Phase F (T087), strictly after this freeze
+  and its audit."
+- **No `InputManifest` is committed anywhere**, in this tree or outside it, and
+  mechanism 1 is unchanged. The comparison harness builds one in a temporary
+  directory at run time and deletes it; the vendored corpus it reads lives at
+  `../corpus/`, outside this tree, and is pristine upstream bytes with no
+  annotation of its own.
+
+The ordering that matters is preserved and remains checkable: everything under
+`frozen-expectations/` and `accept-corpus-freeze/` predates every byte under
+`comparison/`, and their hashes are the ones Phase B recorded.
 
 ## 5. Standing honesty constraints on everything in this tree
 

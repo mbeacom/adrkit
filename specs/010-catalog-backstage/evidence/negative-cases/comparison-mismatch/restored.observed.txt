@@ -1,0 +1,2 @@
+compare-accept-corpus: PASS — 24 expected entities, 0 false positive(s), 0 false negative(s), 0 other mismatch(es)
+exit=0

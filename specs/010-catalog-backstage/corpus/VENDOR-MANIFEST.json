@@ -1,0 +1,171 @@
+{
+  "//": "T086a — one-time acquisition record for the ADR-0020 clause-5 accept corpus. Written by scripts/vendor-accept-corpus.ts. The files below are PRISTINE upstream bytes: the maintainer-authored adrkit.io/owned-paths overlay is NOT applied here and lives in evidence/accept-corpus-freeze/overlay.json, applied by the comparison harness into an ephemeral run directory.",
+  "task": "T086a",
+  "barrierSide": "BEHIND",
+  "corpusRef": {
+    "repository": "github.com/backstage/community-plugins",
+    "commit": "92e9e4e09c76cc57f3475029b73e5ec84498a459"
+  },
+  "verification": {
+    "freezeRecordsNoPerFileDigest": "The freeze records artifact-level contentHash values only (evidence/README.md §3); it records no per-descriptor digest. Stated rather than implied.",
+    "whatWasVerified": [
+      "the recursive tree listing at the pin was not truncated",
+      "the pin yields exactly 156 blobs whose basename is exactly catalog-info.yaml, matching corpusFacts.descriptorFilesExactBasename",
+      "for every file below, the git blob id was RECOMPUTED from the received bytes and matched against the id the pinned tree records"
+    ],
+    "gitBlobIdDefinition": "sha1(\"blob \" + byteLength + \"\\0\" + bytes), lowercase hex",
+    "abortsOnMismatch": "Any mismatch exits non-zero and writes nothing. A mismatch means the pin moved or the fetch is wrong; neither is papered over."
+  },
+  "honesty": {
+    "rung": "ADR-0014 rung 1 only. Vendoring corpus data is acquisition, not validation.",
+    "thirdPartyBoundary": "Only the corpus DATA is third-party. The overlay, the expected paths, the audit and every check are the maintainer’s own (evidence/README.md §5).",
+    "offlinePosture": "This script is a one-time acquisition step and is not reachable from the generator or the comparison harness. Generation itself requires no network, no credential and no service (FR-018, FR-052)."
+  },
+  "fileCount": 24,
+  "files": [
+    {
+      "path": "workspaces/acr/plugins/acr/catalog-info.yaml",
+      "gitBlobSha1": "a63f30f5ee916b87298037ee4b4108d9b60faad5",
+      "sha256": "220d3b8ea574bccce6d8fcd8297566d53b9f22a3f2e60586a5a60fb003544673",
+      "byteLength": 2496
+    },
+    {
+      "path": "workspaces/adr/plugins/adr-backend/catalog-info.yaml",
+      "gitBlobSha1": "8822cb5ee2170276bacbdfde91252807940f6cd3",
+      "sha256": "ef777c111a23d1ab714aeb2407e1403e9bfee84b61694dcc75c30534942cf527",
+      "byteLength": 229
+    },
+    {
+      "path": "workspaces/agent-forge/plugins/agent-forge/catalog-info.yaml",
+      "gitBlobSha1": "dfff155ae6badad8738574244e126b09ef0e4ddd",
+      "sha256": "7b7a57dd12c6e60dde41833037b3bd77f8fb3c8cb7b4a113f3d3c5aeb7540849",
+      "byteLength": 276
+    },
+    {
+      "path": "workspaces/airbrake/plugins/airbrake-backend/catalog-info.yaml",
+      "gitBlobSha1": "f4790ce4725bc28c8224e9d69295ad1d68da8b92",
+      "sha256": "f12c328e2c2a9e219f631b5a6a2bb179c4883dd3f1f01e2d12d5363afcd2af7f",
+      "byteLength": 244
+    },
+    {
+      "path": "workspaces/allure/plugins/allure/catalog-info.yaml",
+      "gitBlobSha1": "b50e306bdf5d0996c8c6d5297656aa8ed158c088",
+      "sha256": "70d8db4a983b8afac837e5179c25b032009c3ea08ff9607bf7d1de6d3f432afe",
+      "byteLength": 287
+    },
+    {
+      "path": "workspaces/analytics/plugins/analytics-module-ga4/catalog-info.yaml",
+      "gitBlobSha1": "88c8ecc13a00c465b361843eddbecf84e908b736",
+      "sha256": "117b126e92e30e49dd6444cb441519d1db898021b113755140b3da1d3987a58e",
+      "byteLength": 260
+    },
+    {
+      "path": "workspaces/apache-airflow/plugins/apache-airflow/catalog-info.yaml",
+      "gitBlobSha1": "ad6439f86e14daeacfb6cd8fc7db70f317f3cb5e",
+      "sha256": "f1bafbb958155dd813c1e10d3a7f8d3ab632c31adf0e535475204ee14a7d7fe6",
+      "byteLength": 241
+    },
+    {
+      "path": "workspaces/apollo-explorer/plugins/apollo-explorer/catalog-info.yaml",
+      "gitBlobSha1": "f906e548b468a5561695c952be8d0552e561d21f",
+      "sha256": "fa5d34aebc5214880e9c89490d5937cfcd48fdc6dae290ce67ade97755576275",
+      "byteLength": 243
+    },
+    {
+      "path": "workspaces/azure-devops/plugins/azure-devops-common/catalog-info.yaml",
+      "gitBlobSha1": "5c36592436e49f754828bc01f1effc50a4213a26",
+      "sha256": "ba961f94c5718d2bb9e61c4fa1ad4f22dbe384db99572e2c57d144f7bf3280d7",
+      "byteLength": 246
+    },
+    {
+      "path": "workspaces/azure-sites/plugins/azure-sites-backend/catalog-info.yaml",
+      "gitBlobSha1": "faa3c48563699ba16f3138b111cd4782418b14d5",
+      "sha256": "847a38e3525f0ed2e6bd291c1b05295043407704f6005414ce9e02a41d333e69",
+      "byteLength": 250
+    },
+    {
+      "path": "workspaces/badges/plugins/badges-backend/catalog-info.yaml",
+      "gitBlobSha1": "3f577c8643237f9193900339a5d77e866efa1ad0",
+      "sha256": "802effad65014eae49868aa6c58f33a28fd936ff3ee27cce1927a17f814855d0",
+      "byteLength": 329
+    },
+    {
+      "path": "workspaces/bazaar/plugins/bazaar-backend/catalog-info.yaml",
+      "gitBlobSha1": "b5b9c4f2ac5b7c835869c46c7bc3988ec84c40d9",
+      "sha256": "f29955f93d8d86ac590447eb5739d94a46dfd7ffa67c5d7778c55b3f30285871",
+      "byteLength": 240
+    },
+    {
+      "path": "workspaces/bitbucket-pull-requests/catalog-info.yaml",
+      "gitBlobSha1": "0f7c702e757cc35bdaf2df7c7d9cfa6b3ea49276",
+      "sha256": "caf63c13bc985053afd9177c6746e9a771ce85a1411991964af7b35efa9fbb0b",
+      "byteLength": 364
+    },
+    {
+      "path": "workspaces/bitrise/plugins/bitrise/catalog-info.yaml",
+      "gitBlobSha1": "35fb20ab7ad23067bfa2eeeedbf4e39c605f1e04",
+      "sha256": "3ac10cd165437e2635b6be691385350d592134d4446847b3f177aaaa1cb74a20",
+      "byteLength": 298
+    },
+    {
+      "path": "workspaces/bookmarks/plugins/bookmarks/examples/component/catalog-info.yaml",
+      "gitBlobSha1": "a39b943052a624fca23a455e43632299f9b3e0e0",
+      "sha256": "d2e57cf42130dd65243d41613dedcaafbd9dfa1dd54f3b31f37046dec426d68e",
+      "byteLength": 1069
+    },
+    {
+      "path": "workspaces/catalog/plugins/catalog-backend-module-codeowners/catalog-info.yaml",
+      "gitBlobSha1": "c824dedbe6ac9e5c5ce7707642b34f71032e4860",
+      "sha256": "1ac0c4ef588570bef861a2da35ddce18b7f66d8d555d4ed6549759ecb2537b01",
+      "byteLength": 344
+    },
+    {
+      "path": "workspaces/checkmarx/plugins/checkmarx-backend/catalog-info.yaml",
+      "gitBlobSha1": "19237900be1bee0b9fbe7e8bb140e5d53146e2a4",
+      "sha256": "9a746e20e8b82b8d5af9bae1c94bb87fe5dc6a32b6867eb5a59863077577b48e",
+      "byteLength": 246
+    },
+    {
+      "path": "workspaces/cicd-statistics/plugins/cicd-statistics-module-buildkite/catalog-info.yaml",
+      "gitBlobSha1": "7fa8569d39b47543db1916875eb573f0942beb4f",
+      "sha256": "6c6711934fed735785325e1e52838003c76cc6b3268d9f196aa96e9be77b82ca",
+      "byteLength": 347
+    },
+    {
+      "path": "workspaces/cloudbuild/plugins/cloudbuild/catalog-info.yaml",
+      "gitBlobSha1": "2b7abead617348054a0db63b61bf89d1b15cb9cf",
+      "sha256": "59049aa4342bdc43e284cd9e67e654ae9221a1223b938c3318d3585a401560a1",
+      "byteLength": 310
+    },
+    {
+      "path": "workspaces/code-climate/plugins/code-climate/catalog-info.yaml",
+      "gitBlobSha1": "74aaf8ce0a43f05ed9f202e087e3f4b5bd6073dc",
+      "sha256": "f20b9ba12a185e6abe23dda6b311c46f1a9378cce2daa1a80a039d51425c7ce4",
+      "byteLength": 237
+    },
+    {
+      "path": "workspaces/code-coverage/plugins/code-coverage-backend/catalog-info.yaml",
+      "gitBlobSha1": "81daf642710dc0a108cfff44bdb073f429eab968",
+      "sha256": "eca711137951f49b96a05840c1fceee73128657b13eb3d7536b3734175cc9471",
+      "byteLength": 337
+    },
+    {
+      "path": "workspaces/codescene/plugins/codescene/catalog-info.yaml",
+      "gitBlobSha1": "3003bb0628d8765689d61ade6889fe034986416d",
+      "sha256": "71ccfddf6aa1157746870fbb84ff7dcaff49ebd54e1eda8489bf0c4451312a35",
+      "byteLength": 231
+    },
+    {
+      "path": "workspaces/copilot/plugins/copilot-backend/catalog-info.yaml",
+      "gitBlobSha1": "d77ecc34a9af96a2cd2217e852886dceadf884e5",
+      "sha256": "642ed324ea086ac9c56ae952865f9ee65f576b36418b9d3f9bba6eddb2947177",
+      "byteLength": 242
+    },
+    {
+      "path": "workspaces/cost-insights/plugins/cost-insights-common/catalog-info.yaml",
+      "gitBlobSha1": "ab72402ab69a1d51a115a3b77e6c91fe73fd6c44",
+      "sha256": "9c98f90b3e03427f6c6dabd4b81125f6e4034c68fea6225e7110c99807a38c5a",
+      "byteLength": 321
+    }
+  ]
+}
