@@ -53,7 +53,27 @@ ADR-0015 and restated in `spec.md` FR-016:
 | `apiVersion` | `validateApiVersion` | — | — |
 | `kind` | `validateKind` | — | — |
 | `metadata.name` | `validateEntityName` | `[A-Za-z0-9]` plus `-`, `_`, `.` | ≤ 63 characters |
-| `metadata.namespace` | `validateNamespace` | `[A-Za-z0-9]` plus `-`, `_`, `.` | ≤ 63 characters |
+| `metadata.namespace` | `validateNamespace` | `[a-z0-9]` plus `-` only — **no uppercase, no `_`, no `.`** | ≤ 63 characters |
+
+> **The two rows are not the same class, and the difference is load-bearing.**
+> An earlier revision of this table gave `metadata.namespace` the same class as
+> `metadata.name`. That was wrong.
+> [ADR-0015](../../../docs/adr/0015-validate-descriptors-against-backstage-field-formats-before-canonicalizing.md)
+> binds `metadata.namespace` through
+> `KubernetesValidatorFunctions.isValidNamespace` → `CommonValidatorFunctions.isValidDnsLabel`,
+> whose predicate is `/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/` — a DNS label, which admits
+> no uppercase, no underscore and no dot, and which cannot start or end with a
+> hyphen. `metadata.name` goes through `isValidObjectName`,
+> `/^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$/`, which admits all three.
+>
+> The discriminating assertion is `validateNamespace('Default') === false`. An
+> implementation written to the earlier summary would silently admit namespaces
+> the pinned validator rejects, and would then canonicalize them — exactly the
+> defect ADR-0015 exists to prevent.
+>
+> **ADR-0015's table is authoritative.** Where this summary and that table
+> disagree, the table wins and this file is the defect. FR-016 says so directly:
+> "exactly the four field validators in ADR-0015's table."
 
 A descriptor is **admissible** when all four predicates return true for it. It is
 **inadmissible** when any one of them returns false.

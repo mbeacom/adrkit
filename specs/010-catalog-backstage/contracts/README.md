@@ -173,3 +173,74 @@ repeated in each:
 5. **ADR-0014 rung 1 only.** Maintainer reference verification MUST NOT be
    called external, third-party, or community. Only corpus *data* is
    third-party — never the validation.
+
+---
+
+## §4. Carried-forward contract conflicts, and which side governs
+
+Feature 010 adopts spike 009's contracts **by reference**. Those files are a frozen
+historical record and are **not edited by this feature**. Where a carried-forward
+contract conflicts with another carried-forward contract, with an ADR, or with this
+feature's own `data-model.md`, the governing reading is fixed here so that no
+implementer has to re-derive it — and so that two implementers cannot derive it
+differently.
+
+All four were found by implementation sessions reading the contracts against each
+other, not by review of the contracts alone.
+
+### 4.1 Namespace character class — ADR-0015 governs
+
+`admissibility.md` §2 previously gave `metadata.namespace` the same character class as
+`metadata.name`. **Corrected in this feature's own contract.** ADR-0015 binds
+`metadata.namespace` through `CommonValidatorFunctions.isValidDnsLabel`,
+`/^[a-z0-9]+(?:\-+[a-z0-9]+)*$/` — no uppercase, no `_`, no `.`. Discriminating
+assertion: `validateNamespace('Default') === false`.
+
+### 4.2 Unrecognized top-level manifest field — `atomic-fail-closed.md` §4 governs
+
+`input-manifest.md` §1 calls an unrecognized top-level field an
+*"unsupported manifest version"-class* rejection. `atomic-fail-closed.md` §4 explicitly
+assigns that exact case to **`invalid-manifest-shape`**, and distinguishes it from
+`unsupported-manifest-version`, "which presumes the manifest parsed correctly and has
+the right shape but declares an unsupported *value*".
+
+**§4 governs**, as the later and more specific statement. `unsupported-manifest-version`
+is reserved for a well-shaped manifest declaring an unsupported `manifestSchemaVersion`.
+
+### 4.3 Path-validation stage 1 trigger class — `invalid-manifest-shape`
+
+`input-manifest.md` §4.1 names stage 2's trigger class explicitly
+(`incomplete-required-source`, "and the file is never opened") but names **none** for
+stage 1, saying only "reject the manifest, non-zero".
+
+**Stage 1 failures are `invalid-manifest-shape`.** A lexically invalid path is a defect
+in the manifest's own content, discovered before any filesystem access — which is
+precisely what distinguishes it from stage 2. This resolves a silence rather than
+overriding a statement.
+
+### 4.4 `requiredCapabilities` arity — `input-manifest.md` §2 governs
+
+`input-manifest.md` §2 defines the rejection precisely: triggered by **any string other
+than `"pathOwnership"` appearing in the array**. `data-model.md` §1 types the field as
+the one-element tuple `readonly ["pathOwnership"]`, which would additionally reject `[]`
+and `["pathOwnership", "pathOwnership"]`.
+
+**§2's rejection rule governs.** An arity rejection the contract does not authorize must
+not be invented, so `[]` and repeated entries do **not** trigger rejection. `data-model.md`
+§1's tuple should be read as the expected shape, not as an additional validation rule.
+
+### 4.5 `isValidDnsSubdomain`'s per-label character class — composed, and flagged
+
+ADR-0015's table gives `isValidDnsSubdomain`'s **bounds** (≤253 total, each dot-separated
+label ≤63) but never states what a label may **contain**. It does give `isValidDnsLabel`'s
+predicate, in the namespace row of the same table.
+
+**Composition:** a subdomain is dot-separated labels, each satisfying the stated
+`isValidDnsLabel` predicate, bounded as stated. This is the one place in this feature
+where transcription from ADR-0015 was insufficient and an inference was required. It is
+recorded here rather than left in source comments, and it reproduces all four facts
+ADR-0015 records as *executed* against the pin: a 243-character prefix passes, 254 fails,
+an over-63 label fails, and a two-separator value fails.
+
+This inference is a candidate for an ADR-0015 addendum. Until one exists, it is an
+inference and is labelled as one.

@@ -218,11 +218,23 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
       Depends: T001, T002
       Contract: `package-boundary.md` §2, §4
 
-- [X] T009 [US9] **Observed failing.** Introduce a dependency edge from `@adrkit/core`
-      (then `@adrkit/cli`, then a `schema/`-owning package) onto the adapter; run
-      `bun run check:deps`; observe the failure and record the exact emitted reason
-      string; remove the edge; observe the pass. Retain the failing inputs as a
-      permanent negative case.
+- [X] T009 [US9] **Observed failing.** Introduce a dependency edge from `@adrkit/core`,
+      then `@adrkit/cli`, then the `schema/` surface, onto the adapter; observe the
+      isolation check fail in each case and record the exact emitted reason string;
+      remove the edge; observe the pass. Retain the failing inputs as permanent
+      negative cases.
+      **The three surfaces are not observed by the same command, and the deposit MUST
+      name which command produced each failure.** `core` and `cli` fail
+      `bun run check:deps`. **`schema/` cannot**: it has no `package.json`, so
+      `readWorkspacePackages()` never visits it and `check:deps` returns exit 0 — and no
+      change to `check-deps.ts` fixes that without teaching it to scan sources rather
+      than manifests. That clause is held instead by `bunfig.toml`'s isolated linker,
+      observed via `bun run typecheck` failing with `TS2307: Cannot find module`.
+      SC-015 is discharged because it requires "the **isolation check**" to fail, not
+      `check:deps` specifically — but the deviation must be recorded, not smoothed over.
+      This is `package-boundary.md` §4's trap one level up: there, a *package* with no
+      allowlist entry is silently unconstrained; here, a *directory* with no manifest is
+      invisible outright. Both fail in the direction of a check that cannot fail.
       Files: `scripts/check-deps.test.ts`, `<EVIDENCE>/negative-cases/dep-core-to-adapter/`.
       Barrier: BEFORE
       Discharges: SC-015
@@ -230,7 +242,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
 
 - [X] T010 [US9] **Observed failing.** Add `@adrkit/catalog-backstage` to the consumer's
       dependencies; run `bun run check:deps`; observe the guard at
-      `scripts/check-deps.ts:175–182` emit `non-adapter workspace depends on an
+      `scripts/check-deps.ts` emits `non-adapter workspace depends on an
       adapter package`; record the exact string; remove; observe the pass.
       Files: `scripts/check-deps.test.ts`, `<EVIDENCE>/negative-cases/dep-consumer-to-adapter/`.
       Barrier: BEFORE
@@ -240,7 +252,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
 
 - [X] T011 [US9] **Observed failing.** Add `@adrkit/catalog-envelope` to the adapter's
       dependencies; run `bun run check:deps`; observe the guard at
-      `scripts/check-deps.ts:196–204` emit `<name> declares a dependency outside its
+      `scripts/check-deps.ts` emits `<name> declares a dependency outside its
       allowed public surface`; record the exact string; remove; observe the pass.
       Files: `scripts/check-deps.test.ts`, `<EVIDENCE>/negative-cases/dep-adapter-to-consumer/`.
       Barrier: BEFORE
@@ -250,7 +262,7 @@ ownership result, or produces an envelope. Phase A may run concurrently with Pha
 
 - [X] T012 [US9] **Observed failing — closes the silent-unconstrained trap.**
       `allowedDependenciesFor()` returns `undefined` for any package with no entry
-      (`scripts/check-deps.ts:151`), and the allowed-surface guard is then skipped
+      (`allowedDependenciesFor()` returns `undefined`), and the allowed-surface guard is then skipped
       entirely — so a package with no entry passes `check:deps` no matter what it
       declares. The only proof T008's entries actually exist is to add a disallowed
       dependency to each new package and observe a violation. Do so for both packages
@@ -277,7 +289,13 @@ with the audit recording its own hashes and its own PASS/FAIL. Phase B may run
 concurrently with Phase A and with nothing else.
 
 - [ ] T013 [US1] Create the tracked evidence tree — `<EVIDENCE>/README.md`,
-      `<EVIDENCE>/frozen-expectations/`, `<EVIDENCE>/accept-corpus-freeze/`.
+      `<EVIDENCE>/frozen-expectations/`, `<EVIDENCE>/accept-corpus-freeze/`, and
+      `<EVIDENCE>/negative-cases/`.
+      **`negative-cases/` is a SHARED, CROSS-PHASE tree.** Roughly twenty tasks spanning
+      phases A–G deposit into it, each owning its **own subdirectory** — which is what makes
+      it safe for concurrent worktree sessions, since different subdirectories never collide
+      on merge. Do not write an index of it: an enumeration goes stale on the next deposit,
+      which is the exact failure ADR-0016 exists to prevent.
       These artifacts must be **git-tracked**: R5 mechanism 2 depends on CI being able
       to re-derive their hashes, and ADR-0015 Condition of Acceptance 1 requires them
       to be inspectable in the repository.
@@ -423,7 +441,13 @@ concurrently with Phase D.
 
 - [X] T027 [P] [US8] Author the envelope fixtures under `<CONSUMER>/test/fixtures/` —
       one malformed fixture per validation step (five), plus mutated-payload, stale,
-      foreign-repository, and valid.
+      foreign-repository, valid, and the **all-annotation-absent acceptance contrast
+      case**: **ten** in total.
+      The tenth is required by `snapshot-envelope.md` §7 row 1b — an otherwise-valid
+      envelope whose entities are *all* `annotation-absent` with `identityOnly: false`,
+      which MUST be **accepted**. It is the case step 5's wording exists to protect, and
+      without it the fixture set contains only rejections, which cannot prove the
+      validator does not **over**-reject.
       Barrier: BEFORE
       Discharges: none — enables FR-045…FR-049
       Depends: T002
@@ -743,9 +767,15 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Contract: `owned-paths-annotation.md` §1
 
 - [ ] T058 [US4] Implement the **five** ordered annotation decode steps at
-      `<ADAPTER>/src/ownership/annotation.ts`, each with its own distinct rejection
-      reason. Observe each of the five failing independently; record five distinct
-      reason strings; restore; observe the pass.
+      `<ADAPTER>/src/ownership/annotation.ts`. **Three** of the five can reject, each with
+      its own distinct reason: step 2 → `annotation-value-not-a-string`, step 3 →
+      `parse-error`, step 4 → `wrong-shape`. Observe each of those three failing
+      independently; record three distinct reason strings; restore; observe the pass.
+      **Step 1 (presence) does not reject** — an absent annotation is the legitimate
+      `annotation-absent` ownership state (`owned-paths-annotation.md` §1 step 1).
+      **Step 5 (per-pattern) does not produce an annotation-decode reason** — it delegates
+      to the glob dialect, whose reasons belong to that contract and are covered by SC-007.
+      Five steps, three reasons; do not conflate the counts.
       Files: `<ADAPTER>/src/ownership/annotation.ts`,
       `<ADAPTER>/test/annotation-decode.test.ts`,
       `<EVIDENCE>/negative-cases/annotation-decode/`.
@@ -783,8 +813,12 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Discharges: SC-005
       Depends: T060
 
-- [ ] T062 [US4] SC-006 close-out: a consolidated test over the five annotation decode
-      steps, each rejecting at its own step with its own reason.
+- [ ] T062 [US4] SC-006 close-out: a consolidated test over the **five** annotation decode
+      steps, asserting that the **three** rejecting steps each reject at their own step with
+      their own reason, and documenting why the other two do not — step 1 yields the
+      `annotation-absent` state rather than a rejection, and step 5 delegates to the glob
+      dialect (SC-007). The test MUST assert the five-step *ordering* as well as the three
+      reasons, so that a reordering which happened to preserve the reasons still fails.
       Files: `<ADAPTER>/test/sc-006.test.ts`.
       Barrier: BEFORE
       Discharges: SC-006
@@ -1200,6 +1234,14 @@ Phase F completes.
       scoped to what a pure validator predicate returns at the pinned commit
       `1121a4facd9e321179d0402c3f355e4a649e84d9`;
       (vi) only corpus **data** is described as third-party; the validation never is.
+      **The check MUST match claims, not vocabulary.** ADR-0014's terms are binding, so
+      the maximally honest phrasing — "**not** `reference-verified` (rung 2), **not**
+      `externally validated` (rung 3)" — necessarily contains the very strings a naive
+      grep would flag. A check that fails on bare occurrence punishes the documentation
+      that is being most honest and rewards silence. Match assertion patterns (a claim
+      *of* the status) and treat negations and prohibitions as conformant, then verify
+      the check itself on both a real claim and a real denial before trusting it
+      (ADR-0016).
       Files: `<EVIDENCE>/honesty-close-out.md`,
       `scripts/check-honesty-close-out.test.ts`.
       Barrier: BEHIND
