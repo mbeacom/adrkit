@@ -1,0 +1,6 @@
+$ bun test scripts/check-honesty-close-out.test.ts   # restored
+
+ 35 pass
+ 0 fail
+ 59 expect() calls
+Ran 35 tests across 1 file. [62.00ms]

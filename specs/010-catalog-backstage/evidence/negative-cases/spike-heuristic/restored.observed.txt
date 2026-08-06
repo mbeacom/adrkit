@@ -1,0 +1,6 @@
+$ bun run check:no-spike-heuristics   # restored
+check-no-spike-heuristics: ok (100 modules scanned across 2 packages)
+  option B (descriptor-parent): inexpressible — deriveOwnership receives no path
+  option C (repository-root): inexpressible — no `**` fallback, no fs access in ownership/
+  option D (identity-only) as a comparison mode: absent
+exit=0

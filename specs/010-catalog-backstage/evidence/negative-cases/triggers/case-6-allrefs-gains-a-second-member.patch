@@ -1,0 +1,9 @@
+--- /tmp/canon.bak	2026-08-05 22:03:14
++++ src/identity/canonicalize.ts	2026-08-05 22:03:14
+@@ -73,5 +73,5 @@
+   // Step 2 — lowercase the ENTIRE identity string, not merely a component.
+   const canonicalId = `${rawKind}:${namespace}/${rawName}`.toLowerCase();
+ 
+-  return { rawKind, rawNamespace, rawName, canonicalId, allRefs: [canonicalId] };
++  return { rawKind, rawNamespace, rawName, canonicalId, allRefs: [canonicalId, `${canonicalId}-legacy`] };
+ }

@@ -1,0 +1,13 @@
+$ bun run check:clean-clone   # @adrkit/catalog-envelope loses its build script
+check-clean-clone: FAIL — FR-050 requires both feature-010 packages present.
+  @adrkit/catalog-envelope: declares no "build" script, so the root --filter='*' run would skip it silently
+exit=1
+
+$ bun run build   # ...and the build is STILL GREEN, having silently skipped it
+@adrkit/cli build:   index.js  52.68 KB  (entry point)
+@adrkit/cli build: 
+@adrkit/mcp build: Exited with code 0
+@adrkit/cli build: Exited with code 0
+@adrkit/spec-kit build: Exited with code 0
+@adrkit/catalog-backstage build: Exited with code 0
+exit=0

@@ -20,6 +20,7 @@ implicit, because "five steps, three reasons" otherwise reads as two missing cas
 | 1 | 2 — string-scalar check on the raw node | `annotation-value-not-a-string` | 9 |
 | 2 | 3 — JSON decode (reason collapsed into step 4's) | `parse-error` | 7 |
 | 3 | 4 — shape: exactly `array<string>` | `wrong-shape` | 14 |
+| 4 | *(none disabled)* — steps 2 and 3 **reordered**, every reason preserved | the *ordering* itself | 1 |
 
 ---
 
@@ -91,6 +92,50 @@ classes, so a 1:1 mapping to three reasons is not available.
 ## Restored
 
 [`restored.observed.txt`](./restored.observed.txt) — all 30 tests pass, 0 fail.
+
+---
+
+## Case 4 — the ordering, with every reason preserved (T062)
+
+**Task**: T062 · **Discharges**: SC-006 · **Observed**: 2026-08-05, Phase G
+**Command**: `bun test test/sc-006.test.ts`
+
+Input: [`case-4-step-2-3-reorder.patch`](./case-4-step-2-3-reorder.patch) ·
+Output: [`case-4-step-2-3-reorder.observed.txt`](./case-4-step-2-3-reorder.observed.txt)
+
+Cases 1–3 each **disable** a step, so each is caught by the reason that stops being
+emitted. T062 requires more than that: the test must also catch a **reordering which
+happened to preserve the reasons**. Cases 1–3 do not demonstrate that, because a
+reorder removes no reason.
+
+This case is the hostile construction. Steps 2 and 3 are swapped so the `JSON.parse`
+runs first, **and the diagnostics record is left reporting `jsonParseOutcome:
+'not-a-string'`** — that is, the mutation lies about its own ordering, so that every
+assertion reading the diagnostic record still passes. The reason for the primary
+step-2 fixture also survives: `['[]']` is coerced by `ToString` to `'[]'`, parses
+cleanly, and then still fails the string check with `annotation-value-not-a-string`.
+
+**16 of 17 tests passed under the reorder.** One did not:
+
+```
+(fail) SC-006 — the string-scalar check runs BEFORE any JSON parse > a mapping that would fail to parse still reports step 2
+Expected: "annotation-value-not-a-string"
+Received: "parse-error"
+```
+
+The discriminating input is a YAML **mapping**. `String({a: 1})` is `'[object Object]'`,
+which throws in `JSON.parse` — so it yields step 2's reason under the correct order and
+step 3's under the reversed one. A sequence could not have distinguished them.
+
+Because the ordering claim rested on a single fixture inside a differently-named
+`describe` block, an explicitly named assertion — *"a reason-preserving reorder of
+steps 2 and 3 is still caught"* — was added to `test/sc-006.test.ts` after this
+observation, carrying both inputs and citing this file. The margin, not the outcome,
+is what the addition addresses.
+
+**Restored**: 17 pass, 0 fail.
+
+---
 
 ## Standing constraints
 

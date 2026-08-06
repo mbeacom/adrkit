@@ -1,0 +1,42 @@
+bun test v1.3.14 (0d9b296a)
+
+test/sc-016.test.ts:
+(pass) T095 / SC-016 — the cited requirement is read at its original location > spike 009 §5 exists where it is cited, and says what is attributed to it [0.29ms]
+(pass) T095 / SC-016 — the cited requirement is read at its original location > this feature did not copy §5 into its own contracts [0.57ms]
+(pass) T095 / SC-016 — the evidence is a denial > a qualifying mechanism is named, with its exact configuration [0.12ms]
+(pass) T095 / SC-016 — the evidence is a denial > the denial is PROVED by a two-sided control, not merely invoked [0.09ms]
+(pass) T095 / SC-016 — the evidence is a denial > the run is fail-closed: no mechanism means failure, never a skip [0.09ms]
+(pass) T095 / SC-016 — the evidence is a denial > no credential or bearer-token variable is set for the run [0.06ms]
+(pass) T095 / SC-016 — what does NOT qualify is not being leaned on > the mechanism is not an env-stripping or PATH convention [0.09ms]
+(pass) T095 / SC-016 — what does NOT qualify is not being leaned on > the static source review is labelled corroborating, never the sole mechanism [0.07ms]
+173 |         why:
+174 |           'spike 009 §5 forbids resting the claim on an absence of observed calls; ' +
+175 |           'the claim must rest on a proved denial',
+176 |       },
+177 |     ]);
+178 |     expect(found).toEqual([]);
+                        ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   {
++     "matched": "No network calls were observed",
++     "path": "packages/adapters/catalog-backstage/test/offline-run.test.ts",
++     "ruleId": "absence-as-evidence",
++     "why": "spike 009 §5 forbids resting the claim on an absence of observed calls; the claim must rest on a proved denial",
++   },
++ ]
+
+- Expected  - 1
++ Received  + 8
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/sc-016.test.ts:178:19)
+(fail) T095 / SC-016 — what does NOT qualify is not being leaned on > SC-016 is not claimed from an absence of observed calls anywhere in this package [7.95ms]
+(pass) T095 / SC-016 — standing honesty constraints > the claim is scoped to a predicate return, not to Backstage as a system [0.24ms]
+(pass) T095 / SC-016 — standing honesty constraints > nothing here claims rung 2 or rung 3 [0.42ms]
+
+ 10 pass
+ 1 fail
+ 43 expect() calls
+Ran 11 tests across 1 file. [20.00ms]

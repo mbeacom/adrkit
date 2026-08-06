@@ -80,6 +80,57 @@ carries `stage: 'canonicalization'` with no `sourcePath`. If a future change mak
 class descriptor-reachable, that assertion fails and this section must be revised rather
 than the claim quietly changing.
 
+### Maintainer decision, 2026-08-05 (Phase G): the kernel-level exercise is sufficient
+
+Phase E honestly under-claimed here, recording the kernel exercise while leaving T078
+unchecked. **The maintainer has since accepted the kernel-level exercise as sufficient
+for SC-003**, on the ground that `duplicate-canonical-ref` is unreachable from descriptor
+input **by construction** — which is a design property worth recording, not a coverage
+hole. Fourteen of fifteen through the full assembled pipeline plus one at the stage
+kernel discharges SC-003; T078 is checked on that basis.
+
+Nothing about the *evidence* changed with that decision, and the claim is deliberately
+not upgraded: this remains a synthetic identity set at a stage kernel, and is still not
+presented as corpus-derived.
+
+What did change is that the unreachability is now **executable** rather than prose. The
+test `that one is unreachable from descriptor input BY CONSTRUCTION, not by omission`
+asserts the construction itself — `canonicalize` yields `allRefs` of exactly
+`[canonicalId]`, so two descriptors' `allRefs` can only intersect when their
+`canonicalId`s are equal, and `checkGlobalUniqueness` therefore reaches
+`duplicate-canonical-id` first. It also exercises that consequence directly.
+
+That assertion was **observed failing** — Case 6 below.
+
+---
+
+## Case 6 — `allRefs` gains a second member
+
+Input: [`case-6-allrefs-gains-a-second-member.patch`](./case-6-allrefs-gains-a-second-member.patch) ·
+Output: [`case-6-allrefs-gains-a-second-member.observed.txt`](./case-6-allrefs-gains-a-second-member.observed.txt)
+
+**Task**: T078 · **Observed**: 2026-08-05, Phase G ·
+**Command**: `bun test test/sc-003-all-triggers.test.ts`
+
+`identity/canonicalize.ts` was changed to emit a second, derived ref alongside the
+canonical id — the exact change that would make `duplicate-canonical-ref`
+descriptor-reachable and invalidate the section above. Exactly one test failed:
+
+```
+(fail) T078 / SC-003 — every one of the fifteen was observed > that one is unreachable from descriptor input BY CONSTRUCTION, not by omission
+
+error: expect(received).toEqual(expected)
+
+  [
+    "component:default/billing",
++   "component:default/billing-legacy",
+  ]
+```
+
+The failure is precise: 21 of 22 tests still pass, so the assertion is discriminating
+the construction rather than being tripped by incidental breakage. Restored: 22 pass,
+0 fail.
+
 ---
 
 ## Case 1 — collapsing `duplicate-yaml-key` into `invalid-yaml-syntax`

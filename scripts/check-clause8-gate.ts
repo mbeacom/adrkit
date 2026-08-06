@@ -1,0 +1,377 @@
+/**
+ * T098 / FR-060 — the ADR-0020 **clause-8 executable CI gate**, tied to clause 5.
+ *
+ * # The gate is this file, and it is NOT ADR-0020's frontmatter assertion
+ *
+ * ADR-0020 carries an assertion, `catalog-adapter-accept-path-needs-annotated-real-corpus`,
+ * which states clause 5 in full. It is declared `engine: custom`, that engine resolves
+ * through an optional registry port, **no port is registered**, and the evaluator
+ * therefore returns `status: 'inert'` with `reason: 'assertions-compile.engine-absent'`.
+ * It never fails, and it never can.
+ *
+ * Clause 8 says so itself: *"The frontmatter assertion on this record is **currently
+ * inert** and must not be mistaken for enforcement … It records the rule; it does not
+ * enforce it. Enforcement is a CI check tied to release, and like every other gate here
+ * it counts as coverage only once it has been watched failing."*
+ *
+ * So this gate cites the assertion as the **rule it compiles from**, never as the thing
+ * doing the enforcing. It reads the evidence tree directly.
+ *
+ * # What "tied to release" means here, given clause 9 defers release
+ *
+ * Clause 9 defers both the release vehicle and the decision to release at all. A gate
+ * that concluded "clause 5 is met, therefore release" would be preparing a release this
+ * repository is not authorized to prepare.
+ *
+ * The assertion's own form avoids that. It is a **prohibition**: the adapter *may not be
+ * released, and may not claim ADR-0014 rung 2, until* clause 5's evidence exists. A
+ * prohibition is violated in exactly two ways, and the gate checks both:
+ *
+ * - **A.** Clause 5's evidence is incomplete, absent, or FAILing; or
+ * - **B.** Something claims release or rung 2.
+ *
+ * Neither is true today: the evidence is complete and PASSing, and nothing claims either.
+ * The gate passes for that reason — not because it has authorized anything. Should the
+ * evidence rot **or** should a release/rung-2 claim appear, it fails.
+ *
+ * # Requirement-by-requirement, against the assertion's own text
+ *
+ * Every check below names the clause-5 sentence it enforces. A gate whose checks cannot
+ * be traced back to the rule is a gate nobody can audit for completeness.
+ *
+ * Run: `bun run check:clause8`
+ *
+ * @see `docs/adr/0020-rescope-sc-010-and-authorize-work-toward-the-backstage-catalog-adapter.md` clauses 5, 8, 9
+ */
+
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+export const REPO_ROOT = join(import.meta.dir, '..');
+const EVIDENCE = 'specs/010-catalog-backstage/evidence';
+const CORPUS = 'specs/010-catalog-backstage/corpus';
+
+export const ADR_0020 =
+  'docs/adr/0020-rescope-sc-010-and-authorize-work-toward-the-backstage-catalog-adapter.md';
+
+/** The assertion id clause 8 designates as the rule this gate compiles from. */
+export const ASSERTION_ID = 'catalog-adapter-accept-path-needs-annotated-real-corpus';
+
+export interface Finding {
+  /** Which clause-5 requirement, in the assertion's own words. */
+  readonly requirement: string;
+  readonly reason: string;
+}
+
+function readJson(repoRoot: string, relative: string): unknown {
+  const path = join(repoRoot, relative);
+  if (!existsSync(path)) return undefined;
+  return JSON.parse(readFileSync(path, 'utf8')) as unknown;
+}
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+/**
+ * Limb A — clause 5's evidence is complete and PASSing.
+ *
+ * Each check quotes the requirement it enforces so the mapping is auditable.
+ */
+function checkClause5Evidence(repoRoot: string): Finding[] {
+  const findings: Finding[] = [];
+
+  const stepA = record(readJson(repoRoot, `${EVIDENCE}/frozen-expectations/audit-record.json`));
+  const adequacy = record(readJson(repoRoot, `${EVIDENCE}/accept-corpus-freeze/adequacy-audit.json`));
+  const freeze = record(readJson(repoRoot, `${EVIDENCE}/accept-corpus-freeze/accept-corpus-freeze.json`));
+  const stepB = record(readJson(repoRoot, `${EVIDENCE}/comparison/step-b-record.json`));
+  const unchanged = record(readJson(repoRoot, `${EVIDENCE}/comparison/expectations-unchanged.json`));
+  const vendor = record(readJson(repoRoot, `${CORPUS}/VENDOR-MANIFEST.json`));
+
+  // "Two distinct steps are required, each recording its own hashes and its own PASS/FAIL."
+  const R_TWO_STEPS = 'two distinct steps, each recording its own hashes and its own PASS/FAIL';
+
+  if (stepA === undefined) {
+    findings.push({ requirement: R_TWO_STEPS, reason: 'step (a): the pre-output audit record is absent' });
+  } else if (stepA['overallVerdictThisRecord'] !== 'PASS') {
+    findings.push({
+      requirement: R_TWO_STEPS,
+      reason: `step (a): audit verdict is ${JSON.stringify(stepA['overallVerdictThisRecord'])}, not "PASS"`,
+    });
+  }
+
+  if (stepB === undefined) {
+    findings.push({ requirement: R_TWO_STEPS, reason: 'step (b): the post-output comparison record is absent' });
+  } else {
+    if (stepB['verdict'] !== 'PASS') {
+      findings.push({
+        requirement: R_TWO_STEPS,
+        reason: `step (b): comparison verdict is ${JSON.stringify(stepB['verdict'])}, not "PASS"`,
+      });
+    }
+    // "Neither may inherit the other's verdict." (FR-057, restating clause 5.)
+    if (stepB['inheritsFromStepA'] !== false) {
+      findings.push({
+        requirement: R_TWO_STEPS,
+        reason: 'step (b) does not record `inheritsFromStepA: false`, so the two steps are not distinct',
+      });
+    }
+    const ownHashes = record(stepB['ownHashes']);
+    if (ownHashes === undefined) {
+      findings.push({ requirement: R_TWO_STEPS, reason: 'step (b) records no hashes of its own' });
+    }
+
+    // "the corpus, its overlay, its expected path matches … are frozen … before any
+    // generator output is produced" — step (b) recomputes them rather than trusting them.
+    const recomputed = record(stepB['recomputedFrozenHashes']);
+    for (const [artifact, value] of Object.entries(recomputed ?? {})) {
+      const entry = record(value);
+      if (entry?.['match'] !== true) {
+        findings.push({
+          requirement: 'the frozen artifacts still hash to what was frozen',
+          reason: `step (b) recomputed ${artifact} and it did not match`,
+        });
+      }
+    }
+  }
+
+  // "A populated envelope alone does not satisfy this, because a digest proves integrity
+  // and not correctness." — so BOTH are required: populated, and diffed to zero/zero.
+  const counts = record(stepB?.['counts']);
+  const envelopeEntities = counts?.['envelopeEntities'];
+  if (typeof envelopeEntities !== 'number' || envelopeEntities <= 0) {
+    findings.push({
+      requirement: 'a populated, digest-verified SnapshotEnvelope',
+      reason: `step (b) records ${JSON.stringify(envelopeEntities)} envelope entities; a populated envelope has at least one`,
+    });
+  }
+  const digest = record(stepB?.['ownHashes'])?.['envelopeDigest'];
+  if (typeof digest !== 'string' || !/^[0-9a-f]{64}$/u.test(digest)) {
+    findings.push({
+      requirement: 'a populated, digest-verified SnapshotEnvelope',
+      reason: 'step (b) records no sha256 envelope digest',
+    });
+  }
+
+  // "must match with zero false positives and zero false negatives; any mismatch fails
+  // this assertion"
+  const R_ZERO = 'zero false positives and zero false negatives';
+  for (const key of ['falsePositives', 'falseNegatives'] as const) {
+    const value = counts?.[key];
+    if (value !== 0) {
+      findings.push({ requirement: R_ZERO, reason: `step (b) records ${key} = ${JSON.stringify(value)}` });
+    }
+  }
+
+  // "the expectations are never amended to fit the output"
+  if (unchanged === undefined) {
+    findings.push({
+      requirement: 'the expectations are never amended to fit the output',
+      reason: 'no expectations-unchanged record exists',
+    });
+  } else if (unchanged['allUnchanged'] !== true) {
+    findings.push({
+      requirement: 'the expectations are never amended to fit the output',
+      reason: 'expectations-unchanged records at least one changed artifact',
+    });
+  }
+
+  // "descriptors are real and third-party-sourced — authored upstream and otherwise
+  // unmodified"
+  const R_UPSTREAM = 'descriptors real and third-party-sourced, authored upstream and otherwise unmodified';
+  const freezeRef = record(freeze?.['corpusRef']);
+  const vendorRef = record(vendor?.['corpusRef']);
+  if (vendor === undefined) {
+    findings.push({ requirement: R_UPSTREAM, reason: 'the vendored corpus manifest is absent' });
+  } else if (
+    freezeRef?.['repository'] !== vendorRef?.['repository'] ||
+    freezeRef?.['commit'] !== vendorRef?.['commit']
+  ) {
+    findings.push({
+      requirement: R_UPSTREAM,
+      reason: 'the vendored corpus and the freeze name different upstream refs',
+    });
+  }
+  if (typeof vendor?.['fileCount'] === 'number' && vendor['fileCount'] !== freeze?.['size']) {
+    findings.push({
+      requirement: R_UPSTREAM,
+      reason: `the vendored corpus holds ${String(vendor['fileCount'])} files but the freeze records size ${String(freeze?.['size'])}`,
+    });
+  }
+
+  // "That corpus must carry at least one non-empty adrkit.io/owned-paths annotation."
+  // "A corpus in which every entity is annotation-absent does not satisfy it either."
+  const overlay = freeze?.['overlay'];
+  const overlayEntries = Array.isArray(overlay) ? overlay : [];
+  const nonEmpty = overlayEntries.filter((entry) => {
+    const value = record(entry)?.['annotationValue'];
+    return typeof value === 'string' && value.trim() !== '' && value.trim() !== '[]';
+  });
+  if (nonEmpty.length === 0) {
+    findings.push({
+      requirement: 'at least one non-empty adrkit.io/owned-paths annotation',
+      reason: 'the freeze carries no overlay entry with a non-empty annotation value',
+    });
+  }
+
+  // "that audit must record an explicit finding that the corpus is adequate for the claim
+  // being made; an audit that passes on integrity without reaching adequacy does not
+  // satisfy this clause."
+  const R_ADEQUACY = 'an explicit auditor finding that the corpus is adequate';
+  if (adequacy === undefined) {
+    findings.push({ requirement: R_ADEQUACY, reason: 'no adequacy-audit record exists' });
+  } else {
+    const finding = record(adequacy['requirement3_adequacyFinding']);
+    if (finding === undefined) {
+      findings.push({
+        requirement: R_ADEQUACY,
+        reason: 'the audit records integrity only; it never reaches an adequacy finding',
+      });
+    } else if (JSON.stringify(finding).toLowerCase().includes('"verdict":"fail"')) {
+      findings.push({ requirement: R_ADEQUACY, reason: 'the adequacy finding is FAIL' });
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Words that make a claim of release or of rung 2, as opposed to denying or forbidding
+ * one.
+ *
+ * The negations must be treated as conformant — "**not** released", "may not claim rung
+ * 2" — because the most honest possible phrasing of this feature's status contains those
+ * exact terms. Matching bare occurrence would fail the documentation being most careful
+ * and reward saying nothing. Same rule as T100's honesty close-out.
+ */
+export const RELEASE_CLAIM_PATTERNS: readonly { readonly id: string; readonly pattern: RegExp }[] = [
+  {
+    id: 'claims-released',
+    pattern:
+      /(?<!not\s)(?<!never\s)\b(?:is|was|has\s+been|will\s+be)\s+(?:now\s+)?(?:published|released)\s+(?:to|on)\s+npm\b/iu,
+  },
+  {
+    id: 'claims-rung-2',
+    pattern: /\bthis\s+(?:package|adapter|feature)\s+is\s+reference-verified\b/iu,
+  },
+  {
+    id: 'schedules-a-release',
+    pattern: /\brelease\s+(?:is\s+)?scheduled\s+for\b/iu,
+  },
+];
+
+/** Limb B — nothing claims release or ADR-0014 rung 2. */
+function checkNoReleaseClaim(repoRoot: string): Finding[] {
+  const findings: Finding[] = [];
+  const targets = [
+    'packages/adapters/catalog-backstage/package.json',
+    'packages/catalog-envelope/package.json',
+  ];
+
+  for (const relative of targets) {
+    const path = join(repoRoot, relative);
+    if (!existsSync(path)) continue;
+    const manifest = JSON.parse(readFileSync(path, 'utf8')) as {
+      version?: string;
+      private?: boolean;
+    };
+    // Version 0.0.0 is how both packages state "not released" structurally rather than
+    // in prose. A real version here would be a release having been prepared.
+    if (manifest.version !== '0.0.0') {
+      findings.push({
+        requirement: 'the adapter may not be released until clause 5 is met (clause 9 defers it regardless)',
+        reason: `${relative} declares version ${String(manifest.version)}; clause 9 defers release, so 0.0.0 is the only honest value`,
+      });
+    }
+  }
+
+  // Neither package may be in the release set.
+  const releasePack = join(repoRoot, 'scripts', 'release-pack.ts');
+  if (existsSync(releasePack)) {
+    const source = readFileSync(releasePack, 'utf8');
+    const releaseSet = /RELEASE_PACKAGES[^=]*=\s*\[([\s\S]*?)\]/u.exec(source)?.[1] ?? '';
+    for (const name of ['@adrkit/catalog-backstage', '@adrkit/catalog-envelope']) {
+      if (releaseSet.includes(name)) {
+        findings.push({
+          requirement: 'no release is scheduled, implied, or prepared (clause 9)',
+          reason: `${name} appears in RELEASE_PACKAGES`,
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * The gate must not cite the inert assertion as enforcement.
+ *
+ * Checked rather than merely intended: if a future edit registered an engine and made the
+ * assertion live, the *description* here would go stale, and clause 8's whole point is
+ * that the distinction between recording a rule and enforcing it stays legible.
+ */
+function checkAssertionStillInert(repoRoot: string): Finding[] {
+  const findings: Finding[] = [];
+  const path = join(repoRoot, ADR_0020);
+  if (!existsSync(path)) {
+    return [{ requirement: 'clause 8 compiles from ADR-0020', reason: `${ADR_0020} is absent` }];
+  }
+
+  const text = readFileSync(path, 'utf8');
+  if (!text.includes(ASSERTION_ID)) {
+    findings.push({
+      requirement: 'clause 8 compiles from ADR-0020',
+      reason: `ADR-0020 no longer carries the assertion ${ASSERTION_ID}`,
+    });
+  }
+  if (!/^\s*engine:\s*custom\s*$/mu.test(text)) {
+    findings.push({
+      requirement: "clause 8's assertion is inert and this gate is the enforcement",
+      reason:
+        "ADR-0020's assertion no longer declares `engine: custom`. If an engine is now registered, " +
+        'the assertion may be live — revisit clause 8 rather than leaving this gate describing it as inert.',
+    });
+  }
+  return findings;
+}
+
+export function checkClause8Gate(repoRoot: string = REPO_ROOT): Finding[] {
+  return [
+    ...checkClause5Evidence(repoRoot),
+    ...checkNoReleaseClaim(repoRoot),
+    ...checkAssertionStillInert(repoRoot),
+  ];
+}
+
+function main(): number {
+  const findings = checkClause8Gate();
+
+  if (findings.length > 0) {
+    console.error('check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.');
+    for (const finding of findings) {
+      console.error(`  [${finding.requirement}]`);
+      console.error(`    ${finding.reason}`);
+    }
+    console.error(
+      '\n  This gate is the enforcement clause 8 requires. ADR-0020\u2019s own frontmatter assertion is ' +
+        "inert (engine: custom, no port registered \u2192 status 'inert', reason " +
+        "'assertions-compile.engine-absent') and records the rule without enforcing it.",
+    );
+    return 1;
+  }
+
+  console.log('check-clause8-gate: ok');
+  console.log('  clause 5: two distinct steps, both PASS, step (b) inheriting nothing from step (a)');
+  console.log('  clause 5: populated digest-verified envelope, 0 false positives / 0 false negatives');
+  console.log('  clause 5: expectations unchanged; corpus upstream-authored at the pinned commit');
+  console.log('  clause 5: at least one non-empty owned-paths annotation; adequacy finding recorded');
+  console.log('  clause 9: no release claimed, scheduled, or prepared; both packages at 0.0.0');
+  console.log(
+    `  clause 8: enforcement is THIS check. ADR-0020\u2019s assertion ${ASSERTION_ID} is inert and is not cited as enforcement.`,
+  );
+  return 0;
+}
+
+if (import.meta.main) process.exit(main());

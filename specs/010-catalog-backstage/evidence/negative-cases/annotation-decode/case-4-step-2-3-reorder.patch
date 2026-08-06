@@ -1,0 +1,53 @@
+--- /tmp/annotation.ts.bak	2026-08-05 22:00:39
++++ src/ownership/annotation.ts	2026-08-05 22:00:40
+@@ -142,26 +142,11 @@
+   // Step 1 — presence.
+   if (!present) return { ok: true, value: { diagnostics: ABSENT, patterns: undefined } };
+ 
+-  // Step 2 — string-scalar check on the raw node, BEFORE any JSON.parse.
+-  if (typeof rawNode !== 'string') {
+-    return reject(
+-      'annotation-value-not-a-string',
+-      {
+-        annotationPresent: true,
+-        rawNodeIsString: false,
+-        jsonParseOutcome: 'not-a-string',
+-        shapeOutcome: undefined,
+-        rejectionReason: 'annotation-value-not-a-string',
+-      },
+-      `${OWNED_PATHS_ANNOTATION} must be a YAML string scalar; observed ${describe(rawNode)}. ` +
+-        'It was not passed to JSON.parse, which would have coerced it via ToString.',
+-    );
+-  }
+-
+-  // Step 3 — JSON decode. Only a present string scalar reaches this line.
++  // REORDER EXPERIMENT (T062): step 3 moved BEFORE step 2. Diagnostics deliberately
++  // left reporting 'not-a-string' so the reason and the record both look unchanged.
+   let decoded: unknown;
+   try {
+-    decoded = JSON.parse(rawNode) as unknown;
++    decoded = JSON.parse(rawNode as string) as unknown;
+   } catch (error) {
+     return reject(
+       'parse-error',
+@@ -176,6 +161,20 @@
+     );
+   }
+ 
++  if (typeof rawNode !== 'string') {
++    return reject(
++      'annotation-value-not-a-string',
++      {
++        annotationPresent: true,
++        rawNodeIsString: false,
++        jsonParseOutcome: 'not-a-string',
++        shapeOutcome: undefined,
++        rejectionReason: 'annotation-value-not-a-string',
++      },
++      `${OWNED_PATHS_ANNOTATION} must be a YAML string scalar; observed ${describe(rawNode)}.`,
++    );
++  }
++
+   // Step 4 — shape. Exactly `array<string>`; nothing is ever coerced.
+   const shapeFailure = describeShapeFailure(decoded);
+   if (shapeFailure !== undefined) {

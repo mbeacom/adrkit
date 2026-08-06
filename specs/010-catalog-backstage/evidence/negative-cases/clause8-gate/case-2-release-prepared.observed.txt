@@ -1,0 +1,7 @@
+$ bun run check:clause8   # the adapter has been given a real version
+check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.
+  [the adapter may not be released until clause 5 is met (clause 9 defers it regardless)]
+    packages/adapters/catalog-backstage/package.json declares version 0.1.0; clause 9 defers release, so 0.0.0 is the only honest value
+
+  This gate is the enforcement clause 8 requires. ADR-0020’s own frontmatter assertion is inert (engine: custom, no port registered → status 'inert', reason 'assertions-compile.engine-absent') and records the rule without enforcing it.
+exit=1

@@ -1,0 +1,9 @@
+$ bun run check:clause8   # restored
+check-clause8-gate: ok
+  clause 5: two distinct steps, both PASS, step (b) inheriting nothing from step (a)
+  clause 5: populated digest-verified envelope, 0 false positives / 0 false negatives
+  clause 5: expectations unchanged; corpus upstream-authored at the pinned commit
+  clause 5: at least one non-empty owned-paths annotation; adequacy finding recorded
+  clause 9: no release claimed, scheduled, or prepared; both packages at 0.0.0
+  clause 8: enforcement is THIS check. ADR-0020’s assertion catalog-adapter-accept-path-needs-annotated-real-corpus is inert and is not cited as enforcement.
+exit=0

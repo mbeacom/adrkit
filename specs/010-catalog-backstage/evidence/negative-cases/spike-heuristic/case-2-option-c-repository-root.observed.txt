@@ -1,0 +1,6 @@
+$ bun run check:no-spike-heuristics   # option C reintroduced as a `**` fallback
+check-no-spike-heuristics: FAIL — a spike-009 B/C/D comparison heuristic appears in scope.
+  packages/adapters/catalog-backstage/src/ownership/derive.ts
+    [option C] repository-root-fallback: matched "['**']"
+    a `**` default is option C: candidate paths = the entire repository
+exit=1

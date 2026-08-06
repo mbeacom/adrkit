@@ -1,0 +1,6 @@
+$ bun test scripts/check-observed-failing-register.test.ts   # restored
+
+ 221 pass
+ 0 fail
+ 301 expect() calls
+Ran 221 tests across 1 file. [22.00ms]

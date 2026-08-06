@@ -1,0 +1,38 @@
+bun test v1.3.14 (0d9b296a)
+
+test/sc-006.test.ts:
+(pass) SC-006 — the step/reason map > three steps produce a rejection reason of their own [0.03ms]
+(pass) SC-006 — the step/reason map > step 1 has no rejection — absence is a state, not an error [0.06ms]
+(pass) SC-006 — the step/reason map > step 5 delegates its reasons to the glob dialect [0.26ms]
+(pass) SC-006 — each step, violated in isolation, produces its own reason > step 2 — string-scalar check on the raw node [0.03ms]
+(pass) SC-006 — each step, violated in isolation, produces its own reason > step 3 — JSON decode [0.03ms]
+(pass) SC-006 — each step, violated in isolation, produces its own reason > step 4 — shape: exactly array<string>
+(pass) SC-006 — each step, violated in isolation, produces its own reason > the three reasons are mutually distinct [0.02ms]
+(pass) SC-006 — each step, violated in isolation, produces its own reason > each fixture violates exactly one step — the earlier ones all pass [0.02ms]
+(pass) SC-006 — the string-scalar check runs BEFORE any JSON parse > the diagnostics record shows the parse was never reached [0.02ms]
+(pass) SC-006 — the string-scalar check runs BEFORE any JSON parse > a sequence that would parse cleanly still reports step 2
+143 |     // skipped — `explicit-empty`, `parse-error`, `wrong-shape`, `wrong-shape`. That
+144 |     // they all report step 2 is what shows the ordering rather than a coincidence.
+145 |     const result = decodeAnnotation(true, node);
+146 |     expect(result.ok).toBe(false);
+147 |     if (result.ok) return;
+148 |     expect(result.rejection.reason).toBe(expected);
+                                          ^
+error: expect(received).toBe(expected)
+
+Expected: "annotation-value-not-a-string"
+Received: "parse-error"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/sc-006.test.ts:148:37)
+(fail) SC-006 — the string-scalar check runs BEFORE any JSON parse > a mapping that would fail to parse still reports step 2 [0.12ms]
+(pass) SC-006 — the string-scalar check runs BEFORE any JSON parse > a number that would parse to a number still reports step 2
+(pass) SC-006 — the string-scalar check runs BEFORE any JSON parse > a boolean that would parse to a boolean still reports step 2
+(pass) SC-006 — the string-scalar check runs BEFORE any JSON parse > the misclassification step 2 prevents is named, and does not happen [0.01ms]
+(pass) SC-006 — the ordering is not reversible > a valid annotation still passes every step in order [0.02ms]
+(pass) SC-006 — the ordering is not reversible > an absent annotation records no downstream step outcome at all
+(pass) SC-006 — the ordering is not reversible > step 5 is unreachable until steps 1–4 succeed [0.30ms]
+
+ 16 pass
+ 1 fail
+ 43 expect() calls
+Ran 17 tests across 1 file. [49.00ms]

@@ -10,6 +10,18 @@ permissions:
 
 jobs:
   clean-clone-builds:
+    # T093 / FR-050 — a clean clone builds, typechecks, lints and tests green with both
+    # feature-010 packages present, and **network access is permitted only during
+    # `bun install --frozen-lockfile`**.
+    #
+    # The second half is enforced, not merely intended. Every step after the install runs
+    # through `scripts/run-network-denied.ts`, which proves a qualifying denial mechanism
+    # actually denies *in this environment* before it runs anything, and fails closed if
+    # none can be proved. See `specs/009-catalog-binding-viability/contracts/
+    # scale-and-security-measurement.md` §5, cited at its original location.
+    #
+    # A bare `unshare --net` prefix was rejected: if it silently stopped denying, this job
+    # would keep passing and the guarantee would be gone with nothing to notice.
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -20,30 +32,39 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
           bun-version: 1.3.14
+      # The ONLY step permitted to use the network.
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Typecheck
-        run: bun run typecheck
-      - name: Build
-        run: bun run build
-      - name: Verify publishable package tarballs
-        run: bun run release:pack -- --skip-build --skip-smoke-install
-      - name: Lint
-        run: bun run lint
-      - name: Test (includes resolution-is-pure)
-        run: bun test
-      - name: Verify schema emit matches
-        run: bun run schema:emit && git diff --exit-code schema/adr.schema.json
+      # Asserted before anything is built: a green build that silently skipped both new
+      # packages would look identical to one that included them.
+      - name: Verify both feature-010 packages are present in this clone
+        run: bun scripts/check-clean-clone.ts
+      - name: Typecheck (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run typecheck
+      - name: Build (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run build
+      - name: Verify publishable package tarballs (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run release:pack -- --skip-build --skip-smoke-install
+      - name: Lint (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run lint
+      - name: Test (network denied; includes resolution-is-pure)
+        run: bun scripts/run-network-denied.ts -- bun test
+      - name: Verify schema emit matches (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run schema:emit && git diff --exit-code schema/adr.schema.json
       - name: Verify committed Action bundle matches source
         run: git diff --exit-code packages/ci/dist
       - name: Verify dependency boundaries (adapters + toolkit confinement)
-        run: bun run check:deps
+        run: bun scripts/run-network-denied.ts -- bun run check:deps
       - name: Verify frozen oracle hashes match (feature 010 Barrier B, R5 mechanism 2)
-        run: bun run check:freeze-hashes
-      - name: Verify published docs pin the current CLI release
-        run: bun run check:doc-pins
-      - name: Lint ADR corpus
-        run: bun run adr lint
+        run: bun scripts/run-network-denied.ts -- bun run check:freeze-hashes
+      - name: Verify published docs pin the current CLI release (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run check:doc-pins
+      - name: Verify the ADR-0020 clause-8 gate (clause 5 evidence is present and PASSing)
+        run: bun scripts/run-network-denied.ts -- bun run check:clause8
+      - name: Verify no spike-009 B/C/D comparison heuristic is present (FR-061)
+        run: bun scripts/run-network-denied.ts -- bun run check:no-spike-heuristics
+      - name: Lint ADR corpus (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run adr lint
 
   node-smoke-built-artifacts:
     runs-on: ubuntu-latest

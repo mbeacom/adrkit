@@ -1,0 +1,19 @@
+--- /tmp/derive.bak	2026-08-05 22:28:41
++++ packages/adapters/catalog-backstage/src/ownership/derive.ts	2026-08-05 22:28:41
+@@ -75,11 +75,16 @@
+  * `compiler` is the per-run compiler. Passing the same one across every entity in a
+  * run is what gives FR-032 its "once per run" rather than "once per entity".
+  */
++import { dirname } from 'node:path';
++
+ export function deriveOwnership(
+   present: boolean,
+   rawNode: unknown,
+   compiler: GlobCompiler = createGlobCompiler(),
++  sourcePath?: string,
+ ): OwnershipDerivation {
++  const descriptorParent = sourcePath === undefined ? undefined : [`${dirname(sourcePath)}/**`];
++  void descriptorParent;
+   // Steps 1–4.
+   const decoded = decodeAnnotation(present, rawNode);
+   if (!decoded.ok) {
