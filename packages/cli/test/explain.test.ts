@@ -94,10 +94,16 @@ describe('adr explain CLI', () => {
       ),
     );
 
-    const result = await runAdr(['explain', 'README.md', '--dir', dir]);
+    // A path that no pattern matches *and* that does not exist, so the run reports both
+    // facts separately: nothing governs it, and nothing was scanned for inbound markers.
+    const result = await runAdr(['explain', 'docs/nowhere.md', '--dir', dir]);
 
     expect(result).toEqual({
-      stdout: 'No decision governs README.md.\n',
+      stdout: [
+        'No decision governs docs/nowhere.md.',
+        'Note: docs/nowhere.md is not a file in this working tree; no @adr markers were scanned.',
+        '',
+      ].join('\n'),
       stderr: '',
       exitCode: 0,
     });
@@ -169,6 +175,9 @@ describe('adr explain CLI', () => {
       governing: [core, specific],
       activeProposals: [],
       history: [],
+      // Both records were reached by pattern only, so neither carries `declaredBy`, and
+      // the scan reports honestly that this path is not a file it could read.
+      markers: { state: 'absent', windowBytes: 8192, truncated: false, declared: [] },
       findings: [],
     });
   });

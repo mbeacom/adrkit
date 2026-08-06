@@ -1,7 +1,13 @@
+// @adr 0021 — this file carries the inbound-edge field but is not a *defining* file of
+// that decision, so ADR-0021's `affects` patterns deliberately do not name it. This is
+// the case the marker exists for, dogfooded on adrkit's own corpus.
 import type { Adr, Status } from '../schema/adr.schema.ts';
 import { resolveAffects, type AffectsMatch, type FiredMatcher, type ResolutionSnapshots } from '../affects/index.ts';
 import { decisionBucketFor, type DecisionBucket } from '../status/bucket.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
+// Type-only, and `markers/types.ts` carries no runtime code, so this adds nothing to
+// the committed `packages/ci/dist` bundle that the Action never calls.
+import type { MarkerDeclaration } from '../markers/types.ts';
 
 /**
  * The full result of `lintCorpus` — records, findings, and the checked count.
@@ -27,7 +33,14 @@ export interface GoverningDecision {
   bucket: DecisionBucket;
   /** The successor, when this record was superseded. Lets a reader follow the chain. */
   supersededBy?: string;
+  /** The record's own `affects` matchers that fired against the path — the outbound edge. */
   firedMatchers: FiredMatcher[];
+  /**
+   * The source files that declared this record with an `@adr` marker — the inbound
+   * edge. Absent, rather than empty, when nothing declared it, so a consumer written
+   * against the pre-marker shape sees byte-identical output (ADR-0021).
+   */
+  declaredBy?: MarkerDeclaration[];
 }
 
 /**

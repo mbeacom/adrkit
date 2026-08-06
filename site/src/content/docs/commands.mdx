@@ -86,14 +86,81 @@ unreachable corpus directory).
 
 Report which decisions govern one repo-relative path, and why.
 
+A decision reaches a path in two directions, and `explain` keeps them apart:
+
+```
+Decisions governing src/services/sync/retry.ts:
+  0009  [accepted] Resolve affects deterministically
+    via path: src/services/sync/**
+  0012  [accepted] Bind catalog entities to owned paths
+    declared by src/services/sync/retry.ts:3 (@adr 0012)
+```
+
+`via` is the **record** reaching out through its own `affects` pattern.
+`declared by` is the **file** reaching in with an `@adr` marker — see
+[inbound `@adr` markers](#inbound-adr-markers) below.
+
 | Option | Meaning |
 |---|---|
 | `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
-| `--json` | Emit `{ path, governedBy, governing, activeProposals, history, findings }` |
+| `--json` | Emit `{ path, governedBy, governing, activeProposals, history, markers, findings }` |
 | `--help` | Show help and exit |
 
 **Exit codes:** `0` explained · `1` corpus has error findings · `2` usage error
 (invalid invocation or unreachable corpus directory).
+
+### Inbound `@adr` markers
+
+A record declares the paths it governs with `affects`. That pattern has to be
+broad enough to cover a subsystem, and breadth is what costs an agent context.
+An inbound marker lets `affects` stay narrow: any other file opts in with one
+line, at zero cost until something reads that file.
+
+```ts
+// @adr 0012
+export function syncOnce() { … }
+```
+
+- **The grammar** is `@adr` followed by whitespace and an ADR id (`0012`, or
+  `payments:0012` for a federated log). A comma continues a list —
+  `@adr 0012, 0013`. A bare space ends it, so `@adr 0012 1234567` is one
+  declaration followed by a number, not two declarations.
+- **Any language.** adrkit does not parse your file. A marker counts when one of
+  `//`, `/*`, `*`, `#`, `--`, `;`, `%`, `<!--`, `"""`, `'''` appears earlier on
+  the same line. The trade-off is honest: `log("// @adr 0012")` inside a string
+  reads as a marker, and a marker on a bare continuation line inside a
+  `/* … */` block does not.
+- **Only the first 8192 bytes** of a file are scanned. A marker is a claim that
+  the file lives under a decision; a mention far down the file is prose about
+  that decision.
+- **Nothing enters the record.** The edge is discovered when you run `explain`.
+  There is no schema change and no new `affects` matcher type
+  ([ADR-0021](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
+
+A marker naming a record the corpus does not have is a `dangling-marker`
+finding at `warn`. A log-qualified marker is `marker-unresolvable` at `info` —
+inert against this corpus, not broken. Neither changes the exit code.
+
+The `--json` output reports what was actually scanned, so an empty result never
+has to be guessed at:
+
+```json
+"markers": {
+  "state": "scanned",
+  "windowBytes": 8192,
+  "truncated": false,
+  "declared": [{ "ref": "0012", "line": 3 }]
+}
+```
+
+`state` is `scanned`, `absent` (no such file), or `unreadable`. `truncated` is
+`true` when the file is longer than the header window, so a marker below it was
+never seen. In `governedBy`, a pattern match carries `firedMatchers` and a file
+declaration carries `declaredBy`; `declaredBy` is omitted entirely when nothing
+declared the record.
+
+`adr check` and the CI Action do **not** scan markers — that is a separate
+decision, because it changes what CI enforces.
 
 ## adr check
 
