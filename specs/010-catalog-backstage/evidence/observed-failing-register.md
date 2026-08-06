@@ -148,11 +148,11 @@ phases and were closed here on their merits; see §3.
 
 ---
 
-## 3. Three checks whose first failing observation found a real defect
+## 3. Seven defects this phase found — four by observation, three by review
 
-Recorded because they are the argument for ADR-0016 rather than illustrations of it. In
-each, the defect lived on a path that **only a failing run ever executes**, so no amount of
-green runs would have surfaced it.
+Recorded because they are the argument for ADR-0016 rather than illustrations of it. In the
+first four, the defect lived on a path that **only a failing run ever executes**, so no
+amount of green runs would have surfaced it.
 
 1. **`run()` crashed instead of rejecting a candidate.** `Bun.spawn` throws `ENOENT` for a
    missing executable rather than returning a non-zero exit. On the first negative run of
@@ -185,6 +185,38 @@ green runs would have surfaced it.
    This one was found only because T093's clean-clone verification was actually performed
    against a fresh clone rather than assumed from the working tree, where `node_modules`
    and prior state would have masked nothing but the arrangement was never exercised.
+
+5. **`commandFromArgv` discarded the command whenever the command itself contained `--`.**
+   Bun strips only the **first** `--`, so scanning the whole argv for a separator mistook
+   the command's own arguments for it. The CI step
+   `run-network-denied.ts -- bun run release:pack -- --skip-build --skip-smoke-install`
+   reduced to `['--skip-build','--skip-smoke-install']`: `bun run release:pack` never ran,
+   and the tarball verification the step exists for was silently replaced. Not a
+   fail-open — denial was still proved first — but the step's stated work did not happen.
+   Only a leading separator is honoured now, and an inner one is a covered case.
+
+6. **Three silent-absence holes in the clause-8 gate**, each of the shape the gate was
+   written to close:
+
+   | Field | Absent / empty behaviour before | Now |
+   |---|---|---|
+   | `recomputedFrozenHashes` | `Object.entries(undefined ?? {})` iterates zero times → requirement satisfied | absent, `{}`, an array, or a missing artifact is a finding |
+   | `requirement3_adequacyFinding` | `{}` is a defined object and is not literally `FAIL` → satisfied | an affirmative `ADEQUATE` verdict is required |
+   | `corpusRef` on **both** sides | `undefined !== undefined` is `false` → the two "agree" | the freeze must record a non-empty repository and commit |
+
+   Each was reachable only by mutating the evidence tree in a way the original test suite
+   did not cover, and each is now a named case in `check-clause8-gate.test.ts`.
+
+7. **A self-satisfying assertion.** `offline-run.test.ts` read its own source and asserted
+   it contained the env literal `{ PATH: …, HOME: … }` — a needle that appeared in the
+   assertion line itself, so the match could never fail and a credential added to the env
+   would not have been caught. The property is genuinely bound from `sc-016.test.ts`, which
+   reads the file from outside it; the in-file assertion now inspects every `env:` literal
+   for credential-shaped names instead of searching for its own text.
+
+Findings 5–7 came from an independent adversarial review of this phase's diff rather than
+from running the checks, which is why they are listed separately from 1–4 above: the first
+four were found by observing failures, these three by someone reading for them.
 
 ---
 

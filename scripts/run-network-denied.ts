@@ -212,19 +212,24 @@ export async function proveDenial(
 }
 
 /**
- * The command to run: everything after a literal `--`, or all of `argv` when there is
- * none.
+ * The command to run: everything after a **leading** `--`, or all of `argv`.
  *
- * Both forms are accepted because **Bun removes the `--` before the script sees it**.
- * Invoked as `bun scripts/run-network-denied.ts -- bun test`, `process.argv.slice(2)` is
- * `['bun', 'test']`, not `['--', 'bun', 'test']`. Requiring the separator would therefore
- * reject the documented invocation, which is how this was found. The separator is still
- * honoured when present so the script behaves the same if run under a launcher that
- * preserves it.
+ * Both forms are accepted because **Bun removes the first `--` before the script sees
+ * it**. Invoked as `bun scripts/run-network-denied.ts -- bun test`, `process.argv.slice(2)`
+ * is `['bun', 'test']`, not `['--', 'bun', 'test']`. Requiring the separator would
+ * therefore reject the documented invocation, which is how that was found.
+ *
+ * **Only a leading separator counts.** Bun strips the *first* `--` and passes any later
+ * one through, so scanning the whole array for a separator mistakes the command's own
+ * arguments for it. `bun scripts/run-network-denied.ts -- bun run release:pack --
+ * --skip-build` arrives as `['bun','run','release:pack','--','--skip-build']`, and an
+ * `indexOf` would return `['--skip-build']` — silently discarding `bun run release:pack`
+ * and running garbage in its place. That is exactly the CI invocation at
+ * `.github/workflows/ci.yml`, so the bug would have replaced the tarball verification with
+ * a no-op that still exited non-zero for an unrelated reason.
  */
 export function commandFromArgv(argv: readonly string[]): readonly string[] {
-  const separator = argv.indexOf('--');
-  return separator === -1 ? [...argv] : argv.slice(separator + 1);
+  return argv[0] === '--' ? argv.slice(1) : [...argv];
 }
 
 async function main(): Promise<number> {

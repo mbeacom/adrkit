@@ -125,14 +125,38 @@ function checkClause5Evidence(repoRoot: string): Finding[] {
 
     // "the corpus, its overlay, its expected path matches … are frozen … before any
     // generator output is produced" — step (b) recomputes them rather than trusting them.
+    //
+    // An absent, empty, or non-object `recomputedFrozenHashes` must be a finding, not a
+    // silent pass. `Object.entries(undefined ?? {})` iterates zero times, so a record that
+    // never recomputed anything would otherwise satisfy this requirement identically to
+    // one that recomputed and matched — exactly the silent-absence class this gate exists
+    // to close.
+    const R_HASHES = 'the frozen artifacts still hash to what was frozen';
+    const REQUIRED_FROZEN = [
+      'frozen-expectations/frozen-expectation-set.json',
+      'accept-corpus-freeze/accept-corpus-freeze.json',
+    ];
     const recomputed = record(stepB['recomputedFrozenHashes']);
-    for (const [artifact, value] of Object.entries(recomputed ?? {})) {
-      const entry = record(value);
-      if (entry?.['match'] !== true) {
-        findings.push({
-          requirement: 'the frozen artifacts still hash to what was frozen',
-          reason: `step (b) recomputed ${artifact} and it did not match`,
-        });
+
+    if (recomputed === undefined || Object.keys(recomputed).length === 0) {
+      findings.push({
+        requirement: R_HASHES,
+        reason: 'step (b) records no recomputed frozen hashes, so it never checked the freeze',
+      });
+    } else {
+      for (const artifact of REQUIRED_FROZEN) {
+        if (!Object.hasOwn(recomputed, artifact)) {
+          findings.push({ requirement: R_HASHES, reason: `step (b) did not recompute ${artifact}` });
+        }
+      }
+      for (const [artifact, value] of Object.entries(recomputed)) {
+        const entry = record(value);
+        if (entry?.['match'] !== true) {
+          findings.push({
+            requirement: R_HASHES,
+            reason: `step (b) recomputed ${artifact} and it did not match`,
+          });
+        }
       }
     }
   }
@@ -186,8 +210,21 @@ function checkClause5Evidence(repoRoot: string): Finding[] {
   if (vendor === undefined) {
     findings.push({ requirement: R_UPSTREAM, reason: 'the vendored corpus manifest is absent' });
   } else if (
-    freezeRef?.['repository'] !== vendorRef?.['repository'] ||
-    freezeRef?.['commit'] !== vendorRef?.['commit']
+    typeof freezeRef?.['repository'] !== 'string' ||
+    typeof freezeRef['commit'] !== 'string' ||
+    freezeRef['repository'] === '' ||
+    freezeRef['commit'] === ''
+  ) {
+    // Both sides missing a `corpusRef` compares `undefined !== undefined`, which is
+    // false — so the gate would conclude the two agree on an upstream ref that neither
+    // records. The ref has to exist before agreeing about it means anything.
+    findings.push({
+      requirement: R_UPSTREAM,
+      reason: 'the freeze records no upstream repository and commit for the corpus',
+    });
+  } else if (
+    freezeRef['repository'] !== vendorRef?.['repository'] ||
+    freezeRef['commit'] !== vendorRef['commit']
   ) {
     findings.push({
       requirement: R_UPSTREAM,
@@ -224,13 +261,26 @@ function checkClause5Evidence(repoRoot: string): Finding[] {
     findings.push({ requirement: R_ADEQUACY, reason: 'no adequacy-audit record exists' });
   } else {
     const finding = record(adequacy['requirement3_adequacyFinding']);
+    const verdict = finding?.['finding'];
+
     if (finding === undefined) {
       findings.push({
         requirement: R_ADEQUACY,
         reason: 'the audit records integrity only; it never reaches an adequacy finding',
       });
-    } else if (JSON.stringify(finding).toLowerCase().includes('"verdict":"fail"')) {
-      findings.push({ requirement: R_ADEQUACY, reason: 'the adequacy finding is FAIL' });
+    } else if (typeof verdict !== 'string' || verdict.trim() === '') {
+      // An empty finding object is not an explicit finding. Treating "not literally FAIL"
+      // as adequate would let `{}` satisfy the clause the code quotes above, which
+      // requires a finding *that the corpus is adequate* — an affirmative statement.
+      findings.push({
+        requirement: R_ADEQUACY,
+        reason: 'the adequacy finding carries no verdict, so no adequacy judgement was recorded',
+      });
+    } else if (!/\bADEQUATE\b/u.test(verdict) || /\b(?:NOT|IN)ADEQUATE\b/iu.test(verdict)) {
+      findings.push({
+        requirement: R_ADEQUACY,
+        reason: `the adequacy finding does not affirm adequacy: ${JSON.stringify(verdict).slice(0, 120)}`,
+      });
     }
   }
 

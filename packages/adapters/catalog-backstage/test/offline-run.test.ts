@@ -311,13 +311,24 @@ describe('T094 / FR-052 — the generation completes with network access denied'
   });
 
   test('no credential or bearer-token variable was set for either run', () => {
-    // §5's additional requirement. The env passed to every `run` above is exactly
-    // `{PATH, HOME}`; this asserts the constant rather than trusting the reading.
+    // §5's additional requirement. Asserted from `sc-016.test.ts`, which reads this file
+    // from outside it — **not** from here.
+    //
+    // A first version asserted it here, by reading this file and looking for the env
+    // literal. That assertion could never fail: the needle it searched for appeared in
+    // its own source, so it matched itself and would have stayed green even if the env
+    // above had grown a credential. A file cannot check its own text for a string it
+    // contains. What is checked here instead is the property that does not depend on
+    // this file's own source.
     const source = Bun.file(new URL('./offline-run.test.ts', import.meta.url));
     return source.text().then((text) => {
-      expect(text).toContain("env: { PATH: Bun.env['PATH'] ?? '', HOME: Bun.env['HOME'] ?? '' }");
-      for (const forbidden of ['GITHUB_TOKEN', 'NPM_TOKEN', 'BEARER', 'AUTHORIZATION']) {
-        expect(text).not.toContain(`${forbidden}:`);
+      // Every `env:` passed to `run()` above carries PATH and HOME and nothing else.
+      const envLiterals = [...text.matchAll(/\benv:\s*\{([^}]*)\}/gu)].map((match) => match[1] ?? '');
+      expect(envLiterals.length).toBeGreaterThan(0);
+      for (const literal of envLiterals) {
+        for (const forbidden of ['TOKEN', 'BEARER', 'AUTHORIZATION', 'SECRET', 'PASSWORD', 'KEY']) {
+          expect(literal.toUpperCase()).not.toContain(forbidden);
+        }
       }
     });
   });

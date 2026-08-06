@@ -145,9 +145,51 @@ describe('limb A — clause 5\u2019s evidence is complete and PASSing', () => {
     );
   });
 
+  test.each([
+    ['absent', undefined],
+    ['an empty object', {}],
+    ['an array', []],
+  ] as const)('recomputed frozen hashes %s fails rather than passing silently', async (_label, replacement) => {
+    // The silent-absence class this gate exists to close. `Object.entries(undefined ?? {})`
+    // iterates zero times, so a record that never recomputed anything would otherwise
+    // satisfy this requirement identically to one that recomputed and matched.
+    await mutateJson(`${EVIDENCE}/comparison/step-b-record.json`, (value) => {
+      if (replacement === undefined) delete value['recomputedFrozenHashes'];
+      else value['recomputedFrozenHashes'] = replacement;
+    });
+    expect(requirements(checkClause8Gate(sandbox))).toContain(
+      'the frozen artifacts still hash to what was frozen',
+    );
+  });
+
+  test('recomputing only one of the two frozen artifacts fails', async () => {
+    await mutateJson(`${EVIDENCE}/comparison/step-b-record.json`, (value) => {
+      const hashes = value['recomputedFrozenHashes'] as Record<string, unknown>;
+      delete hashes['accept-corpus-freeze/accept-corpus-freeze.json'];
+    });
+    expect(requirements(checkClause8Gate(sandbox))).toContain(
+      'the frozen artifacts still hash to what was frozen',
+    );
+  });
+
   test('a corpus at a different upstream ref than the freeze fails', async () => {
     await mutateJson(`${CORPUS}/VENDOR-MANIFEST.json`, (value) => {
       (value['corpusRef'] as Record<string, unknown>)['commit'] = '0'.repeat(40);
+    });
+    expect(requirements(checkClause8Gate(sandbox))).toContain(
+      'descriptors real and third-party-sourced, authored upstream and otherwise unmodified',
+    );
+  });
+
+  test('BOTH sides missing an upstream ref fails, rather than trivially agreeing', async () => {
+    // `undefined !== undefined` is false, so a comparison alone concludes the two agree on
+    // a ref that neither records. Deleting it from one side was already caught; deleting
+    // it from both was not.
+    await mutateJson(`${CORPUS}/VENDOR-MANIFEST.json`, (value) => {
+      delete value['corpusRef'];
+    });
+    await mutateJson(`${EVIDENCE}/accept-corpus-freeze/accept-corpus-freeze.json`, (value) => {
+      delete value['corpusRef'];
     });
     expect(requirements(checkClause8Gate(sandbox))).toContain(
       'descriptors real and third-party-sourced, authored upstream and otherwise unmodified',
@@ -174,6 +216,21 @@ describe('limb A — clause 5\u2019s evidence is complete and PASSing', () => {
     // clause."
     await mutateJson(`${EVIDENCE}/accept-corpus-freeze/adequacy-audit.json`, (value) => {
       delete value['requirement3_adequacyFinding'];
+    });
+    expect(requirements(checkClause8Gate(sandbox))).toContain(
+      'an explicit auditor finding that the corpus is adequate',
+    );
+  });
+
+  test.each([
+    ['an empty finding object', {}],
+    ['a finding with no verdict', { reasoning: 'we looked at it' }],
+    ['a finding that does not affirm adequacy', { finding: 'INADEQUATE for the claim' }],
+  ] as const)('%s fails, because "not FAIL" is not the same as adequate', async (_label, replacement) => {
+    // The clause requires a finding *that the corpus is adequate* — an affirmative
+    // statement. A check that only rejected a literal FAIL would let `{}` through.
+    await mutateJson(`${EVIDENCE}/accept-corpus-freeze/adequacy-audit.json`, (value) => {
+      value['requirement3_adequacyFinding'] = replacement;
     });
     expect(requirements(checkClause8Gate(sandbox))).toContain(
       'an explicit auditor finding that the corpus is adequate',

@@ -60,6 +60,26 @@ describe('commandFromArgv', () => {
     expect(commandFromArgv(['bun', 'test'])).toEqual(['bun', 'test']);
   });
 
+  test('an INNER separator belongs to the command and is passed through', () => {
+    // Bun strips only the *first* `--`. Scanning the whole array for one mistakes the
+    // command's own arguments for the separator: this exact CI invocation would have
+    // been reduced to `['--skip-build', '--skip-smoke-install']`, silently dropping
+    // `bun run release:pack` and replacing the tarball verification with garbage.
+    expect(
+      commandFromArgv(['bun', 'run', 'release:pack', '--', '--skip-build', '--skip-smoke-install']),
+    ).toEqual(['bun', 'run', 'release:pack', '--', '--skip-build', '--skip-smoke-install']);
+  });
+
+  test('a leading separator is consumed, but a later one still is not', () => {
+    expect(commandFromArgv(['--', 'bun', 'run', 'x', '--', '--flag'])).toEqual([
+      'bun',
+      'run',
+      'x',
+      '--',
+      '--flag',
+    ]);
+  });
+
   test('an empty argv yields an empty command, which main() treats as a usage error', () => {
     expect(commandFromArgv([])).toEqual([]);
   });

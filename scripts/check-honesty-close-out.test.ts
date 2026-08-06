@@ -247,11 +247,29 @@ function listStem(text: string, index: number): string | undefined {
  * quotes its own observed output, which contains `"matched": "is reference-verified"`, and
  * the rules fired on the evidence *for* the rules. A document that records a violation is
  * not committing one.
+ *
+ * Fences are counted by **opening/closing pairs of the same marker**, not by raw parity of
+ * every backtick line. Naive parity is fragile: a four-backtick fence, or a `~~~` fence,
+ * flips the count and would suppress every rule for the rest of the file — turning a
+ * formatting choice into a silent hole in the check.
  */
 function inFencedBlock(text: string, index: number): boolean {
   const before = text.slice(0, index);
-  const fences = before.match(/^[ \t]*```/gmu);
-  return fences !== null && fences.length % 2 === 1;
+  let open: string | undefined;
+
+  for (const line of before.split('\n')) {
+    const fence = /^[ \t]*(`{3,}|~{3,})/u.exec(line)?.[1];
+    if (fence === undefined) continue;
+
+    if (open === undefined) {
+      open = fence[0] as string;
+      continue;
+    }
+    // A fence closes only with the same marker character.
+    if (fence.startsWith(open)) open = undefined;
+  }
+
+  return open !== undefined;
 }
 
 /**
