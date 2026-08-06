@@ -1,0 +1,37 @@
+# T093 — clean-clone verification, performed 2026-08-05
+
+Clone: fresh `git clone` into /tmp, no node_modules, HEAD 37b89b4
+Host: Darwin arm64 · Bun 1.3.14
+
+$ bun install --frozen-lockfile          # the ONLY networked step
+
+Checked 58 installs across 56 packages (no changes) [2.00ms]
+
+$ bun run check:clean-clone
+check-clean-clone: ok @adrkit/catalog-backstage (packages/adapters/catalog-backstage, 31 src + 51 test modules)
+check-clean-clone: ok @adrkit/catalog-envelope (packages/catalog-envelope, 7 src + 11 test modules)
+
+$ bun scripts/run-network-denied.ts -- bun run typecheck
+run-network-denied: mechanism = sandbox-exec network-deny profile
+run-network-denied: configuration = sandbox-exec -p '(version 1)(allow default)(deny network*)'
+run-network-denied: control unsandboxed = CONNECTED:200
+run-network-denied: control sandboxed  = DENIED:Was there a typo in the url or port?
+run-network-denied: running: bun run typecheck
+
+$ bun scripts/run-network-denied.ts -- bun run build
+@adrkit/catalog-envelope build: $ tsc --noEmit --customConditions bun --project ../../tsconfig.json
+@adrkit/catalog-backstage build: $ tsc --noEmit --customConditions bun --project ../../../tsconfig.json
+@adrkit/catalog-envelope build: Exited with code 0
+@adrkit/catalog-backstage build: Exited with code 0
+
+$ bun test
+ 2136 pass
+ 0 fail
+ 7518 expect() calls
+Ran 2136 tests across 166 files. [12.78s]
+
+$ bun scripts/run-network-denied.ts -- bun scripts/compare-accept-corpus.ts
+compare-accept-corpus: PASS — 24 expected entities, 0 false positive(s), 0 false negative(s), 0 other mismatch(es)
+
+$ bun scripts/run-network-denied.ts -- bun run adr lint
+checked 20 records, 0 errors, 0 warnings

@@ -72,6 +72,31 @@ concluding anything from its passing.
 
 ---
 
+## The verification itself
+
+Output: [`clean-clone-verification.observed.txt`](./clean-clone-verification.observed.txt)
+
+Performed 2026-08-05 against a **genuinely fresh `git clone`** into `/tmp` with no
+`node_modules` — not against the working tree, where prior state would have masked whether
+the arrangement worked at all. That distinction is what turned up case 3 below.
+
+| Step | Network | Result |
+|---|---|---|
+| `bun install --frozen-lockfile` | **permitted** — the only step | ok |
+| `check:clean-clone` | denied | both packages present, 31+51 and 7+11 modules |
+| `typecheck` | denied | clean |
+| `build` | denied | both new packages built, exit 0 |
+| `lint` | denied | clean |
+| `bun test` | see case 3 | **2136 pass, 0 fail** |
+| `check:deps`, `check:freeze-hashes`, `check:clause8`, `check:no-spike-heuristics` | denied | all ok |
+| `compare-accept-corpus` | denied | **PASS — 24 expected, 0 FP, 0 FN** |
+| `adr lint` | denied | 20 records, 0 errors, 0 warnings |
+
+Every denied step printed its proof first — `control unsandboxed = CONNECTED:200`,
+`control sandboxed = DENIED` — so none of those greens rests on an unverified sandbox.
+
+---
+
 ## Restored
 
 [`restored.observed.txt`](./restored.observed.txt) — `check-clean-clone: ok` for both

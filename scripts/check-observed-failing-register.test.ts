@@ -90,6 +90,10 @@ const CODE_CONSTANT_SOURCES: Readonly<Record<string, { readonly file: string; re
  */
 const DELIBERATE_PASS_CAPTURES: Readonly<Record<string, readonly string[]>> = {
   'honesty-close-out': ['case-2-the-same-terms-as-denials.observed.txt'],
+  // T093's positive verification: a full clean-clone run, all green. It is the
+  // evidence FOR the claim, not a failing observation, and lives beside the three
+  // failing cases in the same directory.
+  'clean-clone-offline': ['clean-clone-verification.observed.txt'],
 };
 
 function files(directory: string): string[] {
