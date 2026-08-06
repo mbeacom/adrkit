@@ -1,0 +1,11 @@
+--- /tmp/sb2.bak	2026-08-05 22:22:50
++++ specs/010-catalog-backstage/evidence/comparison/step-b-record.json	2026-08-05 22:22:50
+@@ -7,7 +7,7 @@
+   ],
+   "step": "ADR-0020 clause 5 step (b) — post-output comparison",
+   "verdict": "PASS",
+-  "inheritsFromStepA": false,
++  "inheritsFromStepA": true,
+   "whyItInheritsNothing": "FR-057: \"The pre-output freeze/audit (FR-053, FR-054) and the post-output comparison (FR-056) MUST be recorded as two distinct steps, each recording its own hashes and its own PASS/FAIL. Neither may inherit the other’s verdict.\" Step (a)’s PASS is not evidence for this one, and this one’s PASS is not evidence that step (a) was right — it is evidence that the generator agrees with what step (a) froze.",
+   "recomputedFrozenHashes": {
+     "frozen-expectations/frozen-expectation-set.json": {

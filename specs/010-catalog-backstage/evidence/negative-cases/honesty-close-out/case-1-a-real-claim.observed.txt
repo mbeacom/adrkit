@@ -1,0 +1,21 @@
+$ bun test scripts/check-honesty-close-out.test.ts   # a REAL CLAIM added to the close-out
++     "assertion": "i",
++     "matched": "is reference-verified",
++     "path": "specs/010-catalog-backstage/evidence/honesty-close-out.md",
++     "ruleId": "rung-2-claim",
++     "assertion": "ii",
++     "matched": "is published to npm",
++     "path": "specs/010-catalog-backstage/evidence/honesty-close-out.md",
++     "ruleId": "release-claim",
++     "assertion": "i",
++     "matched": "is reference-verified",
++     "path": "specs/010-catalog-backstage/evidence/honesty-close-out.md",
++     "ruleId": "rung-2-claim",
++     "assertion": "ii",
++     "matched": "is published to npm",
++     "path": "specs/010-catalog-backstage/evidence/honesty-close-out.md",
++     "ruleId": "release-claim",
+(fail) T100 — the six assertions, over every artifact this feature produced > (i)–(vi): no artifact makes any of the forbidden claims [40.22ms]
+(fail) T100 — the six assertions, over every artifact this feature produced > (i)–(vi): no artifact makes any of the forbidden claims [40.22ms]
+ 34 pass
+ 1 fail

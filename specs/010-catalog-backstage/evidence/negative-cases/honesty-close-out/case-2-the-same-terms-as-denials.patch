@@ -1,0 +1,14 @@
+--- /tmp/hco2.bak	2026-08-05 22:50:04
++++ specs/010-catalog-backstage/evidence/honesty-close-out.md	2026-08-05 22:50:04
+@@ -201,6 +201,11 @@
+ 
+ ## 8. What this feature is, stated once, plainly
+ 
++The adapter is not reference-verified on rungs 1-2 and is not published to npm.
++Nothing here is externally validated, and no release is scheduled for any version.
++It is not third-party validation, and no claim is made that Backstage would ingest anything.
++
++
+ Feature 010 built an offline Backstage catalog descriptor → ownership generator and an
+ independent envelope consumer, and produced rung-1 evidence for both. It closed ADR-0020
+ clause 5's two steps with a `PASS` at zero false positives and zero false negatives over a

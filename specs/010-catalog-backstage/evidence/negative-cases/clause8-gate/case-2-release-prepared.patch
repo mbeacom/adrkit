@@ -1,0 +1,10 @@
+--- /tmp/pkg.bak	2026-08-05 22:22:42
++++ packages/adapters/catalog-backstage/package.json	2026-08-05 22:22:42
+@@ -1,6 +1,6 @@
+ {
+   "name": "@adrkit/catalog-backstage",
+-  "version": "0.0.0",
++  "version": "0.1.0",
+   "description": "Standalone offline generator that reads Backstage catalog descriptors named by one explicit local manifest and writes one versioned snapshot envelope.",
+   "type": "module",
+   "license": "Apache-2.0",

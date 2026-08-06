@@ -1,0 +1,11 @@
+--- /tmp/reg2.bak	2026-08-05 22:40:44
++++ specs/010-catalog-backstage/evidence/observed-failing-register.md	2026-08-05 22:40:44
+@@ -113,7 +113,7 @@
+ | T071 | whole-operation atomicity | `whole-operation-atomicity/` | recorded in that README |
+ | T074 | the fifteen trigger classes | `triggers/` cases 1–5 | one per case, recorded in that README |
+ | **T078** | `duplicate-canonical-ref` is unreachable **by construction** | `triggers/` **case 6** | `Expected: ["component:default/billing"] / Received: [..., "component:default/billing-legacy"]` |
+-| T083 | byte-identical output across runs | `determinism/` | recorded in that README |
++| T083 | byte-identical output across runs | `determinism-and-ordering/` | recorded in that README |
+ | **T086** | SC-009 limb 2 over the frozen accept corpus | `sc-009-limb-2/` | `Expected: "PASS" / Received: "FAIL"`; `Expected: >= 4 / Received: 0` |
+ 
+ **T078 and T086 are Phase G additions.** Both tasks were left honestly unchecked by earlier

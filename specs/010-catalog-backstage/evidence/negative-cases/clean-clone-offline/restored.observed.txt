@@ -1,0 +1,13 @@
+$ bun run check:clean-clone   # restored
+check-clean-clone: ok @adrkit/catalog-backstage (packages/adapters/catalog-backstage, 31 src + 51 test modules)
+check-clean-clone: ok @adrkit/catalog-envelope (packages/catalog-envelope, 7 src + 11 test modules)
+exit=0
+
+$ bun scripts/run-network-denied.ts -- bun -e "console.log(1)"   # restored
+run-network-denied: mechanism = sandbox-exec network-deny profile
+run-network-denied: configuration = sandbox-exec -p '(version 1)(allow default)(deny network*)'
+run-network-denied: control unsandboxed = CONNECTED:200
+run-network-denied: control sandboxed  = DENIED:Was there a typo in the url or port?
+run-network-denied: running: bun -e console.log(1)
+1
+exit=0

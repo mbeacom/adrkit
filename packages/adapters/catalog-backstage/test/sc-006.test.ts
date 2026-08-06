@@ -183,6 +183,34 @@ describe('SC-006 — the ordering is not reversible', () => {
     });
   });
 
+  test('a reason-preserving reorder of steps 2 and 3 is still caught', () => {
+    // T062 requires the ordering be asserted, not just the reasons — a swap of
+    // steps 2 and 3 that *preserves* every reason must still fail. It is possible
+    // to build one: with the parse first, `['[]']` is coerced by ToString to
+    // `'[]'`, parses cleanly, and then still fails the string check with step 2's
+    // reason. The reason survives the reorder; the discriminating input is one
+    // whose ToString does **not** parse.
+    //
+    // A YAML mapping is that input. `String({a: 1})` is `'[object Object]'`, which
+    // throws in `JSON.parse`. So it yields step 2's reason under the correct order
+    // and step 3's under the reversed one — the observation recorded at
+    // `<EVIDENCE>/negative-cases/annotation-decode/case-4-step-2-3-reorder.*`,
+    // where the reorder was applied with the diagnostics left deliberately
+    // unchanged and this assertion was the one that caught it.
+    const mapping = decodeAnnotation(true, { a: 1 });
+    expect(mapping.ok).toBe(false);
+    if (mapping.ok) return;
+    expect(mapping.rejection.reason).toBe('annotation-value-not-a-string');
+    expect(mapping.rejection.reason).not.toBe('parse-error');
+
+    // The same input under a sequence, whose ToString *does* parse — so this one
+    // alone could not have distinguished the two orders.
+    const sequence = decodeAnnotation(true, ['[]']);
+    expect(sequence.ok).toBe(false);
+    if (sequence.ok) return;
+    expect(sequence.rejection.reason).toBe('annotation-value-not-a-string');
+  });
+
   test('step 5 is unreachable until steps 1\u20134 succeed', () => {
     // The decode module has no access to the glob validator, so it *cannot* have
     // validated a pattern early — structural, not a matter of call order.

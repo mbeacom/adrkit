@@ -1,0 +1,9 @@
+$ bun test scripts/check-observed-failing-register.test.ts   # a row naming a directory that does not exist
+- []
+(fail) the register maps to the tree, in both directions > every directory on disk appears in the register [0.13ms]
+- []
+(fail) the register maps to the tree, in both directions > every directory the register names exists on disk [0.20ms]
+(fail) every retained case is a real one > observed-failing-register carries a README [0.04ms]
+(fail) every retained case is a real one > observed-failing-register shows the restored pass, or is an isolated artifact [0.04ms]
+(fail) every retained case is a real one > observed-failing-register restored capture shows a pass [0.04ms]
+(fail) the register maps to the tree, in both directions > every directory on disk appears in the register [0.13ms]

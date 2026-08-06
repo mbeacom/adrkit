@@ -1,0 +1,18 @@
+$ bun scripts/run-network-denied.ts -- bun test   # the whole suite wrapped in total denial
+
+error: Failed to start server. Is port 0 in use?
+    code: "EADDRINUSE"
+(fail) (unnamed) [0.62ms]
+(fail) (unnamed) [0.13ms]
+error: Failed to start server. Is port 0 in use?
+    code: "EADDRINUSE"
+(fail) (unnamed) [0.25ms]
+(pass) T049 — `validateApiVersion` > the prefix is a DNS subdomain, so uppercase and underscores fail
+
+  ...and the totals:
+   2116 pass
+   3 fail
+
+The three failures are all `Bun.serve({ port: 0, hostname: "127.0.0.1" })` in the
+files whose job is to PROVE the denial: scripts/run-network-denied.test.ts and
+packages/adapters/catalog-backstage/test/offline-run.test.ts (plus its afterAll).

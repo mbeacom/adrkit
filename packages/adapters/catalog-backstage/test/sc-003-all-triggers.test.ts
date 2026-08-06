@@ -47,6 +47,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { TRIGGER_CLASSES } from '../src/diagnostics.ts';
 import type { TriggerClass } from '../src/diagnostics.ts';
 import { checkGlobalUniqueness } from '../src/identity/uniqueness.ts';
+import { canonicalize } from '../src/identity/canonicalize.ts';
 import { runGeneration } from '../src/pipeline.ts';
 import type { AtomicFailureRecord } from '../src/failure/abort.ts';
 import {
@@ -416,5 +417,41 @@ describe('T078 / SC-003 — every one of the fifteen was observed', () => {
     const record = OBSERVED_TRIGGERS.get('duplicate-canonical-ref');
     expect(record?.stage).toBe('canonicalization');
     expect(record?.sourcePath).toBeUndefined();
+  });
+
+  test('that one is unreachable from descriptor input BY CONSTRUCTION, not by omission', () => {
+    // Maintainer decision, 2026-08-05 (Phase G): the kernel-level exercise above is
+    // accepted as sufficient for SC-003, because the class is unreachable end-to-end
+    // by construction. That is a design property worth recording, not a coverage
+    // hole — so the property itself is asserted here rather than described in prose.
+    //
+    // The construction is `canonicalize` populating `allRefs` as exactly
+    // `[canonicalId]`. Given that, two descriptors' `allRefs` can only intersect if
+    // their `canonicalId`s are equal, and `checkGlobalUniqueness` reaches
+    // `duplicate-canonical-id` first. There is no descriptor pair that reaches the
+    // ref collision.
+    //
+    // If `allRefs` ever gains a second member, this fails — and the right response is
+    // to drive the class through the full pipeline, not to relax this assertion.
+    for (const fields of [
+      { kind: 'Component', namespace: 'Default', name: 'Billing', namespacePresent: true },
+      { kind: 'component', namespace: undefined, name: 'billing-legacy', namespacePresent: false },
+      { kind: 'API', namespace: 'payments', name: 'Ledger-V2', namespacePresent: true },
+    ]) {
+      const identity = canonicalize({ fields } as Parameters<typeof canonicalize>[0]);
+      expect(identity.allRefs).toEqual([identity.canonicalId]);
+      expect(identity.allRefs).toHaveLength(1);
+    }
+
+    // And the consequence, exercised: two descriptors that canonicalize alike collide
+    // as `duplicate-canonical-id`, never as `duplicate-canonical-ref`.
+    const alike = checkGlobalUniqueness([
+      { canonicalId: 'component:default/billing', allRefs: ['component:default/billing'] },
+      { canonicalId: 'component:default/billing', allRefs: ['component:default/billing'] },
+    ]);
+    expect(alike.ok).toBe(false);
+    if (alike.ok) return;
+    expect(alike.rejection.triggerClass).toBe('duplicate-canonical-id');
+    expect(alike.rejection.triggerClass).not.toBe('duplicate-canonical-ref');
   });
 });
