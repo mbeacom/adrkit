@@ -77,7 +77,55 @@ concluding anything from its passing.
 [`restored.observed.txt`](./restored.observed.txt) — `check-clean-clone: ok` for both
 packages, and the denial runner proving `CONNECTED` → `DENIED` and executing its command.
 
-## What the CI job does with this
+---
+
+## Case 3 — wrapping the whole suite in total denial is self-contradictory
+
+Output: [`case-3-suite-wrapped-in-total-denial.observed.txt`](./case-3-suite-wrapped-in-total-denial.observed.txt)
+
+This one has no patch, because it was not a deliberate mutation. It is what happened when
+the clean-clone verification actually ran `bun scripts/run-network-denied.ts -- bun test`
+against a fresh clone — the arrangement the CI job originally used.
+
+```
+error: Failed to start server. Is port 0 in use?
+    code: "EADDRINUSE"
+(fail) (unnamed)
+ 2116 pass
+ 3 fail
+```
+
+All three failures are `Bun.serve({ port: 0, hostname: '127.0.0.1' })` — in
+`scripts/run-network-denied.test.ts` and `offline-run.test.ts`, **the two files whose job
+is to prove the denial**. Their two-sided control needs a loopback listener, and a
+total-denial sandbox correctly refuses to bind one.
+
+The conflict is real rather than incidental. A control that proves denial has to touch the
+network boundary; running it inside an ambient denial denies the control that establishes
+the denial. Three responses were possible:
+
+1. **Skip those tests under denial.** Rejected — §5 makes fail-closed a constraint on the
+   environment, and a skip converts an unsatisfied constraint into a green run. It is also
+   what `sc-016.test.ts` asserts the suite does not do.
+2. **Loosen the profile to permit loopback while denying egress.** This is what
+   `unshare --net` with `lo` up already gives on Linux, and it is the semantically correct
+   reading of "network denied" — no route off the host. But the two-sided control then
+   needs an *external* endpoint to prove egress is denied, which reintroduces the internet
+   dependency the loopback control was designed to remove. Rejected for the macOS profile;
+   the Linux candidates keep this shape because there the isolation is structural.
+3. **Do not wrap `bun test`** — chosen. Every other step is wrapped; `bun test` is not, and
+   the offline claim for the **generator** is discharged *inside* the suite by
+   `offline-run.test.ts`, which sandboxes its own generation run and proves the mechanism
+   denies before using it.
+
+**What that costs, stated plainly.** FR-050's second half is met in the form "no step
+requires network beyond `bun install --frozen-lockfile`, and every step that *can* run
+under a proved denial does" — rather than "every step runs under ambient denial". The one
+unwrapped step is the one whose own content proves the generator never reaches the network.
+That is a weaker statement than the original wording implies, and it is recorded here
+rather than left for a reader to discover from the workflow file.
+
+---## What the CI job does with this
 
 `.github/workflows/ci.yml`'s `clean-clone-builds` runs `check:clean-clone` immediately
 after the install, then routes **every** subsequent step through

@@ -131,6 +131,7 @@ phases and were closed here on their merits; see §3.
 |---|---|---|---|
 | T093 | `run-network-denied` fails closed with no provable mechanism | `clean-clone-offline/` case 1 | `FAIL-CLOSED — no qualifying denial mechanism could be proved here.` |
 | T093 | `check:clean-clone` — a package invisible to the build | `clean-clone-offline/` case 2 | `declares no "build" script, so the root --filter='*' run would skip it silently` |
+| T093 | wrapping the whole suite in total denial is self-contradictory | `clean-clone-offline/` case 3 | `Failed to start server. Is port 0 in use?` / `EADDRINUSE` |
 | T094 | the denial mechanism must actually deny | `network-denial/` case 1 | `did not deny: CONNECTED:200` |
 | T094 | no network call site in generator source (corroborating) | `network-denial/` case 2 | `"ruleId": "fetch-call"` |
 | T095 | the control must be two-sided | `sc-016-denial-not-absence/` case 1 | `Expected to contain: "expect(controlUnsandboxed).toStartWith('CONNECTED')"` |
@@ -171,6 +172,19 @@ green runs would have surfaced it.
    script sees it, so `bun scripts/run-network-denied.ts -- bun test` arrived without the
    separator and the script exited 2 with a usage error. Found by running it, not by
    reading it.
+
+4. **Wrapping the whole test suite in total denial denied the control that proves the
+   denial.** The `clean-clone-builds` job originally ran
+   `bun scripts/run-network-denied.ts -- bun test`. Against a genuinely fresh clone that
+   fails three tests with `Failed to start server. Is port 0 in use?` — all three being
+   `Bun.serve` calls in the two files whose job is to *prove* network denial. The conflict
+   is structural, not a bug: a two-sided control has to touch the network boundary. The job
+   no longer wraps `bun test`; the consequence for FR-050's wording is recorded at
+   §4.5 and at `negative-cases/clean-clone-offline/` case 3.
+
+   This one was found only because T093's clean-clone verification was actually performed
+   against a fresh clone rather than assumed from the working tree, where `node_modules`
+   and prior state would have masked nothing but the arrangement was never exercised.
 
 ---
 
@@ -241,6 +255,25 @@ It is **not resolved by guess here.** The consequence `plan.md` fixes and this r
 records: **gate 4 remains unmet and not yet testable regardless of this feature's outcome,
 and is recorded as unmet — never as passed, and never as failed.** Failed would imply it
 was tested; it was not, because it cannot yet be.
+
+### 4.5 FR-050's second half is met in a weaker form than its wording implies
+
+FR-050 asks that network access be permitted **only** during
+`bun install --frozen-lockfile`. Every step of `clean-clone-builds` is wrapped in
+`scripts/run-network-denied.ts` **except `bun test`**, which is not.
+
+The reason is structural and is recorded at `negative-cases/clean-clone-offline/` case 3:
+the suite contains the tests that *prove* network denial, and their two-sided control needs
+a loopback listener that a total-denial sandbox correctly refuses. Wrapping the suite
+denies the control that establishes the denial, and it was observed doing exactly that —
+three failures, all `Bun.serve`, on a genuinely fresh clone.
+
+So the honest statement of what holds is: **no step requires network beyond the install,
+and every step that can run under a proved denial does.** The one unwrapped step is the one
+whose own content proves the generator never reaches the network
+(`offline-run.test.ts` sandboxes its own generation run). That is weaker than "every step
+runs under ambient denial", and it is recorded here rather than left for a reader to infer
+from the workflow file.
 
 ---
 

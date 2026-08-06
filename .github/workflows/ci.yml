@@ -47,8 +47,16 @@ jobs:
         run: bun scripts/run-network-denied.ts -- bun run release:pack -- --skip-build --skip-smoke-install
       - name: Lint (network denied)
         run: bun scripts/run-network-denied.ts -- bun run lint
-      - name: Test (network denied; includes resolution-is-pure)
-        run: bun scripts/run-network-denied.ts -- bun test
+      # NOT wrapped, deliberately — see `<EVIDENCE>/negative-cases/clean-clone-offline/`.
+      # The suite contains the tests that *prove* network denial, and their two-sided
+      # control needs a loopback listener that a total-denial sandbox correctly refuses.
+      # Running them under ambient denial is self-contradictory: it would deny the control
+      # that establishes the denial. The offline claim for the generator is discharged
+      # inside this suite by `offline-run.test.ts`, which sandboxes its own generation run
+      # and proves the mechanism denies before using it. Observed: wrapping this step
+      # fails 3 tests with `Failed to start server`.
+      - name: Test (includes resolution-is-pure and the proved-denial generator run)
+        run: bun test
       - name: Verify schema emit matches (network denied)
         run: bun scripts/run-network-denied.ts -- bun run schema:emit && git diff --exit-code schema/adr.schema.json
       - name: Verify committed Action bundle matches source
