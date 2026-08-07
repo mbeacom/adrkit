@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { mkdir, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MARKER_HEADER_WINDOW_BYTES, readSourceMarkers, scanSourceMarkers } from '../src/markers/index.ts';
 import { cleanupTestDir, resetTestDir, writeText } from './helpers.ts';
 
 const DIR_NAME = 'core-markers-scan';
+/** A sibling of the scan root, so "outside the tree" is a real place on disk. */
+const OUTSIDE_DIR_NAME = 'core-markers-scan-outside';
 
 /** The marker line, so the straddle test can reason about its exact byte length. */
 const MARKER_LINE = '// @adr 0012';
@@ -14,6 +17,7 @@ function refsOf(source: string, path = 'src/sync.ts'): string[] {
 
 afterEach(async () => {
   await cleanupTestDir(DIR_NAME);
+  await cleanupTestDir(OUTSIDE_DIR_NAME);
 });
 
 describe('scanSourceMarkers — comment handling', () => {
@@ -155,4 +159,77 @@ describe('readSourceMarkers', () => {
     expect(scan.truncated).toBe(true);
     expect(scan.markers).toEqual([]);
   });
+});
+
+/**
+ * ADR-0021 says the read has "no traversal" in prose. Prose is not a check — the same
+ * gap `markers-purity.test.ts` closed for the purity claim. These are that check.
+ *
+ * The contract is the repo-relative path `resolveAffects` matches its globs against.
+ * An argument that leaves the tree is not a stricter version of that contract but a
+ * different one: the pattern half of `explain` can never match it, so the marker half
+ * must not answer for it either.
+ */
+describe('readSourceMarkers — the working tree is the boundary', () => {
+  test('refuses an absolute path, even one that points inside the tree', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, 'src/sync.ts'), '// @adr 0012\n');
+
+    expect(await readSourceMarkers(join(root, 'src/sync.ts'), root)).toEqual({
+      path: join(root, 'src/sync.ts'),
+      state: 'out-of-tree',
+      truncated: false,
+      markers: [],
+    });
+  });
+
+  test('refuses a relative path that climbs out of the tree', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const outside = await resetTestDir(OUTSIDE_DIR_NAME);
+    await writeText(join(outside, 'claim.ts'), '// @adr 0012\n');
+
+    const scan = await readSourceMarkers(`../${OUTSIDE_DIR_NAME}/claim.ts`, root);
+
+    expect([scan.state, scan.markers]).toEqual(['out-of-tree', []]);
+  });
+
+  test('refuses a symlink inside the tree whose target is outside it', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const outside = await resetTestDir(OUTSIDE_DIR_NAME);
+    await writeText(join(outside, 'claim.ts'), '// @adr 0012\n');
+    await mkdir(join(root, 'src'), { recursive: true });
+    await symlink(join(outside, 'claim.ts'), join(root, 'src/linked.ts'));
+
+    // The lexical path stays inside the tree; only the resolved one does not. Checking
+    // the argument without resolving it would report this file as governed.
+    const scan = await readSourceMarkers('src/linked.ts', root);
+
+    expect([scan.state, scan.markers]).toEqual(['out-of-tree', []]);
+  });
+
+  test('follows a symlink that stays inside the tree', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, 'src/sync.ts'), '// @adr 0012\n');
+    await symlink(join(root, 'src/sync.ts'), join(root, 'src/alias.ts'));
+
+    const scan = await readSourceMarkers('src/alias.ts', root);
+
+    expect([scan.state, scan.markers.map((marker) => marker.ref)]).toEqual(['scanned', ['0012']]);
+  });
+
+  test.skipIf(process.platform === 'win32')(
+    'reports a file that is not a regular file instead of blocking on it',
+    async () => {
+      const root = await resetTestDir(DIR_NAME);
+      await mkdir(join(root, 'src'), { recursive: true });
+      // A FIFO with no writer: a blocking open never returns, so a regression here
+      // hangs `adr explain` forever rather than reaching the advertised state. The
+      // test's own timeout is the assertion that it does not.
+      Bun.spawnSync(['mkfifo', join(root, 'src/pipe.ts')]);
+
+      const scan = await readSourceMarkers('src/pipe.ts', root);
+
+      expect([scan.state, scan.markers]).toEqual(['unreadable', []]);
+    },
+  );
 });

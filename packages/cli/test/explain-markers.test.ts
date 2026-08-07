@@ -4,6 +4,8 @@ import { acceptedRecordMarkdown, cleanupTestDir, resetTestDir, writeText } from 
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const DIR_NAME = 'cli-explain-markers';
+/** A sibling of the working tree, so "outside it" is a real place on disk. */
+const OUTSIDE_DIR_NAME = 'cli-explain-markers-outside';
 
 async function runAdr(args: string[], cwd: string) {
   const proc = Bun.spawn([process.execPath, CLI_PATH, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
@@ -37,6 +39,7 @@ async function corpus(root: string): Promise<void> {
 
 afterEach(async () => {
   await cleanupTestDir(DIR_NAME);
+  await cleanupTestDir(OUTSIDE_DIR_NAME);
 });
 
 describe('adr explain — inbound @adr markers', () => {
@@ -123,6 +126,31 @@ describe('adr explain — inbound @adr markers', () => {
     );
     expect(JSON.parse(json.stdout).markers).toEqual({
       state: 'absent',
+      windowBytes: 8192,
+      truncated: false,
+      declared: [],
+    });
+  });
+
+  test('refuses to answer for a path outside the working tree, and says why', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await corpus(root);
+    const outside = await resetTestDir(OUTSIDE_DIR_NAME);
+    await writeText(join(outside, 'claim.ts'), '// @adr 0002\n');
+    const escape = `../${OUTSIDE_DIR_NAME}/claim.ts`;
+
+    const human = await runAdr(['explain', escape, '--dir', 'docs/adr'], root);
+    const json = await runAdr(['explain', escape, '--dir', 'docs/adr', '--json'], root);
+
+    // The pattern half of `explain` can never match this path; without the boundary the
+    // marker half would answer for it, and 0002 would govern a file in another tree.
+    expect(human.exitCode).toBe(0);
+    expect(human.stdout).toContain(`No decision governs ${escape}.`);
+    expect(human.stdout).toContain(
+      `Note: ${escape} is not a repo-relative path inside this working tree; no @adr markers were scanned.`,
+    );
+    expect(JSON.parse(json.stdout).markers).toEqual({
+      state: 'out-of-tree',
       windowBytes: 8192,
       truncated: false,
       declared: [],

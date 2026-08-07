@@ -617,6 +617,9 @@ function renderMarkerScanNote(scan: SourceMarkerScan): string {
   if (scan.state === 'unreadable') {
     return `Note: ${scan.path} could not be read; no @adr markers were scanned.\n`;
   }
+  if (scan.state === 'out-of-tree') {
+    return `Note: ${scan.path} is not a repo-relative path inside this working tree; no @adr markers were scanned.\n`;
+  }
   if (scan.truncated) {
     return `Note: only the first ${MARKER_HEADER_WINDOW_BYTES} bytes of ${scan.path} were scanned for @adr markers.\n`;
   }

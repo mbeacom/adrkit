@@ -127,14 +127,42 @@ reported without failing the run. A log-qualified marker (`@adr payments:0012`)
 is `marker-unresolvable` at `info`, mirroring `affects-unresolvable` — inert
 here, not broken.
 
+### The working tree is the boundary, and it is enforced
+
+`<path>` is repo-relative — the same contract `resolveAffects` matches its globs
+against. An absolute or traversing argument is not a stricter form of that
+contract but a different one, and it is refused rather than read.
+
+This is a correctness constraint before it is a hardening one. The pattern half
+of `explain` can never match a path outside the tree, so if the marker half
+answered for one, the two halves of a single command would disagree about what
+the argument meant — and a file elsewhere on disk would be reported as governed
+by this corpus on the strength of a comment nobody here wrote.
+
+Confinement is checked twice: lexically before any I/O, so the reply does not
+depend on whether the named file exists, and again on the real path, because a
+symlink inside the tree pointing outside it is lexically indistinguishable from
+an ordinary file. Only regular files are read — a FIFO opened for reading with
+no writer blocks forever, which would wedge the command rather than report a
+state.
+
+The prose above said "no traversal" before anything checked it; that is the same
+gap `markers-purity.test.ts` closed for the purity claim, and ADR-0016 is why it
+does not count until observed failing.
+
 ### Scanning state is reported, never inferred
 
 `adr explain --json` always carries `markers.state` (`scanned` / `absent` /
-`unreadable`), `markers.truncated`, and `markers.windowBytes`; the human output
-prints one `Note:` line when the file could not be read or the window stopped
-short. ADR-0016 is explicit that "`0`, `[]`, and 'no X found' render identically
-whether the tool looked and found nothing or could not look at all." An empty
-marker list is exactly that shape, so the reason has to travel with it.
+`unreadable` / `out-of-tree`), `markers.truncated`, and `markers.windowBytes`;
+the human output prints one `Note:` line when the file was not scanned or the
+window stopped short. ADR-0016 is explicit that "`0`, `[]`, and 'no X found'
+render identically whether the tool looked and found nothing or could not look
+at all." An empty marker list is exactly that shape, so the reason has to travel
+with it.
+
+`out-of-tree` is a state of its own rather than a shade of `unreadable` for the
+same reason: such a file is usually perfectly readable, and saying it could not
+be read would be false. The tool declined to look, and that is what it reports.
 
 ### Scope of this record
 
@@ -192,9 +220,17 @@ is longer than that loses a marker below it, silently as far as matching goes �
 which is why `truncated` is reported rather than assumed away.
 
 Reading `<path>` from disk makes `adr explain` no longer a pure function of the
-corpus. Accepted deliberately, and bounded: one file, read-only, at most 8193
-bytes, no traversal, no network, no credentials. `checkChanges` and the Action
-keep their purity contract untouched.
+corpus. Accepted deliberately, and bounded: one regular file beneath the working
+tree, read-only and non-blocking, at most 8193 bytes, no traversal, no network,
+no credentials — every clause of that enforced by a test observed failing.
+`checkChanges` and the Action keep their purity contract untouched.
+
+Confining the read costs the ability to explain a file outside the working tree.
+Nothing regresses — `affects` patterns never matched such a path, so
+`adr explain "$PWD/src/a.ts"` reported no governing decision before this record
+and reports the same afterwards, now with a `Note:` saying why it did not scan.
+What is given up is a capability markers could have added and deliberately do
+not.
 
 `declaredBy` grows the `GoverningDecision` shape. Kept additive and optional so
 no existing consumer changes, at the cost of a field that is sometimes absent

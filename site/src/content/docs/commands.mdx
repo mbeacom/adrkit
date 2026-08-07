@@ -153,11 +153,17 @@ has to be guessed at:
 }
 ```
 
-`state` is `scanned`, `absent` (no such file), or `unreadable`. `truncated` is
-`true` when the file is longer than the header window, so a marker below it was
-never seen. In `governedBy`, a pattern match carries `firedMatchers` and a file
-declaration carries `declaredBy`; `declaredBy` is omitted entirely when nothing
-declared the record.
+`state` is `scanned`, `absent` (no such file), `unreadable` (not a regular file,
+or permission denied), or `out-of-tree`. `truncated` is `true` when the file is
+longer than the header window, so a marker below it was never seen. In
+`governedBy`, a pattern match carries `firedMatchers` and a file declaration
+carries `declaredBy`; `declaredBy` is omitted entirely when nothing declared the
+record.
+
+`<path>` is repo-relative, the same contract `affects` patterns are matched
+against. An absolute path, one that climbs out of the working tree, or a symlink
+whose target is outside it is reported as `out-of-tree` and not read — a file
+elsewhere on disk cannot declare itself governed by this corpus.
 
 `adr check` and the CI Action do **not** scan markers — that is a separate
 decision, because it changes what CI enforces.

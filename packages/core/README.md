@@ -51,7 +51,13 @@ are unaffected.
 filesystem — bounded to the first `MARKER_HEADER_WINDOW_BYTES` (8192) of the
 source and reporting `truncated` when it stopped short. `readSourceMarkers`
 wraps it with a single bounded read and reports `state` as `scanned`, `absent`,
-or `unreadable`, so "found no markers" is never confused with "could not look."
+`unreadable`, or `out-of-tree`, so "found no markers" is never confused with
+"could not look."
+
+Its `path` argument is repo-relative to `cwd`. Absolute paths, paths that climb
+out of the tree, and symlinks resolving outside it are refused as `out-of-tree`
+without being opened; non-regular files are refused as `unreadable`, so a FIFO
+cannot block the read.
 
 The published ESM artifacts run on Node.js 22 or newer. Development in the
 adrkit repository uses Bun.
