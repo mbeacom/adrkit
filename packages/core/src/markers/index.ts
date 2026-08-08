@@ -11,6 +11,7 @@ export { readSourceMarkers, type MarkerScanState, type SourceMarkerScan } from '
 export {
   mergeSourceDeclarations,
   resolveSourceMarkers,
+  type ExplainedDecision,
   type ResolveSourceMarkersInput,
   type ResolveSourceMarkersResult,
 } from './resolve.ts';

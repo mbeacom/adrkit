@@ -9,9 +9,8 @@
  * schema is untouched: no new `affects` matcher type, no new frontmatter field
  * ([ADR-0021](../../../../docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
  *
- * This module is deliberately types-only. `check/index.ts` imports {@link MarkerDeclaration}
- * from here with `import type`, which erases at build time, so the committed
- * `packages/ci/dist` bundle does not gain a byte from a feature its Action never calls.
+ * This module is deliberately types-only, so importing these contracts cannot pull
+ * marker runtime code into the committed `packages/ci/dist` bundle.
  */
 
 /** One `@adr <ref>` marker found in a source file's header window. */

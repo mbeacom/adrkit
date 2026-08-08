@@ -22,8 +22,8 @@ import {
   ScaffoldError,
   sortFindings,
   toGoverningDecisions,
+  type ExplainedDecision,
   type Finding,
-  type GoverningDecision,
   type SourceMarkerScan,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
@@ -167,8 +167,8 @@ Report which decisions govern one repo-relative path, and why.
 A decision reaches a path in two directions. The record declares an "affects" pattern
 that matches it ("via path: src/**"), or the file itself declares the record in a
 comment ("declared by src/sync.ts:3 (@adr 0012)"). If <path> exists, its first 8192
-bytes are scanned for "@adr <id>" markers in comments; a marker naming a record the
-corpus does not have is reported as a dangling-marker warning.
+bytes are scanned for dedicated "@adr <id>" comment lines; a marker naming a record
+the corpus does not have is reported as a dangling-marker warning.
 
 Options:
   --dir <path>    ADR corpus directory (default: docs/adr)
@@ -526,6 +526,7 @@ async function runExplain(args: string[]): Promise<number> {
     } else {
       const humanFindings = renderHumanLint(corpusFindings);
       if (humanFindings) writeStderr(humanFindings);
+      writeStdout(renderMarkerScanNote(scan));
     }
     return 1;
   }
@@ -571,7 +572,7 @@ async function runExplain(args: string[]): Promise<number> {
   return 0;
 }
 
-function renderDecisionGroup(heading: string, decisions: readonly GoverningDecision[], indent = '  '): string {
+function renderDecisionGroup(heading: string, decisions: readonly ExplainedDecision[], indent = '  '): string {
   if (decisions.length === 0) return '';
   let output = `${heading}\n`;
   for (const decision of decisions) {

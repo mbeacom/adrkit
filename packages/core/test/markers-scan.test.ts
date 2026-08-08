@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdir, symlink } from 'node:fs/promises';
+import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MARKER_HEADER_WINDOW_BYTES, readSourceMarkers, scanSourceMarkers } from '../src/markers/index.ts';
 import { cleanupTestDir, resetTestDir, writeText } from './helpers.ts';
@@ -21,7 +21,7 @@ afterEach(async () => {
 });
 
 describe('scanSourceMarkers — comment handling', () => {
-  test('reads a marker out of every common comment introducer', () => {
+  test('reads a dedicated marker line out of every common comment introducer', () => {
     const cases: Array<[string, string]> = [
       ['c-line', '// @adr 0012'],
       ['c-block-open', '/* @adr 0012 */'],
@@ -32,7 +32,7 @@ describe('scanSourceMarkers — comment handling', () => {
       ['tex-erlang', '% @adr 0012'],
       ['html-xml', '<!-- @adr 0012 -->'],
       ['python-docstring', '""" @adr 0012 """'],
-      ['trailing', 'const x = 1; // @adr 0012'],
+      ['leading-whitespace', '\t  // @adr 0012'],
     ];
 
     for (const [label, line] of cases) {
@@ -45,6 +45,17 @@ describe('scanSourceMarkers — comment handling', () => {
     expect(refsOf('@adr 0012')).toEqual([]);
   });
 
+  test('ignores discussion prose, string literals, and trailing comments', () => {
+    const source = [
+      '/** Prose about // @adr 0012 does not declare it. */',
+      ' * More prose before @adr 0012 does not declare it either.',
+      'log("// @adr 0012");',
+      'const value = 1; // @adr 0012',
+    ].join('\n');
+
+    expect(refsOf(source, 'packages/core/src/markers/scan.ts')).toEqual([]);
+  });
+
   test('does not mistake the @adrkit package scope for a marker', () => {
     expect(refsOf("// import { lintCorpus } from '@adrkit/core';")).toEqual([]);
   });
@@ -53,6 +64,12 @@ describe('scanSourceMarkers — comment handling', () => {
     const source = ['#!/usr/bin/env node', '', '// @adr 0012', 'export const x = 1;'].join('\n');
     expect(scanSourceMarkers(source, 'src/sync.ts').markers).toEqual([
       { path: 'src/sync.ts', ref: '0012', id: '0012', line: 3 },
+    ]);
+  });
+
+  test('treats a file-leading UTF-8 BOM as metadata in the pure string API', () => {
+    expect(scanSourceMarkers('\uFEFF// @adr 0012\n', 'src/sync.ts').markers).toEqual([
+      { path: 'src/sync.ts', ref: '0012', id: '0012', line: 1 },
     ]);
   });
 
@@ -83,8 +100,19 @@ describe('scanSourceMarkers — reference list grammar', () => {
     expect(refsOf('// @adr')).toEqual([]);
   });
 
-  test('two markers on one line are both read', () => {
-    expect(refsOf('// @adr 0012 and also @adr 0013')).toEqual(['0012', '0013']);
+  test('only the marker that leads the comment content is read', () => {
+    expect(refsOf('// @adr 0012 and also @adr 0013')).toEqual(['0012']);
+  });
+
+  test('treats CR, LF, and CRLF as physical line boundaries', () => {
+    const source = ['// @adr 0011', '// @adr 0012', '// @adr 0013'].join('\r');
+    expect(scanSourceMarkers(source, 'src/sync.ts').markers).toEqual([
+      { path: 'src/sync.ts', ref: '0011', id: '0011', line: 1 },
+      { path: 'src/sync.ts', ref: '0012', id: '0012', line: 2 },
+      { path: 'src/sync.ts', ref: '0013', id: '0013', line: 3 },
+    ]);
+
+    expect(refsOf('// @adr 0011\r\n// @adr 0012\n// @adr 0013')).toEqual(['0011', '0012', '0013']);
   });
 });
 
@@ -99,6 +127,20 @@ describe('scanSourceMarkers — the header window', () => {
     // Control: the identical marker at the top of the identical file is a declaration.
     const inWindow = `${MARKER_LINE}\n${'#'.repeat(MARKER_HEADER_WINDOW_BYTES + 500)}\n`;
     expect(scanSourceMarkers(inWindow, 'src/sync.ts').markers.map((m) => m.ref)).toEqual(['0012']);
+  });
+
+  test('the public scanner cannot be made unbounded with extra JavaScript arguments', () => {
+    const belowWindow = `${'#'.repeat(MARKER_HEADER_WINDOW_BYTES + 500)}\n${MARKER_LINE}\n`;
+    const callFromJavaScript = scanSourceMarkers as unknown as (
+      source: string,
+      path: string,
+      ignored: boolean,
+    ) => ReturnType<typeof scanSourceMarkers>;
+
+    const scan = callFromJavaScript(belowWindow, 'src/sync.ts', false);
+
+    expect(scan.truncated).toBe(true);
+    expect(scan.markers).toEqual([]);
   });
 
   test('a file that ends exactly at the window boundary is not reported as truncated', () => {
@@ -158,6 +200,41 @@ describe('readSourceMarkers', () => {
     const scan = await readSourceMarkers('src/big.ts', root);
     expect(scan.truncated).toBe(true);
     expect(scan.markers).toEqual([]);
+  });
+
+  test('uses observed byte truncation when a BOM makes decode and encode disagree', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const bom = Uint8Array.from([0xef, 0xbb, 0xbf]);
+    const padLength = MARKER_HEADER_WINDOW_BYTES + 1 - bom.length - MARKER_LINE.length;
+    const pad = new TextEncoder().encode(`${'#'.repeat(padLength - 1)}\n`);
+    const tail = new TextEncoder().encode(`${MARKER_LINE}3\ntail\n`);
+    const bytes = new Uint8Array(bom.length + pad.length + tail.length);
+    bytes.set(bom);
+    bytes.set(pad, bom.length);
+    bytes.set(tail, bom.length + pad.length);
+    await mkdir(join(root, 'src'), { recursive: true });
+    await writeFile(join(root, 'src/bom.ts'), bytes);
+
+    const scan = await readSourceMarkers('src/bom.ts', root);
+
+    expect(scan.truncated).toBe(true);
+    expect(scan.markers).toEqual([]);
+  });
+
+  test('does not infer truncation when invalid UTF-8 expands during decoding', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const invalid = new Uint8Array(3000).fill(0xff);
+    const marker = new TextEncoder().encode(`\n${MARKER_LINE}\n`);
+    const bytes = new Uint8Array(invalid.length + marker.length);
+    bytes.set(invalid);
+    bytes.set(marker, invalid.length);
+    await mkdir(join(root, 'src'), { recursive: true });
+    await writeFile(join(root, 'src/latin1.ts'), bytes);
+
+    const scan = await readSourceMarkers('src/latin1.ts', root);
+
+    expect(scan.truncated).toBe(false);
+    expect(scan.markers.map((item) => item.ref)).toEqual(['0012']);
   });
 });
 

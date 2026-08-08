@@ -5,9 +5,6 @@ import type { Adr, Status } from '../schema/adr.schema.ts';
 import { resolveAffects, type AffectsMatch, type FiredMatcher, type ResolutionSnapshots } from '../affects/index.ts';
 import { decisionBucketFor, type DecisionBucket } from '../status/bucket.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
-// Type-only, and `markers/types.ts` carries no runtime code, so this adds nothing to
-// the committed `packages/ci/dist` bundle that the Action never calls.
-import type { MarkerDeclaration } from '../markers/types.ts';
 
 /**
  * The full result of `lintCorpus` — records, findings, and the checked count.
@@ -35,12 +32,6 @@ export interface GoverningDecision {
   supersededBy?: string;
   /** The record's own `affects` matchers that fired against the path — the outbound edge. */
   firedMatchers: FiredMatcher[];
-  /**
-   * The source files that declared this record with an `@adr` marker — the inbound
-   * edge. Absent, rather than empty, when nothing declared it, so a consumer written
-   * against the pre-marker shape sees byte-identical output (ADR-0021).
-   */
-  declaredBy?: MarkerDeclaration[];
 }
 
 /**
@@ -138,15 +129,15 @@ export function toGoverningDecisions(
   });
 }
 
-export interface BucketedDecisions {
-  governing: GoverningDecision[];
-  activeProposals: GoverningDecision[];
-  history: GoverningDecision[];
+export interface BucketedDecisions<T extends GoverningDecision = GoverningDecision> {
+  governing: T[];
+  activeProposals: T[];
+  history: T[];
 }
 
 /** Partition decisions into the three buckets, preserving the input order within each. */
-export function bucketDecisions(decisions: readonly GoverningDecision[]): BucketedDecisions {
-  const buckets: BucketedDecisions = { governing: [], activeProposals: [], history: [] };
+export function bucketDecisions<T extends GoverningDecision>(decisions: readonly T[]): BucketedDecisions<T> {
+  const buckets: BucketedDecisions<T> = { governing: [], activeProposals: [], history: [] };
   for (const decision of decisions) buckets[decision.bucket].push(decision);
   return buckets;
 }

@@ -4,7 +4,8 @@
  * The only filesystem half of the marker feature, kept apart from the pure scanner so
  * every grammar rule can be tested as text. No network, no credentials, no traversal:
  * one regular file beneath the working tree, at most
- * {@link MARKER_HEADER_WINDOW_BYTES} bytes, opened read-only and non-blocking.
+ * {@link MARKER_HEADER_WINDOW_BYTES} bytes plus one truncation sentinel, opened
+ * read-only and non-blocking.
  *
  * "No traversal" is enforced here rather than asserted — confinement is checked twice,
  * once lexically before any I/O and once on the real path so a symlink cannot walk out
@@ -13,7 +14,7 @@
 
 import { constants, open, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { MARKER_HEADER_WINDOW_BYTES, scanSourceMarkers } from './scan.ts';
+import { MARKER_HEADER_WINDOW_BYTES, scanBoundedSourceMarkerWindow } from './scan.ts';
 import type { SourceMarker } from './types.ts';
 
 /**
@@ -81,9 +82,9 @@ function readFlags(): number {
  *
  * `path` is repo-relative to `cwd` — the same contract `resolveAffects` matches its
  * globs against. An absolute or traversing argument is not a stricter form of that
- * contract but a different one, and it is refused rather than read: the pattern half
- * of `adr explain` can never match such a path, so the marker half must not answer for
- * it either, or a file outside the tree could be reported as governed by this corpus.
+ * contract but a different one, and it is refused rather than read. `affects`
+ * resolution keeps its pre-marker behavior for a raw argument, including broad globs;
+ * this boundary ensures an outside file's contents cannot add an inbound edge.
  */
 export async function readSourceMarkers(path: string, cwd = process.cwd()): Promise<SourceMarkerScan> {
   const refuse = (state: MarkerScanState): SourceMarkerScan => ({ path, state, markers: [], truncated: false });
@@ -103,13 +104,24 @@ export async function readSourceMarkers(path: string, cwd = process.cwd()): Prom
     if (!isInsideRoot(realRoot, target)) return refuse('out-of-tree');
 
     handle = await open(target, readFlags());
-    // Rejected on the open handle rather than by a preceding `stat`, so nothing can be
-    // swapped in between the check and the read.
+    // Check the opened handle rather than a path before `open`, so the file-type check
+    // applies to the object we read. This does not close the `realpath` -> `open` race:
+    // a concurrent process can still replace the approved path before it is opened.
     if (!(await handle.stat()).isFile()) return refuse('unreadable');
 
     const buffer = new Uint8Array(MARKER_HEADER_WINDOW_BYTES + 1);
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    const scan = scanSourceMarkers(new TextDecoder().decode(buffer.subarray(0, bytesRead)), path);
+    let bytesRead = 0;
+    while (bytesRead < buffer.length) {
+      const chunk = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
+      if (chunk.bytesRead === 0) break;
+      bytesRead += chunk.bytesRead;
+    }
+
+    const truncated = bytesRead > MARKER_HEADER_WINDOW_BYTES;
+    const source = new TextDecoder().decode(
+      buffer.subarray(0, Math.min(bytesRead, MARKER_HEADER_WINDOW_BYTES)),
+    );
+    const scan = scanBoundedSourceMarkerWindow(source, path, truncated);
     return { path, state: 'scanned', markers: scan.markers, truncated: scan.truncated };
   } catch (error) {
     return refuse(scanStateForError(error));

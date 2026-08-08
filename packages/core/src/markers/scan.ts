@@ -2,8 +2,7 @@
  * @adrkit/core — the `@adr <ref>` source-marker scanner.
  *
  * Pure text in, markers out. No filesystem, no clock, no per-language parser: the
- * marker is a token in a comment, and the only thing this module knows about any
- * language is that *something* opened a comment earlier on the line.
+ * marker is the first content on a dedicated comment line.
  */
 
 import { AdrRef } from '../schema/adr.schema.ts';
@@ -25,13 +24,14 @@ const MARKER_TOKEN = '@adr';
 
 /**
  * Comment introducers as tokens rather than as a grammar. Language-agnostic by
- * construction: adrkit never parses the file, it only requires one of these to appear
- * before the marker on the same physical line.
+ * construction: adrkit never parses the file, it only requires one of these to begin
+ * the physical line (after optional whitespace), with `@adr` as the comment's first
+ * content.
  *
- * The trade-off is stated rather than hidden. `log("// @adr 0012")` inside a string
- * literal is read as a marker, and a marker on a bare continuation line of a `/* … *\/`
- * block is not. Both are visible in the reported line number, and the alternative — a
- * parser per language — is the thing this design refuses to become.
+ * Requiring a dedicated line is load-bearing: prose that discusses `@adr 0012` must
+ * not make an accepted decision binding, and string literals such as
+ * `log("// @adr 0012")` must not either. The cost is intentional: a trailing
+ * `} // @adr 0012` is not a file-level declaration.
  */
 const COMMENT_INTRODUCERS = ['//', '/*', '*', '#', '--', ';', '%', '<!--', '"""', "'''"] as const;
 
@@ -58,18 +58,34 @@ export interface HeaderWindow {
  * `@adr 0012`, a different and perfectly valid reference. Truncation must never
  * invent a match.
  */
-export function headerWindow(source: string): HeaderWindow {
-  const bytes = new TextEncoder().encode(source);
-  if (bytes.length <= MARKER_HEADER_WINDOW_BYTES) return { text: source, truncated: false };
-
-  const text = new TextDecoder().decode(bytes.subarray(0, MARKER_HEADER_WINDOW_BYTES));
-  const lastNewline = text.lastIndexOf('\n');
-  return { text: lastNewline === -1 ? '' : text.slice(0, lastNewline + 1), truncated: true };
+function completeLinePrefix(source: string): string {
+  const lastNewline = Math.max(source.lastIndexOf('\n'), source.lastIndexOf('\r'));
+  return lastNewline === -1 ? '' : source.slice(0, lastNewline + 1);
 }
 
-function hasCommentIntroducer(line: string, markerIndex: number): boolean {
-  const prefix = line.slice(0, markerIndex);
-  return COMMENT_INTRODUCERS.some((introducer) => prefix.includes(introducer));
+export function headerWindow(source: string): HeaderWindow {
+  const bytes = new Uint8Array(MARKER_HEADER_WINDOW_BYTES);
+  const encoded = new TextEncoder().encodeInto(source, bytes);
+  if (encoded.read === source.length) return { text: source, truncated: false };
+
+  const text = new TextDecoder().decode(bytes.subarray(0, encoded.written));
+  return { text: completeLinePrefix(text), truncated: true };
+}
+
+function dedicatedMarkerIndex(line: string, firstLine: boolean): number | undefined {
+  // A decoded UTF-8 BOM is metadata, not comment content. `TextDecoder` removes it
+  // for the filesystem path; accepting it here keeps the pure string API equivalent.
+  let commentStart = firstLine && line.charCodeAt(0) === 0xfeff ? 1 : 0;
+  while (commentStart < line.length && isSpace(line[commentStart] ?? '')) commentStart += 1;
+
+  for (const introducer of COMMENT_INTRODUCERS) {
+    if (!line.startsWith(introducer, commentStart)) continue;
+    let markerStart = commentStart + introducer.length;
+    while (markerStart < line.length && isSpace(line[markerStart] ?? '')) markerStart += 1;
+    if (line.startsWith(MARKER_TOKEN, markerStart)) return markerStart;
+  }
+
+  return undefined;
 }
 
 /**
@@ -108,6 +124,38 @@ export interface ScanSourceMarkersResult {
   truncated: boolean;
 }
 
+function scanWindow(window: HeaderWindow, path: string): ScanSourceMarkersResult {
+  const markers: SourceMarker[] = [];
+
+  const lines = window.text.split(/\r\n|[\r\n]/);
+  for (const [index, line] of lines.entries()) {
+    const markerStart = dedicatedMarkerIndex(line, index === 0);
+    if (markerStart === undefined) continue;
+
+    for (const ref of readRefs(line.slice(markerStart + MARKER_TOKEN.length))) {
+      const { id, log } = parseAdrRef(ref);
+      markers.push({ path, ref, id, ...(log ? { log } : {}), line: index + 1 });
+    }
+  }
+
+  return { markers, truncated: window.truncated };
+}
+
+/**
+ * Scan text that the filesystem reader has already bounded to the byte window.
+ * Internal to `@adrkit/core`: the public scanner below always derives its own bound.
+ *
+ * The observed flag cannot be reconstructed from decoded text because `TextDecoder`
+ * may remove a BOM or expand invalid bytes to U+FFFD.
+ */
+export function scanBoundedSourceMarkerWindow(
+  source: string,
+  path: string,
+  truncated: boolean,
+): ScanSourceMarkersResult {
+  return scanWindow({ text: truncated ? completeLinePrefix(source) : source, truncated }, path);
+}
+
 /**
  * Every `@adr <ref>` marker in a source's header window, in the order they appear.
  *
@@ -115,24 +163,5 @@ export interface ScanSourceMarkersResult {
  * forward-slash form, because it is the string the user will read back.
  */
 export function scanSourceMarkers(source: string, path: string): ScanSourceMarkersResult {
-  const window = headerWindow(source);
-  const markers: SourceMarker[] = [];
-
-  const lines = window.text.split('\n');
-  for (const [index, line] of lines.entries()) {
-    let from = 0;
-    for (;;) {
-      const at = line.indexOf(MARKER_TOKEN, from);
-      if (at === -1) break;
-      from = at + MARKER_TOKEN.length;
-      if (!hasCommentIntroducer(line, at)) continue;
-
-      for (const ref of readRefs(line.slice(from))) {
-        const { id, log } = parseAdrRef(ref);
-        markers.push({ path, ref, id, ...(log ? { log } : {}), line: index + 1 });
-      }
-    }
-  }
-
-  return { markers, truncated: window.truncated };
+  return scanWindow(headerWindow(source), path);
 }

@@ -125,11 +125,10 @@ export function syncOnce() { … }
   `payments:0012` for a federated log). A comma continues a list —
   `@adr 0012, 0013`. A bare space ends it, so `@adr 0012 1234567` is one
   declaration followed by a number, not two declarations.
-- **Any language.** adrkit does not parse your file. A marker counts when one of
-  `//`, `/*`, `*`, `#`, `--`, `;`, `%`, `<!--`, `"""`, `'''` appears earlier on
-  the same line. The trade-off is honest: `log("// @adr 0012")` inside a string
-  reads as a marker, and a marker on a bare continuation line inside a
-  `/* … */` block does not.
+- **Any language.** adrkit does not parse your file. A marker must be on its own
+  comment line: after optional whitespace, one of `//`, `/*`, `*`, `#`, `--`,
+  `;`, `%`, `<!--`, `"""`, `'''` begins the line and `@adr` is the comment's first
+  content. A trailing `} // @adr 0012` does not declare the file.
 - **Only the first 8192 bytes** of a file are scanned. A marker is a claim that
   the file lives under a decision; a mention far down the file is prose about
   that decision.

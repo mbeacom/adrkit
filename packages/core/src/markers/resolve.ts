@@ -21,6 +21,12 @@ export interface ResolveSourceMarkersResult {
   findings: Finding[];
 }
 
+/** The decision shape emitted only by `adr explain`, which is the marker-aware surface. */
+export interface ExplainedDecision extends GoverningDecision {
+  /** The source files that declared this record through an inbound marker. */
+  declaredBy?: MarkerDeclaration[];
+}
+
 /**
  * A marker naming a record the corpus does not have.
  *
@@ -109,7 +115,7 @@ export function mergeSourceDeclarations(
   patternDecisions: readonly GoverningDecision[],
   records: readonly Adr[],
   markerMatches: readonly MarkerMatch[],
-): GoverningDecision[] {
+): ExplainedDecision[] {
   if (markerMatches.length === 0) return [...patternDecisions];
 
   const pending = new Map(markerMatches.map((match) => [match.recordId, match.declaredBy]));

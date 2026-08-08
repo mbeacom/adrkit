@@ -73,9 +73,11 @@ export function syncOnce() { … }
   A comma continues a list (`@adr 0012, 0013`); a bare space ends it, so
   `@adr 0012 1234567` is one declaration followed by a number.
 - **Language-agnostic by construction.** adrkit does not parse the file. A
-  marker counts when one of `//`, `/*`, `*`, `#`, `--`, `;`, `%`, `<!--`, `"""`,
-  `'''` appears earlier on the same physical line. There is no parser per
-  language and there will not be one.
+  marker counts only on a dedicated comment line: after optional whitespace,
+  one of `//`, `/*`, `*`, `#`, `--`, `;`, `%`, `<!--`, `"""`, `'''` begins the
+  physical line and `@adr` is the comment's first content. There is no parser
+  per language and there will not be one. A trailing `} // @adr 0012` is not a
+  file-level declaration.
 - **Bounded to a header window** of the first 8192 bytes. A marker is a *claim*
   that a file lives under a decision; a mention 40 KB down is prose about that
   decision. The bound is what separates them, and it caps scan cost at a
@@ -127,24 +129,39 @@ reported without failing the run. A log-qualified marker (`@adr payments:0012`)
 is `marker-unresolvable` at `info`, mirroring `affects-unresolvable` — inert
 here, not broken.
 
-### The working tree is the boundary, and it is enforced
+### The working tree is the read boundary
 
 `<path>` is repo-relative — the same contract `resolveAffects` matches its globs
 against. An absolute or traversing argument is not a stricter form of that
 contract but a different one, and it is refused rather than read.
 
-This is a correctness constraint before it is a hardening one. The pattern half
-of `explain` can never match a path outside the tree, so if the marker half
-answered for one, the two halves of a single command would disagree about what
-the argument meant — and a file elsewhere on disk would be reported as governed
+This is a correctness constraint before it is a hardening one. `affects`
+resolution retains its pre-marker behavior over the raw argument, so a broad
+glob can still match an absolute or traversing string. The new capability is
+opening that argument and deriving an inbound edge from its contents; that is
+what this boundary refuses. A file elsewhere on disk cannot make itself governed
 by this corpus on the strength of a comment nobody here wrote.
 
-Confinement is checked twice: lexically before any I/O, so the reply does not
-depend on whether the named file exists, and again on the real path, because a
-symlink inside the tree pointing outside it is lexically indistinguishable from
-an ordinary file. Only regular files are read — a FIFO opened for reading with
-no writer blocks forever, which would wedge the command rather than report a
-state.
+Confinement is checked twice: lexically before any I/O and again on the real
+path, because a symlink inside the tree pointing outside it is lexically
+indistinguishable from an ordinary file. Only regular files are read — a FIFO
+opened for reading with no writer blocks forever, which would wedge the command
+rather than report a state.
+
+The lexical refusal reveals nothing about an out-of-tree argument. Resolving an
+in-tree symlink is different: `out-of-tree`, `absent`, and `unreadable` disclose
+whether its external target exists and can be resolved, even though the target
+is never opened or read. That is harmless while the caller owns the tree, but it
+would become a capability delta if a future CI surface scanned an untrusted
+fork's paths. This record does not wire markers into such a surface.
+
+A separate check/open race remains: after `realpath` approves a target, a
+concurrent process can replace that path before `open`. For the local `explain`
+surface, a process able to mutate the caller's tree already has the stronger
+ability to edit the corpus. In a future CI surface, a checkout-and-check job has
+no concurrent attacker; a job that first executes a fork's code has already
+granted it substantially more capability. The race is recorded here rather than
+misdescribed as closed.
 
 The prose above said "no traversal" before anything checked it; that is the same
 gap `markers-purity.test.ts` closed for the purity claim, and ADR-0016 is why it
@@ -170,6 +187,16 @@ be read would be false. The tool declined to look, and that is what it reports.
 `@adrkit/ci` Action bundle is deliberately unchanged (verified byte-identical by
 rebuild). Wiring markers through `adr check <files...>` and the Action is a
 separate decision, because it changes what CI enforces.
+
+The asymmetry is deliberate and observable: `adr explain` reports markers, while
+`adr check`, the Action, and `packages/adapters/spec-kit/scripts/context.sh` do
+not. The repository's current agent context script calls `adr check`, so this
+record does not put inbound markers on that agent surface on day one.
+
+Nor does this record rely on an MCP sandbox as an enforcement boundary. The MCP
+read guard is inert unless `ADRKIT_MCP_TEST_READ_ROOTS` is set, and when armed in
+tests its root is the working tree. Correcting that independent invariant belongs
+to the MCP surface, not to this `explain`-only change.
 
 ## Options considered
 
@@ -209,10 +236,11 @@ visible, so "do nothing" here means accepting a 6× context cost permanently.
 
 ## Trade-offs
 
-The comment-introducer rule is a heuristic, and it is stated rather than hidden.
-`log("// @adr 0012")` inside a string literal reads as a marker, and a marker on
-a bare continuation line inside a `/* … */` block does not. Both are visible in
-the reported line and file, and the alternative is a parser per language — the
+The dedicated-comment-line rule is a heuristic, and it is stated rather than
+hidden. It rejects common inline string literals, prose that merely discusses a
+marker, and trailing comments without parsing the language. A multiline string
+or fenced documentation example whose `// @adr` token begins the physical line
+still reads as a marker; avoiding that requires language-specific parsing, the
 thing this design refuses to become.
 
 The 8192-byte window is a chosen number, not a derived one. A file whose header
@@ -222,19 +250,20 @@ which is why `truncated` is reported rather than assumed away.
 Reading `<path>` from disk makes `adr explain` no longer a pure function of the
 corpus. Accepted deliberately, and bounded: one regular file beneath the working
 tree, read-only and non-blocking, at most 8193 bytes, no traversal, no network,
-no credentials — every clause of that enforced by a test observed failing.
-`checkChanges` and the Action keep their purity contract untouched.
+no credentials. The read boundary and file-type constraints are enforced by
+tests observed failing; the symlink-state disclosure above is recorded rather
+than claimed away. `checkChanges` and the Action keep their purity contract
+untouched.
 
-Confining the read costs the ability to explain a file outside the working tree.
-Nothing regresses — `affects` patterns never matched such a path, so
-`adr explain "$PWD/src/a.ts"` reported no governing decision before this record
-and reports the same afterwards, now with a `Note:` saying why it did not scan.
-What is given up is a capability markers could have added and deliberately do
-not.
+Confining the read means an outside file cannot add marker-derived governance.
+The existing `affects` result is left untouched: broad patterns may still match
+the raw argument, while the marker state reports `out-of-tree`. What is given up
+is a capability markers could have added and deliberately do not.
 
-`declaredBy` grows the `GoverningDecision` shape. Kept additive and optional so
-no existing consumer changes, at the cost of a field that is sometimes absent
-rather than always empty.
+`declaredBy` grows an explain-only decision shape rather than the shared
+`GoverningDecision` returned by `checkChanges`. It is optional so pattern-only
+explain results remain byte-identical, without implying that `adr check` or the
+Action can produce marker declarations.
 
 ## Consequences
 

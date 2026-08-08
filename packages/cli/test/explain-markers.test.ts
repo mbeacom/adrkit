@@ -132,6 +132,23 @@ describe('adr explain — inbound @adr markers', () => {
     });
   });
 
+  test('preserves the human scan note when corpus errors stop resolution', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await corpus(root);
+    await writeText(
+      join(root, 'docs/adr/0003-invalid.md'),
+      acceptedRecordMarkdown('0003').replace('status: accepted', 'status: not-a-status'),
+    );
+
+    const result = await runAdr(['explain', 'src/sync/missing.ts', '--dir', 'docs/adr'], root);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('invalid-enum-value');
+    expect(result.stdout).toContain(
+      'Note: src/sync/missing.ts is not a file in this working tree; no @adr markers were scanned.',
+    );
+  });
+
   test('refuses to answer for a path outside the working tree, and says why', async () => {
     const root = await resetTestDir(DIR_NAME);
     await corpus(root);

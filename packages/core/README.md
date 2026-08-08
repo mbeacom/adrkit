@@ -49,8 +49,11 @@ are unaffected.
 
 `scanSourceMarkers(source, path)` is the pure half — text in, markers out, no
 filesystem — bounded to the first `MARKER_HEADER_WINDOW_BYTES` (8192) of the
-source and reporting `truncated` when it stopped short. `readSourceMarkers`
-wraps it with a single bounded read and reports `state` as `scanned`, `absent`,
+source and reporting `truncated` when it stopped short. Markers must be the first
+content on a dedicated comment line, which keeps documentation prose and string
+literals in their common inline forms from becoming declarations.
+`readSourceMarkers` wraps the scanner with a bounded read and reports `state` as
+`scanned`, `absent`,
 `unreadable`, or `out-of-tree`, so "found no markers" is never confused with
 "could not look."
 
