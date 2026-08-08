@@ -2,7 +2,7 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–6 landed and v0.3.0 is public. `@adrkit/core`,
+Status: early — phases 0–6 landed and v0.4.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `queue`, `migrate --from madr`, `evaluate`) are published on npm, as is
 the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.2); the
@@ -16,6 +16,36 @@ It passed real-session dogfood against the published artifact on **both** eras,
 driven through the official MCP Inspector. The Inspector defaults to the 2025
 era; select the modern one with `"protocolEra": "modern"` (or `"auto"`) in the
 server's entry in the Inspector's `mcp.json` — there is no CLI flag for it.
+
+## Inbound `@adr` markers (v0.4.0)
+
+A file can declare the decision it lives under by putting `@adr 0012` on a
+dedicated comment line inside its first 8192 bytes, and `adr explain <path>`
+resolves that inbound edge alongside the outbound `affects` patterns
+([ADR-0021](./docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md),
+[#97](https://github.com/mbeacom/adrkit/pull/97)). No schema change: `AdrFrontmatter`,
+`AffectsType`, and `schema/adr.schema.json` are untouched.
+
+Two properties are load-bearing and easy to break:
+
+- **Markers reach `adr explain` and nothing else.** `adr check`, `checkChanges`,
+  the CI Action, and `packages/adapters/spec-kit/scripts/context.sh` do not scan
+  them. `declaredBy` lives on an explain-only `ExplainedDecision`, *not* on the
+  shared `GoverningDecision` that `checkChanges` returns, so `check --json` is
+  marker-free and `packages/ci/dist` gains nothing. Wiring markers into `check`
+  or the Action changes CI semantics and moves the filesystem boundary, so it is
+  a separate decision.
+- **A marker must not be able to lie.** The scanner requires the comment
+  introducer to begin the physical line with `@adr` as the comment's first
+  content, so prose discussing a decision, a string literal containing one, and
+  a trailing `} // @adr 0012` are all rejected. Truncation uses the byte count
+  `read.ts` observed rather than re-deriving it from decoded text, because
+  `TextDecoder` drops a BOM and expands invalid bytes, and a re-derived window
+  can sever a reference mid-token and report a record the file never named.
+
+Unlike the surfaces below, this is at **rung 1** of ADR-0014 only — unit,
+contract, and purity coverage plus maintainer verification. No reference-repository
+run.
 
 Phase 6 ARB queue is
 implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure

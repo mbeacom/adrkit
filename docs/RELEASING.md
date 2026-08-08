@@ -9,12 +9,12 @@ Action:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.3.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.4.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
 
-The coordinated `v0.2.0` release is complete. `@adrkit/core`,
+The coordinated lockstep surface is published; the current release is `v0.4.0`. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
 `@adrkit/mcp` was created with the isolated one-time bootstrap path below; its
 Trusted Publisher and token-restriction cleanup must be completed before the
@@ -258,12 +258,35 @@ Two notes worth carrying forward from the v0.3.0 cutover:
 
 - `bun run release:pack` triggers a **non-frozen** `bun install`, which can pull
   transitive drift into the committed `packages/ci/dist` bundles. Check
-  `git status` after step 2; it was clean for v0.3.0.
+  `git status` after step 2; it was clean for v0.3.0 and for v0.4.0.
 - The published-consumer advisory audit reported **0 vulnerabilities** at v0.3.0,
   and `KNOWN_CONSUMER_ADVISORY_ACCEPTANCES` is now empty
   ([ADR-0018](adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)
   removed the last entry). Any advisory appearing in a future run is therefore an
   unrecorded exposure and a release blocker until reconciled.
+
+Three more from the v0.4.0 cutover, all of which cost time:
+
+- **`bun.lock` records a `version` for each workspace package, and nothing
+  refreshes it.** Neither `bun install` nor `bun install --force` updates those
+  fields after a manifest bump. `release-pack` catches it — `@adrkit/evaluator
+  must resolve @adrkit/core to 0.4.0, got 0.3.0` — because it validates a packed
+  dependency against the dependency's own version. Deleting and regenerating the
+  lockfile fixes it *and* pulls unrelated transitive drift into the release
+  commit (at v0.4.0: `jose`, `undici`, `@octokit/*`, `@types/node`). Edit the
+  workspace `version` lines directly, then confirm with
+  `bun install --frozen-lockfile`.
+- **Two hardcoded version constants move with the manifests**: `CLI_VERSION` in
+  `packages/cli/src/index.ts` and `SERVER_INFO` in `packages/mcp/src/server.ts`.
+  Each has a test asserting it matches its `package.json`, so `bun test` finds
+  them; step 1's "update any inter-package expectations" is mostly these.
+- **`bun run release:publish -- --dry-run` fails on the adapter** now that an
+  independently versioned package rides along in a lockstep pack. The registry
+  idempotency check that skips an already-published artifact is gated behind
+  `!dryRun`, so the dry run tries to republish `@adrkit/spec-kit` at its current
+  version. The four lockstep packages dry-run cleanly first, and the real run
+  skips the adapter because the packed tarball's integrity matches the registry.
+  Tracked in [#104](https://github.com/mbeacom/adrkit/issues/104).
 
 1. Start from the final release commit on `main`.
 

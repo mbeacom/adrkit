@@ -20,6 +20,16 @@ vocabulary: **implemented → reference-verified → landed**. It is **not**
 **Reviewer verdict**: PASS. All four rung-2 criteria — reproducible,
 self-verifying, fail-closed, reviewed — are met by the artifacts below.
 
+> **Currency, as of 2026-08-08.** Everything recorded below describes runs that
+> actually happened, and none of it is edited when a new adrkit version ships.
+> The reference workflow pins `ADRKIT_CLI_VERSION: "0.3.0"`, so as of the v0.4.0
+> release this gate exercises the extension against a **superseded** CLI. It is
+> green rather than stale-and-red — the pin is deliberate and `PIN-3` still
+> matches — but the rung-2 evidence for `@adrkit/spec-kit` is not evidence about
+> the current release. Bumping the pin and recording a fresh run is tracked
+> separately; until that lands, read the verdict below as scoped to
+> `@adrkit/cli@0.3.0`.
+
 ## Reference repository (maintainer-owned, isolated)
 
 [`mbeacom/adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood) —

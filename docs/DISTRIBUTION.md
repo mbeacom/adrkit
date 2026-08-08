@@ -5,8 +5,8 @@ the `@adrkit/*` CLI presence in the MCP and ADR-tooling ecosystems. It contains
 ready-to-paste content and exact procedures.
 
 > **Submission status.** The official MCP registry entry (§A) **has been published**
-> — `dev.adrkit/mcp` at `0.3.0`, status `active` (first published 2026-07-28 at
-> `0.2.1`; re-published 2026-07-31 for the v0.3.0 release). Every other
+> — `dev.adrkit/mcp` at `0.4.0`, status `active` (first published 2026-07-28 at
+> `0.2.1`; re-published 2026-07-31 for v0.3.0 and 2026-08-08 for v0.4.0). Every other
 > venue below remains prepared but **not submitted**. Every outbound action —
 > publishing to a registry, opening a PR, filling a form, creating a git tag, or
 > posting anywhere — is performed by a human, never by tooling or an agent.
@@ -32,13 +32,13 @@ GitHub repo, so a small number of prerequisites unblock several venues at once.
 ### P1 — npm packages are published ✅
 
 **Satisfied.** `@adrkit/mcp`, `@adrkit/cli`, `@adrkit/core`, and `@adrkit/evaluator`
-are published at `0.3.0` — the exact version `server.json` names. The MCP registry
+are published at `0.4.0` — the exact version `server.json` names. The MCP registry
 hosts *metadata only*; the npm package must already exist at the version named in
-`server.json`. Verified with `npm view @adrkit/mcp@0.3.0 version` → `0.3.0`.
+`server.json`. Verified with `npm view @adrkit/mcp@0.4.0 version` → `0.4.0`.
 
 ### P2 — `mcpName` in the **published** `@adrkit/mcp` ✅
 
-**Satisfied.** `npm view @adrkit/mcp@0.3.0 mcpName` returns `dev.adrkit/mcp`,
+**Satisfied.** `npm view @adrkit/mcp@0.4.0 mcpName` returns `dev.adrkit/mcp`,
 matching `server.json` `name` exactly.
 
 The requirement, and why the ordering mattered: the official registry verifies npm
@@ -104,7 +104,7 @@ confusion in every listing:
 ## A. Official MCP registry (`registry.modelcontextprotocol.io`) — **PUBLISHED**
 
 **Status: published.** First published 2026-07-28 via the DNS namespace path;
-re-published 2026-07-31 for v0.3.0. `dev.adrkit/mcp` is listed at `0.3.0` with
+re-published 2026-07-31 for v0.3.0 and 2026-08-08 for v0.4.0. `dev.adrkit/mcp` is listed at `0.4.0` with
 status `active` and `isLatest: true`; see §A4 for the verified response. The
 subsections below are retained as the procedure to repeat on each release.
 
@@ -182,24 +182,25 @@ mcp-publisher publish
 curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.adrkit/mcp"
 ```
 
-**Verified 2026-07-31** (the v0.3.0 re-publication; the entry first went live
-2026-07-28 at `0.2.1`). The registry returns the `0.3.0` record as latest:
+**Verified 2026-08-08** (the v0.4.0 re-publication; the entry first went live
+2026-07-28 at `0.2.1`, and was re-published 2026-07-31 for v0.3.0). The registry
+returns the `0.4.0` record as latest:
 
 | Field | Value |
 |---|---|
 | `name` | `dev.adrkit/mcp` |
-| `version` | `0.3.0` |
-| `packages[0].identifier` / `version` | `@adrkit/mcp` / `0.3.0` |
+| `version` | `0.4.0` |
+| `packages[0].identifier` / `version` | `@adrkit/mcp` / `0.4.0` |
 | `transport.type` | `stdio` |
 | `_meta…/official.status` | `active` |
 | `_meta…/official.isLatest` | `true` |
-| `_meta…/official.publishedAt` | `2026-07-31T10:54:25.076965Z` |
+| `_meta…/official.publishedAt` | `2026-08-08T23:16:38.484551Z` |
 
-The registry retains the superseded `0.2.1` record alongside it; `isLatest` is the
-field that distinguishes them.
+The registry retains the superseded `0.2.1` and `0.3.0` records alongside it;
+`isLatest` is the field that distinguishes them.
 
 `docs/RELEASING.md` step 7's exact assertion — the response containing both
-`dev.adrkit/mcp` and `0.3.0` — exits 0.
+`dev.adrkit/mcp` and `0.4.0` — exits 0.
 
 A subsequent release must re-run `mcp-publisher publish` with `server.json`'s two
 version fields bumped; the registry pins a specific npm version and does not track
@@ -213,7 +214,7 @@ version fields bumped; the registry pins a specific npm version and does not tra
   "name": "dev.adrkit/mcp",
   "title": "adrkit decision memory",
   "description": "Deterministic, offline, read-only ADR decision memory for coding agents. No model or network calls.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "websiteUrl": "https://adrkit.dev",
   "repository": {
     "url": "https://github.com/mbeacom/adrkit",
@@ -225,12 +226,24 @@ version fields bumped; the registry pins a specific npm version and does not tra
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@adrkit/mcp",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "runtimeHint": "npx",
-      "transport": { "type": "stdio" },
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
-        { "name": "ADRKIT_MCP_CWD", "description": "Repository root to read (default: process.cwd()).", "isRequired": false, "isSecret": false },
-        { "name": "ADRKIT_MCP_DIR", "description": "ADR directory under the repo root (default: docs/adr).", "isRequired": false, "isSecret": false }
+        {
+          "name": "ADRKIT_MCP_CWD",
+          "description": "Repository root; must contain a readable .git entry. Defaults to the process working directory.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ADRKIT_MCP_DIR",
+          "description": "ADR directory, resolved against the root and required to stay contained within it. Defaults to docs/adr.",
+          "isRequired": false,
+          "isSecret": false
+        }
       ]
     }
   ]
@@ -244,7 +257,7 @@ version fields bumped; the registry pins a specific npm version and does not tra
 **Listing criteria met?** Yes — schema-valid, npm package exists at the manifest
 version, stdio transport, public repo. Both original blockers (the human namespace
 proof and an npm publication carrying `mcpName`) were cleared for v0.2.1 and remain
-satisfied at v0.3.0.
+satisfied at v0.4.0.
 
 ---
 
@@ -526,8 +539,8 @@ ARB-queue Action from its moving major tag like any other:
 uses: mbeacom/adrkit/packages/ci/queue@v0
 ```
 
-`v0` moves with every release, so it now peels to the v0.3.0 release commit
-(`3adefc7`) rather than to `31bed03`. That is the point of a moving major tag; the
+`v0` moves with every release, so it now peels to the v0.4.0 release commit
+(`c3dff3a`) rather than to `31bed03`. That is the point of a moving major tag; the
 commit named below is the historical one that first made `@v0` resolve.
 
 The rest of this section is the historical record of why a full-commit pin was
@@ -615,7 +628,7 @@ itself, not a pin.
 
 No distribution-blocking source edits are currently delegated to another
 workstream. `packages/mcp/package.json` declares `"mcpName": "dev.adrkit/mcp"`
-(matching `server.json` `name`), v0.3.0 has been cut, and the registry entry is
+(matching `server.json` `name`), v0.4.0 has been cut, and the registry entry is
 **published** at that version (§A4). Nothing in this repository blocks any remaining venue; what is
 left is per-venue human submission, tracked in the readiness table above.
 

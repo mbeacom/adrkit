@@ -222,12 +222,24 @@ different artifact from a heading convention. That is the whole thesis.
 
 Early, under active development, and deliberately honest about what is proven.
 
-- **Published — v0.3.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
+- **Published — v0.4.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
   the deterministic Pass 0 `@adrkit/evaluator`, and the read-only `@adrkit/mcp`
   server are all implemented and released. The MCP server speaks both protocol
   eras and passed real-session dogfood against the published artifact on each,
   driven through the official MCP Inspector
   ([ADR-0018](docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)).
+- **New in v0.4.0, and at rung 1 only.** A file can declare the decision it
+  lives under with an `@adr <id>` marker on a dedicated comment line, and
+  `adr explain` resolves that inbound edge alongside the `affects` patterns that
+  already matched the path
+  ([ADR-0021](docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
+  The feature reaches `adr explain` and nothing else: `adr check`, the Action,
+  and the Spec Kit context script do not scan markers, so no CI semantics move.
+  Evidence is unit, contract, and purity coverage plus maintainer verification —
+  **rung 1** of the ADR-0014 ladder, not the rungs 1–2 the surfaces below carry.
+  Contributed by [@aballiet](https://github.com/aballiet) in
+  [#97](https://github.com/mbeacom/adrkit/pull/97), the first community feature
+  this project has shipped.
 - **Landed, maintainer reference-verified — not yet externally validated.** The
   Phase 6 ARB queue (`adr queue` plus the managed-issue Action) is verified on
   rungs 1–2 of the
