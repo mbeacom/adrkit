@@ -1,0 +1,80 @@
+# CodeQL advanced setup.
+#
+# This replaces GitHub's CodeQL *default* setup, which cannot satisfy this
+# repository's ruleset. The `main` ruleset requires the status checks
+# `Analyze (actions)` and `Analyze (javascript-typescript)`, but default setup
+# does not run "on a pull request based against the repository's default branch
+# ... excluding pull requests from forks", so fork PRs (and, observed here,
+# Dependabot PRs) never produce those check runs. A required check that is never
+# reported stays "Expected - Waiting for status to be reported" forever, which
+# blocks the PR with no way to clear it. The same gap is what makes the results
+# check report "N configurations present on refs/heads/main were not found":
+# `main` has a baseline for both languages and the PR has none.
+#
+# Advanced setup fixes both because the workflow is an ordinary `pull_request`
+# workflow: it runs for forks and for Dependabot, and code scanning permits
+# SARIF upload from `pull_request`-triggered runs even under a read-only token.
+#
+# Two things here are load-bearing and easy to break:
+#
+#   - The job name must render exactly `Analyze (actions)` and
+#     `Analyze (javascript-typescript)`. Those strings are the required status
+#     check contexts in the `main` ruleset. Renaming the job, or renaming a
+#     matrix language, silently reintroduces the permanently-pending check.
+#   - `category` must stay `/language:<language>` so analyses keep the same
+#     category keys the default-setup baseline on `main` used, so PR-vs-base
+#     alert comparison keeps working across the switch.
+#
+# Default setup must stay disabled. Re-enabling it disables this workflow and
+# blocks its uploads.
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Keep a baseline on `main` fresh even in quiet weeks, so PR comparison has
+    # something to diff against. Default setup ran weekly; match that.
+    - cron: "27 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      # Upload SARIF results.
+      security-events: write
+      # Read the workflow run context on private repos / for fork PRs.
+      actions: read
+      contents: read
+    strategy:
+      # One language failing should not mask the other language's findings.
+      fail-fast: false
+      matrix:
+        # `actions` scans .github/workflows and packages/ci/*/action.yml;
+        # `javascript-typescript` covers the TypeScript sources and the
+        # committed Action bundles under packages/ci/dist.
+        language: [actions, javascript-typescript]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3  # v4.37.6
+        with:
+          languages: ${{ matrix.language }}
+          # Both languages are interpreted, so there is nothing to compile.
+          # This repo builds with Bun, which CodeQL does not drive; scanning
+          # sources directly is what default setup did too.
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3  # v4.37.6
+        with:
+          category: "/language:${{ matrix.language }}"
