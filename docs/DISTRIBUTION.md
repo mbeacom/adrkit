@@ -199,8 +199,11 @@ returns the `0.4.0` record as latest:
 The registry retains the superseded `0.2.1` and `0.3.0` records alongside it;
 `isLatest` is the field that distinguishes them.
 
-`docs/RELEASING.md` step 7's exact assertion — the response containing both
-`dev.adrkit/mcp` and `0.4.0` — exits 0.
+Rerunning `docs/RELEASING.md` step 7's check with this release's version
+substituted — the response containing both `dev.adrkit/mcp` and `0.4.0` — exits 0.
+Step 7 itself stays written against `0.3.0`: it sits inside the completed v0.3.0
+cutover runbook, which is retained as a worked template whose versions the next
+cutover substitutes rather than a live command to run verbatim.
 
 A subsequent release must re-run `mcp-publisher publish` with `server.json`'s two
 version fields bumped; the registry pins a specific npm version and does not track

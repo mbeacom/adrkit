@@ -279,7 +279,8 @@ Three more from the v0.4.0 cutover, all of which cost time:
 - **Two hardcoded version constants move with the manifests**: `CLI_VERSION` in
   `packages/cli/src/index.ts` and `SERVER_INFO` in `packages/mcp/src/server.ts`.
   Each has a test asserting it matches its `package.json`, so `bun test` finds
-  them; step 1's "update any inter-package expectations" is mostly these.
+  them. They are most of what "Subsequent releases" step 1 means by "update any
+  inter-package expectations."
 - **`bun run release:publish -- --dry-run` fails on the adapter** now that an
   independently versioned package rides along in a lockstep pack. The registry
   idempotency check that skips an already-published artifact is gated behind
