@@ -11,15 +11,20 @@ import {
   createAdr,
   exitCodeForFindings,
   lintCorpus,
+  MARKER_HEADER_WINDOW_BYTES,
+  mergeSourceDeclarations,
   migrateMadr,
+  readSourceMarkers,
   resolveAffects,
+  resolveSourceMarkers,
   renderDotGraph,
   renderJsonGraph,
   ScaffoldError,
   sortFindings,
   toGoverningDecisions,
+  type ExplainedDecision,
   type Finding,
-  type GoverningDecision,
+  type SourceMarkerScan,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
 import { QUEUE_USAGE, runQueue } from './queue.ts';
@@ -159,9 +164,17 @@ Exit codes: 0 = rendered; 2 = usage error (invalid invocation or unreachable cor
 
 Report which decisions govern one repo-relative path, and why.
 
+A decision reaches a path in two directions. The record declares an "affects" pattern
+that matches it ("via path: src/**"), or the file itself declares the record in a
+comment ("declared by src/sync.ts:3 (@adr 0012)"). If <path> exists, its first 8192
+bytes are scanned for dedicated "@adr <id>" comment lines; a marker naming a record
+the corpus does not have is reported as a dangling-marker warning.
+
 Options:
   --dir <path>    ADR corpus directory (default: docs/adr)
-  --json          Emit { path, governedBy, governing, activeProposals, history, findings }
+  --json          Emit { path, governedBy, governing, activeProposals, history,
+                  markers, findings }. Pattern matches carry "firedMatchers";
+                  file declarations carry "declaredBy".
   --help          Show this help and exit
 
 Exit codes: 0 = explained; 1 = corpus has error findings;
@@ -487,12 +500,25 @@ async function runExplain(args: string[]): Promise<number> {
     if (exitCode !== undefined) return exitCode;
     throw error;
   }
+
+  // Scanned before the corpus-error gate below so the reported scan state is the same
+  // fact either way: what the file says does not depend on whether the corpus parses.
+  const scan = await readSourceMarkers(path);
+
   const corpusFindings = sortFindings(corpus.findings);
   if (exitCodeForFindings(corpusFindings) !== 0) {
     if (parsed.values.json) {
       writeStdout(
         `${JSON.stringify(
-          { path, governedBy: [], governing: [], activeProposals: [], history: [], findings: corpusFindings },
+          {
+            path,
+            governedBy: [],
+            governing: [],
+            activeProposals: [],
+            history: [],
+            markers: markerScanJson(scan),
+            findings: corpusFindings,
+          },
           null,
           2,
         )}\n`,
@@ -500,17 +526,25 @@ async function runExplain(args: string[]): Promise<number> {
     } else {
       const humanFindings = renderHumanLint(corpusFindings);
       if (humanFindings) writeStderr(humanFindings);
+      writeStdout(renderMarkerScanNote(scan));
     }
     return 1;
   }
 
   const resolution = resolveAffects({ records: corpus.records, changedFiles: [path] });
-  const governedBy = toGoverningDecisions(corpus.records, resolution.matches);
+  const markerResolution = resolveSourceMarkers({ records: corpus.records, markers: scan.markers });
+  const governedBy = mergeSourceDeclarations(
+    toGoverningDecisions(corpus.records, resolution.matches),
+    corpus.records,
+    markerResolution.matches,
+  );
   const buckets = bucketDecisions(governedBy);
-  const findings = sortFindings(resolution.findings);
+  const findings = sortFindings([...resolution.findings, ...markerResolution.findings]);
 
   if (parsed.values.json) {
-    writeStdout(`${JSON.stringify({ path, governedBy, ...buckets, findings }, null, 2)}\n`);
+    writeStdout(
+      `${JSON.stringify({ path, governedBy, ...buckets, markers: markerScanJson(scan), findings }, null, 2)}\n`,
+    );
     return 0;
   }
 
@@ -526,6 +560,8 @@ async function runExplain(args: string[]): Promise<number> {
     writeStdout(renderDecisionGroup('Historical records (not binding):', buckets.history));
   }
 
+  writeStdout(renderMarkerScanNote(scan));
+
   if (findings.length > 0) {
     writeStdout('Findings:\n');
     for (const finding of findings) {
@@ -536,17 +572,59 @@ async function runExplain(args: string[]): Promise<number> {
   return 0;
 }
 
-function renderDecisionGroup(heading: string, decisions: readonly GoverningDecision[], indent = '  '): string {
+function renderDecisionGroup(heading: string, decisions: readonly ExplainedDecision[], indent = '  '): string {
   if (decisions.length === 0) return '';
   let output = `${heading}\n`;
   for (const decision of decisions) {
     const successor = decision.supersededBy ? ` (superseded by ${decision.supersededBy})` : '';
     output += `${indent}${decision.recordId}  [${decision.status}] ${decision.title}${successor}\n`;
+    // "via" is the record reaching out through its own `affects` pattern; "declared by"
+    // is the file reaching in with an `@adr` marker. The two are never merged, because
+    // which end made the claim is the whole point (ADR-0021).
     for (const matcher of decision.firedMatchers) {
       output += `${indent}  via ${matcher.type}: ${matcher.pattern}\n`;
     }
+    for (const declaration of decision.declaredBy ?? []) {
+      output += `${indent}  declared by ${declaration.path}:${declaration.line} (@adr ${declaration.ref})\n`;
+    }
   }
   return output;
+}
+
+/** The `markers` block of `adr explain --json`: what was scanned, and what was found. */
+function markerScanJson(scan: SourceMarkerScan): {
+  state: SourceMarkerScan['state'];
+  windowBytes: number;
+  truncated: boolean;
+  declared: Array<{ ref: string; line: number }>;
+} {
+  return {
+    state: scan.state,
+    windowBytes: MARKER_HEADER_WINDOW_BYTES,
+    truncated: scan.truncated,
+    declared: scan.markers.map((marker) => ({ ref: marker.ref, line: marker.line })),
+  };
+}
+
+/**
+ * The one line of human output that keeps "this file declares nothing" from reading
+ * identically to "I never opened this file" or "I stopped reading before the marker"
+ * (ADR-0016). Silent when the whole file was scanned, which is the common case.
+ */
+function renderMarkerScanNote(scan: SourceMarkerScan): string {
+  if (scan.state === 'absent') {
+    return `Note: ${scan.path} is not a file in this working tree; no @adr markers were scanned.\n`;
+  }
+  if (scan.state === 'unreadable') {
+    return `Note: ${scan.path} could not be read; no @adr markers were scanned.\n`;
+  }
+  if (scan.state === 'out-of-tree') {
+    return `Note: ${scan.path} is not a repo-relative path inside this working tree; no @adr markers were scanned.\n`;
+  }
+  if (scan.truncated) {
+    return `Note: only the first ${MARKER_HEADER_WINDOW_BYTES} bytes of ${scan.path} were scanned for @adr markers.\n`;
+  }
+  return '';
 }
 
 function renderHumanCheck(outcome: ReturnType<typeof checkChanges>): string {

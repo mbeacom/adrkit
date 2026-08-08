@@ -24,6 +24,34 @@ The `adr` binary includes `new`, `lint`, `graph`, `explain`, `check`, `queue`,
 Run `adr --help` for the command list, `adr help <command>` for one command's
 flags, and `adr --version` to print the installed version.
 
+## Inbound `@adr` markers
+
+`adr explain <path>` resolves decisions in both directions. A record declares
+the paths it governs with `affects`; a source file declares the decision it
+lives under with a marker in a comment:
+
+```ts
+// @adr 0012
+export function syncOnce() { … }
+```
+
+```
+$ adr explain src/services/sync/retry.ts
+Decisions governing src/services/sync/retry.ts:
+  0009  [accepted] Resolve affects deterministically
+    via path: src/services/sync/**
+  0012  [accepted] Bind catalog entities to owned paths
+    declared by src/services/sync/retry.ts:1 (@adr 0012)
+```
+
+This lets `affects` stay narrow — the *defining* files — while the surrounding
+neighbourhood opts in one line at a time. Only the first 8192 bytes of a file
+are scanned, in any language, and the marker must be the first content on a
+dedicated comment line. Nothing is written back to the record. In
+`--json`, pattern matches carry `firedMatchers` and file declarations carry
+`declaredBy`, and a `markers` block reports whether the file was actually read.
+See [the commands reference](https://adrkit.dev/docs/commands/#inbound-adr-markers).
+
 The published ESM CLI runs on Node.js 22 or newer; development in the adrkit
 repository uses Bun.
 

@@ -1,3 +1,6 @@
+// @adr 0021 — this file carries the inbound-edge field but is not a *defining* file of
+// that decision, so ADR-0021's `affects` patterns deliberately do not name it. This is
+// the case the marker exists for, dogfooded on adrkit's own corpus.
 import type { Adr, Status } from '../schema/adr.schema.ts';
 import { resolveAffects, type AffectsMatch, type FiredMatcher, type ResolutionSnapshots } from '../affects/index.ts';
 import { decisionBucketFor, type DecisionBucket } from '../status/bucket.ts';
@@ -27,6 +30,7 @@ export interface GoverningDecision {
   bucket: DecisionBucket;
   /** The successor, when this record was superseded. Lets a reader follow the chain. */
   supersededBy?: string;
+  /** The record's own `affects` matchers that fired against the path — the outbound edge. */
   firedMatchers: FiredMatcher[];
 }
 
@@ -125,15 +129,15 @@ export function toGoverningDecisions(
   });
 }
 
-export interface BucketedDecisions {
-  governing: GoverningDecision[];
-  activeProposals: GoverningDecision[];
-  history: GoverningDecision[];
+export interface BucketedDecisions<T extends GoverningDecision = GoverningDecision> {
+  governing: T[];
+  activeProposals: T[];
+  history: T[];
 }
 
 /** Partition decisions into the three buckets, preserving the input order within each. */
-export function bucketDecisions(decisions: readonly GoverningDecision[]): BucketedDecisions {
-  const buckets: BucketedDecisions = { governing: [], activeProposals: [], history: [] };
+export function bucketDecisions<T extends GoverningDecision>(decisions: readonly T[]): BucketedDecisions<T> {
+  const buckets: BucketedDecisions<T> = { governing: [], activeProposals: [], history: [] };
   for (const decision of decisions) buckets[decision.bucket].push(decision);
   return buckets;
 }

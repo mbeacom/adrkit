@@ -157,9 +157,15 @@ answer where the next decision is actually being made.
   additively, without breaking your current tooling. Reads status, date, and
   deciders from MADR 3.x frontmatter, MADR 2.x `* Status:` bullets, and Nygard
   `## Status` sections. `--rename` also renames each file to `<id>-<slug>.md`.
-- **`adr explain <path>`** — print every decision governing a file, and the
-  matcher that fired. Only `accepted` records are reported as governing; matched
-  proposals and superseded/rejected/deprecated records are listed separately.
+- **`adr explain <path>`** — print every decision governing a file, and why.
+  Decisions reach a file in two directions and the output keeps them apart: the
+  record's own `affects` pattern matched (`via path: src/**`), or the file
+  declared the decision itself with an `@adr 0012` marker in a comment
+  (`declared by src/sync.ts:3`). Markers let `affects` stay narrow — the
+  defining files — while the surrounding code opts in one line at a time, in any
+  language, with no schema change. Only `accepted` records are reported as
+  governing; matched proposals and superseded/rejected/deprecated records are
+  listed separately.
 - **`adr check <files...>`** — validate the changed records and list the decisions
   governing a changed-file set; deterministic, provider-agnostic, `--json` for tools.
 - **`adr evaluate <proposal> --snapshot <bundle.json> --date YYYY-MM-DD`** — run the
