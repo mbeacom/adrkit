@@ -35,7 +35,7 @@ import { isMainModule } from './main-module.ts';
  * (mirroring `@adrkit/mcp`'s `SERVER_INFO`) so the bundled `dist/index.js` never has
  * to locate `package.json` at runtime. `version.test.ts` asserts the two agree.
  */
-export const CLI_VERSION = '0.3.0';
+export const CLI_VERSION = '0.4.0';
 
 function writeStdout(text: string): void {
   process.stdout.write(text);

@@ -9,6 +9,81 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-08
+
+### Added
+
+- **Inbound `@adr <id>` source markers, resolved without a schema change.** A file
+  can now declare the decision it lives under by writing `@adr 0012` on a dedicated
+  comment line in its first 8192 bytes, and `adr explain <path>` reports that record
+  as governing the file alongside the `affects` patterns that already matched it.
+  Until now a decision reached a file in exactly one direction — the record declared
+  `affects` patterns and `resolveAffects` matched repo-relative paths against them,
+  with no way for a file to point back
+  ([ADR-0021](docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
+  `AdrFrontmatter`, `AffectsType`, and `schema/adr.schema.json` are unchanged, and
+  no runtime dependency is added.
+
+  Contributed by [@aballiet](https://github.com/aballiet) in
+  [#97](https://github.com/mbeacom/adrkit/pull/97), from
+  [#95](https://github.com/mbeacom/adrkit/issues/95) — the first community feature
+  this project has shipped.
+
+  **The asymmetry is deliberate: markers reach `adr explain` and nothing else.**
+  `adr check`, `checkChanges`, the CI Action, and the Spec Kit context script do not
+  scan them, so no CI semantics move and `packages/ci/dist` is byte-identical to
+  v0.3.0. `declaredBy` lands on an explain-only `ExplainedDecision` rather than the
+  shared `GoverningDecision`, so `adr check --json` output is unchanged. Extending
+  enforcement to those surfaces is a separate decision, because it changes CI
+  semantics and moves the filesystem boundary.
+
+  A marker is a *claim*, so both ways it could lie are closed and tested. The
+  scanner requires a **dedicated comment line** — an introducer begins the physical
+  line and `@adr` is the comment's first content — because prose that merely
+  discusses a decision, a string literal containing one, and a trailing
+  `} // @adr 0012` must not make an accepted record binding; across this repository
+  that rule finds 4 marker-looking lines where a looser first draft found 51.
+  **Truncation uses the byte count the read observed** rather than re-deriving it
+  from decoded text: `TextDecoder` may drop a BOM or expand invalid bytes, so a
+  re-derived window can sever a reference mid-token, report a record the file never
+  named, and still claim `truncated: false`. The read is confined to one regular
+  file beneath the working tree, checked lexically before any I/O and again on the
+  real path.
+
+  **Landed** on [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
+  rung 1 — unit, contract, and purity coverage, plus maintainer verification against
+  the branch. No reference-repository run yet (rung 2 open); not externally
+  validated (rung 3 open).
+
+- The release pipeline now supports **independently versioned, dist-less
+  packages**. `scripts/release-pack.ts` previously asserted that every release
+  package shared one version and shipped a `dist` — both true of a single
+  lockstep Node surface, neither true of an adapter, and forcing them would have
+  contradicted ADR-0007's "adapters ... are versioned independently. Their
+  semver contract is with their upstream, not with our core." Definitions now
+  declare `versioning: 'lockstep' | 'independent'` and `shipsNodeArtifact`, and a
+  package that ships no Node artifact is *rejected* for publishing `dist`.
+  Workspace dependencies also now resolve against the dependency's own version
+  rather than the depender's.
+
+- **Adapter releases.** Independently versioned packages now release on their own
+  tag (`spec-kit-v0.1.0`) rather than riding a lockstep release. Without this,
+  shipping an adapter fix would mean republishing core, evaluator, CLI, and MCP
+  under a new version despite no change to any of them — which would make
+  ADR-0007's "versioned independently" true of the number and false of everything
+  that matters. `release-pack` gains `--only`, the release manifest carries its
+  own `tag`, and the workflow derives scope from the tag: installed-tarball
+  smoke and the `packages/ci/queue@v0` Action tag are lockstep-only. An adapter
+  release also attaches a catalog `.zip` asset, derived from the packed tarball
+  so the npm and catalog artifacts cannot disagree.
+
+### Changed
+
+- ADR-0007's `core-has-no-adapter-deps` assertion is no longer vacuous. It had
+  nothing to guard while `packages/adapters/` was empty; with the first adapter
+  present it has been observed failing against a deliberately introduced
+  `@adrkit/core → @adrkit/spec-kit` dependency.
+
 ### Security
 
 - `BOOTSTRAP_PACKAGES` is empty again. `@adrkit/spec-kit` needed a credential for
@@ -17,6 +92,34 @@ Until `1.0.0`, minor releases may include breaking changes
   on, it publishes over OIDC and the `NPM_BOOTSTRAP_TOKEN` secret can be deleted.
   A test asserts no package receives the credential, and was observed failing
   against a name left in the set.
+
+### Documentation
+
+- **adrkit.dev documents the Spec Kit extension.** It had shipped, been released
+  three times, and existed nowhere on the site — no page, no sidebar entry, and
+  absent from the homepage's own list of published packages. A new
+  [Spec Kit extension](https://adrkit.dev/spec-kit/) guide joins "Use in CI" and
+  "MCP setup", covering the three commands, the optional hook and why `draft` is
+  unreachable from it, the environment-variable configuration, the tested
+  guarantees, and the honest ADR-0014 rung-2 status.
+
+- Stale versions swept out of the docs. The homepage hero still advertised
+  v0.2.1 two releases after v0.3.0 shipped; the roadmap still said "shipped in
+  v0.2.0"; the `queue@v0` pinning note explained the tag as of the v0.2.1
+  release though it has since moved to the v0.3.0 commit; and the bug-report
+  template suggested `0.2.0` as the version to report and offered no
+  `@adrkit/spec-kit` surface to file against.
+
+- `MANIFEST.md` is an inventory again rather than a seed-bundle snapshot. It had
+  not been touched since ADR-0013 and still claimed "13 records, ids 0001–0013"
+  with statuses six records out of date, no `packages/` tree, and a "not
+  included — add at repo creation" list of files that have existed for months.
+
+- `CLAUDE.md` documents `packages/adapters/spec-kit`, including the constraints
+  that have already been broken once each: the two version fields that must
+  agree, the independent release tag, and the no-dependencies/no-`dist` rule.
+
+## [spec-kit-0.1.2] - 2026-08-03
 
 ### Fixed
 
@@ -27,6 +130,10 @@ Until `1.0.0`, minor releases may include breaking changes
   them in sync. A test now asserts they match, and was observed failing against
   the exact 0.1.1 state.
 
+## [spec-kit-0.1.1] - 2026-08-03
+
+### Fixed
+
 - `@adrkit/spec-kit` **0.1.1** ships `LICENSE` and `NOTICE`. 0.1.0 did not: every
   sibling package copies them into `dist` at build time, and this package has no
   build, so nothing carried them. The files are committed rather than generated
@@ -34,6 +141,8 @@ Until `1.0.0`, minor releases may include breaking changes
   `specify extension add --dev` from a checkout — and a generated file would be
   absent from the last one. A test asserts they stay byte-identical to the root
   copies, and that `.extensionignore` never excludes them.
+
+## [spec-kit-0.1.0] - 2026-08-03
 
 ### Added
 
@@ -77,35 +186,6 @@ Until `1.0.0`, minor releases may include breaking changes
   in every respect. Spike 008's verdict, evidence bundle, and audit history are
   unmodified.
 
-- The release pipeline now supports **independently versioned, dist-less
-  packages**. `scripts/release-pack.ts` previously asserted that every release
-  package shared one version and shipped a `dist` — both true of a single
-  lockstep Node surface, neither true of an adapter, and forcing them would have
-  contradicted ADR-0007's "adapters ... are versioned independently. Their
-  semver contract is with their upstream, not with our core." Definitions now
-  declare `versioning: 'lockstep' | 'independent'` and `shipsNodeArtifact`, and a
-  package that ships no Node artifact is *rejected* for publishing `dist`.
-  Workspace dependencies also now resolve against the dependency's own version
-  rather than the depender's.
-
-- **Adapter releases.** Independently versioned packages now release on their own
-  tag (`spec-kit-v0.1.0`) rather than riding a lockstep release. Without this,
-  shipping an adapter fix would mean republishing core, evaluator, CLI, and MCP
-  under a new version despite no change to any of them — which would make
-  ADR-0007's "versioned independently" true of the number and false of everything
-  that matters. `release-pack` gains `--only`, the release manifest carries its
-  own `tag`, and the workflow derives scope from the tag: installed-tarball
-  smoke and the `packages/ci/queue@v0` Action tag are lockstep-only. An adapter
-  release also attaches a catalog `.zip` asset, derived from the packed tarball
-  so the npm and catalog artifacts cannot disagree.
-
-### Changed
-
-- ADR-0007's `core-has-no-adapter-deps` assertion is no longer vacuous. It had
-  nothing to guard while `packages/adapters/` was empty; with the first adapter
-  present it has been observed failing against a deliberately introduced
-  `@adrkit/core → @adrkit/spec-kit` dependency.
-
 ### Fixed
 
 Two packaging defects that only surfaced by installing the extension for real,
@@ -120,32 +200,6 @@ against live Spec Kit, rather than reasoning about it:
 - The install was depositing the extension's own test suite and `tsconfig.json`
   into the consuming project's `.specify/extensions/adrkit/`. Now excluded via
   `.extensionignore`, which upstream supports across the whole pinned range.
-
-### Documentation
-
-- **adrkit.dev documents the Spec Kit extension.** It had shipped, been released
-  three times, and existed nowhere on the site — no page, no sidebar entry, and
-  absent from the homepage's own list of published packages. A new
-  [Spec Kit extension](https://adrkit.dev/spec-kit/) guide joins "Use in CI" and
-  "MCP setup", covering the three commands, the optional hook and why `draft` is
-  unreachable from it, the environment-variable configuration, the tested
-  guarantees, and the honest ADR-0014 rung-2 status.
-
-- Stale versions swept out of the docs. The homepage hero still advertised
-  v0.2.1 two releases after v0.3.0 shipped; the roadmap still said "shipped in
-  v0.2.0"; the `queue@v0` pinning note explained the tag as of the v0.2.1
-  release though it has since moved to the v0.3.0 commit; and the bug-report
-  template suggested `0.2.0` as the version to report and offered no
-  `@adrkit/spec-kit` surface to file against.
-
-- `MANIFEST.md` is an inventory again rather than a seed-bundle snapshot. It had
-  not been touched since ADR-0013 and still claimed "13 records, ids 0001–0013"
-  with statuses six records out of date, no `packages/` tree, and a "not
-  included — add at repo creation" list of files that have existed for months.
-
-- `CLAUDE.md` documents `packages/adapters/spec-kit`, including the constraints
-  that have already been broken once each: the two version fields that must
-  agree, the independent release tag, and the no-dependencies/no-`dist` rule.
 
 ## [0.3.0] - 2026-07-31
 
@@ -314,7 +368,11 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mbeacom/adrkit/compare/v0.3.0...v0.4.0
+[spec-kit-0.1.2]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.1...spec-kit-v0.1.2
+[spec-kit-0.1.1]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.0...spec-kit-v0.1.1
+[spec-kit-0.1.0]: https://github.com/mbeacom/adrkit/releases/tag/spec-kit-v0.1.0
 [0.3.0]: https://github.com/mbeacom/adrkit/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/mbeacom/adrkit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/mbeacom/adrkit/compare/v0.1.0...v0.2.0

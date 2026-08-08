@@ -2,9 +2,9 @@
 schemaVersion: 0.1.0
 id: "0021"
 title: Resolve inbound source annotations without changing the schema
-status: proposed
+status: accepted
 date: 2026-08-05
-deciders: []
+deciders: ["@mbeacom"]
 tags: [core, cli, matching, governance, agents]
 scope: component
 reversibility: two-way-door
@@ -17,6 +17,16 @@ affects:
     pattern: "packages/cli/src/index.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  tier: async
+  tierReason: >-
+    Adds an inbound edge to resolution without touching the schema, and reaches
+    exactly one surface: `adr explain`. `checkChanges`, the Action, and the
+    published `GoverningDecision` shape are unchanged, so no CI semantics and no
+    consumer contract move. What is new is that `@adrkit/core` opens a file
+    during resolution at all, which is why the read boundary and its residual
+    disclosures are stated in this record rather than left to the code.
 reviewBy: 2027-02-05
 ---
 
