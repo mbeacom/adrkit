@@ -31,6 +31,10 @@ Until `1.0.0`, minor releases may include breaking changes
   `absent`. Containment is now derived from the already-verified symlink-free
   components. `adr check` also stays quiet about the marker scan when there was no
   path to scan.
+- The Action now scans only current/head-side filenames for markers while retaining
+  both sides of a rename for `affects` matching. Previous rename paths can no longer
+  consume the 3,000-file scan budget and cause a current file's marker-only
+  governance to be skipped.
 
 ### Security
 

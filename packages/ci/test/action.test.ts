@@ -20,7 +20,12 @@ function deps(client: GitHubClient, root: string, changedFiles: string[]): Actio
     dir: 'docs/adr',
     loadLint: (dir) => lintCorpus({ cwd: root, dir }),
     readMarkers: (paths) => readSourceMarkersBatch(paths, root),
-    extract: async () => ({ changedFiles, changedDependencies: [], truncated: false }),
+    extract: async () => ({
+      changedFiles,
+      markerFiles: changedFiles,
+      changedDependencies: [],
+      truncated: false,
+    }),
     log: makeLogger().log,
   };
 }
@@ -79,7 +84,12 @@ describe('runAction (end to end with a fake client)', () => {
       readMarkers: async () => {
         throw new Error('markers must not be read on a truncated diff');
       },
-      extract: async () => ({ changedFiles: ['a.ts'], changedDependencies: [], truncated: true }),
+      extract: async () => ({
+        changedFiles: ['a.ts'],
+        markerFiles: ['a.ts'],
+        changedDependencies: [],
+        truncated: true,
+      }),
       log: logger.log,
     });
 
@@ -111,6 +121,36 @@ describe('runAction (end to end with a fake client)', () => {
     expect(logger.info.join('\n')).toContain(
       'marker scan: 1 scanned, 1 absent, 0 unreadable, 0 out-of-tree, 0 skipped',
     );
+  });
+
+  test('scans only the current side of a rename while matching affects against both paths', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-core.md'),
+      withPathMatcher(acceptedRecordMarkdown('0001', 'Guard the former path'), 'src/old.ts'),
+    );
+    const client = makeFakeClient();
+    const scanned: string[][] = [];
+
+    const result = await runAction({
+      client,
+      dir: 'docs/adr',
+      loadLint: (dir) => lintCorpus({ cwd: root, dir }),
+      readMarkers: async (paths) => {
+        scanned.push([...paths]);
+        return { scans: [], skippedPaths: [], limit: 3000, totalCandidates: paths.length };
+      },
+      extract: async () => ({
+        changedFiles: ['src/new.ts', 'src/old.ts'],
+        markerFiles: ['src/new.ts'],
+        changedDependencies: [],
+        truncated: false,
+      }),
+      log: makeLogger().log,
+    });
+
+    expect(scanned).toEqual([['src/new.ts']]);
+    expect(result.outcome?.governing.map((decision) => decision.recordId)).toEqual(['0001']);
   });
 
   test('keeps dangling markers non-failing and out of the focused PR comment', async () => {
@@ -145,6 +185,7 @@ describe('runAction (end to end with a fake client)', () => {
       }),
       extract: async () => ({
         changedFiles: ['src/z.ts', 'src/zz.ts'],
+        markerFiles: ['src/z.ts', 'src/zz.ts'],
         changedDependencies: [],
         truncated: false,
       }),

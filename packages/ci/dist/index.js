@@ -48538,8 +48538,9 @@ async function extractChanges(client) {
   const files = await client.listPullFiles();
   const truncated = files.length >= LIST_FILES_CAP;
   const changedFiles = [...new Set(files.flatMap(pathsForFile))].sort((a, b) => a.localeCompare(b));
+  const markerFiles = [...new Set(files.map((file2) => file2.filename))].sort((a, b) => a.localeCompare(b));
   const changedDependencies = deriveChangedDependencies(files);
-  return { changedFiles, changedDependencies, truncated };
+  return { changedFiles, markerFiles, changedDependencies, truncated };
 }
 
 // src/comment.ts
@@ -48617,6 +48618,16 @@ function renderDecisionList(decisions, withStatus) {
 }
 function renderComment(outcome) {
   const lines = [CI_COMMENT_MARKER, "", HEADING, ""];
+  const findings2 = changedRecordFindings(outcome);
+  const errors4 = findings2.filter((finding) => finding.severity === "error");
+  const warnings = findings2.filter((finding) => finding.severity === "warn");
+  if (errors4.length > 0) {
+    lines.push("#### ⚠️ Validation errors on changed records", "");
+    lines.push("These changed records fail validation and must be fixed:");
+    for (const finding of errors4)
+      lines.push(renderFindingLine(finding));
+    lines.push("");
+  }
   if (outcome.governedBy.length === 0) {
     lines.push(EMPTY_STATE);
   } else if (outcome.governing.length === 0) {
@@ -48631,15 +48642,6 @@ function renderComment(outcome) {
   if (outcome.history.length > 0) {
     lines.push("", HISTORY_HEADING, "", HISTORY_NOTE);
     lines.push(...renderDecisionList(outcome.history, true));
-  }
-  const findings2 = changedRecordFindings(outcome);
-  const errors4 = findings2.filter((finding) => finding.severity === "error");
-  const warnings = findings2.filter((finding) => finding.severity === "warn");
-  if (errors4.length > 0) {
-    lines.push("", "#### ⚠️ Validation errors on changed records", "");
-    lines.push("These changed records fail validation and must be fixed:");
-    for (const finding of errors4)
-      lines.push(renderFindingLine(finding));
   }
   if (warnings.length > 0) {
     lines.push("", "#### Warnings on changed records", "");
@@ -48767,7 +48769,7 @@ async function runAction(deps) {
     return { outcome: null, comment: result2, failed: false, truncated: true };
   }
   const lint = await deps.loadLint(deps.dir);
-  const markerScans = await deps.readMarkers(changes.changedFiles);
+  const markerScans = await deps.readMarkers(changes.markerFiles);
   const outcome = checkChanges({
     lint,
     changedFiles: changes.changedFiles,

@@ -15,7 +15,12 @@ function deps(client: GitHubClient): ActionDeps {
       limit: 1000,
       totalCandidates: paths.length,
     }),
-    extract: async () => ({ changedFiles: ['src/x.ts'], changedDependencies: [], truncated: false }),
+    extract: async () => ({
+      changedFiles: ['src/x.ts'],
+      markerFiles: ['src/x.ts'],
+      changedDependencies: [],
+      truncated: false,
+    }),
     log: makeLogger().log,
   };
 }

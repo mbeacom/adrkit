@@ -135,11 +135,14 @@ out-of-tree, truncated, and skipped paths exactly.
 
 3,000 is not a comfort number. It is `pulls.listFiles`' ceiling. The Action
 already refuses to evaluate a changed-file list that reached that ceiling, so
-every diff it answers holds at most 2,999 paths and the scan cap can never drop
-one of them: "the Action answered" means "every changed file was read for
-markers". A lower cap would make marker-only governance quietly incomplete on
-large pull requests, which is the one place its absence is hardest to notice.
-What the cap still bounds is a local `adr check` handed a runaway glob.
+every diff it answers contributes at most 2,999 current/head-side paths to the
+marker reader. A rename's previous path still participates in `affects` matching,
+but it no longer exists in the checkout and is not handed to the reader. The scan
+cap therefore cannot drop a current file: "the Action answered" means "every
+current file was read for markers". A lower cap would make marker-only governance
+quietly incomplete on large pull requests, which is the one place its absence is
+hardest to notice. What the cap still bounds is a local `adr check` handed a
+runaway glob.
 `@adrkit/ci` holds the assertion that the two caps compose, because
 `@adrkit/core` cannot import the provider constant — the dependency runs the
 other way.

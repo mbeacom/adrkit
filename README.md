@@ -168,7 +168,7 @@ answer where the next decision is actually being made.
   listed separately.
 - **`adr check <files...>`** — validate the changed records and list the decisions
   governing a changed-file set, including inbound `@adr` declarations. Marker reads
-  are bounded to 1,000 files / 16 concurrent reads and reported in `--json`; marker
+  are bounded to 3,000 files / 16 concurrent reads and reported in `--json`; marker
   claims and scan warnings never influence the exit code.
 - **`adr evaluate <proposal> --snapshot <bundle.json> --date YYYY-MM-DD`** — run the
   **deterministic, model-free Pass 0** over a proposal ADR plus an immutable offline

@@ -75,7 +75,7 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
   }
 
   const lint = await deps.loadLint(deps.dir);
-  const markerScans = await deps.readMarkers(changes.changedFiles);
+  const markerScans = await deps.readMarkers(changes.markerFiles);
   const outcome = checkChanges({
     lint,
     changedFiles: changes.changedFiles,

@@ -18,6 +18,7 @@ describe('extractChanges', () => {
     const changes = await extractChanges(client);
 
     expect(changes.changedFiles).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(changes.markerFiles).toEqual(['src/a.ts', 'src/b.ts']);
     expect(changes.truncated).toBe(false);
     expect(changes.changedDependencies).toEqual([]);
   });
@@ -28,6 +29,7 @@ describe('extractChanges', () => {
     const changes = await extractChanges(client);
 
     expect(changes.changedFiles).toEqual(['src/new.ts', 'src/old.ts']);
+    expect(changes.markerFiles).toEqual(['src/new.ts']);
   });
 
   test('derives changed dependencies from the bun.lock patch', async () => {
@@ -94,5 +96,20 @@ describe('extractChanges', () => {
     const changes = await extractChanges(client);
 
     expect(changes.truncated).toBe(true);
+  });
+
+  test('rename expansion cannot push head-side marker paths beyond the provider cap', async () => {
+    const files: PrFile[] = Array.from({ length: 1501 }, (_, index) => ({
+      filename: `z/new-${String(index).padStart(4, '0')}.ts`,
+      previousFilename: `a/old-${String(index).padStart(4, '0')}.ts`,
+      status: 'renamed',
+    }));
+
+    const changes = await extractChanges(clientWithFiles(files));
+
+    expect(changes.truncated).toBe(false);
+    expect(changes.changedFiles).toHaveLength(3002);
+    expect(changes.markerFiles).toHaveLength(1501);
+    expect(changes.markerFiles).toEqual(files.map((file) => file.filename));
   });
 });

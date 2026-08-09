@@ -202,6 +202,35 @@ describe('renderComment status awareness (#39)', () => {
       expect(body).toContain('output truncated to fit GitHub');
       expect(renderComment(outcome)).toBe(body); // deterministic, so the upsert stays idempotent
     });
+
+    test('truncatable governance detail cannot crowd out changed-record validation errors', async () => {
+      const root = await seed();
+      const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+      const decision = outcome.governing[0];
+      if (!decision) throw new Error('expected a governing decision to expand');
+      decision.firedMatchers = Array.from({ length: 1000 }, (_, index) => ({
+        type: 'path',
+        pattern: `src/${String(index).padStart(4, '0')}/${'x'.repeat(80)}`,
+      }));
+      outcome.changedRecords = ['docs/adr/9999-broken.md'];
+      outcome.findings = [
+        {
+          rule: 'frontmatter-parse',
+          severity: 'error',
+          message: 'Unterminated frontmatter',
+          path: 'docs/adr/9999-broken.md',
+        },
+      ];
+      outcome.ok = false;
+
+      const body = renderComment(outcome);
+
+      expect(body.length).toBeLessThanOrEqual(65536);
+      expect(body).toContain('output truncated to fit GitHub');
+      expect(body).toContain('Validation errors on changed records');
+      expect(body).toContain('docs/adr/9999-broken.md');
+      expect(body).toContain('frontmatter-parse');
+    });
   });
 
   /**

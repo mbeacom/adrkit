@@ -142,6 +142,19 @@ function renderDecisionList(decisions: readonly GoverningDecision[], withStatus:
  */
 export function renderComment(outcome: CheckOutcome): string {
   const lines: string[] = [CI_COMMENT_MARKER, '', HEADING, ''];
+  const findings = changedRecordFindings(outcome);
+  const errors = findings.filter((finding) => finding.severity === 'error');
+  const warnings = findings.filter((finding) => finding.severity === 'warn');
+
+  // Validation is the blocking result of this Action, so keep it ahead of the
+  // potentially large governance detail. If the body must be truncated, a reviewer
+  // still sees the failing record and rule instead of only the lower-priority prefix.
+  if (errors.length > 0) {
+    lines.push('#### ⚠️ Validation errors on changed records', '');
+    lines.push('These changed records fail validation and must be fixed:');
+    for (const finding of errors) lines.push(renderFindingLine(finding));
+    lines.push('');
+  }
 
   if (outcome.governedBy.length === 0) {
     lines.push(EMPTY_STATE);
@@ -159,16 +172,6 @@ export function renderComment(outcome: CheckOutcome): string {
   if (outcome.history.length > 0) {
     lines.push('', HISTORY_HEADING, '', HISTORY_NOTE);
     lines.push(...renderDecisionList(outcome.history, true));
-  }
-
-  const findings = changedRecordFindings(outcome);
-  const errors = findings.filter((finding) => finding.severity === 'error');
-  const warnings = findings.filter((finding) => finding.severity === 'warn');
-
-  if (errors.length > 0) {
-    lines.push('', '#### ⚠️ Validation errors on changed records', '');
-    lines.push('These changed records fail validation and must be fixed:');
-    for (const finding of errors) lines.push(renderFindingLine(finding));
   }
 
   if (warnings.length > 0) {

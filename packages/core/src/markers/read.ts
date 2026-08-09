@@ -47,9 +47,12 @@ export interface SourceMarkerScan {
  *
  * Set to GitHub's `pulls.listFiles` ceiling rather than below it. The Action refuses to
  * evaluate a changed-file list that reached that ceiling, so every diff it does
- * evaluate holds at most 2,999 paths and this cap can never silently drop one of them —
- * marker-only governance is complete for any PR the Action answers at all. The cap's
- * remaining job is to bound a local `adr check` handed a runaway glob.
+ * evaluate contributes at most 2,999 current/head-side paths, and the Action passes
+ * exactly those paths to this reader. A rename's previous path still participates in
+ * `affects` matching but is not a file whose contents can be scanned. The cap therefore
+ * cannot silently drop a current file: marker-only governance is complete for any PR
+ * the Action answers at all. Its remaining job is to bound a local `adr check` handed a
+ * runaway glob.
  *
  * `@adrkit/ci` asserts `MARKER_SCAN_FILE_CAP >= LIST_FILES_CAP`; core cannot import the
  * provider constant, because the dependency runs the other way.

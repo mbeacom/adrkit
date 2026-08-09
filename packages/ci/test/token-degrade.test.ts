@@ -14,7 +14,14 @@ function baseDeps(overrides: Partial<ActionDeps> & { log: Logger }): ActionDeps 
     readMarkers:
       overrides.readMarkers ??
       (async (paths) => ({ scans: [], skippedPaths: [], limit: 1000, totalCandidates: paths.length })),
-    extract: overrides.extract ?? (async (): Promise<ExtractedChanges> => ({ changedFiles: ['src/x.ts'], changedDependencies: [], truncated: false })),
+    extract:
+      overrides.extract ??
+      (async (): Promise<ExtractedChanges> => ({
+        changedFiles: ['src/x.ts'],
+        markerFiles: ['src/x.ts'],
+        changedDependencies: [],
+        truncated: false,
+      })),
     log: overrides.log,
   };
 }
@@ -57,7 +64,12 @@ describe('read-only token degradation', () => {
         client,
         log: logger.log,
         loadLint: async () => brokenLint,
-        extract: async () => ({ changedFiles: ['docs/adr/0003-broken.md'], changedDependencies: [], truncated: false }),
+        extract: async () => ({
+          changedFiles: ['docs/adr/0003-broken.md'],
+          markerFiles: ['docs/adr/0003-broken.md'],
+          changedDependencies: [],
+          truncated: false,
+        }),
       }),
     );
 
