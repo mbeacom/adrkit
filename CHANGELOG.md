@@ -18,6 +18,11 @@ Until `1.0.0`, minor releases may include breaking changes
   deterministic `markerScan` result so absent and skipped files are never silent.
   Marker-derived edges render as `declared by` and never influence exit status.
 
+  This answers the separate decision ADR-0021 left open rather than revising it.
+  [ADR-0022](docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md)
+  supersedes ADR-0021, which stands unedited as the record of the explain-only
+  scope shipped in v0.4.0.
+
 ### Fixed
 
 - Marker scanning no longer resolves a path through `realpath`, which rewrites a
@@ -64,7 +69,7 @@ Until `1.0.0`, minor releases may include breaking changes
   [#95](https://github.com/mbeacom/adrkit/issues/95) — the first community feature
   this project has shipped.
 
-  **In v0.4.0 the asymmetry was deliberate: markers reached `adr explain` and nothing else.**
+  **The asymmetry is deliberate: markers reach `adr explain` and nothing else.**
   `adr check`, `checkChanges`, the CI Action, and the Spec Kit context script do not
   scan them, so no CI semantics move and `packages/ci/dist` is byte-identical to
   v0.3.0. `declaredBy` lands on an explain-only `ExplainedDecision` rather than the

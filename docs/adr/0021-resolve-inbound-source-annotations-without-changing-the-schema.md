@@ -15,21 +15,18 @@ affects:
     pattern: "packages/core/src/markers/**"
   - type: path
     pattern: "packages/cli/src/index.ts"
-  - type: path
-    pattern: "packages/core/src/check/**"
-  - type: path
-    pattern: "packages/ci/src/**"
 provenance:
   authoredBy: agent-drafted
   ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: >-
-    Adds an inbound edge without touching the schema. The edge now reaches
-    `explain`, `check`, and the governing-decisions Action, while filesystem reads
-    remain outside pure `checkChanges`. Marker claims render separately and never
-    affect exit status; bounded concurrency, scan-state reporting, and rejecting
-    symlinks constrain the CI capability.
+    Adds an inbound edge to resolution without touching the schema, and reaches
+    exactly one surface: `adr explain`. `checkChanges`, the Action, and the
+    published `GoverningDecision` shape are unchanged, so no CI semantics and no
+    consumer contract move. What is new is that `@adrkit/core` opens a file
+    during resolution at all, which is why the read boundary and its residual
+    disclosures are stated in this record rather than left to the code.
 reviewBy: 2027-02-05
 ---
 
@@ -128,9 +125,8 @@ Decisions governing src/services/sync/retry.ts:
     declared by src/services/sync/retry.ts:3 (@adr 0012)
 ```
 
-Omitting `declaredBy` rather than emitting `[]` keeps pattern-only decisions
-byte-identical. `GoverningDecision` carries the optional field on `explain`,
-`check`, and Action results.
+Omitting `declaredBy` rather than emitting `[]` keeps `adr check --json` and
+every pre-marker consumer byte-identical.
 
 ### A dangling marker is a `warn`
 
@@ -156,21 +152,26 @@ opening that argument and deriving an inbound edge from its contents; that is
 what this boundary refuses. A file elsewhere on disk cannot make itself governed
 by this corpus on the strength of a comment nobody here wrote.
 
-Confinement is checked lexically before I/O and again on the real path. Before
-that second check, `lstat` rejects every symlink component beneath the working
-tree as `unreadable` without resolving its target. Valid in-tree, broken, and
-out-of-tree symlinks therefore render identically; a fork author cannot use the
-scanner to distinguish target existence or permissions. The cost is explicit:
-`adr explain` no longer scans a
-safe in-tree symlink. Only regular files are read, so a FIFO cannot block the
-command.
+Confinement is checked twice: lexically before any I/O and again on the real
+path, because a symlink inside the tree pointing outside it is lexically
+indistinguishable from an ordinary file. Only regular files are read — a FIFO
+opened for reading with no writer blocks forever, which would wedge the command
+rather than report a state.
+
+The lexical refusal reveals nothing about an out-of-tree argument. Resolving an
+in-tree symlink is different: `out-of-tree`, `absent`, and `unreadable` disclose
+whether its external target exists and can be resolved, even though the target
+is never opened or read. That is harmless while the caller owns the tree, but it
+would become a capability delta if a future CI surface scanned an untrusted
+fork's paths. This record does not wire markers into such a surface.
 
 A separate check/open race remains: after `realpath` approves a target, a
-concurrent process can replace that path before `open`. Locally, a process able
-to mutate the caller's tree already has the stronger ability to edit the corpus.
-The Action normally scans a static checkout; a workflow that first executes a
-fork's code has already granted it substantially more capability. The race is
-recorded here rather than misdescribed as closed.
+concurrent process can replace that path before `open`. For the local `explain`
+surface, a process able to mutate the caller's tree already has the stronger
+ability to edit the corpus. In a future CI surface, a checkout-and-check job has
+no concurrent attacker; a job that first executes a fork's code has already
+granted it substantially more capability. The race is recorded here rather than
+misdescribed as closed.
 
 The prose above said "no traversal" before anything checked it; that is the same
 gap `markers-purity.test.ts` closed for the purity claim, and ADR-0016 is why it
@@ -190,46 +191,17 @@ with it.
 same reason: such a file is usually perfectly readable, and saying it could not
 be read would be false. The tool declined to look, and that is what it reports.
 
-For multi-file checks, `markerScan` reports aggregate state counts plus exact,
-sorted lists for absent, unreadable, out-of-tree, truncated, and skipped paths.
-The reader normalizes and sorts unique paths, scans the first 3,000 with at most
-16 reads in flight, and resolves the canonical working-tree root once per batch.
-Paths beyond the cap remain in `affects` resolution but are listed as skipped and
-produce a non-blocking `marker-scan-capped` warning.
-
-The scan cap is GitHub's `pulls.listFiles` ceiling, not a smaller number. The
-Action already refuses to evaluate a changed-file list that reached that ceiling,
-so every diff it answers holds at most 2,999 paths and the scan cap can never
-drop one of them: "the Action answered" means "every changed file was read for
-markers". A lower cap would have made marker-only governance quietly incomplete
-on large pull requests — the one place its absence is hardest to notice. What the
-cap still bounds is a local `adr check` handed a runaway glob. `@adrkit/ci` holds
-the assertion that the two caps compose, since core cannot import the provider
-constant.
-
-### Marker trust stops at the source file
-
-In CI, a marker is a claim made by the pull request author. Marker-derived edges
-therefore remain visibly separate from record-authored `affects` matches, and no
-marker state, declaration, dangling reference, or scan-cap warning changes
-`CheckOutcome.ok` or the Action's failure status. Only validation errors on
-changed ADR records retain that authority.
-
-That promise reaches past the finding severities to the comment body, because
-GitHub rejects a body over 65,536 characters with a `422` — not a permission
-error, so it would escape the Action and fail the job. One 8 KB header window
-holds roughly 630 marker lines, and the path in each is the author's too, so the
-rendering caps the declarations shown per decision and bounds the whole body,
-truncating to a still-marked comment rather than letting authored content
-decide the outcome.
-
 ### Scope of this record
 
-`adr explain <path>`, `adr check <files...>`, and the governing-decisions Action
-scan markers. The callers perform bounded filesystem reads and pass complete
-`SourceMarkerBatchScan` values into `checkChanges`; the resolver itself remains
-deterministic and pure. The Spec Kit context script inherits marker resolution
-through its existing `adr check` call.
+`adr explain <path>` only. `checkChanges` stays pure — no filesystem — and the
+`@adrkit/ci` Action bundle is deliberately unchanged (verified byte-identical by
+rebuild). Wiring markers through `adr check <files...>` and the Action is a
+separate decision, because it changes what CI enforces.
+
+The asymmetry is deliberate and observable: `adr explain` reports markers, while
+`adr check`, the Action, and `packages/adapters/spec-kit/scripts/context.sh` do
+not. The repository's current agent context script calls `adr check`, so this
+record does not put inbound markers on that agent surface on day one.
 
 Nor does this record rely on an MCP sandbox as an enforcement boundary. The MCP
 read guard is inert unless `ADRKIT_MCP_TEST_READ_ROOTS` is set, and when armed in
@@ -285,20 +257,23 @@ The 8192-byte window is a chosen number, not a derived one. A file whose header
 is longer than that loses a marker below it, silently as far as matching goes —
 which is why `truncated` is reported rather than assumed away.
 
-Reading changed paths from disk makes the CLI and Action orchestration depend on
-the working tree. Accepted deliberately, and bounded: at most 3,000 regular files
-beneath the tree, 16 reads in flight, read-only and non-blocking, 8193 bytes per
-file, no traversal, no network, and no credentials. `checkChanges` keeps its
-purity contract because every scan arrives precomputed.
+Reading `<path>` from disk makes `adr explain` no longer a pure function of the
+corpus. Accepted deliberately, and bounded: one regular file beneath the working
+tree, read-only and non-blocking, at most 8193 bytes, no traversal, no network,
+no credentials. The read boundary and file-type constraints are enforced by
+tests observed failing; the symlink-state disclosure above is recorded rather
+than claimed away. `checkChanges` and the Action keep their purity contract
+untouched.
 
 Confining the read means an outside file cannot add marker-derived governance.
 The existing `affects` result is left untouched: broad patterns may still match
 the raw argument, while the marker state reports `out-of-tree`. What is given up
 is a capability markers could have added and deliberately do not.
 
-`declaredBy` is optional on the shared `GoverningDecision`, so pattern-only
-results remain byte-identical while `check` and the Action can preserve the
-origin of marker-derived claims.
+`declaredBy` grows an explain-only decision shape rather than the shared
+`GoverningDecision` returned by `checkChanges`. It is optional so pattern-only
+explain results remain byte-identical, without implying that `adr check` or the
+Action can produce marker declarations.
 
 ## Consequences
 
@@ -313,13 +288,13 @@ origin of marker-derived claims.
   corpus — or the comment-introducer heuristic produces false positives that
   cannot be silenced without a per-language parser. Either reopens this record.
   Review by 2027-02-05.
-- Revisit if: GitHub raises or lowers the `pulls.listFiles` ceiling the scan cap
-  is pinned to, local `adr check` invocations routinely exceed 3,000 paths, or
-  another surface needs the header-window bound to become configurable.
+- Revisit if: `adr check` is asked to enforce markers in CI (a separate
+  decision), or a second surface needs the scanner and the header-window bound
+  has to become configurable.
 
 ## Action items
 
-1. [x] `adr check <files...>` and the `@adrkit/ci` Action scan markers without
-       letting marker-derived information influence their exit code.
+1. [ ] Decide separately whether `adr check <files...>` and the `@adrkit/ci`
+       Action scan markers, and what that does to the Action's exit code.
 2. [ ] Reassess the 8192-byte window against real corpora once markers are in
        use; it is a chosen default, not a measured one.

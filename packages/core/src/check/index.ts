@@ -1,4 +1,4 @@
-// @adr 0021 — this file resolves the inbound edge, so ADR-0021's `affects` now names it
+// @adr 0022 — this file resolves the inbound edge, so ADR-0022's `affects` also names it
 // via `packages/core/src/check/**` and the marker is a second, redundant route to the
 // same record. It is kept because it is the repository's own working example of the
 // declaration rendering; it does not demonstrate the marker-only case, which needs a
