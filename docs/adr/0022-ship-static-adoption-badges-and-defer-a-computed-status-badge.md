@@ -67,10 +67,15 @@ rather than measured here:
 - `shields.io` also caches, and its `endpoint` badge type fetches JSON from a URL
   the adopter controls.
 
-There is also prior art vendored inside this repository. `packages/core/test/fixtures/madr-corpus/0008-add-status-field.md`
-is MADR's own record considering shields.io badges for ADR status, and it lists
-against them: reliance on an online service, and badge proliferation — one image
-per status per record. We ship that argument in our own test fixtures.
+Adjacent prior art exists but does **not** decide this. `packages/core/test/fixtures/madr-corpus/0008-add-status-field.md`
+is MADR weighing a status badge *inside each record* as an alternative to a
+`status:` frontmatter field, and its objections are mostly about that shape —
+"many badges have to be generated… for each ADR number," hard to read in
+markdown source. None of that transfers to one repository-level badge. The
+single portable point is its first con, reliance on the online service
+shields.io, and that is answered here by also shipping a committable SVG rather
+than by declining to ship a badge. Recorded so this fixture is not later cited
+as support it does not provide.
 
 Finally, adrkit already has a settled position on what `adrkit.dev` serves.
 ADR-0011 made the origin a **static, versioned, immutable** host for bytes
