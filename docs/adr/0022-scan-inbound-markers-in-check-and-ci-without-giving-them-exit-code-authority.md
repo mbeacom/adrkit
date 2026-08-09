@@ -99,10 +99,13 @@ close the span early and render a live link inside a comment authored by
 `github-actions[bot]`.
 
 So the rule is stated over the rendered artifact: declarations are capped per
-decision, the whole body is bounded and truncates to a still-marked comment, and
-every path, rule, field, and matcher is rendered in a code span it cannot escape,
-with control characters escaped rather than delimited. "No exit-code authority"
-means nothing an author writes can fail the job, by any route.
+decision, optional finding field/message detail is bounded so a blocking path and
+rule survive, and the whole body truncates to a still-marked comment. Every path,
+rule, field, and matcher is rendered in a code span it cannot escape, with control
+characters escaped rather than delimited. Fence sizing scans backtick runs
+iteratively; it never spreads an authored value into a variadic call that can exceed
+Node's argument limit before the body limiter runs. "No exit-code authority" means
+nothing an author writes can fail the job, by any route.
 
 ### Every symlink component is refused
 

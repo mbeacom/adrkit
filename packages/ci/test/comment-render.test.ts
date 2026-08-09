@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { checkChanges, lintCorpus, readSourceMarkersBatch } from '@adrkit/core';
 import { acceptedRecordMarkdown, cleanupTestDir, recordMarkdown, resetTestDir, supersededRecordMarkdown, writeText } from '../../core/test/helpers.ts';
 import { CI_COMMENT_MARKER, renderComment } from '../src/comment.ts';
@@ -230,6 +231,63 @@ describe('renderComment status awareness (#39)', () => {
       expect(body).toContain('Validation errors on changed records');
       expect(body).toContain('docs/adr/9999-broken.md');
       expect(body).toContain('frontmatter-parse');
+    });
+
+    test('an oversized finding message cannot crowd out its blocking path and rule', async () => {
+      const root = await seed();
+      const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+      outcome.changedRecords = ['docs/adr/9999-broken.md'];
+      outcome.findings = [
+        {
+          rule: 'frontmatter-parse',
+          severity: 'error',
+          message: 'x'.repeat(70_000),
+          path: 'docs/adr/9999-broken.md',
+        },
+      ];
+      outcome.ok = false;
+
+      const body = renderComment(outcome);
+
+      expect(body.length).toBeLessThanOrEqual(65536);
+      expect(body).toContain('docs/adr/9999-broken.md');
+      expect(body).toContain('frontmatter-parse');
+      expect(body).toContain('[message truncated]');
+      expect(body).not.toContain('x'.repeat(1024));
+    });
+
+    test('separated backtick runs cannot exceed Node\'s variadic argument limit', async () => {
+      const root = await resetTestDir(DIR_NAME);
+      const build = await Bun.build({
+        entrypoints: [join(process.cwd(), 'packages/ci/src/comment.ts')],
+        outdir: join(root, 'node-bundle'),
+        target: 'node',
+        format: 'esm',
+      });
+      expect(build.success).toBe(true);
+      const output = build.outputs[0];
+      if (!output) throw new Error('expected the Node renderer bundle');
+
+      const script = [
+        `import { renderComment } from ${JSON.stringify(pathToFileURL(output.path).href)};`,
+        "const pattern = '`x'.repeat(300_000);",
+        "const decision = { recordId: '0001', title: 'Guard', status: 'accepted', bucket: 'governing', firedMatchers: [{ type: 'path', pattern }] };",
+        "const outcome = { changedFiles: ['src/a.ts'], governedBy: [decision], governing: [decision], activeProposals: [], history: [], changedRecords: [], findings: [], ok: true };",
+        'const body = renderComment(outcome);',
+        "process.stdout.write(String(body.length));",
+      ].join('\n');
+      const proc = Bun.spawn(['node', '--input-type=module', '--eval', script], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+      const [exitCode, stdout, stderr] = await Promise.all([
+        proc.exited,
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+      ]);
+
+      expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: '' });
+      expect(Number(stdout)).toBeLessThanOrEqual(65536);
     });
   });
 

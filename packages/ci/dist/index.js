@@ -48556,20 +48556,32 @@ var MAX_GOVERNING = 50;
 var MAX_DECLARATIONS = 10;
 var MAX_COMMENT_CHARS = 65536;
 var TRUNCATION_NOTICE = "- …output truncated to fit GitHub’s comment size limit; run `adr check` locally for the complete result.";
+var MAX_FINDING_FIELD_CHARS = 256;
+var MAX_FINDING_MESSAGE_CHARS = 1024;
 function changedRecordFindings(outcome) {
   const changed = new Set(outcome.changedRecords);
   return outcome.findings.filter((finding) => finding.field !== "marker" && finding.path !== undefined && changed.has(finding.path));
 }
 function code(value) {
   const safe = value.replace(/[\u0000-\u001f\u007f]/g, (char) => `\\x${char.charCodeAt(0).toString(16).padStart(2, "0")}`);
-  const fence = "`".repeat(Math.max(0, ...[...safe.matchAll(/`+/g)].map((run) => run[0].length)) + 1);
+  let longestRun = 0;
+  for (const run of safe.matchAll(/`+/g))
+    longestRun = Math.max(longestRun, run[0].length);
+  const fence = "`".repeat(longestRun + 1);
   const pad = safe.startsWith("`") || safe.endsWith("`") ? " " : "";
   return `${fence}${pad}${safe}${pad}${fence}`;
 }
+function boundedDetail(value, limit, label) {
+  if (value.length <= limit)
+    return value;
+  const suffix = `… [${label} truncated]`;
+  return `${value.slice(0, Math.max(0, limit - suffix.length))}${suffix}`;
+}
 function renderFindingLine(finding) {
   const where = finding.path ? code(finding.path) : "(corpus)";
-  const field = finding.field ? ` (${code(finding.field)})` : "";
-  return `- ${where} — ${code(finding.rule)}${field}: ${finding.message}`;
+  const field = finding.field ? ` (${code(boundedDetail(finding.field, MAX_FINDING_FIELD_CHARS, "field"))})` : "";
+  const message = boundedDetail(finding.message, MAX_FINDING_MESSAGE_CHARS, "message");
+  return `- ${where} — ${code(finding.rule)}${field}: ${message}`;
 }
 function renderDecisionLines(decision, withStatus) {
   const status = withStatus ? ` _(${decision.status})_` : "";

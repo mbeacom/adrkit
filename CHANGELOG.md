@@ -52,6 +52,11 @@ Until `1.0.0`, minor releases may include breaking changes
   a 70,585-character body; GitHub rejects anything over 65,536 with a `422`, and that
   is not a permission error, so pull-request-authored marker content could fail the
   job it is documented as never being able to affect.
+- Blocking finding paths and rules now remain visible when an authored finding message
+  is larger than the comment budget; optional field/message detail is bounded before
+  the whole-line limiter runs. Code-span fence sizing also scans backtick runs
+  iteratively instead of spreading an unbounded matcher into `Math.max`, which could
+  throw a Node `RangeError` and fail the Action before truncation.
 
 ## [0.4.0] - 2026-08-08
 
