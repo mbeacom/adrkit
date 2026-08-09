@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { checkChanges, lintCorpus } from '@adrkit/core';
+import { checkChanges, lintCorpus, readSourceMarkersBatch } from '@adrkit/core';
 import { acceptedRecordMarkdown, cleanupTestDir, recordMarkdown, resetTestDir, supersededRecordMarkdown, writeText } from '../../core/test/helpers.ts';
 import { CI_COMMENT_MARKER, renderComment } from '../src/comment.ts';
 
@@ -138,6 +138,68 @@ describe('renderComment status awareness (#39)', () => {
     expect(body).toContain('**0002** — Draft record _(draft)_');
     expect(body).toContain('#### Historical records that once covered this change');
     expect(body).toContain('**0003** — Superseded record _(superseded)_ — superseded by **0001**');
+  });
+
+  /**
+   * A declaration is authored by the pull request, and GitHub rejects a body over
+   * 65,536 characters with a 422 — which is not a permission error and would fail the
+   * job. ADR-0021 promises marker content can never do that, so the rendering is what
+   * has to hold the promise.
+   */
+  describe('pull-request-authored content cannot grow the body without bound', () => {
+    test('caps the declarations rendered for one decision and says how many were held back', async () => {
+      const root = await seed();
+      const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+      const decision = outcome.governing[0];
+      if (!decision) throw new Error('expected a governing decision to annotate');
+      decision.declaredBy = Array.from({ length: 12 }, (_, index) => ({
+        path: 'packages/api/src/server.ts',
+        line: index + 1,
+        ref: '0001',
+      }));
+
+      const body = renderComment(outcome);
+
+      expect(body.match(/ {2}- declared by /g)).toHaveLength(10);
+      expect(body).toContain('  - …and 2 more declarations');
+    });
+
+    test('an 8 KB header window full of markers does not exceed the comment size limit', async () => {
+      const root = await seed();
+      const file = 'packages/api/src/payload.ts';
+      let source = '';
+      while (Buffer.byteLength(source) < 8192) source += '// @adr 0001\n';
+      await writeText(join(root, file), source);
+
+      const lint = await lintCorpus({ cwd: root, dir: 'docs/adr' });
+      const markerScans = await readSourceMarkersBatch([file], root);
+      const outcome = checkChanges({ lint, changedFiles: [file], dir: 'docs/adr', markerScans });
+
+      // The scan really did find the pathological input; only the rendering is bounded.
+      expect(outcome.governing[0]?.declaredBy?.length).toBeGreaterThan(600);
+      expect(renderComment(outcome).length).toBeLessThanOrEqual(65536);
+    });
+
+    test('an oversized body is truncated to a marked, still-identifiable comment', async () => {
+      const root = await seed();
+      const outcome = await outcomeFor(root, ['docs/adr/0001-api.md']);
+      // Findings on changed records are the remaining unbounded input; the guard is not
+      // specific to markers.
+      outcome.changedRecords = ['docs/adr/0001-api.md'];
+      outcome.findings = Array.from({ length: 4000 }, (_, index) => ({
+        rule: 'invalid-format',
+        severity: 'error' as const,
+        message: `finding ${index} ${'x'.repeat(60)}`,
+        path: 'docs/adr/0001-api.md',
+      }));
+
+      const body = renderComment(outcome);
+
+      expect(body.length).toBeLessThanOrEqual(65536);
+      expect(body.startsWith(CI_COMMENT_MARKER)).toBe(true);
+      expect(body).toContain('output truncated to fit GitHub');
+      expect(renderComment(outcome)).toBe(body); // deterministic, so the upsert stays idempotent
+    });
   });
 
   test('a change matched only by non-accepted records says no accepted decision governs it', async () => {

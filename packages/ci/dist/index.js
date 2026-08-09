@@ -48191,7 +48191,7 @@ async function mapConcurrent(items, concurrency, task) {
 }
 
 // ../core/src/markers/read.ts
-var MARKER_SCAN_FILE_CAP = 1000;
+var MARKER_SCAN_FILE_CAP = 3000;
 var MARKER_SCAN_CONCURRENCY = 16;
 function scanStateForError(error52) {
   const code = typeof error52 === "object" && error52 !== null && "code" in error52 ? String(error52.code) : "";
@@ -48214,7 +48214,7 @@ async function lstatWithoutSymlink(root, target) {
   return info2;
 }
 function normalizeMarkerPath(path) {
-  const forward = path.replace(/\\/g, "/");
+  const forward = sep3 === "\\" ? path.replace(/\\/g, "/") : path;
   let start = 0;
   while (forward.startsWith("./", start))
     start += 2;
@@ -48249,10 +48249,10 @@ async function readWithPreparedRoot(path, prepared) {
     const link = await lstatWithoutSymlink(prepared.root, candidate);
     if (!link || !link.isFile())
       return refuse("unreadable");
-    const target = await realpath(candidate);
+    const target = resolve3(prepared.realRoot, relative2(prepared.root, candidate));
     if (!isInsideRoot(prepared.realRoot, target))
       return refuse("out-of-tree");
-    handle = await open(target, readFlags());
+    handle = await open(candidate, readFlags());
     if (!(await handle.stat()).isFile())
       return refuse("unreadable");
     const buffer = new Uint8Array(MARKER_HEADER_WINDOW_BYTES + 1);
@@ -48552,6 +48552,9 @@ var PROPOSALS_NOTE = "These are not yet ratified and do not bind this change:";
 var HISTORY_HEADING = "#### Historical records that once covered this change";
 var HISTORY_NOTE = "These no longer bind this change, and are listed for context only:";
 var MAX_GOVERNING = 50;
+var MAX_DECLARATIONS = 10;
+var MAX_COMMENT_CHARS = 65536;
+var TRUNCATION_NOTICE = "- …output truncated to fit GitHub’s comment size limit; run `adr check` locally for the complete result.";
 function changedRecordFindings(outcome) {
   const changed = new Set(outcome.changedRecords);
   return outcome.findings.filter((finding) => finding.field !== "marker" && finding.path !== undefined && changed.has(finding.path));
@@ -48568,10 +48571,35 @@ function renderDecisionLines(decision, withStatus) {
   for (const matcher of decision.firedMatchers) {
     lines.push(`  - via \`${matcher.type}\`: \`${matcher.pattern}\``);
   }
-  for (const declaration of decision.declaredBy ?? []) {
+  const declarations = decision.declaredBy ?? [];
+  for (const declaration of declarations.slice(0, MAX_DECLARATIONS)) {
     lines.push(`  - declared by \`${declaration.path}:${declaration.line}\` (\`@adr ${declaration.ref}\`)`);
   }
+  const remaining = declarations.length - Math.min(declarations.length, MAX_DECLARATIONS);
+  if (remaining > 0) {
+    lines.push(`  - …and ${remaining} more declaration${remaining === 1 ? "" : "s"}`);
+  }
   return lines;
+}
+function withinCommentLimit(lines) {
+  const body = `${lines.join(`
+`)}
+`;
+  if (body.length <= MAX_COMMENT_CHARS)
+    return body;
+  const budget = MAX_COMMENT_CHARS - (TRUNCATION_NOTICE.length + 2);
+  const kept = [CI_COMMENT_MARKER];
+  let used = CI_COMMENT_MARKER.length + 1;
+  for (const line of lines.slice(1)) {
+    const cost = line.length + 1;
+    if (used + cost > budget)
+      break;
+    kept.push(line);
+    used += cost;
+  }
+  return `${[...kept, "", TRUNCATION_NOTICE].join(`
+`)}
+`;
 }
 function renderDecisionList(decisions, withStatus) {
   const shown = decisions.slice(0, MAX_GOVERNING);
@@ -48612,9 +48640,7 @@ function renderComment(outcome) {
     for (const finding of warnings)
       lines.push(renderFindingLine(finding));
   }
-  return `${lines.join(`
-`)}
-`;
+  return withinCommentLimit(lines);
 }
 function renderTruncatedNotice() {
   return [

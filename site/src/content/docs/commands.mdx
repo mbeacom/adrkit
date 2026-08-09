@@ -167,10 +167,14 @@ or permissions.
 
 `adr check` and the governing-decisions Action scan markers from the changed
 paths before calling the pure resolver. They normalize, deduplicate, and sort
-paths; scan the first 1,000 with at most 16 reads in flight; and expose exact
+paths; scan the first 3,000 with at most 16 reads in flight; and expose exact
 absent and skipped paths through `markerScan`. Paths beyond the cap still take
 part in `affects` matching, but their markers are not read. A non-blocking
 `marker-scan-capped` warning makes that loss explicit.
+
+The cap is GitHub's own changed-file ceiling. The Action refuses to evaluate a
+pull request whose file list hit that ceiling, so every diff it does answer is
+scanned completely and only a local `adr check` can reach the cap.
 
 ## adr check
 

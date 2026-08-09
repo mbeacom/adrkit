@@ -63,7 +63,7 @@ out of the tree, and every symlink are refused without opening a target;
 non-regular files are `unreadable`, so a FIFO cannot block the read.
 
 `readSourceMarkersBatch(paths, cwd)` is the impure boundary for `checkChanges`.
-It normalizes, deduplicates, and sorts paths; scans the first 1,000 with at most
+It normalizes, deduplicates, and sorts paths; scans the first 3,000 with at most
 16 reads in flight; resolves the working-tree root once; and returns every
 skipped path. Pass that `SourceMarkerBatchScan` through `markerScans` to receive
 marker-aware decisions and a deterministic `markerScan` report without adding

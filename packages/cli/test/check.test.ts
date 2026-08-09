@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
+import { MARKER_SCAN_FILE_CAP } from '@adrkit/core';
 import {
   acceptedRecordMarkdown,
   cleanupTestDir,
@@ -159,15 +160,29 @@ describe('adr check CLI', () => {
     expect(parsed.markerScan.absentPaths).toEqual(['src/deleted.ts']);
   });
 
+  test('says nothing about the marker scan when there was no path to scan', async () => {
+    const root = await seedCorpus();
+
+    const result = await runAdr(['check', '--dir', 'docs/adr'], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain('marker scan');
+  });
+
+  // Only a local invocation can reach the cap: the Action refuses to evaluate a diff
+  // that hit GitHub's 3,000-file list cap, so it never hands over that many paths.
   test('reports a non-blocking warning when the marker scan cap is reached', async () => {
     const root = await seedCorpus();
-    const paths = Array.from({ length: 1001 }, (_, index) => `src/file-${String(index).padStart(4, '0')}.ts`);
+    const name = (index: number): string => `src/file-${String(index).padStart(5, '0')}.ts`;
+    const paths = Array.from({ length: MARKER_SCAN_FILE_CAP + 1 }, (_, index) => name(index));
 
     const result = await runAdr(['check', ...paths, '--dir', 'docs/adr'], root);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('marker scan: 0 scanned, 1000 absent, 0 unreadable, 0 out-of-tree, 1 skipped');
+    expect(result.stdout).toContain(
+      `marker scan: 0 scanned, ${MARKER_SCAN_FILE_CAP} absent, 0 unreadable, 0 out-of-tree, 1 skipped`,
+    );
     expect(result.stdout).toContain('marker-scan-capped');
-    expect(result.stdout).toContain('src/file-1000.ts');
+    expect(result.stdout).toContain(name(MARKER_SCAN_FILE_CAP));
   });
 });

@@ -648,7 +648,9 @@ function renderHumanCheck(outcome: ReturnType<typeof checkChanges>): string {
     );
   }
 
-  if (outcome.markerScan) {
+  // Silent when there was nothing to scan: `adr check` with no paths would otherwise
+  // report an all-zero scan on every run.
+  if (outcome.markerScan && outcome.markerScan.totalCandidates > 0) {
     const counts = outcome.markerScan.counts;
     output +=
       `marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` +

@@ -42,8 +42,19 @@ export interface SourceMarkerScan {
   truncated: boolean;
 }
 
-/** Maximum number of unique paths one `check` run will scan. */
-export const MARKER_SCAN_FILE_CAP = 1000;
+/**
+ * Maximum number of unique paths one `check` run will scan.
+ *
+ * Set to GitHub's `pulls.listFiles` ceiling rather than below it. The Action refuses to
+ * evaluate a changed-file list that reached that ceiling, so every diff it does
+ * evaluate holds at most 2,999 paths and this cap can never silently drop one of them —
+ * marker-only governance is complete for any PR the Action answers at all. The cap's
+ * remaining job is to bound a local `adr check` handed a runaway glob.
+ *
+ * `@adrkit/ci` asserts `MARKER_SCAN_FILE_CAP >= LIST_FILES_CAP`; core cannot import the
+ * provider constant, because the dependency runs the other way.
+ */
+export const MARKER_SCAN_FILE_CAP = 3000;
 
 /** Maximum number of marker file reads in flight at once. */
 export const MARKER_SCAN_CONCURRENCY = 16;
@@ -93,9 +104,16 @@ async function lstatWithoutSymlink(
   return info;
 }
 
-/** Normalize a caller path once, before it becomes marker identity. */
+/**
+ * Normalize a caller path once, before it becomes marker identity.
+ *
+ * A backslash is a separator only where the platform says so. On POSIX it is an
+ * ordinary filename character, and rewriting it would make `src/we\ird.ts` scan
+ * `src/we/ird.ts` — a different file, reported as `scanned` rather than `absent`, with
+ * the wrong file's markers attributed to the path the caller never named.
+ */
 function normalizeMarkerPath(path: string): string {
-  const forward = path.replace(/\\/g, '/');
+  const forward = sep === '\\' ? path.replace(/\\/g, '/') : path;
   let start = 0;
   while (forward.startsWith('./', start)) start += 2;
   return forward.slice(start);
@@ -168,14 +186,17 @@ async function readWithPreparedRoot(path: string, prepared: PreparedRoot): Promi
     const link = await lstatWithoutSymlink(prepared.root, candidate);
     if (!link || !link.isFile()) return refuse('unreadable');
 
-    // Retain canonical containment for unusual mount/alias behavior that is not a
-    // symlink visible in the lexical path.
-    const target = await realpath(candidate);
+    // With every component proven not to be a symlink, the canonical location is the
+    // canonical root plus the lexical remainder. It is derived rather than asked of
+    // `realpath`, which rewrites a backslash *inside* a POSIX filename into a separator:
+    // `realpath('src/we\ird.ts')` answers `src/we/ird.ts`, so the scan would open a
+    // different file and report its markers under the path the caller named.
+    const target = resolve(prepared.realRoot, relative(prepared.root, candidate));
     if (!isInsideRoot(prepared.realRoot, target)) return refuse('out-of-tree');
 
-    handle = await open(target, readFlags());
+    handle = await open(candidate, readFlags());
     // Check the opened handle rather than a path before `open`, so the file-type check
-    // applies to the object we read. This does not close the `realpath` -> `open` race:
+    // applies to the object we read. This does not close the `lstat` -> `open` race:
     // a concurrent process can still replace the approved path before it is opened.
     if (!(await handle.stat()).isFile()) return refuse('unreadable');
 
@@ -207,7 +228,8 @@ export async function readSourceMarkers(path: string, cwd = process.cwd()): Prom
 /**
  * Scan a deterministic, bounded set of source paths with fixed concurrency.
  *
- * Paths are normalized, deduplicated, and sorted before the first 1,000 are chosen.
+ * Paths are normalized, deduplicated, and sorted before the first
+ * {@link MARKER_SCAN_FILE_CAP} are chosen.
  * Anything beyond the cap is returned verbatim in `skippedPaths`, never silently
  * discarded. The working-tree real path is resolved once for the entire batch.
  */

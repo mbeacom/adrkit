@@ -13,14 +13,29 @@ Until `1.0.0`, minor releases may include breaking changes
 
 - `adr check` and the governing-decisions Action now resolve inbound `@adr`
   markers from changed files. Reads are hoisted outside pure `checkChanges`, bounded
-  to 1,000 normalized paths at 16 concurrent reads, and reported through a
+  to 3,000 normalized paths — GitHub's own changed-file ceiling, so every diff the
+  Action evaluates is scanned completely — at 16 concurrent reads, and reported through a
   deterministic `markerScan` result so absent and skipped files are never silent.
   Marker-derived edges render as `declared by` and never influence exit status.
+
+### Fixed
+
+- Marker scanning no longer resolves a path through `realpath`, which rewrites a
+  backslash *inside* a POSIX filename into a separator: `src/we\ird.ts` opened
+  `src/we/ird.ts` and reported that file's markers, as `scanned` rather than
+  `absent`. Containment is now derived from the already-verified symlink-free
+  components. `adr check` also stays quiet about the marker scan when there was no
+  path to scan.
 
 ### Security
 
 - Marker scanning now rejects every symlink before resolving its target, closing the
   existence/permission oracle that would otherwise become available to fork PRs.
+- The governing-decisions comment bounds the declarations rendered per decision and
+  the body as a whole. One 8 KB header window holds ~630 marker lines, which produced
+  a 70,585-character body; GitHub rejects anything over 65,536 with a `422`, and that
+  is not a permission error, so pull-request-authored marker content could fail the
+  job it is documented as never being able to affect.
 
 ## [0.4.0] - 2026-08-08
 

@@ -192,10 +192,20 @@ be read would be false. The tool declined to look, and that is what it reports.
 
 For multi-file checks, `markerScan` reports aggregate state counts plus exact,
 sorted lists for absent, unreadable, out-of-tree, truncated, and skipped paths.
-The reader normalizes and sorts unique paths, scans the first 1,000 with at most
+The reader normalizes and sorts unique paths, scans the first 3,000 with at most
 16 reads in flight, and resolves the canonical working-tree root once per batch.
 Paths beyond the cap remain in `affects` resolution but are listed as skipped and
 produce a non-blocking `marker-scan-capped` warning.
+
+The scan cap is GitHub's `pulls.listFiles` ceiling, not a smaller number. The
+Action already refuses to evaluate a changed-file list that reached that ceiling,
+so every diff it answers holds at most 2,999 paths and the scan cap can never
+drop one of them: "the Action answered" means "every changed file was read for
+markers". A lower cap would have made marker-only governance quietly incomplete
+on large pull requests — the one place its absence is hardest to notice. What the
+cap still bounds is a local `adr check` handed a runaway glob. `@adrkit/ci` holds
+the assertion that the two caps compose, since core cannot import the provider
+constant.
 
 ### Marker trust stops at the source file
 
@@ -204,6 +214,14 @@ therefore remain visibly separate from record-authored `affects` matches, and no
 marker state, declaration, dangling reference, or scan-cap warning changes
 `CheckOutcome.ok` or the Action's failure status. Only validation errors on
 changed ADR records retain that authority.
+
+That promise reaches past the finding severities to the comment body, because
+GitHub rejects a body over 65,536 characters with a `422` — not a permission
+error, so it would escape the Action and fail the job. One 8 KB header window
+holds roughly 630 marker lines, and the path in each is the author's too, so the
+rendering caps the declarations shown per decision and bounds the whole body,
+truncating to a still-marked comment rather than letting authored content
+decide the outcome.
 
 ### Scope of this record
 
@@ -268,7 +286,7 @@ is longer than that loses a marker below it, silently as far as matching goes �
 which is why `truncated` is reported rather than assumed away.
 
 Reading changed paths from disk makes the CLI and Action orchestration depend on
-the working tree. Accepted deliberately, and bounded: at most 1,000 regular files
+the working tree. Accepted deliberately, and bounded: at most 3,000 regular files
 beneath the tree, 16 reads in flight, read-only and non-blocking, 8193 bytes per
 file, no traversal, no network, and no credentials. `checkChanges` keeps its
 purity contract because every scan arrives precomputed.
@@ -295,8 +313,9 @@ origin of marker-derived claims.
   corpus — or the comment-introducer heuristic produces false positives that
   cannot be silenced without a per-language parser. Either reopens this record.
   Review by 2027-02-05.
-- Revisit if: real corpora routinely exceed the 1,000-file scan cap, or another
-  surface needs the header-window bound to become configurable.
+- Revisit if: GitHub raises or lowers the `pulls.listFiles` ceiling the scan cap
+  is pinned to, local `adr check` invocations routinely exceed 3,000 paths, or
+  another surface needs the header-window bound to become configurable.
 
 ## Action items
 

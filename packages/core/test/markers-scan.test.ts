@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdir, symlink, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import {
   MARKER_HEADER_WINDOW_BYTES,
   MARKER_SCAN_FILE_CAP,
@@ -347,7 +347,7 @@ describe('readSourceMarkersBatch', () => {
     await writeText(join(root, 'src/b.ts'), '// @adr 0013\n');
 
     const batch = await readSourceMarkersBatch(
-      ['src\\b.ts', './src/a.ts', 'src/a.ts', '././src/b.ts'],
+      ['./src/b.ts', './src/a.ts', 'src/a.ts', '././src/b.ts'],
       root,
     );
 
@@ -360,18 +360,34 @@ describe('readSourceMarkersBatch', () => {
     expect(batch.skippedPaths).toEqual([]);
   });
 
-  test('scans the first 1000 sorted paths and reports every path beyond the cap', async () => {
+  test.skipIf(sep === '\\')(
+    'treats a backslash as a filename character where the platform does, not a separator',
+    async () => {
+      const root = await resetTestDir(DIR_NAME);
+      // Two distinct POSIX files. Rewriting the backslash would scan the second and
+      // report its marker under the first's name — a wrong answer that reads as
+      // `scanned`, not `absent`.
+      await writeText(join(root, 'src/we\\ird.ts'), 'export const plain = true;\n');
+      await writeText(join(root, 'src/we/ird.ts'), '// @adr 0012\n');
+
+      const batch = await readSourceMarkersBatch(['src/we\\ird.ts'], root);
+
+      expect(batch.scans).toEqual([
+        { path: 'src/we\\ird.ts', state: 'scanned', markers: [], truncated: false },
+      ]);
+    },
+  );
+
+  test('scans the first capped sorted paths and reports every path beyond the cap', async () => {
     const root = await resetTestDir(DIR_NAME);
-    const paths = Array.from(
-      { length: MARKER_SCAN_FILE_CAP + 2 },
-      (_, index) => `src/file-${String(index).padStart(4, '0')}.ts`,
-    ).reverse();
+    const name = (index: number): string => `src/file-${String(index).padStart(5, '0')}.ts`;
+    const paths = Array.from({ length: MARKER_SCAN_FILE_CAP + 2 }, (_, index) => name(index)).reverse();
 
     const batch = await readSourceMarkersBatch(paths, root);
 
     expect(batch.scans).toHaveLength(MARKER_SCAN_FILE_CAP);
     expect(batch.scans.every((scan) => scan.state === 'absent')).toBe(true);
-    expect(batch.skippedPaths).toEqual(['src/file-1000.ts', 'src/file-1001.ts']);
+    expect(batch.skippedPaths).toEqual([name(MARKER_SCAN_FILE_CAP), name(MARKER_SCAN_FILE_CAP + 1)]);
     expect(batch.totalCandidates).toBe(MARKER_SCAN_FILE_CAP + 2);
   });
 });

@@ -51,8 +51,9 @@ dedicated comment line. Nothing is written back to the record. In
 `--json`, pattern matches carry `firedMatchers` and file declarations carry
 `declaredBy`. `explain --json` carries a single-file `markers` block, while
 `check --json` carries a `markerScan` report with scan-state counts and exact
-unavailable/skipped paths. Multi-file scans are capped at 1,000 normalized paths
-and 16 concurrent reads; skipped paths warn but never fail.
+unavailable/skipped paths. Multi-file scans are capped at 3,000 normalized paths
+and 16 concurrent reads; skipped paths warn but never fail. The cap matches
+GitHub's changed-file ceiling, so only a local invocation can reach it.
 See [the commands reference](https://adrkit.dev/docs/commands/#inbound-adr-markers).
 
 The published ESM CLI runs on Node.js 22 or newer; development in the adrkit

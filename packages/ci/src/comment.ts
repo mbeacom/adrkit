@@ -20,6 +20,22 @@ const HISTORY_NOTE = 'These no longer bind this change, and are listed for conte
 // trimmed semantically (R6) — this only shortens what is rendered.
 const MAX_GOVERNING = 50;
 
+// Display cap for the declarations on one decision. Unlike `firedMatchers`, which the
+// corpus authors, a declaration is authored by the pull request: one file's 8 KB header
+// window holds ~630 `// @adr 0021` lines, and the path in each is the author's too.
+// Bounding what is rendered is what keeps that content out of the body budget below.
+const MAX_DECLARATIONS = 10;
+
+/**
+ * GitHub rejects a comment body over 65,536 characters with a 422. That is not a
+ * permission error, so it would propagate out of the Action and fail the job — which
+ * would let pull-request-authored marker content change the check's result, exactly
+ * what ADR-0021 says it must never do. The body is bounded here instead.
+ */
+const MAX_COMMENT_CHARS = 65536;
+const TRUNCATION_NOTICE =
+  '- …output truncated to fit GitHub’s comment size limit; run `adr check` locally for the complete result.';
+
 function changedRecordFindings(outcome: CheckOutcome): Finding[] {
   const changed = new Set(outcome.changedRecords);
   return outcome.findings.filter(
@@ -46,12 +62,40 @@ function renderDecisionLines(decision: GoverningDecision, withStatus: boolean): 
   for (const matcher of decision.firedMatchers) {
     lines.push(`  - via \`${matcher.type}\`: \`${matcher.pattern}\``);
   }
-  for (const declaration of decision.declaredBy ?? []) {
+  const declarations = decision.declaredBy ?? [];
+  for (const declaration of declarations.slice(0, MAX_DECLARATIONS)) {
     lines.push(
       `  - declared by \`${declaration.path}:${declaration.line}\` (\`@adr ${declaration.ref}\`)`,
     );
   }
+  const remaining = declarations.length - Math.min(declarations.length, MAX_DECLARATIONS);
+  if (remaining > 0) {
+    lines.push(`  - …and ${remaining} more declaration${remaining === 1 ? '' : 's'}`);
+  }
   return lines;
+}
+
+/**
+ * Join the rendered lines, dropping whole lines from the end until the body fits.
+ *
+ * The hidden marker is retained unconditionally: it is the comment's identity (R5), and
+ * a body that lost it would be orphaned and re-created on every run.
+ */
+function withinCommentLimit(lines: readonly string[]): string {
+  const body = `${lines.join('\n')}\n`;
+  if (body.length <= MAX_COMMENT_CHARS) return body;
+
+  // Reserve the blank line, the notice, and the trailing newline.
+  const budget = MAX_COMMENT_CHARS - (TRUNCATION_NOTICE.length + 2);
+  const kept: string[] = [CI_COMMENT_MARKER];
+  let used = CI_COMMENT_MARKER.length + 1;
+  for (const line of lines.slice(1)) {
+    const cost = line.length + 1;
+    if (used + cost > budget) break;
+    kept.push(line);
+    used += cost;
+  }
+  return `${[...kept, '', TRUNCATION_NOTICE].join('\n')}\n`;
 }
 
 function renderDecisionList(decisions: readonly GoverningDecision[], withStatus: boolean): string[] {
@@ -109,7 +153,7 @@ export function renderComment(outcome: CheckOutcome): string {
     for (const finding of warnings) lines.push(renderFindingLine(finding));
   }
 
-  return `${lines.join('\n')}\n`;
+  return withinCommentLimit(lines);
 }
 
 /**

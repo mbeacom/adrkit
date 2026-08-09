@@ -1,6 +1,8 @@
-// @adr 0021 — this file carries the inbound-edge field but is not a *defining* file of
-// that decision, so ADR-0021's `affects` patterns deliberately do not name it. This is
-// the case the marker exists for, dogfooded on adrkit's own corpus.
+// @adr 0021 — this file resolves the inbound edge, so ADR-0021's `affects` now names it
+// via `packages/core/src/check/**` and the marker is a second, redundant route to the
+// same record. It is kept because it is the repository's own working example of the
+// declaration rendering; it does not demonstrate the marker-only case, which needs a
+// file the corpus reaches by no pattern at all.
 import type { Adr } from '../schema/adr.schema.ts';
 import { resolveAffects, type ResolutionSnapshots } from '../affects/index.ts';
 import { mergeSourceDeclarations, resolveSourceMarkers } from '../markers/resolve.ts';
