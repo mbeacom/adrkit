@@ -1,4 +1,9 @@
-import { checkChanges, type CheckLintResult, type CheckOutcome } from '@adrkit/core';
+import {
+  checkChanges,
+  type CheckLintResult,
+  type CheckOutcome,
+  type SourceMarkerBatchScan,
+} from '@adrkit/core';
 import { extractChanges, type ExtractedChanges } from './changed-files.ts';
 import { CI_COMMENT_MARKER, renderComment, renderTruncatedNotice } from './comment.ts';
 import { isPermissionError, upsertMarkedComment, type GitHubClient, type UpsertOutcome } from './github.ts';
@@ -15,6 +20,7 @@ export interface ActionDeps {
   client: GitHubClient;
   dir: string;
   loadLint: (dir: string) => Promise<CheckLintResult>;
+  readMarkers: (paths: readonly string[]) => Promise<SourceMarkerBatchScan>;
   extract?: (client: GitHubClient) => Promise<ExtractedChanges>;
   log: Logger;
 }
@@ -48,10 +54,10 @@ async function comment(deps: ActionDeps, body: string): Promise<UpsertOutcome | 
 
 /**
  * The Action's orchestration, with every impure edge injected: extract the PR's
- * complete changed-file list, run the neutral core `checkChanges`, render the
- * comment, and create-or-update it. Fails the job iff a changed record has an
- * `error` finding (FR-002); a commenting-permission failure degrades to a log
- * notice and does NOT fail the job (FR-014/R8).
+ * complete changed-file list, load the corpus, pre-scan source markers, run the
+ * neutral core `checkChanges`, render the comment, and create-or-update it. Fails the
+ * job iff a changed record has an `error` finding (FR-002); a commenting-permission
+ * failure degrades to a log notice and does NOT fail the job (FR-014/R8).
  */
 export async function runAction(deps: ActionDeps): Promise<ActionResult> {
   const extract = deps.extract ?? extractChanges;
@@ -69,12 +75,29 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
   }
 
   const lint = await deps.loadLint(deps.dir);
+  const markerScans = await deps.readMarkers(changes.changedFiles);
   const outcome = checkChanges({
     lint,
     changedFiles: changes.changedFiles,
     dir: deps.dir,
     snapshots: { changedDependencies: changes.changedDependencies },
+    markerScans,
   });
+
+  const report = outcome.markerScan;
+  if (report) {
+    const counts = report.counts;
+    deps.log.info(
+      `adrkit: marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` +
+        `${counts.unreadable} unreadable, ${counts['out-of-tree']} out-of-tree, ` +
+        `${counts.skipped} skipped.`,
+    );
+    if (report.skippedPaths.length > 0) {
+      deps.log.warning(
+        `adrkit: marker scan reached the ${report.limit}-file cap; skipped: ${report.skippedPaths.join(', ')}`,
+      );
+    }
+  }
 
   const result = await comment(deps, renderComment(outcome));
 

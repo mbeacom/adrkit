@@ -13,6 +13,7 @@ import { AdrFrontmatter, type Adr } from '../src/schema/adr.schema.ts';
  * halves — the pure layer stays pure, and the boundary stays exactly one file wide.
  */
 const MARKERS_ROOT = resolve(process.cwd(), 'packages/core/src/markers');
+const CHECK_SOURCE = resolve(process.cwd(), 'packages/core/src/check/index.ts');
 
 /** The deliberate filesystem boundary. Widening this list is the thing under test. */
 const FILESYSTEM_BOUNDARY = ['read.ts'];
@@ -110,5 +111,20 @@ describe('marker-resolution-is-pure', () => {
     // Asserting the observed set, not a count: a new fs-importing module has to be
     // declared here deliberately rather than slipping in under a passing check.
     expect(touchesFilesystem.sort()).toEqual([...FILESYSTEM_BOUNDARY].sort());
+  });
+
+  test('checkChanges consumes scans without reaching the filesystem reader', async () => {
+    const source = await readFile(CHECK_SOURCE, 'utf8');
+
+    expect(source).not.toMatch(FORBIDDEN_BUILTIN_SPECIFIER);
+    expect(source).not.toMatch(/\breadSourceMarkers(?:Batch)?\s*\(/);
+  });
+
+  test('the batch resolves its working-tree root exactly once, before the worker pool', async () => {
+    const source = await readFile(join(MARKERS_ROOT, 'read.ts'), 'utf8');
+    const batch = source.slice(source.indexOf('export async function readSourceMarkersBatch'));
+
+    expect(batch.match(/prepareRoot\(cwd\)/g)).toHaveLength(1);
+    expect(batch.indexOf('prepareRoot(cwd)')).toBeLessThan(batch.indexOf('mapConcurrent('));
   });
 });

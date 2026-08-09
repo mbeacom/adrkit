@@ -77,6 +77,24 @@ describe('renderComment', () => {
     expect(body).not.toContain('**0001**');
     expect(body).not.toContain('**0002**');
   });
+
+  test('keeps marker reference warnings out of the focused PR comment', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['docs/adr/0001-api.md']);
+    outcome.findings.push({
+      rule: 'dangling-marker',
+      severity: 'warn',
+      message: 'Source marker does not resolve',
+      path: 'docs/adr/0001-api.md',
+      field: 'marker',
+      pattern: '9999',
+    });
+
+    const body = renderComment(outcome);
+
+    expect(body).not.toContain('dangling-marker');
+    expect(body).not.toContain('Source marker does not resolve');
+  });
 });
 
 /**

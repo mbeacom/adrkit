@@ -47399,6 +47399,13 @@ var AdrFrontmatter = strictObject2({
 });
 // ../core/src/schema/emit.ts
 var ADR_SCHEMA_ID = `https://adrkit.dev/schema/adr/v${SCHEMA_VERSION}/adr.schema.json`;
+// ../core/src/schema/ref.ts
+function parseAdrRef(ref) {
+  const idx = ref.indexOf(":");
+  if (idx <= 0)
+    return { id: ref };
+  return { log: ref.slice(0, idx), id: ref.slice(idx + 1) };
+}
 // ../../node_modules/.bun/yaml@2.9.0/node_modules/yaml/dist/index.js
 var composer = require_composer();
 var Document = require_Document();
@@ -48093,6 +48100,278 @@ function resolveAffects(input) {
     findings: sortFindings(findings)
   };
 }
+// ../core/src/markers/scan.ts
+var MARKER_HEADER_WINDOW_BYTES = 8192;
+var MARKER_TOKEN = "@adr";
+var COMMENT_INTRODUCERS = ["//", "/*", "*", "#", "--", ";", "%", "<!--", '"""', "'''"];
+function isRefChar(char) {
+  return /[0-9A-Za-z:-]/.test(char);
+}
+function isSpace(char) {
+  return char === " " || char === "\t";
+}
+function completeLinePrefix(source) {
+  const lastNewline = Math.max(source.lastIndexOf(`
+`), source.lastIndexOf("\r"));
+  return lastNewline === -1 ? "" : source.slice(0, lastNewline + 1);
+}
+function dedicatedMarkerIndex(line, firstLine) {
+  let commentStart = firstLine && line.charCodeAt(0) === 65279 ? 1 : 0;
+  while (commentStart < line.length && isSpace(line[commentStart] ?? ""))
+    commentStart += 1;
+  for (const introducer of COMMENT_INTRODUCERS) {
+    if (!line.startsWith(introducer, commentStart))
+      continue;
+    let markerStart = commentStart + introducer.length;
+    while (markerStart < line.length && isSpace(line[markerStart] ?? ""))
+      markerStart += 1;
+    if (line.startsWith(MARKER_TOKEN, markerStart))
+      return markerStart;
+  }
+  return;
+}
+function readRefs(rest) {
+  if (rest.length === 0 || !isSpace(rest[0] ?? ""))
+    return [];
+  const refs = [];
+  let cursor = 0;
+  for (;; ) {
+    while (cursor < rest.length && isSpace(rest[cursor] ?? ""))
+      cursor += 1;
+    const start = cursor;
+    while (cursor < rest.length && isRefChar(rest[cursor] ?? ""))
+      cursor += 1;
+    const token = rest.slice(start, cursor);
+    if (!token || !AdrRef.safeParse(token).success)
+      return refs;
+    refs.push(token);
+    let lookahead = cursor;
+    while (lookahead < rest.length && isSpace(rest[lookahead] ?? ""))
+      lookahead += 1;
+    if (rest[lookahead] !== ",")
+      return refs;
+    cursor = lookahead + 1;
+  }
+}
+function scanWindow(window, path) {
+  const markers = [];
+  const lines = window.text.split(/\r\n|[\r\n]/);
+  for (const [index, line] of lines.entries()) {
+    const markerStart = dedicatedMarkerIndex(line, index === 0);
+    if (markerStart === undefined)
+      continue;
+    for (const ref of readRefs(line.slice(markerStart + MARKER_TOKEN.length))) {
+      const { id, log } = parseAdrRef(ref);
+      markers.push({ path, ref, id, ...log ? { log } : {}, line: index + 1 });
+    }
+  }
+  return { markers, truncated: window.truncated };
+}
+function scanBoundedSourceMarkerWindow(source, path, truncated) {
+  return scanWindow({ text: truncated ? completeLinePrefix(source) : source, truncated }, path);
+}
+// ../core/src/markers/read.ts
+import { constants as constants3, lstat as lstat2, open, realpath } from "node:fs/promises";
+import { isAbsolute as isAbsolute3, relative as relative2, resolve as resolve3, sep as sep3 } from "node:path";
+
+// ../core/src/markers/pool.ts
+async function mapConcurrent(items, concurrency, task) {
+  const results = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      const item = items[index];
+      results[index] = await task(item, index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
+}
+
+// ../core/src/markers/read.ts
+var MARKER_SCAN_FILE_CAP = 1000;
+var MARKER_SCAN_CONCURRENCY = 16;
+function scanStateForError(error52) {
+  const code = typeof error52 === "object" && error52 !== null && "code" in error52 ? String(error52.code) : "";
+  return code === "ENOENT" || code === "ENOTDIR" ? "absent" : "unreadable";
+}
+function isInsideRoot(root, target) {
+  const rel = relative2(root, target);
+  return rel !== "" && !isAbsolute3(rel) && rel !== ".." && !rel.startsWith(`..${sep3}`);
+}
+async function lstatWithoutSymlink(root, target) {
+  const segments = relative2(root, target).split(sep3);
+  let current = root;
+  let info2;
+  for (const segment of segments) {
+    current = resolve3(current, segment);
+    info2 = await lstat2(current);
+    if (info2.isSymbolicLink())
+      return;
+  }
+  return info2;
+}
+function normalizeMarkerPath(path) {
+  const forward = path.replace(/\\/g, "/");
+  let start = 0;
+  while (forward.startsWith("./", start))
+    start += 2;
+  return forward.slice(start);
+}
+async function prepareRoot(cwd) {
+  const root = resolve3(cwd);
+  try {
+    return { root, realRoot: await realpath(root) };
+  } catch (error52) {
+    return { root, errorState: scanStateForError(error52) };
+  }
+}
+function readFlags() {
+  return constants3.O_RDONLY | (typeof constants3.O_NONBLOCK === "number" ? constants3.O_NONBLOCK : 0);
+}
+async function readWithPreparedRoot(path, prepared) {
+  const normalizedPath = normalizeMarkerPath(path);
+  const refuse = (state) => ({
+    path: normalizedPath,
+    state,
+    markers: [],
+    truncated: false
+  });
+  if (prepared.errorState || !prepared.realRoot)
+    return refuse(prepared.errorState ?? "unreadable");
+  const candidate = resolve3(prepared.root, normalizedPath);
+  if (isAbsolute3(normalizedPath) || !isInsideRoot(prepared.root, candidate))
+    return refuse("out-of-tree");
+  let handle;
+  try {
+    const link = await lstatWithoutSymlink(prepared.root, candidate);
+    if (!link || !link.isFile())
+      return refuse("unreadable");
+    const target = await realpath(candidate);
+    if (!isInsideRoot(prepared.realRoot, target))
+      return refuse("out-of-tree");
+    handle = await open(target, readFlags());
+    if (!(await handle.stat()).isFile())
+      return refuse("unreadable");
+    const buffer = new Uint8Array(MARKER_HEADER_WINDOW_BYTES + 1);
+    let bytesRead = 0;
+    while (bytesRead < buffer.length) {
+      const chunk = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
+      if (chunk.bytesRead === 0)
+        break;
+      bytesRead += chunk.bytesRead;
+    }
+    const truncated = bytesRead > MARKER_HEADER_WINDOW_BYTES;
+    const source = new TextDecoder().decode(buffer.subarray(0, Math.min(bytesRead, MARKER_HEADER_WINDOW_BYTES)));
+    const scan = scanBoundedSourceMarkerWindow(source, normalizedPath, truncated);
+    return { path: normalizedPath, state: "scanned", markers: scan.markers, truncated: scan.truncated };
+  } catch (error52) {
+    return refuse(scanStateForError(error52));
+  } finally {
+    await handle?.close();
+  }
+}
+async function readSourceMarkersBatch(paths, cwd = process.cwd()) {
+  const candidates = [...new Set(paths.map(normalizeMarkerPath))].sort((a, b) => a.localeCompare(b));
+  const selected = candidates.slice(0, MARKER_SCAN_FILE_CAP);
+  const skippedPaths = candidates.slice(MARKER_SCAN_FILE_CAP);
+  const prepared = selected.length > 0 ? await prepareRoot(cwd) : undefined;
+  const scans = prepared ? await mapConcurrent(selected, MARKER_SCAN_CONCURRENCY, (path) => readWithPreparedRoot(path, prepared)) : [];
+  return {
+    scans,
+    skippedPaths,
+    limit: MARKER_SCAN_FILE_CAP,
+    totalCandidates: candidates.length
+  };
+}
+// ../core/src/check/decisions.ts
+function toGoverningDecisions(records, matches) {
+  const byId = new Map(records.map((record2) => [record2.frontmatter.id, record2]));
+  return matches.map((match) => {
+    const frontmatter = byId.get(match.recordId)?.frontmatter;
+    const status = frontmatter?.status ?? "draft";
+    return {
+      recordId: match.recordId,
+      title: frontmatter?.title ?? "",
+      status,
+      bucket: decisionBucketFor(status),
+      ...frontmatter?.supersededBy ? { supersededBy: frontmatter.supersededBy } : {},
+      firedMatchers: match.firedMatchers
+    };
+  });
+}
+function bucketDecisions(decisions) {
+  const buckets = { governing: [], activeProposals: [], history: [] };
+  for (const decision of decisions)
+    buckets[decision.bucket].push(decision);
+  return buckets;
+}
+
+// ../core/src/markers/resolve.ts
+function danglingFinding(marker) {
+  return {
+    rule: "dangling-marker",
+    severity: "warn",
+    message: `Source marker "@adr ${marker.ref}" in ${marker.path}:${marker.line} does not resolve to a record in the corpus`,
+    path: marker.path,
+    field: "marker",
+    pattern: marker.ref
+  };
+}
+function unresolvableFinding(marker) {
+  return {
+    rule: "marker-unresolvable",
+    severity: "info",
+    message: `Source marker "@adr ${marker.ref}" in ${marker.path}:${marker.line} names another decision log and is inert against this corpus`,
+    path: marker.path,
+    field: "marker",
+    pattern: marker.ref
+  };
+}
+function compareDeclarations(a, b) {
+  return a.path.localeCompare(b.path) || a.line - b.line || a.ref.localeCompare(b.ref);
+}
+function resolveSourceMarkers(input) {
+  const ids = new Set(input.records.map((record2) => record2.frontmatter.id));
+  const byRecord = new Map;
+  const findings = [];
+  const seen = new Set;
+  for (const marker of input.markers) {
+    const key = `${marker.path}\x00${marker.line}\x00${marker.ref}`;
+    if (seen.has(key))
+      continue;
+    seen.add(key);
+    if (marker.log) {
+      findings.push(unresolvableFinding(marker));
+      continue;
+    }
+    if (!ids.has(marker.id)) {
+      findings.push(danglingFinding(marker));
+      continue;
+    }
+    const declarations = byRecord.get(marker.id) ?? [];
+    declarations.push({ path: marker.path, line: marker.line, ref: marker.ref });
+    byRecord.set(marker.id, declarations);
+  }
+  const matches = [...byRecord.entries()].map(([recordId, declaredBy]) => ({ recordId, declaredBy: declaredBy.sort(compareDeclarations) })).sort((a, b) => a.recordId.localeCompare(b.recordId));
+  return { matches, findings: sortFindings(findings) };
+}
+function mergeSourceDeclarations(patternDecisions, records, markerMatches) {
+  if (markerMatches.length === 0)
+    return [...patternDecisions];
+  const pending = new Map(markerMatches.map((match) => [match.recordId, match.declaredBy]));
+  const merged = patternDecisions.map((decision) => {
+    const declaredBy = pending.get(decision.recordId);
+    if (!declaredBy)
+      return decision;
+    pending.delete(decision.recordId);
+    return { ...decision, declaredBy };
+  });
+  const markerOnly = toGoverningDecisions(records, [...pending.keys()].map((recordId) => ({ recordId, firedMatchers: [] }))).map((decision) => ({ ...decision, declaredBy: pending.get(decision.recordId) ?? [] }));
+  return [...merged, ...markerOnly].sort((a, b) => a.recordId.localeCompare(b.recordId));
+}
 // ../core/src/check/index.ts
 var RECORD_BASENAME = /^\d{4,}-.+\.md$/;
 var TEMPLATE_BASENAME = "0000-template.md";
@@ -48119,26 +48398,53 @@ function isCorpusRecordPath(file2, dir) {
 function uniqueSorted(values) {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
-function toGoverningDecisions(records, matches) {
-  const byId = new Map(records.map((record2) => [record2.frontmatter.id, record2]));
-  return matches.map((match) => {
-    const frontmatter = byId.get(match.recordId)?.frontmatter;
-    const status = frontmatter?.status ?? "draft";
-    return {
-      recordId: match.recordId,
-      title: frontmatter?.title ?? "",
-      status,
-      bucket: decisionBucketFor(status),
-      ...frontmatter?.supersededBy ? { supersededBy: frontmatter.supersededBy } : {},
-      firedMatchers: match.firedMatchers
-    };
-  });
+function markerScanReport(batch) {
+  const absentPaths = [];
+  const unreadablePaths = [];
+  const outOfTreePaths = [];
+  const truncatedPaths = [];
+  let scanned = 0;
+  for (const scan of batch.scans) {
+    if (scan.state === "scanned")
+      scanned += 1;
+    if (scan.state === "absent")
+      absentPaths.push(scan.path);
+    if (scan.state === "unreadable")
+      unreadablePaths.push(scan.path);
+    if (scan.state === "out-of-tree")
+      outOfTreePaths.push(scan.path);
+    if (scan.truncated)
+      truncatedPaths.push(scan.path);
+  }
+  return {
+    totalCandidates: batch.totalCandidates,
+    limit: batch.limit,
+    counts: {
+      scanned,
+      absent: absentPaths.length,
+      unreadable: unreadablePaths.length,
+      "out-of-tree": outOfTreePaths.length,
+      skipped: batch.skippedPaths.length
+    },
+    absentPaths: absentPaths.sort((a, b) => a.localeCompare(b)),
+    unreadablePaths: unreadablePaths.sort((a, b) => a.localeCompare(b)),
+    outOfTreePaths: outOfTreePaths.sort((a, b) => a.localeCompare(b)),
+    truncatedPaths: truncatedPaths.sort((a, b) => a.localeCompare(b)),
+    skippedPaths: [...batch.skippedPaths].sort((a, b) => a.localeCompare(b))
+  };
 }
-function bucketDecisions(decisions) {
-  const buckets = { governing: [], activeProposals: [], history: [] };
-  for (const decision of decisions)
-    buckets[decision.bucket].push(decision);
-  return buckets;
+function cappedScanFinding(report) {
+  if (report.skippedPaths.length === 0)
+    return;
+  const shown = report.skippedPaths.slice(0, 10);
+  const remaining = report.skippedPaths.length - shown.length;
+  const suffix = remaining > 0 ? `, and ${remaining} more (see markerScan.skippedPaths)` : "";
+  return {
+    rule: "marker-scan-capped",
+    severity: "warn",
+    message: `Marker scan reached the ${report.limit}-file cap and skipped ${shown.join(", ")}${suffix}`,
+    field: "marker"
+  };
 }
 function checkChanges(input) {
   const dir = normalizeDir(input.dir);
@@ -48151,10 +48457,21 @@ function checkChanges(input) {
     snapshots: input.snapshots,
     log: input.log
   });
-  const governedBy = toGoverningDecisions(input.lint.records, resolution.matches);
+  const markerResolution = input.markerScans ? resolveSourceMarkers({
+    records: input.lint.records,
+    markers: input.markerScans.scans.flatMap((scan) => scan.markers)
+  }) : { matches: [], findings: [] };
+  const governedBy = mergeSourceDeclarations(toGoverningDecisions(input.lint.records, resolution.matches), input.lint.records, markerResolution.matches);
   const buckets = bucketDecisions(governedBy);
   const changedRecordFindings = input.lint.findings.filter((finding) => finding.path !== undefined && changedRecordSet.has(finding.path));
-  const findings = sortFindings([...resolution.findings, ...changedRecordFindings]);
+  const markerScan = input.markerScans ? markerScanReport(input.markerScans) : undefined;
+  const capped = markerScan ? cappedScanFinding(markerScan) : undefined;
+  const findings = sortFindings([
+    ...resolution.findings,
+    ...markerResolution.findings,
+    ...capped ? [capped] : [],
+    ...changedRecordFindings
+  ]);
   const ok = !changedRecordFindings.some((finding) => finding.severity === "error");
   return {
     changedFiles,
@@ -48164,6 +48481,7 @@ function checkChanges(input) {
     history: buckets.history,
     changedRecords,
     findings,
+    ...markerScan ? { markerScan } : {},
     ok
   };
 }
@@ -48236,7 +48554,7 @@ var HISTORY_NOTE = "These no longer bind this change, and are listed for context
 var MAX_GOVERNING = 50;
 function changedRecordFindings(outcome) {
   const changed = new Set(outcome.changedRecords);
-  return outcome.findings.filter((finding) => finding.path !== undefined && changed.has(finding.path));
+  return outcome.findings.filter((finding) => finding.field !== "marker" && finding.path !== undefined && changed.has(finding.path));
 }
 function renderFindingLine(finding) {
   const where = finding.path ? `\`${finding.path}\`` : "(corpus)";
@@ -48249,6 +48567,9 @@ function renderDecisionLines(decision, withStatus) {
   const lines = [`- **${decision.recordId}** — ${decision.title}${status}${successor}`];
   for (const matcher of decision.firedMatchers) {
     lines.push(`  - via \`${matcher.type}\`: \`${matcher.pattern}\``);
+  }
+  for (const declaration of decision.declaredBy ?? []) {
+    lines.push(`  - declared by \`${declaration.path}:${declaration.line}\` (\`@adr ${declaration.ref}\`)`);
   }
   return lines;
 }
@@ -48414,12 +48735,22 @@ async function runAction(deps) {
     return { outcome: null, comment: result2, failed: false, truncated: true };
   }
   const lint = await deps.loadLint(deps.dir);
+  const markerScans = await deps.readMarkers(changes.changedFiles);
   const outcome = checkChanges({
     lint,
     changedFiles: changes.changedFiles,
     dir: deps.dir,
-    snapshots: { changedDependencies: changes.changedDependencies }
+    snapshots: { changedDependencies: changes.changedDependencies },
+    markerScans
   });
+  const report = outcome.markerScan;
+  if (report) {
+    const counts = report.counts;
+    deps.log.info(`adrkit: marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` + `${counts.unreadable} unreadable, ${counts["out-of-tree"]} out-of-tree, ` + `${counts.skipped} skipped.`);
+    if (report.skippedPaths.length > 0) {
+      deps.log.warning(`adrkit: marker scan reached the ${report.limit}-file cap; skipped: ${report.skippedPaths.join(", ")}`);
+    }
+  }
   const result = await comment(deps, renderComment(outcome));
   const changedRecordErrors = outcome.findings.filter((finding) => finding.severity === "error" && finding.path !== undefined && outcome.changedRecords.includes(finding.path));
   const failed = changedRecordErrors.length > 0;
@@ -48444,10 +48775,12 @@ async function main() {
     return;
   }
   const isDefaultToken = runnerToken !== "" && token === runnerToken;
+  const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
   await runAction({
     client: createOctokitClient(token, isDefaultToken),
     dir,
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
+    readMarkers: (paths) => readSourceMarkersBatch(paths, workspace),
     extract: extractChanges,
     log: {
       info: (message) => info(message),

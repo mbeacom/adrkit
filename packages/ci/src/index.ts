@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import { context } from '@actions/github';
-import { lintCorpus } from '@adrkit/core';
+import { lintCorpus, readSourceMarkersBatch } from '@adrkit/core';
 import { runAction } from './action.ts';
 import { extractChanges } from './changed-files.ts';
 import { createOctokitClient } from './github.ts';
@@ -31,11 +31,13 @@ async function main(): Promise<void> {
   // we do not assume the bot identity, so a custom/App token never adopts a foreign
   // comment (it creates its own instead).
   const isDefaultToken = runnerToken !== '' && token === runnerToken;
+  const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
 
   await runAction({
     client: createOctokitClient(token, isDefaultToken),
     dir,
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
+    readMarkers: (paths) => readSourceMarkersBatch(paths, workspace),
     extract: extractChanges,
     log: {
       info: (message) => core.info(message),

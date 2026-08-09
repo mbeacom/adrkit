@@ -9,6 +9,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- `adr check` and the governing-decisions Action now resolve inbound `@adr`
+  markers from changed files. Reads are hoisted outside pure `checkChanges`, bounded
+  to 1,000 normalized paths at 16 concurrent reads, and reported through a
+  deterministic `markerScan` result so absent and skipped files are never silent.
+  Marker-derived edges render as `declared by` and never influence exit status.
+
+### Security
+
+- Marker scanning now rejects every symlink before resolving its target, closing the
+  existence/permission oracle that would otherwise become available to fork PRs.
+
 ## [0.4.0] - 2026-08-08
 
 ### Added
@@ -29,7 +42,7 @@ Until `1.0.0`, minor releases may include breaking changes
   [#95](https://github.com/mbeacom/adrkit/issues/95) — the first community feature
   this project has shipped.
 
-  **The asymmetry is deliberate: markers reach `adr explain` and nothing else.**
+  **In v0.4.0 the asymmetry was deliberate: markers reached `adr explain` and nothing else.**
   `adr check`, `checkChanges`, the CI Action, and the Spec Kit context script do not
   scan them, so no CI semantics move and `packages/ci/dist` is byte-identical to
   v0.3.0. `declaredBy` lands on an explain-only `ExplainedDecision` rather than the

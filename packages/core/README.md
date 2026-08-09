@@ -25,6 +25,7 @@ declares the decision it lives under with an `@adr <id>` marker in a comment
 import {
   mergeSourceDeclarations,
   readSourceMarkers,
+  readSourceMarkersBatch,
   resolveAffects,
   resolveSourceMarkers,
   scanSourceMarkers,
@@ -58,9 +59,15 @@ literals in their common inline forms from becoming declarations.
 "could not look."
 
 Its `path` argument is repo-relative to `cwd`. Absolute paths, paths that climb
-out of the tree, and symlinks resolving outside it are refused as `out-of-tree`
-without being opened; non-regular files are refused as `unreadable`, so a FIFO
-cannot block the read.
+out of the tree, and every symlink are refused without opening a target;
+non-regular files are `unreadable`, so a FIFO cannot block the read.
+
+`readSourceMarkersBatch(paths, cwd)` is the impure boundary for `checkChanges`.
+It normalizes, deduplicates, and sorts paths; scans the first 1,000 with at most
+16 reads in flight; resolves the working-tree root once; and returns every
+skipped path. Pass that `SourceMarkerBatchScan` through `markerScans` to receive
+marker-aware decisions and a deterministic `markerScan` report without adding
+filesystem access to `checkChanges`.
 
 The published ESM artifacts run on Node.js 22 or newer. Development in the
 adrkit repository uses Bun.

@@ -7,7 +7,7 @@
  */
 
 import type { Adr } from '../schema/adr.schema.ts';
-import { toGoverningDecisions, type GoverningDecision } from '../check/index.ts';
+import { toGoverningDecisions, type GoverningDecision } from '../check/decisions.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 import type { MarkerDeclaration, MarkerMatch, SourceMarker } from './types.ts';
 
@@ -21,11 +21,8 @@ export interface ResolveSourceMarkersResult {
   findings: Finding[];
 }
 
-/** The decision shape emitted only by `adr explain`, which is the marker-aware surface. */
-export interface ExplainedDecision extends GoverningDecision {
-  /** The source files that declared this record through an inbound marker. */
-  declaredBy?: MarkerDeclaration[];
-}
+/** Compatibility name retained for consumers of the explain-only v0.4.0 contract. */
+export type ExplainedDecision = GoverningDecision;
 
 /**
  * A marker naming a record the corpus does not have.

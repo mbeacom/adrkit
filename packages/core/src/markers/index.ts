@@ -7,7 +7,15 @@
  */
 
 export { MARKER_HEADER_WINDOW_BYTES, scanSourceMarkers, type ScanSourceMarkersResult } from './scan.ts';
-export { readSourceMarkers, type MarkerScanState, type SourceMarkerScan } from './read.ts';
+export {
+  MARKER_SCAN_CONCURRENCY,
+  MARKER_SCAN_FILE_CAP,
+  readSourceMarkers,
+  readSourceMarkersBatch,
+  type MarkerScanState,
+  type SourceMarkerBatchScan,
+  type SourceMarkerScan,
+} from './read.ts';
 export {
   mergeSourceDeclarations,
   resolveSourceMarkers,

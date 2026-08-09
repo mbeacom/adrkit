@@ -9,8 +9,8 @@
  * schema is untouched: no new `affects` matcher type, no new frontmatter field
  * ([ADR-0021](../../../../docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
  *
- * This module is deliberately types-only, so importing these contracts cannot pull
- * marker runtime code into the committed `packages/ci/dist` bundle.
+ * This module is deliberately types-only, so a type-only consumer cannot pull marker
+ * runtime code into an otherwise unrelated bundle.
  */
 
 /** One `@adr <ref>` marker found in a source file's header window. */

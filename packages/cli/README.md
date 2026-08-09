@@ -26,9 +26,9 @@ flags, and `adr --version` to print the installed version.
 
 ## Inbound `@adr` markers
 
-`adr explain <path>` resolves decisions in both directions. A record declares
-the paths it governs with `affects`; a source file declares the decision it
-lives under with a marker in a comment:
+`adr explain <path>` and `adr check <files...>` resolve decisions in both
+directions. A record declares the paths it governs with `affects`; a source
+file declares the decision it lives under with a marker in a comment:
 
 ```ts
 // @adr 0012
@@ -49,7 +49,10 @@ neighbourhood opts in one line at a time. Only the first 8192 bytes of a file
 are scanned, in any language, and the marker must be the first content on a
 dedicated comment line. Nothing is written back to the record. In
 `--json`, pattern matches carry `firedMatchers` and file declarations carry
-`declaredBy`, and a `markers` block reports whether the file was actually read.
+`declaredBy`. `explain --json` carries a single-file `markers` block, while
+`check --json` carries a `markerScan` report with scan-state counts and exact
+unavailable/skipped paths. Multi-file scans are capped at 1,000 normalized paths
+and 16 concurrent reads; skipped paths warn but never fail.
 See [the commands reference](https://adrkit.dev/docs/commands/#inbound-adr-markers).
 
 The published ESM CLI runs on Node.js 22 or newer; development in the adrkit

@@ -132,7 +132,7 @@ export function syncOnce() { … }
 - **Only the first 8192 bytes** of a file are scanned. A marker is a claim that
   the file lives under a decision; a mention far down the file is prose about
   that decision.
-- **Nothing enters the record.** The edge is discovered when you run `explain`.
+- **Nothing enters the record.** The edge is discovered when you run `explain` or `check`.
   There is no schema change and no new `affects` matcher type
   ([ADR-0021](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
 
@@ -160,12 +160,17 @@ carries `declaredBy`; `declaredBy` is omitted entirely when nothing declared the
 record.
 
 `<path>` is repo-relative, the same contract `affects` patterns are matched
-against. An absolute path, one that climbs out of the working tree, or a symlink
-whose target is outside it is reported as `out-of-tree` and not read — a file
-elsewhere on disk cannot declare itself governed by this corpus.
+against. Absolute and traversing paths are `out-of-tree`. Every symlink is
+refused as `unreadable` before its target is resolved, including symlinked parent
+directories and safe in-tree symlinks, so a fork PR cannot probe target existence
+or permissions.
 
-`adr check` and the CI Action do **not** scan markers — that is a separate
-decision, because it changes what CI enforces.
+`adr check` and the governing-decisions Action scan markers from the changed
+paths before calling the pure resolver. They normalize, deduplicate, and sort
+paths; scan the first 1,000 with at most 16 reads in flight; and expose exact
+absent and skipped paths through `markerScan`. Paths beyond the cap still take
+part in `affects` matching, but their markers are not read. A non-blocking
+`marker-scan-capped` warning makes that loss explicit.
 
 ## adr check
 
@@ -181,6 +186,11 @@ builds on.
 
 **Exit codes:** `0` ok · `1` a changed record has an error finding · `2` usage
 error (invalid invocation or unreachable corpus directory).
+
+Marker declarations render as `declared by`, separately from record-authored
+`via` matchers. `--json` includes `markerScan` state counts and exact unavailable,
+truncated, and skipped path lists. Marker-derived information never changes the
+exit code; only validation errors on changed ADR records do.
 
 ## adr evaluate
 

@@ -3,21 +3,15 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 /**
- * The committed Action bundles must not carry the inbound-marker feature.
+ * Only the governing-decisions Action bundle carries the inbound-marker feature.
  *
- * ADR-0021 scopes markers to `adr explain` and states that the `@adrkit/ci` bundle is
- * unchanged because `markers/read.ts` is never reached from `packages/ci/src` and
- * tree-shakes out. That is a real property, and a fragile one: it depends on the
- * module having no top-level initializer the bundler must keep. A single module
- * constant is enough to break it, and it did — three lines of `markers/read.ts`
- * appeared in both entry points until it was moved inside a function.
- *
- * Nothing caught that but a manual rebuild-and-diff. This is the check, so a future
- * change to core cannot quietly enlarge an Action bundle that never scans a marker.
- * If markers are ever wired into `adr check` and the Action — action item 1 of
- * ADR-0021 — this test is the thing that has to be deleted on purpose.
+ * The main Action now scans markers deliberately; the ARB queue Action still does not.
+ * The positive assertion matters because these checks use readable module/export
+ * fragments that a future minified build could erase and make every negative check
+ * vacuously pass.
  */
-const BUNDLES = ['packages/ci/dist/index.js', 'packages/ci/dist/queue-action.js'];
+const GOVERNING_BUNDLE = 'packages/ci/dist/index.js';
+const QUEUE_BUNDLE = 'packages/ci/dist/queue-action.js';
 
 /**
  * Fragments that exist only in the marker feature, and nowhere else in core. The
@@ -26,20 +20,21 @@ const BUNDLES = ['packages/ci/dist/index.js', 'packages/ci/dist/queue-action.js'
 const MARKER_ONLY_FRAGMENTS = [
   'markers/read.ts',
   'MARKER_HEADER_WINDOW_BYTES',
-  'scanSourceMarkers',
+  'scanBoundedSourceMarkerWindow',
   'readSourceMarkers',
+  'readSourceMarkersBatch',
   'resolveSourceMarkers',
   'mergeSourceDeclarations',
 ];
 
-describe('the committed Action bundles stay outside the marker feature', () => {
-  for (const bundle of BUNDLES) {
-    test(`${bundle} contains no marker code`, async () => {
-      const source = await readFile(resolve(process.cwd(), bundle), 'utf8');
+describe('the committed Action bundles have deliberate marker scope', () => {
+  test('the governing Action contains every readable marker fragment', async () => {
+    const source = await readFile(resolve(process.cwd(), GOVERNING_BUNDLE), 'utf8');
+    expect(MARKER_ONLY_FRAGMENTS.filter((fragment) => !source.includes(fragment))).toEqual([]);
+  });
 
-      // Asserted as the list of offending fragments rather than with `not.toContain`,
-      // so a failure names what leaked instead of printing a megabyte of bundle.
-      expect(MARKER_ONLY_FRAGMENTS.filter((fragment) => source.includes(fragment))).toEqual([]);
-    });
-  }
+  test('the queue Action contains no marker fragments', async () => {
+    const source = await readFile(resolve(process.cwd(), QUEUE_BUNDLE), 'utf8');
+    expect(MARKER_ONLY_FRAGMENTS.filter((fragment) => source.includes(fragment))).toEqual([]);
+  });
 });

@@ -22,7 +22,10 @@ const MAX_GOVERNING = 50;
 
 function changedRecordFindings(outcome: CheckOutcome): Finding[] {
   const changed = new Set(outcome.changedRecords);
-  return outcome.findings.filter((finding) => finding.path !== undefined && changed.has(finding.path));
+  return outcome.findings.filter(
+    (finding) =>
+      finding.field !== 'marker' && finding.path !== undefined && changed.has(finding.path),
+  );
 }
 
 function renderFindingLine(finding: Finding): string {
@@ -42,6 +45,11 @@ function renderDecisionLines(decision: GoverningDecision, withStatus: boolean): 
   const lines = [`- **${decision.recordId}** — ${decision.title}${status}${successor}`];
   for (const matcher of decision.firedMatchers) {
     lines.push(`  - via \`${matcher.type}\`: \`${matcher.pattern}\``);
+  }
+  for (const declaration of decision.declaredBy ?? []) {
+    lines.push(
+      `  - declared by \`${declaration.path}:${declaration.line}\` (\`@adr ${declaration.ref}\`)`,
+    );
   }
   return lines;
 }

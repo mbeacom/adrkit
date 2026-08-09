@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { MARKER_HEADER_WINDOW_BYTES, readSourceMarkers, scanSourceMarkers } from '../src/markers/index.ts';
+import {
+  MARKER_HEADER_WINDOW_BYTES,
+  MARKER_SCAN_FILE_CAP,
+  readSourceMarkers,
+  readSourceMarkersBatch,
+  scanSourceMarkers,
+} from '../src/markers/index.ts';
 import { cleanupTestDir, resetTestDir, writeText } from './helpers.ts';
 
 const DIR_NAME = 'core-markers-scan';
@@ -270,7 +276,7 @@ describe('readSourceMarkers — the working tree is the boundary', () => {
     expect([scan.state, scan.markers]).toEqual(['out-of-tree', []]);
   });
 
-  test('refuses a symlink inside the tree whose target is outside it', async () => {
+  test('refuses an out-of-tree symlink without resolving its target', async () => {
     const root = await resetTestDir(DIR_NAME);
     const outside = await resetTestDir(OUTSIDE_DIR_NAME);
     await writeText(join(outside, 'claim.ts'), '// @adr 0012\n');
@@ -281,17 +287,40 @@ describe('readSourceMarkers — the working tree is the boundary', () => {
     // the argument without resolving it would report this file as governed.
     const scan = await readSourceMarkers('src/linked.ts', root);
 
-    expect([scan.state, scan.markers]).toEqual(['out-of-tree', []]);
+    expect([scan.state, scan.markers]).toEqual(['unreadable', []]);
   });
 
-  test('follows a symlink that stays inside the tree', async () => {
+  test('refuses an in-tree symlink with the same state', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeText(join(root, 'src/sync.ts'), '// @adr 0012\n');
     await symlink(join(root, 'src/sync.ts'), join(root, 'src/alias.ts'));
 
     const scan = await readSourceMarkers('src/alias.ts', root);
 
-    expect([scan.state, scan.markers.map((marker) => marker.ref)]).toEqual(['scanned', ['0012']]);
+    expect([scan.state, scan.markers]).toEqual(['unreadable', []]);
+  });
+
+  test('refuses a broken symlink with the same state', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await mkdir(join(root, 'src'), { recursive: true });
+    await symlink(join(root, 'src/missing.ts'), join(root, 'src/alias.ts'));
+
+    const scan = await readSourceMarkers('src/alias.ts', root);
+
+    expect([scan.state, scan.markers]).toEqual(['unreadable', []]);
+  });
+
+  test('refuses a symlinked parent before probing existing or missing children', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const outside = await resetTestDir(OUTSIDE_DIR_NAME);
+    await writeText(join(outside, 'exists.ts'), '// @adr 0012\n');
+    await symlink(outside, join(root, 'linked'));
+
+    const existing = await readSourceMarkers('linked/exists.ts', root);
+    const missing = await readSourceMarkers('linked/missing.ts', root);
+
+    expect([existing.state, missing.state]).toEqual(['unreadable', 'unreadable']);
+    expect([existing.markers, missing.markers]).toEqual([[], []]);
   });
 
   test.skipIf(process.platform === 'win32')(
@@ -309,4 +338,40 @@ describe('readSourceMarkers — the working tree is the boundary', () => {
       expect([scan.state, scan.markers]).toEqual(['unreadable', []]);
     },
   );
+});
+
+describe('readSourceMarkersBatch', () => {
+  test('normalizes, deduplicates, and sorts paths before scanning', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, 'src/a.ts'), '// @adr 0012\n');
+    await writeText(join(root, 'src/b.ts'), '// @adr 0013\n');
+
+    const batch = await readSourceMarkersBatch(
+      ['src\\b.ts', './src/a.ts', 'src/a.ts', '././src/b.ts'],
+      root,
+    );
+
+    expect(batch.scans.map((scan) => scan.path)).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(batch.scans.flatMap((scan) => scan.markers.map((marker) => marker.path))).toEqual([
+      'src/a.ts',
+      'src/b.ts',
+    ]);
+    expect(batch.totalCandidates).toBe(2);
+    expect(batch.skippedPaths).toEqual([]);
+  });
+
+  test('scans the first 1000 sorted paths and reports every path beyond the cap', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const paths = Array.from(
+      { length: MARKER_SCAN_FILE_CAP + 2 },
+      (_, index) => `src/file-${String(index).padStart(4, '0')}.ts`,
+    ).reverse();
+
+    const batch = await readSourceMarkersBatch(paths, root);
+
+    expect(batch.scans).toHaveLength(MARKER_SCAN_FILE_CAP);
+    expect(batch.scans.every((scan) => scan.state === 'absent')).toBe(true);
+    expect(batch.skippedPaths).toEqual(['src/file-1000.ts', 'src/file-1001.ts']);
+    expect(batch.totalCandidates).toBe(MARKER_SCAN_FILE_CAP + 2);
+  });
 });

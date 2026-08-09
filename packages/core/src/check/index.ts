@@ -1,10 +1,24 @@
 // @adr 0021 — this file carries the inbound-edge field but is not a *defining* file of
 // that decision, so ADR-0021's `affects` patterns deliberately do not name it. This is
 // the case the marker exists for, dogfooded on adrkit's own corpus.
-import type { Adr, Status } from '../schema/adr.schema.ts';
-import { resolveAffects, type AffectsMatch, type FiredMatcher, type ResolutionSnapshots } from '../affects/index.ts';
-import { decisionBucketFor, type DecisionBucket } from '../status/bucket.ts';
+import type { Adr } from '../schema/adr.schema.ts';
+import { resolveAffects, type ResolutionSnapshots } from '../affects/index.ts';
+import { mergeSourceDeclarations, resolveSourceMarkers } from '../markers/resolve.ts';
+import type { SourceMarkerBatchScan } from '../markers/read.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
+import {
+  bucketDecisions,
+  toGoverningDecisions,
+  type BucketedDecisions,
+  type GoverningDecision,
+} from './decisions.ts';
+
+export {
+  bucketDecisions,
+  toGoverningDecisions,
+  type BucketedDecisions,
+  type GoverningDecision,
+} from './decisions.ts';
 
 /**
  * The full result of `lintCorpus` — records, findings, and the checked count.
@@ -18,25 +32,21 @@ export interface CheckLintResult {
   checked: number;
 }
 
-export interface GoverningDecision {
-  recordId: string;
-  title: string;
-  /**
-   * The record's status. Present so no consumer has to assume a matched record is
-   * `accepted` — a `rejected` or `superseded` record can match a path just as easily.
-   */
-  status: Status;
-  /** Which of the three buckets this record falls into, per `decisionBucketFor`. */
-  bucket: DecisionBucket;
-  /** The successor, when this record was superseded. Lets a reader follow the chain. */
-  supersededBy?: string;
-  /** The record's own `affects` matchers that fired against the path — the outbound edge. */
-  firedMatchers: FiredMatcher[];
+export interface MarkerScanReport {
+  totalCandidates: number;
+  limit: number;
+  counts: Record<'scanned' | 'absent' | 'unreadable' | 'out-of-tree' | 'skipped', number>;
+  absentPaths: string[];
+  unreadablePaths: string[];
+  outOfTreePaths: string[];
+  truncatedPaths: string[];
+  skippedPaths: string[];
 }
 
 /**
  * The stable structure `adr check --json` emits and the `@adrkit/ci` Action consumes.
- * Deterministic and pure: identical `(lint, changedFiles, snapshots)` → identical output.
+ * Deterministic and pure: identical `(lint, changedFiles, snapshots, markerScans)`
+ * produces identical output.
  */
 export interface CheckOutcome {
   changedFiles: string[];
@@ -53,6 +63,8 @@ export interface CheckOutcome {
   history: GoverningDecision[];
   changedRecords: string[];
   findings: Finding[];
+  /** Present when the caller supplied the pre-scanned marker boundary. */
+  markerScan?: MarkerScanReport;
   ok: boolean;
 }
 
@@ -64,6 +76,8 @@ export interface CheckChangesInput {
   snapshots?: ResolutionSnapshots;
   /** Optional current-repo identity for scoped (`repo`-qualified) matchers. */
   log?: string;
+  /** Marker I/O performed by the caller; `checkChanges` only resolves these values. */
+  markerScans?: SourceMarkerBatchScan;
 }
 
 const RECORD_BASENAME = /^\d{4,}-.+\.md$/;
@@ -104,42 +118,50 @@ function uniqueSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-/**
- * Turn resolver matches into status-carrying decisions. A match whose record is not in
- * `records` (dropped by lint as malformed) cannot be classified, so it is reported with
- * the neutral `draft` status and lands in `activeProposals` rather than silently
- * claiming to govern.
- */
-export function toGoverningDecisions(
-  records: readonly Adr[],
-  matches: readonly AffectsMatch[],
-): GoverningDecision[] {
-  const byId = new Map(records.map((record) => [record.frontmatter.id, record]));
-  return matches.map((match) => {
-    const frontmatter = byId.get(match.recordId)?.frontmatter;
-    const status: Status = frontmatter?.status ?? 'draft';
-    return {
-      recordId: match.recordId,
-      title: frontmatter?.title ?? '',
-      status,
-      bucket: decisionBucketFor(status),
-      ...(frontmatter?.supersededBy ? { supersededBy: frontmatter.supersededBy } : {}),
-      firedMatchers: match.firedMatchers,
-    };
-  });
+function markerScanReport(batch: SourceMarkerBatchScan): MarkerScanReport {
+  const absentPaths: string[] = [];
+  const unreadablePaths: string[] = [];
+  const outOfTreePaths: string[] = [];
+  const truncatedPaths: string[] = [];
+  let scanned = 0;
+
+  for (const scan of batch.scans) {
+    if (scan.state === 'scanned') scanned += 1;
+    if (scan.state === 'absent') absentPaths.push(scan.path);
+    if (scan.state === 'unreadable') unreadablePaths.push(scan.path);
+    if (scan.state === 'out-of-tree') outOfTreePaths.push(scan.path);
+    if (scan.truncated) truncatedPaths.push(scan.path);
+  }
+
+  return {
+    totalCandidates: batch.totalCandidates,
+    limit: batch.limit,
+    counts: {
+      scanned,
+      absent: absentPaths.length,
+      unreadable: unreadablePaths.length,
+      'out-of-tree': outOfTreePaths.length,
+      skipped: batch.skippedPaths.length,
+    },
+    absentPaths: absentPaths.sort((a, b) => a.localeCompare(b)),
+    unreadablePaths: unreadablePaths.sort((a, b) => a.localeCompare(b)),
+    outOfTreePaths: outOfTreePaths.sort((a, b) => a.localeCompare(b)),
+    truncatedPaths: truncatedPaths.sort((a, b) => a.localeCompare(b)),
+    skippedPaths: [...batch.skippedPaths].sort((a, b) => a.localeCompare(b)),
+  };
 }
 
-export interface BucketedDecisions<T extends GoverningDecision = GoverningDecision> {
-  governing: T[];
-  activeProposals: T[];
-  history: T[];
-}
-
-/** Partition decisions into the three buckets, preserving the input order within each. */
-export function bucketDecisions<T extends GoverningDecision>(decisions: readonly T[]): BucketedDecisions<T> {
-  const buckets: BucketedDecisions<T> = { governing: [], activeProposals: [], history: [] };
-  for (const decision of decisions) buckets[decision.bucket].push(decision);
-  return buckets;
+function cappedScanFinding(report: MarkerScanReport): Finding | undefined {
+  if (report.skippedPaths.length === 0) return undefined;
+  const shown = report.skippedPaths.slice(0, 10);
+  const remaining = report.skippedPaths.length - shown.length;
+  const suffix = remaining > 0 ? `, and ${remaining} more (see markerScan.skippedPaths)` : '';
+  return {
+    rule: 'marker-scan-capped',
+    severity: 'warn',
+    message: `Marker scan reached the ${report.limit}-file cap and skipped ${shown.join(', ')}${suffix}`,
+    field: 'marker',
+  };
 }
 
 /**
@@ -161,7 +183,17 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
     log: input.log,
   });
 
-  const governedBy = toGoverningDecisions(input.lint.records, resolution.matches);
+  const markerResolution = input.markerScans
+    ? resolveSourceMarkers({
+        records: input.lint.records,
+        markers: input.markerScans.scans.flatMap((scan) => scan.markers),
+      })
+    : { matches: [], findings: [] };
+  const governedBy = mergeSourceDeclarations(
+    toGoverningDecisions(input.lint.records, resolution.matches),
+    input.lint.records,
+    markerResolution.matches,
+  );
   const buckets = bucketDecisions(governedBy);
 
   // Findings kept only for files lint attributes to a changed record. Errors on
@@ -170,7 +202,14 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
   const changedRecordFindings = input.lint.findings.filter(
     (finding) => finding.path !== undefined && changedRecordSet.has(finding.path),
   );
-  const findings = sortFindings([...resolution.findings, ...changedRecordFindings]);
+  const markerScan = input.markerScans ? markerScanReport(input.markerScans) : undefined;
+  const capped = markerScan ? cappedScanFinding(markerScan) : undefined;
+  const findings = sortFindings([
+    ...resolution.findings,
+    ...markerResolution.findings,
+    ...(capped ? [capped] : []),
+    ...changedRecordFindings,
+  ]);
   const ok = !changedRecordFindings.some((finding) => finding.severity === 'error');
 
   return {
@@ -181,6 +220,7 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
     history: buckets.history,
     changedRecords,
     findings,
+    ...(markerScan ? { markerScan } : {}),
     ok,
   };
 }

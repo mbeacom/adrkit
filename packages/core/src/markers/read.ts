@@ -3,18 +3,19 @@
  *
  * The only filesystem half of the marker feature, kept apart from the pure scanner so
  * every grammar rule can be tested as text. No network, no credentials, no traversal:
- * one regular file beneath the working tree, at most
+ * bounded regular files beneath the working tree, at most
  * {@link MARKER_HEADER_WINDOW_BYTES} bytes plus one truncation sentinel, opened
  * read-only and non-blocking.
  *
- * "No traversal" is enforced here rather than asserted — confinement is checked twice,
- * once lexically before any I/O and once on the real path so a symlink cannot walk out
- * of the tree.
+ * "No traversal" is enforced here rather than asserted — confinement is checked
+ * lexically before I/O and on the real path, while symlink components are refused
+ * before their descendants or targets are resolved.
  */
 
-import { constants, open, realpath } from 'node:fs/promises';
+import { constants, lstat, open, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { MARKER_HEADER_WINDOW_BYTES, scanBoundedSourceMarkerWindow } from './scan.ts';
+import { mapConcurrent } from './pool.ts';
 import type { SourceMarker } from './types.ts';
 
 /**
@@ -33,12 +34,26 @@ import type { SourceMarker } from './types.ts';
 export type MarkerScanState = 'scanned' | 'absent' | 'unreadable' | 'out-of-tree';
 
 export interface SourceMarkerScan {
-  /** The path as the caller supplied it, echoed so output reads back what was asked. */
+  /** Normalized repo-relative path used for matching and output. */
   path: string;
   state: MarkerScanState;
   markers: SourceMarker[];
   /** Whether the header window stopped short of the end of the file. */
   truncated: boolean;
+}
+
+/** Maximum number of unique paths one `check` run will scan. */
+export const MARKER_SCAN_FILE_CAP = 1000;
+
+/** Maximum number of marker file reads in flight at once. */
+export const MARKER_SCAN_CONCURRENCY = 16;
+
+/** Pre-scanned marker input passed across the pure `checkChanges` boundary. */
+export interface SourceMarkerBatchScan {
+  scans: SourceMarkerScan[];
+  skippedPaths: string[];
+  limit: number;
+  totalCandidates: number;
 }
 
 function scanStateForError(error: unknown): MarkerScanState {
@@ -59,6 +74,49 @@ function isInsideRoot(root: string, target: string): boolean {
 }
 
 /**
+ * Inspect each lexical component beneath `root` without following a symlink.
+ * Checking only the leaf is insufficient when a PR replaces a directory with a
+ * symlink while the provider still lists the directory's former children as deleted.
+ */
+async function lstatWithoutSymlink(
+  root: string,
+  target: string,
+): Promise<Awaited<ReturnType<typeof lstat>> | undefined> {
+  const segments = relative(root, target).split(sep);
+  let current = root;
+  let info: Awaited<ReturnType<typeof lstat>> | undefined;
+  for (const segment of segments) {
+    current = resolve(current, segment);
+    info = await lstat(current);
+    if (info.isSymbolicLink()) return undefined;
+  }
+  return info;
+}
+
+/** Normalize a caller path once, before it becomes marker identity. */
+function normalizeMarkerPath(path: string): string {
+  const forward = path.replace(/\\/g, '/');
+  let start = 0;
+  while (forward.startsWith('./', start)) start += 2;
+  return forward.slice(start);
+}
+
+interface PreparedRoot {
+  root: string;
+  realRoot?: string;
+  errorState?: MarkerScanState;
+}
+
+async function prepareRoot(cwd: string): Promise<PreparedRoot> {
+  const root = resolve(cwd);
+  try {
+    return { root, realRoot: await realpath(root) };
+  } catch (error) {
+    return { root, errorState: scanStateForError(error) };
+  }
+}
+
+/**
  * `O_NONBLOCK` so the open cannot hang. A FIFO opened for reading with no writer
  * blocks forever, which would wedge `adr explain` on `mkfifo src/pipe` instead of
  * reaching the state this module promises to report. It is absent on Windows, where
@@ -66,9 +124,9 @@ function isInsideRoot(root: string, target: string): boolean {
  *
  * Computed per call rather than held in a module constant on purpose: a top-level
  * initializer the bundler cannot prove side-effect-free keeps this module — and its
- * `node:fs/promises` import — alive in the `@adrkit/ci` bundle, which never scans a
- * marker. Measured, not assumed: as a constant it added three lines to both entry
- * points; as a function `packages/ci/dist` rebuilds byte-identical.
+ * `node:fs/promises` import — alive in unrelated bundles. The governing Action now
+ * imports this boundary intentionally; the queue Action still proves it tree-shakes
+ * away.
  */
 function readFlags(): number {
   return constants.O_RDONLY | (typeof constants.O_NONBLOCK === 'number' ? constants.O_NONBLOCK : 0);
@@ -86,22 +144,34 @@ function readFlags(): number {
  * resolution keeps its pre-marker behavior for a raw argument, including broad globs;
  * this boundary ensures an outside file's contents cannot add an inbound edge.
  */
-export async function readSourceMarkers(path: string, cwd = process.cwd()): Promise<SourceMarkerScan> {
-  const refuse = (state: MarkerScanState): SourceMarkerScan => ({ path, state, markers: [], truncated: false });
+async function readWithPreparedRoot(path: string, prepared: PreparedRoot): Promise<SourceMarkerScan> {
+  const normalizedPath = normalizeMarkerPath(path);
+  const refuse = (state: MarkerScanState): SourceMarkerScan => ({
+    path: normalizedPath,
+    state,
+    markers: [],
+    truncated: false,
+  });
+
+  if (prepared.errorState || !prepared.realRoot) return refuse(prepared.errorState ?? 'unreadable');
 
   // Lexically, before any I/O — so a path that leaves the tree is refused without the
   // reply distinguishing whether the file it named happens to exist.
-  const root = resolve(cwd);
-  if (isAbsolute(path) || !isInsideRoot(root, resolve(root, path))) return refuse('out-of-tree');
+  const candidate = resolve(prepared.root, normalizedPath);
+  if (isAbsolute(normalizedPath) || !isInsideRoot(prepared.root, candidate)) return refuse('out-of-tree');
 
   let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
-    // Then again on the real paths. A symlink inside the tree pointing outside it is
-    // lexically indistinguishable from an ordinary file, and following one would let
-    // an out-of-tree file's marker be reported as this repository's.
-    const realRoot = await realpath(root);
-    const target = await realpath(resolve(realRoot, path));
-    if (!isInsideRoot(realRoot, target)) return refuse('out-of-tree');
+    // Refuse any symlink component before resolving or probing its descendants. This
+    // gives valid, broken, and out-of-tree symlinks the same result, so CI cannot use
+    // marker scanning as an existence or permission oracle for the target.
+    const link = await lstatWithoutSymlink(prepared.root, candidate);
+    if (!link || !link.isFile()) return refuse('unreadable');
+
+    // Retain canonical containment for unusual mount/alias behavior that is not a
+    // symlink visible in the lexical path.
+    const target = await realpath(candidate);
+    if (!isInsideRoot(prepared.realRoot, target)) return refuse('out-of-tree');
 
     handle = await open(target, readFlags());
     // Check the opened handle rather than a path before `open`, so the file-type check
@@ -121,11 +191,44 @@ export async function readSourceMarkers(path: string, cwd = process.cwd()): Prom
     const source = new TextDecoder().decode(
       buffer.subarray(0, Math.min(bytesRead, MARKER_HEADER_WINDOW_BYTES)),
     );
-    const scan = scanBoundedSourceMarkerWindow(source, path, truncated);
-    return { path, state: 'scanned', markers: scan.markers, truncated: scan.truncated };
+    const scan = scanBoundedSourceMarkerWindow(source, normalizedPath, truncated);
+    return { path: normalizedPath, state: 'scanned', markers: scan.markers, truncated: scan.truncated };
   } catch (error) {
     return refuse(scanStateForError(error));
   } finally {
     await handle?.close();
   }
+}
+
+export async function readSourceMarkers(path: string, cwd = process.cwd()): Promise<SourceMarkerScan> {
+  return readWithPreparedRoot(path, await prepareRoot(cwd));
+}
+
+/**
+ * Scan a deterministic, bounded set of source paths with fixed concurrency.
+ *
+ * Paths are normalized, deduplicated, and sorted before the first 1,000 are chosen.
+ * Anything beyond the cap is returned verbatim in `skippedPaths`, never silently
+ * discarded. The working-tree real path is resolved once for the entire batch.
+ */
+export async function readSourceMarkersBatch(
+  paths: readonly string[],
+  cwd = process.cwd(),
+): Promise<SourceMarkerBatchScan> {
+  const candidates = [...new Set(paths.map(normalizeMarkerPath))].sort((a, b) => a.localeCompare(b));
+  const selected = candidates.slice(0, MARKER_SCAN_FILE_CAP);
+  const skippedPaths = candidates.slice(MARKER_SCAN_FILE_CAP);
+  const prepared = selected.length > 0 ? await prepareRoot(cwd) : undefined;
+  const scans = prepared
+    ? await mapConcurrent(selected, MARKER_SCAN_CONCURRENCY, (path) =>
+        readWithPreparedRoot(path, prepared),
+      )
+    : [];
+
+  return {
+    scans,
+    skippedPaths,
+    limit: MARKER_SCAN_FILE_CAP,
+    totalCandidates: candidates.length,
+  };
 }

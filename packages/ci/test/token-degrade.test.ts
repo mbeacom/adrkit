@@ -11,6 +11,9 @@ function baseDeps(overrides: Partial<ActionDeps> & { log: Logger }): ActionDeps 
     client: overrides.client ?? makeFakeClient(),
     dir: 'docs/adr',
     loadLint: overrides.loadLint ?? (async () => cleanLint),
+    readMarkers:
+      overrides.readMarkers ??
+      (async (paths) => ({ scans: [], skippedPaths: [], limit: 1000, totalCandidates: paths.length })),
     extract: overrides.extract ?? (async (): Promise<ExtractedChanges> => ({ changedFiles: ['src/x.ts'], changedDependencies: [], truncated: false })),
     log: overrides.log,
   };

@@ -129,4 +129,45 @@ describe('adr check CLI', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('No decisions govern the changed files.');
   });
+
+  test('resolves marker-only governance and normalizes the declared path', async () => {
+    const root = await seedCorpus();
+    await writeText(join(root, 'src/owned.ts'), '// @adr 0002\nexport const owned = true;\n');
+
+    const result = await runAdr(['check', './src/owned.ts', '--dir', 'docs/adr'], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('0002  [accepted] Use cli paths');
+    expect(result.stdout).toContain('declared by src/owned.ts:1 (@adr 0002)');
+    expect(result.stdout).toContain('marker scan: 1 scanned, 0 absent');
+  });
+
+  test('--json distinguishes an absent changed path from a scanned file with no markers', async () => {
+    const root = await seedCorpus();
+
+    const result = await runAdr(['check', 'src/deleted.ts', '--dir', 'docs/adr', '--json'], root);
+    const parsed = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(parsed.markerScan.counts).toEqual({
+      scanned: 0,
+      absent: 1,
+      unreadable: 0,
+      'out-of-tree': 0,
+      skipped: 0,
+    });
+    expect(parsed.markerScan.absentPaths).toEqual(['src/deleted.ts']);
+  });
+
+  test('reports a non-blocking warning when the marker scan cap is reached', async () => {
+    const root = await seedCorpus();
+    const paths = Array.from({ length: 1001 }, (_, index) => `src/file-${String(index).padStart(4, '0')}.ts`);
+
+    const result = await runAdr(['check', ...paths, '--dir', 'docs/adr'], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('marker scan: 0 scanned, 1000 absent, 0 unreadable, 0 out-of-tree, 1 skipped');
+    expect(result.stdout).toContain('marker-scan-capped');
+    expect(result.stdout).toContain('src/file-1000.ts');
+  });
 });

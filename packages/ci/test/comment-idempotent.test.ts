@@ -9,6 +9,12 @@ function deps(client: GitHubClient): ActionDeps {
     client,
     dir: 'docs/adr',
     loadLint: async () => ({ records: [], findings: [], checked: 0 }),
+    readMarkers: async (paths) => ({
+      scans: [],
+      skippedPaths: [],
+      limit: 1000,
+      totalCandidates: paths.length,
+    }),
     extract: async () => ({ changedFiles: ['src/x.ts'], changedDependencies: [], truncated: false }),
     log: makeLogger().log,
   };
