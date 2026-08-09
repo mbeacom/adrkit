@@ -1,9 +1,24 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { cleanupTestDir, recordMarkdown, resetTestDir, writeText } from '../../core/test/helpers.ts';
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const DIR_NAME = 'cli-lint';
+
+/**
+ * Count this repository's records the way the corpus contract describes them —
+ * `NNNN-*.md`, template excluded — rather than hardcoding a total that goes
+ * stale the next time anyone adds a decision. Restating the rule here instead of
+ * importing it from `@adrkit/core` keeps the assertion an independent check on
+ * discovery: if lint silently stopped seeing a record, the counts diverge.
+ */
+async function countRepositoryRecords(): Promise<number> {
+  const entries = await readdir(resolve(process.cwd(), 'docs/adr'), { withFileTypes: true });
+  return entries.filter(
+    (entry) => entry.isFile() && /^[0-9]{4,}-.+\.md$/.test(entry.name) && entry.name !== '0000-template.md',
+  ).length;
+}
 
 async function runAdr(args: string[], cwd = process.cwd()) {
   const proc = Bun.spawn([process.execPath, CLI_PATH, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
@@ -21,9 +36,12 @@ afterEach(async () => {
 
 describe('adr lint CLI', () => {
   test('passes on this repository corpus', async () => {
+    const expectedRecords = await countRepositoryRecords();
+    expect(expectedRecords).toBeGreaterThan(0);
+
     const result = await runAdr(['lint']);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('checked 24 records, 0 errors');
+    expect(result.stdout).toContain(`checked ${expectedRecords} records, 0 errors, 0 warnings`);
     expect(result.stderr).toBe('');
   });
 

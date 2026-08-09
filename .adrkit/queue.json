@@ -1,0 +1,165 @@
+{
+  "version": "1",
+  "asOf": "2026-08-09",
+  "corpusFingerprint": "4b4098a7a0f49e6f49e7e547d45809c29cb5bd2c8e2c9dfc1245098ac7d94127",
+  "totalItems": 7,
+  "totalCorpusFindings": 0,
+  "itemsWithFindings": 0,
+  "items": [
+    {
+      "id": "0003",
+      "title": "Ship as a Spec Kit extension plus a standalone CLI, not a competing harness",
+      "sourcePath": "docs/adr/0003-ship-as-spec-kit-extension.md",
+      "tier": "arb",
+      "tierLabel": "ARB human review",
+      "queuedAt": "2026-07-28T00:00:00.000Z",
+      "slaDays": 30,
+      "reviewBy": null,
+      "slaState": "within-sla",
+      "deadlineDate": "2026-08-27",
+      "routingTargets": [
+        "@mbeacom"
+      ],
+      "quorum": null,
+      "approvalCount": 0,
+      "unresolvedObjectionCount": 0,
+      "resolvedObjectionCount": 0,
+      "escalatedAt": null,
+      "decidedAt": null,
+      "itemFindings": []
+    },
+    {
+      "id": "0006",
+      "title": "License Apache-2.0 with a DCO and develop in a single monorepo",
+      "sourcePath": "docs/adr/0006-license-apache-2-and-single-monorepo.md",
+      "tier": "arb",
+      "tierLabel": "ARB human review",
+      "queuedAt": "2026-07-28T00:00:00.000Z",
+      "slaDays": 30,
+      "reviewBy": null,
+      "slaState": "within-sla",
+      "deadlineDate": "2026-08-27",
+      "routingTargets": [
+        "@mbeacom"
+      ],
+      "quorum": null,
+      "approvalCount": 0,
+      "unresolvedObjectionCount": 0,
+      "resolvedObjectionCount": 0,
+      "escalatedAt": null,
+      "decidedAt": null,
+      "itemFindings": []
+    },
+    {
+      "id": "0007",
+      "title": "Isolate integrations as optional adapters and build only against public surfaces",
+      "sourcePath": "docs/adr/0007-adapter-isolation-and-public-surface-build.md",
+      "tier": "arb",
+      "tierLabel": "ARB human review",
+      "queuedAt": "2026-07-28T00:00:00.000Z",
+      "slaDays": 30,
+      "reviewBy": null,
+      "slaState": "within-sla",
+      "deadlineDate": "2026-08-27",
+      "routingTargets": [
+        "@mbeacom"
+      ],
+      "quorum": null,
+      "approvalCount": 0,
+      "unresolvedObjectionCount": 0,
+      "resolvedObjectionCount": 0,
+      "escalatedAt": null,
+      "decidedAt": null,
+      "itemFindings": []
+    },
+    {
+      "id": "0008",
+      "title": "Migrate MADR corpora in place and treat all other imports as one-way with a re-import diff",
+      "sourcePath": "docs/adr/0008-import-and-migration-semantics.md",
+      "tier": "arb",
+      "tierLabel": "ARB human review",
+      "queuedAt": "2026-07-28T00:00:00.000Z",
+      "slaDays": 30,
+      "reviewBy": null,
+      "slaState": "within-sla",
+      "deadlineDate": "2026-08-27",
+      "routingTargets": [
+        "@mbeacom"
+      ],
+      "quorum": null,
+      "approvalCount": 0,
+      "unresolvedObjectionCount": 0,
+      "resolvedObjectionCount": 0,
+      "escalatedAt": null,
+      "decidedAt": null,
+      "itemFindings": []
+    },
+    {
+      "id": "0009",
+      "title": "Pin affects resolution semantics and bind entity refs to pluggable catalogs",
+      "sourcePath": "docs/adr/0009-affects-resolution-and-catalog-binding.md",
+      "tier": "arb",
+      "tierLabel": "ARB human review",
+      "queuedAt": "2026-07-28T00:00:00.000Z",
+      "slaDays": 30,
+      "reviewBy": null,
+      "slaState": "within-sla",
+      "deadlineDate": "2026-08-27",
+      "routingTargets": [
+        "@mbeacom"
+      ],
+      "quorum": null,
+      "approvalCount": 0,
+      "unresolvedObjectionCount": 0,
+      "resolvedObjectionCount": 0,
+      "escalatedAt": null,
+      "decidedAt": null,
+      "itemFindings": []
+    },
+    {
+      "id": "0005",
+      "title": "Gate proposals with a deterministic-first evaluator and declarative escalation",
+      "sourcePath": "docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md",
+      "tier": "arb",
+      "tierLabel": "ARB human review",
+      "queuedAt": null,
+      "slaDays": null,
+      "reviewBy": "2027-01-18",
+      "slaState": "within-sla",
+      "deadlineDate": "2027-01-18",
+      "routingTargets": [
+        "@mbeacom"
+      ],
+      "quorum": null,
+      "approvalCount": 0,
+      "unresolvedObjectionCount": 0,
+      "resolvedObjectionCount": 0,
+      "escalatedAt": null,
+      "decidedAt": null,
+      "itemFindings": []
+    },
+    {
+      "id": "0022",
+      "title": "Ship badges as recipes over existing output, not a new CLI surface",
+      "sourcePath": "docs/adr/0022-ship-badges-as-recipes-over-existing-output.md",
+      "tier": "async",
+      "tierLabel": "asynchronous human review",
+      "queuedAt": null,
+      "slaDays": null,
+      "reviewBy": "2027-02-09",
+      "slaState": "within-sla",
+      "deadlineDate": "2027-02-09",
+      "routingTargets": [
+        "@mbeacom"
+      ],
+      "quorum": null,
+      "approvalCount": 0,
+      "unresolvedObjectionCount": 0,
+      "resolvedObjectionCount": 0,
+      "escalatedAt": null,
+      "decidedAt": null,
+      "itemFindings": []
+    }
+  ],
+  "corpusFindings": []
+}

@@ -1,0 +1,133 @@
+---
+title: Badges
+description: Signal that a repository records decisions with adrkit, and publish a live ARB queue depth — without adding a service or a new command.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+adrkit ships no badge service and no `adr badge` command. Every badge below is a
+recipe over output adrkit already produces, rendered by shields.io or by GitHub
+Actions, and served from **your** repository ([ADR-0022](/adr/)).
+
+<Aside type="tip" title="Pick by what the badge claims">
+  A badge is only worth adding if a reader could check it. "Uses adrkit" is
+  verifiable at a glance. "The corpus is healthy" is not, unless something
+  recomputes it — which is why the two badges below are *adoption* and *queue
+  depth*, and why neither claims a grade.
+</Aside>
+
+## Adoption badge
+
+States that the repository records decisions with adrkit, and links to the
+corpus so a reader can confirm it immediately.
+
+```md
+[![ADRs: adrkit](https://img.shields.io/badge/ADRs-adrkit-cb492d)](./docs/adr)
+```
+
+Prefer not to depend on shields.io? Download
+[`adrkit.svg`](/badge/adrkit.svg) and commit it alongside your README:
+
+```md
+[![ADRs: adrkit](./docs/assets/adrkit.svg)](./docs/adr)
+```
+
+<Aside type="caution" title="Don't hot-link adrkit.dev">
+  Copy the SVG into your repository rather than referencing
+  `https://adrkit.dev/badge/adrkit.svg` directly. Pointing at us would turn every
+  README render into a usage signal we have deliberately chosen not to collect.
+</Aside>
+
+## Corpus status badge
+
+The honest status badge already exists: run `adr check` in a workflow and use
+GitHub's own badge for it.
+
+```md
+[![ADRs](https://github.com/OWNER/REPO/actions/workflows/adr.yml/badge.svg?branch=main)](https://github.com/OWNER/REPO/actions/workflows/adr.yml)
+```
+
+Its claim is past-tense and attributable — *the last run of this workflow
+concluded X* — with the run, its date, and its logs one click away. That is the
+property to look for in any status badge, including the one below.
+
+## ARB queue depth badge
+
+How many decisions are awaiting review. This is the number no other tool can
+produce for you, and it comes straight from `adr queue`.
+
+### 1. Publish the report
+
+Add a workflow that regenerates the queue report whenever the corpus changes:
+
+```yaml
+# .github/workflows/adr-queue-badge.yml
+name: ADR queue badge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/adr/**'          # deliberately NOT .adrkit/**, or this re-triggers itself
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - run: mkdir -p .adrkit
+      - run: npx @adrkit/cli queue --format json > .adrkit/queue.json
+      - name: Commit when the report changed
+        run: |
+          git diff --quiet -- .adrkit/queue.json && exit 0
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am 'chore(adr): refresh ARB queue report [skip ci]'
+          git push
+```
+
+### 2. Point a badge at it
+
+```md
+[![ARB queue](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FOWNER%2FREPO%2Fmain%2F.adrkit%2Fqueue.json&query=%24.totalItems&label=ARB%20queue&suffix=%20pending&color=cb492d)](./docs/adr)
+```
+
+Replace `OWNER/REPO`, and the branch and path if you changed them. A wrong URL
+renders `resource not found` and a wrong query renders `no result`, so a mistake
+is visible rather than silently wrong.
+
+### Why depth, and not deadlines
+
+Queue **depth** depends only on the corpus: `adr queue` selects items whose
+status is `proposed`. **SLA state** depends on the calendar — an item crosses its
+deadline with no commit at all. A badge over deadlines would therefore need a
+scheduled rebuild, producing a bot commit every day whether or not anything
+happened, and would quietly go wrong between rebuilds. Depth costs one workflow
+run per corpus change and stays true between them.
+
+If you want deadline pressure surfaced, use the
+[queue Action](/ci/#publish-the-arb-operations-queue) instead — it maintains a
+GitHub issue that people actually receive notifications about.
+
+<Aside type="caution" title="A badge cannot detect its own staleness">
+  If the workflow above is deleted or starts failing, `.adrkit/queue.json` keeps
+  its last value and the badge keeps rendering it. Nothing written at generation
+  time can know it has gone stale — only a reader can. Put the [corpus status
+  badge](#corpus-status-badge) next to it: if regeneration stopped, that badge
+  goes red or blank, which is where the signal belongs.
+</Aside>
+
+## What adrkit will not do
+
+- **No hosted badge endpoint.** It would add an uptime dependency to your README,
+  put a computed surface on the origin that serves the canonical schema, and make
+  badge renders a de-facto record of who uses adrkit.
+- **No `adr badge` command.** `adr queue --format json` already emits
+  `totalItems`; a command that reformatted it would be public API to maintain
+  forever for no added truth.
