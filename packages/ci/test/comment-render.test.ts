@@ -166,7 +166,9 @@ describe('renderComment status awareness (#39)', () => {
 
     test('an 8 KB header window full of markers does not exceed the comment size limit', async () => {
       const root = await seed();
-      const file = 'packages/api/src/payload.ts';
+      // The path length is the author's too, and it multiplies by the declaration
+      // count. A short one renders ~39 KB and would pass this assertion unfixed.
+      const file = 'packages/api/src/a/very/long/directory/an/author/controls/entirely/payload.ts';
       let source = '';
       while (Buffer.byteLength(source) < 8192) source += '// @adr 0001\n';
       await writeText(join(root, file), source);
