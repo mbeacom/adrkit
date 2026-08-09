@@ -48559,21 +48559,27 @@ function changedRecordFindings(outcome) {
   const changed = new Set(outcome.changedRecords);
   return outcome.findings.filter((finding) => finding.field !== "marker" && finding.path !== undefined && changed.has(finding.path));
 }
+function code(value) {
+  const safe = value.replace(/[\u0000-\u001f\u007f]/g, (char) => `\\x${char.charCodeAt(0).toString(16).padStart(2, "0")}`);
+  const fence = "`".repeat(Math.max(0, ...[...safe.matchAll(/`+/g)].map((run) => run[0].length)) + 1);
+  const pad = safe.startsWith("`") || safe.endsWith("`") ? " " : "";
+  return `${fence}${pad}${safe}${pad}${fence}`;
+}
 function renderFindingLine(finding) {
-  const where = finding.path ? `\`${finding.path}\`` : "(corpus)";
-  const field = finding.field ? ` (\`${finding.field}\`)` : "";
-  return `- ${where} — \`${finding.rule}\`${field}: ${finding.message}`;
+  const where = finding.path ? code(finding.path) : "(corpus)";
+  const field = finding.field ? ` (${code(finding.field)})` : "";
+  return `- ${where} — ${code(finding.rule)}${field}: ${finding.message}`;
 }
 function renderDecisionLines(decision, withStatus) {
   const status = withStatus ? ` _(${decision.status})_` : "";
   const successor = decision.supersededBy ? ` — superseded by **${decision.supersededBy}**` : "";
   const lines = [`- **${decision.recordId}** — ${decision.title}${status}${successor}`];
   for (const matcher of decision.firedMatchers) {
-    lines.push(`  - via \`${matcher.type}\`: \`${matcher.pattern}\``);
+    lines.push(`  - via ${code(matcher.type)}: ${code(matcher.pattern)}`);
   }
   const declarations = decision.declaredBy ?? [];
   for (const declaration of declarations.slice(0, MAX_DECLARATIONS)) {
-    lines.push(`  - declared by \`${declaration.path}:${declaration.line}\` (\`@adr ${declaration.ref}\`)`);
+    lines.push(`  - declared by ${code(`${declaration.path}:${declaration.line}`)} (${code(`@adr ${declaration.ref}`)})`);
   }
   const remaining = declarations.length - Math.min(declarations.length, MAX_DECLARATIONS);
   if (remaining > 0) {

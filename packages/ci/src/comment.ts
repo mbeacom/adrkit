@@ -44,10 +44,33 @@ function changedRecordFindings(outcome: CheckOutcome): Finding[] {
   );
 }
 
+/**
+ * Render a value as an inline code span it cannot escape.
+ *
+ * A changed path is named by the pull request, and a filename may legally hold a
+ * backtick. `` `src/x`[Approved](https://evil.example)`y.ts` `` closes the span early
+ * and the rest renders as a live link inside a comment authored by the bot. Per
+ * CommonMark 6.1 a span delimited by N backticks can carry any run shorter than N, so
+ * the delimiter is chosen to outrun the content; a leading or trailing backtick also
+ * needs the padding space the same rule strips back out.
+ *
+ * Control characters are escaped rather than delimited: a filename may contain a
+ * newline, which ends the bullet no matter how the span is fenced.
+ */
+function code(value: string): string {
+  const safe = value.replace(
+    /[\u0000-\u001f\u007f]/g,
+    (char) => `\\x${char.charCodeAt(0).toString(16).padStart(2, '0')}`,
+  );
+  const fence = '`'.repeat(Math.max(0, ...[...safe.matchAll(/`+/g)].map((run) => run[0].length)) + 1);
+  const pad = safe.startsWith('`') || safe.endsWith('`') ? ' ' : '';
+  return `${fence}${pad}${safe}${pad}${fence}`;
+}
+
 function renderFindingLine(finding: Finding): string {
-  const where = finding.path ? `\`${finding.path}\`` : '(corpus)';
-  const field = finding.field ? ` (\`${finding.field}\`)` : '';
-  return `- ${where} — \`${finding.rule}\`${field}: ${finding.message}`;
+  const where = finding.path ? code(finding.path) : '(corpus)';
+  const field = finding.field ? ` (${code(finding.field)})` : '';
+  return `- ${where} — ${code(finding.rule)}${field}: ${finding.message}`;
 }
 
 /**
@@ -60,12 +83,12 @@ function renderDecisionLines(decision: GoverningDecision, withStatus: boolean): 
   const successor = decision.supersededBy ? ` — superseded by **${decision.supersededBy}**` : '';
   const lines = [`- **${decision.recordId}** — ${decision.title}${status}${successor}`];
   for (const matcher of decision.firedMatchers) {
-    lines.push(`  - via \`${matcher.type}\`: \`${matcher.pattern}\``);
+    lines.push(`  - via ${code(matcher.type)}: ${code(matcher.pattern)}`);
   }
   const declarations = decision.declaredBy ?? [];
   for (const declaration of declarations.slice(0, MAX_DECLARATIONS)) {
     lines.push(
-      `  - declared by \`${declaration.path}:${declaration.line}\` (\`@adr ${declaration.ref}\`)`,
+      `  - declared by ${code(`${declaration.path}:${declaration.line}`)} (${code(`@adr ${declaration.ref}`)})`,
     );
   }
   const remaining = declarations.length - Math.min(declarations.length, MAX_DECLARATIONS);

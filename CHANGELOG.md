@@ -31,6 +31,13 @@ Until `1.0.0`, minor releases may include breaking changes
 
 - Marker scanning now rejects every symlink before resolving its target, closing the
   existence/permission oracle that would otherwise become available to fork PRs.
+- The governing-decisions comment renders every path, rule, field, and matcher through
+  a code span the value cannot escape. A filename may legally hold a backtick, and
+  `` src/x`[Approved](https://evil.example)`y.ts `` closed the span early and rendered a
+  live link inside a comment authored by github-actions[bot]. Control characters are
+  escaped too, since a newline in a filename ends the bullet however the span is fenced.
+  The flaw predates inbound markers — it reached any changed ADR record path — but
+  markers widened it to every changed source path.
 - The governing-decisions comment bounds the declarations rendered per decision and
   the body as a whole. One 8 KB header window holds ~630 marker lines, which produced
   a 70,585-character body; GitHub rejects anything over 65,536 with a `422`, and that
