@@ -32,13 +32,13 @@ GitHub repo, so a small number of prerequisites unblock several venues at once.
 ### P1 — npm packages are published ✅
 
 **Satisfied.** `@adrkit/mcp`, `@adrkit/cli`, `@adrkit/core`, and `@adrkit/evaluator`
-are published at `0.4.0` — the exact version `server.json` names. The MCP registry
+are published at `0.5.0` — the exact version `server.json` names. The MCP registry
 hosts *metadata only*; the npm package must already exist at the version named in
-`server.json`. Verified with `npm view @adrkit/mcp@0.4.0 version` → `0.4.0`.
+`server.json`. Verified with `npm view @adrkit/mcp@0.5.0 version` → `0.5.0`.
 
 ### P2 — `mcpName` in the **published** `@adrkit/mcp` ✅
 
-**Satisfied.** `npm view @adrkit/mcp@0.4.0 mcpName` returns `dev.adrkit/mcp`,
+**Satisfied.** `npm view @adrkit/mcp@0.5.0 mcpName` returns `dev.adrkit/mcp`,
 matching `server.json` `name` exactly.
 
 The requirement, and why the ordering mattered: the official registry verifies npm
@@ -542,8 +542,8 @@ ARB-queue Action from its moving major tag like any other:
 uses: mbeacom/adrkit/packages/ci/queue@v0
 ```
 
-`v0` moves with every release, so it now peels to the v0.4.0 release commit
-(`c3dff3a`) rather than to `31bed03`. That is the point of a moving major tag; the
+`v0` moves with every release, so it now peels to the v0.5.0 release commit
+(`c6bceac`) rather than to `31bed03`. That is the point of a moving major tag; the
 commit named below is the historical one that first made `@v0` resolve.
 
 The rest of this section is the historical record of why a full-commit pin was

@@ -2,7 +2,7 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–6 landed and v0.4.0 is public. `@adrkit/core`,
+Status: early — phases 0–6 landed and v0.5.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `queue`, `migrate --from madr`, `evaluate`) are published on npm, as is
 the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.2); the
@@ -17,16 +17,16 @@ driven through the official MCP Inspector. The Inspector defaults to the 2025
 era; select the modern one with `"protocolEra": "modern"` (or `"auto"`) in the
 server's entry in the Inspector's `mcp.json` — there is no CLI flag for it.
 
-## Inbound `@adr` markers (v0.4.0 explain; check/CI extension proposed)
+## Inbound `@adr` markers (v0.5.0: explain, check, and CI)
 
 A file can declare the decision it lives under by putting `@adr 0012` on a
 dedicated comment line inside its first 8192 bytes. v0.4.0 shipped that inbound
-edge for `adr explain <path>` under
-[ADR-0021](./docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)
-and [#97](https://github.com/mbeacom/adrkit/pull/97). This branch proposes
+edge for `adr explain <path>` under ADR-0021 and
+[#97](https://github.com/mbeacom/adrkit/pull/97). v0.5.0 extended the same
+resolution to `adr check` and the governing-decisions Action under
 [ADR-0022](./docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md),
-which extends the same resolution to `adr check` and the governing-decisions
-Action. No schema change: `AdrFrontmatter`,
+which **supersedes ADR-0021** — read 0022, not 0021, for the current scope. No
+schema change: `AdrFrontmatter`,
 `AffectsType`, and `schema/adr.schema.json` are untouched.
 
 Two properties are load-bearing and easy to break:

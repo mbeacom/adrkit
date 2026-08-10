@@ -9,12 +9,12 @@ Action:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.4.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.5.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
 
-The coordinated lockstep surface is published; the current release is `v0.4.0`. `@adrkit/core`,
+The coordinated lockstep surface is published; the current release is `v0.5.0`. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
 `@adrkit/mcp` was created with the isolated one-time bootstrap path below; its
 Trusted Publisher and token-restriction cleanup must be completed before the
@@ -258,7 +258,7 @@ Two notes worth carrying forward from the v0.3.0 cutover:
 
 - `bun run release:pack` triggers a **non-frozen** `bun install`, which can pull
   transitive drift into the committed `packages/ci/dist` bundles. Check
-  `git status` after step 2; it was clean for v0.3.0 and for v0.4.0.
+  `git status` after step 2; it was clean for v0.3.0, v0.4.0, and v0.5.0.
 - The published-consumer advisory audit reported **0 vulnerabilities** at v0.3.0,
   and `KNOWN_CONSUMER_ADVISORY_ACCEPTANCES` is now empty
   ([ADR-0018](adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)
@@ -288,6 +288,23 @@ Three more from the v0.4.0 cutover, all of which cost time:
   version. The four lockstep packages dry-run cleanly first, and the real run
   skips the adapter because the packed tarball's integrity matches the registry.
   Tracked in [#104](https://github.com/mbeacom/adrkit/issues/104).
+
+Two from the v0.5.0 cutover:
+
+- **The #104 dry-run failure is confirmed dry-run-only.** Before tagging, the
+  claim above was checked rather than trusted: the registry's published
+  `dist.shasum` for `@adrkit/spec-kit@0.1.2` was compared against the shasum the
+  dry run had just packed, and they matched exactly, as did `dist.integrity`. The
+  real run then skipped the adapter and published only the four lockstep packages.
+  `npm view @adrkit/spec-kit@<version> dist.shasum` is a cheap way to turn "the
+  real run should skip it" into "the real run will skip it" before you tag.
+- **The MCP registry is not part of the release workflow.** `release.yml` has no
+  `mcp-publisher` step, so `dev.adrkit/mcp` keeps serving the previous version
+  until a human re-publishes it (see
+  [DISTRIBUTION.md](DISTRIBUTION.md) §A). Its three prerequisites are worth
+  re-checking against the *published* package rather than the working tree:
+  `npm view @adrkit/mcp@<version> version`, `npm view @adrkit/mcp@<version>
+  mcpName`, and both `version` fields in `packages/mcp/server.json`.
 
 1. Start from the final release commit on `main`.
 

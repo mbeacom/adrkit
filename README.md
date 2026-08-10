@@ -225,24 +225,31 @@ different artifact from a heading convention. That is the whole thesis.
 
 Early, under active development, and deliberately honest about what is proven.
 
-- **Published — v0.4.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
+- **Published — v0.5.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
   the deterministic Pass 0 `@adrkit/evaluator`, and the read-only `@adrkit/mcp`
   server are all implemented and released. The MCP server speaks both protocol
   eras and passed real-session dogfood against the published artifact on each,
   driven through the official MCP Inspector
   ([ADR-0018](docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)).
-- **New in v0.4.0, and at rung 1 only.** A file can declare the decision it
+- **New in v0.5.0, and at rung 1 only.** A file can declare the decision it
   lives under with an `@adr <id>` marker on a dedicated comment line, and
-  `adr explain` resolves that inbound edge alongside the `affects` patterns that
-  already matched the path
-  ([ADR-0021](docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
-  The feature reaches `adr explain` and nothing else: `adr check`, the Action,
-  and the Spec Kit context script do not scan markers, so no CI semantics move.
+  `adr explain`, `adr check`, and the governing-decisions Action all resolve that
+  inbound edge alongside the `affects` patterns that already matched the path
+  ([ADR-0022](docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md),
+  superseding [ADR-0021](docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
+  A marker is read only where the file's own format hides it — never inside a
+  fenced block, and in markdown only from `<!--` or `{/*`
+  ([ADR-0023](docs/adr/0023-read-a-marker-only-where-the-format-hides-it-fences-and-markdown-prose.md)).
+  Markers add governance context and findings; they never gain exit-code
+  authority, so nothing a pull request writes can fail a check.
   Evidence is unit, contract, and purity coverage plus maintainer verification —
   **rung 1** of the ADR-0014 ladder, not the rungs 1–2 the surfaces below carry.
   Contributed by [@aballiet](https://github.com/aballiet) in
-  [#97](https://github.com/mbeacom/adrkit/pull/97), the first community feature
-  this project has shipped.
+  [#97](https://github.com/mbeacom/adrkit/pull/97) — the first community feature
+  this project has shipped — and
+  [#106](https://github.com/mbeacom/adrkit/pull/106), and by
+  [@davesheffer](https://github.com/davesheffer) in
+  [#109](https://github.com/mbeacom/adrkit/pull/109).
 - **Landed, maintainer reference-verified — not yet externally validated.** The
   Phase 6 ARB queue (`adr queue` plus the managed-issue Action) is verified on
   rungs 1–2 of the
