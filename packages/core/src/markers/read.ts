@@ -14,6 +14,7 @@
 
 import { constants, lstat, open, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { compareCodeUnits } from '../ordering/index.ts';
 import { MARKER_HEADER_WINDOW_BYTES, scanBoundedSourceMarkerWindow } from './scan.ts';
 import { mapConcurrent } from './pool.ts';
 import type { SourceMarker } from './types.ts';
@@ -240,7 +241,7 @@ export async function readSourceMarkersBatch(
   paths: readonly string[],
   cwd = process.cwd(),
 ): Promise<SourceMarkerBatchScan> {
-  const candidates = [...new Set(paths.map(normalizeMarkerPath))].sort((a, b) => a.localeCompare(b));
+  const candidates = [...new Set(paths.map(normalizeMarkerPath))].sort(compareCodeUnits);
   const selected = candidates.slice(0, MARKER_SCAN_FILE_CAP);
   const skippedPaths = candidates.slice(MARKER_SCAN_FILE_CAP);
   const prepared = selected.length > 0 ? await prepareRoot(cwd) : undefined;

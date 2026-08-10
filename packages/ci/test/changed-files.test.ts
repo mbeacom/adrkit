@@ -32,6 +32,18 @@ describe('extractChanges', () => {
     expect(changes.markerFiles).toEqual(['src/new.ts']);
   });
 
+  test('keeps removed files in affects matching without scanning their absent contents', async () => {
+    const client = clientWithFiles([
+      { filename: 'src/deleted.ts', status: 'removed' },
+      { filename: 'src/updated.ts', status: 'modified' },
+    ]);
+
+    const changes = await extractChanges(client);
+
+    expect(changes.changedFiles).toEqual(['src/deleted.ts', 'src/updated.ts']);
+    expect(changes.markerFiles).toEqual(['src/updated.ts']);
+  });
+
   test('derives changed dependencies from the bun.lock patch', async () => {
     const patch = [
       '@@ -10,6 +10,7 @@',

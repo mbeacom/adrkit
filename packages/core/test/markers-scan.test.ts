@@ -242,6 +242,30 @@ describe('readSourceMarkers', () => {
     expect(scan.truncated).toBe(false);
     expect(scan.markers.map((item) => item.ref)).toEqual(['0012']);
   });
+
+  test('a multi-byte code point split at the byte window cannot invent a marker', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const markerPrefix = new TextEncoder().encode(`${MARKER_LINE} `);
+    const splitCodePoint = new TextEncoder().encode('é');
+    const padLength = MARKER_HEADER_WINDOW_BYTES - markerPrefix.length - 1;
+    const pad = new TextEncoder().encode(`${'#'.repeat(padLength - 1)}\n`);
+    const tail = new TextEncoder().encode('\ntail\n');
+    const bytes = new Uint8Array(pad.length + markerPrefix.length + splitCodePoint.length + tail.length);
+    bytes.set(pad);
+    bytes.set(markerPrefix, pad.length);
+    bytes.set(splitCodePoint, pad.length + markerPrefix.length);
+    bytes.set(tail, pad.length + markerPrefix.length + splitCodePoint.length);
+    await mkdir(join(root, 'src'), { recursive: true });
+    await writeFile(join(root, 'src/split.ts'), bytes);
+
+    // The window ends after the first byte of `é`. TextDecoder emits U+FFFD, but the
+    // whole severed line must be discarded; otherwise its valid marker prefix matches.
+    expect(pad.length + markerPrefix.length + 1).toBe(MARKER_HEADER_WINDOW_BYTES);
+    const scan = await readSourceMarkers('src/split.ts', root);
+
+    expect(scan.truncated).toBe(true);
+    expect(scan.markers).toEqual([]);
+  });
 });
 
 /**
@@ -378,16 +402,18 @@ describe('readSourceMarkersBatch', () => {
     },
   );
 
-  test('scans the first capped sorted paths and reports every path beyond the cap', async () => {
+  test('uses code-unit order to select capped paths and report every path beyond the cap', async () => {
     const root = await resetTestDir(DIR_NAME);
     const name = (index: number): string => `src/file-${String(index).padStart(5, '0')}.ts`;
-    const paths = Array.from({ length: MARKER_SCAN_FILE_CAP + 2 }, (_, index) => name(index)).reverse();
+    const selectedNames = Array.from({ length: MARKER_SCAN_FILE_CAP }, (_, index) => name(index));
+    const paths = [...selectedNames, 'src/z-last.ts', 'src/ä-last.ts'].reverse();
 
     const batch = await readSourceMarkersBatch(paths, root);
 
     expect(batch.scans).toHaveLength(MARKER_SCAN_FILE_CAP);
     expect(batch.scans.every((scan) => scan.state === 'absent')).toBe(true);
-    expect(batch.skippedPaths).toEqual([name(MARKER_SCAN_FILE_CAP), name(MARKER_SCAN_FILE_CAP + 1)]);
+    expect(batch.scans.map((scan) => scan.path)).toEqual(selectedNames);
+    expect(batch.skippedPaths).toEqual(['src/z-last.ts', 'src/ä-last.ts']);
     expect(batch.totalCandidates).toBe(MARKER_SCAN_FILE_CAP + 2);
   });
 });

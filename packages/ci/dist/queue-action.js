@@ -46162,6 +46162,16 @@ async function lintCorpus(options = {}) {
 }
 // ../core/src/affects/matchers/package.ts
 var import_semver = __toESM(require_semver2(), 1);
+// ../core/src/ordering/index.ts
+function compareCodeUnits(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function compareFindings(a, b) {
+  return compareCodeUnits(a.rule, b.rule) || compareCodeUnits(a.id ?? "", b.id ?? "") || compareCodeUnits(a.pattern ?? "", b.pattern ?? "") || compareCodeUnits(a.path ?? "", b.path ?? "") || compareCodeUnits(a.field ?? "", b.field ?? "") || compareCodeUnits(a.message, b.message);
+}
+function sortFindingsCanonical(findings) {
+  return [...findings].sort(compareFindings);
+}
 // ../core/src/import/status.ts
 var MADR_RECOGNIZED_STATUSES = [
   "draft",
@@ -46182,16 +46192,6 @@ var OPTIONAL_REMOVE_KEYS = new Set([
   "evaluation",
   "reviewBy"
 ]);
-// ../core/src/ordering/index.ts
-function compareCodeUnits(a, b) {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-function compareFindings(a, b) {
-  return compareCodeUnits(a.rule, b.rule) || compareCodeUnits(a.id ?? "", b.id ?? "") || compareCodeUnits(a.pattern ?? "", b.pattern ?? "") || compareCodeUnits(a.path ?? "", b.path ?? "") || compareCodeUnits(a.field ?? "", b.field ?? "") || compareCodeUnits(a.message, b.message);
-}
-function sortFindingsCanonical(findings) {
-  return [...findings].sort(compareFindings);
-}
 // ../core/src/fingerprint/index.ts
 import { createHash } from "node:crypto";
 function canonicalStringify(value) {

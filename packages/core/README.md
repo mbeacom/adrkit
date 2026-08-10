@@ -58,9 +58,10 @@ literals in their common inline forms from becoming declarations.
 `unreadable`, or `out-of-tree`, so "found no markers" is never confused with
 "could not look."
 
-Its `path` argument is repo-relative to `cwd`. Absolute paths, paths that climb
-out of the tree, and every symlink are refused without opening a target;
-non-regular files are `unreadable`, so a FIFO cannot block the read.
+Its `path` argument is repo-relative to `cwd`. Absolute paths and paths that climb
+out of the tree are `out-of-tree`. Every symlink is refused as `unreadable`
+without opening its target; non-regular files are also `unreadable`, so a FIFO
+cannot block the read.
 
 `readSourceMarkersBatch(paths, cwd)` is the impure boundary for `checkChanges`.
 It normalizes, deduplicates, and sorts paths; scans the first 3,000 with at most

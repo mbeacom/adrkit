@@ -48174,6 +48174,11 @@ function scanBoundedSourceMarkerWindow(source, path, truncated) {
 import { constants as constants3, lstat as lstat2, open, realpath } from "node:fs/promises";
 import { isAbsolute as isAbsolute3, relative as relative2, resolve as resolve3, sep as sep3 } from "node:path";
 
+// ../core/src/ordering/index.ts
+function compareCodeUnits(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 // ../core/src/markers/pool.ts
 async function mapConcurrent(items, concurrency, task) {
   const results = new Array(items.length);
@@ -48274,7 +48279,7 @@ async function readWithPreparedRoot(path, prepared) {
   }
 }
 async function readSourceMarkersBatch(paths, cwd = process.cwd()) {
-  const candidates = [...new Set(paths.map(normalizeMarkerPath))].sort((a, b) => a.localeCompare(b));
+  const candidates = [...new Set(paths.map(normalizeMarkerPath))].sort(compareCodeUnits);
   const selected = candidates.slice(0, MARKER_SCAN_FILE_CAP);
   const skippedPaths = candidates.slice(MARKER_SCAN_FILE_CAP);
   const prepared = selected.length > 0 ? await prepareRoot(cwd) : undefined;
@@ -48331,7 +48336,7 @@ function unresolvableFinding(marker) {
   };
 }
 function compareDeclarations(a, b) {
-  return a.path.localeCompare(b.path) || a.line - b.line || a.ref.localeCompare(b.ref);
+  return compareCodeUnits(a.path, b.path) || a.line - b.line || compareCodeUnits(a.ref, b.ref);
 }
 function resolveSourceMarkers(input) {
   const ids = new Set(input.records.map((record2) => record2.frontmatter.id));
@@ -48355,7 +48360,7 @@ function resolveSourceMarkers(input) {
     declarations.push({ path: marker.path, line: marker.line, ref: marker.ref });
     byRecord.set(marker.id, declarations);
   }
-  const matches = [...byRecord.entries()].map(([recordId, declaredBy]) => ({ recordId, declaredBy: declaredBy.sort(compareDeclarations) })).sort((a, b) => a.recordId.localeCompare(b.recordId));
+  const matches = [...byRecord.entries()].map(([recordId, declaredBy]) => ({ recordId, declaredBy: declaredBy.sort(compareDeclarations) })).sort((a, b) => compareCodeUnits(a.recordId, b.recordId));
   return { matches, findings: sortFindings(findings) };
 }
 function mergeSourceDeclarations(patternDecisions, records, markerMatches) {
@@ -48370,7 +48375,7 @@ function mergeSourceDeclarations(patternDecisions, records, markerMatches) {
     return { ...decision, declaredBy };
   });
   const markerOnly = toGoverningDecisions(records, [...pending.keys()].map((recordId) => ({ recordId, firedMatchers: [] }))).map((decision) => ({ ...decision, declaredBy: pending.get(decision.recordId) ?? [] }));
-  return [...merged, ...markerOnly].sort((a, b) => a.recordId.localeCompare(b.recordId));
+  return [...merged, ...markerOnly].sort((a, b) => compareCodeUnits(a.recordId, b.recordId));
 }
 // ../core/src/check/index.ts
 var RECORD_BASENAME = /^\d{4,}-.+\.md$/;
@@ -48424,13 +48429,14 @@ function markerScanReport(batch) {
       absent: absentPaths.length,
       unreadable: unreadablePaths.length,
       "out-of-tree": outOfTreePaths.length,
+      truncated: truncatedPaths.length,
       skipped: batch.skippedPaths.length
     },
-    absentPaths: absentPaths.sort((a, b) => a.localeCompare(b)),
-    unreadablePaths: unreadablePaths.sort((a, b) => a.localeCompare(b)),
-    outOfTreePaths: outOfTreePaths.sort((a, b) => a.localeCompare(b)),
-    truncatedPaths: truncatedPaths.sort((a, b) => a.localeCompare(b)),
-    skippedPaths: [...batch.skippedPaths].sort((a, b) => a.localeCompare(b))
+    absentPaths: absentPaths.sort(compareCodeUnits),
+    unreadablePaths: unreadablePaths.sort(compareCodeUnits),
+    outOfTreePaths: outOfTreePaths.sort(compareCodeUnits),
+    truncatedPaths: truncatedPaths.sort(compareCodeUnits),
+    skippedPaths: [...batch.skippedPaths].sort(compareCodeUnits)
   };
 }
 function cappedScanFinding(report) {
@@ -48538,7 +48544,9 @@ async function extractChanges(client) {
   const files = await client.listPullFiles();
   const truncated = files.length >= LIST_FILES_CAP;
   const changedFiles = [...new Set(files.flatMap(pathsForFile))].sort((a, b) => a.localeCompare(b));
-  const markerFiles = [...new Set(files.map((file2) => file2.filename))].sort((a, b) => a.localeCompare(b));
+  const markerFiles = [
+    ...new Set(files.filter((file2) => file2.status !== "removed").map((file2) => file2.filename))
+  ].sort((a, b) => a.localeCompare(b));
   const changedDependencies = deriveChangedDependencies(files);
   return { changedFiles, markerFiles, changedDependencies, truncated };
 }
@@ -48792,7 +48800,7 @@ async function runAction(deps) {
   const report = outcome.markerScan;
   if (report) {
     const counts = report.counts;
-    deps.log.info(`adrkit: marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` + `${counts.unreadable} unreadable, ${counts["out-of-tree"]} out-of-tree, ` + `${counts.skipped} skipped.`);
+    deps.log.info(`adrkit: marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` + `${counts.unreadable} unreadable, ${counts["out-of-tree"]} out-of-tree, ` + `${counts.truncated} truncated, ${counts.skipped} skipped.`);
     if (report.skippedPaths.length > 0) {
       deps.log.warning(`adrkit: marker scan reached the ${report.limit}-file cap; skipped: ${report.skippedPaths.join(", ")}`);
     }

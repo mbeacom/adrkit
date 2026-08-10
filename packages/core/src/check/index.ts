@@ -7,6 +7,7 @@ import type { Adr } from '../schema/adr.schema.ts';
 import { resolveAffects, type ResolutionSnapshots } from '../affects/index.ts';
 import { mergeSourceDeclarations, resolveSourceMarkers } from '../markers/resolve.ts';
 import type { SourceMarkerBatchScan } from '../markers/read.ts';
+import { compareCodeUnits } from '../ordering/index.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 import {
   bucketDecisions,
@@ -37,7 +38,11 @@ export interface CheckLintResult {
 export interface MarkerScanReport {
   totalCandidates: number;
   limit: number;
-  counts: Record<'scanned' | 'absent' | 'unreadable' | 'out-of-tree' | 'skipped', number>;
+  /** `truncated` is a subset of `scanned`, not a mutually exclusive scan state. */
+  counts: Record<
+    'scanned' | 'absent' | 'unreadable' | 'out-of-tree' | 'truncated' | 'skipped',
+    number
+  >;
   absentPaths: string[];
   unreadablePaths: string[];
   outOfTreePaths: string[];
@@ -143,13 +148,14 @@ function markerScanReport(batch: SourceMarkerBatchScan): MarkerScanReport {
       absent: absentPaths.length,
       unreadable: unreadablePaths.length,
       'out-of-tree': outOfTreePaths.length,
+      truncated: truncatedPaths.length,
       skipped: batch.skippedPaths.length,
     },
-    absentPaths: absentPaths.sort((a, b) => a.localeCompare(b)),
-    unreadablePaths: unreadablePaths.sort((a, b) => a.localeCompare(b)),
-    outOfTreePaths: outOfTreePaths.sort((a, b) => a.localeCompare(b)),
-    truncatedPaths: truncatedPaths.sort((a, b) => a.localeCompare(b)),
-    skippedPaths: [...batch.skippedPaths].sort((a, b) => a.localeCompare(b)),
+    absentPaths: absentPaths.sort(compareCodeUnits),
+    unreadablePaths: unreadablePaths.sort(compareCodeUnits),
+    outOfTreePaths: outOfTreePaths.sort(compareCodeUnits),
+    truncatedPaths: truncatedPaths.sort(compareCodeUnits),
+    skippedPaths: [...batch.skippedPaths].sort(compareCodeUnits),
   };
 }
 

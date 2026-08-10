@@ -8,6 +8,7 @@
 
 import type { Adr } from '../schema/adr.schema.ts';
 import { toGoverningDecisions, type GoverningDecision } from '../check/decisions.ts';
+import { compareCodeUnits } from '../ordering/index.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 import type { MarkerDeclaration, MarkerMatch, SourceMarker } from './types.ts';
 
@@ -64,7 +65,7 @@ function unresolvableFinding(marker: SourceMarker): Finding {
 }
 
 function compareDeclarations(a: MarkerDeclaration, b: MarkerDeclaration): number {
-  return a.path.localeCompare(b.path) || a.line - b.line || a.ref.localeCompare(b.ref);
+  return compareCodeUnits(a.path, b.path) || a.line - b.line || compareCodeUnits(a.ref, b.ref);
 }
 
 /** Bind markers to the records they name, and report the ones that bind to nothing. */
@@ -95,7 +96,7 @@ export function resolveSourceMarkers(input: ResolveSourceMarkersInput): ResolveS
 
   const matches = [...byRecord.entries()]
     .map(([recordId, declaredBy]) => ({ recordId, declaredBy: declaredBy.sort(compareDeclarations) }))
-    .sort((a, b) => a.recordId.localeCompare(b.recordId));
+    .sort((a, b) => compareCodeUnits(a.recordId, b.recordId));
 
   return { matches, findings: sortFindings(findings) };
 }
@@ -128,5 +129,5 @@ export function mergeSourceDeclarations(
     [...pending.keys()].map((recordId) => ({ recordId, firedMatchers: [] })),
   ).map((decision) => ({ ...decision, declaredBy: pending.get(decision.recordId) ?? [] }));
 
-  return [...merged, ...markerOnly].sort((a, b) => a.recordId.localeCompare(b.recordId));
+  return [...merged, ...markerOnly].sort((a, b) => compareCodeUnits(a.recordId, b.recordId));
 }

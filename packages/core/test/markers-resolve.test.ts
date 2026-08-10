@@ -107,6 +107,18 @@ describe('resolveSourceMarkers', () => {
       },
     ]);
   });
+
+  test('sorts declaration paths by code unit rather than the host locale', () => {
+    const result = resolveSourceMarkers({
+      records: [record('0012')],
+      markers: [marker('0012', 'src/ä.ts', 1), marker('0012', 'src/z.ts', 1)],
+    });
+
+    expect(result.matches[0]?.declaredBy.map((declaration) => declaration.path)).toEqual([
+      'src/z.ts',
+      'src/ä.ts',
+    ]);
+  });
 });
 
 describe('mergeSourceDeclarations', () => {

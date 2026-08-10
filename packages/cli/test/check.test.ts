@@ -155,6 +155,7 @@ describe('adr check CLI', () => {
       absent: 1,
       unreadable: 0,
       'out-of-tree': 0,
+      truncated: 0,
       skipped: 0,
     });
     expect(parsed.markerScan.absentPaths).toEqual(['src/deleted.ts']);
@@ -169,6 +170,21 @@ describe('adr check CLI', () => {
     expect(result.stdout).not.toContain('marker scan');
   });
 
+  test('reports truncated scans in human output with the affected path', async () => {
+    const root = await seedCorpus();
+    await writeText(join(root, 'src/large.ts'), `// @adr 0001\n${'x'.repeat(8192)}`);
+
+    const result = await runAdr(['check', 'src/large.ts', '--dir', 'docs/adr'], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      'marker scan: 1 scanned, 0 absent, 0 unreadable, 0 out-of-tree, 1 truncated, 0 skipped',
+    );
+    expect(result.stdout).toContain(
+      'marker scan truncated after 8192 bytes for: src/large.ts',
+    );
+  });
+
   // Only a local invocation can reach the cap: the Action refuses to evaluate a diff
   // that hit GitHub's 3,000-file list cap, so it never hands over that many paths.
   test('reports a non-blocking warning when the marker scan cap is reached', async () => {
@@ -180,7 +196,7 @@ describe('adr check CLI', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(
-      `marker scan: 0 scanned, ${MARKER_SCAN_FILE_CAP} absent, 0 unreadable, 0 out-of-tree, 1 skipped`,
+      `marker scan: 0 scanned, ${MARKER_SCAN_FILE_CAP} absent, 0 unreadable, 0 out-of-tree, 0 truncated, 1 skipped`,
     );
     expect(result.stdout).toContain('marker-scan-capped');
     expect(result.stdout).toContain(name(MARKER_SCAN_FILE_CAP));

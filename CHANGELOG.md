@@ -15,7 +15,7 @@ Until `1.0.0`, minor releases may include breaking changes
   markers from changed files. Reads are hoisted outside pure `checkChanges`, bounded
   to 3,000 normalized paths — GitHub's own changed-file ceiling, so every diff the
   Action evaluates is scanned completely — at 16 concurrent reads, and reported through a
-  deterministic `markerScan` result so absent and skipped files are never silent.
+  deterministic `markerScan` result so absent, truncated, and skipped files are never silent.
   Marker-derived edges render as `declared by` and never influence exit status.
 
   This answers the separate decision ADR-0021 left open rather than revising it.

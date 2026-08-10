@@ -17,24 +17,28 @@ driven through the official MCP Inspector. The Inspector defaults to the 2025
 era; select the modern one with `"protocolEra": "modern"` (or `"auto"`) in the
 server's entry in the Inspector's `mcp.json` — there is no CLI flag for it.
 
-## Inbound `@adr` markers (v0.4.0)
+## Inbound `@adr` markers (v0.4.0 explain; check/CI extension proposed)
 
 A file can declare the decision it lives under by putting `@adr 0012` on a
-dedicated comment line inside its first 8192 bytes, and `adr explain <path>`
-resolves that inbound edge alongside the outbound `affects` patterns
-([ADR-0021](./docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md),
-[#97](https://github.com/mbeacom/adrkit/pull/97)). No schema change: `AdrFrontmatter`,
+dedicated comment line inside its first 8192 bytes. v0.4.0 shipped that inbound
+edge for `adr explain <path>` under
+[ADR-0021](./docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)
+and [#97](https://github.com/mbeacom/adrkit/pull/97). This branch proposes
+[ADR-0022](./docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md),
+which extends the same resolution to `adr check` and the governing-decisions
+Action. No schema change: `AdrFrontmatter`,
 `AffectsType`, and `schema/adr.schema.json` are untouched.
 
 Two properties are load-bearing and easy to break:
 
-- **Markers reach `adr explain` and nothing else.** `adr check`, `checkChanges`,
-  the CI Action, and `packages/adapters/spec-kit/scripts/context.sh` do not scan
-  them. `declaredBy` lives on an explain-only `ExplainedDecision`, *not* on the
-  shared `GoverningDecision` that `checkChanges` returns, so `check --json` is
-  marker-free and `packages/ci/dist` gains nothing. Wiring markers into `check`
-  or the Action changes CI semantics and moves the filesystem boundary, so it is
-  a separate decision.
+- **Marker I/O stays outside the pure resolvers.** `adr explain`, `adr check`,
+  and the CI Action scan at their filesystem boundaries; `checkChanges` accepts
+  pre-scanned `markerScans` and remains pure. `declaredBy` lives on the shared
+  `GoverningDecision`, so both `check --json` and the Action can report marker
+  provenance. Markers add governance context and findings but never gain
+  exit-code authority. `packages/adapters/spec-kit/scripts/context.sh` delegates
+  path-aware context to `adr check`, so it inherits that marker scan without
+  implementing a separate reader.
 - **A marker must not be able to lie.** The scanner requires the comment
   introducer to begin the physical line with `@adr` as the comment's first
   content, so prose discussing a decision, a string literal containing one, and

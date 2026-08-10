@@ -16,9 +16,9 @@ export interface ExtractedChanges {
   /**
    * Current/head-side paths whose contents can carry inbound markers.
    *
-   * Unlike `changedFiles`, this excludes a rename's previous path: that path still
-   * participates in `affects` matching, but it no longer exists in the checkout and
-   * must not consume one of the marker scanner's provider-aligned slots.
+   * Unlike `changedFiles`, this excludes removed files and a rename's previous path:
+   * those paths still participate in `affects` matching, but no longer exist in the
+   * checkout and must not consume the marker scanner's provider-aligned slots.
    */
   markerFiles: string[];
   /**
@@ -79,9 +79,9 @@ export async function extractChanges(client: GitHubClient): Promise<ExtractedCha
   const truncated = files.length >= LIST_FILES_CAP;
 
   const changedFiles = [...new Set(files.flatMap(pathsForFile))].sort((a, b) => a.localeCompare(b));
-  const markerFiles = [...new Set(files.map((file) => file.filename))].sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const markerFiles = [
+    ...new Set(files.filter((file) => file.status !== 'removed').map((file) => file.filename)),
+  ].sort((a, b) => a.localeCompare(b));
   const changedDependencies = deriveChangedDependencies(files);
 
   return { changedFiles, markerFiles, changedDependencies, truncated };

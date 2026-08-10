@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { checkChanges, type CheckLintResult } from '../src/check/index.ts';
+import type { SourceMarkerScan } from '../src/markers/read.ts';
 import type { Adr } from '../src/schema/adr.schema.ts';
 import type { Finding } from '../src/validate/findings.ts';
 
@@ -157,6 +158,7 @@ describe('checkChanges (core)', () => {
       absent: 1,
       unreadable: 0,
       'out-of-tree': 0,
+      truncated: 0,
       skipped: 0,
     });
     expect(outcome.markerScan?.absentPaths).toEqual(['src/deleted.ts']);
@@ -181,5 +183,44 @@ describe('checkChanges (core)', () => {
     ]);
     expect(outcome.markerScan?.skippedPaths).toEqual(['src/z.ts']);
     expect(outcome.ok).toBe(true);
+  });
+
+  test('marker scan report paths use deterministic code-unit order', () => {
+    const states = ['absent', 'unreadable', 'out-of-tree'] as const;
+    const scans: SourceMarkerScan[] = states.flatMap((state) => [
+      { path: `src/ä-${state}.ts`, state, truncated: false, markers: [] },
+      { path: `src/b-${state}.ts`, state, truncated: false, markers: [] },
+    ]);
+    scans.push(
+      { path: 'src/ä-truncated.ts', state: 'scanned', truncated: true, markers: [] },
+      { path: 'src/b-truncated.ts', state: 'scanned', truncated: true, markers: [] },
+    );
+
+    const outcome = checkChanges({
+      lint: emptyLint(),
+      changedFiles: [],
+      markerScans: {
+        scans,
+        skippedPaths: ['src/ä-skipped.ts', 'src/b-skipped.ts'],
+        limit: 8,
+        totalCandidates: 10,
+      },
+    });
+
+    expect(outcome.markerScan?.absentPaths).toEqual(['src/b-absent.ts', 'src/ä-absent.ts']);
+    expect(outcome.markerScan?.unreadablePaths).toEqual([
+      'src/b-unreadable.ts',
+      'src/ä-unreadable.ts',
+    ]);
+    expect(outcome.markerScan?.outOfTreePaths).toEqual([
+      'src/b-out-of-tree.ts',
+      'src/ä-out-of-tree.ts',
+    ]);
+    expect(outcome.markerScan?.truncatedPaths).toEqual([
+      'src/b-truncated.ts',
+      'src/ä-truncated.ts',
+    ]);
+    expect(outcome.markerScan?.counts.truncated).toBe(2);
+    expect(outcome.markerScan?.skippedPaths).toEqual(['src/b-skipped.ts', 'src/ä-skipped.ts']);
   });
 });

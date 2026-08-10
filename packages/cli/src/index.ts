@@ -655,7 +655,7 @@ function renderHumanCheck(outcome: ReturnType<typeof checkChanges>): string {
     output +=
       `marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` +
       `${counts.unreadable} unreadable, ${counts['out-of-tree']} out-of-tree, ` +
-      `${counts.skipped} skipped\n`;
+      `${counts.truncated} truncated, ${counts.skipped} skipped\n`;
 
     const unavailable = [
       ...outcome.markerScan.absentPaths,
@@ -668,6 +668,14 @@ function renderHumanCheck(outcome: ReturnType<typeof checkChanges>): string {
       const remaining = unavailable.length - shown.length;
       output += `marker scan unavailable for: ${shown.join(', ')}`;
       if (remaining > 0) output += `, and ${remaining} more (see --json for the complete lists)`;
+      output += '\n';
+    }
+
+    if (outcome.markerScan.truncatedPaths.length > 0) {
+      const shown = outcome.markerScan.truncatedPaths.slice(0, 10);
+      const remaining = outcome.markerScan.truncatedPaths.length - shown.length;
+      output += `marker scan truncated after ${MARKER_HEADER_WINDOW_BYTES} bytes for: ${shown.join(', ')}`;
+      if (remaining > 0) output += `, and ${remaining} more (see --json for the complete list)`;
       output += '\n';
     }
   }

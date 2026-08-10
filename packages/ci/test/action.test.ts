@@ -107,7 +107,10 @@ describe('runAction (end to end with a fake client)', () => {
       join(root, 'docs/adr/0001-core.md'),
       acceptedRecordMarkdown('0001', 'Guard marker-owned code'),
     );
-    await writeText(join(root, 'src/owned.ts'), '// @adr 0001\nexport const owned = true;\n');
+    await writeText(
+      join(root, 'src/owned.ts'),
+      `// @adr 0001\nexport const owned = true;\n${'x'.repeat(8192)}`,
+    );
     const client = makeFakeClient();
     const logger = makeLogger();
     const actionDeps = deps(client, root, ['src/owned.ts', 'src/deleted.ts']);
@@ -119,7 +122,7 @@ describe('runAction (end to end with a fake client)', () => {
     expect(client.created[0]).toContain('**0001** — Guard marker-owned code');
     expect(client.created[0]).toContain('declared by `src/owned.ts:1` (`@adr 0001`)');
     expect(logger.info.join('\n')).toContain(
-      'marker scan: 1 scanned, 1 absent, 0 unreadable, 0 out-of-tree, 0 skipped',
+      'marker scan: 1 scanned, 1 absent, 0 unreadable, 0 out-of-tree, 1 truncated, 0 skipped',
     );
   });
 

@@ -90,7 +90,7 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
     deps.log.info(
       `adrkit: marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` +
         `${counts.unreadable} unreadable, ${counts['out-of-tree']} out-of-tree, ` +
-        `${counts.skipped} skipped.`,
+        `${counts.truncated} truncated, ${counts.skipped} skipped.`,
     );
     if (report.skippedPaths.length > 0) {
       deps.log.warning(
