@@ -64,6 +64,14 @@ the API: update the matching surface test and mention the addition in the
 release notes. Any `exports` map or runtime named-export change that is not
 accompanied by a surface-test update is a release blocker.
 
+`QueueReport.totalItems` carries an obligation the surface tests cannot see.
+Third-party READMEs read it straight out of a published `queue.json` through a
+shields.io `dynamic/json` query (ADR-0024), so those consumers never imported
+`@adrkit/core` and receive no deprecation signal. A `QueueReport` v2 that moves,
+renames, or reinterprets that field breaks badges in other people's
+repositories; call it out in the release notes and keep the v1 field emitted for
+at least one minor release.
+
 ## Local release simulation
 
 From a clean checkout:

@@ -26,3 +26,8 @@ pnpm-debug.log*
 public/schema/
 src/content/docs/adr/
 src/generated/
+
+# Generated at build time from the corpus by the repo-root `site:queue` script
+# and served for the ARB queue badge (ADR-0024). Never committed, so it cannot
+# go stale.
+public/queue.json

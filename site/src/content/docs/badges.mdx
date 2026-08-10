@@ -26,7 +26,8 @@ corpus so a reader can confirm it immediately.
 ```
 
 Prefer not to depend on shields.io? Download
-[`adrkit.svg`](/badge/adrkit.svg) and commit it alongside your README:
+[`adrkit.svg`](/badge/adrkit.svg), commit it into your repository, and point the
+snippet at wherever you put it — the path below assumes `docs/assets/`:
 
 ```md
 [![ADRs: adrkit](./docs/assets/adrkit.svg)](./docs/adr)
@@ -80,17 +81,57 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
-      - run: mkdir -p .adrkit
-      - run: npx @adrkit/cli queue --format json > .adrkit/queue.json
+      # Pin actions by commit SHA, not by tag: a tag can be moved, and this job
+      # holds a token that can write to your default branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # Pin the CLI version too. `npx @adrkit/cli` without a version resolves at
+      # run time, which puts whatever npm serves that day inside a write-capable job.
+      - run: |
+          mkdir -p .adrkit
+          npx @adrkit/cli@0.4.0 queue --format json > .adrkit/queue.json.tmp
+
+      # A truncated or malformed write renders as `no result` on the badge, which
+      # reads as a bug in your tooling. Fail here instead of committing it.
+      - name: Validate before publishing
+        run: |
+          python3 -c "import json,sys; r=json.load(open('.adrkit/queue.json.tmp')); sys.exit(0 if isinstance(r.get('totalItems'), int) else 'totalItems missing')"
+          mv .adrkit/queue.json.tmp .adrkit/queue.json
+
       - name: Commit when the report changed
         run: |
-          git diff --quiet -- .adrkit/queue.json && exit 0
+          # `git diff` alone cannot see an untracked file, so on the very first
+          # run it would report "no change" and never publish anything. Compare
+          # against HEAD, and stage the path explicitly — `commit -am` does not
+          # stage a new file, and would sweep in unrelated tracked edits.
+          git add .adrkit/queue.json
+          if git diff --cached --quiet -- .adrkit/queue.json; then
+            echo "Queue report unchanged; nothing to commit."
+            exit 0
+          fi
           git config user.name  'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -am 'chore(adr): refresh ARB queue report [skip ci]'
+          git commit -m 'chore(adr): refresh ARB queue report [skip ci]'
           git push
 ```
+
+<Aside type="caution" title="If your default branch is protected">
+  This workflow pushes directly to your default branch. If that branch requires
+  status checks or pull requests, the push is **rejected** — and the failure is
+  only visible in the Actions tab. Pick one instead:
+
+  - have the workflow open a pull request rather than push, and merge it (the
+    queue changing is itself a reviewable event); or
+  - push `queue.json` to a dedicated unprotected branch and point the badge at
+    that branch; or
+  - grant the bot a protection bypass — the least preferable, since it weakens
+    the protection for everything else too.
+
+  adrkit itself takes a fourth route that needs no token at all: its docs site
+  already rebuilds on corpus changes, so it emits `queue.json` as a build
+  artifact. If you publish a site from the same repository, that is the simplest
+  option available to you.
+</Aside>
 
 ### 2. Point a badge at it
 
@@ -98,9 +139,18 @@ jobs:
 [![ARB queue](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FOWNER%2FREPO%2Fmain%2F.adrkit%2Fqueue.json&query=%24.totalItems&label=ARB%20queue&suffix=%20pending&color=cb492d)](./docs/adr)
 ```
 
-Replace `OWNER/REPO`, and the branch and path if you changed them. A wrong URL
+Replace `OWNER/REPO`, plus the branch and path if you changed them. A wrong URL
 renders `resource not found` and a wrong query renders `no result`, so a mistake
-is visible rather than silently wrong.
+is visible rather than silently wrong — but note that a *correct* URL renders
+`resource not found` too when the workflow has not published the file yet. Check
+the workflow before you suspect the URL.
+
+<Aside type="note" title="What this discloses">
+  A `dynamic/json` badge asks shields.io to fetch your JSON, so the URL carries
+  your owner, repository, and branch to a third party on every render. That is a
+  reasonable trade for most public repositories, but it is a choice, and it is
+  the reason the adoption badge above is also offered as a file you can commit.
+</Aside>
 
 ### Why depth, and not deadlines
 
@@ -116,11 +166,22 @@ If you want deadline pressure surfaced, use the
 GitHub issue that people actually receive notifications about.
 
 <Aside type="caution" title="A badge cannot detect its own staleness">
-  If the workflow above is deleted or starts failing, `.adrkit/queue.json` keeps
-  its last value and the badge keeps rendering it. Nothing written at generation
-  time can know it has gone stale — only a reader can. Put the [corpus status
-  badge](#corpus-status-badge) next to it: if regeneration stopped, that badge
-  goes red or blank, which is where the signal belongs.
+  If the workflow above is deleted, disabled, or starts failing its push,
+  `.adrkit/queue.json` keeps its last value and the badge keeps rendering it.
+  Nothing written at generation time can know it has gone stale — only a reader
+  can.
+
+  The [corpus status badge](#corpus-status-badge) does **not** cover this: it
+  reports the workflow that runs `adr check`, which never touches the queue
+  report and stays green while the queue badge rots. The signal that actually
+  covers regeneration is a status badge for the badge workflow *itself*:
+
+  ```md
+  [![ARB queue badge](https://github.com/OWNER/REPO/actions/workflows/adr-queue-badge.yml/badge.svg?branch=main)](https://github.com/OWNER/REPO/actions/workflows/adr-queue-badge.yml)
+  ```
+
+  Even that reports only runs that started — a workflow GitHub disabled for
+  inactivity reports nothing at all.
 </Aside>
 
 ## What adrkit will not do

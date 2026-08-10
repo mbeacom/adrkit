@@ -60,6 +60,22 @@ jobs:
       - name: Guard — served schema byte-identical to canonical + no stale doc versions
         run: bun run check:schema
 
+      # The ARB queue badge on the README reads this file over HTTP. It is
+      # derived from the corpus at build time and never committed, so it cannot
+      # go stale between corpus changes — the same discipline as the served
+      # schema above (ADR-0024). `site` is deliberately not a workspace member,
+      # so the projection runs from the repo root rather than making the site
+      # depend on `@adrkit/core`.
+      #
+      # `adr queue` exits 1 when the corpus has error-severity findings; failing
+      # the deploy on that is intended, since the same corpus builds the ADR
+      # pages in this run.
+      - name: Emit the ARB queue report for the badge
+        working-directory: .
+        run: |
+          bun install --frozen-lockfile
+          bun run site:queue
+
       - name: Build site
         run: bun run build
 

@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="94" height="20" role="img" aria-label="ADRs: adrkit">
   <title>ADRs: adrkit</title>
-  <clipPath id="adrkit-badge-clip">
+  <clipPath id="adrkit-badge-clip-a94x20">
     <rect width="94" height="20" rx="3" fill="#fff"/>
   </clipPath>
-  <g clip-path="url(#adrkit-badge-clip)">
+  <g clip-path="url(#adrkit-badge-clip-a94x20)">
     <rect width="44" height="20" fill="#1d1311"/>
     <rect x="44" width="50" height="20" fill="#cb492d"/>
   </g>

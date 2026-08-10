@@ -162,6 +162,15 @@ Until `1.0.0`, minor releases may include breaking changes
   README, put a computed surface on the origin ADR-0011 froze as static and
   immutable, and make badge renders a de-facto record of who uses adrkit.
 
+  **adrkit publishes its own number as a site build artifact,** not as a committed
+  file: `site.yml` already rebuilds on `docs/adr/**`, so it emits
+  `site/public/queue.json` (gitignored, like the served schema) and the README badge
+  reads `https://adrkit.dev/queue.json`. No workflow holds a write token and there
+  is no stored artifact to fall behind. The recipe published for adopters commits
+  the file instead, since most repositories have no site to piggyback on, and names
+  the alternatives for a protected default branch rather than shipping a snippet
+  that fails where nobody looks.
+
   The recipe badges `$.totalItems` and nothing else, because queue *depth* is a pure
   function of the corpus — `buildQueueReport` selects items by `status: proposed` —
   while SLA state advances with the calendar. Depth therefore stays true when

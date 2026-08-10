@@ -16,7 +16,7 @@ affects:
   - type: path
     pattern: "site/src/content/docs/badges.mdx"
   - type: path
-    pattern: ".github/workflows/adr-queue-badge.yml"
+    pattern: ".github/workflows/site.yml"
 provenance:
   authoredBy: agent-drafted
 review:
@@ -165,31 +165,59 @@ matters. Its claim is past-tense and attributable: "the last run of this workflo
 concluded X," with the run, its date, and its logs one click away. A present-tense
 claim about the corpus has no such anchor.
 
-### 3. A queue-depth badge, as a recipe over `adr queue --format json`
+### 3. A queue-depth badge, over `adr queue --format json`
 
-The one number no other tool can produce. A workflow regenerates the queue report
-on corpus change; shields reads the committed artifact:
-
-```md
-[![ARB queue](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FOWNER%2FREPO%2Fmain%2F.adrkit%2Fqueue.json&query=%24.totalItems&label=ARB%20queue&suffix=%20pending&color=blue)](./docs/adr)
-```
+The one number no other tool can produce. `$.totalItems` is read by a shields.io
+`dynamic/json` badge from a `queue.json` the repository publishes itself.
 
 Three constraints hold this to the honest shape:
 
 - **Badge `$.totalItems`, not SLA state.** Depth is `asOf`-independent (see
   Context); anything derived from deadlines is not, and silently rots between
   scheduled rebuilds.
-- **Regenerate on corpus change, and commit only when the content changes.** No
-  schedule, therefore no daily bot commit, therefore no reason for anyone to
-  disable the workflow that keeps the badge true.
-- **The artifact is generated, and lives where that is obvious.** `.adrkit/queue.json`,
-  not inside the hand-authored corpus directory. Discovery tolerates a stray
-  `.json` under `docs/adr/` — verified, no findings — so this is a legibility
-  choice, not a correctness one.
+- **Regenerate on corpus change, never on a schedule.** A scheduled rebuild would
+  produce a daily commit that changes nothing a badge reads, and the first thing
+  anyone does with a noisy bot is disable it.
+- **Nothing that is generated is also reviewed.** The published artifact is
+  derived output; it must not become a file contributors are expected to
+  maintain or a diff reviewers are expected to read.
 
-Pair it with §2. The depth badge cannot detect its own staleness; nothing written
-at generation time can. If regeneration stops, the workflow badge beside it goes
-red or blank, which is where that signal belongs.
+**How the report is published depends on the repository, and this record does
+not pretend one mechanism fits both.**
+
+For **adrkit itself**, `queue.json` is emitted as a *site build artifact*. The
+docs site already rebuilds on `docs/adr/**` (`site.yml`), so a build step writes
+`site/public/queue.json` and the badge reads `https://adrkit.dev/queue.json`.
+Nothing is committed, so nothing can go stale between corpus changes; no
+workflow holds a write token; and the artifact is gitignored exactly like the
+served schema (ADR-0011), which is the precedent it now follows rather than
+inventing a new class of committed generated file. This is *not* the hosted
+endpoint refused in §4: it is a static file derived from git at build time,
+which is precisely ADR-0011's model.
+
+For **adopters**, the published recipe commits `queue.json` on corpus change,
+because most repositories have no site to piggyback on. The recipe is written
+for repositories whose default branch is unprotected, and says so: a protected
+default branch rejects the push, so the guide names the alternatives (open a PR,
+publish to an unprotected branch, or grant a bypass) rather than shipping a
+snippet that fails in the Actions tab where nobody looks.
+
+The cost of the split is that adrkit no longer dogfoods the exact snippet it
+publishes. That is accepted deliberately and recorded here rather than
+discovered later: the alternative was to make adrkit run a write-capable bot it
+does not need in order to demonstrate a recipe, or to publish a recipe that only
+works for repositories that already deploy a site.
+
+**Staleness is bounded, not solved, and only for the committed form.** A
+published `queue.json` that stops being regenerated keeps rendering its last
+value; nothing written at generation time can detect that. An earlier draft of
+this record claimed the corpus-status badge of §2 covers this. **It does not** —
+that badge reports the workflow running `adr check`, which never touches the
+queue report and stays green while the queue badge rots. The signal that
+actually covers regeneration is a status badge for the regenerating workflow
+itself, and even that is silent when GitHub disables a workflow for inactivity.
+The site-build form has no staleness surface at all, because there is no stored
+artifact to fall behind.
 
 ### 4. Refused: a new CLI surface, and a hosted endpoint
 
@@ -248,12 +276,15 @@ and the adoption badge has no truth problem at all. Forfeits distribution value
 
 ## Trade-offs
 
-**Staleness is mitigated, not solved.** A committed `queue.json` renders its last
-value forever if the workflow is deleted. Nothing generated at write time can
-detect its own staleness — only a reader can, and shields will not compare `asOf`
-to today. Pairing with the workflow badge is a real mitigation and not a proof.
-Adopters who want a hard guarantee should read §2's badge as the primary signal
-and §3's as the interesting number beside it.
+**Staleness is bounded for adopters, absent for adrkit, and asymmetric between
+them.** A committed `queue.json` renders its last value forever once regeneration
+stops; nothing generated at write time can detect that, and shields will not
+compare `asOf` to today. The mitigation offered to adopters is a status badge on
+the regenerating workflow — weaker than it sounds, since a workflow GitHub
+disables for inactivity reports nothing at all. adrkit's own build-artifact form
+has no such surface. The record therefore ships a guarantee to itself that it
+cannot ship to its adopters, and says so here rather than letting the guide imply
+parity.
 
 **Two of three badges depend on shields.io.** The committable SVG exists as an
 escape hatch for the adoption badge, but there is no offline form of the depth
@@ -300,14 +331,22 @@ an artifact claim more than it can support — but readers will over-read it.
 
 ## Action items
 
-1. [ ] Verify the depth badge end to end against a published `.adrkit/queue.json`
-       — the shields mechanism and failure renders were observed, the full path
-       was not (ADR-0016).
+1. [ ] Verify the depth badge end to end against the deployed
+       `https://adrkit.dev/queue.json` — the shields mechanism and both failure
+       renders were observed, and the first-run/no-change/changed paths of the
+       adopter recipe were executed, but the deployed path cannot be exercised
+       until this merges and the site publishes (ADR-0016).
 2. [x] Fix the badge's brand color against the site palette — resolved to
        `#cb492d` / `#1d1311`, converted from `site/src/styles/custom.css`.
-3. [ ] Add `site/public/badge/` with the committable SVG, and confirm no
-       schema-derivation guard treats it as generated output (ADR-0011).
-4. [ ] Write `site/src/content/docs/badges.mdx`, wire it into the sidebar, and
+3. [x] Add `site/public/badge/` with the committable SVG, and confirm no
+       schema-derivation guard treats it as generated output — `sync-schema`
+       writes only under `public/schema/`, which is gitignored while
+       `public/badge/` is committed (ADR-0011).
+4. [x] Write `site/src/content/docs/badges.mdx`, wire it into the sidebar, and
        link it from the CI page.
-5. [ ] Note the `totalItems` compatibility constraint wherever `QueueReport`
-       versioning is documented, so a v2 does not break external badges silently.
+5. [x] Note the `totalItems` compatibility constraint where `QueueReport`
+       versioning is documented — recorded on the field in
+       `packages/core/src/queue/types.ts` and in `docs/RELEASING.md`.
+6. [ ] Reassess the adopter recipe once someone outside this project has run it.
+       Its git semantics were verified by execution, but only against a local
+       repository with no branch protection.
