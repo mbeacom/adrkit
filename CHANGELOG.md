@@ -147,6 +147,29 @@ Until `1.0.0`, minor releases may include breaking changes
   selects the introducer set, so two files with identical bytes and different
   extensions can scan differently. The function remains pure and filesystem-free.
 
+- **Badges — adoption and ARB queue depth — as recipes over output adrkit already
+  produces.** A committable adoption SVG ships at `site/public/badge/adrkit.svg`,
+  and a new [badges guide](https://adrkit.dev/badges/) documents three snippets: the
+  adoption badge, the GitHub Actions badge for a workflow running `adr check`, and a
+  queue-depth badge that renders `QueueReport`'s `totalItems` through shields.io from
+  a `.adrkit/queue.json` published by your own repository
+  ([ADR-0024](docs/adr/0024-ship-badges-as-recipes-over-existing-output.md)).
+
+  **No new CLI surface and no service.** `adr queue --format json` already emits
+  `totalItems`, `asOf`, and `corpusFingerprint`, so an `adr badge` command would be
+  public API maintained forever to reformat a field that exists. A hosted endpoint
+  was refused separately: it would add an uptime dependency to every adopter's
+  README, put a computed surface on the origin ADR-0011 froze as static and
+  immutable, and make badge renders a de-facto record of who uses adrkit.
+
+  The recipe badges `$.totalItems` and nothing else, because queue *depth* is a pure
+  function of the corpus — `buildQueueReport` selects items by `status: proposed` —
+  while SLA state advances with the calendar. Depth therefore stays true when
+  regenerated on corpus change; a deadline-derived badge would need a scheduled
+  rebuild and a daily bot commit to avoid going quietly wrong. Adopters are pointed
+  at the queue Action for deadline pressure, since a badge cannot detect its own
+  staleness and an issue can notify.
+
 ### Fixed
 
 - Marker scanning no longer resolves a path through `realpath`, which rewrites a

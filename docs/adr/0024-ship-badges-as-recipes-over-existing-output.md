@@ -1,6 +1,6 @@
 ---
 schemaVersion: 0.1.0
-id: "0022"
+id: "0024"
 title: Ship badges as recipes over existing output, not a new CLI surface
 status: proposed
 date: 2026-08-09
@@ -30,7 +30,7 @@ review:
 reviewBy: 2027-02-09
 ---
 
-# ADR-0022: Ship badges as recipes over existing output, not a new CLI surface
+# ADR-0024: Ship badges as recipes over existing output, not a new CLI surface
 
 ## Context
 

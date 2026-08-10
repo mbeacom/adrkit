@@ -1,13 +1,13 @@
 name: ADR queue badge
 
 # Regenerates .adrkit/queue.json so the README's ARB queue badge reads a current
-# number (ADR-0022). shields.io renders `$.totalItems` from the committed file;
+# number (ADR-0024). shields.io renders `$.totalItems` from the committed file;
 # adrkit ships no badge endpoint and nothing is computed on adrkit.dev.
 #
 # Runs on corpus change only, never on a schedule. Queue *depth* is independent
 # of `asOf` — buildQueueReport selects items by `status === 'proposed'` and uses
 # `asOf` only for per-item SLA state — so a scheduled rebuild would produce a
-# daily commit that changes nothing a badge reads. See ADR-0022 §3.
+# daily commit that changes nothing a badge reads. See ADR-0024 §3.
 #
 # Deliberately not triggered by `.adrkit/**`: this workflow's own commit must not
 # re-trigger it.
