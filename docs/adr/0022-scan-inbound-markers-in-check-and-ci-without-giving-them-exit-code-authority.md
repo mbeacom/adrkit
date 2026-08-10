@@ -2,9 +2,9 @@
 schemaVersion: 0.1.0
 id: "0022"
 title: Scan inbound markers in check and CI without giving them exit-code authority
-status: proposed
+status: accepted
 date: 2026-08-08
-deciders: []
+deciders: ["@mbeacom"]
 tags: [core, cli, ci, matching, governance, agents]
 scope: component
 reversibility: two-way-door
@@ -22,6 +22,22 @@ affects:
     pattern: "packages/ci/src/**"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  tier: arb
+  tierReason: >-
+    ADR-0021 reached `adr explain`, a command a developer runs against a file
+    they already own, and took the `async` tier on that basis. This record points
+    the same reader at content a fork pull request authored, inside CI, and
+    renders strings derived from it into a comment signed by
+    github-actions[bot]. That is a change of kind rather than of degree — the
+    first time `@adrkit/core` opens untrusted input in an automated context — and
+    it is why this record carries a cross-team blast radius where its predecessor
+    carried component. The failure modes are all quiet ones: an existence oracle
+    handed to a fork, a live link inside a trusted comment, a 422 turning
+    authored content into a failed check. Two of those three were closed by
+    review rather than by design, which is the argument for the higher tier
+    rather than against it.
 reviewBy: 2027-02-08
 ---
 

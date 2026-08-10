@@ -2,9 +2,9 @@
 schemaVersion: 0.1.0
 id: "0023"
 title: "Read a marker only where the format hides it: fences and markdown prose"
-status: proposed
+status: accepted
 date: 2026-08-10
-deciders: []
+deciders: ["@mbeacom"]
 tags: [core, matching, governance, agents, docs]
 scope: component
 reversibility: two-way-door
@@ -15,6 +15,7 @@ affects:
     pattern: "packages/core/src/markers/**"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: >-

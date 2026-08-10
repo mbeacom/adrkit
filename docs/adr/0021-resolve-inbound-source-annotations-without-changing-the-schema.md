@@ -2,13 +2,14 @@
 schemaVersion: 0.1.0
 id: "0021"
 title: Resolve inbound source annotations without changing the schema
-status: accepted
+status: superseded
 date: 2026-08-05
 deciders: ["@mbeacom"]
 tags: [core, cli, matching, governance, agents]
 scope: component
 reversibility: two-way-door
 blastRadius: component
+supersededBy: "0022"
 relatesTo: ["0009", "0012", "0014", "0016"]
 affects:
   - type: path

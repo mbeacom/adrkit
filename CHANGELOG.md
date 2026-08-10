@@ -9,6 +9,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-10
+
 ### Added
 
 - `adr check` and the governing-decisions Action now resolve inbound `@adr`
@@ -20,8 +22,15 @@ Until `1.0.0`, minor releases may include breaking changes
 
   This answers the separate decision ADR-0021 left open rather than revising it.
   [ADR-0022](docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md)
-  supersedes ADR-0021, which stands unedited as the record of the explain-only
-  scope shipped in v0.4.0.
+  supersedes ADR-0021, whose argument stands unedited as the record of the
+  explain-only scope shipped in v0.4.0; only its `status` and `supersededBy`
+  moved when ADR-0022 was ratified.
+
+- **Three new `@adrkit/core` runtime exports**, pinned by the package surface
+  test: `readSourceMarkersBatch`, the impure batch boundary callers use to
+  pre-scan before the pure `checkChanges`; and `MARKER_SCAN_FILE_CAP` /
+  `MARKER_SCAN_CONCURRENCY`, the bounds it enforces. Additive — nothing was
+  removed or renamed.
 
 - **`{/*` is accepted as a comment introducer.** MDX rejects `<!-- -->`, so the
   markdown introducer rule under *Fixed* below would otherwise leave that dialect
@@ -46,6 +55,15 @@ Until `1.0.0`, minor releases may include breaking changes
   both sides of a rename for `affects` matching. Previous rename paths can no longer
   consume the 3,000-file scan budget and cause a current file's marker-only
   governance to be skipped.
+- The Action no longer hands deleted files to the marker scanner. A `removed` path
+  is guaranteed absent in the checkout, so it consumed a scan slot only to report
+  `absent` — the one signal that would otherwise tell an operator the checkout does
+  not match the pull request head.
+- Marker path selection and every `markerScan` path list now sort by code unit
+  rather than `localeCompare`, whose order depends on the runtime's ICU locale.
+  The sort decides which paths survive the 3,000-file cap and which ten appear in
+  the `marker-scan-capped` warning, so two environments could disagree on both
+  while `CheckOutcome` promises identical inputs produce identical output.
 
 - **A fenced documentation example no longer declares the decision it
   illustrates.** `@adr` markers are now skipped inside ` ``` ` and `~~~` fenced
@@ -446,7 +464,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/mbeacom/adrkit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mbeacom/adrkit/compare/v0.3.0...v0.4.0
 [spec-kit-0.1.2]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.1...spec-kit-v0.1.2
 [spec-kit-0.1.1]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.0...spec-kit-v0.1.1
