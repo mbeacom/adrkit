@@ -53,7 +53,8 @@ rendering is *green*, because a corpus that was clean at generation time is what
 got committed. Nothing about the badge decays visibly when the fact behind it
 does. ADR-0016 already names this failure class for tool output — "`0`, `[]`,
 and 'no X found' render identically whether the tool looked and found nothing or
-could not look at all" — and ADR-0021 refused a marker design that would let a
+could not look at all" — and the marker line (ADR-0021, now superseded by
+ADR-0022/0023, which tightened rather than relaxed it) refused a design that would let a
 file make a claim it could not support. A stale status badge is the same
 category of artifact: a claim whose evidence has silently left.
 
@@ -99,7 +100,8 @@ badge instead of postponing one:
    as top-level fields. The depth is already a scalar; nothing needs computing.
 2. **shields reads it with no adrkit code.** Observed directly: a
    `dynamic/json` badge with `query=$.version` against this repository's raw
-   `package.json` rendered `adrkit version: 0.4.0`.
+   `package.json` rendered `adrkit version: 0.4.0` — the published version at
+   the time of the observation.
 3. **Its failure renders are honest.** A missing file renders
    `resource not found`; a missing key renders `no result`. Neither shows a
    plausible-looking number.

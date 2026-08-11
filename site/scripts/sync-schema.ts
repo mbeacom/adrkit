@@ -21,7 +21,7 @@
  * served file exists and is byte-identical to the canonical schema.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 const EXPECTED_ORIGIN = 'https://adrkit.dev';
@@ -178,6 +178,42 @@ function checkDocVersions(plan: ServedSchemaPlan): void {
   }
 }
 
+/**
+ * Fail if a published doc pins an `@adrkit/cli@<version>` that is not the
+ * current release.
+ *
+ * `badges.mdx` tells adopters to pin the CLI version inside a workflow that
+ * holds `contents: write`, so the literal cannot be dropped for a floating
+ * range without giving up the reason it is pinned (ADR-0024). A pinned literal
+ * in a doc is exactly the kind of value that goes stale silently at the next
+ * release, so it is guarded here rather than trusted to review.
+ */
+function checkDocCliVersions(): void {
+  const pkgVersion = JSON.parse(
+    readFileSync(join(repoRoot, 'package.json'), 'utf8'),
+  ).version as string;
+  const docsDir = join(siteDir, 'src', 'content', 'docs');
+  const stale: string[] = [];
+  const pattern = /@adrkit\/cli@(\d+\.\d+\.\d+)/g;
+
+  for (const entry of readdirSync(docsDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !/\.mdx?$/.test(entry.name)) continue;
+    const text = readFileSync(join(docsDir, entry.name), 'utf8');
+    for (const match of text.matchAll(pattern)) {
+      if (match[1] !== pkgVersion) {
+        stale.push(`${entry.name}: found @adrkit/cli@${match[1]}, expected ${pkgVersion}`);
+      }
+    }
+  }
+
+  if (stale.length > 0) {
+    throw new Error(
+      `Stale @adrkit/cli pin in docs (current release is ${pkgVersion}):\n  ${stale.join('\n  ')}\n` +
+        `Update the pinned version so published recipes do not install an old CLI.`,
+    );
+  }
+}
+
 function main(): void {
   const checkOnly = process.argv.includes('--check');
   const plan = planServedSchema();
@@ -185,12 +221,14 @@ function main(): void {
   if (checkOnly) {
     check(plan);
     checkDocVersions(plan);
+    checkDocCliVersions();
     console.log(`sync-schema: OK — ${rel(plan.servedPath)} matches ${rel(plan.canonicalPath)}`);
     return;
   }
 
   write(plan);
   checkDocVersions(plan);
+  checkDocCliVersions();
   console.log(
     `sync-schema: wrote ${rel(plan.servedPath)} (served at ${plan.servedPathname}) ` +
       `from ${rel(plan.canonicalPath)}`,

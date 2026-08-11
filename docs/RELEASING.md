@@ -236,10 +236,16 @@ bootstrap described below.
 1. Update the version in all four public package manifests. Update any
    inter-package expectations and run `bun install` with stable Bun 1.3.14 when
    the lockfile changes.
-2. Merge the version change only after CI passes.
-3. Create and push the matching annotated tag, such as `v0.3.0`.
-4. Approve the protected `npm` environment deployment.
-5. Confirm the workflow published all packages, created the immutable GitHub
+2. Bump the pinned `@adrkit/cli@<version>` in the published badges recipe
+   (`site/src/content/docs/badges.mdx`). It is pinned deliberately — the snippet
+   runs inside a job holding `contents: write` (ADR-0024) — so it cannot float
+   with the release. `site/scripts/sync-schema.ts --check` fails the site build
+   when the pin and the root `package.json` version disagree, so a missed bump
+   surfaces as a red site deploy rather than as adopters installing an old CLI.
+3. Merge the version change only after CI passes.
+4. Create and push the matching annotated tag, such as `v0.3.0`.
+5. Approve the protected `npm` environment deployment.
+6. Confirm the workflow published all packages, created the immutable GitHub
    release, and moved `v0` to the released commit.
 
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only

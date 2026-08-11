@@ -9,6 +9,40 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **Badges — adoption and ARB queue depth — as recipes over output adrkit already
+  produces.** A committable adoption SVG ships at `site/public/badge/adrkit.svg`,
+  and a new [badges guide](https://adrkit.dev/badges/) documents three snippets: the
+  adoption badge, the GitHub Actions badge for a workflow running `adr check`, and a
+  queue-depth badge that renders `QueueReport`'s `totalItems` through shields.io from
+  a `.adrkit/queue.json` published by your own repository
+  ([ADR-0024](docs/adr/0024-ship-badges-as-recipes-over-existing-output.md)).
+
+  **No new CLI surface and no service.** `adr queue --format json` already emits
+  `totalItems`, `asOf`, and `corpusFingerprint`, so an `adr badge` command would be
+  public API maintained forever to reformat a field that exists. A hosted endpoint
+  was refused separately: it would add an uptime dependency to every adopter's
+  README, put a computed surface on the origin ADR-0011 froze as static and
+  immutable, and make badge renders a de-facto record of who uses adrkit.
+
+  **adrkit publishes its own number as a site build artifact,** not as a committed
+  file: `site.yml` already rebuilds on `docs/adr/**`, so it emits
+  `site/public/queue.json` (gitignored, like the served schema) and the README badge
+  reads `https://adrkit.dev/queue.json`. No workflow holds a write token and there
+  is no stored artifact to fall behind. The recipe published for adopters commits
+  the file instead, since most repositories have no site to piggyback on, and names
+  the alternatives for a protected default branch rather than shipping a snippet
+  that fails where nobody looks.
+
+  The recipe badges `$.totalItems` and nothing else, because queue *depth* is a pure
+  function of the corpus — `buildQueueReport` selects items by `status: proposed` —
+  while SLA state advances with the calendar. Depth therefore stays true when
+  regenerated on corpus change; a deadline-derived badge would need a scheduled
+  rebuild and a daily bot commit to avoid going quietly wrong. Adopters are pointed
+  at the queue Action for deadline pressure, since a badge cannot detect its own
+  staleness and an issue can notify.
+
 ## [0.6.0] - 2026-08-11
 
 ### Added
@@ -146,38 +180,6 @@ Until `1.0.0`, minor releases may include breaking changes
 - **`scanSourceMarkers(source, path)` now depends on `path`.** Its extension
   selects the introducer set, so two files with identical bytes and different
   extensions can scan differently. The function remains pure and filesystem-free.
-
-- **Badges — adoption and ARB queue depth — as recipes over output adrkit already
-  produces.** A committable adoption SVG ships at `site/public/badge/adrkit.svg`,
-  and a new [badges guide](https://adrkit.dev/badges/) documents three snippets: the
-  adoption badge, the GitHub Actions badge for a workflow running `adr check`, and a
-  queue-depth badge that renders `QueueReport`'s `totalItems` through shields.io from
-  a `.adrkit/queue.json` published by your own repository
-  ([ADR-0024](docs/adr/0024-ship-badges-as-recipes-over-existing-output.md)).
-
-  **No new CLI surface and no service.** `adr queue --format json` already emits
-  `totalItems`, `asOf`, and `corpusFingerprint`, so an `adr badge` command would be
-  public API maintained forever to reformat a field that exists. A hosted endpoint
-  was refused separately: it would add an uptime dependency to every adopter's
-  README, put a computed surface on the origin ADR-0011 froze as static and
-  immutable, and make badge renders a de-facto record of who uses adrkit.
-
-  **adrkit publishes its own number as a site build artifact,** not as a committed
-  file: `site.yml` already rebuilds on `docs/adr/**`, so it emits
-  `site/public/queue.json` (gitignored, like the served schema) and the README badge
-  reads `https://adrkit.dev/queue.json`. No workflow holds a write token and there
-  is no stored artifact to fall behind. The recipe published for adopters commits
-  the file instead, since most repositories have no site to piggyback on, and names
-  the alternatives for a protected default branch rather than shipping a snippet
-  that fails where nobody looks.
-
-  The recipe badges `$.totalItems` and nothing else, because queue *depth* is a pure
-  function of the corpus — `buildQueueReport` selects items by `status: proposed` —
-  while SLA state advances with the calendar. Depth therefore stays true when
-  regenerated on corpus change; a deadline-derived badge would need a scheduled
-  rebuild and a daily bot commit to avoid going quietly wrong. Adopters are pointed
-  at the queue Action for deadline pressure, since a badge cannot detect its own
-  staleness and an issue can notify.
 
 ### Fixed
 

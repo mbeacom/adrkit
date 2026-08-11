@@ -89,7 +89,7 @@ jobs:
       # run time, which puts whatever npm serves that day inside a write-capable job.
       - run: |
           mkdir -p .adrkit
-          npx @adrkit/cli@0.4.0 queue --format json > .adrkit/queue.json.tmp
+          npx @adrkit/cli@0.5.0 queue --format json > .adrkit/queue.json.tmp
 
       # A truncated or malformed write renders as `no result` on the badge, which
       # reads as a bug in your tooling. Fail here instead of committing it.
