@@ -102,6 +102,10 @@ Until `1.0.0`, minor releases may include breaking changes
   the compound expression at each call site. Additive — nothing was removed or
   renamed.
 
+## [0.5.0] - 2026-08-10
+
+### Added
+
 - `adr check` and the governing-decisions Action now resolve inbound `@adr`
   markers from changed files. Reads are hoisted outside pure `checkChanges`, bounded
   to 3,000 normalized paths — GitHub's own changed-file ceiling, so every diff the
