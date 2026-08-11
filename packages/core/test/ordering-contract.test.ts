@@ -19,6 +19,14 @@
  * any change there a violation and routes legitimate changes to
  * separately-authorized later work. Those sites stay recorded on #115 until the
  * freeze lifts; scanning them here would only force one guard to break another.
+ *
+ * That exclusion is load-bearing for how this suite's name should be read:
+ * `affects/index.ts`'s `matches.sort((a, b) => a.recordId.localeCompare(...))`
+ * is a *total* re-sort of the resolver's output, so for distinct record ids it
+ * is the frozen sort — not any scanned module — that fixes `governedBy` order.
+ * A clean run of this file therefore means "no scanned module reaches for
+ * `localeCompare`", not "`check --json` is locale-independent end to end".
+ * The second claim is only true once #115's `affects/**` remainder lands.
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
@@ -84,13 +92,16 @@ describe('sortFindings orders every tuple field by code unit', () => {
   });
 });
 
-describe('the check --json path never reaches for localeCompare', () => {
+describe('no scanned module on the check --json path reaches for localeCompare', () => {
   // The same source-scan shape as the adapter's
   // `test/glob-order.test.ts` guard, widened to every core module that feeds
-  // `CheckOutcome`: `check/`, `load/`, `markers/`, `ordering/`, and the shared
-  // finding sort. See the header for why `affects/` is excluded for now.
-  const SCANNED_DIRS = ['src/check', 'src/load', 'src/markers', 'src/ordering'];
-  const SCANNED_FILES = ['src/validate/findings.ts'];
+  // `CheckOutcome`: `check/`, `load/`, `markers/`, `ordering/`, and `validate/`.
+  // These are scanned as whole directories rather than as a file allowlist, so a
+  // new module added to any of them is covered the day it lands — an allowlist
+  // silently exempts new files, which is how `validate/index.ts` stayed unscanned
+  // while `validate/findings.ts` was named individually. See the header for why
+  // `affects/` is excluded.
+  const SCANNED_DIRS = ['src/check', 'src/load', 'src/markers', 'src/ordering', 'src/validate'];
 
   function tsFilesUnder(relativeDir: string): string[] {
     const root = join(import.meta.dir, '..', relativeDir);
@@ -106,7 +117,7 @@ describe('the check --json path never reaches for localeCompare', () => {
     return found;
   }
 
-  const scanned = [...SCANNED_DIRS.flatMap(tsFilesUnder), ...SCANNED_FILES];
+  const scanned = SCANNED_DIRS.flatMap(tsFilesUnder);
 
   test('the scan examined a non-trivial module list', () => {
     // Report what was examined, not only what was concluded (ADR-0016 clause 3):
@@ -116,6 +127,9 @@ describe('the check --json path never reaches for localeCompare', () => {
     expect(scanned).toContain('src/load/corpus.ts');
     expect(scanned).toContain('src/markers/resolve.ts');
     expect(scanned).toContain('src/validate/findings.ts');
+    // `lintCorpus` lives here and produces the `records` `checkChanges` reads, so
+    // its absence from the scan was the gap the directory walk closes.
+    expect(scanned).toContain('src/validate/index.ts');
   });
 
   for (const file of scanned) {
@@ -208,6 +222,28 @@ describe('corpus discovery orders by code unit, not by locale', () => {
     // localeCompare yields `a_b.md a-b.md a.md ab.md Z.md` for the same set.
     expect(names).toEqual(['Z.md', 'a-b.md', 'a.md', 'a_b.md', 'ab.md']);
     expect(names).toEqual([...names].sort(compareCodeUnits));
+  });
+
+  /**
+   * `lintCorpus`'s own `records` sort, distinct from discovery order. Ids may be
+   * mixed-case ULIDs (`^([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$`), so this
+   * comparison separates the comparators for *distinct* ids — the case the
+   * duplicate-id test above cannot reach, because there the comparison returns 0.
+   */
+  test('lintCorpus orders distinct record ids by code unit', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const upper = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+    const lower = '01arz3ndektsv4rrffq69g5fav';
+    expect(upper.localeCompare(lower)).toBeGreaterThan(0);
+    expect(compareCodeUnits(upper, lower)).toBeLessThan(0);
+
+    // Filenames are numeric so discovery order cannot supply the answer; only the
+    // id sort can decide which record comes first.
+    await writeText(join(root, CORPUS, `0001-${upper}.md`), recordMarkdown(upper, 'Upper ULID record'));
+    await writeText(join(root, CORPUS, `0002-${lower}.md`), recordMarkdown(lower, 'Lower ULID record'));
+
+    const lint = await lintCorpus({ dir: CORPUS, cwd: root });
+    expect(lint.records.map((record) => record.frontmatter.id)).toEqual([upper, lower]);
   });
 
   test('a duplicate id resolves to the same governing decision in either input order', async () => {

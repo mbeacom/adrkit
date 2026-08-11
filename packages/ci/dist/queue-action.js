@@ -45853,10 +45853,13 @@ function normalizeDisplayPath(path, cwd = process.cwd()) {
 function toAbsolutePath(path, cwd = process.cwd()) {
   return isAbsolute(path) ? path : resolve(cwd, path);
 }
+function compareByDisplayPath(a, b, cwd = process.cwd()) {
+  return compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd));
+}
 async function discoverAdrFiles(dir = "docs/adr", cwd = process.cwd()) {
   const absoluteDir = toAbsolutePath(dir, cwd);
   const entries = await readdir2(absoluteDir, { withFileTypes: true });
-  return entries.filter((entry) => entry.isFile() && isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)));
+  return entries.filter((entry) => entry.isFile() && isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => compareByDisplayPath(a, b, cwd));
 }
 var MAX_SKIP_SCAN_DEPTH = 8;
 async function collectSkippedMarkdown(absoluteDir, depth, found) {
@@ -45882,7 +45885,7 @@ async function collectSkippedMarkdown(absoluteDir, depth, found) {
 async function discoverSkippedMarkdownFiles(dir = "docs/adr", cwd = process.cwd()) {
   const found = [];
   await collectSkippedMarkdown(toAbsolutePath(dir, cwd), 0, found);
-  return found.sort((a, b) => compareCodeUnits(normalizeDisplayPath(a.path, cwd), normalizeDisplayPath(b.path, cwd)));
+  return found.sort((a, b) => compareByDisplayPath(a.path, b.path, cwd));
 }
 async function expandRecordInputs(paths, dir = "docs/adr", cwd = process.cwd()) {
   if (!paths || paths.length === 0) {
@@ -45902,7 +45905,7 @@ async function expandRecordInputs(paths, dir = "docs/adr", cwd = process.cwd()) 
       expanded.push(absolutePath);
     }
   }
-  return Array.from(new Set(expanded)).sort((a, b) => compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)));
+  return Array.from(new Set(expanded)).sort((a, b) => compareByDisplayPath(a, b, cwd));
 }
 async function parseAdrFile(path, cwd = process.cwd()) {
   const absolutePath = toAbsolutePath(path, cwd);
@@ -46137,7 +46140,7 @@ async function scannedDirectories(paths, dir, cwd) {
     if (await isDirectory2(absolutePath))
       directories.add(absolutePath);
   }
-  return [...directories].sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+  return [...directories].sort((a, b) => compareByDisplayPath(a, b, cwd));
 }
 async function lintCorpus(options = {}) {
   const cwd = options.cwd ?? process.cwd();
@@ -46170,7 +46173,7 @@ async function lintCorpus(options = {}) {
   return {
     checked: files.length,
     findings: sortFindings(findings),
-    records: [...records].sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id))
+    records: [...records].sort((a, b) => compareCodeUnits(a.frontmatter.id, b.frontmatter.id))
   };
 }
 // ../core/src/affects/matchers/package.ts

@@ -46,6 +46,18 @@ function toAbsolutePath(path: string, cwd = process.cwd()): string {
 }
 
 /**
+ * Compare two paths by their normalized display form, by code unit.
+ *
+ * Every corpus ordering goes through here rather than repeating the compound
+ * `compareCodeUnits(normalizeDisplayPath(…), normalizeDisplayPath(…))` per call site,
+ * so a future sort cannot quietly normalize one side and not the other, and so the
+ * locale-independence of the whole family is settled in one place (#115).
+ */
+export function compareByDisplayPath(a: string, b: string, cwd = process.cwd()): number {
+  return compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd));
+}
+
+/**
  * Discovery order is a determinism contract, not display polish: it survives into
  * `lintCorpus`'s `records` whenever two records share an id (the `frontmatter.id`
  * tiebreak is then a no-op over a stable sort), and `checkChanges` reads whichever
@@ -59,7 +71,7 @@ export async function discoverAdrFiles(dir = 'docs/adr', cwd = process.cwd()): P
   return entries
     .filter((entry) => entry.isFile() && isRecordFileName(entry.name))
     .map((entry) => join(absoluteDir, entry.name))
-    .sort((a, b) => compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)));
+    .sort((a, b) => compareByDisplayPath(a, b, cwd));
 }
 
 /**
@@ -116,9 +128,7 @@ export async function discoverSkippedMarkdownFiles(
 ): Promise<SkippedMarkdownFile[]> {
   const found: SkippedMarkdownFile[] = [];
   await collectSkippedMarkdown(toAbsolutePath(dir, cwd), 0, found);
-  return found.sort((a, b) =>
-    compareCodeUnits(normalizeDisplayPath(a.path, cwd), normalizeDisplayPath(b.path, cwd)),
-  );
+  return found.sort((a, b) => compareByDisplayPath(a.path, b.path, cwd));
 }
 
 export async function expandRecordInputs(
@@ -145,9 +155,7 @@ export async function expandRecordInputs(
     }
   }
 
-  return Array.from(new Set(expanded)).sort((a, b) =>
-    compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)),
-  );
+  return Array.from(new Set(expanded)).sort((a, b) => compareByDisplayPath(a, b, cwd));
 }
 
 export async function parseAdrFile(path: string, cwd = process.cwd()): Promise<ParsedAdrFile> {

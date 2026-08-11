@@ -38,6 +38,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'canonicalStringify',
   'checkChanges',
   'classifyReimport',
+  'compareByDisplayPath',
   'compareByIdThenPath',
   'compareCodeUnits',
   'compareFindings',

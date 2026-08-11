@@ -3,12 +3,14 @@ import { isAbsolute, resolve } from 'node:path';
 import {
   parseAdrFile,
   expandRecordInputs,
+  compareByDisplayPath,
   discoverSkippedMarkdownFiles,
   normalizeDisplayPath,
   type SkippedMarkdownFile,
 } from '../load/corpus.ts';
 import type { Adr } from '../schema/adr.schema.ts';
 import { FrontmatterError } from '../parse/frontmatter.ts';
+import { compareCodeUnits } from '../ordering/index.ts';
 import { validateParsedAdr } from './contract.ts';
 import { validateCorpusInvariants } from './corpus-invariants.ts';
 import { validateImportIncomplete } from './import-incomplete.ts';
@@ -90,7 +92,7 @@ async function scannedDirectories(
     const absolutePath = isAbsolute(path) ? path : resolve(cwd, path);
     if (await isDirectory(absolutePath)) directories.add(absolutePath);
   }
-  return [...directories].sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+  return [...directories].sort((a, b) => compareByDisplayPath(a, b, cwd));
 }
 
 export async function lintCorpus(options: LintCorpusOptions = {}): Promise<LintCorpusResult> {
@@ -129,6 +131,10 @@ export async function lintCorpus(options: LintCorpusOptions = {}): Promise<LintC
   return {
     checked: files.length,
     findings: sortFindings(findings),
-    records: [...records].sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id)),
+    // `records` is a public surface of `LintCorpusResult` and the input `checkChanges`
+    // reads, so its order is locale-independent too. For equal ids this comparison is a
+    // no-op and the stable sort preserves `discoverAdrFiles`' order, which is what makes
+    // the duplicate-id decision in `toGoverningDecisions` deterministic (#115).
+    records: [...records].sort((a, b) => compareCodeUnits(a.frontmatter.id, b.frontmatter.id)),
   };
 }

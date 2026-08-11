@@ -15,16 +15,19 @@ Until `1.0.0`, minor releases may include breaking changes
   rather than `localeCompare` (#115): `CheckOutcome.changedFiles` (which also
   decides `changedRecords`), the shared `sortFindings` tuple that orders every
   findings array, the Action's `changedFiles` / `markerFiles` /
-  changed-dependency lists, and corpus discovery in
+  changed-dependency lists, corpus discovery in
   `packages/core/src/load/corpus.ts` (`discoverAdrFiles`,
-  `discoverSkippedMarkdownFiles`, `expandRecordInputs`). Identical inputs now
-  serialize to identical bytes regardless of the runtime's ICU locale for those
-  surfaces — but the contract is **not** fully closed. One tree still reaches
+  `discoverSkippedMarkdownFiles`, `expandRecordInputs`), and `lintCorpus`'s own
+  `scannedDirectories` and `records` sorts in
+  `packages/core/src/validate/index.ts`. Identical inputs now serialize to
+  identical bytes regardless of the runtime's ICU locale for those surfaces —
+  but the contract is **not** fully closed. One tree still reaches
   `CheckOutcome` through `localeCompare` and remains recorded on #115: the three
   sorts under `packages/core/src/affects/**`, pinned byte-identical by feature
   010's FR-004 guard until a separately-authorized unfreeze. The ordering guard
-  tests deliberately exclude that tree until it is addressed — see their header
-  for why.
+  now scans whole directories rather than a file allowlist, so a new module on
+  the scanned path is covered the day it lands; `affects/**` stays excluded, and
+  its header explains why.
 
   The `load/corpus.ts` half of this was live, not theoretical. Under a
   duplicate-id corpus, `discoverAdrFiles`'s locale-dependent discovery order
@@ -36,7 +39,28 @@ Until `1.0.0`, minor releases may include breaking changes
   duplicate-id case order-invariant and was observed failing against the
   `localeCompare` implementation (ADR-0016).
 
+  The `validate/index.ts` sorts are a narrower fix. For *distinct* ids
+  `records` order does not reach `CheckOutcome` — `resolveAffects` re-sorts its
+  matches totally by `recordId`, so the frozen `affects/**` sort, not this one,
+  decides `governedBy` order; and for *equal* ids the comparison is a no-op that
+  simply carries discovery order through. What changes is
+  `LintCorpusResult.records`, a public `@adrkit/core` surface a caller can
+  observe directly, which mixed-case ULID ids could previously order by locale.
+
+  Because `records` was already reordered downstream, note that a clean run of
+  the ordering guard means "no scanned module reaches for `localeCompare`" — not
+  "`check --json` is locale-independent end to end". That stronger statement
+  holds only once #115's `affects/**` remainder lands.
+
 ### Added
+
+- **One new `@adrkit/core` runtime export**, pinned by the package surface test:
+  `compareByDisplayPath(a, b, cwd)`, the code-unit comparison of two paths by
+  their normalized display form. It is the composition of the already-public
+  `compareCodeUnits` and `normalizeDisplayPath`, and it exists so the corpus
+  orderings settle their locale-independence in one place instead of repeating
+  the compound expression at each call site. Additive — nothing was removed or
+  renamed.
 
 - `adr check` and the governing-decisions Action now resolve inbound `@adr`
   markers from changed files. Reads are hoisted outside pure `checkChanges`, bounded
