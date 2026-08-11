@@ -47499,6 +47499,13 @@ function parseFrontmatter(source) {
 // ../core/src/load/corpus.ts
 import { readdir as readdir2, readFile, stat as stat2 } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve, sep as sep2 } from "node:path";
+
+// ../core/src/ordering/index.ts
+function compareCodeUnits(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// ../core/src/load/corpus.ts
 var RECORD_FILE_PATTERN = /^[0-9]{4,}-.+\.md$/;
 var TEMPLATE_FILE_NAME = "0000-template.md";
 var NON_RECORD_FILE_NAMES = new Set(["readme.md", "index.md", "contributing.md", "template.md"]);
@@ -47519,7 +47526,7 @@ function toAbsolutePath(path, cwd = process.cwd()) {
 async function discoverAdrFiles(dir = "docs/adr", cwd = process.cwd()) {
   const absoluteDir = toAbsolutePath(dir, cwd);
   const entries = await readdir2(absoluteDir, { withFileTypes: true });
-  return entries.filter((entry) => entry.isFile() && isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+  return entries.filter((entry) => entry.isFile() && isRecordFileName(entry.name)).map((entry) => join(absoluteDir, entry.name)).sort((a, b) => compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)));
 }
 var MAX_SKIP_SCAN_DEPTH = 8;
 async function collectSkippedMarkdown(absoluteDir, depth, found) {
@@ -47545,7 +47552,7 @@ async function collectSkippedMarkdown(absoluteDir, depth, found) {
 async function discoverSkippedMarkdownFiles(dir = "docs/adr", cwd = process.cwd()) {
   const found = [];
   await collectSkippedMarkdown(toAbsolutePath(dir, cwd), 0, found);
-  return found.sort((a, b) => normalizeDisplayPath(a.path, cwd).localeCompare(normalizeDisplayPath(b.path, cwd)));
+  return found.sort((a, b) => compareCodeUnits(normalizeDisplayPath(a.path, cwd), normalizeDisplayPath(b.path, cwd)));
 }
 async function expandRecordInputs(paths, dir = "docs/adr", cwd = process.cwd()) {
   if (!paths || paths.length === 0) {
@@ -47565,7 +47572,7 @@ async function expandRecordInputs(paths, dir = "docs/adr", cwd = process.cwd()) 
       expanded.push(absolutePath);
     }
   }
-  return Array.from(new Set(expanded)).sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+  return Array.from(new Set(expanded)).sort((a, b) => compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)));
 }
 async function parseAdrFile(path, cwd = process.cwd()) {
   const absolutePath = toAbsolutePath(path, cwd);
@@ -47585,11 +47592,6 @@ function decisionBucketFor(status) {
     return "activeProposals";
   return "history";
 }
-// ../core/src/ordering/index.ts
-function compareCodeUnits(a, b) {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
 // ../core/src/validate/findings.ts
 function compareOptional(a, b) {
   return compareCodeUnits(a ?? "", b ?? "");

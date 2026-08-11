@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { AdrFrontmatter, type Adr } from '../schema/adr.schema.ts';
+import { compareCodeUnits } from '../ordering/index.ts';
 import { parseFrontmatter } from '../parse/frontmatter.ts';
 
 export const RECORD_FILE_PATTERN = /^[0-9]{4,}-.+\.md$/;
@@ -44,13 +45,21 @@ function toAbsolutePath(path: string, cwd = process.cwd()): string {
   return isAbsolute(path) ? path : resolve(cwd, path);
 }
 
+/**
+ * Discovery order is a determinism contract, not display polish: it survives into
+ * `lintCorpus`'s `records` whenever two records share an id (the `frontmatter.id`
+ * tiebreak is then a no-op over a stable sort), and `checkChanges` reads whichever
+ * duplicate landed later as that id's canonical record. Ordering by `compareCodeUnits`
+ * rather than the runtime's ICU locale is what keeps `governing` / `activeProposals` /
+ * `governedBy` identical for byte-identical corpus files (#115).
+ */
 export async function discoverAdrFiles(dir = 'docs/adr', cwd = process.cwd()): Promise<string[]> {
   const absoluteDir = toAbsolutePath(dir, cwd);
   const entries = await readdir(absoluteDir, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isFile() && isRecordFileName(entry.name))
     .map((entry) => join(absoluteDir, entry.name))
-    .sort((a, b) => normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)));
+    .sort((a, b) => compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)));
 }
 
 /**
@@ -107,7 +116,9 @@ export async function discoverSkippedMarkdownFiles(
 ): Promise<SkippedMarkdownFile[]> {
   const found: SkippedMarkdownFile[] = [];
   await collectSkippedMarkdown(toAbsolutePath(dir, cwd), 0, found);
-  return found.sort((a, b) => normalizeDisplayPath(a.path, cwd).localeCompare(normalizeDisplayPath(b.path, cwd)));
+  return found.sort((a, b) =>
+    compareCodeUnits(normalizeDisplayPath(a.path, cwd), normalizeDisplayPath(b.path, cwd)),
+  );
 }
 
 export async function expandRecordInputs(
@@ -135,7 +146,7 @@ export async function expandRecordInputs(
   }
 
   return Array.from(new Set(expanded)).sort((a, b) =>
-    normalizeDisplayPath(a, cwd).localeCompare(normalizeDisplayPath(b, cwd)),
+    compareCodeUnits(normalizeDisplayPath(a, cwd), normalizeDisplayPath(b, cwd)),
   );
 }
 
