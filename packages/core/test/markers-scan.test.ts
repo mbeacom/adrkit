@@ -8,6 +8,10 @@ import {
   readSourceMarkersBatch,
   scanSourceMarkers,
 } from '../src/markers/index.ts';
+// Reached through the module rather than the barrel: both are internal to `@adrkit/core`
+// and deliberately unexported from `markers/index.ts`. Importing them here pins their
+// behaviour without widening the package's public surface.
+import { completeLineByteExtent, scanBoundedSourceMarkerWindow } from '../src/markers/scan.ts';
 import { cleanupTestDir, resetTestDir, writeText } from './helpers.ts';
 
 const DIR_NAME = 'core-markers-scan';
@@ -830,5 +834,122 @@ describe('readSourceMarkersBatch', () => {
     expect(batch.scans.map((scan) => scan.path)).toEqual(selectedNames);
     expect(batch.skippedPaths).toEqual(['src/z-last.ts', 'src/ä-last.ts']);
     expect(batch.totalCandidates).toBe(MARKER_SCAN_FILE_CAP + 2);
+  });
+});
+
+/**
+ * ADR-0024 leaves one invariant unguarded by the type system: the cut back to the last
+ * complete line is now implemented twice — `completeLineByteExtent` on raw bytes, which
+ * produces the reported `scannedBytes`, and `completeLinePrefix` on decoded text, which
+ * produces the string the scanner actually reads. The record states the requirement as
+ * "any future change to the cut must keep the reported number and the scanned text one
+ * computation", and nothing enforces it: a change to either alone compiles, and the
+ * damage is a `scannedBytes` that claims bytes the scanner discarded.
+ *
+ * These tests are the enforcement. They assert the property rather than re-implementing
+ * the search, so they cannot drift with it in the way a copied algorithm would.
+ */
+describe('the byte cut and the text cut cannot drift apart', () => {
+  const PROBE_PATH = 'src/probe.ts';
+
+  function assertCutsAgree(bytes: Uint8Array, limit: number): void {
+    const extent = completeLineByteExtent(bytes, limit);
+    const capped = Math.min(limit, bytes.length);
+    const isTerminator = (byte: number | undefined): boolean => byte === 0x0a || byte === 0x0d;
+
+    expect(extent).toBeGreaterThanOrEqual(0);
+    expect(extent).toBeLessThanOrEqual(capped);
+
+    // Stated as a boundary property, independent of how the boundary is found: the
+    // extent ends just past a terminator, and no terminator is left unclaimed behind it.
+    // A forward search, an off-by-one, or dropping `0x0D` each breaks one of these.
+    if (extent === 0) {
+      for (let index = 0; index < capped; index += 1) {
+        expect(isTerminator(bytes[index])).toBe(false);
+      }
+    } else {
+      expect(isTerminator(bytes[extent - 1])).toBe(true);
+      for (let index = extent; index < capped; index += 1) {
+        expect(isTerminator(bytes[index])).toBe(false);
+      }
+    }
+
+    // The behavioural half. `scanBoundedSourceMarkerWindow` applies the *text* cut only
+    // when told the read was truncated, so identical markers under both flags means the
+    // text cut removed nothing from what the byte cut produced — i.e. the two agree.
+    const source = new TextDecoder().decode(bytes.subarray(0, extent));
+    expect(scanBoundedSourceMarkerWindow(source, PROBE_PATH, true).markers).toEqual(
+      scanBoundedSourceMarkerWindow(source, PROBE_PATH, false).markers,
+    );
+  }
+
+  test.each([
+    ['no terminator anywhere', '// @adr 0012 with no newline at all'],
+    ['lone CR only', '// @adr 0012\r'],
+    ['lone LF only', '// @adr 0012\n'],
+    ['CRLF', '// @adr 0012\r\n'],
+    ['trailing partial line', '// @adr 0012\n// @adr 001'],
+    ['terminator as the very first byte', '\n// @adr 0012'],
+    ['blank lines after the marker', '// @adr 0012\n\n\n'],
+    ['BOM then a marker', '\ufeff// @adr 0012\nrest'],
+    ['multi-byte content around the marker', '// @adr 0012\n// caf\u00e9 \u00e9\u00e9\u00e9 \ud83d\ude80\nx'],
+    ['CR inside a longer body', 'a\rb\rc'],
+  ])('agrees for %s', (_name, source) => {
+    const bytes = new TextEncoder().encode(source);
+    for (const limit of [0, 1, 2, bytes.length - 1, bytes.length, bytes.length + 5]) {
+      if (limit >= 0) assertCutsAgree(bytes, limit);
+    }
+  });
+
+  test('agrees on invalid UTF-8, which the decoder rewrites but the byte search must not', () => {
+    // A truncated multi-byte sequence and a stray continuation byte. `TextDecoder`
+    // expands each into U+FFFD, so a re-encoded length would not be the length that was
+    // read — the reason the extent is measured on bytes in the first place.
+    const bytes = new Uint8Array([0x2f, 0x2f, 0x20, 0xe2, 0x82, 0x0a, 0x80, 0xff, 0x0a, 0x78]);
+    for (let limit = 0; limit <= bytes.length + 2; limit += 1) assertCutsAgree(bytes, limit);
+  });
+
+  test('agrees across a deterministic fuzz corpus spanning the window boundary', () => {
+    // Seeded so a failure is reproducible; the repository treats determinism as a
+    // property worth pinning rather than a coincidence.
+    let seed = 0x9e3779b9;
+    const next = (): number => {
+      seed = (seed + 0x6d2b79f5) >>> 0;
+      let t = seed;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    // Terminators and marker-ish bytes are over-weighted so the interesting cases are
+    // actually hit; the tail covers multi-byte and invalid sequences.
+    const alphabet = [0x0a, 0x0d, 0x20, 0x2f, 0x40, 0x61, 0x30, 0xc3, 0xa9, 0xe2, 0x82, 0xac, 0xff];
+
+    for (let trial = 0; trial < 400; trial += 1) {
+      const length = Math.floor(next() * 40) + 1;
+      const bytes = new Uint8Array(length);
+      for (let index = 0; index < length; index += 1) {
+        bytes[index] = alphabet[Math.floor(next() * alphabet.length)]!;
+      }
+      assertCutsAgree(bytes, Math.floor(next() * (length + 3)));
+    }
+  });
+
+  test('agrees at the real window boundary, where the probe byte sits just past the limit', () => {
+    // The shape `read.ts` actually produces: a full window plus one truncation probe
+    // byte. The extent must never reach into the probe, whatever the probe happens to be.
+    for (const probe of [0x0a, 0x0d, 0x78]) {
+      for (const lastWindowByte of [0x0a, 0x0d, 0x78]) {
+        const bytes = new Uint8Array(MARKER_HEADER_WINDOW_BYTES + 1);
+        bytes.fill(0x78);
+        bytes[0] = 0x0a;
+        bytes[MARKER_HEADER_WINDOW_BYTES - 1] = lastWindowByte;
+        bytes[MARKER_HEADER_WINDOW_BYTES] = probe;
+
+        const extent = completeLineByteExtent(bytes, MARKER_HEADER_WINDOW_BYTES);
+        expect(extent).toBeLessThanOrEqual(MARKER_HEADER_WINDOW_BYTES);
+        expect(extent).toBe(lastWindowByte === 0x78 ? 1 : MARKER_HEADER_WINDOW_BYTES);
+        assertCutsAgree(bytes, MARKER_HEADER_WINDOW_BYTES);
+      }
+    }
   });
 });

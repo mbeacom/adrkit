@@ -57,10 +57,14 @@ back to the record. In
 `declaredBy`. `explain --json` carries a single-file `markers` block, while
 `check --json` carries a `markerScan` report with scan-state counts and exact
 unavailable, truncated, and skipped paths. The `explain` block also reports
-`scannedBytes` / `fileBytes`, so `fileBytes - scannedBytes` sizes the unscanned
-remainder of a truncated file instead of leaving it to be guessed from the window
-constant; its human note discloses that measured extent, while `check` reports the
-window as the bound it is. Multi-file scans are capped
+`scannedBytes` / `fileBytes` — the prefix handed to the scanner and the file's size —
+so `fileBytes - scannedBytes` sizes the unscanned remainder of a truncated file
+instead of leaving it to be guessed from the window constant. The two are separate
+observations taken either side of the read, so clamp the difference at `0`: a file
+appended to mid-scan can report more scanned than total. Both `explain`'s human note
+and `check`'s truncation warning disclose that measured extent per path; `check --json`
+deliberately does not carry it, so its report shape is unchanged. Multi-file scans are
+capped
 at 3,000 normalized paths and 16 concurrent reads; skipped paths warn but never
 fail. The cap matches GitHub's changed-file ceiling, so only a local invocation
 can reach it.

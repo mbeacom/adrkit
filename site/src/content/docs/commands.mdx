@@ -182,6 +182,15 @@ window, which across this repository's own sources lands 1–77 bytes short of i
 much further short when one long line spans the boundary. Both fields are omitted
 for a state that never opened the file.
 
+Two details matter if you difference them. `scannedBytes` is the prefix handed to the
+scanner, not the byte count pulled from the handle — the reader also fetches a
+truncation probe byte, and discards any partial trailing line. And the two numbers are
+separate observations: `fileBytes` is taken by `fstat` before the read loop, so a file
+appended to mid-scan can report `scannedBytes` greater than `fileBytes`, and one
+truncated mid-scan can look partial when it was read whole. They are left unreconciled
+on purpose, because agreeing them would hide a file that changed underneath the scan —
+so clamp `fileBytes - scannedBytes` at `0` rather than assuming it is non-negative.
+
 In `governedBy`, a pattern match carries `firedMatchers` and a file declaration
 carries `declaredBy`; `declaredBy` is omitted entirely when nothing declared the
 record.

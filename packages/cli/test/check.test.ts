@@ -170,7 +170,7 @@ describe('adr check CLI', () => {
     expect(result.stdout).not.toContain('marker scan');
   });
 
-  test('reports truncated scans in human output with the affected path', async () => {
+  test('reports truncated scans in human output with the measured per-path extent', async () => {
     const root = await seedCorpus();
     await writeText(join(root, 'src/large.ts'), `// @adr 0001\n${'x'.repeat(8192)}`);
 
@@ -180,14 +180,37 @@ describe('adr check CLI', () => {
     expect(result.stdout).toContain(
       'marker scan: 1 scanned, 0 absent, 0 unreadable, 0 out-of-tree, 1 truncated, 0 skipped',
     );
-    // "within the first", not "after": this file's scan stopped at its last complete
-    // line — byte 13 — so naming 8192 as where it stopped states a specific wrong
-    // number. `check` reports the window as the bound it is; `explain` reports the
-    // measurement (ADR-0024).
+    // The measured extent, not the window. This file stops at its last complete line —
+    // byte 13 — so the old "within the first 8192 bytes" was off by 8179 for this very
+    // fixture, and "after 8192 bytes" before it named a byte nothing stopped at.
+    // `check` can say 13/8205 because `runCheck` already holds the batch scan, so
+    // `check --json` never had to change (ADR-0024 action item 3).
     expect(result.stdout).toContain(
-      'marker scan truncated within the first 8192 bytes for: src/large.ts',
+      'marker scan truncated (bytes scanned of total): src/large.ts 13/8205',
     );
+    // Order is scanned-of-total, not total-of-scanned: the reversal is still two true
+    // numbers, so only pinning the sequence catches it.
+    expect(result.stdout).not.toContain('8205/13');
+    // Neither the old bound phrasing nor the constant may return.
     expect(result.stdout).not.toContain('truncated after 8192 bytes');
+    expect(result.stdout).not.toContain('within the first 8192 bytes');
+    expect(result.stdout).not.toContain('8192');
+  });
+
+  test('check --json carries no extent fields, so its contract is unchanged', async () => {
+    const root = await seedCorpus();
+    await writeText(join(root, 'src/large.ts'), `// @adr 0001\n${'x'.repeat(8192)}`);
+
+    const result = await runAdr(['check', 'src/large.ts', '--dir', 'docs/adr', '--json'], root);
+
+    expect(result.exitCode).toBe(0);
+    const outcome = JSON.parse(result.stdout);
+    // The human surface gained the measurement; `MarkerScanReport` deliberately did not.
+    // `truncatedPaths` stays a plain sorted string list, and no extent leaks into the
+    // Action's contract — that is what made closing the asymmetry a non-breaking change.
+    expect(outcome.markerScan.truncatedPaths).toEqual(['src/large.ts']);
+    expect(result.stdout).not.toContain('scannedBytes');
+    expect(result.stdout).not.toContain('fileBytes');
   });
 
   // Only a local invocation can reach the cap: the Action refuses to evaluate a diff

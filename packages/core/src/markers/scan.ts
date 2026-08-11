@@ -136,10 +136,16 @@ function completeLinePrefix(source: string): string {
  * complete lines within `bytes[0, limit)`, or `0` when the window holds no line
  * terminator at all.
  *
+ * Internal to `@adrkit/core`: `markers/index.ts` does not re-export it, and it is not
+ * public API. It exists so the filesystem reader can report the number it cut at
+ * without decoding twice.
+ *
  * The byte search is equivalent to the string search rather than an approximation of
  * it. `\n` (0x0A) and `\r` (0x0D) are single-byte code points, and every UTF-8
  * continuation byte is >= 0x80, so neither terminator can occur inside a multi-byte
- * sequence.
+ * sequence. That equivalence is a rule spanning two representations and nothing in the
+ * type system holds it, so it is pinned by test ("the byte cut and the text cut cannot
+ * drift apart") rather than left to this comment.
  *
  * Measured here rather than by re-encoding the decoded prefix, for the same reason the
  * truncation flag is observed rather than inferred (see

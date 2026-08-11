@@ -25,6 +25,7 @@ import {
   toGoverningDecisions,
   type ExplainedDecision,
   type Finding,
+  type SourceMarkerBatchScan,
   type SourceMarkerScan,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
@@ -646,7 +647,29 @@ function renderMarkerScanNote(scan: SourceMarkerScan): string {
   return '';
 }
 
-function renderHumanCheck(outcome: ReturnType<typeof checkChanges>): string {
+/**
+ * Per-path measured extents for `check`'s human warning, keyed by the same normalized
+ * path `MarkerScanReport` sorts on.
+ *
+ * Built from the batch scan the caller already holds rather than from `MarkerScanReport`,
+ * which carries paths only. That is the whole reason the asymmetry closes without a
+ * contract change: `check --json` stays byte-identical while the human surface stops
+ * printing a bound where it can print the measurement (ADR-0024 action item 3).
+ */
+function markerScanExtents(batch: SourceMarkerBatchScan): Map<string, string> {
+  const extents = new Map<string, string>();
+  for (const scan of batch.scans) {
+    if (!scan.truncated) continue;
+    if (scan.scannedBytes === undefined || scan.fileBytes === undefined) continue;
+    extents.set(scan.path, `${scan.scannedBytes}/${scan.fileBytes}`);
+  }
+  return extents;
+}
+
+function renderHumanCheck(
+  outcome: ReturnType<typeof checkChanges>,
+  extents: Map<string, string> = new Map(),
+): string {
   let output = '';
   if (outcome.governedBy.length === 0) {
     output += 'No decisions govern the changed files.\n';
@@ -692,12 +715,18 @@ function renderHumanCheck(outcome: ReturnType<typeof checkChanges>): string {
     if (outcome.markerScan.truncatedPaths.length > 0) {
       const shown = outcome.markerScan.truncatedPaths.slice(0, 10);
       const remaining = outcome.markerScan.truncatedPaths.length - shown.length;
-      // "within the first N" rather than "after N": the scan stops at the last complete
-      // line inside the window, so the window is a bound on the extent, not the extent.
-      // `check` reports the bound because per-path extents would have to travel through
-      // `MarkerScanReport`, which is `check --json`'s contract; `explain` reports the
-      // measurement (ADR-0024).
-      output += `marker scan truncated within the first ${MARKER_HEADER_WINDOW_BYTES} bytes for: ${shown.join(', ')}`;
+      // The measured extent per path, not the window constant: the scan stops at the last
+      // complete line inside the window, so the window is a bound on the extent and was
+      // wrong for every over-window file in this repository. `check` can report the
+      // measurement without touching `MarkerScanReport` because `runCheck` already holds
+      // the batch scan, so `check --json` stays byte-identical (ADR-0024 action item 3).
+      // A path whose extent is missing degrades to the bare path rather than to the
+      // constant — reprinting the bound is the error this replaced.
+      const labelled = shown.map((path) => {
+        const extent = extents.get(path);
+        return extent === undefined ? path : `${path} ${extent}`;
+      });
+      output += `marker scan truncated (bytes scanned of total): ${labelled.join(', ')}`;
       if (remaining > 0) output += `, and ${remaining} more (see --json for the complete list)`;
       output += '\n';
     }
@@ -741,7 +770,7 @@ async function runCheck(args: string[]): Promise<number> {
   if (parsed.values.json) {
     writeStdout(`${JSON.stringify(outcome, null, 2)}\n`);
   } else {
-    writeStdout(renderHumanCheck(outcome));
+    writeStdout(renderHumanCheck(outcome, markerScanExtents(markerScans)));
   }
 
   return outcome.ok ? 0 : 1;

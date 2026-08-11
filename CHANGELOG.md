@@ -35,7 +35,13 @@ Until `1.0.0`, minor releases may include breaking changes
   between `windowBytes` and `truncated`, so a consumer golden-diffing the
   `markers` block sees a positional change rather than an append; `check --json` is
   untouched and stays byte-identical. `@adrkit/core`'s exported
-  `SourceMarkerScan` gains the same two optional fields. Recorded as
+  `SourceMarkerScan` gains the same two optional fields. Note when differencing
+  them: `scannedBytes` is the prefix handed to the scanner, not the bytes pulled
+  from the handle (which include a truncation probe byte and a discarded partial
+  line), and `fileBytes` comes from an `fstat` taken before the read loop — so a
+  file written concurrently can make `fileBytes - scannedBytes` negative. The two
+  are left unreconciled deliberately, because agreeing them would hide a file that
+  changed underneath the scan; clamp the difference at `0`. Recorded as
   [ADR-0024](docs/adr/0024-report-the-measured-scan-extent-not-the-window-constant.md).
 
 ### Changed
@@ -43,11 +49,16 @@ Until `1.0.0`, minor releases may include breaking changes
 - Human output no longer prints the header-window constant where it is not the
   number it describes (#108). `adr explain`'s note reads "only the first \<extent>
   of \<size> bytes of \<path> were scanned" instead of restating 8192, and
-  `adr check`'s per-path warning reads "marker scan truncated **within the
-  first** 8192 bytes" instead of "truncated after 8192 bytes" — a bound stated as
-  a bound, since not one of this repository's 29 over-window source files stops
-  there. `adr explain --help` is corrected the same way. `check --json` is
-  unchanged.
+  `adr check`'s per-path warning now reads "marker scan truncated (bytes scanned
+  of total): \<path> \<extent>/\<size>" instead of "truncated after 8192 bytes".
+  Not one of this repository's 29 over-window source files stops at 8192, and the
+  gap is not cosmetic: a file whose header is one 12-byte marker line followed by
+  8192 bytes of content was reported as stopping at 8192 when it stopped at 13.
+  `adr explain --help` is corrected the same way. `check --json` is unchanged and
+  stays byte-identical — `runCheck` already holds the batch scan, so the human
+  renderer could report the measurement without `MarkerScanReport` carrying it
+  (ADR-0024 action item 3). `adr check`'s human stdout is not a stability
+  contract; consumers that need the truncated-path list should read `--json`.
 
 ### Fixed
 

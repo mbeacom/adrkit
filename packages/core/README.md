@@ -61,11 +61,21 @@ therefore scan differently.
 `readSourceMarkers` wraps the scanner with a bounded read and reports `state` as
 `scanned`, `absent`,
 `unreadable`, or `out-of-tree`, so "found no markers" is never confused with
-"could not look." A `scanned` result also carries `scannedBytes` and `fileBytes`, the
-measured extent of the read: `fileBytes - scannedBytes` is how much of a truncated
-file went unscanned, which `truncated` alone does not say. `scannedBytes` is the cut
-actually taken, not `min(fileBytes, 8192)`, because the window is cut back to its last
-complete line. Both are omitted for a state that never opened the file.
+"could not look." A `scanned` result also carries `scannedBytes` and `fileBytes`.
+`scannedBytes` is the prefix handed to the scanner — not the number of bytes pulled
+from the handle, which also includes a truncation probe byte and any partial trailing
+line the cut then discards — and it is the cut actually taken rather than
+`min(fileBytes, 8192)`, because the window is cut back to its last complete line.
+`fileBytes - scannedBytes` is how much of a truncated file went unscanned, which
+`truncated` alone does not say. Both are omitted for a state that never opened the
+file, so a `0` extent means a window with no line terminator, never "not measured."
+
+The two are separate observations, not one: `fileBytes` comes from an `fstat` taken
+before the read loop, so a file written concurrently can report `scannedBytes >
+fileBytes` (appended) or look partial when it was read whole (truncated). They are
+left unreconciled deliberately — agreeing them would hide a file that changed
+underneath the scan — so a consumer differencing them should clamp at `0` rather than
+assume the remainder is non-negative.
 
 Its `path` argument is repo-relative to `cwd`. Absolute paths and paths that climb
 out of the tree are `out-of-tree`. Every symlink is refused as `unreadable`

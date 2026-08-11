@@ -2,9 +2,9 @@
 schemaVersion: 0.1.0
 id: "0024"
 title: Report the measured scan extent, not the window constant
-status: proposed
+status: accepted
 date: 2026-08-11
-deciders: []
+deciders: ["@mbeacom"]
 tags: [core, cli, matching, governance, agents]
 scope: component
 reversibility: two-way-door
@@ -17,6 +17,7 @@ affects:
     pattern: "packages/cli/src/index.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: >-
@@ -85,8 +86,15 @@ than inheriting one."*
 
 **`readSourceMarkers` and `adr explain --json` will report the measured extent of the
 read — `scannedBytes` and `fileBytes` — as optional fields present only for a
-`scanned` state. Human output will state the measurement where it has one and the
-bound where it does not.**
+`scanned` state. Every human surface that names where a scan stopped will state the
+measurement rather than the window constant.**
+
+*Ratification note (2026-08-11): as proposed, this record's second sentence read
+"Human output will state the measurement where it has one and the bound where it
+does not", because `check`'s warning was thought to need a `MarkerScanReport` change
+to carry extents. It does not — see action item 3 — so the decision was widened at
+ratification rather than shipping an asymmetry the record itself called an open
+question. `check --json` is unchanged either way.*
 
 Four properties are why this is a rule and not just two fields:
 
@@ -101,7 +109,11 @@ Four properties are why this is a rule and not just two fields:
    continuation byte is `>= 0x80` so neither can hide inside a multi-byte sequence, and
    the decoder flushes any pending invalid sequence before processing a terminator. The
    reported number and the text handed to the scanner come from that one computation,
-   so they cannot drift.
+   so they cannot drift *for a given implementation* — but the rule now exists in two
+   representations, and nothing in the type system holds them together. That equivalence
+   is therefore pinned by test ("the byte cut and the text cut cannot drift apart"),
+   which asserts the boundary property and the no-op-second-cut property over named
+   edge cases and a seeded fuzz corpus rather than re-implementing the search.
 3. **A state that never opened the file carries no extent.** `absent`, `unreadable`,
    and `out-of-tree` omit both fields rather than reporting `0`. This matters because
    `0` is itself a real answer here — a window holding no line terminator scanned
@@ -111,12 +123,13 @@ Four properties are why this is a rule and not just two fields:
    read.
 4. **No surface prints the constant as if it were the measurement.** `explain`'s note
    now reads "only the first &lt;extent&gt; of &lt;size&gt; bytes" — the two numbers
-   it measured, whatever they are for that file on that checkout. `check`'s per-path warning said
-   "truncated after 8192 bytes" — a specific number that is wrong for every one of the
-   29 source files above, none of which stops there — and now says "truncated **within
-   the first** 8192 bytes", which is what a bound claims. (Two tracked non-source files,
-   `packages/mcp/README.md` and one spec fixture, do happen to have a terminator at byte
-   8191 and so stop at exactly 8192. A bound is right for them too.)
+   it measured, whatever they are for that file on that checkout. `check`'s per-path
+   warning said "truncated after 8192 bytes" — a specific number that is wrong for
+   every one of the 29 source files above, none of which stops there — and now reads
+   "marker scan truncated (bytes scanned of total): &lt;path&gt; &lt;extent&gt;/&lt;size&gt;".
+   The distance this closes is not cosmetic: a file whose header is a 12-byte marker
+   line followed by 8192 bytes of unbroken content stops at byte 13, and was reported
+   as stopping at 8192.
 
 ### Relationship to ADR-0021 and ADR-0022
 
@@ -192,12 +205,15 @@ hypothetical.
   it is newly visible because these are the first numbers to expose it. Left
   unreconciled rather than clamped: agreeing them would hide a file that changed
   underneath the scan.
-- **`check` reports the bound while `explain` reports the measurement.** Not forced by
-  the JSON contract — `runCheck` holds the batch scan and could thread per-path extents
-  into the human warning without touching `MarkerScanReport`. It is a scope choice: the
-  warning is a capped summary of up to ten paths, the fix for the false number was to
-  state the bound as a bound, and carrying extents there is a separate change with its
-  own `check --json` question. Left as an action item rather than assumed.
+- **`check` reports the bound while `explain` reports the measurement.** *Closed at
+  ratification (action item 3): it does not.* This was recorded as an open scope choice
+  on the argument that per-path extents would have to travel through
+  `MarkerScanReport`, `check --json`'s contract. That turned out to be the wrong
+  constraint — `runCheck` holds the batch scan and hands the renderer a path→extent map
+  directly, so the human warning states the measurement and the JSON report is
+  unchanged. What survives is the narrower asymmetry that `check --json` carries no
+  extent while `explain --json` does, which is a deliberate contract decision rather
+  than an unresolved one.
 - **The 8192-byte window is unchanged.** This record does not reopen it. It does turn
   ADR-0022's open action item — "reassess the window against real corpora once markers
   are in use" — from rhetorical into measurable, and the numbers above are the first
@@ -212,25 +228,44 @@ hypothetical.
   cut must keep the reported number and the scanned text one computation. The tests pin
   the boundary in both directions — a terminator at the window's last byte, and one at
   the probe byte past it — and assert exact extents rather than `< fileBytes` bounds,
-  which are satisfied by any wrong smaller number.
+  which are satisfied by any wrong smaller number. The cut itself now exists in two
+  representations (`completeLinePrefix` on text, `completeLineByteExtent` on bytes), a
+  duplication the type system cannot police, so their equivalence is pinned by a
+  dedicated property and fuzz suite; each of dropping `0x0D`, searching forward, an
+  off-by-one, and reaching into the probe byte was observed failing it before it passed
+  ([ADR-0016](0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
 - **How we would know this was wrong:** a consumer reports that the magnitude is not
   what they needed and they wanted the window widened instead (Option C); or the
   `scanned`-only omission forces enough `undefined` handling that a discriminated union
   on `state` is worth the breaking type change; or the two-observation skew above shows
   up in practice rather than in theory. Review by 2027-02-11.
-- **Revisit if:** the header window becomes configurable, or `check` acquires per-path
-  extents and the asymmetry closes.
+- **Revisit if:** the header window becomes configurable, or a consumer asks for extents
+  in `check --json` and can say what shape they need.
 
 ## Action items
 
-1. [ ] Ratify or reject; if ratified, decide whether this stays an amendment alongside
+1. [x] Ratify or reject; if ratified, decide whether this stays an amendment alongside
        ADR-0023 or supersedes ADR-0022 (see above — either is well-formed here).
+       **Ratified 2026-08-11 as an amendment.** ADR-0022's decision stands in full and
+       there is nothing to retire: this adds two fields to a report ADR-0022 does not
+       otherwise touch, and narrows only the claim that `truncated` is a *sufficient*
+       disclosure of a bounded read. `supersededBy` on ADR-0022 stays empty.
 2. [x] Measure the extent against a real corpus, so ADR-0022's action item 1 has data:
        all 144 tracked `.ts` files under `packages/<pkg>/src/**` and
        `packages/adapters/<pkg>/src/**` at canonical LF content, 29 over
        the window, extents 1–77 bytes short of it. Note this is adrkit's own sources,
        most of which carry no marker; a corpus that uses markers heavily may look
        different, which is what that action item ultimately wants.
-3. [ ] Decide whether `check`'s truncation warning should carry per-path extents, and
+3. [x] Decide whether `check`'s truncation warning should carry per-path extents, and
        whether that belongs in `MarkerScanReport` (changing `check --json`) or only in
-       the human renderer.
+       the human renderer. **Decided 2026-08-11: the human renderer only.** `runCheck`
+       already holds the batch scan, so the warning now reads
+       `marker scan truncated (bytes scanned of total): <path> <extent>/<size>` while
+       `MarkerScanReport` and `check --json` stay byte-identical. Extending the report
+       was considered and declined: `truncatedPaths` is one of five flat code-unit-sorted
+       `string[]`s, so extents would need either a breaking shape change, a parallel
+       array duplicating the paths (the redundancy Option B was rejected for), or a
+       path-keyed map that reopens the ordering surface #117 and #119 just hardened —
+       and `check --json` is a contract that cannot be withdrawn once shipped, unlike a
+       human string. No consumer has asked for it; the door stays open for one that does,
+       at which point the shape would be a requirement rather than a guess.
