@@ -231,17 +231,21 @@ Early, under active development, and deliberately honest about what is proven.
   eras and passed real-session dogfood against the published artifact on each,
   driven through the official MCP Inspector
   ([ADR-0018](docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)).
-- **New in v0.5.0, and at rung 1 only.** A file can declare the decision it
-  lives under with an `@adr <id>` marker on a dedicated comment line, and
-  `adr explain`, `adr check`, and the governing-decisions Action all resolve that
-  inbound edge alongside the `affects` patterns that already matched the path
+- **Expanded in v0.5.0, and at rung 1 only.** A file can declare the decision it
+  lives under with an `@adr <id>` marker on a dedicated comment line. v0.4.0
+  resolved that inbound edge in `adr explain`
+  ([ADR-0021](docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md));
+  v0.5.0 extended it to `adr check` and the governing-decisions Action, so a
+  marker-declared record appears alongside the `affects` patterns that already
+  matched the path
   ([ADR-0022](docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md),
-  superseding [ADR-0021](docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
+  superseding ADR-0021).
   A marker is read only where the file's own format hides it — never inside a
   fenced block, and in markdown only from `<!--` or `{/*`
   ([ADR-0023](docs/adr/0023-read-a-marker-only-where-the-format-hides-it-fences-and-markdown-prose.md)).
-  Markers add governance context and findings; they never gain exit-code
-  authority, so nothing a pull request writes can fail a check.
+  Markers add governance context and findings, but never exit-code authority: no
+  marker a pull request writes can fail a check. A changed ADR record that fails
+  validation still does — that is what the check is for.
   Evidence is unit, contract, and purity coverage plus maintainer verification —
   **rung 1** of the ADR-0014 ladder, not the rungs 1–2 the surfaces below carry.
   Contributed by [@aballiet](https://github.com/aballiet) in
