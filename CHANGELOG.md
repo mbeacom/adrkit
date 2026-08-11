@@ -9,6 +9,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-11
+
 ### Added
 
 - `adr explain --json` reports `markers.scannedBytes` and `markers.fileBytes`
