@@ -20,8 +20,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** `## [1.2.3] - 2026-08-10`, the Keep a Changelog release heading this repo uses. */
-const RELEASE_HEADING = /^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})\s*$/;
+/**
+ * `## [1.2.3] - 2026-08-10` for the lockstep packages, and `## [spec-kit-0.1.2] -
+ * 2026-08-03` for an independently versioned adapter (`docs/RELEASING.md` §"Adapter
+ * releases"). Both are dated release boundaries and both must sit below
+ * `[Unreleased]`, so the ordering rule matches either; only the unprefixed form is a
+ * candidate for the root `package.json` version, because adapters do not move with it.
+ */
+const RELEASE_HEADING = /^## \[(?:([a-z0-9][a-z0-9-]*)-)?(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})\s*$/;
 const UNRELEASED_HEADING = /^## \[Unreleased\]\s*$/;
 
 export interface ChangelogViolation {
@@ -32,13 +38,17 @@ export interface ChangelogViolation {
 export interface ChangelogCheckResult {
   ok: boolean;
   version: string;
+  /** Lockstep (unprefixed) versions only — the ones the root version can match. */
   releasedVersions: string[];
+  /** Every dated release label, adapters included, in file order. */
+  releaseLabels: string[];
   violations: ChangelogViolation[];
 }
 
 export function checkChangelogContent(changelog: string, version: string): ChangelogCheckResult {
   const lines = changelog.split('\n');
   const releasedVersions: string[] = [];
+  const releaseLabels: string[] = [];
   let unreleasedAt = -1;
   let firstReleaseAt = -1;
 
@@ -46,7 +56,9 @@ export function checkChangelogContent(changelog: string, version: string): Chang
     if (UNRELEASED_HEADING.test(line) && unreleasedAt === -1) unreleasedAt = index;
     const release = RELEASE_HEADING.exec(line);
     if (!release) return;
-    releasedVersions.push(release[1] as string);
+    const [, adapter, released] = release;
+    releaseLabels.push(adapter ? `${adapter}-${released}` : (released as string));
+    if (!adapter) releasedVersions.push(released as string);
     if (firstReleaseAt === -1) firstReleaseAt = index;
   });
 
@@ -71,7 +83,7 @@ export function checkChangelogContent(changelog: string, version: string): Chang
     });
   }
 
-  return { ok: violations.length === 0, version, releasedVersions, violations };
+  return { ok: violations.length === 0, version, releasedVersions, releaseLabels, violations };
 }
 
 export async function checkChangelog(root = process.cwd()): Promise<ChangelogCheckResult> {
@@ -83,6 +95,7 @@ export async function checkChangelog(root = process.cwd()): Promise<ChangelogChe
       ok: false,
       version: '(missing)',
       releasedVersions: [],
+      releaseLabels: [],
       violations: [{ rule: 'missing-release-section', message: 'package.json declares no version.' }],
     };
   }
@@ -94,7 +107,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   if (result.ok) {
     // Report what was examined, not only what was concluded (ADR-0016 clause 3).
     console.log(
-      `check-changelog: ok (${result.version} has a section; ${result.releasedVersions.length} released sections found)`,
+      `check-changelog: ok (${result.version} has a section; ${result.releaseLabels.length} dated release sections found, ${result.releaseLabels.length - result.releasedVersions.length} of them adapter releases)`,
     );
   } else {
     for (const violation of result.violations) console.error(`${violation.rule}: ${violation.message}`);

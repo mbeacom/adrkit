@@ -38,6 +38,14 @@ Until `1.0.0`, minor releases may include breaking changes
   `SourceMarkerScan` gains the same two optional fields. Recorded as
   [ADR-0024](docs/adr/0024-report-the-measured-scan-extent-not-the-window-constant.md).
 
+- **One new `@adrkit/core` runtime export**, pinned by the package surface test:
+  `compareByDisplayPath(a, b, cwd)`, the code-unit comparison of two paths by
+  their normalized display form. It is the composition of the already-public
+  `compareCodeUnits` and `normalizeDisplayPath`, and it exists so the corpus
+  orderings settle their locale-independence in one place instead of repeating
+  the compound expression at each call site. Additive — nothing was removed or
+  renamed.
+
 ### Changed
 
 - Human output no longer prints the header-window constant where it is not the
@@ -91,16 +99,6 @@ Until `1.0.0`, minor releases may include breaking changes
   the ordering guard means "no scanned module reaches for `localeCompare`" — not
   "`check --json` is locale-independent end to end". That stronger statement
   holds only once #115's `affects/**` remainder lands.
-
-### Added
-
-- **One new `@adrkit/core` runtime export**, pinned by the package surface test:
-  `compareByDisplayPath(a, b, cwd)`, the code-unit comparison of two paths by
-  their normalized display form. It is the composition of the already-public
-  `compareCodeUnits` and `normalizeDisplayPath`, and it exists so the corpus
-  orderings settle their locale-independence in one place instead of repeating
-  the compound expression at each call site. Additive — nothing was removed or
-  renamed.
 
 ## [0.5.0] - 2026-08-10
 

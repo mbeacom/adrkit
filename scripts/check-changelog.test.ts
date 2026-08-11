@@ -100,6 +100,52 @@ describe('check-changelog', () => {
     expect(checkChangelogContent(undated, '0.5.0').ok).toBe(false);
   });
 
+  describe('independently versioned adapter releases', () => {
+    // `docs/RELEASING.md` §"Adapter releases": `@adrkit/spec-kit` ships on its own
+    // `spec-kit-v<semver>` tag and does not move with the root version. Its sections
+    // are still dated release boundaries, so they participate in the ordering rule.
+    const WITH_ADAPTER = HEALTHY.replace(
+      '## [0.4.0] - 2026-08-08',
+      '## [spec-kit-0.1.2] - 2026-08-03\n\n### Fixed\n\n- An adapter fix.\n\n## [0.4.0] - 2026-08-08',
+    );
+
+    test('an adapter section is recognized but never satisfies the root version', () => {
+      const result = checkChangelogContent(WITH_ADAPTER, '0.5.0');
+      expect(result.ok).toBe(true);
+      expect(result.releaseLabels).toEqual(['0.5.0', 'spec-kit-0.1.2', '0.4.0']);
+      // The adapter label must not leak into the lockstep list, or `0.1.2` could
+      // satisfy a root version bump to 0.1.2 that was never actually cut.
+      expect(result.releasedVersions).toEqual(['0.5.0', '0.4.0']);
+    });
+
+    test('an adapter release above [Unreleased] is caught by the ordering rule', () => {
+      // The gap this closes: with an unprefixed-only pattern, an adapter section
+      // hoisted above [Unreleased] was invisible and the check passed.
+      const hoisted = `# Changelog
+
+## [spec-kit-0.1.2] - 2026-08-03
+
+### Fixed
+
+- An adapter fix.
+
+${WITH_ADAPTER.slice(WITH_ADAPTER.indexOf('## [Unreleased]'))}`;
+      const result = checkChangelogContent(hoisted, '0.5.0');
+      expect(result.violations.map((violation) => violation.rule)).toEqual(['unreleased-not-first']);
+    });
+
+    test('a root version bump still fails when only an adapter section exists', () => {
+      const result = checkChangelogContent(WITH_ADAPTER, '0.1.2');
+      expect(result.violations.map((violation) => violation.rule)).toEqual(['missing-release-section']);
+    });
+  });
+
+  test('this repository has both lockstep and adapter sections, so the split is exercised', async () => {
+    const result = await checkChangelog();
+    expect(result.releaseLabels.length).toBeGreaterThan(result.releasedVersions.length);
+    expect(result.releaseLabels.some((label) => label.startsWith('spec-kit-'))).toBe(true);
+  });
+
   test('reads the real package.json and CHANGELOG.md from the given root', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeText(join(root, 'package.json'), JSON.stringify({ version: '9.9.9' }));
