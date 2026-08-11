@@ -30,8 +30,21 @@ import { fileURLToPath } from 'node:url';
 const RELEASE_HEADING = /^## \[(?:([a-z0-9][a-z0-9-]*)-)?(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})\s*$/;
 const UNRELEASED_HEADING = /^## \[Unreleased\]\s*$/;
 
+/**
+ * Every release heading is a link reference (`## [0.6.0] - …`), resolved by a
+ * definition at the foot of the file. A heading with no definition renders as literal
+ * brackets, and an `[Unreleased]` definition left comparing from the previous tag
+ * silently reports the just-released changes as still unreleased.
+ */
+const LINK_DEFINITION = /^\[([^\]]+)\]:\s*(\S+)\s*$/;
+
 export interface ChangelogViolation {
-  rule: 'missing-release-section' | 'missing-unreleased' | 'unreleased-not-first';
+  rule:
+    | 'missing-release-section'
+    | 'missing-unreleased'
+    | 'unreleased-not-first'
+    | 'missing-compare-link'
+    | 'stale-unreleased-link';
   message: string;
 }
 
@@ -62,7 +75,35 @@ export function checkChangelogContent(changelog: string, version: string): Chang
     if (firstReleaseAt === -1) firstReleaseAt = index;
   });
 
+  const links = new Map<string, string>();
+  for (const line of lines) {
+    const definition = LINK_DEFINITION.exec(line);
+    if (definition) links.set(definition[1] as string, definition[2] as string);
+  }
+
   const violations: ChangelogViolation[] = [];
+
+  // Only enforced once the file uses link definitions at all, so a changelog that
+  // does not adopt the convention is not badgered into it.
+  if (links.size > 0) {
+    for (const label of releaseLabels) {
+      if (!links.has(label)) {
+        violations.push({
+          rule: 'missing-compare-link',
+          message: `"## [${label}]" has no "[${label}]: <url>" definition, so the heading renders as literal brackets.`,
+        });
+      }
+    }
+
+    const unreleasedLink = links.get('Unreleased');
+    const newest = releasedVersions[0];
+    if (unreleasedLink && newest && !unreleasedLink.endsWith(`v${newest}...HEAD`)) {
+      violations.push({
+        rule: 'stale-unreleased-link',
+        message: `[Unreleased] compares from "${unreleasedLink}" but the newest release is ${newest}; it must end with "v${newest}...HEAD" or it reports released changes as unreleased.`,
+      });
+    }
+  }
 
   if (!releasedVersions.includes(version)) {
     violations.push({

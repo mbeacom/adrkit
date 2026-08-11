@@ -31,6 +31,10 @@ const HEALTHY = `# Changelog
 ### Added
 
 - An older shipped feature.
+
+[Unreleased]: https://example.invalid/compare/v0.5.0...HEAD
+[0.5.0]: https://example.invalid/compare/v0.4.0...v0.5.0
+[0.4.0]: https://example.invalid/compare/v0.3.0...v0.4.0
 `;
 
 afterEach(async () => {
@@ -61,8 +65,15 @@ describe('check-changelog', () => {
     const result = checkChangelogContent(absorbed, '0.5.0');
 
     expect(result.ok).toBe(false);
-    expect(result.violations.map((violation) => violation.rule)).toEqual(['missing-release-section']);
-    expect(result.violations[0]?.message).toContain('0.5.0');
+    // Two faults, both real: the heading is gone, and `[Unreleased]` is left
+    // comparing from a version that no longer has a section. `[0.5.0]`'s own
+    // definition survives #117's edit, so no link goes missing — only the
+    // heading it pointed at.
+    expect(result.violations.map((violation) => violation.rule)).toEqual([
+      'stale-unreleased-link',
+      'missing-release-section',
+    ]);
+    expect(result.violations.some((violation) => violation.message.includes('0.5.0'))).toBe(true);
     // The healthy fixture it was derived from does pass, so the failure is caused by
     // the absorbed heading and not by something else in the fixture.
     expect(checkChangelogContent(HEALTHY, '0.5.0').ok).toBe(true);
@@ -107,6 +118,9 @@ describe('check-changelog', () => {
     const WITH_ADAPTER = HEALTHY.replace(
       '## [0.4.0] - 2026-08-08',
       '## [spec-kit-0.1.2] - 2026-08-03\n\n### Fixed\n\n- An adapter fix.\n\n## [0.4.0] - 2026-08-08',
+    ).replace(
+      '[0.4.0]: https://example.invalid/compare/v0.3.0...v0.4.0',
+      '[spec-kit-0.1.2]: https://example.invalid/compare/spec-kit-v0.1.1...spec-kit-v0.1.2\n[0.4.0]: https://example.invalid/compare/v0.3.0...v0.4.0',
     );
 
     test('an adapter section is recognized but never satisfies the root version', () => {
@@ -144,6 +158,39 @@ ${WITH_ADAPTER.slice(WITH_ADAPTER.indexOf('## [Unreleased]'))}`;
     const result = await checkChangelog();
     expect(result.releaseLabels.length).toBeGreaterThan(result.releasedVersions.length);
     expect(result.releaseLabels.some((label) => label.startsWith('spec-kit-'))).toBe(true);
+  });
+
+  describe('compare-link definitions', () => {
+    // The omission this caught in the v0.6.0 release PR: the heading was cut
+    // correctly but neither link definition was updated, so `[0.6.0]` resolved to
+    // nothing and `[Unreleased]` still compared from the previous tag.
+    test('a release heading with no link definition is caught', () => {
+      const orphaned = HEALTHY.replace('[0.5.0]: https://example.invalid/compare/v0.4.0...v0.5.0\n', '');
+      const result = checkChangelogContent(orphaned, '0.5.0');
+      expect(result.violations.map((violation) => violation.rule)).toEqual(['missing-compare-link']);
+      expect(result.violations[0]?.message).toContain('0.5.0');
+    });
+
+    test('an [Unreleased] link left comparing from the previous tag is caught', () => {
+      const stale = HEALTHY.replace('compare/v0.5.0...HEAD', 'compare/v0.4.0...HEAD');
+      const result = checkChangelogContent(stale, '0.5.0');
+      expect(result.violations.map((violation) => violation.rule)).toEqual(['stale-unreleased-link']);
+    });
+
+    test('an adapter release needs a definition too', () => {
+      const undefinedAdapter = HEALTHY.replace(
+        '## [0.4.0] - 2026-08-08',
+        '## [spec-kit-0.1.2] - 2026-08-03\n\n### Fixed\n\n- An adapter fix.\n\n## [0.4.0] - 2026-08-08',
+      );
+      expect(checkChangelogContent(undefinedAdapter, '0.5.0').violations.map((v) => v.rule)).toEqual([
+        'missing-compare-link',
+      ]);
+    });
+
+    test('a changelog with no link definitions at all is not badgered into the convention', () => {
+      const none = HEALTHY.split('\n[Unreleased]:')[0] as string;
+      expect(checkChangelogContent(none, '0.5.0').ok).toBe(true);
+    });
   });
 
   test('reads the real package.json and CHANGELOG.md from the given root', async () => {
