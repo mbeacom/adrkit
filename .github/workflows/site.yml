@@ -17,12 +17,18 @@ on:
       - 'schema/adr.schema.json'
       - 'docs/adr/**'
       - '.github/workflows/site.yml'
+      # The docs pin the released CLI version; a release bump must re-run that
+      # guard in the same push rather than failing the next unrelated change.
+      - 'package.json'
   pull_request:
     paths:
       - 'site/**'
       - 'schema/adr.schema.json'
       - 'docs/adr/**'
       - '.github/workflows/site.yml'
+      # The docs pin the released CLI version; a release bump must re-run that
+      # guard in the same push rather than failing the next unrelated change.
+      - 'package.json'
   workflow_dispatch:
 
 # Least-privilege baseline. Pages deploy privileges are scoped to the deploy job.
@@ -63,18 +69,31 @@ jobs:
       # The ARB queue badge on the README reads this file over HTTP. It is
       # derived from the corpus at build time and never committed, so it cannot
       # go stale between corpus changes — the same discipline as the served
-      # schema above (ADR-0024). `site` is deliberately not a workspace member,
+      # schema above (ADR-0025). `site` is deliberately not a workspace member,
       # so the projection runs from the repo root rather than making the site
       # depend on `@adrkit/core`.
       #
-      # `adr queue` exits 1 when the corpus has error-severity findings; failing
-      # the deploy on that is intended, since the same corpus builds the ADR
-      # pages in this run.
+      # `adr queue` documents exit 1 as "report emitted with error-severity
+      # corpus findings" — the report is complete and publishable, so a corpus
+      # problem must not stop this job from deploying the canonical schema at
+      # its `$id` (ADR-0011). Only exit 2 (usage error / unreachable corpus)
+      # means no report was produced.
       - name: Emit the ARB queue report for the badge
         working-directory: .
         run: |
           bun install --frozen-lockfile
+          set +e
           bun run site:queue
+          status=$?
+          set -e
+          if [ "$status" -ge 2 ]; then
+            echo "::error::adr queue exited ${status}; no usable report was produced"
+            exit "$status"
+          fi
+          if [ "$status" -eq 1 ]; then
+            echo "::warning::Corpus has error-severity findings; the queue report is still complete and is being published"
+          fi
+          python3 -c "import json,sys; d=json.load(open('site/public/queue.json')); sys.exit(0 if type(d.get('totalItems')) is int else 'queue.json has no integer totalItems')"
 
       - name: Build site
         run: bun run build

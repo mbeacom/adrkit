@@ -96,7 +96,7 @@ export interface QueueReport {
   /**
    * Queue depth. Read directly out of published `queue.json` by third-party
    * README badges via a shields.io `dynamic/json` query on `$.totalItems`
-   * (ADR-0024), so moving, renaming, or reinterpreting this field breaks
+   * (ADR-0025), so moving, renaming, or reinterpreting this field breaks
    * consumers that never imported this package and get no deprecation window.
    * Treat it as public API in a `QueueReport` v2, not as an internal count.
    */

@@ -7,7 +7,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 adrkit ships no badge service and no `adr badge` command. Every badge below is a
 recipe over output adrkit already produces, rendered by shields.io or by GitHub
-Actions, and served from **your** repository ([ADR-0024](/adr/)).
+Actions, and served from **your** repository ([ADR-0025](/adr/)).
 
 <Aside type="tip" title="Pick by what the badge claims">
   A badge is only worth adding if a reader could check it. "Uses adrkit" is
@@ -87,9 +87,12 @@ jobs:
 
       # Pin the CLI version too. `npx @adrkit/cli` without a version resolves at
       # run time, which puts whatever npm serves that day inside a write-capable job.
+      # Nothing will tell you when this pin ages — Dependabot does not read inline
+      # `npx` versions — so bump it when you upgrade. This page always shows the
+      # current release.
       - run: |
           mkdir -p .adrkit
-          npx @adrkit/cli@0.5.0 queue --format json > .adrkit/queue.json.tmp
+          npx @adrkit/cli@0.6.0 queue --format json > .adrkit/queue.json.tmp
 
       # A truncated or malformed write renders as `no result` on the badge, which
       # reads as a bug in your tooling. Fail here instead of committing it.
@@ -118,19 +121,35 @@ jobs:
 <Aside type="caution" title="If your default branch is protected">
   This workflow pushes directly to your default branch. If that branch requires
   status checks or pull requests, the push is **rejected** — and the failure is
-  only visible in the Actions tab. Pick one instead:
+  only visible in the Actions tab. Change the last step to one of these:
 
-  - have the workflow open a pull request rather than push, and merge it (the
-    queue changing is itself a reviewable event); or
-  - push `queue.json` to a dedicated unprotected branch and point the badge at
-    that branch; or
-  - grant the bot a protection bypass — the least preferable, since it weakens
-    the protection for everything else too.
+  **Push to a dedicated branch instead** (simplest; the badge URL in step 2 then
+  points at that branch rather than `main`):
+
+  ```yaml
+          git push origin HEAD:refs/heads/adr-artifacts --force
+  ```
+
+  **Open a pull request instead** (keeps the change reviewable). Add
+  `pull-requests: write` to the job's `permissions`, and replace `git push` with:
+
+  ```yaml
+          git switch -c adr-queue-refresh
+          git push -u origin adr-queue-refresh --force
+          gh pr create --fill --head adr-queue-refresh || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+  ```
+
+  **Grant the bot a protection bypass** — least preferable, since it weakens the
+  protection for everything else too.
 
   adrkit itself takes a fourth route that needs no token at all: its docs site
   already rebuilds on corpus changes, so it emits `queue.json` as a build
-  artifact. If you publish a site from the same repository, that is the simplest
-  option available to you.
+  artifact and the badge reads `https://adrkit.dev/queue.json`. If you publish a
+  site from the same repository, that is the simplest option available to you —
+  see the `site:queue` script and the emit step in `.github/workflows/site.yml`
+  in [this repository](https://github.com/mbeacom/adrkit) for a working example.
 </Aside>
 
 ### 2. Point a badge at it
@@ -150,6 +169,12 @@ the workflow before you suspect the URL.
   your owner, repository, and branch to a third party on every render. That is a
   reasonable trade for most public repositories, but it is a choice, and it is
   the reason the adoption badge above is also offered as a file you can commit.
+
+  The published `queue.json` also carries each queued record's `deciders` as
+  routing targets, alongside its title and source path. Those come from your ADR
+  frontmatter and are already in your corpus, but committing them to a public
+  repository puts them at a URL a badge service can cache — worth a look before
+  you enable this if your `deciders` are not public handles.
 </Aside>
 
 ### Why depth, and not deadlines

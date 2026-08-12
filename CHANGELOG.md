@@ -17,7 +17,7 @@ Until `1.0.0`, minor releases may include breaking changes
   adoption badge, the GitHub Actions badge for a workflow running `adr check`, and a
   queue-depth badge that renders `QueueReport`'s `totalItems` through shields.io from
   a `.adrkit/queue.json` published by your own repository
-  ([ADR-0024](docs/adr/0024-ship-badges-as-recipes-over-existing-output.md)).
+  ([ADR-0025](docs/adr/0025-ship-badges-as-recipes-over-existing-output.md)).
 
   **No new CLI surface and no service.** `adr queue --format json` already emits
   `totalItems`, `asOf`, and `corpusFingerprint`, so an `adr badge` command would be

@@ -66,7 +66,7 @@ accompanied by a surface-test update is a release blocker.
 
 `QueueReport.totalItems` carries an obligation the surface tests cannot see.
 Third-party READMEs read it straight out of a published `queue.json` through a
-shields.io `dynamic/json` query (ADR-0024), so those consumers never imported
+shields.io `dynamic/json` query (ADR-0025), so those consumers never imported
 `@adrkit/core` and receive no deprecation signal. A `QueueReport` v2 that moves,
 renames, or reinterprets that field breaks badges in other people's
 repositories; call it out in the release notes and keep the v1 field emitted for
@@ -238,7 +238,7 @@ bootstrap described below.
    the lockfile changes.
 2. Bump the pinned `@adrkit/cli@<version>` in the published badges recipe
    (`site/src/content/docs/badges.mdx`). It is pinned deliberately — the snippet
-   runs inside a job holding `contents: write` (ADR-0024) — so it cannot float
+   runs inside a job holding `contents: write` (ADR-0025) — so it cannot float
    with the release. `site/scripts/sync-schema.ts --check` fails the site build
    when the pin and the root `package.json` version disagree, so a missed bump
    surfaces as a red site deploy rather than as adopters installing an old CLI.

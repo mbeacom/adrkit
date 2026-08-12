@@ -1,6 +1,6 @@
 ---
 schemaVersion: 0.1.0
-id: "0024"
+id: "0025"
 title: Ship badges as recipes over existing output, not a new CLI surface
 status: proposed
 date: 2026-08-09
@@ -17,6 +17,10 @@ affects:
     pattern: "site/src/content/docs/badges.mdx"
   - type: path
     pattern: ".github/workflows/site.yml"
+  - type: path
+    pattern: "site/scripts/sync-schema.ts"
+  - type: path
+    pattern: "packages/core/src/queue/types.ts"
 provenance:
   authoredBy: agent-drafted
 review:
@@ -30,7 +34,7 @@ review:
 reviewBy: 2027-02-09
 ---
 
-# ADR-0024: Ship badges as recipes over existing output, not a new CLI surface
+# ADR-0025: Ship badges as recipes over existing output, not a new CLI surface
 
 ## Context
 

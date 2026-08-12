@@ -194,7 +194,15 @@ function checkDocCliVersions(): void {
   ).version as string;
   const docsDir = join(siteDir, 'src', 'content', 'docs');
   const stale: string[] = [];
-  const pattern = /@adrkit\/cli@(\d+\.\d+\.\d+)/g;
+  // Only guard *executable* pins — an `npx`/`bunx` invocation an adopter copies
+  // and runs. Prose that legitimately names an older release ("if you were on
+  // `@adrkit/cli@0.5.0`...") is not a recipe and must not block a site deploy.
+  //
+  // Capture the whole version token, including any pre-release or tag suffix,
+  // and compare it in full. Matching only `\d+\.\d+\.\d+` would make
+  // `@adrkit/cli@0.6.0-rc.1` fail to match at all and so pass silently, which
+  // is the opposite of what a guard should do with an unexpected pin.
+  const pattern = /(?:npx|bunx)\s+@adrkit\/cli@([^\s`'"]+)/g;
 
   for (const entry of readdirSync(docsDir, { withFileTypes: true })) {
     if (!entry.isFile() || !/\.mdx?$/.test(entry.name)) continue;
