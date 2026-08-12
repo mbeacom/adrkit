@@ -180,8 +180,18 @@ export async function upsertMarkedComment(
   }
   const own = findOwnComment(comments, marker, identity);
   if (own) {
-    await client.updateComment(own.id, body);
-    return 'updated';
+    try {
+      await client.updateComment(own.id, body);
+      return 'updated';
+    } catch (error) {
+      // The comment was listed a moment ago; a 404 now means it was deleted in
+      // between, not that we may not comment. Before #107 the update path was
+      // effectively unreachable, so this race only becomes live with that fix —
+      // and letting it fall through to the caller's permission handling would drop
+      // the result of one push entirely. Any other failure is not ours to reinterpret.
+      if (!isNotFound(error)) throw error;
+      log?.info('adrkit: the prior governing-decisions comment was deleted; posting a new one.');
+    }
   }
   await client.createComment(body);
   return 'created';
@@ -256,6 +266,19 @@ export function createOctokitClient(token: string): GitHubClient {
 export function isPermissionError(error: unknown): boolean {
   const status = (error as { status?: number } | undefined)?.status;
   return status === 403 || status === 401 || status === 404;
+}
+
+/**
+ * Whether a thrown error is specifically "gone", as distinct from "not allowed".
+ *
+ * `isPermissionError` folds 404 in with 403 because GitHub hides a forbidden resource
+ * behind a 404 for fork tokens. That conflation is right at the top of the Action,
+ * where either answer means "we cannot comment"; it is wrong for a comment we listed
+ * seconds ago, where 404 means someone deleted it and creating a replacement is
+ * exactly the correct response.
+ */
+export function isNotFound(error: unknown): boolean {
+  return (error as { status?: number } | undefined)?.status === 404;
 }
 
 export { core, context };

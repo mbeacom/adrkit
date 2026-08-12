@@ -220,6 +220,17 @@ comments — the defect this revision fixes); a fresh comment per push (spam —
 anti-pattern exit criterion b guards against); a commit status/check-run only (loses the
 human-readable governing list); an external key/value store (violates ADR-0004).
 
+> **Amended by [ADR-0026](../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md).**
+> The author half of this rule is kept only where the token can establish a login. The
+> default `GITHUB_TOKEN` is an app installation token, which cannot call
+> `users.getAuthenticated`; requiring an exact login therefore matched nothing and
+> shipped the "fresh comment per push" anti-pattern this decision names
+> ([#107](https://github.com/mbeacom/adrkit/issues/107)). Where the login is
+> unknowable, identity becomes "author is a bot" **and** "the marker is exactly the
+> body's first line" — the same ownership test `queue-issue.ts` applies to the managed
+> queue issue. Both listed failure modes stay excluded; the residual exposure is a
+> second bot leading its body with adrkit's marker, which ADR-0026 accepts and records.
+
 ## R6 — Selectivity is the resolver's union, rendered verbatim
 
 **Decision**: The comment lists **exactly** the resolver's union output for the

@@ -207,6 +207,16 @@ and comments end-to-end with no other secret present.
   adrkit marker **and** the Action's own author identity (the bot/app user), so it
   never edits a human's comment that happens to contain the marker and never misses
   its own comment on a later page. Absent a match, it creates one.
+
+  > **Amended by [ADR-0026](../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md).**
+  > "The Action's own author identity" is held only where the token can establish it.
+  > An app installation token — which the default `GITHUB_TOKEN` is one of — cannot
+  > call `users.getAuthenticated` and has no login to compare, which made this clause
+  > unsatisfiable in the documented workflow and produced a fresh comment per push
+  > ([#107](https://github.com/mbeacom/adrkit/issues/107)). For that case identity is
+  > the pair "author is a bot" **and** "the marker is exactly the body's first line".
+  > This narrows, and does not repeal, the rule that a human's comment bearing the
+  > marker is never edited.
 - **FR-006**: The comment MUST be **selective** — only records whose matchers fire
   on the changed files appear. A record that governs no changed file MUST NOT
   appear. On a corpus of more than ten records touched by a subset diff, the comment

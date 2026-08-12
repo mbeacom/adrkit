@@ -48794,8 +48794,14 @@ async function upsertMarkedComment(client, marker, body, log) {
   }
   const own = findOwnComment(comments, marker, identity2);
   if (own) {
-    await client.updateComment(own.id, body);
-    return "updated";
+    try {
+      await client.updateComment(own.id, body);
+      return "updated";
+    } catch (error52) {
+      if (!isNotFound(error52))
+        throw error52;
+      log?.info("adrkit: the prior governing-decisions comment was deleted; posting a new one.");
+    }
   }
   await client.createComment(body);
   return "created";
@@ -48857,6 +48863,9 @@ function createOctokitClient(token) {
 function isPermissionError(error52) {
   const status = error52?.status;
   return status === 403 || status === 401 || status === 404;
+}
+function isNotFound(error52) {
+  return error52?.status === 404;
 }
 
 // src/action.ts

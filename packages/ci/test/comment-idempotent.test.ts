@@ -286,3 +286,49 @@ describe('identityFromLookupFailure (token identity guard)', () => {
     ).toEqual({ kind: 'app-installation' });
   });
 });
+
+/**
+ * Before the #107 fix the update path was effectively unreachable, so this race only
+ * becomes live now: the comment is listed, then deleted, then updated. A 404 there
+ * means "gone", not "forbidden", and must not cost the run its comment.
+ */
+describe('the prior comment is deleted between list and update', () => {
+  test('falls back to creating a replacement rather than losing the comment', async () => {
+    const logger = makeLogger();
+    const client = makeFakeClient({
+      comments: [{ id: 7, body: `${CI_COMMENT_MARKER}\nprevious run`, login: 'github-actions[bot]', type: 'Bot' }],
+      identity: APP,
+    });
+    const deleted = new Error('Not Found') as Error & { status: number };
+    deleted.status = 404;
+    client.updateComment = async () => {
+      throw deleted;
+    };
+
+    const result = await runAction(deps(client, logger));
+
+    expect(result.comment).toBe('created');
+    expect(client.created).toHaveLength(1);
+    expect(logger.setFailed).toHaveLength(0);
+    expect(logger.info.join('\n')).toContain('was deleted');
+  });
+
+  test('a 403 on update is still a permission degrade, not a create', async () => {
+    const logger = makeLogger();
+    const client = makeFakeClient({
+      comments: [{ id: 7, body: `${CI_COMMENT_MARKER}\nprevious run`, login: 'github-actions[bot]', type: 'Bot' }],
+      identity: APP,
+    });
+    const forbidden = new Error('Forbidden') as Error & { status: number };
+    forbidden.status = 403;
+    client.updateComment = async () => {
+      throw forbidden;
+    };
+
+    const result = await runAction(deps(client, logger));
+
+    expect(result.comment).toBe('skipped');
+    expect(client.created).toHaveLength(0);
+    expect(logger.notice.join('\n')).toContain('read-only token');
+  });
+});

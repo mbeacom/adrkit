@@ -95,8 +95,12 @@ Until `1.0.0`, minor releases may include breaking changes
 - **The governing-decisions Action now updates its own comment instead of posting a
   new one on every push** ([#107](https://github.com/mbeacom/adrkit/issues/107),
   [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)).
-  A long-lived pull request accumulated one near-identical comment per push, which is
-  the exact anti-pattern the hidden `<!-- adrkit:ci -->` marker exists to prevent.
+  **If you added `env: GITHUB_TOKEN: ${{ github.token }}` as a workaround, you can
+  remove it.** Comments a pull request accumulated before upgrading stay put — the
+  Action deletes nothing; it updates the newest and leaves the rest for you to clear
+  once. A long-lived pull request previously gained one near-identical comment per
+  push, which is the exact anti-pattern the hidden `<!-- adrkit:ci -->` marker exists
+  to prevent.
 
   **The upsert was correct; the identity it depended on was unobtainable.** Locating
   the Action's own comment required its own login, and the default `GITHUB_TOKEN` is a
@@ -120,8 +124,9 @@ Until `1.0.0`, minor releases may include breaking changes
   passing silently.
 
   This also fixes repositories using a custom GitHub App token (`actions/create-github-app-token`),
-  which never had a working upsert. The `env: GITHUB_TOKEN: ${{ github.token }}`
-  workaround is no longer needed and can be removed.
+  which never had a working upsert. Making the update path reachable also made a race
+  reachable that had never fired: a prior comment deleted between the list and the
+  update now yields a replacement rather than costing that push its comment.
 
 ## [0.6.0] - 2026-08-11
 

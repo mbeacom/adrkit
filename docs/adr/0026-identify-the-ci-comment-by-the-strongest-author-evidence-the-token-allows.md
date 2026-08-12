@@ -2,9 +2,9 @@
 schemaVersion: 0.1.0
 id: "0026"
 title: Identify the CI comment by the strongest author evidence the token allows
-status: proposed
+status: accepted
 date: 2026-08-12
-deciders: []
+deciders: ["@mbeacom"]
 tags: [ci, github-actions, governance, agents]
 scope: component
 reversibility: two-way-door
@@ -16,9 +16,18 @@ affects:
   - type: path
     pattern: "packages/ci/src/index.ts"
   - type: path
+    pattern: "packages/ci/src/comment.ts"
+  - type: path
     pattern: "packages/ci/action.yml"
+  - type: path
+    pattern: "specs/004-ci-surface/spec.md"
+  - type: path
+    pattern: "specs/004-ci-surface/research.md"
+  - type: path
+    pattern: "specs/004-ci-surface/quickstart.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -30,6 +39,10 @@ review:
     once been satisfied in the documented workflow — which is the second reason this
     is more than a bug fix, because the property that "held" was unfalsifiable rather
     than true.
+  queuedAt: 2026-08-12T00:00:00Z
+  slaDays: 30
+  approvals: ["@mbeacom"]
+  decidedAt: 2026-08-12T13:30:00Z
 reviewBy: 2027-02-12
 ---
 
@@ -43,6 +56,13 @@ accumulating one near-identical comment per push on a long-lived pull request. T
 reporter confirmed via the API that these are distinct comments rather than one being
 edited, and that adding `env: GITHUB_TOKEN: ${{ github.token }}` to the step makes the
 same pull request stay at one comment whose `updated_at` advances past `created_at`.
+
+> `R<n>` and `FR-<n>` below are numbered decisions and requirements in this
+> repository's CI-surface specification —
+> [`specs/004-ci-surface/research.md`](../../specs/004-ci-surface/research.md) and
+> [`spec.md`](../../specs/004-ci-surface/spec.md). `RC<n>` numbers a review comment
+> that revised one. The two that matter here are **R5/FR-005**, which froze how the
+> Action recognises its own comment.
 
 The upsert itself is correct. What fails is the identity it depends on.
 
@@ -122,15 +142,23 @@ rung 2. The comment path adopts that same predicate verbatim, so both Actions an
 `unknown` keeps the old behaviour, deliberately. A network error, a 5xx, or being
 **throttled** proves nothing about who we are — throttling in particular also arrives
 as a 403, and reading that as "we are an app" would claim a comment on evidence the run
-never obtained. One duplicate comment that self-heals on the next run is the right cost
-for that. It is now **logged as a warning** rather than passing silently, which is what
-made this defect look like normal operation for two releases.
+never obtained. For a transient failure the cost is one duplicate comment that the next
+run absorbs. For a **persistent** one it is a duplicate per push, which is the original
+defect: the difference is that it is now **logged as a warning** naming the cause,
+rather than passing silently as it did for two releases. That is the intended trade —
+an adopter who sees the warning can act on it, whereas adopting a comment on unknown
+identity would be a silent write we cannot justify.
 
 Where several comments match, the **last** one wins rather than the first. Every pull
 request opened before this fix carries one comment per push, and the newest is both the
 one a reader reaches at the bottom of the thread and the one worth keeping current. The
 Action is comment-only and deletes nothing, so the older copies remain until a human
 removes them.
+
+Making the update path reachable also makes a race reachable that never fired while it
+was dead: the comment can be deleted between the list and the update. A 404 there means
+"gone", not "forbidden", so the Action creates a replacement instead of surrendering
+that push's comment to `isPermissionError`'s fork-token degrade. A 403 still degrades.
 
 The `isDefaultToken` plumbing is deleted. `GITHUB_TOKEN` remains a fallback *source*
 of the token for a workflow that blanks the input, but it is no longer consulted to
@@ -243,12 +271,24 @@ have one.
 2. [x] Delete `fallbackSelfLogin`/`DEFAULT_TOKEN_LOGIN` and the `isDefaultToken`
    plumbing in `src/index.ts`.
 3. [x] Warn on an unresolvable identity instead of degrading silently.
-4. [x] Cover the app-installation path, including the negative cases a human and a
+4. [x] Create a replacement when the prior comment is deleted between the list and the
+   update, rather than letting a 404 take the fork-token degrade path.
+5. [x] Cover the app-installation path, including the negative cases a human and a
    quoting bot present, watched failing first per ADR-0016.
-5. [x] Remove the obsolete `env: GITHUB_TOKEN` block and its rationale from
-   `specs/004-ci-surface/quickstart.md`, which documented the broken model.
-6. [x] Note in `site/src/content/docs/ci.mdx` that a `v*` release tag is annotated, so
+6. [x] Amend R5 in `specs/004-ci-surface/research.md` and FR-005 in `spec.md` by
+   reference, following ADR-0013's precedent, and remove the obsolete `env: GITHUB_TOKEN`
+   block from `quickstart.md`, which documented the broken model.
+7. [x] Note in `site/src/content/docs/ci.mdx` that a `v*` release tag is annotated, so
    `uses:` needs the dereferenced commit rather than the tag object's own SHA.
-7. [ ] Confirm on a reference repository that a second push updates the comment
+8. [ ] Confirm on a reference repository that a second push updates the comment
    ([ADR-0014](./0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
    rung 2); rung 1 is the unit and contract coverage above.
+9. [ ] **Deferred, tracked separately.** This repository does not run its own
+   governing-decisions Action on its own pull requests, so no automated signal would
+   catch a recurrence before adopters see duplicate comments — which is precisely how
+   this defect survived two releases. Closing that is a larger change than this record
+   authorizes, and it interacts with the ADR-0014 rung-2 mechanism rather than
+   replacing it.
+10. [ ] **Deferred, tracked separately.** `v0` is a moving tag with no documented
+    rollback, so recovering from a bad Action release depends on a maintainer knowing
+    to force-move it by hand.

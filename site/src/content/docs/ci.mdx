@@ -105,9 +105,10 @@ jobs:
 <Aside type="note" title="Pinning the queue Action">
 	`queue@v0` resolves because the `v0` tag points at a commit containing
 	`packages/ci/queue/action.yml` — first true of the v0.2.1 release, and the tag
-	has moved forward with each release since (currently the v0.5.0 commit, `c6bceac`). `@v0`
-	is a moving tag; pin the full commit SHA instead if you need a byte-immutable
-	reference. Phase 6 is landed and maintainer reference-verified; external
+	has moved forward with each release since. `@v0` is a moving tag; pin the full
+	commit SHA instead if you need a byte-immutable reference, and read that SHA from
+	the tag rather than from this page — `git rev-parse v0^{commit}` — so it cannot go
+	stale here. Phase 6 is landed and maintainer reference-verified; external
 	validation ([ADR-0014](/adr/) rung 3) remains open.
 </Aside>
 
