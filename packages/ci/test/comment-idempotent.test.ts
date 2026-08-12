@@ -292,7 +292,17 @@ describe('identityFromLookupFailure (token identity guard)', () => {
     ).toEqual({ kind: 'unknown' });
   });
 
-  test('a genuine integration refusal with quota left is still app evidence', () => {
+  test('a genuine integration refusal is app evidence even with the quota exhausted', () => {
+    // GitHub sends x-ratelimit-remaining on every response, so an app refusal can
+    // legitimately arrive on a throttled run. Being throttled does not make us not an
+    // app, and reading it that way costs that run a duplicate comment.
+    expect(
+      identityFromLookupFailure({
+        status: 403,
+        message: 'Resource not accessible by integration',
+        response: { headers: { 'x-ratelimit-remaining': '0' } },
+      }),
+    ).toEqual({ kind: 'app-installation' });
     expect(
       identityFromLookupFailure({
         status: 403,
@@ -326,7 +336,7 @@ describe('the prior comment is deleted between list and update', () => {
     expect(result.comment).toBe('created');
     expect(client.created).toHaveLength(1);
     expect(logger.setFailed).toHaveLength(0);
-    expect(logger.info.join('\n')).toContain('was deleted');
+    expect(logger.warning.join('\n')).toContain('was deleted');
   });
 
   test('a 403 on update is still a permission degrade, not a create', async () => {

@@ -1,6 +1,26 @@
 import * as core from '@actions/core';
 import { context, getOctokit } from '@actions/github';
 
+/**
+ * @adrkit/ci — the GitHub port for the governing-decisions comment, plus the pure
+ * identity and own-comment logic layered over it.
+ *
+ * This module classifies GitHub failures three different ways on purpose, because the
+ * same status means different things depending on what the answer is used for:
+ *
+ * - {@link isPermissionError} (401/403/404) — "we cannot comment at all". Broad by
+ *   design: a fork token is denied with a 404 as readily as a 403, and either way the
+ *   Action degrades to a log notice rather than failing the job (FR-014).
+ * - {@link isNotFound} (404 only) — "that specific comment is gone". Used where the
+ *   broad reading would be wrong, namely a comment we listed moments earlier.
+ * - {@link identityFromLookupFailure} — "who are we?". Narrowest, because its answer
+ *   decides how much author evidence a comment needs before we edit it (ADR-0026).
+ *
+ * Keep them distinct. Collapsing any two re-creates a defect this module has already
+ * shipped: reusing the broad reading for identity is what
+ * [#107](https://github.com/mbeacom/adrkit/issues/107) turned on.
+ */
+
 /** A PR comment as this surface needs it — minimal, provider-shaped. */
 export interface CommentUser {
   login?: string;
@@ -150,11 +170,18 @@ const INTEGRATION_REFUSAL = /not accessible by integration/i;
  * nothing about identity, so they yield `unknown` and no comment is adopted.
  */
 export function identityFromLookupFailure(error: unknown): SelfIdentity {
-  if (isRateLimited(error)) return { kind: 'unknown' };
   const failure = error as { status?: number; message?: string } | undefined;
+  // The message is checked before throttling on purpose. GitHub sends
+  // `x-ratelimit-remaining` on every response, so a genuine integration refusal that
+  // happens to land when the installation's quota is exhausted would otherwise be read
+  // as "throttled" and cost that run a duplicate comment. Being throttled does not make
+  // us not an app; the refusal names what we are, and a rate-limit header does not.
   if (typeof failure?.message === 'string' && INTEGRATION_REFUSAL.test(failure.message)) {
     return { kind: 'app-installation' };
   }
+  // A bare 403 is ambiguous — it covers both an app refusal and throttling — so it is
+  // only app evidence once throttling is ruled out.
+  if (isRateLimited(error)) return { kind: 'unknown' };
   return failure?.status === 403 ? { kind: 'app-installation' } : { kind: 'unknown' };
 }
 
@@ -209,7 +236,14 @@ export async function upsertMarkedComment(
       // and letting it fall through to the caller's permission handling would drop
       // the result of one push entirely. Any other failure is not ours to reinterpret.
       if (!isNotFound(error)) throw error;
-      log?.info('adrkit: the prior governing-decisions comment was deleted; posting a new one.');
+      // Warning, not info: a comment vanishing under us is unusual, and if something
+      // deletes it on a loop the recreate would otherwise be invisible without
+      // expanding the step log — the same "looks exactly like healthy operation"
+      // failure that let #107 survive two releases.
+      log?.warning(
+        'adrkit: the prior governing-decisions comment was deleted between listing and ' +
+          'updating it; posting a new one instead.',
+      );
     }
   }
   await client.createComment(body);

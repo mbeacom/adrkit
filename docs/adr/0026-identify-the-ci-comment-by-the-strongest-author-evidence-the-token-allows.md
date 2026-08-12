@@ -25,6 +25,8 @@ affects:
     pattern: "specs/004-ci-surface/research.md"
   - type: path
     pattern: "specs/004-ci-surface/quickstart.md"
+  - type: path
+    pattern: "site/src/content/docs/ci.mdx"
 provenance:
   authoredBy: agent-drafted
   ratifiedBy: "@mbeacom"
@@ -42,7 +44,7 @@ review:
   queuedAt: 2026-08-12T00:00:00Z
   slaDays: 30
   approvals: ["@mbeacom"]
-  decidedAt: 2026-08-12T13:30:00Z
+  decidedAt: 2026-08-12T22:10:00Z
 reviewBy: 2027-02-12
 ---
 
@@ -117,8 +119,8 @@ three-way classification, and match with the strength that evidence supports.
 | Identity | How it arises | Match rule |
 |---|---|---|
 | `login` | `users.getAuthenticated` answered | marker anywhere in the body **and** `user.login` equals it |
-| `app-installation` | that call was refused with 403 "Resource not accessible by integration" (or a bare 403), and the run was not throttled | `user.type === "Bot"` **and** the marker is exactly the body's **first line** |
-| `unknown` | it failed any other way — 401, 404, a throttled 403, a 5xx, a network error | nothing is adopted |
+| `app-installation` | it was refused with "Resource not accessible by integration", whatever status carried it — or with a bare 403 on a run that was not throttled | `user.type === "Bot"` **and** the marker is exactly the body's **first line** |
+| `unknown` | anything else — 401, 404, a throttled bare 403, a 5xx, a network error | nothing is adopted |
 
 A permission-shaped refusal of `users.getAuthenticated` is not an absence of
 information. It is exactly how an app installation token is refused, so it is positive
@@ -134,6 +136,14 @@ bot-plus-marker rule to a credential that is not an app at all. The message is t
 definitive signal and the status is the fallback, in that order — keying solely on the
 message would make this fix hostage to an English string GitHub may reword, which is
 the failure this record exists to prevent.
+
+The refusal message is also read **before** throttling, not after. GitHub returns
+`x-ratelimit-remaining` on every response, so an app whose installation quota happens to
+be exhausted would otherwise have its own refusal read as "throttled" and lose that run
+to a duplicate comment. Being throttled does not make us not an app: the refusal names
+what we are and a rate-limit header does not. A **bare** 403 is genuinely ambiguous —
+it covers both an app refusal and throttling — so that branch, and only that branch,
+still defers to the throttling check.
 
 The second signal replaces the login. Both renderers in `comment.ts` emit
 `<!-- adrkit:ci -->` as the body's **first line**, and have in every revision of that

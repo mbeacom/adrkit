@@ -48769,12 +48769,12 @@ function isRateLimited(error52) {
 }
 var INTEGRATION_REFUSAL = /not accessible by integration/i;
 function identityFromLookupFailure(error52) {
-  if (isRateLimited(error52))
-    return { kind: "unknown" };
   const failure = error52;
   if (typeof failure?.message === "string" && INTEGRATION_REFUSAL.test(failure.message)) {
     return { kind: "app-installation" };
   }
+  if (isRateLimited(error52))
+    return { kind: "unknown" };
   return failure?.status === 403 ? { kind: "app-installation" } : { kind: "unknown" };
 }
 function describeIdentity(identity2) {
@@ -48805,7 +48805,7 @@ async function upsertMarkedComment(client, marker, body, log) {
     } catch (error52) {
       if (!isNotFound(error52))
         throw error52;
-      log?.info("adrkit: the prior governing-decisions comment was deleted; posting a new one.");
+      log?.warning("adrkit: the prior governing-decisions comment was deleted between listing and " + "updating it; posting a new one instead.");
     }
   }
   await client.createComment(body);

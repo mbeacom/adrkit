@@ -50,13 +50,13 @@ pull request carries one governing-decisions comment however many times you push
 the `env:` block above ([#107](https://github.com/mbeacom/adrkit/issues/107)); once
 `@v0` moves past `v0.6.0` the block becomes a no-op you may drop.
 
-`v0` is a moving major tag — it currently resolves to the `v0.6.0` commit `c5dc677`.
-Pin the immutable `v0.6.0` tag or a commit SHA for maximum reproducibility.
+`v0` is a moving major tag, and it still resolves to a `v0.6.0` build. Pin the
+immutable `v0.6.0` tag or a commit SHA for maximum reproducibility.
 
 <Aside type="note" title="Comments from before the upgrade">
-	The Action is comment-only and deletes nothing, so copies a pull request already
-	accumulated stay where they are. It updates the newest of them and leaves the rest
-	for you to delete once.
+	The Action is comment-only and deletes nothing, so duplicate comments a pull request
+	already accumulated stay where they are. It updates the newest of them and leaves the
+	rest for you to delete once.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">
@@ -72,13 +72,6 @@ Pin the immutable `v0.6.0` tag or a commit SHA for maximum reproducibility.
 
 	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag
 	object, which is exactly the value `uses:` will not take.
-</Aside>
-
-<Aside type="caution" title="Pinning a release tag by SHA">
-	The `v*` release tags are **annotated**, so the SHA that `refs/tags/v0.6.0`
-	resolves to is a tag object, and `uses:` rejects it. Pin the commit the tag
-	points *at* — `git rev-parse v0.6.0^{commit}`, or the `object.sha` from
-	`GET /repos/mbeacom/adrkit/git/ref/tags/v0.6.0`.
 </Aside>
 
 ## Publish the ARB operations queue

@@ -4,6 +4,14 @@ import type { CheckOutcome, Finding, GoverningDecision } from '@adrkit/core';
  * Stable hidden marker used to locate this Action's own comment for in-place
  * updates. Comment identity is marker + author (R5/FR-005) — never stored state
  * (ADR-0004). Keep this string stable across versions.
+ *
+ * **It must also stay the exact first line of every rendered body.** A token whose
+ * login is unknowable — the default `GITHUB_TOKEN` is one — claims its prior comment
+ * by "author is a bot" plus that first-line position, so moving the marker behind a
+ * preamble silently reinstates a fresh comment per push
+ * ([ADR-0026](../../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md),
+ * [#107](https://github.com/mbeacom/adrkit/issues/107)). `github.ts:markerLeadsBody`
+ * is the reader; `comment-render.test.ts` asserts it for both renderers below.
  */
 export const CI_COMMENT_MARKER = '<!-- adrkit:ci -->';
 
