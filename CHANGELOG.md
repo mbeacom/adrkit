@@ -90,6 +90,39 @@ Until `1.0.0`, minor releases may include breaking changes
   compliance obligation the project cannot yet compute. Its `reviewBy` of
   2027-01-18 leaves room to ship Passes 1–3 first.
 
+### Fixed
+
+- **The governing-decisions Action now updates its own comment instead of posting a
+  new one on every push** ([#107](https://github.com/mbeacom/adrkit/issues/107),
+  [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)).
+  A long-lived pull request accumulated one near-identical comment per push, which is
+  the exact anti-pattern the hidden `<!-- adrkit:ci -->` marker exists to prevent.
+
+  **The upsert was correct; the identity it depended on was unobtainable.** Locating
+  the Action's own comment required its own login, and the default `GITHUB_TOKEN` is a
+  GitHub App installation token that cannot call `users.getAuthenticated`. The fallback
+  was gated on recognising the token as the default one by comparing it against
+  `process.env.GITHUB_TOKEN` — but `action.yml` defaults the `token` input to
+  `${{ github.token }}`, and Actions does not export `GITHUB_TOKEN` into a step unless
+  the workflow asks. So the comparison had no right-hand side, the identity resolved to
+  "unknown", and every run created. Passing `token:` explicitly changed nothing, because
+  the input already held that value.
+
+  **Identity is now classified by what the token actually proves.** A permission-shaped
+  refusal of `users.getAuthenticated` is not missing information — it is how an app
+  installation token is always refused, so it establishes that the author is a *bot*.
+  The Action pairs that with a stricter marker rule for this path: the marker must be
+  exactly the body's **first line**, which is true of every comment it has ever posted
+  and false of a human or another bot quoting one. That is the same ownership test the
+  ARB queue Action already applies to its managed issue, so both now answer "is this
+  ours?" identically. A resolved login still matches exactly. An identity that cannot be
+  resolved at all still adopts nothing, but now says so as a job-log warning instead of
+  passing silently.
+
+  This also fixes repositories using a custom GitHub App token (`actions/create-github-app-token`),
+  which never had a working upsert. The `env: GITHUB_TOKEN: ${{ github.token }}`
+  workaround is no longer needed and can be removed.
+
 ## [0.6.0] - 2026-08-11
 
 ### Added

@@ -38,11 +38,6 @@ permissions:
 jobs:
   adr:
     runs-on: ubuntu-latest
-    env:
-      # Exposing the default token here lets the Action confirm its own comment
-      # identity (github-actions[bot]) so it updates one comment in place. Without
-      # it, an unidentifiable token safely posts a fresh comment each run.
-      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # full history for the merge-base changed-file diff
@@ -51,6 +46,14 @@ jobs:
           dir: docs/adr
           # token defaults to ${{ github.token }} — no other secret required
 ```
+
+No `env:` block is needed. Through v0.6.0 this workflow required
+`env: GITHUB_TOKEN: ${{ github.token }}` to keep one comment, because comment identity
+was gated on recognising the default token by comparing it against that variable — a
+comparison the documented workflow could never satisfy
+([#107](https://github.com/mbeacom/adrkit/issues/107)). Identity is now taken from what
+the token proves at the API, so the variable is no longer read for that purpose
+([ADR-0026](../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)).
 
 On a PR, the Action extracts the changed files, resolves the governing decisions,
 validates the changed records, and posts (or updates) a single comment.

@@ -48742,21 +48742,57 @@ function renderTruncatedNotice() {
 }
 
 // src/github.ts
-function findOwnComment(comments, marker, selfLogin) {
-  if (!selfLogin)
+function markerLeadsBody(body, marker) {
+  return body.split(/\r\n|\n|\r/, 1)[0] === marker;
+}
+function findOwnComment(comments, marker, identity2) {
+  if (identity2.kind === "unknown")
     return;
-  return comments.find((comment) => typeof comment.body === "string" && comment.body.includes(marker) && comment.user?.login === selfLogin);
+  let own;
+  for (const comment of comments) {
+    if (typeof comment.body !== "string")
+      continue;
+    const matches = identity2.kind === "login" ? comment.body.includes(marker) && comment.user?.login === identity2.login : comment.user?.type === "Bot" && markerLeadsBody(comment.body, marker);
+    if (matches)
+      own = comment;
+  }
+  return own;
 }
-var DEFAULT_TOKEN_LOGIN = "github-actions[bot]";
-function fallbackSelfLogin(isDefaultToken) {
-  return isDefaultToken ? DEFAULT_TOKEN_LOGIN : undefined;
+function isRateLimited(error52) {
+  const failure = error52;
+  if (failure?.status === 429)
+    return true;
+  const remaining = failure?.response?.headers?.["x-ratelimit-remaining"];
+  if (remaining !== undefined && String(remaining) === "0")
+    return true;
+  return typeof failure?.message === "string" && /rate limit/i.test(failure.message);
 }
-async function upsertMarkedComment(client, marker, body) {
-  const [comments, selfLogin] = await Promise.all([
+function identityFromLookupFailure(error52) {
+  if (isRateLimited(error52))
+    return { kind: "unknown" };
+  return isPermissionError(error52) ? { kind: "app-installation" } : { kind: "unknown" };
+}
+function describeIdentity(identity2) {
+  switch (identity2.kind) {
+    case "login":
+      return `authenticated as ${identity2.login}`;
+    case "app-installation":
+      return "an app installation token, whose login is not resolvable; matching on the marker and a bot author";
+    case "unknown":
+      return "unresolvable";
+  }
+}
+async function upsertMarkedComment(client, marker, body, log) {
+  const [comments, identity2] = await Promise.all([
     client.listIssueComments(),
-    client.getAuthenticatedLogin()
+    client.getSelfIdentity()
   ]);
-  const own = findOwnComment(comments, marker, selfLogin);
+  if (identity2.kind === "unknown") {
+    log?.warning("adrkit: could not resolve the token identity, so an existing governing-decisions " + "comment cannot be claimed; posting a new one instead.");
+  } else {
+    log?.info(`adrkit: ${describeIdentity(identity2)}.`);
+  }
+  const own = findOwnComment(comments, marker, identity2);
   if (own) {
     await client.updateComment(own.id, body);
     return "updated";
@@ -48764,17 +48800,17 @@ async function upsertMarkedComment(client, marker, body) {
   await client.createComment(body);
   return "created";
 }
-function createOctokitClient(token, isDefaultToken) {
+function createOctokitClient(token) {
   const octokit = getOctokit(token);
   const { owner, repo } = context2.repo;
   const pullNumber = context2.issue.number;
   return {
-    async getAuthenticatedLogin() {
+    async getSelfIdentity() {
       try {
         const { data } = await octokit.rest.users.getAuthenticated();
-        return data.login;
-      } catch {
-        return fallbackSelfLogin(isDefaultToken);
+        return { kind: "login", login: data.login };
+      } catch (error52) {
+        return identityFromLookupFailure(error52);
       }
     },
     async listPullFiles() {
@@ -48826,7 +48862,7 @@ function isPermissionError(error52) {
 // src/action.ts
 async function comment(deps, body) {
   try {
-    const result = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body);
+    const result = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body, deps.log);
     deps.log.info(`adrkit: ${result} the governing-decisions comment.`);
     return result;
   } catch (error52) {
@@ -48876,9 +48912,7 @@ async function runAction(deps) {
 // src/index.ts
 async function main() {
   const dir = getInput("dir") || "docs/adr";
-  const providedToken = getInput("token");
-  const runnerToken = process.env.GITHUB_TOKEN ?? "";
-  const token = providedToken || runnerToken;
+  const token = getInput("token") || process.env.GITHUB_TOKEN || "";
   if (!context2.payload.pull_request) {
     info("adrkit: not a pull_request event; nothing to check.");
     return;
@@ -48887,10 +48921,9 @@ async function main() {
     setFailed("adrkit: no token available; set the `token` input or GITHUB_TOKEN.");
     return;
   }
-  const isDefaultToken = runnerToken !== "" && token === runnerToken;
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
   await runAction({
-    client: createOctokitClient(token, isDefaultToken),
+    client: createOctokitClient(token),
     dir,
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
     readMarkers: (paths) => readSourceMarkersBatch(paths, workspace),

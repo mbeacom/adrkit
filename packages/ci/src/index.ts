@@ -13,9 +13,10 @@ import { createOctokitClient } from './github.ts';
  */
 async function main(): Promise<void> {
   const dir = core.getInput('dir') || 'docs/adr';
-  const providedToken = core.getInput('token');
-  const runnerToken = process.env.GITHUB_TOKEN ?? '';
-  const token = providedToken || runnerToken;
+  // `action.yml` defaults this input to ${{ github.token }}, so it is normally set.
+  // GITHUB_TOKEN is only a fallback for a workflow that blanks the input and exports
+  // the variable instead; it is NOT used to identify the token (issue #107/ADR-0026).
+  const token = core.getInput('token') || process.env.GITHUB_TOKEN || '';
 
   if (!context.payload.pull_request) {
     core.info('adrkit: not a pull_request event; nothing to check.');
@@ -26,15 +27,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Only treat the token as the default GITHUB_TOKEN (whose comments are authored by
-  // github-actions[bot]) when it matches the runner's GITHUB_TOKEN. Absent that signal
-  // we do not assume the bot identity, so a custom/App token never adopts a foreign
-  // comment (it creates its own instead).
-  const isDefaultToken = runnerToken !== '' && token === runnerToken;
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
 
   await runAction({
-    client: createOctokitClient(token, isDefaultToken),
+    client: createOctokitClient(token),
     dir,
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
     readMarkers: (paths) => readSourceMarkersBatch(paths, workspace),

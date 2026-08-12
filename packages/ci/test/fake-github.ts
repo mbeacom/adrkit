@@ -1,4 +1,4 @@
-import type { GitHubClient, IssueComment, PrFile } from '../src/github.ts';
+import type { GitHubClient, IssueComment, PrFile, SelfIdentity } from '../src/github.ts';
 
 export interface FakeCommentSeed {
   id?: number;
@@ -10,7 +10,12 @@ export interface FakeCommentSeed {
 export interface FakeClientOptions {
   files?: PrFile[];
   comments?: FakeCommentSeed[];
-  selfLogin?: string | undefined;
+  /**
+   * The identity the token resolves to. Defaults to a resolved `github-actions[bot]`
+   * login; pass `{ kind: 'app-installation' }` to model the default GITHUB_TOKEN in a
+   * real workflow, whose `users.getAuthenticated` call is refused (issue #107).
+   */
+  identity?: SelfIdentity;
   /** When set, createComment/updateComment throw a GitHub-shaped permission error. */
   rejectWrites?: boolean | number;
 }
@@ -37,7 +42,8 @@ class PermissionError extends Error {
  * record the writes the Action performed.
  */
 export function makeFakeClient(options: FakeClientOptions = {}): FakeGitHubClient {
-  const selfLogin = 'selfLogin' in options ? options.selfLogin : DEFAULT_SELF;
+  const identity: SelfIdentity = options.identity ?? { kind: 'login', login: DEFAULT_SELF };
+  const postAs = identity.kind === 'login' ? identity.login : DEFAULT_SELF;
   const rejectStatus =
     options.rejectWrites === true ? 403 : typeof options.rejectWrites === 'number' ? options.rejectWrites : undefined;
 
@@ -45,7 +51,7 @@ export function makeFakeClient(options: FakeClientOptions = {}): FakeGitHubClien
   const store: IssueComment[] = (options.comments ?? []).map((seed, index) => ({
     id: seed.id ?? index + 1,
     body: seed.body,
-    user: { login: seed.login ?? selfLogin ?? DEFAULT_SELF, type: seed.type ?? 'Bot' },
+    user: { login: seed.login ?? postAs, type: seed.type ?? 'Bot' },
   }));
   for (const comment of store) nextId = Math.max(nextId, comment.id + 1);
 
@@ -56,8 +62,8 @@ export function makeFakeClient(options: FakeClientOptions = {}): FakeGitHubClien
     store,
     created,
     updated,
-    async getAuthenticatedLogin() {
-      return selfLogin;
+    async getSelfIdentity() {
+      return identity;
     },
     async listPullFiles() {
       return options.files ?? [];
@@ -68,7 +74,7 @@ export function makeFakeClient(options: FakeClientOptions = {}): FakeGitHubClien
     async createComment(body: string) {
       if (rejectStatus) throw new PermissionError(rejectStatus);
       const id = nextId++;
-      store.push({ id, body, user: { login: selfLogin ?? DEFAULT_SELF, type: 'Bot' } });
+      store.push({ id, body, user: { login: postAs, type: 'Bot' } });
       created.push(body);
       return { id };
     },

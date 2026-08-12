@@ -22,14 +22,34 @@ export interface PrFile {
 }
 
 /**
+ * Who this Action posts as, to whatever precision the token allows (R5/FR-005,
+ * [ADR-0026](../../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)).
+ *
+ * - `login` — `users.getAuthenticated` answered, so the exact author is known.
+ * - `app-installation` — the call was refused the way an app installation token is
+ *   always refused, so the exact author is unknowable but is necessarily a **bot**.
+ * - `unknown` — the call failed for some other reason; assume nothing.
+ */
+export type SelfIdentity =
+  | { readonly kind: 'login'; readonly login: string }
+  | { readonly kind: 'app-installation' }
+  | { readonly kind: 'unknown' };
+
+/** Log port for identity resolution; structurally satisfied by the Action's logger. */
+export interface IdentityLogger {
+  info(message: string): void;
+  warning(message: string): void;
+}
+
+/**
  * Thin, injectable GitHub port. The real implementation wraps `@actions/github`;
  * tests inject a fake. Confining all GitHub API access behind this port keeps the
  * toolkit out of `@adrkit/core` and out of the pure logic below (R3/FR-013), and
  * lets the whole Action run offline in CI with no token.
  */
 export interface GitHubClient {
-  /** The author identity comments are posted under (for own-comment matching, R5). */
-  getAuthenticatedLogin(): Promise<string | undefined>;
+  /** The identity comments are posted under, for own-comment matching (R5). */
+  getSelfIdentity(): Promise<SelfIdentity>;
   /** The PR's complete changed-file list — fully paginated (R4/FR-003). */
   listPullFiles(): Promise<PrFile[]>;
   /** All PR comments — fully paginated so a later-page comment is not missed (R5). */
@@ -39,36 +59,96 @@ export interface GitHubClient {
 }
 
 /**
- * Locate this Action's own prior comment by BOTH the marker AND author identity
- * (R5/FR-005), across the full (already-paginated) comment list. A foreign comment
- * bearing the marker (different author) is never adopted; the Action's own comment
- * on a later page is still found. Pure — no network.
+ * Whether the marker is exactly the body's first line, rather than merely appearing
+ * somewhere in it.
+ *
+ * Both renderers in `comment.ts` emit the marker as the body's first line, and have
+ * in every revision of that file, so this holds for every comment the Action has ever
+ * posted. It does not hold for the case R5 exists to exclude — a human quoting the
+ * comment, where the marker arrives behind a `>` or below their own prose.
+ *
+ * This is the same ownership test `queue-issue.ts` already applies to the managed
+ * queue issue, including its handling of LF, CRLF, and CR bodies; keeping the two
+ * identical means one rule to reason about across both Actions.
+ */
+function markerLeadsBody(body: string, marker: string): boolean {
+  return body.split(/\r\n|\n|\r/, 1)[0] === marker;
+}
+
+/**
+ * Locate this Action's own prior comment by the marker AND the strongest author
+ * evidence the token affords (R5/FR-005, ADR-0026), across the full (already
+ * paginated) comment list. Pure — no network.
+ *
+ * With a resolved `login`, identity is exact and the marker may sit anywhere. An
+ * `app-installation` token cannot learn its own login at all, so it substitutes two
+ * weaker signals that together still exclude what R5 names: the author must be a
+ * **bot** (never a human quoting the marker) and the marker must be exactly the body's
+ * **first line** (never a quote of the comment). Absent both, nothing is adopted.
+ *
+ * The **last** match wins, not the first. A pull request opened before this fix
+ * carries one comment per push, and the newest is both the one a reader reaches at
+ * the bottom of the thread and the one worth keeping current.
  */
 export function findOwnComment(
   comments: readonly IssueComment[],
   marker: string,
-  selfLogin: string | undefined,
+  identity: SelfIdentity,
 ): IssueComment | undefined {
-  // Without a resolved own identity we must NOT adopt any marker comment: a custom or
-  // GitHub-App token could otherwise edit a comment authored by a different bot,
-  // breaking the marker-AND-own-author rule (R5). Create a fresh comment instead.
-  if (!selfLogin) return undefined;
-  return comments.find(
-    (comment) => typeof comment.body === 'string' && comment.body.includes(marker) && comment.user?.login === selfLogin,
-  );
+  if (identity.kind === 'unknown') return undefined;
+  let own: IssueComment | undefined;
+  for (const comment of comments) {
+    if (typeof comment.body !== 'string') continue;
+    const matches =
+      identity.kind === 'login'
+        ? comment.body.includes(marker) && comment.user?.login === identity.login
+        : comment.user?.type === 'Bot' && markerLeadsBody(comment.body, marker);
+    if (matches) own = comment;
+  }
+  return own;
 }
 
-/** The default GITHUB_TOKEN posts as this bot and cannot call `users.getAuthenticated`. */
-export const DEFAULT_TOKEN_LOGIN = 'github-actions[bot]';
+/**
+ * Whether a failure is GitHub throttling us rather than refusing us.
+ *
+ * This matters because a throttled request also surfaces as 403, and reading that as
+ * "we are an app" would let a rate-limited run claim a comment on the weaker evidence
+ * when it has learned nothing about who it is.
+ */
+function isRateLimited(error: unknown): boolean {
+  const failure = error as
+    | { status?: number; message?: string; response?: { headers?: Record<string, unknown> } }
+    | undefined;
+  if (failure?.status === 429) return true;
+  const remaining = failure?.response?.headers?.['x-ratelimit-remaining'];
+  if (remaining !== undefined && String(remaining) === '0') return true;
+  return typeof failure?.message === 'string' && /rate limit/i.test(failure.message);
+}
 
 /**
- * The author identity to assume when `users.getAuthenticated` is not callable (an
- * installation token). Only the default `GITHUB_TOKEN` may be assumed to be
- * `github-actions[bot]`; any other token yields `undefined` so no existing comment
- * is adopted (R5, RC5).
+ * Classify a failed `users.getAuthenticated` call into the identity we may assume.
+ *
+ * A GitHub App installation token — which the default `GITHUB_TOKEN` is one of — is
+ * refused this endpoint with a permission status ("Resource not accessible by
+ * integration"). That refusal is itself the evidence that the caller is an app, and
+ * therefore a bot. Throttling, a network error, or a 5xx prove nothing, so they yield
+ * `unknown` and no comment is adopted.
  */
-export function fallbackSelfLogin(isDefaultToken: boolean): string | undefined {
-  return isDefaultToken ? DEFAULT_TOKEN_LOGIN : undefined;
+export function identityFromLookupFailure(error: unknown): SelfIdentity {
+  if (isRateLimited(error)) return { kind: 'unknown' };
+  return isPermissionError(error) ? { kind: 'app-installation' } : { kind: 'unknown' };
+}
+
+/** A one-line, log-safe description of the resolved identity. */
+export function describeIdentity(identity: SelfIdentity): string {
+  switch (identity.kind) {
+    case 'login':
+      return `authenticated as ${identity.login}`;
+    case 'app-installation':
+      return 'an app installation token, whose login is not resolvable; matching on the marker and a bot author';
+    case 'unknown':
+      return 'unresolvable';
+  }
 }
 
 export type UpsertOutcome = 'created' | 'updated';
@@ -82,12 +162,23 @@ export async function upsertMarkedComment(
   client: GitHubClient,
   marker: string,
   body: string,
+  log?: IdentityLogger,
 ): Promise<UpsertOutcome> {
-  const [comments, selfLogin] = await Promise.all([
+  const [comments, identity] = await Promise.all([
     client.listIssueComments(),
-    client.getAuthenticatedLogin(),
+    client.getSelfIdentity(),
   ]);
-  const own = findOwnComment(comments, marker, selfLogin);
+  // An unresolvable identity means a duplicate comment on every run, which used to be
+  // indistinguishable from normal operation in the job log (issue #107).
+  if (identity.kind === 'unknown') {
+    log?.warning(
+      'adrkit: could not resolve the token identity, so an existing governing-decisions ' +
+        'comment cannot be claimed; posting a new one instead.',
+    );
+  } else {
+    log?.info(`adrkit: ${describeIdentity(identity)}.`);
+  }
+  const own = findOwnComment(comments, marker, identity);
   if (own) {
     await client.updateComment(own.id, body);
     return 'updated';
@@ -101,22 +192,22 @@ export async function upsertMarkedComment(
  * confined to this factory (and the entrypoint) — the pure logic above never
  * imports the toolkit.
  */
-export function createOctokitClient(token: string, isDefaultToken: boolean): GitHubClient {
+export function createOctokitClient(token: string): GitHubClient {
   const octokit = getOctokit(token);
   const { owner, repo } = context.repo;
   const pullNumber = context.issue.number;
 
   return {
-    async getAuthenticatedLogin() {
+    async getSelfIdentity() {
       try {
         const { data } = await octokit.rest.users.getAuthenticated();
-        return data.login;
-      } catch {
-        // An installation token (incl. the default GITHUB_TOKEN) cannot call
-        // users.getAuthenticated. Only the default token is safe to assume is
-        // github-actions[bot]; any other token yields undefined so we do not adopt
-        // a foreign bot's comment.
-        return fallbackSelfLogin(isDefaultToken);
+        return { kind: 'login', login: data.login };
+      } catch (error) {
+        // An installation token — which the default GITHUB_TOKEN is — cannot call
+        // users.getAuthenticated and is refused with a permission status. That
+        // refusal is the only reliable signal available that the caller is an app
+        // (issue #107 / ADR-0026), so classify it rather than giving up.
+        return identityFromLookupFailure(error);
       }
     },
     async listPullFiles() {

@@ -36,7 +36,7 @@ export interface ActionResult {
 /** Post or update the comment, degrading (not failing) on a comment-permission error. */
 async function comment(deps: ActionDeps, body: string): Promise<UpsertOutcome | 'skipped'> {
   try {
-    const result = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body);
+    const result = await upsertMarkedComment(deps.client, CI_COMMENT_MARKER, body, deps.log);
     deps.log.info(`adrkit: ${result} the governing-decisions comment.`);
     return result;
   } catch (error) {

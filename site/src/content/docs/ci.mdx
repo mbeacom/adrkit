@@ -39,8 +39,37 @@ jobs:
         #   token: ${{ github.token }}
 ```
 
-`v0` is a moving major tag. Pin the immutable `v0.5.0` tag or a commit SHA for
+That snippet is complete — the Action needs no `env:` block. It finds the comment
+it posted on an earlier push and edits it in place, so a pull request carries one
+governing-decisions comment however many times you push ([ADR-0026](/adr/)).
+
+`v0` is a moving major tag. Pin the immutable `v0.6.0` tag or a commit SHA for
 maximum reproducibility.
+
+<Aside type="caution" title="Duplicate comments on v0.6.0 and earlier">
+	Every release **up to and including `v0.6.0`** posts a new comment per push rather
+	than updating its own ([#107](https://github.com/mbeacom/adrkit/issues/107)), and
+	the moving `v0` tag still resolves to one of them. On those versions, add the `env:`
+	block below to restore the single-comment behavior; on any release after `v0.6.0` it
+	is unnecessary and can be removed.
+
+	```yaml
+	- uses: mbeacom/adrkit/packages/ci@v0.6.0
+	  env:
+	    GITHUB_TOKEN: ${{ github.token }}
+	```
+
+	Comments a pull request accumulated *before* you upgrade stay where they are — the
+	Action is comment-only and deletes nothing. It updates the newest of them and leaves
+	the rest for you to delete once.
+</Aside>
+
+<Aside type="caution" title="Pinning a release tag by SHA">
+	The `v*` release tags are **annotated**, so the SHA that `refs/tags/v0.6.0`
+	resolves to is a tag object, and `uses:` rejects it. Pin the commit the tag
+	points *at* — `git rev-parse v0.6.0^{commit}`, or the `object.sha` from
+	`GET /repos/mbeacom/adrkit/git/ref/tags/v0.6.0`.
+</Aside>
 
 ## Publish the ARB operations queue
 

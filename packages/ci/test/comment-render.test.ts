@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { checkChanges, lintCorpus, readSourceMarkersBatch } from '@adrkit/core';
 import { acceptedRecordMarkdown, cleanupTestDir, recordMarkdown, resetTestDir, supersededRecordMarkdown, writeText } from '../../core/test/helpers.ts';
-import { CI_COMMENT_MARKER, renderComment } from '../src/comment.ts';
+import { CI_COMMENT_MARKER, renderComment, renderTruncatedNotice } from '../src/comment.ts';
 
 const DIR_NAME = 'ci-comment-render';
 
@@ -362,5 +362,28 @@ describe('renderComment status awareness (#39)', () => {
 
     expect(body).toContain('No **accepted** decisions govern the changed files.');
     expect(body).toContain('#### Active proposals touching this change');
+  });
+});
+
+/**
+ * ADR-0026 makes this load-bearing rather than incidental: an app installation token
+ * cannot learn its own login, so it claims its prior comment by the marker *leading*
+ * the body plus a bot author. Every renderer must therefore lead with the marker, or
+ * the Action silently returns to a fresh comment per push (issue #107).
+ */
+describe('the marker leads the body (ADR-0026)', () => {
+  test('renderComment leads with the marker, with nothing before it', async () => {
+    const root = await seed();
+    const body = renderComment(await outcomeFor(root, ['packages/api/src/server.ts']));
+
+    expect(body.startsWith(CI_COMMENT_MARKER)).toBe(true);
+    expect(body.indexOf(CI_COMMENT_MARKER)).toBe(0);
+  });
+
+  test('renderTruncatedNotice leads with the marker too', () => {
+    const body = renderTruncatedNotice();
+
+    expect(body.startsWith(CI_COMMENT_MARKER)).toBe(true);
+    expect(body.indexOf(CI_COMMENT_MARKER)).toBe(0);
   });
 });
