@@ -112,10 +112,15 @@ export function parseSignoffs(message: string): Signoff[] {
   return found;
 }
 
+/** Case-insensitive, whitespace-tolerant equality on the name half of an identity. */
+function sameName(signoff: Signoff, identity: Identity): boolean {
+  return signoff.name.trim().toLowerCase() === identity.name.trim().toLowerCase();
+}
+
 /** Case-insensitive, whitespace-tolerant equality on both halves of an identity. */
 function matchesIdentity(signoff: Signoff, identity: Identity): boolean {
   return (
-    signoff.name.trim().toLowerCase() === identity.name.trim().toLowerCase() &&
+    sameName(signoff, identity) &&
     signoff.email.trim().toLowerCase() === identity.email.trim().toLowerCase()
   );
 }
@@ -157,11 +162,13 @@ function render(identity: Identity): string {
  *   sign-off that names nobody who touched the commit, so it rejects nothing a
  *   well-formed trailer produces.
  * - **A bot still has to sign.** The app skips app-authored commits outright.
- *   They are exempted here from the *identity* match only, because a bot signs
- *   from a service address — Dependabot's author is
+ *   They are exempted here from the *address* half of the match only, because a
+ *   bot signs from a service address — Dependabot's author is
  *   `dependabot[bot] <…+dependabot[bot]@users.noreply.github.com>` while it signs
  *   `dependabot[bot] <support@github.com>`, so the two cannot be equal by
- *   construction. Presence is still checked, which is strictly stronger.
+ *   construction. The trailer must still *name* the bot, or the exemption would
+ *   accept an unrelated person's signature on a bot's commit and report it as
+ *   the app account's.
  *
  * Merge commits are exempt: their content is certified by the commits they
  * merge, and the person who ran `git merge` authored none of it.
@@ -192,15 +199,27 @@ export function findDcoViolations(commits: readonly Commit[]): DcoReport {
       continue;
     }
 
+    // An app account signs from a service address — Dependabot authors as
+    // `dependabot[bot] <…+dependabot[bot]@users.noreply.github.com>` and signs as
+    // `dependabot[bot] <support@github.com>` — so the address cannot match by
+    // construction. The *name* still can, and requiring it is what stops the
+    // exemption from accepting an unrelated person's trailer on a bot's commit
+    // and then reporting it as "signed by the app account".
     if (isBotIdentity(commit.author)) {
-      exemptions.push({
-        sha,
-        subject,
-        author,
-        reason: 'bot',
-        detail: `signed by the app account as ${render(signoffs[0] as Signoff)}`,
-      });
-      continue;
+      const byBot = signoffs.find((signoff) => sameName(signoff, commit.author));
+      if (byBot) {
+        exemptions.push({
+          sha,
+          subject,
+          author,
+          reason: 'bot',
+          detail: `signed by the app account as ${render(byBot)}`,
+        });
+        continue;
+      }
+      // Nothing here names the bot. Fall through to the identity match so this
+      // fails with the precise mismatch below, rather than being waved through
+      // on a signature that certifies somebody else's work.
     }
 
     const matched = signoffs.some(
@@ -212,12 +231,17 @@ export function findDcoViolations(commits: readonly Commit[]): DcoReport {
       continue;
     }
 
+    // Name both identities when they differ. The classifier accepts either, so a
+    // message naming only the author omits a valid way to fix the commit.
+    const committer = render(commit.committer);
+    const expected =
+      author.toLowerCase() === committer.toLowerCase() ? `"${author}"` : `"${author}" or "${committer}"`;
     const got = signoffs.map((signoff) => `"${render(signoff)}"`).join(', ');
     violations.push({
       sha,
       subject,
       author,
-      detail: `expected a sign-off by "${author}", but got ${got}`,
+      detail: `expected a sign-off by ${expected}, but got ${got}`,
     });
   }
 
@@ -313,7 +337,7 @@ function main(argv: readonly string[]): void {
       .join('\n\n');
     throw new Error(
       `${report.violations.length} of ${report.examined} commit(s) lack a valid DCO sign-off:\n\n${detail}\n\n` +
-        `Every commit needs "Signed-off-by: Your Name <your@email>" matching its author.\n` +
+        `Every commit needs "Signed-off-by: Your Name <your@email>" naming its author or its committer.\n` +
         `Sign the whole branch and force-push:\n` +
         `  git rebase --signoff ${range.split('..')[0]}\n` +
         `See CONTRIBUTING.md and https://developercertificate.org/.`,

@@ -27,10 +27,10 @@ Until `1.0.0`, minor releases may include breaking changes
   deliberate differences: a sign-off's **name and address must come from one identity**
   (the app takes the name from either the author or the committer and the address from
   either, so a web-UI commit signed `Jane Doe <noreply@github.com>` passes there), and
-  a **bot still has to sign** — app accounts are exempt from the identity match only,
+  a **bot still has to sign** — app accounts are exempt from the *address* half only,
   because Dependabot signs from `support@github.com` and cannot equal its own author
-  address, but presence is still checked. Every exemption is named in the job output,
-  so a commit is never skipped silently.
+  address by construction, but the trailer must still name the bot. Every exemption is
+  named in the job output, so a commit is never skipped silently.
 
   **The squash-merge body setting moved from `BLANK` to `COMMIT_MESSAGES`.** A
   pull-request check certifies the *contributor*, which is what the DCO is for, but a

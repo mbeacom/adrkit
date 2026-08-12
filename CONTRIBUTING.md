@@ -64,8 +64,8 @@ git push --force-with-lease
 
 The trailer must name you: `Signed-off-by: Your Name <your@email>`, matching the
 commit's author or committer exactly. Merge commits are exempt — the commits they
-merge carry the certification. Bot accounts are exempt from the identity match
-only, because they sign from a service address; they still have to sign.
+merge carry the certification. Bot accounts are exempt from the address half only,
+because they sign from a service address; their trailer must still name them.
 
 ## Two hard rules
 

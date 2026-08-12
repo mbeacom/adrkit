@@ -182,7 +182,6 @@ describe('findDcoViolations', () => {
       'expected a sign-off by "Jane Doe <jane@example.com>", but got "Sam Roe <sam@example.com>"',
     );
   });
-
   // Negative case for pairing the halves of an identity. The DCO app takes the
   // name from either side and the address from either side, so this exact commit
   // passes there: `Jane Doe` is the author's name and `noreply@github.com` the
@@ -224,8 +223,8 @@ describe('findDcoViolations', () => {
   });
 
   // Negative case for the one place this is stricter than the DCO app, which
-  // skips app-authored commits outright. Exempting the identity match must not
-  // silently exempt presence too.
+  // skips app-authored commits outright. Exempting the address must not silently
+  // exempt presence too.
   test('rejects an app account that did not sign at all', () => {
     const report = findDcoViolations([
       commit({ author: DEPENDABOT, committer: WEB_FLOW, message: 'build(deps): bump x\n' }),
@@ -233,6 +232,64 @@ describe('findDcoViolations', () => {
     expect(report.exemptions).toEqual([]);
     expect(report.violations).toHaveLength(1);
     expect(report.violations[0]?.detail).toBe('the sign-off is missing');
+  });
+
+  // Negative case: exempting only the *address* is the point. A presence-only
+  // exemption accepts an unrelated person's trailer on a bot's commit and then
+  // reports it as "signed by the app account" — a report asserting something it
+  // never checked, which is the ADR-0016 failure the exemption exists inside.
+  test('rejects an app account whose only sign-off names somebody else', () => {
+    const report = findDcoViolations([
+      commit({
+        author: DEPENDABOT,
+        committer: WEB_FLOW,
+        message: 'build(deps): bump x\n\nSigned-off-by: Jane Doe <jane@example.com>\n',
+      }),
+    ]);
+    expect(report.exemptions).toEqual([]);
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]?.detail).toContain('dependabot[bot]');
+    expect(report.violations[0]?.detail).toContain('but got "Jane Doe <jane@example.com>"');
+  });
+
+  test('exempts an app account on the trailer that names it, among several', () => {
+    const report = findDcoViolations([
+      commit({
+        author: DEPENDABOT,
+        committer: WEB_FLOW,
+        message:
+          'build(deps): bump x\n\nSigned-off-by: Jane Doe <jane@example.com>\nSigned-off-by: dependabot[bot] <support@github.com>\n',
+      }),
+    ]);
+    expect(report.violations).toEqual([]);
+    expect(report.exemptions[0]?.detail).toBe(
+      'signed by the app account as dependabot[bot] <support@github.com>',
+    );
+  });
+
+  // The classifier accepts a sign-off matching the author *or* the committer, so
+  // a diagnostic naming only the author omits a valid way to fix the commit.
+  test('names both identities in the diagnostic when they differ', () => {
+    const report = findDcoViolations([
+      commit({
+        author: { name: 'Sam Roe', email: 'sam@example.com' },
+        committer: WEB_FLOW,
+        message: 'feat: a thing\n\nSigned-off-by: Nobody Here <nobody@example.com>\n',
+      }),
+    ]);
+    expect(report.violations[0]?.detail).toBe(
+      'expected a sign-off by "Sam Roe <sam@example.com>" or "GitHub <noreply@github.com>", ' +
+        'but got "Nobody Here <nobody@example.com>"',
+    );
+  });
+
+  test('names one identity when author and committer are the same', () => {
+    const report = findDcoViolations([
+      commit({ message: 'feat: a thing\n\nSigned-off-by: Nobody Here <nobody@example.com>\n' }),
+    ]);
+    expect(report.violations[0]?.detail).toBe(
+      'expected a sign-off by "Jane Doe <jane@example.com>", but got "Nobody Here <nobody@example.com>"',
+    );
   });
 
   test('reports every commit it examined, not only the failing ones', () => {
