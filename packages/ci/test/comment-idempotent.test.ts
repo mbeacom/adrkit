@@ -255,8 +255,24 @@ describe('findOwnComment (pure)', () => {
 });
 
 describe('identityFromLookupFailure (token identity guard)', () => {
-  test.each([401, 403, 404])('a %i from /user means an app installation token', (status) => {
-    expect(identityFromLookupFailure({ status })).toEqual({ kind: 'app-installation' });
+  test('the integration refusal is app evidence, whatever status carries it', () => {
+    expect(
+      identityFromLookupFailure({ status: 403, message: 'Resource not accessible by integration' }),
+    ).toEqual({ kind: 'app-installation' });
+    expect(identityFromLookupFailure({ message: 'Resource not accessible by integration' })).toEqual({
+      kind: 'app-installation',
+    });
+  });
+
+  test('a bare 403 is app evidence, so a reworded message cannot reintroduce #107', () => {
+    expect(identityFromLookupFailure({ status: 403 })).toEqual({ kind: 'app-installation' });
+  });
+
+  // 401 is invalid/expired credentials and 404 is not a documented response of this
+  // endpoint. Reading either as "we are an app" would hand the weaker bot-plus-marker
+  // rule to a credential that is not an app, which is the exposure this narrowing closes.
+  test.each([401, 404])('a %i is not app evidence; identity stays unknown', (status) => {
+    expect(identityFromLookupFailure({ status })).toEqual({ kind: 'unknown' });
   });
 
   test('any other failure proves nothing, so the identity stays unknown', () => {

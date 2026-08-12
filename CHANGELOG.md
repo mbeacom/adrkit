@@ -96,7 +96,9 @@ Until `1.0.0`, minor releases may include breaking changes
   new one on every push** ([#107](https://github.com/mbeacom/adrkit/issues/107),
   [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)).
   **If you added `env: GITHUB_TOKEN: ${{ github.token }}` as a workaround, you can
-  remove it.** Comments a pull request accumulated before upgrading stay put — the
+  remove it once you are on this release** — it becomes a no-op rather than a
+  requirement, so leaving it costs nothing. Comments a pull request accumulated before
+  upgrading stay put — the
   Action deletes nothing; it updates the newest and leaves the rest for you to clear
   once. A long-lived pull request previously gained one near-identical comment per
   push, which is the exact anti-pattern the hidden `<!-- adrkit:ci -->` marker exists

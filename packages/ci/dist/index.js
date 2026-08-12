@@ -48767,10 +48767,15 @@ function isRateLimited(error52) {
     return true;
   return typeof failure?.message === "string" && /rate limit/i.test(failure.message);
 }
+var INTEGRATION_REFUSAL = /not accessible by integration/i;
 function identityFromLookupFailure(error52) {
   if (isRateLimited(error52))
     return { kind: "unknown" };
-  return isPermissionError(error52) ? { kind: "app-installation" } : { kind: "unknown" };
+  const failure = error52;
+  if (typeof failure?.message === "string" && INTEGRATION_REFUSAL.test(failure.message)) {
+    return { kind: "app-installation" };
+  }
+  return failure?.status === 403 ? { kind: "app-installation" } : { kind: "unknown" };
 }
 function describeIdentity(identity2) {
   switch (identity2.kind) {

@@ -117,13 +117,23 @@ three-way classification, and match with the strength that evidence supports.
 | Identity | How it arises | Match rule |
 |---|---|---|
 | `login` | `users.getAuthenticated` answered | marker anywhere in the body **and** `user.login` equals it |
-| `app-installation` | that call was refused with 401/403/404 and the run was not throttled | `user.type === "Bot"` **and** the marker is exactly the body's **first line** |
-| `unknown` | it failed any other way, including a throttled 403 | nothing is adopted |
+| `app-installation` | that call was refused with 403 "Resource not accessible by integration" (or a bare 403), and the run was not throttled | `user.type === "Bot"` **and** the marker is exactly the body's **first line** |
+| `unknown` | it failed any other way — 401, 404, a throttled 403, a 5xx, a network error | nothing is adopted |
 
 A permission-shaped refusal of `users.getAuthenticated` is not an absence of
 information. It is exactly how an app installation token is refused, so it is positive
 evidence that the caller is an app and therefore a **bot**. That is one of the two
 signals FR-005 wanted, and it is the one that excludes the case FR-005 named — a human.
+
+The classifier is deliberately narrower than `isPermissionError`, which folds 401 and
+404 in with 403 because at the top of the Action either answer means "we cannot
+comment". Here the answer decides *how much author evidence a comment needs*, so
+breadth is not free: 401 is invalid or expired credentials and 404 is not a documented
+response of this endpoint, and reading either as "we are an app" would hand the weaker
+bot-plus-marker rule to a credential that is not an app at all. The message is the
+definitive signal and the status is the fallback, in that order — keying solely on the
+message would make this fix hostage to an English string GitHub may reword, which is
+the failure this record exists to prevent.
 
 The second signal replaces the login. Both renderers in `comment.ts` emit
 `<!-- adrkit:ci -->` as the body's **first line**, and have in every revision of that

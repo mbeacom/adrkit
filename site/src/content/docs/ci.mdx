@@ -34,34 +34,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mbeacom/adrkit/packages/ci@v0
+        env:
+          # Needed only through v0.6.0, which `@v0` still resolves to; without it
+          # those versions post a new comment per push (#107). Harmless to keep
+          # afterwards — later versions never read it to identify the token.
+          GITHUB_TOKEN: ${{ github.token }}
         # with:
         #   dir: docs/adr          # ADR corpus directory (default: docs/adr)
         #   token: ${{ github.token }}
 ```
 
-That snippet is complete — the Action needs no `env:` block. It finds the comment
-it posted on an earlier push and edits it in place, so a pull request carries one
-governing-decisions comment however many times you push ([ADR-0026](/adr/)).
+The Action finds the comment it posted on an earlier push and edits it in place, so a
+pull request carries one governing-decisions comment however many times you push
+([ADR-0026](/adr/)). Releases **through `v0.6.0` cannot do this on their own** and need
+the `env:` block above ([#107](https://github.com/mbeacom/adrkit/issues/107)); once
+`@v0` moves past `v0.6.0` the block becomes a no-op you may drop.
 
-`v0` is a moving major tag. Pin the immutable `v0.6.0` tag or a commit SHA for
-maximum reproducibility.
+`v0` is a moving major tag — it currently resolves to the `v0.6.0` commit `c5dc677`.
+Pin the immutable `v0.6.0` tag or a commit SHA for maximum reproducibility.
 
-<Aside type="caution" title="Duplicate comments on v0.6.0 and earlier">
-	Every release **up to and including `v0.6.0`** posts a new comment per push rather
-	than updating its own ([#107](https://github.com/mbeacom/adrkit/issues/107)), and
-	the moving `v0` tag still resolves to one of them. On those versions, add the `env:`
-	block below to restore the single-comment behavior; on any release after `v0.6.0` it
-	is unnecessary and can be removed.
+<Aside type="note" title="Comments from before the upgrade">
+	The Action is comment-only and deletes nothing, so copies a pull request already
+	accumulated stay where they are. It updates the newest of them and leaves the rest
+	for you to delete once.
+</Aside>
 
-	```yaml
-	- uses: mbeacom/adrkit/packages/ci@v0.6.0
-	  env:
-	    GITHUB_TOKEN: ${{ github.token }}
+<Aside type="caution" title="Pinning a release tag by SHA">
+	The `v*` release tags are **annotated**, so `refs/tags/v0.6.0` resolves to a tag
+	object rather than a commit, and `uses:` rejects that SHA. Pin the commit the tag
+	points *at*:
+
+	```sh
+	git rev-parse v0.6.0^{commit}
+	# or, over the API — this endpoint peels the tag for you:
+	gh api repos/mbeacom/adrkit/commits/v0.6.0 --jq .sha
 	```
 
-	Comments a pull request accumulated *before* you upgrade stay where they are — the
-	Action is comment-only and deletes nothing. It updates the newest of them and leaves
-	the rest for you to delete once.
+	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag
+	object, which is exactly the value `uses:` will not take.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">

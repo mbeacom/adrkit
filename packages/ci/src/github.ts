@@ -125,18 +125,37 @@ function isRateLimited(error: unknown): boolean {
   return typeof failure?.message === 'string' && /rate limit/i.test(failure.message);
 }
 
+/** How GitHub words its refusal of an endpoint an installation token may not call. */
+const INTEGRATION_REFUSAL = /not accessible by integration/i;
+
 /**
  * Classify a failed `users.getAuthenticated` call into the identity we may assume.
  *
  * A GitHub App installation token — which the default `GITHUB_TOKEN` is one of — is
- * refused this endpoint with a permission status ("Resource not accessible by
- * integration"). That refusal is itself the evidence that the caller is an app, and
- * therefore a bot. Throttling, a network error, or a 5xx prove nothing, so they yield
- * `unknown` and no comment is adopted.
+ * refused this endpoint with **403 "Resource not accessible by integration"**. That
+ * refusal is the evidence that the caller is an app, and therefore a bot.
+ *
+ * Deliberately narrower than {@link isPermissionError}, which folds in 401 and 404
+ * because at the top of the Action either means "we cannot comment". Here the answer
+ * decides how much author evidence a comment needs, so breadth is not free: 401 is
+ * invalid or expired credentials and 404 is not a documented response of this
+ * endpoint, and reading either as "we are an app" would hand the weaker
+ * bot-plus-marker rule to a credential that is not an app at all.
+ *
+ * The message is the definitive signal and the status is the fallback, in that order.
+ * Keying solely on the message would make a fix for
+ * [#107](https://github.com/mbeacom/adrkit/issues/107) hostage to an English string
+ * GitHub may reword; keying solely on the status would miss a refusal delivered with
+ * a status this does not anticipate. Throttling, a network error, and a 5xx prove
+ * nothing about identity, so they yield `unknown` and no comment is adopted.
  */
 export function identityFromLookupFailure(error: unknown): SelfIdentity {
   if (isRateLimited(error)) return { kind: 'unknown' };
-  return isPermissionError(error) ? { kind: 'app-installation' } : { kind: 'unknown' };
+  const failure = error as { status?: number; message?: string } | undefined;
+  if (typeof failure?.message === 'string' && INTEGRATION_REFUSAL.test(failure.message)) {
+    return { kind: 'app-installation' };
+  }
+  return failure?.status === 403 ? { kind: 'app-installation' } : { kind: 'unknown' };
 }
 
 /** A one-line, log-safe description of the resolved identity. */
