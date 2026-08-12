@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0007"
 title: Isolate integrations as optional adapters and build only against public surfaces
-status: proposed
+status: accepted
 date: 2026-07-18
 deciders: ["@mbeacom"]
 tags: [architecture, packaging, governance, ip-hygiene]
@@ -27,6 +27,8 @@ review:
     boundary for the repository. Expensive to reverse once adapters exist.
   queuedAt: 2026-07-28T00:00:00Z
   slaDays: 30
+  approvals: ["@mbeacom"]
+  decidedAt: 2026-08-12T12:00:00Z
 assertions:
   - id: core-has-no-adapter-deps
     description: >-
@@ -158,9 +160,9 @@ mostly selecting for adapters that were viable anyway.
 
 ## Action items
 
-1. [ ] `packages/adapters/` with a documented plugin contract
-2. [ ] `core-has-no-adapter-deps` as a dependency-graph check in CI
-3. [ ] `clean-clone-builds` job running with no credentials in the environment
-4. [ ] Adapter release matrix pinning tested upstream versions
-5. [ ] CONTRIBUTING.md states the public-surface rule as a contribution
+1. [x] `packages/adapters/` with a documented plugin contract
+2. [x] `core-has-no-adapter-deps` as a dependency-graph check in CI
+3. [x] `clean-clone-builds` job running with no credentials in the environment
+4. [x] Adapter release matrix pinning tested upstream versions
+5. [x] CONTRIBUTING.md states the public-surface rule as a contribution
        requirement, not a preference

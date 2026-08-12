@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0009"
 title: Pin affects resolution semantics and bind entity refs to pluggable catalogs
-status: proposed
+status: accepted
 date: 2026-07-18
 deciders: ["@mbeacom"]
 tags: [schema, core, matching, catalog]
@@ -25,6 +25,8 @@ review:
     changes which decisions govern which code.
   queuedAt: 2026-07-28T00:00:00Z
   slaDays: 30
+  approvals: ["@mbeacom"]
+  decidedAt: 2026-08-12T12:00:00Z
 assertions:
   - id: resolution-is-pure
     description: >-
@@ -175,10 +177,12 @@ actionable rather than to suppress it.
 
 ## Action items
 
-1. [ ] Resolver in `packages/core/src/affects/`, pure, exhaustively unit-tested
-2. [ ] `resolution-is-pure` assertion wired into CI
-3. [ ] Conformance fixture suite — matcher set + file list + expected match, as
+1. [x] Resolver in `packages/core/src/affects/`, pure, exhaustively unit-tested
+2. [x] `resolution-is-pure` assertion wired into CI
+3. [x] Conformance fixture suite — matcher set + file list + expected match, as
        published test data other implementations can run
-4. [ ] Catalog port interface, with both adapters stubbed against public docs
-5. [ ] `adr explain <file>` — print every governing decision and the matcher
+4. [x] Catalog port interface, with both adapters stubbed against public docs
+       — port shipped with `catalog-backstage` as the reference implementation;
+       the cloud-catalog adapter is deliberately deferred per the Decision above.
+5. [x] `adr explain <file>` — print every governing decision and the matcher
        that fired, because an unexplainable match is as bad as a wrong one

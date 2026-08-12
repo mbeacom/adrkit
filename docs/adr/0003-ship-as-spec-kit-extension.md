@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0003"
 title: Ship as a Spec Kit extension plus a standalone CLI, not a competing harness
-status: proposed
+status: accepted
 date: 2026-07-18
 deciders: ["@mbeacom"]
 tags: [strategy, integration, distribution]
@@ -23,6 +23,8 @@ review:
   tierReason: Determines distribution strategy and primary adoption channel.
   queuedAt: 2026-07-28T00:00:00Z
   slaDays: 30
+  approvals: ["@mbeacom"]
+  decidedAt: 2026-08-12T12:00:00Z
 externalRefs:
   - type: doc
     url: https://github.github.com/spec-kit/

@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0008"
 title: Migrate MADR corpora in place and treat all other imports as one-way with a re-import diff
-status: proposed
+status: accepted
 date: 2026-07-18
 deciders: ["@mbeacom"]
 tags: [import, migration, interop, adoption]
@@ -25,6 +25,8 @@ review:
     earned. Low technical risk, high governance risk.
   queuedAt: 2026-07-28T00:00:00Z
   slaDays: 30
+  approvals: ["@mbeacom"]
+  decidedAt: 2026-08-12T12:00:00Z
 ---
 
 # ADR-0008: Migrate MADR corpora in place and treat all other imports as one-way with a re-import diff
@@ -157,9 +159,9 @@ decision-log adapter, not here.
 
 ## Action items
 
-1. [ ] `import-incomplete` lint rule (schema support already lands in ADR-0002)
-2. [ ] `adr migrate --from madr`, idempotent, in place, body untouched
-3. [ ] Fingerprint + four-bucket classifier in `packages/core/src/import/`
+1. [x] `import-incomplete` lint rule (schema support already lands in ADR-0002)
+2. [x] `adr migrate --from madr`, idempotent, in place, body untouched
+3. [x] Fingerprint + four-bucket classifier in `packages/core/src/import/`
 4. [ ] Re-import emits a PR with a divergence report; never a direct write
-5. [ ] Round-trip explicitly documented as unsupported, with this record as the
+5. [x] Round-trip explicitly documented as unsupported, with this record as the
        reason

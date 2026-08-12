@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0006"
 title: License Apache-2.0 with a DCO and develop in a single monorepo
-status: proposed
+status: accepted
 date: 2026-07-18
 deciders: ["@mbeacom"]
 tags: [licensing, governance, repo]
@@ -23,6 +23,8 @@ review:
   tierReason: Licensing is effectively irreversible once external contributions land.
   queuedAt: 2026-07-28T00:00:00Z
   slaDays: 30
+  approvals: ["@mbeacom"]
+  decidedAt: 2026-08-12T12:00:00Z
 ---
 
 # ADR-0006: License Apache-2.0 with a DCO and develop in a single monorepo
@@ -144,10 +146,11 @@ sense if standardization is genuinely the goal — which ADR-0002 asserts it is.
 
 ## Action items
 
-1. [ ] LICENSE, NOTICE, per-package `license` fields
+1. [x] LICENSE, NOTICE, per-package `license` fields
 2. [ ] DCO bot enabled on the repository
-3. [ ] `schema/LICENSE` (CC0) with the carve-out stated plainly in the README
-4. [ ] SECURITY.md and CODE_OF_CONDUCT.md before the repository goes public
+3. [x] `schema/LICENSE` (CC0) with the carve-out stated plainly in the README
+4. [x] SECURITY.md and CODE_OF_CONDUCT.md before the repository goes public
 5. [ ] Resolve external participation obligations before first public push
-6. [ ] Register a namespace-independent domain for the schema `$id`, or accept
+6. [x] Register a namespace-independent domain for the schema `$id`, or accept
        that the schema hostname is fixed for the life of the major version
+       — resolved by `https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json`.

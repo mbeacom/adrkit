@@ -46,6 +46,45 @@ Until `1.0.0`, minor releases may include breaking changes
   at the queue Action for deadline pressure, since a badge cannot detect its own
   staleness and an issue can notify.
 
+### Changed
+
+- **Ratified the five foundational ADRs that the corpus had already been building
+  on**: [ADR-0003](docs/adr/0003-ship-as-spec-kit-extension.md) (Spec Kit extension
+  plus standalone CLI), [ADR-0006](docs/adr/0006-license-apache-2-and-single-monorepo.md)
+  (Apache-2.0, DCO, monorepo), [ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md)
+  (adapter isolation and the public-surface build),
+  [ADR-0008](docs/adr/0008-import-and-migration-semantics.md) (MADR migration and
+  one-way import), and [ADR-0009](docs/adr/0009-affects-resolution-and-catalog-binding.md)
+  (`affects` resolution and catalog binding) move from `proposed` to `accepted`.
+
+  **This closed a governance inversion, not a formality.** Nine accepted records
+  already relied on ADR-0007 and six on ADR-0009, and two of them narrowed clauses
+  of records that had never been ratified — ADR-0013 amends both, ADR-0012 refines
+  ADR-0009. Accepted decisions were resting on a `proposed` foundation. Each of the
+  five was verified against the tree before ratification rather than on the strength
+  of its own checkboxes: ADR-0007's two assertions run as the `clean-clone-builds`
+  CI job and `scripts/check-deps.ts`, ADR-0009's five deliverables all exist
+  (`core/src/affects/`, the purity test, `test/conformance/`, the catalog port with
+  `catalog-backstage`, and `adr explain`), and ADR-0006 is irreversible in fact
+  because the repository is already public.
+
+  Ratification is recorded on each record as `review.decidedAt` and
+  `review.approvals`, the first use of either field in this corpus, so the audit
+  trail says when the decision was taken and by whom rather than leaving `status`
+  to carry it alone. Stale action-item checkboxes were corrected to match verified
+  reality; items that are genuinely open were left unchecked, including ADR-0006's
+  DCO bot, which is documented in CONTRIBUTING.md but runs no check on pull
+  requests, and ADR-0008's re-import pull request, which is unbuilt because
+  non-MADR re-import is unbuilt.
+
+  **ARB queue depth drops from 6 to 1**, which the queue-depth badge reads from
+  `$.totalItems`. [ADR-0005](docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md)
+  deliberately stays `proposed`: only Pass 0 of its four passes exists, and the
+  record carries a `SOC2 CC8.1` control plus a standing commitment to publish
+  escalation precision and recall each release. Ratifying it would assert a
+  compliance obligation the project cannot yet compute. Its `reviewBy` of
+  2027-01-18 leaves room to ship Passes 1–3 first.
+
 ## [0.6.0] - 2026-08-11
 
 ### Added
