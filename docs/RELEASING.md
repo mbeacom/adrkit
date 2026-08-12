@@ -263,7 +263,12 @@ bootstrap described below.
    Leave *historical* statements alone ("expanded in v0.5.0" records when something
    happened and stays true). This drifts silently: v0.6.0 shipped with all three
    site surfaces still advertising v0.5.0, so the hosted docs were a release behind
-   for anyone reading them.
+   for anyone reading them. Check `MANIFEST.md`'s inventory and its Verification
+   counts against the corpus in the same pass — it is hand-maintained
+   ([#131](https://github.com/mbeacom/adrkit/issues/131)) and drifts the same way; it
+   was missing ADR-0026 and understating the record and accepted counts by one when
+   v0.7.0 was cut. `ls docs/adr/*.md | wc -l` and
+   `grep -h '^status:' docs/adr/*.md | sort | uniq -c` give the numbers to compare.
 5. Merge the version change only after CI passes.
 6. Create and push the matching annotated tag, such as `v0.3.0`.
 7. Approve the protected `npm` environment deployment.

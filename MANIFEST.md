@@ -65,7 +65,8 @@ adrkit/
         ├── 0022  scan markers in check and CI, no authority accepted
         ├── 0023  read a marker only where the format hides it accepted
         ├── 0024  report the measured scan extent            accepted
-        └── 0025  badges as recipes over existing output     accepted
+        ├── 0025  badges as recipes over existing output     accepted
+        └── 0026  identify the CI comment by token evidence  accepted
 ```
 
 ## Known-open, deliberately
@@ -100,8 +101,8 @@ independent of the GitHub namespace and unaffected either way.
 
 ## Verification
 
-26 files under `docs/adr/` — the template plus 25 records, ids 0001–0025, no
-gaps. All at schema 0.1.0: 23 accepted, 1 proposed, 1 superseded, and the
+27 files under `docs/adr/` — the template plus 26 records, ids 0001–0026, no
+gaps. All at schema 0.1.0: 24 accepted, 1 proposed, 1 superseded, and the
 template at `draft`.
 No dangling `relatesTo`. No one-way door on the auto tier. No accepted record
 without a decider or an import provenance. JSON Schema and Zod agree on property
