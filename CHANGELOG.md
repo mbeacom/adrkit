@@ -9,6 +9,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-12
+
 ### Added
 
 - **DCO sign-off is enforced, not just documented** ([ADR-0006](docs/adr/0006-license-apache-2-and-single-monorepo.md)
@@ -727,7 +729,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/mbeacom/adrkit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mbeacom/adrkit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mbeacom/adrkit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mbeacom/adrkit/compare/v0.3.0...v0.4.0

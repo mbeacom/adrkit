@@ -1,6 +1,6 @@
 {
   "name": "@adrkit/cli",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Git-native architecture decision record tooling from adrkit.",
   "type": "module",
   "license": "Apache-2.0",

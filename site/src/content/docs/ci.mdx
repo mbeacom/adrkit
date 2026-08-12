@@ -34,11 +34,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mbeacom/adrkit/packages/ci@v0
-        env:
-          # Needed only through v0.6.0, which `@v0` still resolves to; without it
-          # those versions post a new comment per push (#107). Harmless to keep
-          # afterwards — later versions never read it to identify the token.
-          GITHUB_TOKEN: ${{ github.token }}
         # with:
         #   dir: docs/adr          # ADR corpus directory (default: docs/adr)
         #   token: ${{ github.token }}
@@ -46,12 +41,14 @@ jobs:
 
 The Action finds the comment it posted on an earlier push and edits it in place, so a
 pull request carries one governing-decisions comment however many times you push
-([ADR-0026](/adr/)). Releases **through `v0.6.0` cannot do this on their own** and need
-the `env:` block above ([#107](https://github.com/mbeacom/adrkit/issues/107)); once
-`@v0` moves past `v0.6.0` the block becomes a no-op you may drop.
+([ADR-0026](/adr/)). Releases **through `v0.6.0` could not do this on their own** and
+needed an `env: GITHUB_TOKEN: ${{ github.token }}` block
+([#107](https://github.com/mbeacom/adrkit/issues/107)). `@v0` now resolves to `v0.7.0`,
+so that block is no longer required — and costs nothing if you still have it, because
+the Action never reads the variable to identify its token.
 
-`v0` is a moving major tag, and it still resolves to a `v0.6.0` build. Pin the
-immutable `v0.6.0` tag or a commit SHA for maximum reproducibility.
+`v0` is a moving major tag, and it now resolves to a `v0.7.0` build. Pin the
+immutable `v0.7.0` tag or a commit SHA for maximum reproducibility.
 
 <Aside type="note" title="Comments from before the upgrade">
 	The Action is comment-only and deletes nothing, so duplicate comments a pull request
@@ -60,14 +57,14 @@ immutable `v0.6.0` tag or a commit SHA for maximum reproducibility.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">
-	The `v*` release tags are **annotated**, so `refs/tags/v0.6.0` resolves to a tag
+	The `v*` release tags are **annotated**, so `refs/tags/v0.7.0` resolves to a tag
 	object rather than a commit, and `uses:` rejects that SHA. Pin the commit the tag
 	points *at*:
 
 	```sh
-	git rev-parse v0.6.0^{commit}
+	git rev-parse v0.7.0^{commit}
 	# or, over the API — this endpoint peels the tag for you:
-	gh api repos/mbeacom/adrkit/commits/v0.6.0 --jq .sha
+	gh api repos/mbeacom/adrkit/commits/v0.7.0 --jq .sha
 	```
 
 	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag

@@ -227,7 +227,7 @@ different artifact from a heading convention. That is the whole thesis.
 
 Early, under active development, and deliberately honest about what is proven.
 
-- **Published — v0.5.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
+- **Published — v0.7.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
   the deterministic Pass 0 `@adrkit/evaluator`, and the read-only `@adrkit/mcp`
   server are all implemented and released. The MCP server speaks both protocol
   eras and passed real-session dogfood against the published artifact on each,

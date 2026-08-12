@@ -42,24 +42,20 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # full history for the merge-base changed-file diff
       - uses: mbeacom/adrkit/packages/ci@v0     # @adrkit/ci Action (runs.using: node24)
-        env:
-          # Required only through v0.6.0, which `@v0` still resolves to; a no-op after.
-          GITHUB_TOKEN: ${{ github.token }}
         with:
           dir: docs/adr
           # token defaults to ${{ github.token }} — no other secret required
 ```
 
-The `env:` block is a transitional requirement, not part of the design. Through v0.6.0
-this workflow needed it to keep one comment, because comment identity was gated on
-recognising the default token by comparing it against that variable — a comparison the
-documented workflow could never satisfy
+An `env: GITHUB_TOKEN: ${{ github.token }}` block was a transitional requirement here,
+not part of the design. Through v0.6.0 this workflow needed it to keep one comment,
+because comment identity was gated on recognising the default token by comparing it
+against that variable — a comparison the documented workflow could never satisfy
 ([#107](https://github.com/mbeacom/adrkit/issues/107)). Identity is now taken from what
-the token proves at the API, so from the first release after v0.6.0 the variable is not
-read for that purpose and the block may be dropped
+the token proves at the API, so as of v0.7.0 the variable is not read for that purpose
 ([ADR-0026](../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)).
-It is kept in this snippet until `@v0` moves, so the workflow above is runnable as
-written today.
+`@v0` resolves to v0.7.0, so the snippet above drops the block; a workflow that still
+carries it is unaffected.
 
 On a PR, the Action extracts the changed files, resolves the governing decisions,
 validates the changed records, and posts (or updates) a single comment.
