@@ -67,6 +67,12 @@ commit's author or committer exactly. Merge commits are exempt — the commits t
 merge carry the certification. Bot accounts are exempt from the address half only,
 because they sign from a service address; their trailer must still name them.
 
+**Editing in the browser?** A commit made through the GitHub web editor carries no
+sign-off, and you cannot add one from the browser. Clone the branch, run the rebase
+above, and force-push — or make the change locally with `git commit -s` to begin
+with. This catches docs-only contributions in particular, so it is worth knowing
+before you start rather than after the check goes red.
+
 ## Two hard rules
 
 These are enforced in CI. A PR that violates either will fail, and the fix is to

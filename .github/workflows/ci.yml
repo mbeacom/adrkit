@@ -172,4 +172,4 @@ jobs:
           # checkout is the synthetic merge ref, and this range excludes it.
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: bun run scripts/check-dco.ts "$BASE_SHA..$HEAD_SHA"
+        run: bun run check:dco "$BASE_SHA..$HEAD_SHA"

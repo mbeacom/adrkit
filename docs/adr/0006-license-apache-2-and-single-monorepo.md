@@ -15,6 +15,17 @@ affects:
     pattern: "LICENSE"
   - type: path
     pattern: "CONTRIBUTING.md"
+assertions:
+  - id: dco-signoff-required
+    description: >-
+      Every commit a pull request adds must carry a Signed-off-by trailer naming
+      its author or its committer. Merge commits are exempt; app accounts are
+      exempt from the address half only, because they sign from a service
+      address, and their trailer must still name them.
+    engine: custom
+    expression: dco-signoff-required
+    input: source
+    severity: error
 provenance:
   authoredBy: agent-drafted
   ratifiedBy: "@mbeacom"

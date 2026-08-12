@@ -108,8 +108,10 @@ Until `1.0.0`, minor releases may include breaking changes
   trail says when the decision was taken and by whom rather than leaving `status`
   to carry it alone. Stale action-item checkboxes were corrected to match verified
   reality; items that are genuinely open were left unchecked, including ADR-0006's
-  DCO bot, which is documented in CONTRIBUTING.md but which no ruleset check
-  enforces, ADR-0008's re-import pull request, which is unbuilt because non-MADR
+  DCO bot, which CONTRIBUTING.md required but which no ruleset check enforced at the
+  time of that ratification — closed later in this same release by the DCO gate
+  described above — ADR-0008's re-import pull request, which is unbuilt because
+  non-MADR
   re-import is unbuilt, and ADR-0009's catalog port item — the port type exists but
   no adapter implementation ships, since `catalog-backstage` is placement and
   dependency boundary only. Ratification rests on the resolution semantics, which

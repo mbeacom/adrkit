@@ -87,18 +87,23 @@ export interface DcoReport {
  * Anchored to the start of a physical line, because a sign-off is a trailer and
  * a mid-line mention is prose.
  *
- * Both halves exclude `<` and `>`, which git's own ident parser forbids. The
- * reference implementation captures the name greedily as `(.*)`, so on
+ * Every class excludes `\r` and `\n`, so no match can span a line boundary. This
+ * is load-bearing rather than tidy. `[^<>]` alone also matches a newline, so a
+ * line reading exactly `Signed-off-by:` — no address on it — let the lazy name
+ * group run *down the message* to the next `<`, swallowing the real trailer
+ * beneath it into one match whose name is `Signed-off-by: Jane Doe`. That
+ * removed the only valid candidate and failed a correctly signed commit, which
+ * is the merge-blocking direction. Confining to one line also caps the
+ * quantifiers' backtracking at a single line's length.
+ *
+ * Both halves further exclude `<` and `>`, which git's own ident parser forbids.
+ * The reference implementation captures the name greedily as `(.*)`, so on
  * `Signed-off-by: Jane Doe <jane@example.com> <spoof@example.com>` it backtracks
  * the first pair into the *name* and reads the address as `spoof@example.com`.
  * Excluding the brackets from the name leaves the line with no parse at all,
  * which is the honest reading of a trailer naming two addresses.
- *
- * The trailing class is `[ \t\r]*` and not `\s*`: under the `m` flag `\s` also
- * matches a newline, so a greedy `\s*$` can run past the end of the trailer's
- * own line and match a `$` further down.
  */
-const SIGNOFF_SOURCE = String.raw`^Signed-off-by:[ \t]*([^<>]+?)[ \t]*<([^<>]*)>[ \t\r]*$`;
+const SIGNOFF_SOURCE = String.raw`^Signed-off-by:[ \t]*([^<>\r\n]+?)[ \t]*<([^<>\r\n]*)>[ \t\r]*$`;
 
 /** A fresh matcher. Never share one — see {@link SIGNOFF_SOURCE}. */
 export function signoffPattern(): RegExp {
@@ -180,8 +185,11 @@ function render(identity: Identity): string {
  *   accept an unrelated person's signature on a bot's commit and report it as
  *   the app account's.
  *
- * Merge commits are exempt: their content is certified by the commits they
- * merge, and the person who ran `git merge` authored none of it.
+ * Merge commits are exempt: the commits they merge carry the certification, and
+ * the person who ran `git merge` authored none of it. That reasoning covers the
+ * ordinary merge and not an evil merge, whose recorded tree can hold conflict
+ * resolution present in neither parent. The DCO app skips merges outright too,
+ * so this matches the contract contributors expect rather than closing that gap.
  */
 export function findDcoViolations(commits: readonly Commit[]): DcoReport {
   const exemptions: Exemption[] = [];
@@ -302,11 +310,27 @@ export function parseGitLog(stdout: string): Commit[] {
 }
 
 export function readCommits(range: string, cwd?: string): Commit[] {
-  const stdout = execFileSync('git', ['log', '-z', `--format=${GIT_FORMAT}`, range], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
+  let stdout: string;
+  try {
+    stdout = execFileSync('git', ['log', '-z', `--format=${GIT_FORMAT}`, range], {
+      cwd,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch (error) {
+    // Say that the range could not be *read*, not that commits were unsigned.
+    // git's own text here is `fatal: bad revision`, which reads like a defect in
+    // the pull request rather than in the checkout. The usual cause is a base
+    // commit that was never fetched — for a conflicting pull request GitHub may
+    // have no current merge ref, so the object the range names is simply absent.
+    const detail = error instanceof Error ? error.message.trim() : String(error);
+    throw new Error(
+      `could not read the commit range ${range}, so no commit was examined.\n` +
+        `This is a checkout problem, not a sign-off problem — the base or head commit is\n` +
+        `probably missing from this clone (fetch it, or resolve the pull request's conflicts).\n` +
+        `git said: ${detail}`,
+    );
+  }
   return parseGitLog(stdout);
 }
 
@@ -320,6 +344,7 @@ export function formatReport(range: string, report: DcoReport): string {
 
 function main(argv: readonly string[]): void {
   const range = argv[0] ?? process.env.DCO_RANGE ?? 'origin/main..HEAD';
+  const base = range.split('..')[0] || 'origin/main';
   const commits = readCommits(range);
 
   // A pull request always contains at least one commit, so an empty range means
@@ -347,10 +372,15 @@ function main(argv: readonly string[]): void {
       .join('\n\n');
     throw new Error(
       `${report.violations.length} of ${report.examined} commit(s) lack a valid DCO sign-off:\n\n${detail}\n\n` +
-        `Every commit needs "Signed-off-by: Your Name <your@email>" naming its author or its committer.\n` +
+        `Every commit needs "Signed-off-by: Your Name <your@email>" naming its author or its\n` +
+        `committer. Sign-off is your statement that you have the right to submit this work\n` +
+        `under the project's license — see https://developercertificate.org/.\n\n` +
         `Sign the whole branch and force-push:\n` +
-        `  git rebase --signoff ${range.split('..')[0]}\n` +
-        `See CONTRIBUTING.md and https://developercertificate.org/.`,
+        `  git rebase --signoff ${base}\n` +
+        `  git push --force-with-lease\n\n` +
+        `Use --force-with-lease, not --force: it refuses rather than discarding a commit\n` +
+        `someone else pushed. If git cannot find ${base}, run "git fetch origin" first.\n` +
+        `See CONTRIBUTING.md.`,
     );
   }
 

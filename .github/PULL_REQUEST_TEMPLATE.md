@@ -9,7 +9,9 @@ New to the project? See the "Your first PR" section in CONTRIBUTING.md.
 
 ## Checklist
 
-- [ ] Commits are **DCO signed off** (`git commit -s`). No CLA is required.
+- [ ] Commits are **DCO signed off** (`git commit -s`). No CLA is required. This is
+      enforced by the `dco` check; to sign commits you already made, see
+      [CONTRIBUTING.md](../CONTRIBUTING.md#sign-off-is-required).
 - [ ] If this changes a recorded decision in `docs/adr/`, an ADR is **added or
       supersedes** the affected record — with the argument, not just a status flip.
 - [ ] If the schema changed, I edited the Zod source

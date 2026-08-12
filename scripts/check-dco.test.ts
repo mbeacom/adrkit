@@ -92,6 +92,35 @@ describe('parseSignoffs', () => {
     ).toEqual([]);
   });
 
+  // Negative case: `[^<>]` alone also matches a newline, so a line reading
+  // exactly `Signed-off-by:` let the lazy name group run down the message to the
+  // next `<` and swallow the real trailer beneath it, yielding one match named
+  // `Signed-off-by: Jane Doe`. That destroyed the only valid candidate and failed
+  // a correctly signed commit — the merge-blocking direction, and a direct
+  // falsification of this parser's own "can only ever add a candidate" claim.
+  test('does not let a bare Signed-off-by label swallow the trailer below it', () => {
+    const message = 'feat: thing\n\nSigned-off-by:\nSigned-off-by: Jane Doe <jane@example.com>\n';
+    expect(parseSignoffs(message)).toEqual([{ name: 'Jane Doe', email: 'jane@example.com' }]);
+  });
+
+  test('does not let an address-less trailer reach across intervening lines', () => {
+    const message =
+      'feat: thing\n\nSigned-off-by: Jane Doe\nsome prose\n\nSigned-off-by: Jane Doe <jane@example.com>\n';
+    expect(parseSignoffs(message)).toEqual([{ name: 'Jane Doe', email: 'jane@example.com' }]);
+  });
+
+  // The same line confinement caps backtracking at one line. Before it, three
+  // quantifiers that can all match the same characters re-scanned the rest of the
+  // message on every retry, so a long bracket-free run was superlinear. A generous
+  // bound: the point is that it completes at all, not the exact millisecond.
+  test('parses a pathologically long bracket-free line without blowing up', () => {
+    const message =
+      'x\n\nSigned-off-by: ' + 'a'.repeat(200_000) + '\nSigned-off-by: Jane Doe <jane@example.com>\n';
+    const started = performance.now();
+    expect(parseSignoffs(message)).toEqual([{ name: 'Jane Doe', email: 'jane@example.com' }]);
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
   test('finds nothing in a message with no trailer at all', () => {
     expect(parseSignoffs('feat: a thing\n\nA body with no trailer.\n')).toEqual([]);
   });
@@ -412,6 +441,19 @@ describe('check-dco end to end', () => {
     expect(result.stderr).toContain('feat: unsigned');
     expect(result.stderr).toContain('the sign-off is missing');
     expect(result.stderr).toContain('git rebase --signoff base');
+  });
+
+  // Negative case for the merge-blocking direction, end to end: this commit is
+  // correctly signed, and the parser used to report it unsigned and fail the
+  // build. A false positive on a required check blocks every merge, so it is the
+  // more expensive of the two ways this check can be wrong.
+  test('passes a signed commit whose message also holds a bare Signed-off-by label', async () => {
+    const root = await repoWith([
+      { message: `feat: thing\n\nSigned-off-by:\nSigned-off-by: ${HUMAN.name} <${HUMAN.email}>` },
+    ]);
+    const result = run(root, 'base..HEAD');
+    expect(result.stdout).toContain('ok — 1 signed, 0 exempt, 0 unsigned');
+    expect(result.code).toBe(0);
   });
 
   test('fails on the unsigned commit while accepting its signed neighbour', async () => {
