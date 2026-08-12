@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0025"
 title: Ship badges as recipes over existing output, not a new CLI surface
-status: proposed
+status: accepted
 date: 2026-08-09
 deciders: ["@mbeacom"]
 tags: [distribution, docs, site, ci, privacy, governance]
@@ -27,6 +27,7 @@ affects:
     pattern: "packages/core/src/queue/types.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: >-
