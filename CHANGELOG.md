@@ -63,19 +63,24 @@ Until `1.0.0`, minor releases may include breaking changes
   ADR-0009. Accepted decisions were resting on a `proposed` foundation. Each of the
   five was verified against the tree before ratification rather than on the strength
   of its own checkboxes: ADR-0007's two assertions run as the `clean-clone-builds`
-  CI job and `scripts/check-deps.ts`, ADR-0009's five deliverables all exist
-  (`core/src/affects/`, the purity test, `test/conformance/`, the catalog port with
-  `catalog-backstage`, and `adr explain`), and ADR-0006 is irreversible in fact
-  because the repository is already public.
+  CI job and `scripts/check-deps.ts`, four of ADR-0009's five deliverables exist
+  (`core/src/affects/`, the purity test, `test/conformance/`, and `adr explain`),
+  and ADR-0006 is irreversible in fact because the repository is already public.
 
   Ratification is recorded on each record as `review.decidedAt` and
   `review.approvals`, the first use of either field in this corpus, so the audit
   trail says when the decision was taken and by whom rather than leaving `status`
   to carry it alone. Stale action-item checkboxes were corrected to match verified
   reality; items that are genuinely open were left unchecked, including ADR-0006's
-  DCO bot, which is documented in CONTRIBUTING.md but runs no check on pull
-  requests, and ADR-0008's re-import pull request, which is unbuilt because
-  non-MADR re-import is unbuilt.
+  DCO bot, which is documented in CONTRIBUTING.md but which no ruleset check
+  enforces, ADR-0008's re-import pull request, which is unbuilt because non-MADR
+  re-import is unbuilt, and ADR-0009's catalog port item — the port type exists but
+  no adapter implementation ships, since `catalog-backstage` is placement and
+  dependency boundary only. Ratification rests on the resolution semantics, which
+  are implemented and conformance-tested; the catalog adapter remains governed by
+  ADR-0013 and ADR-0020. `MANIFEST.md` is brought back in step with the corpus,
+  and the follow-ups ADR-0012 and ADR-0013 left open for this decision are closed
+  by it.
 
   **ARB queue depth drops from 6 to 1**, which the queue-depth badge reads from
   `$.totalItems`. [ADR-0005](docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md)

@@ -357,5 +357,9 @@ remains required for each; it is deliberately out of scope here.
 3. [ ] Implement `adrkit.io/owned-paths` parsing, the restricted-dialect glob
        validator, and atomic fail-closed semantics in the offline snapshot
        generator (gated; not authorized here).
-4. [ ] Open the separate status-ratification or amendment decision for ADR-0007
+4. [x] Open the separate status-ratification or amendment decision for ADR-0007
        and ADR-0009 once their blockers above clear.
+       — both ratified 2026-08-12. Ratification rests on ADR-0007's two green
+       required checks and ADR-0009's implemented, conformance-tested resolution
+       semantics; items 2 and 3 above remain open and continue to gate the
+       persisted envelope and the generator, which no ratified clause asserts.

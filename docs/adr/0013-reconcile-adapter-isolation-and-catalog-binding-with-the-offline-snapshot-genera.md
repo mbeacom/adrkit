@@ -199,8 +199,10 @@ rewriting one-way-door records in a reconciliation PR.
 
 ## Action items
 
-1. [ ] Fold these amendments into ADR-0007 and ADR-0009 when each is taken to an
+1. [x] Fold these amendments into ADR-0007 and ADR-0009 when each is taken to an
        explicit accept/supersede decision.
+       — both were accepted 2026-08-12 carrying the amendment inline, so each
+       record states the narrowed rule at the point a reader meets it.
 2. [ ] Ensure `specs/009-catalog-binding-viability/` scoping records the
        offline-generator/no-dynamic-loader boundary and the versioned envelope.
 3. [ ] Keep `core-has-no-adapter-deps` and `clean-clone-builds` green as the

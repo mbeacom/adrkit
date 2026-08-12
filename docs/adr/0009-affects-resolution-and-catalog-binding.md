@@ -181,8 +181,11 @@ actionable rather than to suppress it.
 2. [x] `resolution-is-pure` assertion wired into CI
 3. [x] Conformance fixture suite — matcher set + file list + expected match, as
        published test data other implementations can run
-4. [x] Catalog port interface, with both adapters stubbed against public docs
-       — port shipped with `catalog-backstage` as the reference implementation;
-       the cloud-catalog adapter is deliberately deferred per the Decision above.
+4. [ ] Catalog port interface, with both adapters stubbed against public docs
+       — the port type exists (`packages/core/src/affects/catalog.ts`), but no
+       adapter implementation ships. `packages/adapters/catalog-backstage` is
+       placement and dependency boundary only and generates nothing; the
+       cloud-catalog adapter is deferred per the Decision above. Tracked by
+       ADR-0013 and ADR-0020.
 5. [x] `adr explain <file>` — print every governing decision and the matcher
        that fired, because an unexplainable match is as bad as a wrong one
