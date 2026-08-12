@@ -53,12 +53,18 @@ describe('findStalePins', () => {
     ['-y', 'npx -y @adrkit/cli@0.1.0 queue'],
     ['--yes', 'npx --yes @adrkit/cli@0.1.0 queue'],
     ['--no-install', 'npx --no-install @adrkit/cli@0.1.0 queue'],
+    // Regression 6. A valued option made the whole match fail, and a guard that
+    // matches nothing reports nothing — so a stale pin bypassed a required check.
+    ['--cache=<path>', 'npx --cache=/tmp/npm-cache @adrkit/cli@0.1.0 queue'],
+    ['two valued options', 'npx --cache=/tmp/x --prefix=/tmp/y @adrkit/cli@0.1.0 queue'],
+    ['mixed bare and valued', 'npx -y --cache=/tmp/x @adrkit/cli@0.1.0 queue'],
   ])('guards a stale pin invoked with %s', (_label, text) => {
     expect(found(text)).toHaveLength(1);
   });
 
   test('accepts a current pin invoked with flags', () => {
     expect(found('npx -y @adrkit/cli@0.6.0 queue')).toEqual([]);
+    expect(found('npx --cache=/tmp/x @adrkit/cli@0.6.0 queue')).toEqual([]);
   });
 
   // A guard that cannot tell a recipe from prose blocks the first upgrade note

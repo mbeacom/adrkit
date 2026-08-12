@@ -30,11 +30,13 @@ const docsDir = join(repoRoot, 'site', 'src', 'content', 'docs');
  * poked with `.exec()`/`.test()` would silently start mid-string and skip pins.
  *
  * Only *executable* pins are guarded — an `npx`/`bunx` invocation a reader
- * copies and runs, with any flags (`-y`, `--yes`) tolerated between the runner
- * and the package. Prose that merely names an older release is not a recipe and
+ * copies and runs, with any flags tolerated between the runner and the package —
+ * bare (`-y`, `--yes`) and valued (`--cache=/tmp/x`) alike. An option shape the
+ * grammar does not recognise makes the whole match fail, and a guard that
+ * matches nothing reports nothing, so the grammar has to be generous. Prose that merely names an older release is not a recipe and
  * must not fail a required check.
  */
-const CLI_PIN_SOURCE = String.raw`(?:npx|bunx)(?:\s+-{1,2}[A-Za-z][\w-]*)*\s+@adrkit/cli@([^\s\`'"]+)`;
+const CLI_PIN_SOURCE = String.raw`(?:npx|bunx)(?:\s+-{1,2}[A-Za-z][\w-]*(?:=\S+)?)*\s+@adrkit/cli@([^\s\`'"]+)`;
 
 /** Punctuation a version can never end in, but prose routinely appends. */
 const TRAILING_PUNCTUATION = /[.,;:!?)\]}>]+$/;

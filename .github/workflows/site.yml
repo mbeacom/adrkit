@@ -10,16 +10,15 @@ name: Deploy site
 # other.
 
 on:
+  # No `paths` filter on push. The site now serves `queue.json` and `lint.json`,
+  # which are projections of `main` produced by the CLI — so the deploy must
+  # re-run when the *projector* changes, not only when the corpus does.
+  # Enumerating the generator's dependencies (`packages/core/src/queue/**`,
+  # `load/**`, `validate/**`, the CLI entrypoint…) is fragile: one missed path
+  # leaves adrkit.dev serving numbers from an older implementation, silently.
+  # Deploying on every push to main is the only filter that cannot miss one.
   push:
     branches: [main]
-    paths:
-      - 'site/**'
-      - 'schema/adr.schema.json'
-      - 'docs/adr/**'
-      - '.github/workflows/site.yml'
-      # The docs pin the released CLI version; a release bump must re-run that
-      # guard in the same push rather than failing the next unrelated change.
-      - 'package.json'
   pull_request:
     paths:
       - 'site/**'
@@ -84,8 +83,13 @@ jobs:
         working-directory: .
         run: |
           bun install --frozen-lockfile
+          # `key` is the field the badge actually reads. Validating only that the
+          # file parses would let a structurally valid but wrong report through,
+          # and the badge would render `no result` as if adrkit were broken.
+          # `type(x) is int` rather than `isinstance`: bool subclasses int, so
+          # isinstance would accept `{"totalItems": true}`.
           publish () {
-            name="$1"; shift
+            name="$1"; key="$2"; shift 2
             set +e
             "$@" > "/tmp/${name}.json"
             status=$?
@@ -97,14 +101,14 @@ jobs:
             if [ "$status" -eq 1 ]; then
               echo "::warning::${name}: corpus has error-severity findings; the report is complete and is being published"
             fi
-            if ! python3 -c "import json,sys; json.load(open('/tmp/${name}.json'))" 2>/dev/null; then
-              echo "::warning::${name}: generated JSON is unreadable; publishing the site without ${name}.json"
+            if ! python3 -c "import json,sys; d=json.load(open('/tmp/${name}.json')); sys.exit(0 if type(d.get('${key}')) is int else 1)" 2>/dev/null; then
+              echo "::warning::${name}: report is unreadable or has no integer ${key}; publishing the site without ${name}.json"
               return 0
             fi
             cp "/tmp/${name}.json" "site/public/${name}.json"
           }
-          publish queue bun packages/cli/src/index.ts queue --format json
-          publish lint  bun packages/cli/src/index.ts lint --json
+          publish queue totalItems bun packages/cli/src/index.ts queue --format json
+          publish lint  checked    bun packages/cli/src/index.ts lint --json
 
       - name: Build site
         run: bun run build

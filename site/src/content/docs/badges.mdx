@@ -99,8 +99,10 @@ jobs:
       # reads as a bug in your tooling. Fail here instead of committing it.
       - name: Validate before publishing
         run: |
-          python3 -c "import json; json.load(open('.adrkit/queue.json.tmp'))"
-          python3 -c "import json; json.load(open('.adrkit/lint.json.tmp'))"
+          # `type(x) is int`, not isinstance: bool subclasses int in Python, so
+          # isinstance would accept `{"totalItems": true}` as valid.
+          python3 -c "import json,sys; d=json.load(open('.adrkit/queue.json.tmp')); sys.exit(0 if type(d.get('totalItems')) is int else 'totalItems missing')"
+          python3 -c "import json,sys; d=json.load(open('.adrkit/lint.json.tmp'));  sys.exit(0 if type(d.get('checked'))    is int else 'checked missing')"
           mv .adrkit/queue.json.tmp .adrkit/queue.json
           mv .adrkit/lint.json.tmp  .adrkit/lint.json
 
