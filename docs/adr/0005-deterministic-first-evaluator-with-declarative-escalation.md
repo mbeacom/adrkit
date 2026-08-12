@@ -2,13 +2,14 @@
 schemaVersion: 0.1.0
 id: "0005"
 title: Gate proposals with a deterministic-first evaluator and declarative escalation
-status: proposed
+status: superseded
 date: 2026-07-18
 deciders: ["@mbeacom"]
 tags: [evaluator, governance, ai]
 scope: org
 reversibility: two-way-door
 blastRadius: org
+supersededBy: "0027"
 relatesTo: ["0002", "0003"]
 affects:
   - type: path
