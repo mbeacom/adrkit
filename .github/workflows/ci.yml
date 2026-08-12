@@ -40,6 +40,8 @@ jobs:
         run: bun run check:deps
       - name: Verify frozen oracle hashes match (feature 010 Barrier B, R5 mechanism 2)
         run: bun run check:freeze-hashes
+      - name: Verify published docs pin the current CLI release
+        run: bun run check:doc-pins
       - name: Lint ADR corpus
         run: bun run adr lint
 

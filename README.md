@@ -6,7 +6,6 @@ without leaving git.
 
 [![npm version](https://img.shields.io/npm/v/@adrkit/cli?logo=npm&label=%40adrkit%2Fcli)](https://www.npmjs.com/package/@adrkit/cli)
 [![CI](https://github.com/mbeacom/adrkit/actions/workflows/ci.yml/badge.svg)](https://github.com/mbeacom/adrkit/actions/workflows/ci.yml)
-[![ARB queue](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fadrkit.dev%2Fqueue.json&query=%24.totalItems&label=ARB%20queue&suffix=%20pending&color=cb492d)](./docs/adr)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
 Most ADR tooling is a markdown template and a static site generator. That

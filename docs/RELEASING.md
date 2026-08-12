@@ -239,9 +239,10 @@ bootstrap described below.
 2. Bump the pinned `@adrkit/cli@<version>` in the published badges recipe
    (`site/src/content/docs/badges.mdx`). It is pinned deliberately — the snippet
    runs inside a job holding `contents: write` (ADR-0025) — so it cannot float
-   with the release. `site/scripts/sync-schema.ts --check` fails the site build
-   when the pin and the root `package.json` version disagree, so a missed bump
-   surfaces as a red site deploy rather than as adopters installing an old CLI.
+   with the release. `bun run check:doc-pins` fails when the pin and the root
+   `package.json` version disagree, and it runs in `clean-clone-builds`, a
+   required check, so a missed bump blocks the merge rather than reaching
+   adopters as an old CLI.
 3. Merge the version change only after CI passes.
 4. Create and push the matching annotated tag, such as `v0.3.0`.
 5. Approve the protected `npm` environment deployment.

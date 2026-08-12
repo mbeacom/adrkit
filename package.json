@@ -32,6 +32,7 @@
     "check:deps": "bun run scripts/check-deps.ts",
     "check:changelog": "bun run scripts/check-changelog.ts",
     "check:freeze-hashes": "bun run scripts/check-freeze-hashes.ts",
+    "check:doc-pins": "bun run scripts/check-doc-cli-versions.ts",
     "audit:gate": "bun run scripts/audit-gate.ts",
     "adr": "bun packages/cli/src/index.ts",
     "site:queue": "bun packages/cli/src/index.ts queue --format json > site/public/queue.json",

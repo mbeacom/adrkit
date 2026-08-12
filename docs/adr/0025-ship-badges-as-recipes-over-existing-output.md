@@ -18,7 +18,7 @@ affects:
   - type: path
     pattern: ".github/workflows/site.yml"
   - type: path
-    pattern: "site/scripts/sync-schema.ts"
+    pattern: "scripts/check-doc-cli-versions.ts"
   - type: path
     pattern: "packages/core/src/queue/types.ts"
 provenance:
@@ -193,7 +193,10 @@ not pretend one mechanism fits both.**
 
 For **adrkit itself**, `queue.json` is emitted as a *site build artifact*. The
 docs site already rebuilds on `docs/adr/**` (`site.yml`), so a build step writes
-`site/public/queue.json` and the badge reads `https://adrkit.dev/queue.json`.
+`site/public/queue.json`, and the badge reads `https://adrkit.dev/queue.json`.
+The README badge itself lands in a follow-up rather than here: the URL 404s
+until the site has published once, and a badge that renders an error on this
+project's own front page is precisely the failure this record exists to avoid.
 Nothing is committed, so nothing can go stale between corpus changes; no
 workflow holds a write token; and the artifact is gitignored exactly like the
 served schema (ADR-0011), which is the precedent it now follows rather than
@@ -337,8 +340,8 @@ an artifact claim more than it can support — but readers will over-read it.
 
 ## Action items
 
-1. [ ] Verify the depth badge end to end against the deployed
-       `https://adrkit.dev/queue.json` — the shields mechanism and both failure
+1. [ ] Add the queue badge to `README.md` once `https://adrkit.dev/queue.json`
+       is live, verifying the render end to end at that point — the shields mechanism and both failure
        renders were observed, and the first-run/no-change/changed paths of the
        adopter recipe were executed, but the deployed path cannot be exercised
        until this merges and the site publishes (ADR-0016).
