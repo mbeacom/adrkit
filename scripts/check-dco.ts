@@ -17,6 +17,16 @@
  *
  * `range` is any two-dot git revision range and defaults to
  * `origin/main..HEAD`. CI passes the pull request's own range explicitly.
+ *
+ * **Known limitation (#137).** This runs from the pull request's own merge
+ * checkout, so a change that edits this file — or the workflow step invoking it —
+ * can produce a green `dco` status over unsigned commits. That is a property of
+ * every gate in this repository, not of this one: `pull_request` workflows
+ * execute the *pull request's* `ci.yml`, measured directly on #98. Moving this
+ * script to a trusted base revision would not close it, because the step calling
+ * it is equally under the pull request's control, and a control that looks like a
+ * control and is not one is worse than a documented gap (ADR-0016). Tracked
+ * repository-wide in #137 rather than papered over here.
  */
 
 import { execFileSync } from 'node:child_process';
