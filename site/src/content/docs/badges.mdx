@@ -123,23 +123,46 @@ jobs:
   status checks or pull requests, the push is **rejected** — and the failure is
   only visible in the Actions tab. Change the last step to one of these:
 
-  **Push to a dedicated branch instead** (simplest; the badge URL in step 2 then
-  points at that branch rather than `main`):
+  **Push to a dedicated branch instead** (simplest). Replace the `git push` line
+  in the last step with:
 
   ```yaml
           git push origin HEAD:refs/heads/adr-artifacts --force
   ```
 
+  `--force` is deliberate here: `adr-artifacts` holds only generated output, is
+  never merged, and is rewritten from `main` on every run. Do not point it at a
+  branch anyone commits to. Then, in step 2, change the branch inside the badge
+  URL — it appears percent-encoded as `%2Fmain%2F`, so `main` becomes
+  `adr-artifacts` there.
+
   **Open a pull request instead** (keeps the change reviewable). Add
-  `pull-requests: write` to the job's `permissions`, and replace `git push` with:
+  `pull-requests: write` to the job's `permissions:` block, then replace the
+  whole final step with:
 
   ```yaml
-          git switch -c adr-queue-refresh
-          git push -u origin adr-queue-refresh --force
-          gh pr create --fill --head adr-queue-refresh || true
+      - name: Publish the report as a pull request
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          git add .adrkit/queue.json
+          if git diff --cached --quiet -- .adrkit/queue.json; then
+            echo "Queue report unchanged; nothing to commit."
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(adr): refresh ARB queue report'
+          # No --force: the branch may carry review commits, and overwriting them
+          # silently is worse than a failed run you can see.
+          git push -u origin HEAD:adr-queue-refresh
+          # Only create a PR when one is not already open for this branch.
+          if [ -z "$(gh pr list --head adr-queue-refresh --state open --json number --jq '.[0].number')" ]; then
+            gh pr create --fill --head adr-queue-refresh
+          fi
   ```
+
+  Note the `env:` key sits beside `run:` at step level, not inside the script.
 
   **Grant the bot a protection bypass** — least preferable, since it weakens the
   protection for everything else too.

@@ -9,7 +9,7 @@ tags: [distribution, docs, site, ci, privacy, governance]
 scope: org
 reversibility: two-way-door
 blastRadius: team
-relatesTo: ["0004", "0011", "0014", "0016", "0019", "0021"]
+relatesTo: ["0004", "0011", "0014", "0016", "0019", "0021", "0022", "0023"]
 affects:
   - type: path
     pattern: "site/public/badge/**"
@@ -19,6 +19,10 @@ affects:
     pattern: ".github/workflows/site.yml"
   - type: path
     pattern: "scripts/check-doc-cli-versions.ts"
+  - type: path
+    pattern: ".github/workflows/ci.yml"
+  - type: path
+    pattern: "package.json"
   - type: path
     pattern: "packages/core/src/queue/types.ts"
 provenance:

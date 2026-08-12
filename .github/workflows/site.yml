@@ -74,26 +74,30 @@ jobs:
       # depend on `@adrkit/core`.
       #
       # `adr queue` documents exit 1 as "report emitted with error-severity
-      # corpus findings" — the report is complete and publishable, so a corpus
-      # problem must not stop this job from deploying the canonical schema at
-      # its `$id` (ADR-0011). Only exit 2 (usage error / unreachable corpus)
-      # means no report was produced.
+      # corpus findings" — the report is complete and publishable. A corpus
+      # problem, and equally a queue-tool regression (exit >= 2), must not stop
+      # this job from deploying the canonical schema at its `$id` (ADR-0011).
+      # The badge degrades to a missing file; the schema always ships.
       - name: Emit the ARB queue report for the badge
         working-directory: .
         run: |
           bun install --frozen-lockfile
           set +e
-          bun run site:queue
+          bun run packages/cli/src/index.ts queue --format json > /tmp/queue.json
           status=$?
           set -e
           if [ "$status" -ge 2 ]; then
-            echo "::error::adr queue exited ${status}; no usable report was produced"
-            exit "$status"
+            echo "::warning::adr queue exited ${status}; publishing the site without queue.json (the badge will 404 until the next run)"
+            exit 0
           fi
           if [ "$status" -eq 1 ]; then
             echo "::warning::Corpus has error-severity findings; the queue report is still complete and is being published"
           fi
-          python3 -c "import json,sys; d=json.load(open('site/public/queue.json')); sys.exit(0 if type(d.get('totalItems')) is int else 'queue.json has no integer totalItems')"
+          if ! python3 -c "import json,sys; d=json.load(open('/tmp/queue.json')); sys.exit(0 if type(d.get('totalItems')) is int else 1)"; then
+            echo "::warning::Generated queue.json has no integer totalItems; publishing the site without it"
+            exit 0
+          fi
+          cp /tmp/queue.json site/public/queue.json
 
       - name: Build site
         run: bun run build

@@ -24,16 +24,25 @@ const repoRoot = resolve(import.meta.dir, '..');
 const docsDir = join(repoRoot, 'site', 'src', 'content', 'docs');
 
 /**
- * Only executable pins are guarded — an `npx`/`bunx` invocation a reader copies
- * and runs. Prose that legitimately names an older release ("if you were on
- * `@adrkit/cli@0.5.0`…") is not a recipe and must not fail the build.
+ * Source for the pin matcher. A fresh `RegExp` is built per scan rather than
+ * sharing one module-level instance: `matchAll` seeds its internal matcher from
+ * the source regex's `lastIndex`, so a shared global regex that any caller had
+ * poked with `.exec()`/`.test()` would silently start mid-string and skip pins.
  *
- * The version token is captured whole, suffix included. Matching only
- * `\d+\.\d+\.\d+` would match the `0.6.0` inside `0.6.0-rc.1` and pass; anchoring
- * that pattern instead makes the token stop matching at all, which also passes.
- * Both were observed before this shape was chosen.
+ * Only *executable* pins are guarded — an `npx`/`bunx` invocation a reader
+ * copies and runs, with any flags (`-y`, `--yes`) tolerated between the runner
+ * and the package. Prose that merely names an older release is not a recipe and
+ * must not fail a required check.
  */
-export const CLI_PIN_PATTERN = /(?:npx|bunx)\s+@adrkit\/cli@([^\s`'"]+)/g;
+const CLI_PIN_SOURCE = String.raw`(?:npx|bunx)(?:\s+-{1,2}[A-Za-z][\w-]*)*\s+@adrkit/cli@([^\s\`'"]+)`;
+
+/** Punctuation a version can never end in, but prose routinely appends. */
+const TRAILING_PUNCTUATION = /[.,;:!?)\]}>]+$/;
+
+/** A fresh matcher. Never share one — see {@link CLI_PIN_SOURCE}. */
+export function cliPinPattern(): RegExp {
+  return new RegExp(CLI_PIN_SOURCE, 'g');
+}
 
 export interface DocFile {
   /** Repo-relative path, used only for reporting. */
@@ -43,17 +52,28 @@ export interface DocFile {
 
 export interface StalePin {
   path: string;
+  /** The version as written, before punctuation was trimmed. */
+  raw: string;
   found: string;
   expected: string;
 }
 
-/** Pure: every executable pin in `files` that is not exactly `expected`. */
+/**
+ * Pure: every executable pin in `files` whose version is not exactly `expected`.
+ *
+ * A sentence-ending `.` or a closing `)` is trimmed before comparison. Leaving
+ * it attached made `npx @adrkit/cli@0.6.0.` compare unequal to `0.6.0` and fail
+ * a required check — a false positive that blocks every merge in the repository,
+ * which is a far worse failure than the stale pin this guard exists to catch.
+ */
 export function findStalePins(files: readonly DocFile[], expected: string): StalePin[] {
   const stale: StalePin[] = [];
   for (const file of files) {
-    for (const match of file.text.matchAll(CLI_PIN_PATTERN)) {
-      if (match[1] !== expected) {
-        stale.push({ path: file.path, found: match[1] as string, expected });
+    for (const match of file.text.matchAll(cliPinPattern())) {
+      const raw = match[1] as string;
+      const found = raw.replace(TRAILING_PUNCTUATION, '');
+      if (found !== expected) {
+        stale.push({ path: file.path, raw, found, expected });
       }
     }
   }
@@ -79,7 +99,7 @@ function main(): void {
   const stale = findStalePins(collectDocs(docsDir), expected);
 
   if (stale.length > 0) {
-    const lines = stale.map((s) => `${s.path}: found @adrkit/cli@${s.found}, expected ${s.expected}`);
+    const lines = stale.map((s) => `${s.path}: found @adrkit/cli@${s.raw}, expected ${s.expected}`);
     throw new Error(
       `Stale @adrkit/cli pin in docs (current release is ${expected}):\n  ${lines.join('\n  ')}\n` +
         `Update the pinned version so published recipes do not install an old CLI.`,
