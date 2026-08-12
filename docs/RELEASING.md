@@ -233,24 +233,54 @@ bootstrap described below.
 
 ## Subsequent releases
 
-1. Update the version in all four public package manifests. Update any
-   inter-package expectations and run `bun install` with stable Bun 1.3.14 when
-   the lockfile changes.
-2. Bump the pinned `@adrkit/cli@<version>` in the published badges recipe
+1. Update the version in all four public package manifests, and the three places
+   the version is restated outside them: `CLI_VERSION` in
+   `packages/cli/src/index.ts`, `SERVER_INFO` in `packages/mcp/src/server.ts`, and
+   both `version` fields in `packages/mcp/server.json`.
+2. Update `bun.lock`'s four `packages/*` `version` fields to match. **`bun install`
+   will not do this for you.** The dependency graph is unchanged — `workspace:*`
+   still resolves to the same paths — so the install is a no-op, and
+   `bun install --frozen-lockfile` reports no drift even though the file is stale.
+   Nothing catches it until `release:pack` fails with
+   `@adrkit/evaluator must resolve @adrkit/core to <version>, got <previous>`,
+   because it validates packed manifests through the lockfile rather than the
+   manifests. Deleting `bun.lock` does regenerate those fields, but it re-resolves
+   the entire tree and silently upgrades transitive dependencies — edit the four
+   fields directly instead, then confirm with `bun install --frozen-lockfile`. The
+   diff should be exactly four lines, as in v0.6.0 (`c5dc677`) and v0.7.0.
+3. Bump the pinned `@adrkit/cli@<version>` in the published badges recipe
    (`site/src/content/docs/badges.mdx`). It is pinned deliberately — the snippet
    runs inside a job holding `contents: write` (ADR-0025) — so it cannot float
    with the release. `bun run check:doc-pins` fails when the pin and the root
    `package.json` version disagree, and it runs in `clean-clone-builds`, a
    required check, so a missed bump blocks the merge rather than reaching
    adopters as an old CLI.
-3. Merge the version change only after CI passes.
-4. Create and push the matching annotated tag, such as `v0.3.0`.
-5. Approve the protected `npm` environment deployment.
-6. Confirm the workflow published all packages, created the immutable GitHub
+4. Sweep the version *narrative* — the claims prose makes about what is current,
+   which no check enforces. `git grep -nE 'v?0\.[0-9]+\.0'` and update anything
+   asserting the current release: `site/src/components/Hero.astro`,
+   `site/src/content/docs/index.mdx`, `site/src/content/docs/quickstart.mdx`,
+   README's "Project status", this file's artifact table and lede, and `CLAUDE.md`.
+   Leave *historical* statements alone ("expanded in v0.5.0" records when something
+   happened and stays true). This drifts silently: v0.6.0 shipped with all three
+   site surfaces still advertising v0.5.0, so the hosted docs were a release behind
+   for anyone reading them.
+5. Merge the version change only after CI passes.
+6. Create and push the matching annotated tag, such as `v0.3.0`.
+7. Approve the protected `npm` environment deployment.
+8. Confirm the workflow published all packages, created the immutable GitHub
    release, and moved `v0` to the released commit.
+9. Re-publish the MCP registry entry — `cd packages/mcp && mcp-publisher publish`
+   (`docs/DISTRIBUTION.md` §A). **No workflow does this**, so `dev.adrkit/mcp` stays
+   at the previous version until a human runs it, and `docs/DISTRIBUTION.md` should
+   not claim the new version before then.
 
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
+
+Note that steps 1–4 land on `main` before step 6 creates the tag, so between the
+merge and the tag the site is deployed claiming a release that does not exist yet.
+The window is short and self-correcting; it is called out here so it is not
+mistaken for a mistake.
 
 ## v0.3.0 cutover runbook — **COMPLETE**
 
