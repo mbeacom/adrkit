@@ -36,6 +36,7 @@
     "audit:gate": "bun run scripts/audit-gate.ts",
     "adr": "bun packages/cli/src/index.ts",
     "site:queue": "bun packages/cli/src/index.ts queue --format json > site/public/queue.json",
+    "site:lint": "bun packages/cli/src/index.ts lint --json > site/public/lint.json",
     "release:pack": "bun scripts/release-pack.ts",
     "release:publish": "bun scripts/release-publish.ts",
     "release:action-tag": "bun scripts/update-action-tag.ts"

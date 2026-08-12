@@ -31,3 +31,4 @@ src/generated/
 # and served for the ARB queue badge (ADR-0025). Never committed, so it cannot
 # go stale.
 public/queue.json
+public/lint.json

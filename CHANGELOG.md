@@ -11,13 +11,16 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
-- **Badges — adoption and ARB queue depth — as recipes over output adrkit already
-  produces.** A committable adoption SVG ships at `site/public/badge/adrkit.svg`,
-  and a new [badges guide](https://adrkit.dev/badges/) documents three snippets: the
-  adoption badge, the GitHub Actions badge for a workflow running `adr check`, and a
-  queue-depth badge that renders `QueueReport`'s `totalItems` through shields.io from
-  a `.adrkit/queue.json` published by your own repository
-  ([ADR-0025](docs/adr/0025-ship-badges-as-recipes-over-existing-output.md)).
+- **Badges — corpus size and ARB queue depth — as recipes over output adrkit
+  already produces.** A new [badges guide](https://adrkit.dev/badges/) documents two
+  snippets, both rendering a number through shields.io from JSON your own repository
+  publishes: `$.checked` from `adr lint --json` for how many decisions are on
+  record, and `$.totalItems` from `adr queue --format json` for how many await
+  review ([ADR-0025](docs/adr/0025-ship-badges-as-recipes-over-existing-output.md)).
+  A static "uses adrkit" badge is deliberately not offered — it asserts something a
+  reader cannot check, and a count proves the same thing for the same cost. The
+  pass/fail badge for a workflow running `adr check` is documented too, but it is
+  GitHub's badge and works the same for any workflow.
 
   **No new CLI surface and no service.** `adr queue --format json` already emits
   `totalItems`, `asOf`, and `corpusFingerprint`, so an `adr badge` command would be

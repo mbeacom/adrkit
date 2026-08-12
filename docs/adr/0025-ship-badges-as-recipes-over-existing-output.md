@@ -12,8 +12,6 @@ blastRadius: team
 relatesTo: ["0004", "0011", "0014", "0016", "0019", "0021", "0022", "0023"]
 affects:
   - type: path
-    pattern: "site/public/badge/**"
-  - type: path
     pattern: "site/src/content/docs/badges.mdx"
   - type: path
     pattern: ".github/workflows/site.yml"
@@ -85,9 +83,11 @@ is MADR weighing a status badge *inside each record* as an alternative to a
 "many badges have to be generated… for each ADR number," hard to read in
 markdown source. None of that transfers to one repository-level badge. The
 single portable point is its first con, reliance on the online service
-shields.io, and that is answered here by also shipping a committable SVG rather
-than by declining to ship a badge. Recorded so this fixture is not later cited
-as support it does not provide.
+shields.io — and that one this record does **not** answer. Both badges here
+report a number, and a number cannot be a committed static image without being
+wrong the moment the corpus changes. An adopter who refuses a third-party
+renderer gets no badge from us. That is a real cost of choosing evidence over
+decoration, and it is stated here rather than left for someone to discover.
 
 Finally, adrkit already has a settled position on what `adrkit.dev` serves.
 ADR-0011 made the origin a **static, versioned, immutable** host for bytes
@@ -136,17 +136,24 @@ none exists yet; that is an action item, per ADR-0016.
 **Badges ship as documented recipes over output adrkit already produces. No new
 CLI surface, and nothing computed on our origin.**
 
-### 1. A static adoption badge, delivered as bytes the adopter owns
+### 1. A corpus-size badge, because adoption is better shown than claimed
 
-The claim is "this repository records decisions with adrkit," linking to the
-adopter's own `docs/adr`:
+`adr lint --json` already emits `{ checked, findings }`. `$.checked` is the
+number of records in the corpus, so the badge reports a fact a reader can verify
+by opening `docs/adr` and counting:
 
 ```md
-[![ADRs: adrkit](https://img.shields.io/badge/ADRs-adrkit-cb492d)](./docs/adr)
+[![ADRs](https://img.shields.io/badge/dynamic/json?url=…%2Flint.json&query=%24.checked&label=ADRs&color=cb492d)](./docs/adr)
 ```
 
-A committable SVG is also published under `site/public/badge/` for adopters who
-prefer to vendor the image rather than depend on `shields.io` at all.
+**An earlier revision of this record shipped a static `ADRs | adrkit` badge
+instead, and it was wrong by this record's own standard.** The Context above
+argues that a badge must not assert what a reader cannot check; "this repository
+uses adrkit" is exactly that — unverifiable from the image, carrying no state,
+and the only badge here from which a reader learns nothing. A count costs the
+same and proves the thing the static badge merely claimed. One record with
+`status: draft` and forty accepted decisions are different signals, and the
+number distinguishes them.
 
 The colors are the site's own palette, converted from its `oklch` tokens to
 sRGB: `#cb492d` (`--adr-coral`) and `#1d1311` (`--adr-ink`). The Actions
@@ -154,12 +161,9 @@ sRGB: `#cb492d` (`--adr-coral`) and `#1d1311` (`--adr-ink`). The Actions
 restricts those to a fixed named palette — so the two are not expected to match
 and neither should be changed to chase the other.
 
-**We do not encourage hot-linking `adrkit.dev` for the badge.** Not because it
-would be heavy, but because it is the one form of this that quietly turns README
-renders into a usage signal we never decided to collect. `camo` blunts that on
-GitHub and not everywhere else, and "mostly proxied" is not a privacy posture.
-Serving the file so adopters can *take* it is different from asking them to
-point at us.
+`$.checked` counts every record whatever its status. That is deliberate: a
+superseded decision is still a decision that was recorded, and filtering to
+"active" would make the number a judgement rather than a count.
 
 ### 2. The status badge that already exists, documented rather than rebuilt
 
@@ -285,8 +289,8 @@ correctness gain.
 ### Option E: Do nothing
 
 **Pros:** zero work. **Cons:** badges are how this category advertises itself,
-and the adoption badge has no truth problem at all. Forfeits distribution value
-(ADR-0019) for nothing.
+and both badges here report a number the corpus already produces, so neither has
+a truth problem. Forfeits distribution value (ADR-0019) for nothing.
 
 ## Trade-offs
 
@@ -300,10 +304,11 @@ has no such surface. The record therefore ships a guarantee to itself that it
 cannot ship to its adopters, and says so here rather than letting the guide imply
 parity.
 
-**Two of three badges depend on shields.io.** The committable SVG exists as an
-escape hatch for the adoption badge, but there is no offline form of the depth
-badge — a dynamic value from a static site necessarily involves a renderer. That
-is a dependency this record accepts explicitly rather than discovers later.
+**Both badges depend on shields.io, with no offline form.** A number rendered
+from a static file necessarily involves a renderer, so choosing counts over a
+decorative image removed the one escape hatch an earlier revision offered. This
+is accepted explicitly: a badge nobody can verify is worse than no badge, and an
+adopter who wants neither dependency nor decoration can simply omit both.
 
 **The recipe URL is long and hand-edited.** `OWNER/REPO`, branch, and path are
 all inline, and getting one wrong renders `resource not found` — visible, but
@@ -352,10 +357,9 @@ an artifact claim more than it can support — but readers will over-read it.
        until this merges and the site publishes (ADR-0016).
 2. [x] Fix the badge's brand color against the site palette — resolved to
        `#cb492d` / `#1d1311`, converted from `site/src/styles/custom.css`.
-3. [x] Add `site/public/badge/` with the committable SVG, and confirm no
-       schema-derivation guard treats it as generated output — `sync-schema`
-       writes only under `public/schema/`, which is gitignored while
-       `public/badge/` is committed (ADR-0011).
+3. [x] Publish `lint.json` alongside `queue.json` from the site build, and
+       confirm no schema-derivation guard treats either as its own output —
+       `sync-schema` writes only under `public/schema/`.
 4. [x] Write `site/src/content/docs/badges.mdx`, wire it into the sidebar, and
        link it from the CI page.
 5. [x] Note the `totalItems` compatibility constraint where `QueueReport`
