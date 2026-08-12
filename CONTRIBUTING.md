@@ -53,6 +53,20 @@ why.
 git commit -s -m "your message"
 ```
 
+**This is enforced.** The `dco` job checks every commit your pull request adds and
+is a required status check, so an unsigned commit cannot merge. If you forgot, sign
+the whole branch at once and force-push:
+
+```
+git rebase --signoff origin/main
+git push --force-with-lease
+```
+
+The trailer must name you: `Signed-off-by: Your Name <your@email>`, matching the
+commit's author or committer exactly. Merge commits are exempt — the commits they
+merge carry the certification. Bot accounts are exempt from the identity match
+only, because they sign from a service address; they still have to sign.
+
 ## Two hard rules
 
 These are enforced in CI. A PR that violates either will fail, and the fix is to

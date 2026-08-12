@@ -139,3 +139,37 @@ jobs:
             exit 0
           fi
           bun run adr check "${changed[@]}"
+
+  dco:
+    # ADR-0006 chose a DCO over a CLA. CONTRIBUTING.md and the PR template have
+    # required sign-off since the repository went public, and nothing checked it
+    # — an unsigned commit would have merged. This is that check (issue #130).
+    #
+    # A repository script rather than the DCO GitHub App, so the gate stays
+    # inside the surface ADR-0007 keeps mechanical and self-contained. It imports
+    # only Node builtins and therefore runs with no `bun install`: a broken
+    # dependency graph cannot take the sign-off gate down with it.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - name: Verify every commit carries a DCO sign-off
+        env:
+          # Explicit SHAs, not `origin/$BASE_REF..HEAD`. A ref resolves to
+          # whatever it points at now, so a branch that moved mid-run silently
+          # changes which commits were checked — the stale-read failure
+          # ADR-0016 records under "report what was examined". The default
+          # checkout is the synthetic merge ref, and this range excludes it.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bun run scripts/check-dco.ts "$BASE_SHA..$HEAD_SHA"

@@ -31,7 +31,7 @@ adrkit/
 │   └── adapters/
 │       └── spec-kit/              @adrkit/spec-kit — independently versioned
 │                                  (ADR-0007); ships no dist, no dependencies
-├── scripts/                       release pack/publish, dep boundary + audit gates
+├── scripts/                       release pack/publish, dep boundary + audit + DCO gates
 ├── site/                          Astro Starlight docs site; hosts the schema at its $id
 ├── specs/                         001–009, one spec-kit feature per phase/spike
 └── docs/

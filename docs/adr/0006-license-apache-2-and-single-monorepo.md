@@ -147,7 +147,23 @@ sense if standardization is genuinely the goal — which ADR-0002 asserts it is.
 ## Action items
 
 1. [x] LICENSE, NOTICE, per-package `license` fields
-2. [ ] DCO bot enabled on the repository
+2. [x] DCO sign-off enforced on the repository. **Done 2026-08-12** (#130) as the
+       `dco` job in `.github/workflows/ci.yml`, a required check on the `main`
+       ruleset, backed by `scripts/check-dco.ts`. A repository script rather than
+       the [DCO app](https://github.com/apps/dco), so the gate stays inside the
+       surface [ADR-0007](0007-adapter-isolation-and-public-surface-build.md)
+       keeps mechanical and self-contained; it imports only Node builtins, so a
+       broken dependency graph cannot take the sign-off gate down with it.
+       Observed rejecting a real unsigned commit before it counted as coverage
+       ([ADR-0016](0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)),
+       with the negative cases kept in `scripts/check-dco.test.ts`.
+
+       The repository's squash-merge body setting moved from `BLANK` to
+       `COMMIT_MESSAGES` in the same change. A pull-request check certifies the
+       *contributor*, which is what the DCO is for, but a blank squash body
+       discards every trailer at merge — so `main` carried unsigned commits
+       (`f74c089`) while every commit proposed to it was signed. Provenance that
+       is verified and then thrown away is not provenance.
 3. [x] `schema/LICENSE` (CC0) with the carve-out stated plainly in the README
 4. [x] SECURITY.md and CODE_OF_CONDUCT.md before the repository goes public
 5. [ ] Resolve external participation obligations before first public push
