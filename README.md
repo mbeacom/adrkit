@@ -279,7 +279,7 @@ These are enforced, not aspirational. Each links to the record that decided it.
 | A clean clone with no credentials builds, tests, and lints green | [0007](docs/adr/) |
 | Every integration is an optional adapter; the core depends on none | [0007](docs/adr/) |
 | Match resolution is a pure function — reproducible in CI | [0009](docs/adr/) |
-| Deterministic checks run before any model call | [0005](docs/adr/) |
+| Deterministic checks run before any model call | [0027](docs/adr/) |
 | Bun is a development dependency only; published artifacts run on Node | [0010](docs/adr/) |
 | Parsers are deterministic; models suggest, they never parse | [0008](docs/adr/) |
 
@@ -287,7 +287,12 @@ These are enforced, not aspirational. Each links to the record that decided it.
 
 Every decision in this project is governed by this project. The repository's
 first commit is its own decision corpus — see [`docs/adr/`](docs/adr/). The
-evaluator rubric is itself an ADR, and changes to it ship with calibration data.
+evaluator rubric is itself an ADR, and changes to it ship as ADRs. No
+probabilistic evaluator pass has shipped, so no escalation precision/recall
+figures exist yet; per
+[ADR-0027](docs/adr/0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md)
+that absence is stated rather than assumed, and the first such pass may not ship
+without a holdout frozen before it produced a score.
 
 ## License
 

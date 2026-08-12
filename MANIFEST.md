@@ -45,7 +45,7 @@ adrkit/
         ├── 0002  MADR-superset typed frontmatter        accepted
         ├── 0003  Spec Kit extension + standalone CLI    accepted
         ├── 0004  git truth, DB as derived index         accepted
-        ├── 0005  deterministic-first evaluator          proposed
+        ├── 0005  deterministic-first evaluator          superseded
         ├── 0006  Apache-2.0, DCO, monorepo              accepted
         ├── 0007  adapter isolation, public-surface build accepted
         ├── 0008  MADR migration + one-way import         accepted
@@ -66,7 +66,8 @@ adrkit/
         ├── 0023  read a marker only where the format hides it accepted
         ├── 0024  report the measured scan extent            accepted
         ├── 0025  badges as recipes over existing output     accepted
-        └── 0026  identify the CI comment by token evidence  accepted
+        ├── 0026  identify the CI comment by token evidence  accepted
+        └── 0027  ratify the deterministic evaluator         accepted
 ```
 
 ## Known-open, deliberately
