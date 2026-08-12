@@ -350,11 +350,12 @@ an artifact claim more than it can support — but readers will over-read it.
 
 ## Action items
 
-1. [ ] Add the queue badge to `README.md` once `https://adrkit.dev/queue.json`
-       is live, verifying the render end to end at that point — the shields mechanism and both failure
-       renders were observed, and the first-run/no-change/changed paths of the
-       adopter recipe were executed, but the deployed path cannot be exercised
-       until this merges and the site publishes (ADR-0016).
+1. [x] Add the badges to `README.md` once the reports are live, verifying the
+       render end to end at that point. Done: `https://adrkit.dev/lint.json` and
+       `/queue.json` both return HTTP 200 from the first post-merge deploy, and
+       shields renders `ADRs: 25` and `ARB queue: 6` against them. This closes
+       the last claim in this record that had been reasoned rather than observed
+       (ADR-0016).
 2. [x] Fix the badge's brand color against the site palette — resolved to
        `#cb492d` / `#1d1311`, converted from `site/src/styles/custom.css`.
 3. [x] Publish `lint.json` alongside `queue.json` from the site build, and
