@@ -29,7 +29,7 @@ implementation
 ## Requirement Completeness
 
 - [ ] **No [NEEDS CLARIFICATION] markers remain** — **deliberately not met.**
-      Seven markers remain **by decision of the coordinating review**, not by
+      Six markers remain **by decision of the coordinating review**, not by
       oversight. Each is a value a maintainer must set (`ε`, `N`, the
       override-rate source, label-class exhaustiveness, external-case
       admissibility). In every case the spec fixes the **mechanism or behavior**
@@ -117,5 +117,5 @@ implementation
 
 The single unchecked item above is intentional and is the honest state of this
 specification. A checklist that reported "no clarifications remain" by inventing
-seven values would be exactly the manufactured assurance ADR-0027 exists to
+six values would be exactly the manufactured assurance ADR-0027 exists to
 prevent.

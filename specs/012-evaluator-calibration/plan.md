@@ -5,7 +5,7 @@ branch is created or switched** by this work) | **Date**: 2026-08-12 |
 **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/012-evaluator-calibration/spec.md`
-and its seven open `[NEEDS CLARIFICATION]` items, all of which remain open by
+and its six open `[NEEDS CLARIFICATION]` items, all of which remain open by
 decision of the coordinating review rather than by oversight.
 
 **Normative sources** (ADRs win on conflict):

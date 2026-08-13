@@ -663,14 +663,36 @@ verdict.
   self-report, which is exactly the evasion ADR-0027 §3 claims a precondition is
   *"strictly harder to evade"* than.
 
-  **The second source is the evaluator's committed public surface.** A
-  probabilistic pass that has shipped must be *invocable*: it must expose a
-  request-builder and a response-parser (or equivalent entry point and result
-  types) reachable from `packages/evaluator/src/index.ts` and its committed
-  types. A pass no caller can invoke has not shipped. That surface is committed,
-  greppable, deterministic, model-free, and — critically — **not authored by the
-  same edit that writes the registry entry**, which is what makes the two sources
-  independent.
+  **The second source is the evaluator's committed pass surface, enumerated in
+  two places, with the emitted report primary.**
+
+  1. **Primary — a pass-result / `PassAbsence` field on the emitted report type**
+     (`Pass0Report` or its successor, in `packages/evaluator/src/types.ts`). A
+     shipped pass reports its result; a pass that has not shipped reports an
+     explicit absence.
+  2. **Secondary — the exported entry-point surface**: a request-builder and
+     response-parser reachable from `packages/evaluator/src/index.ts`. A pass no
+     caller can invoke has not shipped.
+
+  Either firing is detection. Both are committed, greppable, deterministic,
+  model-free, and — critically — **not authored by the same edit that writes the
+  registry entry**, which is what makes the two sources independent.
+
+  **Why the report field is primary, and not the module surface.** Two reasons,
+  the second decisive:
+
+  - **It is enumerable.** One field on one committed type has a boundary that can
+    be written down and checked. "Reachable from `index.ts`" is a set of module
+    locations that refactors move, so its enumeration (FR-013c) would need
+    continuous maintenance to stay true — and a stale enumeration is a detector
+    that silently narrows.
+  - **It makes the detector and the metrics read the same artifact.** A pass that
+    hides from the detector by not reporting its results also **starves the
+    metrics**: its figures become `evidence-absent` / `measurement-failed`, which
+    under FR-023b **fails the gate** once a pass is declared. The evasion path
+    therefore leads to a failure by another route rather than to silence. An
+    unenumerated module location, by contrast, produces silence — which is the
+    failure mode this requirement exists to remove.
 
   Cross-check, failing in **both** directions:
   - a pass surface observed with no registry entry → an undeclared pass → **fail**;
@@ -705,6 +727,14 @@ verdict.
      an acknowledged self-report**, because it buys confidence it has not
      earned — which is this feature's own subject matter applied to itself.
 
+  The general principle, which this feature has now hit three times: **the scope
+  of a verification is part of its result, not a detail of how it was run.** A
+  check reporting "clean" over a scope that never covered the case reads as
+  corroboration and is not — the same structural error as counting one
+  corroborated finding twice, or treating an absent snapshot as a true negative
+  (FR-005). A gate that reports no disagreement when it never held a signal
+  capable of disagreeing is that error wearing a release-blocking badge.
+
   If `specs/011-*` and this feature cannot agree an enumeration that holds, the
   correct resolution is **not** a weaker detector described in strong terms: it
   is to declare the registry **self-declared** and state plainly that the
@@ -722,7 +752,15 @@ verdict.
   registry is self-declared and that the cross-check is **not** evidence of
   pass-shipping. Two specs naming different detectors is the same defect as one
   spec naming none.
-  `[NEEDS CLARIFICATION: detector signal ratification with specs/011-*]`
+
+  **Decided.** `specs/011-*` raised this (its Q8), declined to choose
+  unilaterally because the gate is this feature's, and then handed the decision
+  back. It is closed here on the signal above — the report field primary, the
+  exported surface secondary — with FR-013c's coverage bound standing
+  unchanged. `specs/011-*` conforms by carrying the pass-result / `PassAbsence`
+  field on its emitted output. This is recorded as a decision rather than left
+  as an open marker, because an interface question that both parties have
+  answered is settled, and leaving it open would misreport the spec's state.
 
 - **FR-014 — The gate is fail-closed.** An unreadable, unhashable, absent, or
   hash-mismatched holdout manifest MUST fail. Unknown MUST NEVER be treated as
@@ -1634,9 +1672,17 @@ one-way door.
 
 ## Clarifications
 
+### Closed during scoping
+
+- **The detector's second source (FR-013b).** Raised by `specs/011-*` as its Q8,
+  handed back to this feature, and **decided** rather than deferred: the emitted
+  report's pass-result / `PassAbsence` field is primary, the exported entry-point
+  surface secondary, with FR-013c's coverage bound standing. Recorded here so the
+  marker count's change is legible rather than looking like a dropped item.
+
 ### Outstanding — `[NEEDS CLARIFICATION]`
 
-All seven remain open by decision of the coordinating review, not by oversight. In
+All six remain open by decision of the coordinating review, not by oversight. In
 each case a mechanism is specified so the unknown cannot silently become a
 passing value (FR-017a).
 
@@ -1680,13 +1726,6 @@ passing value (FR-017a).
    nothing. The trigger is expected to stay permanently `evidence-absent` until a
    primitive exists. `specs/011-*` explicitly declines to build one; ownership is
    unassigned and is **not** claimed here.
-7. **Which observable signal is the detector's second source (FR-013b).** The
-   dependency graph is withdrawn — empty by construction under the harness
-   architecture, and toothless besides. This spec names the evaluator's
-   committed pass surface. `specs/011-*` must name the **same** signal, or both
-   must jointly state that the registry is self-declared and the cross-check is
-   not evidence of pass-shipping. Open until both specs agree.
-
 ---
 
 ## Out of Scope
