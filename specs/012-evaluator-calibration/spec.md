@@ -582,25 +582,125 @@ verdict.
   release that includes a probabilistic pass when no qualifying frozen holdout
   existed before that pass produced its first score (ADR-0027 §3).
 
+- **FR-011a — The gate has two branches, and its activation condition is
+  normative.** FR-014's fail-closed rule and FR-023's validity preconditions are
+  stated unconditionally, while FR-011 scopes failure to a release that *includes
+  a probabilistic pass*. Left unreconciled, the fail-closed reading makes every
+  release fail from the moment the gate is wired, because no `H` exists yet and
+  `N` is unratified. The gate therefore has exactly two branches:
+
+  | Registry state (FR-013) | Holdout-precondition branch | Detector branch |
+  |---|---|---|
+  | **No pass declared** | **inert** — evaluated, reported as `nothing-to-measure` (FR-017b class 1), and **does not fail** | **runs** — an undeclared pass observed by source 2 fails |
+  | **A pass is declared** | **fully evaluated and fail-closed** — FR-014 and FR-023 bind | **runs** |
+
+  "Inert — not pass, not fail" is the repository's existing vocabulary for an
+  absent input (feature 005 SC-006/SC-007), not a new concept. The detector
+  branch **never** goes inert: it is the only thing standing between an
+  undeclared pass and a release.
+
+- **FR-011b — An unratified `N` is inert before a pass is declared and blocking
+  after.** `N` deliberately does not ship (clarification 2), so `|H| ≥ N` is not
+  evaluable. FR-019a states the unset-`ε` behavior; this states the unset-`N`
+  behavior, which was missing:
+
+  - **No pass declared** — `|H| ≥ N` reports `not-computable / nothing-to-measure`
+    and is **inert**. It MUST still be reported, never silently treated as
+    satisfied.
+  - **A pass is declared** — an unratified `N` is itself a **`measurement-failed`**
+    and **fails the gate**. Shipping a probabilistic pass against a holdout whose
+    adequacy nobody has defined is precisely what the precondition exists to
+    prevent, and an unset constant MUST NOT become the reason it is waved
+    through.
+
+  This resolves the contradiction without making the precondition vacuous at the
+  moment it binds, and it is the same shape as FR-023a: a permanently
+  unevaluable condition must not fail-close on a state that is expected today,
+  but it must not silently pass at the moment it becomes load-bearing either.
+
 - **FR-012 — The gate is deterministic, model-free, and reads only committed
   state.** It MUST NOT call a model, read the network, or depend on anything
   outside the repository at the release commit (Principle IV).
 
 - **FR-013 — Detection of "a probabilistic pass shipped" is cross-checked from
-  two independent sources.** A declared **passes registry** (data in git) MUST be
-  cross-checked against the dependency-boundary evidence already asserted by
-  feature 005 SC-006 and enforced by `bun run check:deps` (the evaluator imports
-  no model/prompt/embedding/retrieval library). A dependency the registry does
-  not declare — **or** a registry entry with no corresponding dependency — MUST
-  fail the gate. Neither source may quietly disagree with the other.
+  two independent sources, and the dependency graph is NOT one of them.**
+
+  **The dependency-graph source is withdrawn.** An earlier draft made the second
+  source "the dependency-boundary evidence asserted by feature 005 SC-006 and
+  enforced by `bun run check:deps`". That cannot work, for two independent
+  reasons, each sufficient on its own:
+
+  1. **It is empty by construction, permanently.** Under the harness-driven
+     architecture, adrkit emits a request and consumes a structured response; the
+     model call happens in the harness. adrkit therefore ships **no** model,
+     prompt, embedding, or retrieval dependency when a probabilistic pass ships —
+     not as an oversight but as the architecture. The dependency side of the
+     check can never become non-empty.
+  2. **It is toothless even when non-empty.** `scripts/check-deps.ts` compares
+     *declared `package.json` dependency names* against a **positive allowlist**
+     keyed by package name. Its own comment records the consequence: a package
+     with no allowlist entry is *"silently unconstrained and passes `check:deps`
+     no matter what it declares … a green check that means nothing."* There is no
+     denylist of model libraries anywhere in the repository.
+
+  Left as written, the gate inverts in both directions: an honest declaration
+  becomes "a registry entry with no corresponding dependency" and **fails every
+  release forever**, while omitting the declaration leaves both sources empty,
+  agreeing, and **silent** — reducing the precondition to a voluntary
+  self-report, which is exactly the evasion ADR-0027 §3 claims a precondition is
+  *"strictly harder to evade"* than.
+
+  **The second source is the evaluator's committed public surface.** A
+  probabilistic pass that has shipped must be *invocable*: it must expose a
+  request-builder and a response-parser (or equivalent entry point and result
+  types) reachable from `packages/evaluator/src/index.ts` and its committed
+  types. A pass no caller can invoke has not shipped. That surface is committed,
+  greppable, deterministic, model-free, and — critically — **not authored by the
+  same edit that writes the registry entry**, which is what makes the two sources
+  independent.
+
+  Cross-check, failing in **both** directions:
+  - a pass surface observed with no registry entry → an undeclared pass → **fail**;
+  - a registry entry with no observable pass surface → a stale or speculative
+    declaration → **fail**.
+
+- **FR-013a — The gate fails when the second source cannot observe.** If source 2
+  is structurally unable to observe the surface the registry names, the gate MUST
+  **fail**, never pass. A cross-check whose second source is a constant is one
+  source wearing two names, and would restore precisely the failure FR-013 was
+  rewritten to remove.
+
+- **FR-013b — Both specs MUST name the same detector.** `specs/011-*` and this
+  feature MUST agree on the observable signal, or MUST jointly state that the
+  registry is self-declared and that the cross-check is **not** evidence of
+  pass-shipping. Two specs naming different detectors is the same defect as one
+  spec naming none.
+  `[NEEDS CLARIFICATION: detector signal ratification with specs/011-*]`
 
 - **FR-014 — The gate is fail-closed.** An unreadable, unhashable, absent, or
   hash-mismatched holdout manifest MUST fail. Unknown MUST NEVER be treated as
   satisfied.
 
-- **FR-015 — Ordering is proven by commit ancestry.** The gate MUST verify that
-  the holdout's freeze commit is an ancestor of the first commit that produced a
-  score. A prose assertion of ordering MUST NOT satisfy it.
+- **FR-015 — Ordering is proven by commit ancestry, against an anchor the
+  declarer does not author.** The gate MUST verify that the holdout's freeze
+  commit is an ancestor of the first commit that produced a score. A prose
+  assertion of ordering MUST NOT satisfy it.
+
+  **The anchor is derived, not declared.** Nothing in committed state records
+  score production — Pass 0 persists nothing (FR-002), this feature adds none,
+  and no run log exists (Finding 1). So "the first commit that produced a score"
+  is not directly observable, and the only artifact that could carry it is the
+  registry, which the declaring party authors. Taking the anchor from there would
+  reintroduce the date field this requirement exists to reject.
+
+  The anchor is therefore the **earliest commit at which FR-013's second source
+  observes the pass surface** — the same evidence, and the same independence,
+  used to detect the pass at all. FR-013's two-source rule applies to the
+  *timing* anchor exactly as it applies to existence.
+
+  **The gate MUST fail closed when no anchor can be derived** (FR-014). An
+  underivable anchor is not an ordering that passes; it is an ordering that
+  cannot be checked, which is the same thing as an unverified holdout.
 
 #### The metrics
 
@@ -670,9 +770,20 @@ verdict.
   A `not-computable` state MUST NEVER be rendered as, coerced to, or defaulted to
   a value that reads as passing. This rule is binding **independently of** the
   values eventually chosen for `ε` and `N`: it is what prevents an unset constant
-  from silently becoming a green figure. Reason codes follow the existing
-  `packages/evaluator/src/catalog.ts` convention (exhaustive, stable,
-  namespaced).
+  from silently becoming a green figure.
+
+  Calibration reason codes follow the *convention* of
+  `packages/evaluator/src/catalog.ts` — exhaustive, stable, namespaced, fixed
+  precedence — but MUST form their **own disjoint union** (e.g.
+  `CalibrationReasonCode`) with its own exhaustiveness test. They MUST NOT be
+  appended to `REASON_CODES`. That array is the Pass 0 contract vocabulary; its
+  own header calls it frozen and says "adding or renaming a code is a versioned
+  contract change, never a silent edit", `ReasonCode` is derived from it and
+  exported from the published package, and feature 005 SC-011 requires escalation
+  to "invent no new reason code". A calibration code can never be emitted by a
+  Pass 0 run, so adding one would give consumers switching exhaustively over
+  `ReasonCode` arms that Pass 0 cannot produce — and would teach the next feature
+  that a frozen vocabulary is appendable.
 
 - **FR-017b — Not-computable is four disjoint classes, and they may never be
   collapsed.** Every `not-computable` state MUST carry exactly one of the
@@ -811,12 +922,27 @@ verdict.
   This feature **also owns the definitions** of the quantities those thresholds
   apply to — see FR-020b and FR-020c. An earlier draft placed them with
   `specs/011-*` on the grounds that they are functions of output shapes this
-  feature must not invent. **That premise no longer holds**: `specs/011-*` has
-  published `RubricScoreSnapshot` and `AdversarialSnapshot`, so these are now
-  functions over a *published* shape rather than an invented one. And the
-  original reason for splitting them was never sound in the other direction — a
-  threshold calibrated against a quantity its owner does not define is
-  calibrating something it does not control.
+  feature must not invent, and then reversed that on the stated premise that
+  `specs/011-*` had "published" `RubricScoreSnapshot` and `AdversarialSnapshot`.
+
+  **That premise is corrected here. `specs/011-*` has not landed**: at this
+  revision no `specs/011-probabilistic-evaluator-passes/` directory exists in the
+  repository, and neither identifier occurs outside this feature's own files.
+  Under Principle I and ADR-0004, an out-of-tree spec on another branch is not a
+  citable contract — every other cross-feature dependency this spec leans on
+  (005, 009, 010) is a landed directory.
+
+  The ownership decision stands, on the argument that does not depend on that
+  premise: **a threshold calibrated against a quantity its owner does not define
+  is calibrating something it does not control.** Because 012 gates 011
+  (ADR-0027 §3), the dependency must run the same way — so this feature
+  **defines the input shapes it thresholds** in
+  `contracts/metric-definitions.md`, at field level, as a frozen input contract,
+  and `specs/011-*` conforms to it. A conforming producer may carry additional
+  fields; the contract names what this feature reads.
+
+  FR-020b and FR-020c are consequently self-contained: they are computable from
+  a shape this feature owns, not from one it awaits.
 
   One constraint remains, and it is load-bearing: every such quantity MUST be
   derived from the **structure** of a pass's output, never from a model's
@@ -992,9 +1118,47 @@ verdict.
   `not-computable` class, the class is a function of observed state, not of an
   identifier.
 
+- **FR-023b — Validity binds the published population, not only `H`, and a
+  `not-computable` marginal figure does NOT discharge ADR-0027 §3.**
+
+  Every FR-023 precondition is a property of `H` **as a whole** — frozen,
+  hash-verified, `|H| ≥ N`, all four outcome label classes present, three-state
+  evidence recorded. But every figure that discharges ADR-0027 §3 is computed
+  over a **subpopulation**: the probabilistic-marginal set (FR-016), and within
+  it the positive class (FR-018). No precondition constrains that subpopulation.
+
+  The gap is exploitable without any dishonesty. A holdout can satisfy every
+  FR-023 precondition while the marginal subset is empty or single-class —
+  because a deterministic trigger fired on nearly every case. FR-017b then classes
+  an empty denominator as `undefined-value`, *"a finding, not a failure"*, so the
+  gate does not fail; and FR-026's *"the marginal figures MUST become required"*
+  is satisfied by their **presence in a `not-computable` state**, since FR-021
+  establishes that a `not-computable` metric counts as published. A pass ships
+  having been measured over nothing, and every stated rule was followed.
+
+  Two requirements close it:
+
+  1. **Per-population validity.** Each published figure MUST carry its own
+     validity state over the population it is actually computed on — minimum
+     class coverage and a non-empty denominator **within** the marginal split,
+     not merely within `H`. That state is reported alongside the figure.
+  2. **Discharge requires a computed figure.** When the FR-013 registry declares
+     a probabilistic pass, a probabilistic-marginal precision/recall/FNR in **any**
+     `not-computable` state MUST **fail the gate**. It does not discharge
+     ADR-0027 §3. ADR-0027's own "revisit if" clause names a release that
+     satisfies the obligation with a whole-gate figure alone; satisfying it with
+     an absence is the same evasion by a shorter route.
+
+  This scopes — rather than contradicts — FR-017b's *"a finding, not a failure"*.
+  `undefined-value` remains a finding everywhere it is genuinely informative,
+  including for the whole-gate figure and before any pass is declared. It becomes
+  a **failure** in exactly one place: the marginal figure, once a pass is
+  declared, which is the one figure the ADR binds to.
+
 #### Absence statement and privacy
 
-- **FR-024 — Raw material stays scratch-only; a sanitized index is tracked.**
+- **FR-024 — Raw material stays scratch-only, outside the clone, and its
+  containment is enforced before anything is committed.**
   Raw historical proposals and incident material MUST NOT be tracked. A tracked
   `checklists/evidence-index.md` MUST record a sha256 for every referenced
   scratch artifact, the versions of every tool used, and an explicit reviewer
@@ -1005,6 +1169,45 @@ verdict.
   at the head of the index, in the same section as its verdict — not in a
   limitations appendix.** A reader who stops after the verdict must still have
   seen them.
+
+  **The containment is a mechanism, not an assertion.** Three rules, taken from
+  the precedent this spec names as its model (`specs/008-*`, whose scratch
+  subtrees were *"outside this repository's clone"*, torn down at closeout, with
+  "zero scratch artifact was ever committed" recorded as a checked outcome):
+
+  1. **Scratch material lives outside the repository clone**, so a stray `git
+     add -A` cannot capture it. A `.gitignore` entry inside the clone is not
+     sufficient — it protects only against the mistakes someone anticipated.
+  2. **Teardown and closeout confirmation**: scratch trees are destroyed at
+     closeout, and a `git status` / `git log` confirmation that no scratch
+     artifact was committed is recorded in the evidence index.
+  3. **Sanitization review gates the freeze**, and runs **before** anything is
+     committed — not as a closing checklist item. A leak found after commit
+     cannot be fixed: FR-007 forbids in-place correction, so the remedy is a
+     fresh cycle that leaves the bytes in history and adds a commit drawing
+     attention to them.
+
+- **FR-024b — The prohibited-content list names the channels, not just the
+  bodies.** "Raw historical proposal bodies or incident detail" does not
+  describe every way sensitive content reaches the repository. Four tracked
+  artifacts are channels the earlier wording did not cover, and each MUST be
+  constrained:
+
+  | Channel | Constraint |
+  |---|---|
+  | **Reconstructed snapshots** (FR-003, T010c) | The snapshot bundle admits `identity.principals[].id`, `identity.teams[].members`, `identity.codeowners[].owners`, and `routingEvidence.humanRequested.requester`. These MUST carry opaque, stable pseudonyms, or be omitted with the affected triggers recorded `evidence-absent`. A principal id is not a "proposal body" and would otherwise pass every stated check. |
+  | **Exclusion reasons** (FR-024a) | MUST be a class drawn from a fixed vocabulary plus a bare reference (commit sha / PR number) — never free prose. The excluded cases are the ones most likely to carry incident specifics, and a free-text reason is where that detail lands. |
+  | **The audit record** (FR-008, T012) | MUST cite evidence **by reference only** — commit sha, PR number, or a recorded sha256 — and carries the same scratch-only obligation. An adequacy finding meaningful for a `caused-incident` label otherwise has to restate what the incident record said, and a paraphrase is not bound by a prohibition on "raw" material. |
+  | **Outcome labels themselves** (FR-004) | `caused-incident` and `rejected-in-review` are **attributions** about identifiable commits, not measurements. A case whose originating commit was authored by someone other than the corpus author requires explicit maintainer sign-off before admission, and the evidence index MUST disclose that the corpus records outcome attributions about specific commits. |
+
+- **FR-024c — External cases are inadmissible until clarification 5 resolves.**
+  Clarification 5 leaves external-case admissibility open, and unlike the other
+  five markers it carried no mechanism — which is the discipline this spec claims
+  for itself. Until it is resolved, a case whose originating commit is **not in
+  this repository** is invalid and MUST be rejected by FR-023's validity
+  preconditions. Resolving the marker requires a stated provenance basis, the
+  scratch-only rule extended to external material, and a stated rule for
+  attributions about third-party work.
 
 - **FR-024a — The four outcome label classes are treated as closed, and the known gap is
   recorded rather than papered over.** A case fitting none of the four classes
@@ -1074,9 +1277,13 @@ verdict.
   (Constitution Principle IV).
 
 - **FR-030 — Every check is observed failing before it counts.** Each gate and
-  enforcement in FR-011, FR-013, FR-014, FR-015, FR-025, and FR-026 MUST be
-  observed **rejecting a deliberate violation** before it is trusted as coverage
-  (ADR-0016).
+  enforcement in FR-011, FR-011a, FR-011b, FR-013, FR-013a, FR-014, FR-015,
+  FR-023b, **FR-024**, FR-025, and FR-026 MUST be observed **rejecting a
+  deliberate violation** before it is trusted as coverage (ADR-0016).
+  FR-024's inclusion is deliberate: the containment of sensitive material was
+  the one obligation in this feature enforced by reading rather than by a
+  fixture, which made it the least trustworthy check guarding the most
+  irreversible outcome.
 
 ### Key Entities
 
@@ -1207,6 +1414,41 @@ verdict.
   case is **observed** passing the gate — not rejected as a missing outcome label class
   (FR-023a); and a fixture conflating **structurally absent** with
   **incidentally absent** is **observed** failing.
+- **SC-032**: With **no pass declared and `N` unratified**, a release is
+  **observed green** — the holdout-precondition branch reports
+  `nothing-to-measure` and does not fail, while the detector branch still runs
+  (FR-011a, FR-011b). The passing state is observed, not assumed.
+- **SC-033**: With **a pass declared and `N` unratified**, the gate is
+  **observed failing** with a `measurement-failed` reason code naming the
+  unratified `N` (FR-011b).
+- **SC-034**: The detector's second source is the committed pass surface, not the
+  dependency graph. A pass surface with no registry entry, and a registry entry
+  with no observable pass surface, are each **observed failing**; and a fixture
+  in which source 2 is structurally unable to observe is **observed failing**
+  rather than passing (FR-013, FR-013a).
+- **SC-035**: The ordering anchor is **observed derived** from the earliest
+  commit at which source 2 observes the pass surface; a fixture supplying a
+  declared date instead is **observed** not satisfying FR-015, and an underivable
+  anchor is **observed failing** closed.
+- **SC-036**: A holdout satisfying every FR-023 precondition whose
+  **probabilistic-marginal** subpopulation is empty or single-class is
+  **observed** producing a `not-computable` marginal figure that **fails the
+  gate** once a pass is declared (FR-023b) — and the same state is **observed**
+  not failing before a pass is declared.
+- **SC-037**: Calibration reason codes are **observed** to form a union disjoint
+  from `ReasonCode`; a fixture appending one to `REASON_CODES` is **observed**
+  failing, and no calibration code is reachable from `evaluatePass0` (FR-017a).
+- **SC-038**: Scratch material is **observed** located outside the repository
+  clone, torn down at closeout, with a recorded `git status` / `git log`
+  confirmation; and the sanitization review is **observed** gating the freeze
+  rather than closing the feature (FR-024).
+- **SC-039**: A tracked snapshot carrying a real principal id, team roster, or
+  `humanRequested.requester` is **observed** rejected; an exclusion reason in
+  free prose is **observed** rejected; an audit record quoting incident detail
+  rather than citing a reference is **observed** rejected (FR-024b).
+- **SC-040**: A case whose originating commit is not in this repository is
+  **observed** rejected by the FR-023 validity preconditions while clarification
+  5 is open (FR-024c).
 - **SC-031**: The `not-computable` class is **observed** derived from observed
   state rather than from a trigger identifier — a fixture in which a relevance
   primitive is present but produces nothing is **observed** yielding
@@ -1274,7 +1516,7 @@ one-way door.
 
 ### Outstanding — `[NEEDS CLARIFICATION]`
 
-All six remain open by decision of the coordinating review, not by oversight. In
+All seven remain open by decision of the coordinating review, not by oversight. In
 each case a mechanism is specified so the unknown cannot silently become a
 passing value (FR-017a).
 
@@ -1318,6 +1560,12 @@ passing value (FR-017a).
    nothing. The trigger is expected to stay permanently `evidence-absent` until a
    primitive exists. `specs/011-*` explicitly declines to build one; ownership is
    unassigned and is **not** claimed here.
+7. **Which observable signal is the detector's second source (FR-013b).** The
+   dependency graph is withdrawn — empty by construction under the harness
+   architecture, and toothless besides. This spec names the evaluator's
+   committed pass surface. `specs/011-*` must name the **same** signal, or both
+   must jointly state that the registry is self-declared and the cross-check is
+   not evidence of pass-shipping. Open until both specs agree.
 
 ---
 

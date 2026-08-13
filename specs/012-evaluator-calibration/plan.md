@@ -5,7 +5,7 @@ branch is created or switched** by this work) | **Date**: 2026-08-12 |
 **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/012-evaluator-calibration/spec.md`
-and its six open `[NEEDS CLARIFICATION]` items, all of which remain open by
+and its seven open `[NEEDS CLARIFICATION]` items, all of which remain open by
 decision of the coordinating review rather than by oversight.
 
 **Normative sources** (ADRs win on conflict):
@@ -120,8 +120,27 @@ governing-decisions Action, which is wrong on every count.
 appear on any serialized surface** — issue #115 documents that it varies by ICU
 locale and that the affected arrays are contract surfaces, not display order.
 
-**Hashing**: `packages/evaluator/src/crypto/sha256.ts` already exists; the freeze
-manifest reuses it rather than introducing a second hashing path.
+**Hashing and freeze verification**: `packages/evaluator/src/crypto/sha256.ts`
+already exists. More importantly, feature 010 discharged the freeze/audit
+procedure as **landed executable code**, not only as a procedure, and this
+feature must build on it rather than beside it:
+
+- `scripts/audit-oracle-freeze.ts` — the audit as a *program*, with frozen reason
+  strings and an explicit adequacy check. This is why 010's T020/T021 could
+  *observe* the audit FAIL. T012's audit must likewise be executable, or T012a's
+  required observation has no mechanism and the audit becomes asserted rather
+  than exhibited — the same substitution FR-008 forbids of the auditor.
+- `scripts/check-freeze-hashes.ts` — the CI freeze-drift gate, wired as
+  `check:freeze-hashes`. It hardcodes 010's directory names in `FREEZE_DIRS`, so
+  a second freeze must **either generalize that gate or explicitly add one**; T006
+  decides which, and may not leave a competing path implied.
+- **The manifest's canonical form must be defined by reference to one existing
+  definition**, not left open. The repository already carries two
+  (`scripts/audit-oracle-freeze.ts` and
+  `packages/evaluator/src/report/serialize.ts`), and `crypto/sha256.ts`
+  documents itself as "not a general crypto surface". "Reuses the existing
+  hashing path" is a claim about this feature's interior until the canonical form
+  is named.
 
 **Reason codes**: follow the existing `packages/evaluator/src/catalog.ts`
 convention — exhaustive, stable, namespaced, with a fixed precedence order. The
