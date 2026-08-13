@@ -686,35 +686,43 @@ verdict.
   *"strictly harder to evade"* than.
 
   **The second source is the evaluator's committed pass surface, enumerated in
-  two places, with the emitted report primary.**
+  two places, with the exported entry-point surface primary.**
 
-  1. **Primary — a pass-result / `PassAbsence` field on the emitted report type**
-     (`Pass0Report` or its successor, in `packages/evaluator/src/types.ts`). A
-     shipped pass reports its result; a pass that has not shipped reports an
-     explicit absence.
-  2. **Secondary — the exported entry-point surface**: a request-builder and
-     response-parser reachable from `packages/evaluator/src/index.ts`. A pass no
-     caller can invoke has not shipped.
+  1. **Primary — the exported entry-point surface**: a request-builder and
+     response-parser reachable from `packages/evaluator/src/index.ts` and its
+     committed types. **A pass no caller can invoke has not shipped.**
+  2. **Secondary — a pass-result / `PassAbsence` field** declared on the report
+     type in `packages/evaluator/src/types.ts`.
 
-  Either firing is detection. Both are committed, greppable, deterministic,
-  model-free, and — critically — **not authored by the same edit that writes the
-  registry entry**, which is what makes the two sources independent.
+  Either firing is detection. Both are committed source, greppable without
+  executing anything, deterministic, model-free, and — critically — **not
+  authored by the same edit that writes the registry entry**, which is what makes
+  the two sources independent.
 
-  **Why the report field is primary, and not the module surface.** Two reasons,
-  the second decisive:
+  **Why the surface is primary, and the field secondary.** An earlier draft of
+  this requirement inverted them, on the grounds that a report field is a single
+  enumerable location and that keying on it would make the detector and the
+  metrics read the same artifact. `specs/011-*` adopted the surface signal
+  instead and gave two reasons that defeat that ordering:
 
-  - **It is enumerable.** One field on one committed type has a boundary that can
-    be written down and checked. "Reachable from `index.ts`" is a set of module
-    locations that refactors move, so its enumeration (FR-013c) would need
-    continuous maintenance to stay true — and a stale enumeration is a detector
-    that silently narrows.
-  - **It makes the detector and the metrics read the same artifact.** A pass that
-    hides from the detector by not reporting its results also **starves the
-    metrics**: its figures become `evidence-absent` / `measurement-failed`, which
-    under FR-023b **fails the gate** once a pass is declared. The evasion path
-    therefore leads to a failure by another route rather than to silence. An
-    unenumerated module location, by contrast, produces silence — which is the
-    failure mode this requirement exists to remove.
+  - **A field's absence is ambiguous, and observing a value is not reading
+    committed state.** "A field on the emitted report" invites reading the
+    *emitted output*, which would require running the evaluator over some input —
+    and FR-012 confines this gate to committed state at the release commit. Worse,
+    an absent value is ambiguous between *"no pass shipped"* and *"this run
+    produced none"*. This is the same reason FR-015's ordering anchor keys on
+    commit ancestry rather than a date field.
+  - **A field can be added speculatively; an invocable surface cannot.** A type
+    can carry a field before any pass exists to populate it, so the field's
+    presence is weaker evidence than a request-builder and parser that a caller
+    can actually reach. The surface is closer to a necessity.
+
+  The field is kept as the second enumerated location rather than dropped,
+  because the original argument for it still holds as a *secondary* benefit: a
+  pass that hides from the detector by never reporting results also **starves the
+  metrics** — its figures become `evidence-absent` / `measurement-failed`, which
+  under FR-023b fails the gate once a pass is declared. That path turns an
+  evasion into a failure by another route rather than into silence.
 
   Cross-check, failing in **both** directions:
   - a pass surface observed with no registry entry → an undeclared pass → **fail**;
@@ -775,11 +783,13 @@ verdict.
   pass-shipping. Two specs naming different detectors is the same defect as one
   spec naming none.
 
-  **Decided.** `specs/011-*` raised this (its Q8), declined to choose
-  unilaterally because the gate is this feature's, and then handed the decision
-  back. It is closed here on the signal above — the report field primary, the
-  exported surface secondary — with FR-013c's coverage bound standing
-  unchanged. `specs/011-*` conforms by carrying the pass-result / `PassAbsence`
+  **Decided and agreed.** `specs/011-*` raised this (its Q8), declined to choose
+  unilaterally because the gate is this feature's, and handed the decision back.
+  It was closed here, then **corrected once**: this feature initially made the
+  report field primary; `specs/011-*` adopted the exported surface and gave the
+  two reasons above, which defeat that ordering. **Both specs now name the same
+  detector with the same ordering** — exported surface primary, report field
+  secondary — with FR-013c's coverage bound standing unchanged. `specs/011-*` conforms by carrying the pass-result / `PassAbsence`
   field on its emitted output. This is recorded as a decision rather than left
   as an open marker, because an interface question that both parties have
   answered is settled, and leaving it open would misreport the spec's state.
@@ -1665,8 +1675,10 @@ verdict.
   is **observed** producing `measurement-failed` rather than passing (FR-013c);
   every artifact describing the gate is **observed** stating that its coverage is
   bounded by that enumeration.
-- **SC-034**: The detector's second source is the committed pass surface, not the
-  dependency graph. A pass surface with no registry entry, and a registry entry
+- **SC-034**: The detector's second source is the committed pass surface — the
+  exported entry-point surface primary, the report-type field secondary — and not
+  the dependency graph; both are read from committed source without executing
+  anything (FR-012). A pass surface with no registry entry, and a registry entry
   with no observable pass surface, are each **observed failing**; and a fixture
   in which source 2 is structurally unable to observe is **observed failing**
   rather than passing (FR-013, FR-013a).
