@@ -6,7 +6,7 @@ description: "Dependency-ordered task list for Probabilistic Evaluator Passes (P
 
 **Input**: Design documents from `specs/011-probabilistic-evaluator-passes/`
 
-**Prerequisites**: [`spec.md`](./spec.md) (FR-001–FR-028, SC-001–SC-016, Q1–Q6) and
+**Prerequisites**: [`spec.md`](./spec.md) (FR-001–FR-029, SC-001–SC-017, Q3–Q6 + Q8 open) and
 [`plan.md`](./plan.md)
 
 **Normative**: `docs/adr/0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md`,
@@ -82,8 +82,18 @@ code exists. These gates are the entire reason this feature is scoped rather tha
       that it **ratifies** the architecture and does **not** amend the constitution, must cite
       Principle II's offline-use and IP-boundary rationale, ADR-0003, and ADR-0010, and must
       document the rejected in-adrkit-model-client alternative together with the constitutional
-      amendment it would require. Resolve or explicitly defer [Q6](./spec.md#q6) (the
-      prompt-bundle / structured-response wire contract) in that record.
+      amendment it would require. The record MUST **resolve** [Q6](./spec.md#q6) (the
+      prompt-bundle / structured-response wire contract) rather than defer it — Passes 2 and 3
+      cannot be implemented without it, so deferring Q6 unblocks nothing and would leave T020
+      inventing the contract ad hoc. It MUST cover four things the landed boundary already
+      answers for its own structured input (`SnapshotBundleJsonV1` and
+      `packages/cli/src/evaluate-snapshot.ts`): a versioned envelope token, a dedicated validator
+      module, unknown-key rejection, and the rule that a **malformed or unparseable** harness
+      response is a typed contract error at the boundary — **not** `PassAbsence`. Absence is for
+      evidence never produced; a malformed response is a broken integration, and conflating them
+      would drain 012's marginal denominator silently. It MUST also state that adrkit cannot
+      verify the harness used a fresh context, and place that obligation on the harness contract
+      (FR-014).
 - [ ] T004 After T003, obtain and record 012's answers for [Q1](./spec.md#q1) (the aggregate-
       confidence definition, constrained to something the **pure kernel** can compute from
       harness-returned evidence) and [Q2](./spec.md#q2) (the contradiction predicate for
@@ -93,7 +103,11 @@ code exists. These gates are the entire reason this feature is scoped rather tha
       maintainer's rulings on [Q4](./spec.md#q4) (are citations auditable in-record?)
       and [Q5](./spec.md#q5) (exact per-tier weights — an ADR, **not** an edit to
       `docs/EVALUATOR_RUBRIC.md`). `low-confidence` is blocked by Q1; `pass-disagreement` is
-      blocked by Q2; Pass 2 weighting is blocked by Q5.
+      blocked by Q2; Pass 2 weighting is blocked by Q5. **Record every answer by amending
+      `spec.md` in this feature directory** — a resolved question becomes normative spec text,
+      not a note in a session log or a PR comment, because an implementer months later reads only
+      these files. Q1 and Q2 are already answered and folded in (FR-016, FR-017); this task now
+      covers Q4, Q5, and [Q8](./spec.md#q8), the shipped-pass detector signal.
 
 **Gate checkpoint**: T001–T004 block **every** later task. `novel-no-precedent` remains blocked
 independently by [Q3](./spec.md#q3) — no relevance primitive exists in the repository — and is
@@ -120,9 +134,15 @@ shape before any pass is written.
 - [ ] T006 [P] After Phase 0, add reason codes for the three new triggers to
       `packages/evaluator/src/catalog.ts` as an **additive** vocabulary, leaving every Pass 0
       rule code, the eight routing-trigger codes, and their fixed order byte-identical (FR-002).
-- [ ] T007 After T005 and T006, write a **failing** regression test in
-      `packages/evaluator/test/pass0-bytes.test.ts` asserting that Pass 0's serialized report is
-      byte-identical to a committed golden fixture with the new types present. **Observe it
+- [ ] T007 After T005 and T006, **first generate and commit the golden fixture** — run the
+      landed evaluator at its pre-feature revision over a fixed offline input and commit its
+      serialized report bytes, recording the revision they came from. No such golden exists in
+      the repository today, so a test asserting against "the committed golden" would otherwise
+      have nothing to compare against. Then write a **failing** regression test in
+      `packages/evaluator/test/pass0-bytes.test.ts` asserting Pass 0's serialized report is
+      byte-identical to that fixture with the new types present. Name explicitly which surface is
+      frozen: the `Pass0Report` canonical bytes excluding caller-supplied run metadata, **not**
+      the CLI's rendered human output. **Observe it
       failing** by deliberately perturbing one Pass 0 code, confirm the perturbation is caught,
       then revert (ADR-0016). This is SC-001's guard and must exist before any pass is written.
 
@@ -327,6 +347,14 @@ that escalation resolves to a named human.
       with an inert finding, because no relevance primitive exists ([Q3](./spec.md#q3), FR-018).
       Do **not** build a ranker in this feature, and do **not** derive `proven` from an empty
       result set — that would make a broken retrieval indistinguishable from a novel decision.
+- [ ] T029a [US4] After T027, implement the **trigger-composition kernel** required by FR-029:
+      merge the eight landed trigger results with the three new ones into the canonical
+      eleven-trigger order (`docs/EVALUATOR_RUBRIC.md` / `EscalationReason`), export it from
+      `packages/evaluator/src/index.ts`, and extend the patch projection so
+      `EvaluationPatch.escalationReasons` can carry a probabilistic reason. Without this the ARB
+      queue never sees a probabilistic escalation. Assert Pass 0's own evidence stream and
+      serialized bytes are unchanged (FR-002, T007), and that the **pre-probabilistic** routing
+      decision stays recoverable from the composed output (FR-020).
 - [ ] T029 [US4] After T027, wire named-human resolution by reusing
       `packages/evaluator/src/routing/target.ts` **unchanged** (FR-019), and assert every
       escalation resolves to a named human or reports `unresolved` — never an unnamed "the ARB"
@@ -353,7 +381,11 @@ escalate on model discretion.
       introduced write, then revert.
 - [ ] T032 [P] Add a dependency-graph assertion that no adrkit package depends on a model SDK,
       embedding library, or HTTP client, and confirm `clean-clone-builds`,
-      `core-has-no-adapter-deps`, and `schema-emit-matches` stay green (SC-004).
+      `core-has-no-adapter-deps`, and `schema-emit-matches` stay green (SC-004). **Observe this
+      assertion failing** against a deliberately added model-SDK dependency, then revert —
+      ADR-0016 binds when adding or tightening *any* assertion, lint rule, or CI gate, and this
+      task adds one. Note this assertion guards the **architecture**; it is not a detector of
+      shipped passes, for the reason FR-027 and [Q8](./spec.md#q8) give.
 - [ ] T033 [P] Add a documentation check asserting no repository artifact describes the
       evaluator as four-pass, rubric-scoring, or adversarial in the **present tense** while the
       corresponding pass is unshipped (FR-026, SC-016, ADR-0027 §2).
@@ -378,11 +410,26 @@ escalate on model discretion.
       value ships from this feature**, and none may be hardcoded — 012 owns the derivation, and
       the resulting value needs its own record before it governs breaking-change status. Report
       the observations per dimension, **never averaged across dimensions**: an average hides a
-      compensating pair.
+      compensating pair. Emit **both** the post-drop surviving score and the raw score for each
+      dimension: 012 computes drift on the surviving score, but the difference between raw drift
+      and surviving drift is what separates a **judgment** shift from a **citation-behaviour**
+      shift, and reporting only one would make a citation regression look like a judgment
+      regression or hide it entirely. A model version **absent from the drift baseline** is
+      `measurement-failed` (FR-028 class 4), never a quiet skip.
 - [ ] T038 [P] After T037, assert that every uncomputable value this feature emits renders as
-      `not-computable` with a machine reason code, and is never coerced, defaulted, or omitted
-      into something a consumer could read as success (FR-028; 012 FR-017a). **Observe it
-      failing** against a deliberately defaulted value, then revert (ADR-0016).
+      `not-computable` with a machine reason code **and exactly one of the four classes**
+      (`nothing-to-measure` / `input-unavailable` / `undefined-value` / `measurement-failed`),
+      that `undefined-value` and `measurement-failed` never collapse into each other, that a
+      **computed zero** is representable distinctly from every not-computable state, and that only
+      `nothing-to-measure` can render ADR-0027's absence statement (FR-028; 012 FR-017b).
+      **Observe each failing** against a deliberately defaulted value and against a deliberately
+      misclassified one, then revert (ADR-0016).
+- [ ] T039 Maintain an **FR/SC to task traceability index** in this file: every FR and SC maps to
+      at least one task, or is explicitly recorded as *specification-only* (a constraint no task
+      implements, such as FR-023's prohibition on persistence). Verify no requirement is silently
+      unimplemented before the feature is considered complete. Traceability currently runs one way
+      only — tasks cite requirements, nothing cites tasks — so an unimplemented requirement is
+      invisible.
 
 **Checkpoint**: every promised boundary is enforced by a check that has been observed failing.
 
@@ -400,8 +447,8 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
         ─▶ Phase 3 (US5: T013,T014 ─▶ T015)          [after Phase 2]
         ─▶ Phase 4 (US2: T016,T017 ─▶ T018 ─▶ T019,T020)
         ─▶ Phase 5 (US3: T021,T022 ─▶ T023)
-        ─▶ Phase 6 (US4: T024,T025,T026 ─▶ T027 ─▶ T028,T029)
-        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035, T036, T037 ─▶ T038)
+        ─▶ Phase 6 (US4: T024,T025,T026 ─▶ T027 ─▶ T028,T029a,T029)
+        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035, T036, T037 ─▶ T038, T039)
 ```
 
 **Blocking rules**
@@ -421,7 +468,7 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
 
 ## Status
 
-**Scoped.** Zero of 38 tasks are checked, and none may be checked until T001–T004 clear. Per
+**Scoped.** Zero of 40 tasks are checked, and none may be checked until T001–T004 clear. Per
 [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 this feature is *scoped* and **nothing above it** — not implemented, not reference-verified, not
 landed, not released, not externally validated, not adopted.

@@ -196,8 +196,10 @@ records three properties as load-bearing — the first is why this feature is bl
 than merely sequenced:
 
 - It **cannot be satisfied by backfilling.** This is the same ordering rule spike 009 enforced
-  for its reference oracle, and the same reason that spike's carry-forward blocker refused to
-  correct an already-frozen artifact after generator work had run.
+  for its reference oracle. That spike's carry-forward blocker has since been **discharged** —
+  feature 010 Phase B ran a fresh freeze-then-audit cycle and T020 retained an observed-FAIL
+  negative case — so the precedent available here is stronger than a warning: a retained negative
+  case proves the audit catches the defect, rather than merely showing one is possible.
 - It is **strictly harder to evade than the original**: *"a per-release report is discharged
   by publishing a number; a precondition blocks the ship."*
 - While the evaluator is deterministic-only, **the honest report is the absence of one** —
@@ -514,8 +516,12 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   any relevance score, so a ranking defect cannot silently drop a governing decision.
 
 - **FR-007 — Retrieval is not scored.** Pass 1 contributes context and evidence only. It MUST
-  NOT emit a dimension score and MUST NOT influence routing except through the declarative
-  `novel-no-precedent` condition.
+  NOT emit a dimension score, and it MUST NOT be a **direct** input to any escalation trigger
+  except the declarative `novel-no-precedent` condition. Retrieval does influence routing
+  *indirectly and by design* — it assembles the context Passes 2 and 3 reason over, and D5
+  (prior-decision coherence) is unscoreable without it. The requirement is that retrieval never
+  becomes an escalation input in its own right, not the stronger and false claim that it has no
+  effect on the outcome.
 
 - **FR-008 — Recall is instrumented, not asserted.** Retrieval MUST emit machine-readable
   evidence sufficient to compute recall against a labeled set — at minimum, per-item provenance
@@ -536,11 +542,29 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   MUST be dropped by the aggregator** — dropped, not down-weighted, not defaulted — and each
   drop MUST be recorded as evidence with a stable reason code.
 
+  **A citation MUST be validated, not merely present.** The aggregator MUST verify that each
+  cited span actually resolves to a region of the proposal it claims to cite, and MUST drop a
+  score whose citation does not resolve, exactly as it drops an uncited one. Presence-only
+  enforcement is trivially satisfiable by a model emitting a plausible-looking span that quotes
+  nothing, which would convert the citation requirement — the rubric's structural quality
+  signal, and the input to FR-016's confidence aggregate — into a formatting convention.
+
 - **FR-011 — The three hard caps are enforced deterministically.** D2 MUST cap at 1 when every
   alternative shares the chosen option's core assumption; D3 MUST be 0 when the consequences
   section contains no negative consequence; D5 MUST be 0 on unacknowledged contradiction of an
-  accepted ADR. These caps MUST be applied by the **aggregator**, not requested from the model,
-  so that a fluent model cannot score around them.
+  accepted ADR. The **cap application** MUST be performed by the aggregator, deterministically,
+  so that a fluent model cannot score around a cap by simply returning a higher number.
+
+  **Be honest about what the model still supplies.** Two of the three antecedents — whether every
+  alternative shares the chosen option's core assumption, and whether a consequences section
+  contains a genuine negative consequence — are themselves judgments no deterministic check can
+  make today; the model supplies them **as evidence**, and the aggregator applies the cap over
+  that evidence. Only D5's antecedent has a deterministic counterpart (`affects-overlap` plus the
+  accepted-ADR assertion check already landed in Pass 0). This is the same evidence-not-discretion
+  split as FR-003 and it is sound, but the spec MUST NOT claim the caps are model-independent when
+  their antecedents are not. Each cap application MUST record which antecedent evidence produced
+  it, so a cap fired on model evidence is distinguishable from one fired on deterministic
+  evidence.
 
 - **FR-012 — A downward D4 correction escalates to a named human and MUST NOT silently
   re-route.** D4 is *"the fast path's safety interlock"*, and the rubric requires that any
@@ -565,6 +589,13 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   mode, hidden one-way door, unstated assumption — each either present or **explicitly
   absent**. A slot MUST NOT be filled with invented content to satisfy the shape.
 
+  **The limit of what adrkit can enforce.** adrkit controls the bundle it emits, not the
+  harness's own conversation state. Asserting that the Pass 3 bundle contains no Pass 2 scores
+  guarantees adrkit did not supply them; it does not guarantee the harness executed the call in
+  a fresh context. The architecture ADR (T003) MUST state this boundary explicitly and place the
+  fresh-context obligation on the harness contract, so that *"separate call, separate context"*
+  is a stated requirement on the integrator rather than an unverifiable claim by this feature.
+
 #### The three triggers
 
 - **FR-015 — The new triggers are declarative, ordered, and never model-discretionary.** Each
@@ -575,12 +606,24 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   compares.
 
 - **FR-016 — `low-confidence` thresholds a computed value, computable by the pure kernel.** The
-  compared value MUST be an aggregate **computed from Pass 2's structured output** by the pure
-  kernel, from evidence the harness has already returned. A model's self-reported confidence
-  MUST NOT be used, alone or as a term — a model asked how sure it is will answer fluently and
-  meaninglessly. Any candidate aggregate that would require the kernel to call anything is
-  excluded by FR-003. The aggregate's definition is [**Q1** — `[NEEDS CLARIFICATION]`](#q1);
-  the threshold (default `0.7`) is calibrated by 012.
+  compared value MUST be **citation coverage over a fixed denominator of 8** (feature 012 FR-021):
+
+  ```
+  confidence = |{ d in D1..D8 : Pass 2 produced a surviving, cited score for d }| / 8
+  ```
+
+  A model's self-reported confidence MUST NOT be used, alone or as a term — a model asked how sure
+  it is will answer fluently and meaninglessly. The aggregate is computable by the pure kernel from
+  `RubricScoreSnapshot` alone, with no call-out (FR-003).
+
+  **The denominator is the constant 8, never "dimensions attempted."** A pass that attempted two
+  dimensions and cited both would otherwise score `1.0` — the least confident possible run scoring
+  as the most. Absent, uncited, and dropped dimensions all lower confidence. Note the coherence
+  check this definition passes: `0.7 x 8 = 5.6`, so the rubric's own documented default fires when
+  fewer than six of eight survive with citations. Since a surviving score requires a **validated**
+  citation (FR-010), an unresolvable citation lowers confidence rather than inflating it.
+
+  The threshold (default `0.7`) is calibrated by 012.
 
 - **FR-017 — `pass-disagreement` records evidence for 012's predicate; it does not recompute
   it.** Pass 3 MUST attribute each of its four outputs to the dimension(s) it bears on
@@ -590,21 +633,59 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   owner, feature 012, so that this trigger's firings and 012's published inter-pass disagreement
   rate are computed from the same comparison and reconcile by construction.
 
-  This feature's obligation is therefore to **record** three-state evidence (FR-021) in a form
-  012 can aggregate directly: 012's FR-020 aggregates and **never recomputes the comparison**,
-  so a disagreement this feature fails to record is one their published rate cannot recover.
-  011 supplies the tag and the recorded evidence; 012 owns the predicate and the aggregation.
-  See [**Q2**](#q2).
+  The predicate is frozen by 012 and exported by them as a pure function over
+  `RubricScoreSnapshot` + `AdversarialSnapshot`. For dimension `d`, Pass 3 contradicts Pass 2 when
+  **either**: (1) a **present** `hidden-one-way-door` output carries `d` in `bearsOn`,
+  **unconditionally**, whatever Pass 2 scored; or (2) any **present** adversarial output carries
+  `d` in `bearsOn` **and** Pass 2's **post-drop surviving** score for `d` is **>= 3**. Both
+  disjuncts are the rubric's own — it escalates when Pass 3 *"surfaces a hidden one-way door or an
+  objection that Pass 2 scored as already addressed"* — and the `>= 3` cut point is the rubric's
+  anchor for *"adequate for the blast radius"*, not a number either spec invented. An
+  **explicitly absent** output contributes nothing: neither contradiction nor evidence of
+  agreement.
+
+  This feature's obligation is therefore to **record** the evidence (FR-021) in a form 012 can
+  aggregate directly: they aggregate and **never recompute the comparison**, so a disagreement this
+  feature fails to record is one their published rate cannot recover. The recording MUST
+  distinguish all three FR-005 states **and** the case where the comparison could not be run at
+  all — four distinguishable outcomes, not three — because 012 excludes `evidence-absent` from the
+  denominator precisely so a `0.0` cannot be manufactured from missing data (FR-028).
 
 - **FR-018 — `novel-no-precedent` distinguishes novelty from breakage, and is blocked on a
-  primitive that does not exist.** The trigger MUST be `proven` **only** when retrieval ran
-  successfully with a configured ranking strategy and returned nothing above the relevance
-  floor. When retrieval did not run, no ranking strategy was configured, or it errored, the
-  trigger MUST be **`evidence-absent`** with an inert finding (ADR-0009). A broken or
-  unconfigured retrieval MUST NOT be representable as a novel decision. **No relevance scoring
-  exists in this repository** and building one is out of scope ([Q3](#q3)); until it exists this
-  trigger is permanently `evidence-absent`, which is the honest state and MUST be reported as
-  such rather than worked around.
+  primitive that does not exist.** The trigger MUST be `condition-met` **only** when retrieval ran
+  successfully with a configured ranking strategy and returned nothing a ranking function admitted.
+  When retrieval did not run, no ranking strategy was configured, or it errored, the trigger MUST
+  be **`evidence-absent`** with an inert finding (ADR-0009). A broken or unconfigured retrieval
+  MUST NOT be representable as a novel decision.
+
+  **The relevance floor is withdrawn, not deferred.** **No relevance scoring exists in this
+  repository** — `packages/mcp/src/search/normalize.ts` documents itself as *"No stemming, fuzzy,
+  weighting, or ranking"* — so a floor calibrated over a ranking function that does not exist is a
+  parameter whose tuning changes nothing. Feature 012 has withdrawn it accordingly; it is
+  `nothing-to-measure` (FR-028 class 1), not a parameter awaiting a value. Until a ranking
+  primitive exists ([Q3](#q3)), this trigger is expected to remain permanently `evidence-absent`,
+  which is the honest state and MUST be reported as such rather than worked around.
+
+- **FR-029 — One module MUST compose the eleven triggers into the canonical ordered output.**
+  The landed pipeline emits a single ordered escalation stream: `packages/evaluator/src/patch/project.ts`
+  is the sole producer of `EvaluationPatch.escalationReasons`, and feature 007's ARB queue routes
+  on that field. The canonical eleven-trigger order **interleaves** the three new triggers among
+  the eight landed ones (`docs/EVALUATOR_RUBRIC.md`; `EscalationReason` in
+  `packages/core/src/schema/adr.schema.ts`), so a sibling kernel's output **cannot** simply be
+  appended.
+
+  This feature MUST therefore name a composition module, its merged ordering rule (the canonical
+  eleven-trigger order), and its placement — a pure kernel inside `@adrkit/evaluator`, matching
+  where `computeRouting` and `projectPatch` already live — and MUST export it from
+  `packages/evaluator/src/index.ts` so the CLI has a reachable entry point. Without it, FR-024's
+  argument that no schema change is needed *because the eleven values already exist* is
+  unrealized: nothing this feature produces would ever carry `low-confidence` in
+  `escalationReasons`, the ARB queue would never see a probabilistic escalation, and 012 would
+  receive records whose reason ordering is undefined across evaluations.
+
+  Composition MUST NOT alter the eight landed triggers' own evidence stream or Pass 0's
+  serialized bytes (FR-002), and the pre-probabilistic routing decision FR-020 requires MUST
+  remain recoverable from the composed output.
 
 - **FR-019 — Escalation routes to a named human.** Resolution MUST reuse the landed `deciders`
   → CODEOWNERS-of-affected-paths → IDP-catalog-owner resolver unchanged. *"Escalated to the
@@ -612,14 +693,25 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
 
 #### Calibration interface obligations (ADR-0027 §3)
 
-- **FR-020 — The probabilistic-marginal subset MUST be mechanically determinable.** The
-  evaluator's machine-readable output MUST allow a consumer to determine, per evaluation,
-  whether **any deterministic trigger fired**, so that precision, recall, and the
-  false-negative rate can be computed over the marginal subset. ADR-0027 §3 is explicit that
-  the whole-gate figure alone does not satisfy the precondition. Note the existing hazard the
-  record names: `routing.evidenceStatus` is reachable only under `--json`, while default human
-  output prints proven reasons only — the half from which recall cannot be computed. The three
-  new triggers MUST NOT inherit that asymmetry.
+- **FR-020 — The probabilistic-marginal subset MUST be computed from the pre-probabilistic
+  routing decision.** The evaluator's machine-readable output MUST allow a consumer to
+  determine, per evaluation, whether any deterministic trigger fired **evaluated over declared
+  frontmatter and Pass 0 evidence only** — before any Pass 2 or Pass 3 output is applied. The
+  output MUST carry **both** routing decisions: the **pre-probabilistic** decision, which
+  defines the marginal partition, and the **post-probabilistic** decision, which is what
+  actually routes. ADR-0027 §3 is explicit that the whole-gate figure alone does not satisfy
+  the precondition.
+
+  **Why the partition must be pre-probabilistic.** Two landed "deterministic" triggers can fire
+  from model-supplied values once this feature exists: FR-012 recomputes routing over a Pass 2
+  correction to `reversibility`, and a Pass 2 `D5 = 0` satisfies `contradicts-accepted-adr`
+  (US2 acceptance scenario 4). If the marginal partition were computed from the routing decision
+  *after* those corrections, **Pass 2 would choose its own denominator**: every case it corrected
+  into a deterministic escalation would leave the marginal subset, and a badly-behaved Pass 2
+  would be measured only over the cases it declined to touch. That reconstitutes, one level down,
+  exactly the masking ADR-0027 §3 was written to close.
+
+  The three new triggers MUST NOT inherit the `--json`-only asymmetry described below.
 
   **Rationale, stronger than the record states.** ADR-0027 requires the marginal figure because
   escalation is an OR and eight triggers at precision `1.0` by construction would mask a
@@ -630,6 +722,13 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   **structurally weaker than the marginal one, permanently**, and the marginal figure is the only
   one whose denominator can be clean. That makes this requirement a **measurement necessity**,
   not a policy choice. See [Q7](#q7).
+
+  **A known output asymmetry to avoid inheriting.** In the landed surface, `routing.evidenceStatus`
+  — the full eight-trigger proven/not-proven stream — is reachable only under `--json`, while the
+  default human output renders `routing.reasons`, the proven half alone. Recall cannot be computed
+  from the proven half. This is an observation about the current implementation, **not** a
+  statement made by ADR-0027; the record's Consequences addresses the conflation of
+  evaluated-and-false with evidence-absent, not the rendering asymmetry.
 
   **Inherited qualifier.** Feature 012 emits every whole-gate figure carrying a machine-readable
   qualifier naming that conflation as a denominator limitation — from the report itself, not
@@ -690,25 +789,62 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   maintainer's own reference repository MUST NOT be described as external validation or as a
   community adopter.
 
-- **FR-027 — This feature MUST declare itself in feature 012's `passes` registry.** 012's
-  precondition gate detects *"a probabilistic pass shipped"* by cross-checking a declared
-  `passes` registry against the existing dependency-boundary gate (`bun run check:deps`, and
-  feature 005's SC-006, which already asserts the evaluator imports no
-  model/prompt/embedding/retrieval library). A **silent disagreement between the dependency
-  graph and the registry fails the release**, by design, and in **either** direction: a
-  model/prompt/embedding/retrieval dependency the registry does not declare, or a registry
-  entry with no matching dependency. Any pass this feature ships MUST therefore be declared in
-  that registry **in the same change that ships it**, and the declaration MUST be kept
-  consistent with the dependency graph.
+- **FR-027 — This feature MUST declare itself in feature 012's `passes` registry, and the
+  registry's cross-check MUST key on a signal this architecture actually emits.** 012's
+  precondition gate detects *"a probabilistic pass shipped"* so that a pass cannot reach a
+  release without the holdout that governs it. Any pass this feature ships MUST be declared in
+  that registry **in the same change that ships it**.
 
-- **FR-028 — An uncomputable value is reported as `not-computable` with a machine reason code.**
-  Any value this feature emits that cannot be computed MUST be rendered as an explicit
-  `not-computable` (or the equivalent token feature 012 lands on) carrying a machine-readable
-  reason code. It MUST NOT be rendered as a passing-looking value, coerced, defaulted, or
-  omitted in a way a consumer could read as success — no `0`, no `1.0`, no empty set standing in
-  for "we did not measure this". This mirrors feature 012's FR-017a, applies to this feature's
-  outputs, and is the general form of the failure mode named in the Overview: *the fabricated
-  value always looks healthier than the honest one.*
+  **The dependency graph cannot serve as that signal, and must not be used as one.** Under the
+  harness-driven architecture this same spec ratifies, shipping Passes 1–3 adds **no** model,
+  prompt, embedding, retrieval, or HTTP dependency to any package — FR-004 forbids it, and
+  `scripts/check-deps.ts` inspects declared `package.json` dependencies only. The dependency
+  side of such a cross-check is therefore permanently empty **by construction**, which inverts
+  the gate in both directions: an honestly declared pass is *"a registry entry with no matching
+  dependency"* and would fail every release forever, while an **undeclared** shipped pass leaves
+  registry and graph both empty, they agree, and the gate stays silent — reducing ADR-0027 §3's
+  precondition to a voluntary self-declaration, which is precisely the evasion the record claims
+  it is *"strictly harder to evade"* than.
+
+  The cross-check MUST therefore key on a signal the harness architecture does emit. Candidate
+  signals, to be settled with 012 before either spec's registry semantics are frozen: the
+  presence of the pass kernels or the prompt-bundle surface in `packages/evaluator/src/index.ts`'s
+  published exports; or the presence of a pass result / `PassAbsence` field in the emitted
+  evaluation output. Both specs MUST name the **same** detector. If no mechanical detector is
+  agreed, the specs MUST state plainly that the registry is **self-declared** and that the
+  cross-check is not evidence of pass-shipping, rather than implying a mechanical guarantee that
+  does not exist. See [Q8](#q8).
+
+- **FR-028 — An uncomputable value is reported as `not-computable` in exactly one of four
+  classes.** Any value this feature emits that cannot be computed MUST be rendered as an explicit
+  `not-computable` carrying a machine-readable reason code **and exactly one class** (feature 012
+  FR-017b). It MUST NOT be rendered as a passing-looking value, coerced, defaulted, or omitted in
+  a way a consumer could read as success — no `0`, no `1.0`, no empty set standing in for "we did
+  not measure this".
+
+  | Class | Meaning | Disposition |
+  |---|---|---|
+  | `nothing-to-measure` | the subject does not exist yet — no probabilistic pass has shipped | the **only** class that may render ADR-0027's absence statement |
+  | `input-unavailable` | the measurement is well-defined but a required input does not exist in the project | honest; a named gap |
+  | `undefined-value` | the measurement ran over real data and the quantity is mathematically undefined | **a finding, not a failure** |
+  | `measurement-failed` | the input should exist and could not be used | **a defect; fails the gate** |
+
+  Three rules are load-bearing:
+
+  - **`undefined-value` MUST NOT collapse into `measurement-failed`, or the reverse.** If these
+    passes produce **zero escalations** across the holdout, that is `undefined-value` — and it is
+    arguably the single most valuable output this apparatus can produce, because it would mean the
+    probabilistic layer contributes nothing over the deterministic eight. Reporting it as a harness
+    failure would bury exactly the signal ADR-0027 exists to surface; reporting a genuine harness
+    failure as `undefined-value` would fabricate that signal.
+  - **A computed zero MUST be representable distinctly from every `not-computable` state.**
+    *Measured, and clean* and *could not measure* are different facts and may not share a
+    representation. This binds the inter-pass disagreement output directly: a genuine `0.0` is
+    012's defect signal, an unmeasurable one is not, and the two MUST NOT arrive at their
+    aggregation looking alike.
+  - **Only `nothing-to-measure` may render ADR-0027's absence statement.** Any renderer MUST derive
+    that statement from the reported state, never from a separate "has a pass shipped?" branch — a
+    branch and a state can disagree, and the branch is what silently drifts.
 
 ## Key Entities
 
@@ -767,13 +903,24 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
 - **SC-013**: The holdout-precondition gate is **observed rejecting** a probabilistic pass that
   lacks a frozen holdout, before that gate is relied upon (ADR-0016; ADR-0027 §4).
 - **SC-014**: Given any evaluation output, a consumer can mechanically determine whether any
-  deterministic trigger fired, in the **default** output shape as well as under `--json`
-  (FR-020).
+  deterministic trigger fired **evaluated over declared frontmatter and Pass 0 evidence only**,
+  in the **default** output shape as well as under `--json`, and both the pre-probabilistic and
+  post-probabilistic routing decisions are present (FR-020). A fixture demonstrates a Pass 2 D4
+  correction that changes the post-probabilistic routing **without** changing marginal-subset
+  membership.
 - **SC-015**: Escalation from each new trigger resolves to a **named human** through the landed
   resolver, or reports `unresolved` — never an unnamed "the ARB".
-- **SC-016**: No artifact in the repository describes the evaluator as four-pass,
-  rubric-scoring, or adversarial in the present tense while the corresponding pass is unshipped.
-  (ADR-0027 §2)
+- **SC-017**: A proposal with both a landed and a probabilistic trigger proven emits
+  `escalationReasons` in the canonical eleven-trigger order — e.g. `['one-way-door',
+  'low-confidence']` — reaching the ARB queue through the existing field, with Pass 0's own
+  serialized bytes unchanged (FR-029, FR-002).
+- **SC-016**: No artifact **this feature adds or modifies** describes the evaluator as
+  four-pass, rubric-scoring, or adversarial in the present tense while the corresponding pass is
+  unshipped, and the check T033 adds reports any pre-existing occurrence elsewhere in the
+  repository as a finding rather than failing on it. ADR-0027 §2 binds the whole repository, but
+  a success criterion this feature can be held to must be bounded by what it controls; an
+  unbounded assertion would either fail on artifacts outside this change or silently pass by
+  never being run.
 
 ## Non-goals
 
@@ -824,37 +971,34 @@ to prevent. Q7 was resolved during scoping and is recorded under
 
 <a id="q1"></a>
 
-- **Q1 — `[NEEDS CLARIFICATION]` What is "aggregate confidence"?** `docs/EVALUATOR_RUBRIC.md`
-  defines the `low-confidence` trigger as *"aggregate confidence below threshold (default
-  0.7)"* but **never defines the aggregate anywhere**. A model's self-report is forbidden
-  (FR-016). Candidate formulations, none selected: (a) citation coverage — dimensions surviving
-  the citation requirement ÷ 8; (b) `1 − (dropped-score count ÷ 8)`; (c) self-consistency across
-  *k* harness-returned samples of Pass 2, computable by the kernel but costing *k*× tokens;
-  (d) dispersion across dimension scores. **Binding constraint on any answer:** the aggregate
-  MUST be computable by the **pure kernel** from evidence the harness has already returned
-  (FR-003, FR-016), which excludes any candidate requiring the kernel to call anything.
-  **Owner: 012**, since they calibrate the `0.7` threshold and the choice determines what that
-  threshold means.
+- **Q1 — RESOLVED.** *What is "aggregate confidence"?* Feature 012 froze it as **citation coverage
+  over a fixed denominator of 8** — see FR-016, which carries the definition, the constant-8
+  denominator rule, and the `0.7 x 8 = 5.6` coherence check. Rejected alternatives are recorded in
+  012's spec: *score dispersion* measures disagreement between dimensions rather than confidence,
+  and *self-consistency across k samples* measures consistency (a model can be consistently wrong)
+  while multiplying model cost by `k` and changing the harness contract. The latter is not excluded
+  forever but would change what the threshold means, so it needs its own record.
 
 <a id="q2"></a>
 
-- **Q2 — `[NEEDS CLARIFICATION]` What is the contradiction predicate?** The `bearsOn: D1…D8`
-  attribution interface is settled (FR-017): 011 emits the tag. The **predicate** over
-  `(pass2Dimension, pass3Finding)` is not. The rubric supplies one concrete seed — *"an
-  objection that Pass 2 scored as already addressed"* — but not a rule. **Owner: 012**, because
-  they aggregate the same comparison into the published inter-pass agreement rate; one
-  definition, two consumers, so the rate and the firings reconcile by construction.
+- **Q2 — RESOLVED.** *What is the contradiction predicate?* Frozen by feature 012 and exported by
+  them as a pure function over `RubricScoreSnapshot` + `AdversarialSnapshot`; the two disjuncts and
+  the `>= 3` cut point are recorded in FR-017. Both come from the rubric's own text — its
+  escalation clause and its shared anchor defining `3` as *"adequate for the blast radius"* — so
+  neither spec invented a number. 011 emits the `bearsOn` tag and records the evidence; 012 owns
+  the predicate and the aggregation.
 
 <a id="q3"></a>
 
-- **Q3 — `[NEEDS CLARIFICATION]` What is the relevance primitive, and which feature builds it?**
-  There is **no relevance scoring anywhere in the repository**:
-  `packages/mcp/src/search/normalize.ts` documents itself as *"No stemming, fuzzy, weighting, or
-  ranking."* `novel-no-precedent` is therefore blocked on a **missing primitive**, not a
-  mis-tuned parameter. This feature deliberately does **not** design a ranker (see
-  [Non-goals](#non-goals)); it reports the trigger as `evidence-absent` until one exists.
-  Building it is a separate feature with its own determinism obligations and its own record.
-  **Owner: unassigned — needs a decision on whether it is scoped at all.**
+- **Q3 — `[NEEDS CLARIFICATION]` Who owns a relevance primitive, if anyone?** There is **no
+  relevance scoring anywhere in the repository**: `packages/mcp/src/search/normalize.ts` documents
+  itself as *"No stemming, fuzzy, weighting, or ranking."* Feature 012 has **withdrawn** its
+  relevance-floor parameter rather than deferring it (see FR-018), on the grounds that calibrating
+  a floor over a non-existent ranking function is a measurement that measures nothing. This feature
+  does not design a ranker either (see [Non-goals](#non-goals)); building one is a separate feature
+  with its own determinism obligations (`compareCodeUnits` ordering, byte-reproducibility) and its
+  own record. Both specs therefore carry this as an open question with **no owner**, which is the
+  accurate state. **Owner: unassigned — needs a decision on whether it is scoped at all.**
 
 <a id="q4"></a>
 
@@ -886,6 +1030,19 @@ to prevent. Q7 was resolved during scoping and is recorded under
   refused response degrades (presumably to `PassAbsence` per A3), and whether the contract is
   versioned independently like the schema. This is the main design surface the architecture ADR
   should settle or explicitly defer. **Owner: 011, pending the architecture ADR.**
+
+<a id="q8"></a>
+
+- **Q8 — `[NEEDS CLARIFICATION]` What signal does the shipped-pass detector key on?** FR-027
+  requires that a probabilistic pass be declared in feature 012's `passes` registry, and that the
+  registry be cross-checked against a signal that a pass shipped. The dependency graph **cannot**
+  be that signal: under the harness-driven architecture no model/prompt/embedding/retrieval
+  dependency is ever added, so that side of the check is permanently empty by construction, which
+  inverts the gate in both directions (see FR-027). Candidate replacements — published-surface
+  exports, or a pass-result/`PassAbsence` field in the emitted output — are listed in FR-027 and
+  are not yet chosen. **Both specs must name the same detector**, or must jointly state that the
+  registry is self-declared and the cross-check is not evidence of pass-shipping. **Owner: the
+  011/012 interface; blocks freezing the registry semantics in either spec.**
 
 ## Decisions recorded during scoping
 
