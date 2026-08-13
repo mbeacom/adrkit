@@ -972,6 +972,15 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
     that statement from the reported state, never from a separate "has a pass shipped?" branch — a
     branch and a state can disagree, and the branch is what silently drifts.
 
+  **One exception, and it is a gate failure rather than a publishable absence.** Once a pass is
+  declared, a **`not-computable` probabilistic-marginal figure does not discharge ADR-0027 §3**
+  and fails 012's gate (012 FR-023b). Their validity preconditions bound the holdout as a whole,
+  but every figure discharging §3 is computed over the **marginal subpopulation** — so a holdout
+  could satisfy every precondition while the marginal subset was empty, and **a pass could ship
+  measured over nothing with every stated rule followed.** This scopes rather than contradicts the
+  table above: `undefined-value` remains a finding everywhere it is informative, but it is not a
+  way to satisfy the precondition.
+
 ## Key Entities
 
 - **`PromptBundle`** — the immutable artifact adrkit emits for the harness to execute. Carries
