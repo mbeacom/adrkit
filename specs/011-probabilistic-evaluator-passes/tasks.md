@@ -359,10 +359,19 @@ that escalation resolves to a named human.
       than `input-unavailable` (incidentally absent), so a future regression in a working primitive
       cannot masquerade as the permanent expected condition. **Observe an implementation that
       hardcodes the class per trigger failing** — `if (trigger === 'novel-no-precedent') return
-      'nothing-to-measure'` must be rejected — and assert that a ranking strategy that is present
-      but produces nothing yields `input-unavailable`, not `nothing-to-measure` (FR-018). The class
-      must be a function of observed state, not of an identifier, or the transition FR-018 requires
-      to be visible never happens. **Observe each failing** before T026.
+      'nothing-to-measure'` must be rejected. **Construct that observation at the classifier's
+      own boundary, not from repository state.** No relevance primitive exists (FR-018), so a
+      fixture phrased as *"a ranking strategy that is present but produces nothing"* is **not
+      constructible**: the hardcode returns the correct class for every input that can exist, the
+      test cannot distinguish it from a correct implementation, and it would be recorded as
+      ADR-0016 coverage while proving nothing — **a negative case that cannot fail** (T033). The
+      class classifier is a pure function over a state value this feature defines (FR-018: derived
+      from whether a strategy is configured and whether it produced output), so feed it the
+      **synthetic state** `configured: true, produced: none` directly: a correct classifier returns
+      `input-unavailable`, the hardcode returns `nothing-to-measure`, and the observation is
+      recoverable at the unit boundary even though no primitive ships. The class must be a function
+      of observed state, not of an identifier, or the transition FR-018 requires to be visible
+      never happens. **Observe each failing** before T026.
 - [ ] T025 [P] [US4] After Phase 5, write a failing test asserting that `low-confidence`
       thresholds a value **computed by the pure kernel** and that a model-supplied
       self-confidence field, if present in a snapshot, is **ignored** (FR-016). **Observe it
