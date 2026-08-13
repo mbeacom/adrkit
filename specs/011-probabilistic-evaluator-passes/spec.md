@@ -434,9 +434,10 @@ consults a model to decide whether to escalate.
    **Then** `pass-disagreement` is `condition-met` using **012's contradiction predicate**, so that
    trigger firings and 012's published inter-pass agreement rate reconcile by construction
    (FR-017).
-4. **Given** retrieval ran successfully and returned nothing above the relevance floor,
-   **When** routing runs, **Then** `novel-no-precedent` is `condition-met` — unreachable until a
-   relevance primitive exists (FR-018), and asserted as unreachable rather than fixtured.
+4. **Given** a relevance primitive existed and retrieval ran successfully but admitted nothing,
+   **When** routing runs, **Then** `novel-no-precedent` would be `condition-met`. No such
+   primitive exists and 012 has **withdrawn** the floor parameter rather than deferring it, so
+   this state is unreachable today (FR-018) and is asserted as unreachable rather than fixtured.
 5. **Given** retrieval **did not run**, or no ranking strategy was configured, **When** routing
    runs, **Then** `novel-no-precedent` is `evidence-absent` and an inert finding is recorded —
    a broken or unconfigured retrieval MUST NOT be indistinguishable from a genuinely novel
@@ -924,7 +925,9 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   would force either a fabricated fixture or a permanently red suite.
 - **SC-006**: Retrieval returns every accepted ADR whose `affects` intersects the proposal's,
   and every broader-`scope` ADR in the same domain, **independent of relevance ranking** —
-  demonstrated by a fixture in which the correct record would rank below the floor.
+  demonstrated by a fixture in which the correct record would rank below any ranking threshold —
+  rule-admitted records must be immune to ranking defects, which is why categories (b) and (c)
+  are unconditional.
 - **SC-007**: `rejected` and `superseded` records are present in the retrieval set with their
   status preserved, demonstrated by a fixture in which the only relevant precedent is a
   `rejected` record.
