@@ -121,7 +121,7 @@ code exists. These gates are the entire reason this feature is scoped rather tha
       not a note in a session log or a PR comment, because an implementer months later reads only
       these files. Q1 and Q2 are already answered and folded in (FR-016, FR-017); this task now
       covers Q4 and Q5. Q8 is resolved — the detector is the exported entry-point surface, with
-      the pass-result / `PassAbsence` field on the committed report type secondary (FR-027).
+      two co-equal locations enumerated by committed type name (FR-027).
 
 **Gate checkpoint**: T001–T004 block **every** later task. `novel-no-precedent` remains blocked
 independently by [Q3](./spec.md#q3) — no relevance primitive exists in the repository — and is
@@ -446,9 +446,10 @@ escalate on model discretion.
       `passes` registry **in the same change that ships the pass**, and add a check asserting the
       registry agrees with the **two enumerated detector locations** (FR-027; 012 FR-013): the
       exported entry-point surface reachable from `packages/evaluator/src/index.ts` — the
-      request-builder and response-parser (**primary**) — and a pass-result / `PassAbsence` field
-      on the committed report type in `packages/evaluator/src/types.ts` (secondary), which this
-      feature must also carry. Either firing is detection. Do
+      request-builder and response-parser — and a pass-result / `PassAbsence` variant on the
+      committed report type in `packages/evaluator/src/types.ts`, which this feature must also
+      carry. The two are **co-equal**: either firing is detection, and both are enumerated by
+      committed type name. Do
       **not** cross-check against the dependency graph: it is empty by construction here, and
       `scripts/check-deps.ts` is an allowlist that leaves unlisted packages silently
       unconstrained. **Observe the disagreement check failing in both directions** — a registry
