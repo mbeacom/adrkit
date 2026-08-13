@@ -285,9 +285,8 @@ rationale is kept here rather than deleted, because a reader who wonders why the
 obvious check is not used should find the answer instead of proposing it again.
 
 The second source is the **evaluator's committed pass surface** — primarily the
-exported entry-point surface (a request-builder and response-parser reachable
-from `packages/evaluator/src/index.ts`), secondarily a pass-result /
-`PassAbsence` field on the report type. **A pass no caller can invoke has not
+exported entry-point surface **enumerated by committed type name** (one per pass
+role), secondarily a pass-result / `PassAbsence` variant on the report type. **A pass no caller can invoke has not
 shipped.** Both are read from committed source without executing anything, which
 is what FR-012 requires; an emitted *value* would not be.
 

@@ -688,11 +688,25 @@ verdict.
   **The second source is the evaluator's committed pass surface, enumerated in
   two places, with the exported entry-point surface primary.**
 
-  1. **Primary — the exported entry-point surface**: a request-builder and
-     response-parser reachable from `packages/evaluator/src/index.ts` and its
-     committed types. **A pass no caller can invoke has not shipped.**
-  2. **Secondary — a pass-result / `PassAbsence` field** declared on the report
+  1. **Primary — the exported entry-point surface, enumerated by committed *type
+     name***: one exported type name per pass role (the request-builder's input
+     type and the response-parser's result type), declared in
+     `packages/evaluator/src/`. **A pass no caller can invoke has not shipped.**
+  2. **Secondary — a pass-result / `PassAbsence` variant** declared on the report
      type in `packages/evaluator/src/types.ts`.
+
+  **The enumeration is by type name, not by module reachability.** An earlier
+  draft said "reachable from `packages/evaluator/src/index.ts`" — but
+  reachability is a *transitive property over a module graph*, so enumerating it
+  is a judgment call, which is precisely what FR-013c warns a bounded detector
+  must not rest on. An exported type name is a **precisely nameable, greppable,
+  closed** location. This keeps the committed-state property that made the
+  surface the right source, and supplies the enumerability that made the report
+  field look attractive — the field only ever *seemed* easier to enumerate
+  because it is a field in a type, not because it is in output.
+
+  Both locations are enumerated and **either firing is detection**, so an evader
+  must defeat two independent locations rather than one.
 
   Either firing is detection. Both are committed source, greppable without
   executing anything, deterministic, model-free, and — critically — **not
@@ -748,7 +762,10 @@ verdict.
   Two consequences follow, and both are requirements:
 
   1. The precondition-gate contract MUST **enumerate** the locations that
-     constitute a pass surface. An unenumerated location is not a gap the gate
+     constitute a pass surface, **by committed type name** rather than by module
+     reachability — a transitive graph property cannot be enumerated without
+     judgment, and a detector resting on judgment is the thing this requirement
+     bounds. An unenumerated location is not a gap the gate
      silently tolerates — a declared pass whose surface is in none of them is a
      `measurement-failed` under FR-013a, because source 2 was structurally unable
      to observe what the registry named.
@@ -1703,10 +1720,11 @@ verdict.
   **observed failing** with a `measurement-failed` reason code naming the
   unratified `N` (FR-011b).
 - **SC-034a**: The precondition-gate contract **enumerates** the locations that
-  constitute a pass surface, and a declared pass whose surface is in none of them
-  is **observed** producing `measurement-failed` rather than passing (FR-013c);
-  every artifact describing the gate is **observed** stating that its coverage is
-  bounded by that enumeration.
+  constitute a pass surface **by committed type name** — one per pass role, never
+  by module reachability — and a declared pass whose surface is in none of them
+  is **observed** producing `measurement-failed` rather than passing (FR-013,
+  FR-013c); every artifact describing the gate is **observed** stating that its
+  coverage is bounded by that enumeration.
 - **SC-034**: The detector's second source is the committed pass surface — the
   exported entry-point surface primary, the report-type field secondary — and not
   the dependency graph; both are read from committed source without executing
