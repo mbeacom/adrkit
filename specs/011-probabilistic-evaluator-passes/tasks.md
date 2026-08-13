@@ -435,6 +435,20 @@ escalate on model discretion.
       rationale sections outlive requirement edits; and keep the superseded reasoning attached as
       its own counterexample rather than deleting it, so a reader wondering why the obvious
       approach is unused finds the answer instead of proposing it again.
+
+      **A vocabulary scan is necessary and not sufficient** (012's second miss, and the reason
+      this clause exists). References can describe a withdrawn mechanism by **what it did** while
+      containing none of the words a vocabulary scan searches for. The scan MUST therefore be
+      followed by a behavioural pass over anything that enumerates a concrete case.
+
+      **Audit every deliberate-violation fixture for impossibility.** The worst form of this
+      defect is an observed-failing task whose named violation **can no longer occur** under the
+      current design: an implementer building that fixture constructs **a negative case that
+      cannot fail**, which then satisfies ADR-0016 vacuously and reports as coverage. In a project
+      whose central discipline is that a check counts only once observed failing, a negative case
+      that cannot fail is the most dangerous artifact available — it is indistinguishable from a
+      working guard. Every `Observe … failing` task in this file MUST name a violation that is
+      still constructible, and that MUST be re-audited whenever a design it depends on changes.
 - [ ] T034 Update `plan.md`'s Spec-kit realization table and the outcome ladder to reflect this
       feature's true state using ADR-0014 vocabulary **exactly**. Do not describe the
       maintainer's own reference repository as external validation or as a community adopter.
