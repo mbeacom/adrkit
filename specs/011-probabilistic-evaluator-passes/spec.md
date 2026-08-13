@@ -257,9 +257,10 @@ FR it comes from, so a reviewer checking faithfulness lands on the requirement r
 snapshot of a whole file.
 
 Cited by **PR number and FR number, never by commit SHA.** A branch SHA for unmerged work is
-fragile by construction: 012's branch has already been rebased twice — once onto the
-coordinator's re-signed ADR-0027 commits, once for `git rebase --signoff` — and a squash-merge
-would rewrite it a third time. An earlier revision of this section cited `e7c2fb7`, which is now
+fragile by construction: 012's branch has already been rebased more than once — onto the
+coordinator's re-signed ADR-0027 commits, and again for `git rebase --signoff` — and a
+squash-merge would rewrite it again. An earlier revision of this section cited `e7c2fb7`, which is
+now
 unreachable from any remote branch.
 
 - **Positive class** (012 FR-018), derived from the rubric's four outcome labels and frozen in

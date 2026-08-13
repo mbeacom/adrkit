@@ -439,11 +439,21 @@ escalate on model discretion.
       **superseded mechanism vocabulary**: when a design is withdrawn, its terms MUST NOT survive
       in prose that still argues for it. Scan for the *mechanism's* words, not the requirement's
       ID — reference integrity passes cleanly on this class, because every FR/SC id still resolves
-      while the prose disagrees. Two rules follow from having hit this twice in this feature and
-      twice in feature 012: state the withdrawal **where the old design was argued**, since
-      rationale sections outlive requirement edits; and keep the superseded reasoning attached as
-      its own counterexample rather than deleting it, so a reader wondering why the obvious
-      approach is unused finds the answer instead of proposing it again.
+      while the prose disagrees. Two rules follow from the episodes that produced this check — a
+      requirement body left calling a question open after the decision section had closed it, a
+      set of headings still naming a superseded detector after its body was rewritten, a PR
+      description arguing a withdrawn design for an entire review, and the equivalents in feature
+      012: state the withdrawal **where the old design was argued**, since rationale sections
+      outlive requirement edits; and keep the superseded reasoning attached as its own
+      counterexample rather than deleting it, so a reader wondering why the obvious approach is
+      unused finds the answer instead of proposing it again.
+
+      **Name the episodes; do not count them.** An earlier revision of this task said the class had
+      been hit *"twice in this feature and twice in feature 012"* — a running tally of recurrences,
+      which was already false when written and goes stale on the next occurrence. Disclosing *that*
+      a class recurred is durable; **the arithmetic is a fact about a conversation, and
+      conversations keep going.** A bounded count of a specific finite sequence is different and is
+      fine — it cannot be falsified by the class recurring elsewhere.
 
       **A vocabulary scan is necessary and not sufficient** (012's second miss, and the reason
       this clause exists). References can describe a withdrawn mechanism by **what it did** while
