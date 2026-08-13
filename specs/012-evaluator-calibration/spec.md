@@ -299,10 +299,12 @@ observe it pass on the conforming case.
 2. **Given** a holdout whose freeze commit is **not** an ancestor of the first
    commit that produced a score, **When** the gate runs, **Then** it **fails** —
    ordering is proven by commit ancestry, not asserted in prose.
-3. **Given** a dependency graph showing a model/prompt/embedding/retrieval
-   dependency that the declared passes registry does not list — **or** a registry
-   entry with no corresponding dependency — **When** the gate runs, **Then** it
-   **fails**. Neither source may quietly disagree with the other.
+3. **Given** an observable pass surface (FR-013) that the declared passes
+   registry does not list — **or** a registry entry with no observable pass
+   surface — **When** the gate runs, **Then** it **fails**. Neither source may
+   quietly disagree with the other. **Given** a source-2 that is structurally
+   unable to observe what the registry names, **Then** the gate **fails** rather
+   than passing (FR-013a).
 4. **Given** a holdout missing one of the four outcome label classes, or smaller than
    `N`, **When** the gate runs, **Then** it **fails** (FR-023).
 5. **Given** a holdout manifest that is unreadable, unhashable, or whose

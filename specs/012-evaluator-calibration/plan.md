@@ -55,8 +55,9 @@ shipping precondition satisfiable:
 3. **A fail-closed precondition gate** — an executable check that fails any
    release shipping a probabilistic pass without a qualifying frozen holdout
    that predates its first score, detecting "a pass shipped" from **two
-   independent sources that must agree** (a declared registry and the existing
-   dependency-boundary evidence).
+   independent sources that must agree** (a declared registry and the evaluator's
+   committed pass surface — **not** the dependency graph, which is empty by
+   construction under the harness architecture).
 4. **The metric contract** — precision, recall, false-negative rate, score drift,
    inter-pass disagreement, and override rate as pure functions with fixtures,
    each able to report `not-computable` with a machine reason code rather than a
@@ -220,7 +221,7 @@ packages/evaluator/
 
 <gate location — plan-stage decision>
 ├── passes-registry.<ext>     # declared probabilistic passes (tracked data file)
-└── <gate implementation>     # fail-closed; cross-checks registry vs. check:deps
+└── <gate implementation>     # fail-closed; cross-checks registry vs. pass surface
 
 docs/RELEASING.md             # EXTENDED: the absence statement (ADR-0027 action item 2)
 ```
@@ -272,16 +273,32 @@ which is invisible downstream.
 
 The gate's hard problem is detecting "a probabilistic pass shipped" without a
 model and without trusting a self-report. A single registry is a self-report and
-is the obvious thing to forget to update. So the registry is **cross-checked
-against the dependency-boundary evidence** the repository already maintains —
-feature 005 SC-006 asserts the evaluator imports no model/prompt/embedding/
-retrieval library, and `bun run check:deps` enforces it in CI and at release.
+is the obvious thing to forget to update.
+
+An earlier draft cross-checked it against the dependency-boundary evidence
+(`bun run check:deps`). **That was withdrawn** — it could never work, for two
+independent reasons set out in FR-013: under the harness-driven architecture
+adrkit ships no model dependency when a pass ships, so the signal is empty by
+construction; and `check-deps.ts` is an allowlist whose own comment records that
+a package with no entry passes "no matter what it declares". The design
+rationale is kept here rather than deleted, because a reader who wonders why the
+obvious check is not used should find the answer instead of proposing it again.
+
+The second source is the **evaluator's committed pass surface** — primarily a
+pass-result / `PassAbsence` field on the emitted report type, secondarily the
+exported entry-point surface. A pass no caller can invoke, and whose results
+never appear in a report, has not shipped.
 
 Disagreement in **either** direction fails:
 
-- a dependency the registry does not declare ⇒ a pass shipped undeclared;
-- a registry entry with no corresponding dependency ⇒ a stale or speculative
+- a pass surface the registry does not declare ⇒ a pass shipped undeclared;
+- a registry entry with no observable pass surface ⇒ a stale or speculative
   declaration.
+
+And per FR-013a, a source 2 that is **structurally unable to observe** fails the
+gate rather than passing it — a cross-check whose second source is a constant is
+one source wearing two names, which is precisely how the withdrawn version
+failed.
 
 Ordering is then proven by **commit ancestry** (FR-015), not by a date field a
 committer controls.
