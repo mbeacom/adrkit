@@ -67,8 +67,10 @@ lockfileVersion 1.
    (FR-024a). Changing it is an ADR. (ADR-0027 action item 5's separately
    authorized rubric edit is out of scope for this feature, not forbidden by
    it.)
-6. **Three-state trigger evidence** (FR-005): `proven` / `not-proven` /
-   `evidence-absent`. `evidence-absent` never enters a confusion-matrix cell.
+6. **Three-state trigger evidence** (FR-005): `condition-met` / `condition-unmet`
+   / `evidence-absent`. `evidence-absent` never enters a confusion-matrix cell.
+   These tokens are frozen and share none with routing's `proven` / `not-proven`,
+   which is **unchanged** by this feature.
 7. **No `ε` value and no `N` value ship.** Only the mechanism (FR-019a) and the
    `not-computable` behavior (FR-017a, FR-023).
 8. **`compareCodeUnits` / `byCodeUnit` only.** No `localeCompare` on any
@@ -135,14 +137,14 @@ Only now may anything derive from it.
 
 **Goal**: the deterministic Pass 0 result for every case, derived rather than
 authored, byte-reproducible, re-derived by CI, and distinguishing
-`evidence-absent` from `not-proven`.
+`evidence-absent` from `condition-unmet`.
 
 **Blocked by**: **T012 `PASS`.**
 
 ### Tests for User Story 2 — write and observe failing first
 
 - [ ] T015 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/baseline-determinism.test.ts`: two derivations over identical frozen inputs produce **byte-for-byte identical** output (SC-004); observe it failing against a deliberately non-deterministic ordering (e.g. a `localeCompare` sort) before the implementation is trusted
-- [ ] T016 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/evidence-absent.test.ts`: a trigger marked `evidence-absent` contributes to **no** confusion-matrix cell — not TN, not FN (SC-005); observe it failing against an implementation that folds `evidence-absent` into `not-proven`
+- [ ] T016 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/evidence-absent.test.ts`: a trigger marked `evidence-absent` contributes to **no** confusion-matrix cell — not TN, not FN (SC-005); observe it failing against an implementation that folds `evidence-absent` into `condition-unmet`. Also assert the calibration vocabulary shares no token with routing's `proven` / `not-proven` and that comparison is exact equality, never substring/prefix matching (`met` is a substring of `unmet`) — SC-005a
 - [ ] T017 [P] [US2] Write `packages/evaluator/test/calibration/purity.test.ts`: the derivation performs no model call and imports no model/prompt/embedding/retrieval library, and its pure functions read no clock, network, or filesystem (SC-014); and `packages/evaluator/test/calibration/no-mutation.test.ts`: no ADR file, acceptance state, or `review` field is written (SC-016)
 
 ### Implementation for User Story 2
@@ -214,6 +216,7 @@ exists to grade.
 - [ ] T033 [P] [US5] [OBSERVE-FAIL] Empty-denominator fixtures: precision with `TP+FP = 0` and recall/FNR with `TP+FN = 0` each return **absent** — never `1.0`, never `0`, never `n/a` as a value (SC-008). Observe failing against an implementation that returns `1.0`
 - [ ] T034 [P] [US5] [OBSERVE-FAIL] `not-computable` fixtures: every uncomputable metric returns `not-computable` with a machine reason code naming why — empty denominator, `|H| < N`, missing label class, absent input source (FR-017a, SC-008a). Observe failing against any rendering that coerces the state to a passing-looking value
 - [ ] T035 [P] [US5] [OBSERVE-FAIL] Split fixtures: a case with **any** deterministic trigger proven is excluded from the probabilistic-marginal population, and precision/recall/FNR are each produced in **both** forms (FR-016, SC-009). Observe failing against a whole-gate-only implementation
+- [ ] T035a [P] [US5] [OBSERVE-FAIL] Whole-gate qualifier fixture: every whole-gate figure carries the machine-readable denominator-limitation qualifier naming the landed-eight false/absent conflation, emitted **from the report** rather than from prose (FR-016a, SC-005b). Observe failing against a report that emits a whole-gate figure without it
 - [ ] T036 [P] [US5] [OBSERVE-FAIL] Drift fixtures: reported per dimension, with a compensating-pair fixture producing **no** single averaged figure (FR-019, SC-010); and with no `ε` observed, drift reports `not-computable` rather than a passing comparison
 - [ ] T037 [P] [US5] [OBSERVE-FAIL] Disagreement fixtures: (a) the metric **aggregates recorded `pass-disagreement` evidence** and never recomputes the Pass 2 / Pass 3 comparison — observe failing against a second implementation that re-derives it (SC-011a); (b) `evidence-absent` cases are excluded from the denominator, not counted as agreement (SC-011b); (c) a rate of exactly `0.0` over ≥ `N` **evaluated** cases produces a **defect signal**, while the same rate below `N` produces `not-computable` (FR-020, SC-011)
 - [ ] T037a [P] [US5] [OBSERVE-FAIL] Case-shape fixtures: a case storing `positive(c)`, an expected-escalation boolean, or a per-dimension reference score is **rejected** (FR-005a, FR-005b, SC-020). Observe failing against a case format that permits any of them
@@ -290,7 +293,7 @@ score to grade. US6 constrains how the rest lands.
 |---|---|
 | SC-001, SC-002, SC-003 | T011, T012, T013, T014 |
 | SC-004 | T015, T018, T019 |
-| SC-005 | T010c, T016, T018 |
+| SC-005, SC-005a, SC-005b | T010c, T016, T018, T035a |
 | SC-006 | T020, T021, T022, T023, T026, T027 |
 | SC-007 | T024, T026, T027 |
 | SC-008, SC-008a, SC-008b | T033, T034, T038, T039, T041 |

@@ -229,7 +229,7 @@ is an ancestor of the first derivation commit.
 
 As a maintainer, I want the deterministic Pass 0 result for every case in `H` to
 be **derived** (never hand-authored), byte-for-byte reproducible, re-derivable in
-CI, and to distinguish `evidence-absent` from `not-proven`, so the whole-gate and
+CI, and to distinguish `evidence-absent` from `condition-unmet`, so the whole-gate and
 probabilistic-marginal splits (FR-016) rest on a sound baseline rather than on a
 count that silently conflates "false" with "unknowable" (Finding 3; Principle IV).
 
@@ -250,7 +250,7 @@ a true negative nor a false negative.
    contract; `adr queue` SC-001 precedent).
 2. **Given** a case whose historical snapshot could not supply a trigger's
    evidence, **When** the baseline is derived, **Then** that trigger is recorded
-   `evidence-absent`, **not** `not-proven`, and is excluded from every
+   `evidence-absent`, **not** `condition-unmet`, and is excluded from every
    confusion-matrix cell.
 3. **Given** the baseline, **When** it is checked into git, **Then** CI
    re-derives it and fails on any difference — the artifact is **self-verifying**
@@ -455,16 +455,49 @@ verdict.
   set fixed by `docs/EVALUATOR_RUBRIC.md` § Calibration: `shipped-clean`,
   `shipped-reverted`, `caused-incident`, `rejected-in-review`.
 
-- **FR-005 — Trigger evidence is three-state.** For each of the eight
-  deterministic triggers, a case MUST record `proven`, `not-proven`, or
-  **`evidence-absent`**. `evidence-absent` means the historical inputs could not
-  supply that trigger's evidence at all (Finding 3). An `evidence-absent` trigger
-  MUST NOT be counted as a true negative, a false negative, or any other
-  confusion-matrix cell.
+- **FR-005 — Trigger evidence is three-state, in a vocabulary that shares no
+  token with routing.** For each trigger, a case MUST record exactly one of:
 
-  The same three states extend to any probabilistic trigger once one ships: a
-  case for which a pass produced no comparable output is `evidence-absent`, never
-  `not-proven` (see FR-020's denominator rule).
+  | Token | Meaning |
+  |---|---|
+  | `condition-met` | evidence was available and the trigger condition held |
+  | `condition-unmet` | evidence was available and the condition did **not** hold — ADR-0027's *"evaluated-and-false"* |
+  | `evidence-absent` | no evidence was available to evaluate — ADR-0027's *"whose evidence was absent"* |
+
+  A case recorded `evidence-absent` for a trigger MUST NOT be counted as a true
+  negative, a false negative, or any other confusion-matrix cell for that
+  trigger.
+
+  **Why these tokens and not the routing ones.** `packages/evaluator/src/types.ts`
+  declares `TriggerEvidenceStatus.status` as `'proven' | 'not-proven'`, and
+  `routing/route.ts` emits `not-proven` both when a condition is evaluated false
+  **and** when optional evidence is missing. For routing that conflation is
+  correct — escalation fires only on proven evidence, so the two cases route
+  identically — and widening it would change landed behavior for eight triggers
+  to serve calibration, which FR-002 forbids. **The landed routing vocabulary
+  does not change.** This calibration vocabulary is a separate namespace and
+  deliberately reuses neither `proven` nor `not-proven`, because one string
+  carrying two meanings is how a recall denominator goes silently wrong.
+
+  **No schema change and no Principle V question.** Verified: `not-proven`
+  appears **0 times** in `schema/adr.schema.json` and **0 times** in
+  `packages/core/src/schema/adr.schema.ts`. Both vocabularies are internal to the
+  evaluator package and neither is part of the published contract. Recorded here
+  so the question is not reopened later out of a fear of breaking change.
+
+  **Related but distinct**: `scope-hierarchy.evidence-absent` already exists as a
+  namespaced **rule-level `ReasonCode`** in `packages/evaluator/src/catalog.ts`.
+  It expresses the same underlying idea — backing evidence was unavailable — at a
+  different scope (a rule, not a calibration case) and in a different field. It
+  is a deliberate echo, not a collision.
+
+  **Comparison is exact equality against an exhaustive union.** Substring or
+  prefix matching MUST NOT be used, because `met` is a substring of `unmet`.
+
+  These three tokens are **frozen here** and are consumed, not redefined, by
+  `specs/011-probabilistic-evaluator-passes/`. The same three states extend to
+  any probabilistic trigger once one ships: a case for which a pass produced no
+  comparable output is `evidence-absent`, never `condition-unmet`.
 
 - **FR-005a — A case stores the label, never the derived ground truth.** A case
   MUST NOT store `positive(c)`, an expected-escalation boolean, or any other
@@ -564,6 +597,38 @@ verdict.
   figure regardless of whether the probabilistic passes contribute anything at
   all"* — the ADR-0005 "evaluator theater" hazard, displaced one level down.
 
+- **FR-016a — The whole-gate denominator is permanently weaker than the marginal
+  one, and the report must say so itself.**
+
+  For the eight landed triggers the false/absent distinction is **destroyed at
+  emission**: `routing/route.ts` emits `not-proven` for both, so it never enters
+  the report and **no consumer can recover it from the report alone.**
+  Reconstructed snapshots (FR-024) recover it only partially, by construction.
+
+  The three probabilistic triggers can carry FR-005's three states from day one.
+  The landed eight cannot be retrofitted without changing landed behavior, which
+  FR-002 forbids. **This asymmetry is therefore permanent, and it is not a defect
+  to fix — it is a measurement limitation to state plainly, once, where a reader
+  computing a metric will see it.**
+
+  It follows that whole-gate recall's denominator contains an irreducible
+  population whose membership cannot be verified, while the
+  probabilistic-marginal denominator — restricted to cases where no deterministic
+  trigger fired — **can** be clean.
+
+  **This is the stronger justification for FR-016's dual-figure rule.** ADR-0027
+  §3 argues from masking: eight triggers at precision `1.0` by construction would
+  hide a worthless probabilistic pass. The sharper reason is that **the marginal
+  figure is the only one whose denominator can be clean.** That turns the dual
+  requirement from a policy choice into a measurement necessity, which is far
+  harder to erode later.
+
+  Mechanically: every whole-gate figure MUST be emitted carrying a
+  machine-readable qualifier naming the landed-eight conflation as a denominator
+  limitation. The qualifier MUST come from the report itself and MUST NOT live
+  only in prose that a consumer can forget to copy forward. A whole-gate figure
+  emitted without it is a defect.
+
 - **FR-017 — Absence is reported as absence; figures carry their denominators.**
   A metric with an empty denominator MUST be reported **absent** — never `1.0`,
   never `0`, never `n/a` presented as a value. Every figure MUST be published
@@ -634,15 +699,15 @@ verdict.
   precisely the incoherence ADR-0027 exists to prevent, so the design removes the
   second computation rather than trying to keep two in step.
 
-  Denominator: cases whose `pass-disagreement` evidence is `proven` or
-  `not-proven`. Cases recorded `evidence-absent` — Pass 2 or Pass 3 did not
+  Denominator: cases whose `pass-disagreement` evidence is `condition-met` or
+  `condition-unmet`. Cases recorded `evidence-absent` — Pass 2 or Pass 3 did not
   produce comparable output — MUST be **excluded from the denominator**, not
   counted as agreement. Including them would dilute the rate toward zero and so
   **manufacture** the defect signal below out of missing data, which is the same
   conflation FR-005 exists to prevent.
 
-  `disagreement = |{c : pass-disagreement proven}| / |{c : pass-disagreement
-  proven or not-proven}|`
+  `disagreement = |{c : pass-disagreement condition-met}| / |{c :
+  pass-disagreement condition-met or condition-unmet}|`
 
   It MUST be reported as *disagreement*, not agreement. A rate of exactly `0.0`
   over a denominator of at least `N` **evaluated** cases MUST be asserted as a
@@ -818,6 +883,16 @@ verdict.
   any committed difference.
 - **SC-005**: At least one case records at least one trigger as `evidence-absent`,
   and that trigger is **observed** contributing to no confusion-matrix cell.
+- **SC-005a**: The calibration vocabulary (`condition-met` / `condition-unmet` /
+  `evidence-absent`) shares **no token** with routing's `proven` / `not-proven`,
+  and routing's own vocabulary is **byte-unchanged** by this feature — both
+  observed. Comparison is exact equality against an exhaustive union; a fixture
+  using substring or prefix matching is **observed** failing.
+- **SC-005b**: Every **whole-gate** figure is emitted carrying a machine-readable
+  qualifier naming the landed-eight false/absent conflation as a denominator
+  limitation; a report emitting a whole-gate figure **without** the qualifier is
+  **observed** failing, and the qualifier is **observed** originating in the
+  report rather than in prose (FR-016a).
 - **SC-006**: The precondition gate is **observed failing** on each of the four
   deliberate violations — declared pass with no holdout; holdout frozen after the
   first score; registry/dependency-graph disagreement (both directions); holdout

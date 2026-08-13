@@ -235,7 +235,9 @@ on any difference. A committed artifact that CI never reproduces is an assertion
 one CI reproduces is evidence (ADR-0014 rung 2: reproducible, self-verifying,
 fail-closed).
 
-The three-state trigger evidence (`proven` / `not-proven` / `evidence-absent`) is
+The three-state trigger evidence (`condition-met` / `condition-unmet` /
+`evidence-absent` — FR-005's vocabulary, sharing no token with routing's
+`proven` / `not-proven`) is
 recorded here, at derivation time, because that is the only point where the
 distinction is knowable: it depends on what the authored snapshot could supply,
 which is invisible downstream.
@@ -328,6 +330,8 @@ two features could quietly implement the same idea twice:
 | Locale-dependent ordering breaks byte-reproducibility | `compareCodeUnits` / `byCodeUnit` only; SC-018 asserts identical bytes across ICU locales (issue #115). |
 | The published disagreement rate fails to reconcile with the `pass-disagreement` trigger's own firings | FR-020 removes the second computation entirely: the metric **aggregates recorded trigger evidence** and never recomputes the comparison. Two callers of one shared predicate can still diverge; an aggregation over what the trigger recorded cannot. |
 | A `0.0` disagreement rate is manufactured by missing data rather than by a real defect | FR-020 excludes `evidence-absent` cases from the denominator, and reports `not-computable` below `N` evaluated cases rather than firing the defect signal. |
+| A reader treats the whole-gate figure as equally trustworthy as the marginal one | FR-016a: the landed eight destroy the false/absent distinction at emission and cannot be retrofitted without changing landed behavior, so the whole-gate denominator is **permanently** weaker. Every whole-gate figure is emitted carrying a machine-readable qualifier saying so. |
+| The calibration vocabulary is confused with the routing vocabulary, corrupting a denominator | FR-005 freezes three tokens (`condition-met` / `condition-unmet` / `evidence-absent`) that share none with `proven` / `not-proven`, requires exact-equality comparison, and records that neither vocabulary appears in the published schema. |
 | A calibratable threshold gets hardcoded downstream where calibration cannot reach it | FR-020a assigns `ε`, the `low-confidence` threshold, and the relevance floor to this feature as *calibration parameters*, while leaving the computations they threshold to the pass that produces them. |
 
 ## ADR-0014 standing
