@@ -4,7 +4,7 @@
 is created or switched** by this work) | **Date**: 2026-08-12 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/011-probabilistic-evaluator-passes/spec.md` and
-its binding open questions **Q3–Q6** and **Q8** (Q1, Q2 and Q7 resolved during scoping).
+its binding open questions **Q3–Q6** (Q1, Q2, Q7 and Q8 resolved during scoping).
 
 **Status**: **Scoped** ([ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 vocabulary — *scoped*, and nothing above it). This plan describes design intent for work that
@@ -146,7 +146,7 @@ needs a ratifying record before code exists.
 
 ```text
 specs/011-probabilistic-evaluator-passes/
-├── spec.md                         # Feature spec (binding; FR-001–FR-029, SC-001–SC-017, Q3–Q6 + Q8 open)
+├── spec.md                         # Feature spec (binding; FR-001–FR-029, SC-001–SC-017, Q3–Q6 open)
 ├── plan.md                         # This file
 └── tasks.md                        # Phase 0 hard gates + dependency-ordered task list (all unchecked)
 ```
@@ -229,13 +229,12 @@ either would make the plan read as more settled than it is.
 
 ## Open questions carried into implementation
 
-Five questions are unresolved by design and are reproduced from [spec.md](./spec.md) so this plan
-cannot be read as settled. **Q3 blocks `novel-no-precedent`; Q4–Q6 block their surfaces; Q8 blocks freezing the registry semantics in either spec.** Q1, Q2 and Q7 are resolved — 012 froze the confidence aggregate, the contradiction predicate, and the calibration vocabulary.
+Four questions are unresolved by design and are reproduced from [spec.md](./spec.md) so this plan
+cannot be read as settled. **Q3 blocks `novel-no-precedent`; Q4–Q6 block their surfaces.** Q1, Q2, Q7 and Q8 are resolved during scoping — 012 froze the confidence aggregate, the contradiction predicate, the calibration vocabulary, and the shipped-pass detector.
 
 | # | Question | Owner | Blocks |
 |---|---|---|---|
 | [Q3](./spec.md#q3) | The relevance primitive does not exist; 012 withdrew its floor rather than deferring it. Which feature builds one, if any? | unassigned | `novel-no-precedent` |
-| [Q8](./spec.md#q8) | The shipped-pass detector cannot key on the dependency graph — it is empty by construction under this architecture. What signal replaces it? | 011/012 interface | freezing registry semantics |
 | [Q4](./spec.md#q4) | Must citations be auditable in-record? Ephemeral by default today; "yes" ⇒ schema change ⇒ ADR. | maintainer | Pass 2 auditability |
 | [Q5](./spec.md#q5) | Exact per-tier weights. "Dominate" is not a number; pinning it is a rubric change ⇒ ADR. | maintainer | Pass 2 weighting |
 | [Q6](./spec.md#q6) | The prompt-bundle / structured-response wire contract with the harness. | 011, via the architecture ADR | Passes 2–3 |

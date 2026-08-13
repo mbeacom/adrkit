@@ -906,6 +906,14 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   for weighting, and any downward D4 correction (FR-012).
 - **`AdversarialSnapshot`** — the immutable output of Pass 3. The four required outputs, each
   present or explicitly absent, each with `bearsOn: D1…D8` attribution (FR-017).
+
+> **These two shapes are defined at field level by feature 012**, in its
+> `contracts/metric-definitions.md`, as the frozen input contract its metrics read (012 FR-020a).
+> **That contract is normative and this feature conforms to it**; the descriptions above are a
+> summary, not a competing definition. A conforming producer MAY carry additional fields — the
+> contract names what 012 reads, not everything this feature emits. 012 defines them rather than
+> citing this spec deliberately: an out-of-tree spec on an unmerged branch is not a citable
+> contract under Principle I, and 012 must be self-contained because it gates this feature.
 - **`ProbabilisticTriggerEvidence`** — the evidence bundle the pure router consumes to compute
   the three new triggers. Structurally analogous to the landed `RoutingTriggerEvidence`, but
   with 012's three-state status (`condition-met` / `condition-unmet` / `evidence-absent`)
@@ -1023,7 +1031,7 @@ Named explicitly so an implementer does not helpfully build them:
 
 ## Open questions
 
-Six questions remain open, carried as `[NEEDS CLARIFICATION]` rather than answered by
+Four questions remain open, carried as `[NEEDS CLARIFICATION]` rather than answered by
 invention. A spec that reads as settled when it is not is the failure mode this project exists
 to prevent. Q7 was resolved during scoping and is recorded under
 [Decisions recorded during scoping](#decisions-recorded-during-scoping).
@@ -1090,28 +1098,40 @@ to prevent. Q7 was resolved during scoping and is recorded under
   versioned independently like the schema. This is the main design surface the architecture ADR
   should settle or explicitly defer. **Owner: 011, pending the architecture ADR.**
 
-<a id="q8"></a>
-
-- **Q8 — `[NEEDS CLARIFICATION]` What signal does the shipped-pass detector key on?** FR-027
-  requires that a probabilistic pass be declared in feature 012's `passes` registry, and that the
-  registry be cross-checked against a signal that a pass shipped. The dependency graph **cannot**
-  be that signal: under the harness-driven architecture no model/prompt/embedding/retrieval
-  dependency is ever added, so that side of the check is permanently empty by construction, which
-  inverts the gate in both directions (see FR-027). Candidate replacements — published-surface
-  exports, or a pass-result/`PassAbsence` field in the emitted output — are listed in FR-027 and
-  are not yet chosen. **Both specs must name the same detector**, or must jointly state that the
-  registry is self-declared and the cross-check is not evidence of pass-shipping.
-
-  Note the shape of the failure, because it is what makes this urgent rather than cosmetic: a
-  cross-check keyed on a signal that cannot fire reports *"no disagreement"* in exactly the same
-  bytes whether the registry is honest or empty. It is not a check that fails open — it is a
-  check whose scope never covered the question, rendering identically to one that looked and
-  found nothing. **Owner: the 011/012 interface; blocks freezing the registry semantics in either
-  spec.**
-
 ## Decisions recorded during scoping
 
 Resolved while scoping, recorded here rather than dropped so the reasoning survives.
+
+<a id="q8"></a>
+
+### Q8 — RESOLVED: the detector is the evaluator's committed pass surface
+
+**Decision (feature 012 FR-013, adopted here as FR-027).** The `passes` registry is cross-checked
+against the **evaluator's committed public surface**: a shipped probabilistic pass must be
+*invocable* — a request-builder and response-parser reachable from
+`packages/evaluator/src/index.ts` and its committed types. **A pass no caller can invoke has not
+shipped.** The dependency graph is **withdrawn** as a signal.
+
+**Why the dependency graph failed, in two independent ways.** It is *empty by construction* under
+the harness architecture, since shipping a pass adds no model/prompt/embedding/retrieval
+dependency (FR-004). And it would be *toothless even if non-empty*: `scripts/check-deps.ts` is an
+allowlist whose own comment records that a package with no entry is **"silently unconstrained and
+passes `check:deps` no matter what it declares"**, and no denylist of model libraries exists in
+the repository. Either reason alone disqualifies it.
+
+**Why the pass surface works as a second source.** It is committed, greppable, deterministic,
+model-free, observable under the harness architecture, and **not authored by the same edit that
+writes the registry entry** — which is the property that makes two sources genuinely independent
+rather than one restated. Per 012 FR-013a the gate **fails** when the second source is
+structurally unable to observe: *a cross-check whose second source is a constant is one source
+wearing two names.* Per 012 FR-013b both specs name the same detector, and FR-027 is this side of
+that agreement.
+
+**How it was found.** Two of this feature's review lenses, feature 012's adversarial lens, and a
+Copilot review reached it independently — four findings from four directions. It is the same
+shape as the failures this workstream kept surfacing: a check whose scope never covered the
+question, reporting *"no disagreement"* in identical bytes whether the registry was honest or
+empty.
 
 <a id="q7"></a>
 
