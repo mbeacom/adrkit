@@ -1,0 +1,348 @@
+---
+description: "Dependency-ordered task list for the Evaluator Calibration Harness"
+---
+
+# Tasks: Evaluator Calibration Harness
+
+**Input**: Design documents from `specs/012-evaluator-calibration/`
+
+**Prerequisites**: [`spec.md`](./spec.md), [`plan.md`](./plan.md), and the four
+`contracts/` documents
+
+**Normative**:
+[`docs/adr/0027-*`](../../docs/adr/0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md),
+[`docs/adr/0005-*`](../../docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md)
+(superseded; origin of action items 2 and 4),
+[`docs/adr/0004-*`](../../docs/adr/0004-git-is-source-of-truth-database-is-an-index.md),
+[`docs/adr/0014-*`](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md),
+[`docs/adr/0016-*`](../../docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md),
+[`docs/adr/0010-*`](../../docs/adr/0010-bun-toolchain.md),
+[`docs/EVALUATOR_RUBRIC.md`](../../docs/EVALUATOR_RUBRIC.md) § Calibration
+(**read-only for this feature**), and
+[`.specify/memory/constitution.md`](../../.specify/memory/constitution.md).
+
+> # ⛔ T010 IS A HARD ORDERING GATE
+>
+> **No task in Execution Phase 4 or later may begin until T010 records a `PASS`
+> verdict.** T010 is the independent pre-derivation audit of the frozen labels.
+> A holdout frozen after a scorer ran against it is not a holdout; a label
+> authored after seeing which cases the evaluator escalated is not a label. This
+> is the `specs/009-catalog-binding-viability/` T014 → T014a → T016 shape, and
+> that spike's carry-forward blocker is the evidence that the failure mode is
+> real rather than hypothetical.
+>
+> If T010 returns `FAIL`, the required response is a **new freeze cycle**
+> (T007 → T010 re-run), never an in-place correction of the frozen artifact.
+
+**Tests**: REQUIRED and test-first. Every gate and enforcement must be **written
+and observed failing against a deliberate violation** before its implementation
+is trusted as coverage (ADR-0016). Tasks marked **[OBSERVE-FAIL]** are not
+complete until the failure has been observed and recorded.
+
+**Toolchain**: Bun only — `bun install`, `bun run`, `bunx`, `bun test`. Never
+npm/pnpm/yarn/jest/vitest. Any lockfile update preserves `bun.lock`
+lockfileVersion 1.
+
+## Format: `[ID] [P?] [Story?] Description with file path`
+
+- **[P]**: parallelizable — touches different files and depends on no incomplete
+  task in the same phase.
+- **[US1]…[US6]**: maps user-story-phase tasks to the six stories in `spec.md`.
+- **[OBSERVE-FAIL]**: per ADR-0016, must be observed rejecting a deliberate
+  violation before it counts as coverage.
+- Gate, setup, foundational, and polish tasks intentionally carry no story label.
+
+## Fixed contract these tasks must preserve
+
+1. **No model, anywhere** (FR-029). No task may add a model, prompt, embedding,
+   retrieval, or scoring dependency.
+2. **Pass 0 persists nothing** (FR-002). No task may add a write, log, or
+   persistence side-effect to any evaluator surface. Feature 005 SC-008 and
+   SC-012 stand.
+3. **No schema change** (FR-028). `packages/core/src/schema/adr.schema.ts` and
+   `schema/adr.schema.json` are untouched.
+4. **Nothing approves** (FR-027). No acceptance state or `review` field is read
+   for authority or written at all.
+5. **`docs/EVALUATOR_RUBRIC.md`'s label-class vocabulary is not edited**
+   (FR-024a). Changing it is an ADR. (ADR-0027 action item 5's separately
+   authorized rubric edit is out of scope for this feature, not forbidden by
+   it.)
+6. **Three-state trigger evidence** (FR-005): `proven` / `not-proven` /
+   `evidence-absent`. `evidence-absent` never enters a confusion-matrix cell.
+7. **No `ε` value and no `N` value ship.** Only the mechanism (FR-019a) and the
+   `not-computable` behavior (FR-017a, FR-023).
+8. **`compareCodeUnits` / `byCodeUnit` only.** No `localeCompare` on any
+   serialized surface (issue #115).
+
+---
+
+## Execution Phase 0: Hard Gates
+
+- [ ] T001 Confirm ADR-0027 is `accepted` and read its **corrected** text (commit `5944e59`): §3's dual whole-gate / probabilistic-marginal requirement and the sentence *"the whole-gate figure alone does not satisfy it"*, plus the corrected emission-vs-retention table row. Record the ADR's content hash in `checklists/evidence-index.md` so a later drift is detectable
+- [ ] T002 Confirm the four fixed-contract invariants above are true of the tree at start: `adr lint` clean; no record carries an `evaluation:` block; `bun run check:deps` green; `schema:emit` drift clean. Record the baseline in `checklists/evidence-index.md`
+- [ ] T003 Confirm with the maintainer that the five `[NEEDS CLARIFICATION]` items remain open by decision, and that this feature therefore ships **no** `ε` value, **no** `N` value, **no** override-rate source, **no** rubric edit, and draws cases from this repository only unless told otherwise
+
+## Execution Phase 1: Setup
+
+- [ ] T004 [P] Create `specs/012-evaluator-calibration/contracts/{calibration-case,metric-definitions,precondition-gate,absence-statement}.md` as authored contracts (not stubs), each stating its own invariants and its `[NEEDS CLARIFICATION]` dependencies
+- [ ] T005 [P] Create `specs/012-evaluator-calibration/checklists/evidence-index.md` whose **head section** carries the verdict, the "reconstructed, not harvested" disclosure, and the evaluated-and-false vs. `evidence-absent` disclosure (FR-024, SC-017a). (`checklists/requirements.md` is authored at scoping time and already exists.)
+- [ ] T006 Decide and record the corpus data location (not `docs/adr/`; tracked) and the gate implementation location, per `plan.md` Project Structure. Record the decision and its rationale in `plan.md`
+
+## Execution Phase 2: Foundational Contracts (frozen before any data is authored)
+
+**These land before any case is written.** Authoring the format after the data
+exists is how a format gets fitted to the data it was supposed to constrain.
+
+- [ ] T007 [P] Author `contracts/calibration-case.md`: `CalibrationCase` (content-hash + commit identity per FR-003, one label from the closed four-class set per FR-004, three-state trigger evidence per FR-005), `CalibrationCorpus`, and `FreezeManifest` (per-input sha256 + manifest sha256, FR-006). State the FR-007 no-in-place-correction rule and the FR-024a exclusion rule (a case fitting no class is excluded with its reason recorded, never relabeled)
+- [ ] T008 [P] Author `contracts/metric-definitions.md`: the FR-018 positive-class mapping; precision, recall, and FNR; the FR-016 whole-gate **and** probabilistic-marginal split with ADR-0027 §3 cited as its normative source; FR-019/FR-019a drift (per dimension, never averaged; mechanism not value); FR-020 disagreement with `0.0` as a defect signal; FR-021 override rate as published-`not-computable`; and the FR-017/FR-017a absence and `not-computable` reason-code rules
+- [ ] T009 [P] Author `contracts/precondition-gate.md` (two-source detection per FR-013, commit-ancestry ordering per FR-015, fail-closed behavior per FR-014, validity preconditions per FR-023) and `contracts/absence-statement.md` (required statement, forbidden figures including the `1.0` / `n/a` placeholder, and the FR-026 auto-flip)
+
+**Checkpoint**: the format cannot be reshaped by the data, because the data does
+not exist yet.
+
+---
+
+## Execution Phase 3: User Story 1 — Frozen, Independently Audited Corpus (Priority: P1) 🎯 MVP
+
+**Goal**: a labeled, content-hashed, frozen corpus whose labels were authored and
+independently audited before anything derived from it.
+
+**Independent Test**: recompute every hash and match the tracked index; confirm
+the audit names an independent reviewer, carries an explicit verdict, and its
+commit is an ancestor of the first derivation commit.
+
+**Blocked by**: Phase 2.
+
+### Authoring and freezing
+
+- [ ] T010a [US1] Identify candidate historical cases from this repository's committed history. For each, record outcome evidence **independent of any evaluator output** (revert commits, incident records, review rejections) — per FR-009 a label justified by which triggers fired is circular and must be rejected. Raw material stays scratch-only (FR-024)
+- [ ] T010b [US1] Label each case with exactly one of the four classes (FR-004). **Exclude** any case fitting none — notably "shipped, later superseded without incident" — recording the exclusion and its reason (FR-024a). Do **not** relabel to fit, and do **not** edit `docs/EVALUATOR_RUBRIC.md`
+- [ ] T010c [US1] Author the per-case snapshot supplying `routingEvidence` where it can be justified from committed evidence, and mark every trigger it cannot supply as **`evidence-absent`** (FR-005). Record in `checklists/evidence-index.md` — in its head section — that these snapshots are **reconstructed, not harvested**
+- [ ] T011 [US1] Freeze: compute a sha256 per case input and a sha256 over the manifest using `packages/evaluator/src/crypto/sha256.ts` (never a second hashing path); commit the manifest; mirror every hash into `checklists/evidence-index.md` (FR-006)
+
+### The ordering gate
+
+- [ ] T012 [US1] **⛔ ORDERING GATE — independent pre-derivation audit.** A reviewer with **no authoring involvement** in T010a–T011 must, in this separate task and **before Phase 4 begins**: recompute every recorded hash; confirm all four label classes are present and `|H|` is recorded; confirm each label is justified by evidence independent of evaluator output (FR-009); confirm every `evidence-absent` marking is justified; and record an explicit **`PASS` / `FAIL`** verdict in `checklists/evidence-index.md`. A `FAIL` blocks Phase 4 and requires a fresh T010b → T012 cycle. Depends on: T011
+- [ ] T013 [US1] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/freeze.test.ts` and **observe it failing** against a deliberately altered case before implementing verification: assert a recomputed manifest hash mismatch is a **failure** and never a silent re-freeze (SC-001); assert a corpus missing a label class is rejected (SC-002); assert the audit record exists, names an independent reviewer, and carries an explicit verdict (SC-003)
+- [ ] T014 [US1] Implement `packages/evaluator/src/calibration/case.ts` (parse/validate a case and corpus) and `calibration/freeze.ts` (compute and verify the manifest), making T013 pass. Pure: no clock, network, or filesystem inside the functions; ordering via `byCodeUnit`
+
+**Checkpoint**: `H` is frozen, hash-verified, and independently audited `PASS`.
+Only now may anything derive from it.
+
+---
+
+## Execution Phase 4: User Story 2 — Derived, Reproducible, Honest Baseline (Priority: P1)
+
+**Goal**: the deterministic Pass 0 result for every case, derived rather than
+authored, byte-reproducible, re-derived by CI, and distinguishing
+`evidence-absent` from `not-proven`.
+
+**Blocked by**: **T012 `PASS`.**
+
+### Tests for User Story 2 — write and observe failing first
+
+- [ ] T015 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/baseline-determinism.test.ts`: two derivations over identical frozen inputs produce **byte-for-byte identical** output (SC-004); observe it failing against a deliberately non-deterministic ordering (e.g. a `localeCompare` sort) before the implementation is trusted
+- [ ] T016 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/evidence-absent.test.ts`: a trigger marked `evidence-absent` contributes to **no** confusion-matrix cell — not TN, not FN (SC-005); observe it failing against an implementation that folds `evidence-absent` into `not-proven`
+- [ ] T017 [P] [US2] Write `packages/evaluator/test/calibration/purity.test.ts`: the derivation performs no model call and imports no model/prompt/embedding/retrieval library, and its pure functions read no clock, network, or filesystem (SC-014); and `packages/evaluator/test/calibration/no-mutation.test.ts`: no ADR file, acceptance state, or `review` field is written (SC-016)
+
+### Implementation for User Story 2
+
+- [ ] T018 [US2] Implement `packages/evaluator/src/calibration/baseline.ts`: derive the Pass 0 result per case from the frozen inputs by invoking the existing deterministic evaluator; never hand-author a result. Serialize via the existing `canonicalBytes` (`packages/evaluator/src/report/serialize.ts`) so the artifact inherits the repository's byte-reproducibility contract
+- [ ] T019 [US2] Commit the derived baseline and wire **CI re-derivation**: CI re-derives and fails on any difference, making the artifact self-verifying rather than merely committed (SC-004; ADR-0014 rung 2). Model the check on the existing `git diff --exit-code schema/adr.schema.json packages/ci/dist` step in `.github/workflows/release.yml`
+
+**Checkpoint**: the baseline is evidence CI reproduces, not an assertion.
+
+---
+
+## Execution Phase 5: User Story 3 — The Precondition Gate (Priority: P1)
+
+**Goal**: a fail-closed check that fails any release shipping a probabilistic
+pass without a qualifying frozen holdout that predates its first score.
+
+**Blocked by**: Phase 4 (the gate verifies the artifacts those phases produce).
+
+### Violation fixtures and observed failure — before implementation
+
+- [ ] T020 [P] [US3] [OBSERVE-FAIL] Fixture + test: a release declaring a probabilistic pass with **no** frozen holdout. Observe the gate **failing** (SC-006)
+- [ ] T021 [P] [US3] [OBSERVE-FAIL] Fixture + test: a holdout whose freeze commit is **not** an ancestor of the first scoring commit. Observe failure; assert that a prose assertion of ordering does **not** satisfy the check (FR-015, SC-006)
+- [ ] T022 [P] [US3] [OBSERVE-FAIL] Fixture + test: registry/dependency-graph disagreement in **both** directions — a model/prompt/embedding/retrieval dependency the registry does not declare, and a registry entry with no corresponding dependency. Observe failure on each (FR-013, SC-006)
+- [ ] T023 [P] [US3] [OBSERVE-FAIL] Fixture + test: a holdout failing a validity precondition — below `N`, or missing a label class (FR-023). Observe failure (SC-006)
+- [ ] T024 [P] [US3] [OBSERVE-FAIL] Fixture + test: **fail-closed** behavior — an unreadable, unhashable, absent, and hash-mismatched manifest each fail; unknown is never treated as satisfied (FR-014, SC-007)
+
+### Implementation for User Story 3
+
+- [ ] T025 [US3] Create the declared **passes registry** as a small tracked data file (a legible diff, checkable ancestry), per `plan.md` Project Structure and the T006 location decision
+- [ ] T026 [US3] Implement the gate: two-source detection cross-checking the registry against the dependency-boundary evidence already enforced by `bun run check:deps` and asserted by feature 005 SC-006; commit-ancestry ordering (FR-015); the FR-023 validity preconditions; and fail-closed handling throughout (FR-014). Deterministic, model-free, reading only committed state at the release commit (FR-012)
+- [ ] T027 [US3] Wire the gate into CI and the release workflow alongside the existing `check:deps` and `schema-emit-matches` gates, and **re-observe** T020–T024 failing against the wired gate, then observe it passing on the conforming case (SC-006, SC-007)
+
+**Checkpoint**: the precondition blocks a ship, and has been observed doing so.
+
+---
+
+## Execution Phase 6: User Story 4 — Absence Statement, Enforced and Auto-Flipping (Priority: P2)
+
+**Goal**: every release states the absence while no probabilistic pass has
+shipped, and the statement becomes forbidden the moment one does.
+
+**Blocked by**: T025 (the enforcement is a function of the registry).
+
+### Tests — write and observe failing first
+
+- [ ] T028 [US4] [OBSERVE-FAIL] Write the enforcement test on the model of `packages/catalog-envelope/test/no-correctness-claim.test.ts`: while no pass is declared, the absence statement is **required** in `docs/RELEASING.md` and consistent with README's Dogfooding section. **Observe it failing** with the statement deleted (SC-012). It must report what it examined, so an empty document set cannot satisfy it vacuously (FR-025; ADR-0016 clause 3)
+- [ ] T029 [US4] [OBSERVE-FAIL] Extend the test: while no pass is declared, any published precision, recall, or false-negative-rate figure is **forbidden** — including a `1.0` / `n/a` placeholder, which ADR-0027 names as *"the more dangerous artifact"*. Observe it failing against a fabricated figure and against the placeholder (SC-013)
+- [ ] T030 [US4] [OBSERVE-FAIL] Extend the test for the **auto-flip** (FR-026): with a pass declared in the registry, the absence statement becomes **forbidden** and the FR-016 probabilistic-marginal figures become **required**. Observe it failing for that opposite reason with a declared pass and a retained absence statement (SC-012)
+
+### Implementation for User Story 4
+
+- [ ] T031 [US4] Add the absence statement to `docs/RELEASING.md` (ADR-0027 action item 2), worded consistently with README's Dogfooding section, making T028–T030 pass
+- [ ] T032 [US4] Verify README and `docs/RELEASING.md` remain mutually consistent, and that neither claims a rung above **scoped** for this feature or above the recorded standing for any other surface (ADR-0014)
+
+**Checkpoint**: the statement is mechanical rather than remembered, and cannot
+outlive its truth.
+
+---
+
+## Execution Phase 7: User Story 5 — The Metric Contract (Priority: P2)
+
+**Goal**: the six metrics as pure functions with fixtures, fixed before any score
+exists to grade.
+
+**Blocked by**: Phase 4 (metrics consume the baseline) and T008.
+
+### Tests — write and observe failing first
+
+- [ ] T033 [P] [US5] [OBSERVE-FAIL] Empty-denominator fixtures: precision with `TP+FP = 0` and recall/FNR with `TP+FN = 0` each return **absent** — never `1.0`, never `0`, never `n/a` as a value (SC-008). Observe failing against an implementation that returns `1.0`
+- [ ] T034 [P] [US5] [OBSERVE-FAIL] `not-computable` fixtures: every uncomputable metric returns `not-computable` with a machine reason code naming why — empty denominator, `|H| < N`, missing label class, absent input source (FR-017a, SC-008a). Observe failing against any rendering that coerces the state to a passing-looking value
+- [ ] T035 [P] [US5] [OBSERVE-FAIL] Split fixtures: a case with **any** deterministic trigger proven is excluded from the probabilistic-marginal population, and precision/recall/FNR are each produced in **both** forms (FR-016, SC-009). Observe failing against a whole-gate-only implementation
+- [ ] T036 [P] [US5] [OBSERVE-FAIL] Drift fixtures: reported per dimension, with a compensating-pair fixture producing **no** single averaged figure (FR-019, SC-010); and with no `ε` observed, drift reports `not-computable` rather than a passing comparison
+- [ ] T037 [P] [US5] [OBSERVE-FAIL] Disagreement fixture: a rate of exactly `0.0` over `|H| ≥ N` produces a **defect signal**, not a passing figure (FR-020, SC-011). Observe failing against an implementation that renders `0.0` as healthy
+- [ ] T038 [P] [US5] [OBSERVE-FAIL] Override-rate fixture: the metric is **present** in the report in the `not-computable` state with a reason code naming the missing decision log; a report omitting it entirely **fails** (FR-021, SC-008b)
+- [ ] T039 [P] [US5] Reporting-form fixture: every figure carries its absolute counts and denominator; a bare percentage fails (FR-017, SC-008)
+
+### Implementation for User Story 5
+
+- [ ] T040 [US5] Extend `packages/evaluator/src/catalog.ts` with a **new namespaced** `not-computable` reason-code group — exhaustive, stable, with fixed precedence, matching the existing convention. It is a new group, not an extension of the routing groups
+- [ ] T041 [US5] Implement `packages/evaluator/src/calibration/not-computable.ts` and `calibration/metrics.ts`: the FR-018 positive-class mapping; precision, recall, FNR in both split forms; per-dimension drift; disagreement with the zero-defect signal; and override rate as published-`not-computable`. Pure and model-free (FR-022)
+- [ ] T042 [US5] Implement `calibration/report.ts`: canonical `CalibrationReport` assembly and serialization via `canonicalBytes`, with every sort using `byCodeUnit`
+- [ ] T043 [US5] Specify the **`ε` derivation mechanism** (FR-019a) in `contracts/metric-definitions.md` and implement it as a testable function over two model versions' scores on the same frozen `H` — **shipping no `ε` value** (SC-010a). Record that the resulting value requires ratification in a record before it governs breaking-change status
+- [ ] T044 [US5] Confirm `specs/011-probabilistic-evaluator-passes/` consumes these functions rather than redefining them; message that session with the published surface
+
+**Checkpoint**: the metrics are binding code, not prose a later author can
+reinterpret.
+
+---
+
+## Execution Phase 8: User Story 6 — Privacy, and Polish
+
+- [ ] T045 [US6] Verify no tracked file contains raw historical proposal bodies or incident detail (SC-017); confirm every scratch artifact referenced by `checklists/evidence-index.md` has a recorded, **recomputable** sha256 and a recorded tool version
+- [ ] T046 [US6] [OBSERVE-FAIL] Assert the evidence index's "reconstructed, not harvested" and evaluated-and-false vs. `evidence-absent` disclosures appear in the **same section as its verdict, at the head of the document**; observe the check failing with either moved to a limitations appendix (SC-017a)
+- [ ] T047 [P] Determinism sweep: no `localeCompare` on any serialized surface introduced by this feature; assert identical bytes across two ICU locales (SC-018; issue #115)
+- [ ] T048 [P] Confirm `schema:emit` drift stays clean and no file under `packages/core/src/schema/` or `schema/` changed (SC-015), and that `docs/EVALUATOR_RUBRIC.md`'s **label-class vocabulary** is unchanged (SC-019). ADR-0027 action item 5's separately-authorized rubric edit, if performed elsewhere, does not violate this
+- [ ] T048a [P] Record which ADR-0027 action items this feature discharges — **2** (T031, absence statement), **3** (T011/T012, freeze before any score), **4** (T026/T027, gate built and observed failing) — and note that **5** (rubric deferral markers) is authorized by that record but out of scope here, so it is not silently dropped
+- [ ] T049 [P] Confirm `bun run check:deps` and `clean-clone-builds` stay green with the calibration surface present (SC-014)
+- [ ] T050 Record the ADR-0014 standing honestly: this feature is **scoped**; landing targets rungs 1–2 with reproducible, self-verifying, fail-closed, reviewed evidence; **rung 3 is open** and the maintainer's own reference repository is never described as external validation or a community adopter
+- [ ] T051 Final pass: confirm all five `[NEEDS CLARIFICATION]` items are still present and unresolved-by-invention in `spec.md`, and that no `ε` value, `N` value, override-rate source, or rubric edit was introduced anywhere
+
+---
+
+## Dependencies & Execution Order
+
+### Hard-gate dependencies
+
+- T001–T003 (Phase 0) block everything.
+- **T012 `PASS` blocks Phase 4 and everything downstream of it.** This is the
+  ordering gate; a `FAIL` requires a fresh T010b → T012 cycle, never an in-place
+  correction (FR-007).
+- T025 (passes registry) blocks Phase 6, because the absence-statement
+  enforcement is a function of the registry.
+
+### Phase dependencies
+
+```text
+Phase 0 (T001–T003)
+   └─> Phase 1 (T004–T006)
+          └─> Phase 2 (T007–T009)   contracts frozen before data exists
+                 └─> Phase 3 (T010a–T014)  author -> freeze -> AUDIT
+                        └─ ⛔ T012 PASS ⛔
+                              └─> Phase 4 (T015–T019)  derive baseline
+                                     ├─> Phase 5 (T020–T027)  the gate
+                                     │      └─> Phase 6 (T028–T032)  absence stmt
+                                     └─> Phase 7 (T033–T044)  metrics
+                                            └─> Phase 8 (T045–T051)  polish
+```
+
+Phases 5 and 7 are independent of each other and may run in parallel once
+Phase 4 completes. Phase 6 depends on T025 from Phase 5.
+
+### User-story completion order
+
+US1 (P1) → US2 (P1) → US3 (P1) → US4 (P2) ‖ US5 (P2) → US6 (P3).
+
+US1–US3 are the minimum that makes ADR-0027 §3's precondition satisfiable. US4
+discharges ADR-0027 action item 2. US5 fixes the definitions before there is a
+score to grade. US6 constrains how the rest lands.
+
+### Success-criteria traceability
+
+| SC | Tasks |
+|---|---|
+| SC-001, SC-002, SC-003 | T011, T012, T013, T014 |
+| SC-004 | T015, T018, T019 |
+| SC-005 | T010c, T016, T018 |
+| SC-006 | T020, T021, T022, T023, T026, T027 |
+| SC-007 | T024, T026, T027 |
+| SC-008, SC-008a, SC-008b | T033, T034, T038, T039, T041 |
+| SC-009 | T035, T041 |
+| SC-010, SC-010a | T036, T041, T043 |
+| SC-011 | T037, T041 |
+| SC-012, SC-013 | T028, T029, T030, T031 |
+| SC-014 | T017, T049 |
+| SC-015 | T048 |
+| SC-016 | T017 |
+| SC-017, SC-017a | T045, T046 |
+| SC-018 | T047 |
+| SC-019 | T010b, T048 |
+
+### ADR-0027 action-item traceability
+
+| ADR-0027 action item | Disposition |
+|---|---|
+| 1 — supersede ADR-0005 | Already `[x]` in the record; not this feature's work |
+| 2 — record the absence statement in `docs/RELEASING.md` | **Discharged** by T031 (enforced by T028–T030) |
+| 3 — freeze the holdout **before** any probabilistic pass produces a score | **Discharged** by T011 (freeze) + T012 (audit) + T021 (ancestry enforcement) |
+| 4 — build the holdout-precondition gate and observe it failing | **Discharged** by T020–T027 |
+| 5 — mark the three unevaluable triggers deferred in `docs/EVALUATOR_RUBRIC.md` | **Out of scope** for this feature; authorized by ADR-0027 itself. Named in T048a so it is not silently dropped |
+
+## Parallel Execution Examples
+
+- **Phase 2**: T007, T008, T009 — three separate contract documents.
+- **Phase 5**: T020–T024 — five independent violation fixtures, each in its own
+  file, all written and observed failing before T026 exists.
+- **Phase 7**: T033–T039 — seven independent metric fixtures.
+- **Phase 8**: T047, T048, T049 — three independent verification sweeps.
+
+## Implementation Strategy
+
+### Freeze first
+
+Nothing derives from `H` until T012 records `PASS`. This ordering is the feature;
+inverting it produces an artifact that looks like a holdout and is not one.
+
+### Observe failing, then build
+
+Every gate in Phases 5 and 6 has its violation fixtures written and **observed
+failing** before the implementation exists (ADR-0016). A check that has only ever
+been seen passing has not been shown to check anything.
+
+### Never let an unset constant read as green
+
+`ε` and `N` are deliberately unset. The `not-computable` state with a machine
+reason code (FR-017a) is what keeps that honest, and it is expected to be
+exercised from the first run — with 27 records in the corpus, an undersized `H`
+is the likely day-one condition, not a hypothetical edge case.
+
+### Non-negotiable boundaries
+
+No model. No persistence added to Pass 0. No schema change. No approval. No
+rubric edit. No `localeCompare` on a serialized surface. No claim above **scoped**
+on the ADR-0014 ladder, and never "external" for the maintainer's own repository.
