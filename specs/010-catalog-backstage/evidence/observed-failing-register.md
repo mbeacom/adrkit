@@ -301,9 +301,10 @@ The claim is no longer "designed and unit-tested"; it is observed where it is en
 `scripts/check-clean-clone.ts` are unchanged since that commit. `scripts/run-network-denied.ts`
 is not: PR review added failure-path message branching and an exit-code guard for
 signal-terminated children. Neither touches candidate selection, the two-sided control, or
-the success path, so the observation still holds — but the question is answered by a later
-green run on the merged tree rather than by that argument, and the register cites the
-latest such run rather than reasoning about the delta.
+the success path, so the observation still holds — but the question is
+answered by a run on the merged tree rather than by that argument:
+[31660000133](https://github.com/mbeacom/adrkit/actions/runs/31660000133/job/94322645016),
+green at commit `04349fa`, after the review changes.
 
 ### 4.3 Which host produced each observation is recorded for 2 of 37 cases
 
