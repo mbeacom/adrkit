@@ -219,7 +219,8 @@ gate while measuring none of the judgment the probabilistic layer exists to supp
 
 This imposes a concrete output obligation on **this** feature, not merely on 012: the
 evaluator's output MUST make the marginal subset mechanically determinable (FR-020), and the
-three new triggers MUST distinguish *evidence-absent* from *evaluated-and-false* (FR-021).
+three new triggers MUST record three-state evidence, so `evidence-absent` is distinguishable
+from `condition-unmet` (FR-021).
 
 ### The dependency on feature 012, stated explicitly
 
@@ -406,7 +407,7 @@ producing evidence, and on 012 for two thresholds and one predicate.
 
 **Independent Test**: given frozen snapshots, assert each of the three triggers fires exactly
 when its declarative condition holds, that each emits an ordered evidence status, that
-*evidence-absent* is distinguishable from *evaluated-and-false*, and that no code path
+`evidence-absent` is distinguishable from `condition-unmet`, and that no code path
 consults a model to decide whether to escalate.
 
 **Acceptance Scenarios**:
@@ -415,7 +416,7 @@ consults a model to decide whether to escalate.
    runs, **Then** `low-confidence` is `proven` — and the compared value is a **computed
    aggregate**, never a model's self-reported confidence (FR-016).
 2. **Given** no Pass 2 snapshot at all, **When** routing runs, **Then** `low-confidence` is not
-   proven **and is recorded as `evidence-absent`, not as `evaluated-and-false`** (FR-021) —
+   `condition-met` **and is recorded as `evidence-absent`, not `condition-unmet`** (FR-021) —
    absent evidence never fabricates an escalation, and never silently counts as a true
    negative.
 3. **Given** a Pass 3 finding that contradicts a Pass 2 dimension score, **When** routing runs,
@@ -581,14 +582,19 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   excluded by FR-003. The aggregate's definition is [**Q1** — `[NEEDS CLARIFICATION]`](#q1);
   the threshold (default `0.7`) is calibrated by 012.
 
-- **FR-017 — `pass-disagreement` uses 012's contradiction predicate over dimension-attributed
-  findings.** Pass 3 MUST attribute each of its four outputs to the dimension(s) it bears on
+- **FR-017 — `pass-disagreement` records evidence for 012's predicate; it does not recompute
+  it.** Pass 3 MUST attribute each of its four outputs to the dimension(s) it bears on
   (`bearsOn: D1…D8`), because "contradicts Pass 2 on any dimension" has no mechanical referent
   otherwise — Pass 3 is prompted adversarially and does not score D1–D8. The **predicate** that
   decides whether a Pass 3 finding contradicts a Pass 2 dimension MUST have exactly **one**
-  owner, feature 012, so that this trigger's firings and 012's published inter-pass agreement
-  rate are computed from the same comparison and reconcile by construction. 011 supplies the
-  tag; 012 owns the predicate. See [**Q2**](#q2).
+  owner, feature 012, so that this trigger's firings and 012's published inter-pass disagreement
+  rate are computed from the same comparison and reconcile by construction.
+
+  This feature's obligation is therefore to **record** three-state evidence (FR-021) in a form
+  012 can aggregate directly: 012's FR-020 aggregates and **never recomputes the comparison**,
+  so a disagreement this feature fails to record is one their published rate cannot recover.
+  011 supplies the tag and the recorded evidence; 012 owns the predicate and the aggregation.
+  See [**Q2**](#q2).
 
 - **FR-018 — `novel-no-precedent` distinguishes novelty from breakage, and is blocked on a
   primitive that does not exist.** The trigger MUST be `proven` **only** when retrieval ran
@@ -619,19 +625,40 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   escalation is an OR and eight triggers at precision `1.0` by construction would mask a
   worthless Pass 2. There is a second and sharper reason: for the eight landed triggers the
   false-versus-absent distinction is **destroyed at emission** and cannot be retrofitted without
-  changing landed behavior (FR-002), so the whole-gate recall denominator is **structurally
-  weaker than the marginal one, permanently**. The marginal figure is the only one whose
-  denominator can be clean. That makes this requirement a **measurement necessity**, not a
-  policy choice. See [Q7](#q7).
+  changing landed behavior (FR-002), so the whole-gate denominator contains an irreducible
+  population whose membership cannot be verified. The whole-gate recall denominator is therefore
+  **structurally weaker than the marginal one, permanently**, and the marginal figure is the only
+  one whose denominator can be clean. That makes this requirement a **measurement necessity**,
+  not a policy choice. See [Q7](#q7).
 
-- **FR-021 — Evidence-absent MUST be distinguishable from evaluated-and-false.** For each of
-  the three new triggers, a not-proven result MUST record which of the two it is: the pass ran
-  and the condition was false, or the evidence was never available. ADR-0027 records the cost
-  of conflating them — *"a `not-proven` produced by an absent snapshot is byte-identical to one
-  produced by evaluated-and-false evidence. Counting the first as a true negative would inflate
-  deterministic precision and corrupt the recall denominator."* This distinction MUST be
-  achieved **without** altering Pass 0's existing eight-trigger serialization (FR-002); the new
-  triggers carry their own evidence shape.
+  **Inherited qualifier.** Feature 012 emits every whole-gate figure carrying a machine-readable
+  qualifier naming that conflation as a denominator limitation — from the report itself, not
+  prose a consumer can forget to copy. If any output of this feature surfaces a whole-gate
+  number, it MUST carry that qualifier too.
+
+- **FR-021 — The three new triggers carry a three-state evidence status, compared by exact
+  equality.** Each of the three MUST record one of feature 012's frozen tokens (012 FR-005):
+  `condition-met` (evidence was available and the condition held), `condition-unmet` (evidence
+  was available and the condition did not hold), or `evidence-absent` (no evidence was available
+  to evaluate). **`evidence-absent` never enters a confusion-matrix cell.**
+
+  ADR-0027 records the cost of conflating the last two — *"a `not-proven` produced by an absent
+  snapshot is byte-identical to one produced by evaluated-and-false evidence. Counting the first
+  as a true negative would inflate deterministic precision and corrupt the recall denominator."*
+
+  Two mechanical constraints:
+
+  - **Exact equality only.** These tokens MUST be compared against an exhaustive union, never by
+    substring or prefix matching, because `met` is a substring of `unmet` — a prefix or
+    `includes` test would silently classify `condition-unmet` as `condition-met` and invert the
+    finding. A type-level union plus an exhaustiveness check is the intended guard.
+  - **Pass 0's serialization is untouched.** This distinction MUST be achieved **without**
+    altering the existing eight-trigger `TriggerEvidenceStatus` shape (FR-002); the new triggers
+    carry their own evidence shape in a sibling kernel.
+
+  Note that `scope-hierarchy.evidence-absent` already exists as a namespaced **rule-level**
+  `ReasonCode` in `catalog.ts`. That is the same idea at a different scope and in a different
+  field — a deliberate echo, not a collision.
 
 #### Boundaries the feature must not cross
 
@@ -698,7 +725,7 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   present or explicitly absent, each with `bearsOn: D1…D8` attribution (FR-017).
 - **`ProbabilisticTriggerEvidence`** — the evidence bundle the pure router consumes to compute
   the three new triggers. Structurally analogous to the landed `RoutingTriggerEvidence`, but
-  with a three-state status that distinguishes evidence-absent from evaluated-and-false
+  with 012's three-state status (`condition-met` / `condition-unmet` / `evidence-absent`)
   (FR-021).
 - **`PassAbsence`** — the explicit "this pass did not run, and here is why" record. Required so
   absence is representable as absence rather than as a zero score or an empty set.
@@ -716,9 +743,10 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
 - **SC-004**: No adrkit package opens a network connection or holds model credentials;
   `purity.test.ts` and `contracts.test.ts` pass **unmodified**, and `clean-clone-builds` stays
   green with the probabilistic surface present.
-- **SC-005**: Each of the three new triggers has offline fixtures exercising **proven**,
-  **evaluated-and-false**, and **evidence-absent** outcomes, all runnable with no model
-  configured — and the latter two are distinguishable in the output (FR-021).
+- **SC-005**: Each of the three new triggers has offline fixtures exercising **`condition-met`**,
+  **`condition-unmet`**, and **`evidence-absent`** outcomes, all runnable with no model
+  configured — and the latter two are distinguishable in the output (FR-021). A fixture asserts
+  the tokens are matched by exact equality, not by prefix (`met` is a substring of `unmet`).
 - **SC-006**: Retrieval returns every accepted ADR whose `affects` intersects the proposal's,
   and every broader-`scope` ADR in the same domain, **independent of relevance ranking** —
   demonstrated by a fixture in which the correct record would rank below the floor.
@@ -789,8 +817,10 @@ Named explicitly so an implementer does not helpfully build them:
 
 ## Open questions
 
-Carried as `[NEEDS CLARIFICATION]` rather than answered by invention. A spec that reads as
-settled when it is not is the failure mode this project exists to prevent.
+Six questions remain open, carried as `[NEEDS CLARIFICATION]` rather than answered by
+invention. A spec that reads as settled when it is not is the failure mode this project exists
+to prevent. Q7 was resolved during scoping and is recorded under
+[Decisions recorded during scoping](#decisions-recorded-during-scoping).
 
 <a id="q1"></a>
 
@@ -857,47 +887,50 @@ settled when it is not is the failure mode this project exists to prevent.
   versioned independently like the schema. This is the main design surface the architecture ADR
   should settle or explicitly defer. **Owner: 011, pending the architecture ADR.**
 
+## Decisions recorded during scoping
+
+Resolved while scoping, recorded here rather than dropped so the reasoning survives.
+
 <a id="q7"></a>
 
-- **Q7 — `[NEEDS CLARIFICATION]` (scope narrowed; the architectural half is ruled) What are the
-  calibration vocabulary's three tokens?** This spec and feature 012 agree on **three** states.
-  The naming is resolved in principle and open only in its final tokens:
+### Q7 — RESOLVED: the calibration vocabulary is a separate namespace with three frozen tokens
 
-  **Ruled — the routing vocabulary is not widened.** `packages/evaluator/src/types.ts` declares
-  `status: 'proven' | 'not-proven'`, and `routing/route.ts` documents that missing optional
-  evidence yields `not-proven`. For the eight landed triggers that token therefore means
-  *"false **or** absent"* — the two conflated. That is correct **for routing**, whose rule is
-  *escalate only on proven evidence, never fabricate*, and widening it would change landed
-  behavior for eight triggers to serve a calibration need. FR-002 forbids it.
+**Decision.** The three new triggers record one of feature 012's frozen tokens (012 FR-005):
 
-  **Ruled — calibration is a separate namespace that reuses neither token.** Not `not-proven`
-  in a narrow sense, and not `proven` either. Three distinctly named states.
-  **Owner: 012**, who own the holdout format; 011 consumes whatever they land on. This spec's
-  `evaluated-and-false` is a placeholder for the middle state pending that choice, and is
-  aligned with ADR-0027's own Consequences wording, which requires the evidence index *"MUST
-  distinguish a trigger that was evaluated-and-false from one whose evidence was absent."*
+| Token | Meaning |
+|---|---|
+| `condition-met` | evidence was available and the trigger condition **held** |
+| `condition-unmet` | evidence was available and the condition did **not** hold |
+| `evidence-absent` | **no evidence was available to evaluate** |
 
-  **This trips no one-way door.** `not-proven` appears **0 times** in `schema/adr.schema.json`
-  and 0 times in `packages/core/src/schema/adr.schema.ts` — it is internal to the evaluator's
-  runtime types, not part of the published schema contract. A new distinct calibration
-  vocabulary therefore needs **no schema change and no Principle V ADR**. Recorded here so the
-  question is not re-opened later out of a fear of a breaking change that does not exist.
+`evidence-absent` never enters a confusion-matrix cell. Compared by **exact equality against an
+exhaustive union only** — never substring or prefix matching, because `met` is a substring of
+`unmet` (FR-021). Feature 012 owns these tokens; this feature consumes them.
 
-  **The consequence that outlives the naming.** A distinct token prevents *new* damage; it does
-  **not** repair the existing loss. For the eight landed triggers the false-versus-absent
-  distinction is **destroyed at emission** — the information never enters the report, so no
-  downstream consumer can recover it from the report alone. Feature 012's reconstructed
-  snapshots recover it only partially, and only with the disclosure ADR-0027's Consequences
-  already requires. The three new triggers can carry three states from day one; the landed eight
-  cannot be retrofitted without changing landed behavior.
+**The landed routing vocabulary does not change, and is not a defect.**
+`packages/evaluator/src/types.ts` declares `status: 'proven' | 'not-proven'`, and
+`routing/route.ts` emits `not-proven` both when a condition is evaluated false and when optional
+evidence is missing. For the eight landed triggers that token therefore means *"false **or**
+absent"*. That is **correct for routing** — escalation fires only on proven evidence, so false
+and absent route identically and must. It is merely insufficient for a calibration use case that
+did not exist when it was written. Widening it would change landed behavior for eight triggers to
+serve calibration, which FR-002 forbids.
 
-  Therefore: **the whole-gate recall denominator is structurally weaker than the marginal one,
-  permanently.** This is not a defect awaiting a fix — it is an asymmetry to state. It also
-  supplies a second and sharper justification for ADR-0027 §3 than the record itself gives:
-  the marginal figure is required not only because deterministic perfection would mask a
-  worthless Pass 2, but because **it is the only figure whose denominator can be clean.** That
-  converts the marginal requirement from a policy choice into a **measurement necessity**, which
-  is considerably harder to argue away later. See FR-020.
+**No schema change, no Principle V question.** `not-proven` appears **0 times** in
+`schema/adr.schema.json` and **0 times** in `packages/core/src/schema/adr.schema.ts` — both
+vocabularies are internal to `@adrkit/evaluator`, neither is published contract. Recorded so this
+is not reopened out of a fear of a breaking change that does not exist.
 
-  **Remains open**: the three final token strings, from 012. Phase 0 blocker on
-  [`tasks.md`](./tasks.md) T004, because the evidence shape (T005) depends on them.
+**The consequence that outlives the naming.** A distinct vocabulary prevents *new* loss; it does
+not repair the existing one. For the eight landed triggers the false-versus-absent distinction is
+**destroyed at emission** — it never enters the report, so no consumer can recover it from the
+report alone, and feature 012's reconstructed snapshots recover it only partially and by
+construction. The three new triggers can carry all three states from day one; the landed eight
+cannot be retrofitted without changing landed behavior, which both specs forbid.
+
+The asymmetry is therefore **permanent**: the whole-gate recall denominator contains an
+irreducible population whose membership cannot be verified, while the probabilistic-marginal
+denominator **can** be clean. This gives ADR-0027 §3's dual-figure rule a second and stronger
+justification than the record's own argument from masking — **the marginal figure is the only one
+whose denominator can be clean** — which makes the dual requirement a measurement necessity
+rather than a policy choice, and correspondingly harder to erode later. Cited in FR-020.

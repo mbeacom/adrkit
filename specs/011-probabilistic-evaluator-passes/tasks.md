@@ -6,7 +6,7 @@ description: "Dependency-ordered task list for Probabilistic Evaluator Passes (P
 
 **Input**: Design documents from `specs/011-probabilistic-evaluator-passes/`
 
-**Prerequisites**: [`spec.md`](./spec.md) (FR-001–FR-028, SC-001–SC-016, Q1–Q7) and
+**Prerequisites**: [`spec.md`](./spec.md) (FR-001–FR-028, SC-001–SC-016, Q1–Q6) and
 [`plan.md`](./plan.md)
 
 **Normative**: `docs/adr/0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md`,
@@ -87,16 +87,13 @@ code exists. These gates are the entire reason this feature is scoped rather tha
 - [ ] T004 After T003, obtain and record 012's answers for [Q1](./spec.md#q1) (the aggregate-
       confidence definition, constrained to something the **pure kernel** can compute from
       harness-returned evidence) and [Q2](./spec.md#q2) (the contradiction predicate for
-      `pass-disagreement`). Reconcile [Q7](./spec.md#q7) — this spec and 012 agree on three
-      trigger states and disagree on the middle one's **name** (`evaluated-and-false` here,
-      `not-proven` there), and `not-proven` is already taken by the landed two-state vocabulary
-      where it means *"false or absent"*; leaving both in play would give one token two meanings
-      across the eleven triggers of a single report and silently corrupt recall denominators.
-      Record the maintainer's rulings on [Q4](./spec.md#q4) (are citations auditable in-record?)
+      `pass-disagreement`). Adopt feature 012's frozen calibration tokens verbatim —
+      `condition-met` / `condition-unmet` / `evidence-absent` (012 FR-005; recorded here under
+      [Q7](./spec.md#q7)) — and confirm they are still the tokens 012 ships. Record the
+      maintainer's rulings on [Q4](./spec.md#q4) (are citations auditable in-record?)
       and [Q5](./spec.md#q5) (exact per-tier weights — an ADR, **not** an edit to
       `docs/EVALUATOR_RUBRIC.md`). `low-confidence` is blocked by Q1; `pass-disagreement` is
-      blocked by Q2; Pass 2 weighting is blocked by Q5; the evidence shape (T005) is blocked
-      by Q7.
+      blocked by Q2; Pass 2 weighting is blocked by Q5.
 
 **Gate checkpoint**: T001–T004 block **every** later task. `novel-no-precedent` remains blocked
 independently by [Q3](./spec.md#q3) — no relevance primitive exists in the repository — and is
@@ -116,7 +113,9 @@ shape before any pass is written.
       `RubricScoreSnapshot`, `AdversarialSnapshot`, `ProbabilisticTriggerEvidence`, and
       `PassAbsence` — all deeply `readonly`, reusing `@adrkit/core` contract shapes rather than
       redefining them. `ProbabilisticTriggerEvidence` must carry a **three-state** status
-      distinguishing `proven`, `evaluated-and-false`, and `evidence-absent` (FR-021), without
+      distinguishing `condition-met`, `condition-unmet`, and `evidence-absent` (FR-021), typed as
+      an exhaustive union compared by exact equality — never prefix or substring matching, since
+      `met` is a substring of `unmet` — without
       altering the existing eight-trigger `TriggerEvidenceStatus` shape (FR-002).
 - [ ] T006 [P] After Phase 0, add reason codes for the three new triggers to
       `packages/evaluator/src/catalog.ts` as an **additive** vocabulary, leaving every Pass 0
@@ -293,7 +292,7 @@ contains no Pass 2 scores.
 distinguish absence from falsity and never consult a model to decide.
 
 **Independent Test**: given frozen snapshots, assert each trigger fires exactly on its
-declarative condition, that `evidence-absent` and `evaluated-and-false` are distinguishable, and
+declarative condition, that `evidence-absent` and `condition-unmet` are distinguishable, and
 that escalation resolves to a named human.
 
 **Blocked by**: Phase 5. `low-confidence` additionally blocked by [Q1](./spec.md#q1);
@@ -304,7 +303,7 @@ that escalation resolves to a named human.
 - [ ] T024 [P] [US4] After Phase 5, write failing trigger tests and fixtures in
       `packages/evaluator/test/probabilistic-triggers.test.ts` and
       `test/fixtures/triggers/` covering, for **each** of the three triggers, all three states:
-      `proven`, `evaluated-and-false`, and `evidence-absent` (SC-005), with the latter two
+      `condition-met`, `condition-unmet`, and `evidence-absent` (SC-005), with the latter two
       **distinguishable in the output** (FR-021). **Observe each failing** before T026.
 - [ ] T025 [P] [US4] After Phase 5, write a failing test asserting that `low-confidence`
       thresholds a value **computed by the pure kernel** and that a model-supplied

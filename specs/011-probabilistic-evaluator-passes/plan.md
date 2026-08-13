@@ -4,7 +4,7 @@
 is created or switched** by this work) | **Date**: 2026-08-12 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/011-probabilistic-evaluator-passes/spec.md` and
-its binding open questions **Q1–Q7**.
+its binding open questions **Q1–Q6** (Q7 resolved during scoping).
 
 **Status**: **Scoped** ([ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 vocabulary — *scoped*, and nothing above it). This plan describes design intent for work that
@@ -74,7 +74,7 @@ lose:
    requires precision/recall/FNR published twice, and states that the whole-gate figure alone
    does not discharge the obligation. That imposes two output obligations on *this* feature:
    the marginal subset must be mechanically determinable (FR-020), and *evidence-absent* must
-   be distinguishable from *evaluated-and-false* (FR-021).
+   be distinguishable from `condition-unmet` (FR-021).
 
 ## Technical Context
 
@@ -146,7 +146,7 @@ needs a ratifying record before code exists.
 
 ```text
 specs/011-probabilistic-evaluator-passes/
-├── spec.md                         # Feature spec (binding; FR-001–FR-028, SC-001–SC-016, Q1–Q7)
+├── spec.md                         # Feature spec (binding; FR-001–FR-028, SC-001–SC-016, Q1–Q6)
 ├── plan.md                         # This file
 └── tasks.md                        # Phase 0 hard gates + dependency-ordered task list (all unchecked)
 ```
@@ -229,8 +229,8 @@ either would make the plan read as more settled than it is.
 
 ## Open questions carried into implementation
 
-Seven questions are unresolved by design and are reproduced from [spec.md](./spec.md) so this plan
-cannot be read as settled. **Q1–Q3 block their respective triggers; Q4–Q7 block their surfaces.**
+Six questions are unresolved by design and are reproduced from [spec.md](./spec.md) so this plan
+cannot be read as settled. **Q1–Q3 block their respective triggers; Q4–Q6 block their surfaces.** Q7 is resolved — 012 froze the calibration vocabulary (`condition-met` / `condition-unmet` / `evidence-absent`).
 
 | # | Question | Owner | Blocks |
 |---|---|---|---|
@@ -240,4 +240,3 @@ cannot be read as settled. **Q1–Q3 block their respective triggers; Q4–Q7 bl
 | [Q4](./spec.md#q4) | Must citations be auditable in-record? Ephemeral by default today; "yes" ⇒ schema change ⇒ ADR. | maintainer | Pass 2 auditability |
 | [Q5](./spec.md#q5) | Exact per-tier weights. "Dominate" is not a number; pinning it is a rubric change ⇒ ADR. | maintainer | Pass 2 weighting |
 | [Q6](./spec.md#q6) | The prompt-bundle / structured-response wire contract with the harness. | 011, via the architecture ADR | Passes 2–3 |
-| [Q7](./spec.md#q7) | The middle trigger state's **name**: `evaluated-and-false` here vs `not-proven` in 012's holdout, where `not-proven` is already the landed two-state token meaning *"false or absent"*. One token, two meanings, corrupted recall denominators. | 012 | the evidence shape (T005) |
