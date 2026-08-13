@@ -157,7 +157,7 @@ V behavior: the record schema's `Evaluation` object affords persistence
 (`ranAt`, `scores`, `confidence`, `escalate`, `escalationReasons`,
 `deterministicFindings`) that no code writes and no record uses, while feature
 005 SC-008 forbids Pass 0 to persist anything. ADR-0027's correction
-(`5944e59`) records that these two commitments were always in tension and that
+([#139](https://github.com/mbeacom/adrkit/pull/139)) records that these two commitments were always in tension and that
 ADR-0005 never resolved it. **This feature does not resolve it either** — it
 routes around it by building a separate corpus, and surfaces the tension here so
 a later reader finds an explicit note rather than an unexplained dead field.
@@ -288,6 +288,20 @@ any probabilistic pass exists to be measured. `specs/011-*` consumes them.
 The dual-figure rule (FR-016) is normative in ADR-0027 §3 rather than original
 here, and the marginal figure is the one that satisfies the obligation.
 
+Two ownership boundaries are drawn deliberately, because both are places where
+two features could quietly implement the same idea twice:
+
+- **The disagreement metric aggregates; it never recomputes** (FR-020). The
+  `pass-disagreement` trigger is `specs/011-*`'s, over output shapes this feature
+  does not define. Rather than share a predicate — which two callers can still
+  invoke differently — this feature reads the evidence the trigger already
+  recorded. There is one computation and one recording.
+- **This feature owns calibratable thresholds, not the values they threshold**
+  (FR-020a). `ε`, the `low-confidence` threshold, and the `novel-no-precedent`
+  relevance floor are tuning parameters with a calibration story. The functions
+  producing confidence and relevance scores are not, and inventing them here
+  would mean inventing another feature's output schema.
+
 ## Constitution Check (post-design re-check)
 
 | Principle | Post-design assessment |
@@ -312,6 +326,9 @@ here, and the marginal figure is the one that satisfies the obligation.
 | `ε` or `N` gets a guessed value that later reads as validated | Neither ships. FR-019a specifies the derivation mechanism; FR-017a makes the unset state explicit and non-passing. |
 | The override rate quietly disappears from the report | FR-021 requires it to be **published** in the `not-computable` state; SC-008b observes a report that omits it failing. |
 | Locale-dependent ordering breaks byte-reproducibility | `compareCodeUnits` / `byCodeUnit` only; SC-018 asserts identical bytes across ICU locales (issue #115). |
+| The published disagreement rate fails to reconcile with the `pass-disagreement` trigger's own firings | FR-020 removes the second computation entirely: the metric **aggregates recorded trigger evidence** and never recomputes the comparison. Two callers of one shared predicate can still diverge; an aggregation over what the trigger recorded cannot. |
+| A `0.0` disagreement rate is manufactured by missing data rather than by a real defect | FR-020 excludes `evidence-absent` cases from the denominator, and reports `not-computable` below `N` evaluated cases rather than firing the defect signal. |
+| A calibratable threshold gets hardcoded downstream where calibration cannot reach it | FR-020a assigns `ε`, the `low-confidence` threshold, and the relevance floor to this feature as *calibration parameters*, while leaving the computations they threshold to the pass that produces them. |
 
 ## ADR-0014 standing
 

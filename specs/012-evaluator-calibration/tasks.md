@@ -78,7 +78,7 @@ lockfileVersion 1.
 
 ## Execution Phase 0: Hard Gates
 
-- [ ] T001 Confirm ADR-0027 is `accepted` and read its **corrected** text (commit `5944e59`): §3's dual whole-gate / probabilistic-marginal requirement and the sentence *"the whole-gate figure alone does not satisfy it"*, plus the corrected emission-vs-retention table row. Record the ADR's content hash in `checklists/evidence-index.md` so a later drift is detectable
+- [ ] T001 Confirm ADR-0027 is `accepted` and read its **corrected** text (as corrected in [#139](https://github.com/mbeacom/adrkit/pull/139)): §3's dual whole-gate / probabilistic-marginal requirement and the sentence *"the whole-gate figure alone does not satisfy it"*, plus the corrected emission-vs-retention table row. Record the ADR's content hash in `checklists/evidence-index.md` so a later drift is detectable
 - [ ] T002 Confirm the four fixed-contract invariants above are true of the tree at start: `adr lint` clean; no record carries an `evaluation:` block; `bun run check:deps` green; `schema:emit` drift clean. Record the baseline in `checklists/evidence-index.md`
 - [ ] T003 Confirm with the maintainer that the five `[NEEDS CLARIFICATION]` items remain open by decision, and that this feature therefore ships **no** `ε` value, **no** `N` value, **no** override-rate source, **no** rubric edit, and draws cases from this repository only unless told otherwise
 
@@ -215,7 +215,8 @@ exists to grade.
 - [ ] T034 [P] [US5] [OBSERVE-FAIL] `not-computable` fixtures: every uncomputable metric returns `not-computable` with a machine reason code naming why — empty denominator, `|H| < N`, missing label class, absent input source (FR-017a, SC-008a). Observe failing against any rendering that coerces the state to a passing-looking value
 - [ ] T035 [P] [US5] [OBSERVE-FAIL] Split fixtures: a case with **any** deterministic trigger proven is excluded from the probabilistic-marginal population, and precision/recall/FNR are each produced in **both** forms (FR-016, SC-009). Observe failing against a whole-gate-only implementation
 - [ ] T036 [P] [US5] [OBSERVE-FAIL] Drift fixtures: reported per dimension, with a compensating-pair fixture producing **no** single averaged figure (FR-019, SC-010); and with no `ε` observed, drift reports `not-computable` rather than a passing comparison
-- [ ] T037 [P] [US5] [OBSERVE-FAIL] Disagreement fixture: a rate of exactly `0.0` over `|H| ≥ N` produces a **defect signal**, not a passing figure (FR-020, SC-011). Observe failing against an implementation that renders `0.0` as healthy
+- [ ] T037 [P] [US5] [OBSERVE-FAIL] Disagreement fixtures: (a) the metric **aggregates recorded `pass-disagreement` evidence** and never recomputes the Pass 2 / Pass 3 comparison — observe failing against a second implementation that re-derives it (SC-011a); (b) `evidence-absent` cases are excluded from the denominator, not counted as agreement (SC-011b); (c) a rate of exactly `0.0` over ≥ `N` **evaluated** cases produces a **defect signal**, while the same rate below `N` produces `not-computable` (FR-020, SC-011)
+- [ ] T037a [P] [US5] [OBSERVE-FAIL] Case-shape fixtures: a case storing `positive(c)`, an expected-escalation boolean, or a per-dimension reference score is **rejected** (FR-005a, FR-005b, SC-020). Observe failing against a case format that permits any of them
 - [ ] T038 [P] [US5] [OBSERVE-FAIL] Override-rate fixture: the metric is **present** in the report in the `not-computable` state with a reason code naming the missing decision log; a report omitting it entirely **fails** (FR-021, SC-008b)
 - [ ] T039 [P] [US5] Reporting-form fixture: every figure carries its absolute counts and denominator; a bare percentage fails (FR-017, SC-008)
 
@@ -225,7 +226,8 @@ exists to grade.
 - [ ] T041 [US5] Implement `packages/evaluator/src/calibration/not-computable.ts` and `calibration/metrics.ts`: the FR-018 positive-class mapping; precision, recall, FNR in both split forms; per-dimension drift; disagreement with the zero-defect signal; and override rate as published-`not-computable`. Pure and model-free (FR-022)
 - [ ] T042 [US5] Implement `calibration/report.ts`: canonical `CalibrationReport` assembly and serialization via `canonicalBytes`, with every sort using `byCodeUnit`
 - [ ] T043 [US5] Specify the **`ε` derivation mechanism** (FR-019a) in `contracts/metric-definitions.md` and implement it as a testable function over two model versions' scores on the same frozen `H` — **shipping no `ε` value** (SC-010a). Record that the resulting value requires ratification in a record before it governs breaking-change status
-- [ ] T044 [US5] Confirm `specs/011-probabilistic-evaluator-passes/` consumes these functions rather than redefining them; message that session with the published surface
+- [ ] T043a [US5] Specify the derivation mechanism for the other two calibratable thresholds (FR-020a) — the `low-confidence` threshold (rubric default `0.7`) and the `novel-no-precedent` relevance floor — **shipping no new value**; record that the rubric's documented defaults stand until calibration justifies moving them, and that moving one is an ADR with calibration deltas attached. Record the assumed constraint that the confidence scalar is derived from output **structure**, never model self-report (Constitution IV)
+- [ ] T044 [US5] Confirm `specs/011-probabilistic-evaluator-passes/` consumes these functions rather than redefining them, and that the `pass-disagreement` trigger records three-state evidence this feature can aggregate (FR-020). Message that session with the published surface
 
 **Checkpoint**: the metrics are binding code, not prose a later author can
 reinterpret.
@@ -293,8 +295,9 @@ score to grade. US6 constrains how the rest lands.
 | SC-007 | T024, T026, T027 |
 | SC-008, SC-008a, SC-008b | T033, T034, T038, T039, T041 |
 | SC-009 | T035, T041 |
-| SC-010, SC-010a | T036, T041, T043 |
-| SC-011 | T037, T041 |
+| SC-010, SC-010a | T036, T041, T043, T043a |
+| SC-011, SC-011a, SC-011b | T037, T041 |
+| SC-020 | T037a, T014 |
 | SC-012, SC-013 | T028, T029, T030, T031 |
 | SC-014 | T017, T049 |
 | SC-015 | T048 |

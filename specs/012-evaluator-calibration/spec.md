@@ -9,11 +9,18 @@ feature is scoped in place; no branch is created or switched by this work)
 [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 this feature is **scoped** and nothing above it.
 
-**Phase**: not assigned. Root `plan.md`'s phase table is a separate, later edit
-this scoping work does not perform. `specs/011-probabilistic-evaluator-passes/`
-is being scoped concurrently and **depends on this feature**; nothing in
-`specs/011-*` may ship until FR-011's gate exists and a qualifying holdout is
-frozen.
+**Phase**: not assigned by this feature. Root `plan.md`'s phase table is the
+coordinating maintainer's single edit covering both this feature and
+`specs/011-probabilistic-evaluator-passes/`.
+
+**Reciprocal dependency — legible from both directions.**
+`specs/011-probabilistic-evaluator-passes/` (Passes 1–3 plus the deferred
+`low-confidence`, `pass-disagreement`, and `novel-no-precedent` triggers) is the
+**first consumer** of the frozen holdout, the precondition gate, and the metric
+contract defined here. **012 gates 011**: no probabilistic pass may ship until
+this feature's holdout is frozen and its gate exists (ADR-0027 §3). 011 consumes
+the metric definitions in FR-016 … FR-023 rather than restating them, and this
+feature does not define, implement, or evaluate any probabilistic pass.
 
 **Normative sources** (the ADRs are normative; where this spec and an ADR
 disagree, the ADR wins):
@@ -22,7 +29,7 @@ disagree, the ADR wins):
 precondition; requires precision/recall/FNR to be published **twice** —
 whole-gate and probabilistic-marginal — and states that only the marginal figure
 satisfies the obligation; commits the absence statement; and, as corrected in
-`5944e59`, separates *emission* of reason codes from their *retention*),
+[#139](https://github.com/mbeacom/adrkit/pull/139), separates *emission* of reason codes from their *retention*),
 [ADR-0005](../../docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md)
 (**superseded** — its Consequences and action items 2 and 4 are the origin of
 this work; action item 4 is carried forward unmodified by ADR-0027 §4),
@@ -104,7 +111,7 @@ criterion is unambiguous:
 > set, and it cannot be backfilled.**
 
 The criterion's own warning came true. ADR-0027 was corrected before it was
-pushed (`5944e59`): its table now separates emission from retention, its Context
+pushed ([#139](https://github.com/mbeacom/adrkit/pull/139)): its table now separates emission from retention, its Context
 states that the corpus must be **re-derived from committed history rather than
 harvested**, and its Consequences records the loss as permanent. This feature
 starts from that corrected position.
@@ -455,6 +462,26 @@ verdict.
   MUST NOT be counted as a true negative, a false negative, or any other
   confusion-matrix cell.
 
+  The same three states extend to any probabilistic trigger once one ships: a
+  case for which a pass produced no comparable output is `evidence-absent`, never
+  `not-proven` (see FR-020's denominator rule).
+
+- **FR-005a — A case stores the label, never the derived ground truth.** A case
+  MUST NOT store `positive(c)`, an expected-escalation boolean, or any other
+  field duplicating what FR-018's mapping derives from the label. Ground truth is
+  **computed** from the label at report time, so that the mapping is the single
+  point of change and the two cannot drift apart. A stored boolean alongside a
+  stored label is two sources of truth for one fact.
+
+- **FR-005b — A case carries no reference D1–D8 scores.** Holdout items MUST NOT
+  carry human-authored per-dimension reference scores. Score drift (FR-019) is
+  the difference between **two model versions'** score sets over the same frozen
+  `H` and needs no ground-truth score to be computed. Adding one would introduce
+  a second labeling task with its own circularity risk (FR-009) and its own
+  inter-rater reliability problem, to support a metric that does not require it.
+  If a later feature needs graded reference scores, that is a new freeze cycle
+  (FR-007) and its own scope — not an unused field added speculatively now.
+
 - **FR-006 — The corpus is frozen and content-hashed before any scorer runs.**
   A manifest MUST record a sha256 for every case input and a sha256 over the
   manifest itself, and those values MUST be recorded in the tracked evidence
@@ -591,12 +618,64 @@ verdict.
   per FR-017a — it MUST NOT default to a passing comparison.
   `[NEEDS CLARIFICATION: ε mechanism ratification]`
 
-- **FR-020 — Inter-pass **disagreement** is the reported figure, and zero is a
-  defect signal.** Disagreement rate = `|{c : Pass 3 raises an objection Pass 2
-  scored as addressed, on any dimension}| / |H|`. It MUST be reported as
-  *disagreement*, not agreement, and a rate of exactly `0.0` over `|H| ≥ N` MUST
-  be asserted as a **defect signal**, not rendered as a passing figure (rubric:
-  *"If Pass 2 and Pass 3 never disagree, one of them is not doing its job."*).
+- **FR-020 — Inter-pass **disagreement** is the reported figure, it is an
+  aggregation and never a recomputation, and zero is a defect signal.**
+
+  The metric MUST be computed **solely by aggregating the recorded
+  `pass-disagreement` trigger evidence** for each case (FR-005's three-state
+  record). It MUST NOT re-derive the Pass 2 / Pass 3 comparison by any second
+  code path or second definition.
+
+  This is stricter than sharing a predicate between the trigger and the metric,
+  and deliberately so: two callers of one shared predicate can still pass it
+  different arguments and diverge, whereas an aggregation over evidence the
+  trigger already recorded **cannot** disagree with the trigger. A published
+  agreement rate that fails to reconcile with the trigger's own firings is
+  precisely the incoherence ADR-0027 exists to prevent, so the design removes the
+  second computation rather than trying to keep two in step.
+
+  Denominator: cases whose `pass-disagreement` evidence is `proven` or
+  `not-proven`. Cases recorded `evidence-absent` — Pass 2 or Pass 3 did not
+  produce comparable output — MUST be **excluded from the denominator**, not
+  counted as agreement. Including them would dilute the rate toward zero and so
+  **manufacture** the defect signal below out of missing data, which is the same
+  conflation FR-005 exists to prevent.
+
+  `disagreement = |{c : pass-disagreement proven}| / |{c : pass-disagreement
+  proven or not-proven}|`
+
+  It MUST be reported as *disagreement*, not agreement. A rate of exactly `0.0`
+  over a denominator of at least `N` **evaluated** cases MUST be asserted as a
+  **defect signal**, not rendered as a passing figure (rubric: *"If Pass 2 and
+  Pass 3 never disagree, one of them is not doing its job."*). Below that
+  denominator it reports `not-computable` (FR-017a) rather than a defect signal —
+  a zero drawn from too few cases is not evidence of the defect.
+
+- **FR-020a — Calibratable thresholds are owned here; the values they threshold
+  are computed by the pass that produces them.** Three tuning parameters have a
+  calibration story and therefore belong to this feature: `ε` for score drift
+  (FR-019a), the `low-confidence` **threshold** (rubric default `0.7`), and the
+  `novel-no-precedent` **relevance floor**. For each, this feature owns the
+  derivation mechanism from the frozen holdout and the rule that changing a
+  default is an ADR with calibration deltas attached (ADR-0005 action item 4,
+  carried forward by ADR-0027 §4). **No new value ships**; the rubric's
+  documented default stands until calibration justifies moving it, and until a
+  calibrating observation exists the affected figure reports `not-computable`
+  (FR-017a).
+
+  The **computations** those thresholds apply to — the function from Pass 2
+  output to a confidence scalar, and the function from retrieval output to a
+  relevance score — are **not** owned here. They are functions of output shapes
+  this feature does not define and must not invent. This feature calibrates a
+  number; it does not decide what the number measures.
+
+  One constraint this feature's calibration **assumes and depends on**: the
+  confidence scalar MUST be derived from the **structure** of a pass's output
+  (for example citation coverage or dimension coverage), never from a model's
+  self-reported certainty. A self-reported confidence is model discretion wearing
+  a threshold, which Constitution Principle IV and ADR-0027 §1 both forbid, and
+  it is not calibratable — a holdout cannot correct a number the model is free to
+  restate.
 
 - **FR-021 — Override rate is defined now, and `not-computable` is its correct
   published answer.** Override rate = `|{c : a human reversed the routing
@@ -767,8 +846,21 @@ verdict.
 - **SC-010a**: The `ε` derivation mechanism (FR-019a) is specified and testable
   against a fixture of two model versions' scores over the same frozen `H`; no
   `ε` **value** ships.
-- **SC-011**: An inter-pass disagreement rate of exactly `0.0` over `|H| ≥ N` is
-  **observed** producing a defect signal rather than a passing figure.
+- **SC-011**: An inter-pass disagreement rate of exactly `0.0` over a denominator
+  of at least `N` **evaluated** cases is **observed** producing a defect signal
+  rather than a passing figure; and the same rate over a denominator below `N` is
+  **observed** producing `not-computable` instead of a defect signal.
+- **SC-011a**: The disagreement metric is **observed** reading recorded
+  `pass-disagreement` evidence rather than recomputing the Pass 2 / Pass 3
+  comparison — a fixture in which the recorded evidence and a hypothetical
+  recomputation would differ is **observed** yielding the recorded value
+  (FR-020).
+- **SC-011b**: Cases whose `pass-disagreement` evidence is `evidence-absent` are
+  **observed** excluded from the disagreement denominator, not counted as
+  agreement (FR-020).
+- **SC-020**: No holdout case stores `positive(c)`, an expected-escalation
+  boolean, or any per-dimension reference score — **observed** failing if such a
+  field is added (FR-005a, FR-005b).
 - **SC-012**: Removing the absence statement from `docs/RELEASING.md` is
   **observed** failing the enforcement; declaring a probabilistic pass while the
   absence statement remains is **observed** failing it for the opposite reason.

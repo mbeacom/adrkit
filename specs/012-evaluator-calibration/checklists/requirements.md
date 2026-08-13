@@ -72,7 +72,7 @@ implementation
       only. All four were independently re-verified by the coordinating session.
 - [x] The spec corrects rather than repeats the dispatch's premise that an
       emitted escalation stream exists to seed from. ADR-0027 was corrected
-      upstream (`5944e59`) on the strength of that finding; the spec cites the
+      upstream ([#139](https://github.com/mbeacom/adrkit/pull/139)) on the strength of that finding; the spec cites the
       corrected text.
 - [x] Absence is reported as absence throughout: no fabricated `ε`, no
       fabricated `N`, no invented override-rate source, no claimed precision or
