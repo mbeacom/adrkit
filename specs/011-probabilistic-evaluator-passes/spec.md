@@ -692,6 +692,12 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   and **"produced output containing nothing"** ⇒ `condition-unmet`. Pass 3 running and raising no
   objection is the second, and it is evidence.
 
+  **Agreement is published alongside disagreement**, and the two share a denominator. The rubric
+  asks for both — inter-pass *agreement* rates, and disagreement treated as signal — so publishing
+  only one is a silent substitution of a different measurement for the one that was requested.
+  This is why the ordinary agreement case must occupy `condition-unmet` rather than nothing: it is
+  the numerator of one figure and part of the denominator of both.
+
 - **FR-018 — `novel-no-precedent` distinguishes novelty from breakage, and is blocked on a
   primitive that does not exist.** The trigger MUST be `condition-met` **only** when retrieval ran
   successfully with a configured ranking strategy and returned nothing a ranking function admitted.
@@ -863,32 +869,41 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   governs it. Any pass this feature ships MUST be declared in that registry **in the same change
   that ships it**.
 
-  **The detector is two enumerated locations, the emitted report primary** (012 FR-013, decided
-  in their `c0b59e8`; adopted here rather than re-derived). Either firing is detection:
+  **The detector is two enumerated locations, the exported surface primary** (012 FR-013, whose
+  ordering was corrected once in their `068db2e`; adopted here rather than re-derived). Either
+  firing is detection:
 
-  1. **Primary — a pass-result / `PassAbsence` field on the report type** (`Pass0Report` or its
-     successor, in `packages/evaluator/src/types.ts`). A shipped pass reports its result; one that
-     has not shipped reports an explicit absence. **This feature MUST carry that field on its
-     emitted output; that is the whole of what conforming requires.**
-  2. **Secondary — the exported entry-point surface** reachable from
-     `packages/evaluator/src/index.ts`. A pass no caller can invoke has not shipped.
+  1. **Primary — the exported entry-point surface** reachable from
+     `packages/evaluator/src/index.ts` and its committed types: a request-builder and a
+     response-parser. **A pass no caller can invoke has not shipped.**
+  2. **Secondary — a pass-result / `PassAbsence` field on the committed report type**
+     (`Pass0Report` or its successor, in `packages/evaluator/src/types.ts`). This feature MUST
+     carry that field on its emitted output.
 
-  Both are **committed state** — greppable without executing anything — deterministic, model-free,
-  and **not authored by the same edit that writes the registry entry**, which is the property that
-  makes source 2 genuinely independent rather than one source restated. The cross-check fails in
-  both directions: an observable pass with no registry entry is an undeclared pass; a registry
-  entry with neither location observable is a stale declaration.
+  Both are **committed state** — readable at the release commit without executing anything —
+  deterministic, model-free, and **not authored by the same edit that writes the registry entry**,
+  which is the property that makes source 2 genuinely independent rather than one source restated.
+  The cross-check fails in both directions: an observable pass with no registry entry is an
+  undeclared pass; a registry entry with neither location observable is a stale declaration.
 
-  **Why the report field is primary, and the second reason is the decisive one.** It is
-  *enumerable*: one field on one committed type has a boundary that can be written down, whereas
-  "reachable from `index.ts`" is a set of module locations that refactors move — so its
-  enumeration needs continuous maintenance to stay true, and a stale enumeration is a detector
-  that **silently narrows**, the exact failure the rewrite existed to remove. And it makes the
-  detector and the metrics **read the same artifact**: a pass that hides from the detector by not
-  reporting its results also **starves the metrics**, whose figures then become `evidence-absent`
-  or `measurement-failed` and, once a pass is declared, **fail the gate** under 012 FR-023b. The
-  evasion path therefore leads to a failure *by another route* rather than to silence — and
-  silence is the one thing a gate must never produce about the thing it exists to detect.
+  **Why the exported surface is primary, and the second reason is the decisive one.** First,
+  *"emitted report"* read literally invites the emitted **output**, and observing a value there
+  means running the evaluator over some input — which would put this gate in violation of its
+  neighbouring requirement confining it to committed state at the release commit, and would leave
+  an absent value unable to distinguish *"no pass shipped"* from *"this run produced none."* This
+  is the same reason the ordering rule keys on **commit ancestry rather than a date field**.
+
+  Second, and decisively: **a type can carry a field before any pass exists to populate it, but an
+  invocable surface cannot be added speculatively.** *A pass no caller can invoke has not shipped*
+  is a **necessity**; a field's presence is merely a convention someone could satisfy early or
+  omit late. A detector must key on what a shipped pass **cannot avoid having**.
+
+  The field is retained as the second location rather than dropped, because the argument for it
+  survives as a genuine secondary benefit: a pass that hides by never reporting its results also
+  **starves the metrics**, whose figures then become `evidence-absent` or `measurement-failed` and,
+  once a pass is declared, **fail the gate** under 012 FR-023b. Evasion therefore leads to failure
+  *by another route* rather than to silence. That property is real; it simply does not outweigh
+  being readable without execution.
 
   **The dependency graph is withdrawn as a signal, for two independent reasons, either sufficient
   alone.** First, it is **empty by construction, permanently**: under the harness architecture
@@ -934,6 +949,12 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   | `undefined-value` | the measurement ran over real data and the quantity is mathematically undefined | **a finding, not a failure** |
   | `measurement-failed` | the input should exist and could not be used | **a defect; fails the gate** |
 
+  `measurement-failed` is further **sub-classed** as `environmental`, `artifact-defect`, or
+  `corpus-inadequate` (012). The distinction is operational rather than cosmetic: retrying is the
+  right response to `environmental`, and the **wrong** one against `artifact-defect` — a retry
+  there can overwrite or discard the very evidence that identifies the defect. A single
+  undifferentiated failure class invites the destructive response.
+
   Three rules are load-bearing:
 
   - **`undefined-value` MUST NOT collapse into `measurement-failed`, or the reverse.** If these
@@ -978,9 +999,9 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   (FR-021).
 - **`PassAbsence`** — the explicit "this pass did not run, and here is why" record. Required so
   absence is representable as absence rather than as a zero score or an empty set. It is also the
-  **primary detector location** for 012's precondition gate (FR-027): a pass-result /
+  **secondary detector location** for 012's precondition gate (FR-027): a pass-result /
   `PassAbsence` field on the committed report type, which this feature MUST carry on its emitted
-  output.
+  output. The primary location is the exported entry-point surface.
 
 ## Success Criteria
 
@@ -1165,14 +1186,20 @@ Resolved while scoping, recorded here rather than dropped so the reasoning survi
 
 <a id="q8"></a>
 
-### Q8 — RESOLVED: the detector is the emitted report field, with the export surface secondary
+### Q8 — RESOLVED: the detector is the exported entry-point surface, with the report field secondary
 
 **Decision (feature 012 FR-013, adopted here as FR-027).** The `passes` registry is cross-checked
-against **two enumerated locations, the emitted report primary**: a pass-result / `PassAbsence`
-field on the report type in `packages/evaluator/src/types.ts`, and secondarily the exported
-entry-point surface reachable from `packages/evaluator/src/index.ts`. Either firing is detection.
-This feature carries the field on its emitted output; that is what conforming requires. The
-dependency graph is **withdrawn** as a signal.
+against **two enumerated locations, the exported surface primary**: the request-builder and
+response-parser reachable from `packages/evaluator/src/index.ts` and its committed types, and
+secondarily a pass-result / `PassAbsence` field on the committed report type in
+`packages/evaluator/src/types.ts`. Either firing is detection. This feature carries the field too.
+The dependency graph is **withdrawn** as a signal.
+
+**The ordering was corrected once, and this record says so rather than reading as first-time
+correct.** Both specs briefly named overlapping signals with *opposite* primaries, which is not
+"the same detector" and would have surfaced as an implementer building one gate from two
+documents — precisely what 012 FR-013b exists to prevent. A decision record that hides its own
+revision is the thing this feature spends its requirements arguing against.
 
 **Why the dependency graph failed, in two independent ways.** It is *empty by construction* under
 the harness architecture, since shipping a pass adds no model/prompt/embedding/retrieval
@@ -1181,14 +1208,17 @@ allowlist whose own comment records that a package with no entry is **"silently 
 passes `check:deps` no matter what it declares"**, and no denylist of model libraries exists in
 the repository. Either reason alone disqualifies it.
 
-**Why these work as a second source.** Both are committed state — greppable without executing
-anything — deterministic, model-free, and **not authored by the same edit that writes the registry
-entry**, which is what makes two sources genuinely independent rather than one restated. The report
-field is primary for two reasons, the second decisive: it is *enumerable*, where a module-location
-set is moved by refactors and its enumeration silently narrows as it goes stale; and it makes the
-detector and the metrics **read the same artifact**, so a pass that hides by not reporting also
-starves the metrics and fails the gate under 012 FR-023b. Evasion leads to failure by another
-route rather than to silence. Per 012 FR-013a the gate **fails** when the second source is
+**Why these work as a second source.** Both are committed state — readable at the release commit
+without executing anything — deterministic, model-free, and **not authored by the same edit that
+writes the registry entry**, which is what makes two sources genuinely independent rather than one
+restated. The exported surface is primary for two reasons, the second decisive: *"emitted report"*
+read literally invites the emitted output, which would require running the evaluator to observe and
+would leave an absent value unable to separate *"no pass shipped"* from *"this run produced none"*;
+and **a type can carry a field before any pass exists to populate it, whereas an invocable surface
+cannot be added speculatively** — a detector must key on what a shipped pass cannot avoid having.
+The field is kept as the second location because its own argument survives: a pass hiding by never
+reporting also starves the metrics and fails the gate under 012 FR-023b, so evasion leads to
+failure by another route rather than to silence. Per 012 FR-013a the gate **fails** when the second source is
 structurally unable to observe: *a cross-check whose second source is a constant is one source
 wearing two names.* Per 012 FR-013b both specs name the same detector, and FR-027 is this side of
 that agreement.
