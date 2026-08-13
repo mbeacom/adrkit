@@ -168,13 +168,19 @@ runs.
 - [ ] T008 [P] [US1] After Phase 1, write failing retrieval tests and offline fixtures in
       `packages/evaluator/test/retrieval.test.ts` and `test/fixtures/retrieval/` covering: a
       `rejected` record admitted and labeled; a `superseded` record admitted and labeled; every
-      `affects`-intersecting accepted ADR admitted **even when it would rank below the floor**
-      (SC-006); a broader-`scope` ADR in the same domain admitted; an unrelated ADR excluded;
-      and byte-identical output across two runs. **Observe each failing** before T010.
-- [ ] T009 [P] [US1] After Phase 1, write a failing degradation test asserting that with **no
-      ranking strategy configured** retrieval returns the rule-admitted set, records an
-      informational finding, reports the strategy used, and does **not** return a bare empty set
-      (FR-009, ADR-0009). **Observe it failing** before T010.
+      `affects`-intersecting accepted ADR admitted **even when it would rank below any ranking
+      threshold** (SC-006); a broader-`scope` ADR in the same domain admitted; **the originating
+      diff or spec artifact admitted when present, and its absence recorded rather than silently
+      omitted** (FR-006 category (d), which no other task covers); an unrelated ADR excluded; and
+      byte-identical output across two runs. **Observe each failing** before T010.
+- [ ] T009 [P] [US1] After Phase 1, write failing degradation tests for **all three** backing
+      states FR-009 names — index **absent**, index **stale**, and **no ranking strategy
+      configured** — asserting each returns the rule-admitted set, records an informational
+      finding, reports the strategy and index state used, and does **not** return a bare empty
+      set (FR-009, ADR-0009). The stale-index case is the one that matters most: a derived
+      projection that is out of date must never be consumed as authoritative (ADR-0004), and it
+      must be distinguishable from a fresh one rather than silently trusted. **Observe each
+      failing** before T010.
 
 ### Implementation for User Story 1
 
@@ -246,9 +252,12 @@ byte-identical aggregates across two runs, with no live model.
 - [ ] T016 [P] [US2] After Phase 3, write failing aggregator tests and fixtures in
       `packages/evaluator/test/rubric.test.ts` and `test/fixtures/rubric/` covering: an uncited
       D3 score of `4` **dropped** with a stable reason code and no effect on the aggregate
-      (SC-008); D2 capped at 1; D3 forced to 0 on no negative consequence; D5 forced to 0 on
-      unacknowledged contradiction — each fixture supplying a **higher raw model score** that the
-      aggregator must override (SC-009). **Observe each failing** before T018.
+      (SC-008); a score whose citation **does not resolve** to a span of the proposal dropped
+      exactly as an uncited one is (FR-010); a score **below 3 that does not name the specific
+      missing thing** rejected or dropped with its own reason code (FR-010's second clause, which
+      no other task covers); D2 capped at 1; D3 forced to 0 on no negative consequence; D5 forced
+      to 0 on unacknowledged contradiction — each cap fixture supplying a **higher raw model
+      score** that the aggregator must override (SC-009). **Observe each failing** before T018.
 - [ ] T017 [P] [US2] After Phase 3, write a failing D4 test asserting that a downward
       `reversibility`/`blastRadius` correction re-routes **and escalates to a named human**, and
       that no code path applies it as a silent tier change (FR-012, SC-010). **Observe it
@@ -257,8 +266,9 @@ byte-identical aggregates across two runs, with no live model.
 ### Implementation for User Story 2
 
 - [ ] T018 [US2] After T016, implement the pure aggregator in
-      `packages/evaluator/src/passes/rubric.ts`: citation-drop, the three hard caps, and
-      per-tier weighting. Caps are applied **by the aggregator**, never requested from the model
+      `packages/evaluator/src/passes/rubric.ts`: citation **validation** and drop (a citation that
+      does not resolve to a span is treated as absent), the below-3 missing-thing check, the three
+      hard caps, and per-tier weighting. Caps are applied **by the aggregator**, never requested from the model
       (FR-011), so a fluent model cannot score around them.
 - [ ] T019 [US2] After T017 and T018, implement the D4 correction path: recompute routing over
       the corrected value and **escalate to a named human** (FR-012). Silent re-routing is
@@ -322,9 +332,14 @@ that escalation resolves to a named human.
 
 - [ ] T024 [P] [US4] After Phase 5, write failing trigger tests and fixtures in
       `packages/evaluator/test/probabilistic-triggers.test.ts` and
-      `test/fixtures/triggers/` covering, for **each** of the three triggers, all three states:
-      `condition-met`, `condition-unmet`, and `evidence-absent` (SC-005), with the latter two
-      **distinguishable in the output** (FR-021). **Observe each failing** before T026.
+      `test/fixtures/triggers/` covering all three states — `condition-met`, `condition-unmet`,
+      `evidence-absent` — for `low-confidence` and `pass-disagreement`, with `condition-unmet`
+      **distinguishable from `evidence-absent`** in the output (SC-005, FR-021).
+      **`novel-no-precedent` is exempt** from the all-three-states requirement while no relevance
+      primitive exists (FR-018, SC-005, [Q3](./spec.md#q3)): fixture it as `evidence-absent` only,
+      plus an assertion that an empty retrieval result can **never** be promoted to
+      `condition-met`. Do not fabricate a `condition-met` fixture for a trigger that cannot be
+      evaluated. **Observe each failing** before T026.
 - [ ] T025 [P] [US4] After Phase 5, write a failing test asserting that `low-confidence`
       thresholds a value **computed by the pure kernel** and that a model-supplied
       self-confidence field, if present in a snapshot, is **ignored** (FR-016). **Observe it

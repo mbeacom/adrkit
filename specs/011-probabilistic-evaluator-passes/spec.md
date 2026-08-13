@@ -248,7 +248,9 @@ disagreement signal. That is an interface negotiation, not a definitional one.
 
 ### The metric definitions this feature consumes
 
-Frozen by feature 012 (`specs/012-evaluator-calibration/`, commit `e7c2fb7`) and reproduced
+Frozen by feature 012 (`specs/012-evaluator-calibration/`, PR #141; the metric definitions at
+commit `e7c2fb7`, with the vocabulary and class additions landing in later commits on that PR)
+and reproduced
 here **only so that this spec cites rather than restates them**. If any wording below diverges
 from that spec, **it wins and this section is the defect**. 012's FR-022 requires this
 consumption relationship, and their T044 verifies it.
@@ -415,23 +417,24 @@ consults a model to decide whether to escalate.
 **Acceptance Scenarios**:
 
 1. **Given** a computed aggregate confidence below the configured threshold, **When** routing
-   runs, **Then** `low-confidence` is `proven` — and the compared value is a **computed
+   runs, **Then** `low-confidence` is `condition-met` — and the compared value is a **computed
    aggregate**, never a model's self-reported confidence (FR-016).
 2. **Given** no Pass 2 snapshot at all, **When** routing runs, **Then** `low-confidence` is not
    `condition-met` **and is recorded as `evidence-absent`, not `condition-unmet`** (FR-021) —
    absent evidence never fabricates an escalation, and never silently counts as a true
    negative.
 3. **Given** a Pass 3 finding that contradicts a Pass 2 dimension score, **When** routing runs,
-   **Then** `pass-disagreement` is `proven` using **012's contradiction predicate**, so that
+   **Then** `pass-disagreement` is `condition-met` using **012's contradiction predicate**, so that
    trigger firings and 012's published inter-pass agreement rate reconcile by construction
    (FR-017).
 4. **Given** retrieval ran successfully and returned nothing above the relevance floor,
-   **When** routing runs, **Then** `novel-no-precedent` is `proven`.
+   **When** routing runs, **Then** `novel-no-precedent` is `condition-met` — unreachable until a
+   relevance primitive exists (FR-018), and asserted as unreachable rather than fixtured.
 5. **Given** retrieval **did not run**, or no ranking strategy was configured, **When** routing
    runs, **Then** `novel-no-precedent` is `evidence-absent` and an inert finding is recorded —
    a broken or unconfigured retrieval MUST NOT be indistinguishable from a genuinely novel
    decision (FR-018).
-6. **Given** any of the three triggers is `proven`, **When** the target is resolved, **Then**
+6. **Given** any of the three triggers is `condition-met`, **When** the target is resolved, **Then**
    it resolves to a **named human** via the landed `deciders` → CODEOWNERS → catalog-owner
    resolver, reusing `packages/evaluator/src/routing/target.ts` unchanged (FR-019).
 7. **Given** any evaluation, **When** its output is consumed by calibration, **Then** whether
@@ -496,9 +499,18 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   (*"the pure Pass 0 library imports no model/prompt/embedding/retrieval library"*).
 
 - **FR-004 — adrkit emits prompt bundles and consumes structured responses; it never calls a
-  model.** No adrkit package may open a network connection or hold model credentials. The
-  harness performs the model call. Consequently no probabilistic pass may be a precondition for
-  any adrkit command completing successfully (US5, SC-001).
+  model.** No adrkit package may **call a model or hold model credentials**, and no
+  network-capable dependency may be added to `@adrkit/evaluator` or `@adrkit/cli`. The harness
+  performs the model call. Consequently no probabilistic pass may be a precondition for any
+  adrkit command completing successfully (US5, SC-001).
+
+  **Scoped deliberately, because a blanket claim would be false today.** `@adrkit/ci` already
+  declares `@actions/github` and constructs an Octokit client (`packages/ci/src/github.ts`) to
+  post PR comments with the workflow token. That is a pre-existing, separately-governed surface
+  with nothing to do with model access, so a requirement phrased as *"no adrkit package opens a
+  network connection"* would be unsatisfiable before this feature starts and would make its own
+  acceptance criteria untestable. The prohibition this feature adds is about the **model
+  interaction path**, not about sockets in general.
 
 - **FR-005 — Every kernel is deterministic given fixed snapshots.** Given identical input
   snapshots, aggregation, weighting, trigger computation, and serialization MUST produce
@@ -739,7 +751,8 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   equality.** Each of the three MUST record one of feature 012's frozen tokens (012 FR-005):
   `condition-met` (evidence was available and the condition held), `condition-unmet` (evidence
   was available and the condition did not hold), or `evidence-absent` (no evidence was available
-  to evaluate). **`evidence-absent` never enters a confusion-matrix cell.**
+  to evaluate). These superseded an earlier `proven`/`not-proven`/`evidence-absent` draft in 012;
+  cite the tokens, not the draft. **`evidence-absent` never enters a confusion-matrix cell.**
 
   ADR-0027 records the cost of conflating the last two — *"a `not-proven` produced by an absent
   snapshot is byte-identical to one produced by evaluated-and-false evidence. Counting the first
@@ -876,13 +889,20 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   instrumenting the boundary, not by inspecting logs.
 - **SC-003**: Given fixed input snapshots, two runs produce byte-for-byte identical aggregates,
   trigger-evidence streams, and serialized reports.
-- **SC-004**: No adrkit package opens a network connection or holds model credentials;
-  `purity.test.ts` and `contracts.test.ts` pass **unmodified**, and `clean-clone-builds` stays
-  green with the probabilistic surface present.
-- **SC-005**: Each of the three new triggers has offline fixtures exercising **`condition-met`**,
-  **`condition-unmet`**, and **`evidence-absent`** outcomes, all runnable with no model
-  configured — and the latter two are distinguishable in the output (FR-021). A fixture asserts
-  the tokens are matched by exact equality, not by prefix (`met` is a substring of `unmet`).
+- **SC-004**: No adrkit package calls a model or holds model credentials, and neither
+  `@adrkit/evaluator` nor `@adrkit/cli` gains a network-capable dependency (`@adrkit/ci`'s
+  pre-existing `@actions/github` client is out of scope, FR-004); `purity.test.ts` and
+  `contracts.test.ts` pass **unmodified**, and `clean-clone-builds` stays green with the
+  probabilistic surface present.
+- **SC-005**: `low-confidence` and `pass-disagreement` each have offline fixtures exercising
+  **`condition-met`**, **`condition-unmet`**, and **`evidence-absent`**, all runnable with no
+  model configured, and `condition-unmet` is distinguishable from `evidence-absent` in the output
+  (FR-021). A fixture asserts the tokens are matched by exact equality, not by prefix (`met` is a
+  substring of `unmet`). **`novel-no-precedent` is explicitly exempt from the all-three-states
+  requirement** while no relevance primitive exists (FR-018, [Q3](#q3)): it has an
+  `evidence-absent` fixture only, and a fixture asserting it can **never** reach `condition-met`
+  from an empty retrieval result. Requiring three states of a trigger that cannot be evaluated
+  would force either a fabricated fixture or a permanently red suite.
 - **SC-006**: Retrieval returns every accepted ADR whose `affects` intersects the proposal's,
   and every broader-`scope` ADR in the same domain, **independent of relevance ranking** —
   demonstrated by a fixture in which the correct record would rank below the floor.
@@ -896,8 +916,11 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
 - **SC-010**: A downward D4 correction escalates to a named human and is **never** applied as a
   silent tier change — demonstrated by a fixture asserting both the re-route and the escalation
   (FR-012).
-- **SC-011**: An unconfigured/broken retrieval and a genuinely novel proposal produce
-  **distinguishable** outcomes: `evidence-absent` plus an inert finding versus `proven`.
+- **SC-011**: An unconfigured or broken retrieval is reported as `evidence-absent` plus an inert
+  finding, and is never representable as novelty. Once a relevance primitive exists, a genuinely
+  novel proposal is `condition-met` and the two are **distinguishable**; until then the
+  `condition-met` half is unreachable by construction and is asserted as such rather than
+  fixtured (FR-018, [Q3](#q3)).
 - **SC-012**: No code path from any pass reaches an approval, acceptance, `review`-state
   change, or in-place record write — asserted structurally.
 - **SC-013**: The holdout-precondition gate is **observed rejecting** a probabilistic pass that
