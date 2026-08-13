@@ -120,8 +120,8 @@ code exists. These gates are the entire reason this feature is scoped rather tha
       `spec.md` in this feature directory** — a resolved question becomes normative spec text,
       not a note in a session log or a PR comment, because an implementer months later reads only
       these files. Q1 and Q2 are already answered and folded in (FR-016, FR-017); this task now
-      covers Q4 and Q5. Q8 is resolved — the detector is the evaluator's committed pass surface
-      (FR-027).
+      covers Q4 and Q5. Q8 is resolved — the detector is the pass-result / `PassAbsence` field on
+      the committed report type, with the exported entry-point surface secondary (FR-027).
 
 **Gate checkpoint**: T001–T004 block **every** later task. `novel-no-precedent` remains blocked
 independently by [Q3](./spec.md#q3) — no relevance primitive exists in the repository — and is
@@ -436,8 +436,11 @@ escalate on model discretion.
       ADR, not an edit (FR-025; ADR-0005 action item 4 as carried forward by ADR-0027 §4).
 - [ ] T036 Before any pass ships, declare this feature's shipped passes in feature 012's
       `passes` registry **in the same change that ships the pass**, and add a check asserting the
-      registry agrees with the **evaluator's committed pass surface** — the request-builder and
-      response-parser reachable from `packages/evaluator/src/index.ts` (FR-027; 012 FR-013). Do
+      registry agrees with the **two enumerated detector locations** (FR-027; 012 FR-013): the
+      pass-result / `PassAbsence` field on the committed report type in
+      `packages/evaluator/src/types.ts` (**primary** — this feature must carry it on its emitted
+      output), and the exported entry-point surface reachable from
+      `packages/evaluator/src/index.ts` (secondary). Either firing is detection. Do
       **not** cross-check against the dependency graph: it is empty by construction here, and
       `scripts/check-deps.ts` is an allowlist that leaves unlisted packages silently
       unconstrained. **Observe the disagreement check failing in both directions** — a registry

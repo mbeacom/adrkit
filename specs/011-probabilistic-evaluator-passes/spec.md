@@ -647,9 +647,11 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   citation coverage has two very different causes: a pass that ran fully and scored poorly, and a
   pass that produced almost nothing. Without a boundary the second fires `low-confidence`, records
   `condition-met`, and counts as a *measured* escalation — from which a recall of `1.0` is
-  manufacturable out of a pass that hardly executed. Below the coverage boundary 012 defines, the
-  trigger MUST record **`evidence-absent`** rather than `condition-met`, so it leaves the
-  denominator instead of flattering it.
+  manufacturable out of a pass that hardly executed. 012's boundary (their FR-020b): **no
+  comparable result ⇒ `evidence-absent`**; a result covering **at least one dimension** ⇒ computed
+  normally; and escalations driven **solely** by structurally-absent input are reported as a
+  separate subpopulation rather than mixed into the headline figure. An `evidence-absent` result
+  leaves the denominator instead of flattering it.
 
   The threshold (default `0.7`) and that boundary are calibrated by 012.
 
@@ -682,9 +684,13 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   **The ordinary agreement case MUST be recorded as `condition-unmet`, not left stateless** (012
   FR-020c). Both passes ran, the comparison was evaluated, and no contradiction was found — that
   is a measured negative and belongs in the denominator. Left stateless, the denominator would
-  contain only disagreements and collapse toward `1.0` by construction, and the rubric's
-  *"zero disagreement is a defect signal"* would become **unreachable**: the one reading that is
-  supposed to alarm could never occur.
+  contain only the cases where Pass 3 objected and collapse toward `1.0` by construction, and the
+  rubric's *"zero disagreement is a defect signal"* would become **unreachable**: the one reading
+  that is supposed to alarm could never occur.
+
+  The operative distinction (012 FR-020c) is between **"produced no output"** ⇒ `evidence-absent`,
+  and **"produced output containing nothing"** ⇒ `condition-unmet`. Pass 3 running and raising no
+  objection is the second, and it is evidence.
 
 - **FR-018 — `novel-no-precedent` distinguishes novelty from breakage, and is blocked on a
   primitive that does not exist.** The trigger MUST be `condition-met` **only** when retrieval ran
@@ -852,19 +858,37 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   community adopter.
 
 - **FR-027 — This feature MUST declare itself in feature 012's `passes` registry, whose
-  cross-check keys on the evaluator's committed pass surface.** 012's precondition gate detects
+  cross-check keys on two enumerated locations of committed state.** 012's precondition gate detects
   *"a probabilistic pass shipped"* so that a pass cannot reach a release without the holdout that
   governs it. Any pass this feature ships MUST be declared in that registry **in the same change
   that ships it**.
 
-  **The detector is the evaluator's committed public surface** (012 FR-013), adopted here rather
-  than re-derived. A shipped probabilistic pass must be **invocable**: a request-builder and a
-  response-parser reachable from `packages/evaluator/src/index.ts` and its committed types. **A
-  pass no caller can invoke has not shipped.** That surface is committed, greppable,
-  deterministic, model-free, observable under the harness architecture, and — the property that
-  makes it a genuine second source — **not authored by the same edit that writes the registry
-  entry**. The cross-check fails in both directions: a pass surface with no registry entry is an
-  undeclared pass; a registry entry with no observable surface is a stale declaration.
+  **The detector is two enumerated locations, the emitted report primary** (012 FR-013, decided
+  in their `c0b59e8`; adopted here rather than re-derived). Either firing is detection:
+
+  1. **Primary — a pass-result / `PassAbsence` field on the report type** (`Pass0Report` or its
+     successor, in `packages/evaluator/src/types.ts`). A shipped pass reports its result; one that
+     has not shipped reports an explicit absence. **This feature MUST carry that field on its
+     emitted output; that is the whole of what conforming requires.**
+  2. **Secondary — the exported entry-point surface** reachable from
+     `packages/evaluator/src/index.ts`. A pass no caller can invoke has not shipped.
+
+  Both are **committed state** — greppable without executing anything — deterministic, model-free,
+  and **not authored by the same edit that writes the registry entry**, which is the property that
+  makes source 2 genuinely independent rather than one source restated. The cross-check fails in
+  both directions: an observable pass with no registry entry is an undeclared pass; a registry
+  entry with neither location observable is a stale declaration.
+
+  **Why the report field is primary, and the second reason is the decisive one.** It is
+  *enumerable*: one field on one committed type has a boundary that can be written down, whereas
+  "reachable from `index.ts`" is a set of module locations that refactors move — so its
+  enumeration needs continuous maintenance to stay true, and a stale enumeration is a detector
+  that **silently narrows**, the exact failure the rewrite existed to remove. And it makes the
+  detector and the metrics **read the same artifact**: a pass that hides from the detector by not
+  reporting its results also **starves the metrics**, whose figures then become `evidence-absent`
+  or `measurement-failed` and, once a pass is declared, **fail the gate** under 012 FR-023b. The
+  evasion path therefore leads to a failure *by another route* rather than to silence — and
+  silence is the one thing a gate must never produce about the thing it exists to detect.
 
   **The dependency graph is withdrawn as a signal, for two independent reasons, either sufficient
   alone.** First, it is **empty by construction, permanently**: under the harness architecture
@@ -953,7 +977,10 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   with 012's three-state status (`condition-met` / `condition-unmet` / `evidence-absent`)
   (FR-021).
 - **`PassAbsence`** — the explicit "this pass did not run, and here is why" record. Required so
-  absence is representable as absence rather than as a zero score or an empty set.
+  absence is representable as absence rather than as a zero score or an empty set. It is also the
+  **primary detector location** for 012's precondition gate (FR-027): a pass-result /
+  `PassAbsence` field on the committed report type, which this feature MUST carry on its emitted
+  output.
 
 ## Success Criteria
 
@@ -1138,13 +1165,14 @@ Resolved while scoping, recorded here rather than dropped so the reasoning survi
 
 <a id="q8"></a>
 
-### Q8 — RESOLVED: the detector is the evaluator's committed pass surface
+### Q8 — RESOLVED: the detector is the emitted report field, with the export surface secondary
 
 **Decision (feature 012 FR-013, adopted here as FR-027).** The `passes` registry is cross-checked
-against the **evaluator's committed public surface**: a shipped probabilistic pass must be
-*invocable* — a request-builder and response-parser reachable from
-`packages/evaluator/src/index.ts` and its committed types. **A pass no caller can invoke has not
-shipped.** The dependency graph is **withdrawn** as a signal.
+against **two enumerated locations, the emitted report primary**: a pass-result / `PassAbsence`
+field on the report type in `packages/evaluator/src/types.ts`, and secondarily the exported
+entry-point surface reachable from `packages/evaluator/src/index.ts`. Either firing is detection.
+This feature carries the field on its emitted output; that is what conforming requires. The
+dependency graph is **withdrawn** as a signal.
 
 **Why the dependency graph failed, in two independent ways.** It is *empty by construction* under
 the harness architecture, since shipping a pass adds no model/prompt/embedding/retrieval
@@ -1153,10 +1181,14 @@ allowlist whose own comment records that a package with no entry is **"silently 
 passes `check:deps` no matter what it declares"**, and no denylist of model libraries exists in
 the repository. Either reason alone disqualifies it.
 
-**Why the pass surface works as a second source.** It is committed, greppable, deterministic,
-model-free, observable under the harness architecture, and **not authored by the same edit that
-writes the registry entry** — which is the property that makes two sources genuinely independent
-rather than one restated. Per 012 FR-013a the gate **fails** when the second source is
+**Why these work as a second source.** Both are committed state — greppable without executing
+anything — deterministic, model-free, and **not authored by the same edit that writes the registry
+entry**, which is what makes two sources genuinely independent rather than one restated. The report
+field is primary for two reasons, the second decisive: it is *enumerable*, where a module-location
+set is moved by refactors and its enumeration silently narrows as it goes stale; and it makes the
+detector and the metrics **read the same artifact**, so a pass that hides by not reporting also
+starves the metrics and fails the gate under 012 FR-023b. Evasion leads to failure by another
+route rather than to silence. Per 012 FR-013a the gate **fails** when the second source is
 structurally unable to observe: *a cross-check whose second source is a constant is one source
 wearing two names.* Per 012 FR-013b both specs name the same detector, and FR-027 is this side of
 that agreement.
