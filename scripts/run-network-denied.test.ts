@@ -31,6 +31,7 @@ import {
   proveDenial,
   resolveCommand,
   run,
+  shellQuote,
   type DenialMechanism,
 } from './run-network-denied.ts';
 
@@ -230,6 +231,24 @@ describe('the candidate list stays within §5\u2019s qualifying mechanisms', () 
     // never dropping runs `bun run build` as root and leaves root-owned output that breaks
     // the later un-sandboxed steps of the same job.
     expect(script.indexOf('ip link set lo up')).toBeLessThan(script.indexOf('setpriv'));
+  });
+
+  test('the sudo candidate RESTORES PATH rather than restricting it', () => {
+    // §5 rejects a restricted `PATH` as a denial *mechanism*. This is the opposite:
+    // `sudo` swaps in `secure_path`, and putting the caller's `PATH` back is what makes
+    // the sandboxed run the same run as the unsandboxed one. The denial comes from the
+    // namespace and from nothing else — so the value must be the real PATH, not a subset.
+    const sudo = CANDIDATES.find((one) => one.argv[0] === 'sudo');
+    const script = sudo?.argv.find((part) => part.includes('setpriv')) ?? '';
+
+    expect(script).toContain(shellQuote(process.env['PATH'] ?? ''));
+    // Restored before the command execs, or the children still cannot resolve `bun`.
+    expect(script.indexOf('export PATH=')).toBeLessThan(script.indexOf('setpriv'));
+  });
+
+  test('shellQuote makes an interpolated value inert as shell syntax', () => {
+    expect(shellQuote("/a/b")).toBe("'/a/b'");
+    expect(shellQuote("/a'; rm -rf /; echo '")).toBe(String.raw`'/a'\''; rm -rf /; echo '\'''`);
   });
 });
 

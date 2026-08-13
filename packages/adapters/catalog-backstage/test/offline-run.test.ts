@@ -68,6 +68,14 @@ interface DenialMechanism {
  * Both are §5 mechanism 2 (a process-level sandbox denying network syscalls); `unshare`
  * additionally creates an empty network namespace, which §5 mechanism 1 also describes.
  * It is claimed as 2 because that is the numbered item naming it.
+ *
+ * This list is deliberately **not** imported from `scripts/run-network-denied.ts`: no test
+ * in this package reaches outside it, and this file is not going to be the first. The cost
+ * is that the two lists can drift, and they did — the sudo entry here carried the same
+ * three defects that made `clean-clone-builds` fail every run of this branch, and had to
+ * be fixed twice. `test/sc-016.test.ts` reads the script's source and cross-checks it, and
+ * the invariants below are asserted here, so a future divergence on the load-bearing
+ * properties fails rather than silently degrades.
  */
 const CANDIDATES: readonly DenialMechanism[] = [
   {
@@ -83,12 +91,47 @@ const CANDIDATES: readonly DenialMechanism[] = [
     argv: ['unshare', '--net', '--map-root-user'],
   },
   {
-    mechanismUsed: 'unshare --net under sudo (empty network namespace)',
-    configuration: 'sudo -n unshare --net',
+    // `--map-root-user` is refused on GitHub-hosted `ubuntu-latest`, where AppArmor
+    // restricts unprivileged user namespaces, so this is the candidate CI actually
+    // selects. Three things it must get right, each of which was got wrong first:
+    //
+    //   * `setpriv` hands the invoking uid/gid back, so the generation run does not
+    //     execute as root and leave root-owned output behind;
+    //   * `PATH` is restored, because `sudo` swaps in `secure_path`, which does not
+    //     contain `~/.bun/bin` — restoring it is the opposite of the restricted-`PATH`
+    //     convention §5 rejects, and the denial still comes only from the namespace;
+    //   * the payload is passed by absolute path, for the same reason.
+    mechanismUsed: 'unshare --net under sudo, dropped back to the invoking user',
+    configuration: `sudo -n unshare --net -- sh -c '<restore PATH>; exec setpriv --reuid=${process.getuid?.() ?? 0} --regid=${process.getgid?.() ?? 0} --clear-groups "$@"' --`,
     qualifyingMechanism: 2,
-    argv: ['sudo', '-n', 'unshare', '--net'],
+    argv: [
+      'sudo',
+      '-n',
+      'unshare',
+      '--net',
+      '--',
+      'sh',
+      '-c',
+      `export PATH='${(Bun.env['PATH'] ?? '').replaceAll("'", String.raw`'\''`)}'; ` +
+        `exec setpriv --reuid=${process.getuid?.() ?? 0} --regid=${process.getgid?.() ?? 0} --clear-groups "$@"`,
+      '--',
+    ],
   },
 ];
+
+/**
+ * This Bun binary, by absolute path — never the bare name.
+ *
+ * Under `sudo` a bare `bun` resolves outside the sandbox and not inside it, so the probe
+ * failed to start and the candidate was recorded as unavailable. `process.execPath` is the
+ * interpreter already running, so it cannot disagree with the one that was invoked.
+ */
+const BUN = process.execPath;
+
+/**
+ * Printed by the availability sentinel; deliberately not a token the probe can emit.
+ */
+const SENTINEL = 'ADRKIT_MECHANISM_CAN_EXEC';
 
 /**
  * The probe, as a standalone program.
@@ -155,7 +198,7 @@ const rejected: { readonly mechanism: string; readonly why: string }[] = [];
  * rather than a skip.
  */
 async function proveDenial(): Promise<DenialMechanism | undefined> {
-  const unsandboxed = await run(['bun', PROBE_PROGRAM, String(port)], workspace);
+  const unsandboxed = await run([BUN, PROBE_PROGRAM, String(port)], workspace);
   controlUnsandboxed = unsandboxed.stdout.trim();
 
   // Half one: without a sandbox the probe MUST connect. If it does not, no conclusion
@@ -164,20 +207,37 @@ async function proveDenial(): Promise<DenialMechanism | undefined> {
   if (!controlUnsandboxed.startsWith('CONNECTED')) return undefined;
 
   for (const candidate of CANDIDATES) {
-    const attempt = await run([...candidate.argv, 'bun', PROBE_PROGRAM, String(port)], workspace);
-    const line = attempt.stdout.trim();
-    if (attempt.exitCode !== 0 && line === '') {
+    // Availability is established by a sentinel that touches no network, so it can only
+    // fail if the mechanism genuinely cannot run something. Inferring availability from
+    // the probe's own failure — as this did — makes "my payload is broken" and "this
+    // environment cannot deny" the same observation, and reports the second. That is §5's
+    // denial-versus-absence distinction collapsing inside the check meant to enforce it.
+    const sentinel = await run(
+      [...candidate.argv, BUN, '-e', `console.log(${JSON.stringify(SENTINEL)})`],
+      workspace,
+    );
+    if (!sentinel.stdout.includes(SENTINEL)) {
       rejected.push({
         mechanism: candidate.mechanismUsed,
-        why: `unavailable in this environment: ${attempt.stderr.trim().split('\n')[0] ?? `exit ${attempt.exitCode}`}`,
+        why: `unavailable in this environment: ${sentinel.stderr.trim().split('\n')[0] ?? `exit ${sentinel.exitCode}`}`,
       });
       continue;
     }
+
+    const attempt = await run([...candidate.argv, BUN, PROBE_PROGRAM, String(port)], workspace);
+    const line = attempt.stdout.trim();
     if (line.startsWith('DENIED')) {
       controlSandboxed = line;
       return candidate;
     }
-    rejected.push({ mechanism: candidate.mechanismUsed, why: `did not deny: ${line}` });
+    if (line.startsWith('CONNECTED')) {
+      rejected.push({ mechanism: candidate.mechanismUsed, why: `did not deny: ${line}` });
+      continue;
+    }
+    rejected.push({
+      mechanism: candidate.mechanismUsed,
+      why: `mechanism works, but the probe payload failed under it: ${attempt.stderr.trim().split('\n')[0] ?? `exit ${attempt.exitCode}`}`,
+    });
   }
 
   return undefined;

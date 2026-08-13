@@ -84,6 +84,33 @@ export const BUN = process.execPath;
 const UID = process.getuid?.() ?? 0;
 const GID = process.getgid?.() ?? 0;
 
+/** Single-quote for `sh`, so an interpolated value cannot be reinterpreted as syntax. */
+export function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", String.raw`'\''`)}'`;
+}
+
+/**
+ * Restore the caller's `PATH` inside the `sudo` candidate.
+ *
+ * **This is not the mechanism, and it is not an `env -i` convention.** §5 rejects a
+ * restricted `PATH` as a *denial* mechanism; the denial here comes entirely from the
+ * network namespace. This does the opposite of restricting: `sudo` replaces `PATH` with
+ * `secure_path`, and without putting it back the sandboxed run is not the same run as the
+ * unsandboxed one.
+ *
+ * Resolving the command to an absolute path is not sufficient on its own, which is how
+ * this was found. `bun run build` execs its package scripts through `bash`, and those
+ * scripts say `bun` — so the *children* need `PATH` even when the parent did not:
+ *
+ *     $ bun run --filter='*' build
+ *     /usr/bin/bash: line 1: bun: command not found
+ *
+ * `typecheck` passed at the same moment, because its script is `tsc` and Bun resolves that
+ * from `node_modules/.bin` itself. A fix verified only against `typecheck` would have
+ * looked complete and failed on the next step.
+ */
+const PATH_RESTORE = `export PATH=${shellQuote(process.env['PATH'] ?? '')}; `;
+
 /**
  * Candidates, in the order they are tried.
  *
@@ -126,7 +153,7 @@ export const CANDIDATES: readonly DenialMechanism[] = [
     // provable denial for a silent side effect.
     mechanismUsed: 'unshare --net under sudo, dropped back to the invoking user (loopback up)',
     configuration:
-      "sudo -n unshare --net -- sh -c 'ip link set lo up || true; " +
+      "sudo -n unshare --net -- sh -c 'ip link set lo up || true; <restore PATH>; " +
       `exec setpriv --reuid=${UID} --regid=${GID} --clear-groups "$@"' --`,
     qualifyingMechanism: 2,
     argv: [
@@ -138,6 +165,7 @@ export const CANDIDATES: readonly DenialMechanism[] = [
       'sh',
       '-c',
       'ip link set lo up 2>/dev/null || true; ' +
+        PATH_RESTORE +
         `exec setpriv --reuid=${UID} --regid=${GID} --clear-groups "$@"`,
       '--',
     ],
