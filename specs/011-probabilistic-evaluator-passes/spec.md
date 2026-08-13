@@ -673,10 +673,22 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   **The relevance floor is withdrawn, not deferred.** **No relevance scoring exists in this
   repository** — `packages/mcp/src/search/normalize.ts` documents itself as *"No stemming, fuzzy,
   weighting, or ranking"* — so a floor calibrated over a ranking function that does not exist is a
-  parameter whose tuning changes nothing. Feature 012 has withdrawn it accordingly; it is
-  `nothing-to-measure` (FR-028 class 1), not a parameter awaiting a value. Until a ranking
-  primitive exists ([Q3](#q3)), this trigger is expected to remain permanently `evidence-absent`,
-  which is the honest state and MUST be reported as such rather than worked around.
+  parameter whose tuning changes nothing. Feature 012 has withdrawn it accordingly. Until a
+  ranking primitive exists ([Q3](#q3)), this trigger is expected to remain permanently
+  `evidence-absent`, which is the honest state and MUST be reported as such rather than worked
+  around.
+
+  **A permanently absent trigger MUST NOT fail the gate, and its absence has a class.** Trigger
+  evidence states (FR-021) and metric `not-computable` classes (FR-028) are **different axes**: a
+  trigger recorded `evidence-absent` for every case is not a missing outcome label class, and
+  feature 012's fail-closed gate must not reject it (012 FR-023a). When this trigger's absence is
+  surfaced as a metric state, its class is **`nothing-to-measure`** — *structurally* absent,
+  because the primitive does not exist at all and no case could ever supply it — **not**
+  `input-unavailable`, which means the primitive exists and this case's inputs could not supply
+  it. That distinction MUST be preserved: collapsing them would hide a regression in which a
+  **working** primitive silently stops producing evidence, by making it look like the permanent
+  expected condition. If a relevance primitive ever ships, this trigger moves from
+  `nothing-to-measure` to `input-unavailable`, and **that transition MUST be visible.**
 
 - **FR-029 — One module MUST compose the eleven triggers into the canonical ordered output.**
   The landed pipeline emits a single ordered escalation stream: `packages/evaluator/src/patch/project.ts`

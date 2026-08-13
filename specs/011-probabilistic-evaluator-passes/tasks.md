@@ -339,7 +339,11 @@ that escalation resolves to a named human.
       primitive exists (FR-018, SC-005, [Q3](./spec.md#q3)): fixture it as `evidence-absent` only,
       plus an assertion that an empty retrieval result can **never** be promoted to
       `condition-met`. Do not fabricate a `condition-met` fixture for a trigger that cannot be
-      evaluated. **Observe each failing** before T026.
+      evaluated. Also assert that a trigger recorded `evidence-absent` for **every** case does not
+      fail 012's gate (012 FR-023a — trigger states and outcome label classes are different axes),
+      and that this trigger's metric class is **`nothing-to-measure`** (structurally absent) rather
+      than `input-unavailable` (incidentally absent), so a future regression in a working primitive
+      cannot masquerade as the permanent expected condition. **Observe each failing** before T026.
 - [ ] T025 [P] [US4] After Phase 5, write a failing test asserting that `low-confidence`
       thresholds a value **computed by the pure kernel** and that a model-supplied
       self-confidence field, if present in a snapshot, is **ignored** (FR-016). **Observe it
