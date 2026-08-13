@@ -287,9 +287,10 @@ obvious check is not used should find the answer instead of proposing it again.
 The second source is the **evaluator's committed pass surface** — two co-equal
 locations, both **enumerated by committed type name**: the entry-point types (one
 per pass role) and a pass-result / `PassAbsence` variant on the report type.
-**Either firing is detection**, and there is deliberately no primary: the rank was
-inverted twice across the two specs before it became clear that nothing depended
-on it. **A pass no caller can invoke has not
+**Either firing is detection.** This spec states no primary between them; the rank
+was inverted repeatedly across the two specs before it became clear nothing
+depended on it. A consuming spec may state one without diverging — the agreement
+condition is the enumerated set and the either-fires rule, not presentation order. **A pass no caller can invoke has not
 shipped.** Both are read from committed source without executing anything, which
 is what FR-012 requires; an emitted *value* would not be.
 

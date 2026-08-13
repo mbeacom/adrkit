@@ -698,16 +698,27 @@ verdict.
   authored by the same edit that writes the registry entry**, which is what makes
   the two sources independent of the declarer.
 
-  **There is deliberately no primary.** Earlier drafts ranked them, and the rank
-  changed twice: this feature made the report field primary, `specs/011-*`
-  adopted the surface, this feature inverted to match, and `specs/011-*` then
-  inverted back once it was clear the field lives on the committed *type* rather
-  than in emitted output. Reviewing what actually depended on the rank: **nothing
-  did.** Either firing detects; the gate's behavior, the FR-015 anchor (the
-  earliest commit at which *either* location is observed), and the cross-check are
-  all identical under either ordering. The rank was decorative, and a decorative
-  distinction that two careful readers inverted twice is a defect in the framing
-  rather than a disagreement about the answer.
+  **This spec states no primary between them, and none is required of a consumer.**
+  Earlier drafts ranked the two locations, and the rank was inverted repeatedly
+  between this feature and `specs/011-*` — each time on a sound argument, and each
+  time producing a divergence FR-013b forbids. Reviewing what actually depended on
+  the rank: **nothing did.** Either firing detects; the gate's behavior, the
+  FR-015 anchor (the earliest commit at which *either* location is observed), and
+  the cross-check are all identical under any ordering. A decorative distinction
+  that two careful readers inverted more than once is a defect in the framing
+  rather than a disagreement about the answer, so this spec drops it.
+
+  **The absence of a rank is this spec's presentation, not a constraint on
+  consumers.** A consuming spec MAY state a primary if it finds one clearer;
+  doing so does not diverge from this requirement, because FR-013b's agreement
+  condition is about **which locations are enumerated and that either firing
+  detects** — not about their presentation order. What would diverge is
+  enumerating a *different* set, or treating only one location as detecting.
+
+  This paragraph deliberately does **not** narrate the sequence of inversions.
+  A move-by-move history of a contested point goes stale on the next move, and a
+  requirement carrying a stale account of its own history is the failure T051b
+  exists to catch.
 
   Both necessity arguments are recorded, because each covers a case the other
   does not:
@@ -797,14 +808,15 @@ verdict.
 
   **Decided and agreed.** `specs/011-*` raised this (its Q8), declined to choose
   unilaterally because the gate is this feature's, and handed the decision back.
-  It was closed here, then the **rank between the two locations changed twice**
-  before both specs converged on dropping it: this feature made the report field
-  primary, `specs/011-*` adopted the surface, this feature inverted to match, and
-  `specs/011-*` inverted back once the field's home on the committed *type* was
-  clear. Nothing depended on the rank, so **there is no primary** — two co-equal
-  enumerated locations, either firing is detection, with both necessity arguments
-  recorded (FR-013). FR-013c's coverage bound stands unchanged. **Conforming, for
-  `specs/011-*`, is carrying both the pass-role types and the pass-result
+  It was closed here, and then the **rank between the two locations was inverted
+  repeatedly** between the two specs — each time on a sound argument — until it
+  became clear that nothing depended on it. The agreed content is: **two
+  enumerated locations, both by committed type name, either firing is
+  detection**, with both necessity arguments recorded (FR-013). This spec states
+  no primary; a consumer may state one without diverging, since the agreement
+  condition is about the enumerated set and the either-fires rule, not about
+  presentation order. FR-013c's coverage bound stands unchanged. **Conforming,
+  for `specs/011-*`, is carrying both the pass-role types and the pass-result
   variant.** This is recorded as a decision rather than left
   as an open marker, because an interface question that both parties have
   answered is settled, and leaving it open would misreport the spec's state.
