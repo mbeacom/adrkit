@@ -233,24 +233,35 @@ disagreement signal. That is an interface negotiation, not a definitional one.
 
 ### The metric definitions this feature consumes
 
-Frozen by feature 012 and reproduced here **only so that this spec cites rather than restates
-them**. If any wording below diverges from `specs/012-evaluator-calibration/`, that spec wins
-and this section is the defect.
+Frozen by feature 012 (`specs/012-evaluator-calibration/`, commit `e7c2fb7`) and reproduced
+here **only so that this spec cites rather than restates them**. If any wording below diverges
+from that spec, **it wins and this section is the defect**. 012's FR-022 requires this
+consumption relationship, and their T044 verifies it.
 
-- **Positive class**, derived from the rubric's four outcome labels and frozen in spec rather
-  than chosen per release: `caused-incident` (the class recall is optimized on),
+- **Positive class** (012 FR-018), derived from the rubric's four outcome labels and frozen in
+  spec rather than chosen per release: `caused-incident` (the class recall is optimized on),
   `shipped-reverted`, and `rejected-in-review` are **positive**; `shipped-clean` is **negative**.
 - **Escalation precision** `TP/(TP+FP)`, **recall** `TP/(TP+FN)`, and the **false-negative
   rate** `FN/(TP+FN)` — the last published as its own number, never left to be inferred from
   recall. A metric whose denominator is zero is reported **absent** — never `1.0`, never `0`.
-- **Score drift** per dimension `d ∈ {D1…D8}` between model versions over the same frozen
-  holdout, **never averaged across dimensions**, because an average hides a compensating pair.
-  `|drift(d)| > ε` is a breaking change requiring its own ADR; `ε` is unset repository-wide.
-- **Inter-pass disagreement rate** — stated as *disagreement*, not agreement, because the
-  rubric's named failure mode is **zero** disagreement: *"If Pass 2 and Pass 3 never disagree,
-  one of them is not doing its job."* A rate of exactly `0.0` over a sufficient holdout is a
-  **defect signal**, not a green number. This is the metric FR-017's trigger must reconcile
-  with by construction.
+- **The dual figure** (012 FR-016), whose normative source is ADR-0027 §3: every one of those
+  three is published **twice**, whole-gate and probabilistic-marginal, and **only the marginal
+  figure discharges the obligation**. See FR-020, and [Q7](#q7) for why the marginal
+  denominator is the only one that can be clean.
+- **Uncomputable values** (012 FR-017a) return `not-computable` with a machine reason code and
+  are never rendered, coerced, or defaulted to a passing-looking value. This binds this
+  feature's own outputs — see FR-028.
+- **Score drift** (012 FR-019) per dimension `d ∈ {D1…D8}` over the same frozen holdout,
+  **never averaged across dimensions**, because an average hides a compensating pair. **No `ε`
+  value ships** (012 FR-019a): only the derivation mechanism — per-dimension observed spread
+  across this feature's first two model versions over the same frozen holdout — and the
+  resulting value requires its own record before it governs breaking-change status. Producing
+  that observation set is this feature's obligation ([`tasks.md`](./tasks.md) T037).
+- **Inter-pass disagreement rate** (012 FR-020) — stated as *disagreement*, not agreement,
+  because the rubric's named failure mode is **zero** disagreement: *"If Pass 2 and Pass 3 never
+  disagree, one of them is not doing its job."* A rate of exactly `0.0` over a sufficient
+  holdout is a **defect signal**, not a green number. This is the metric FR-017's trigger must
+  reconcile with by construction.
 - **Override rate by tier and dimension** — defined, and **not computable**: its input does not
   exist (see [§ no historical calibration data](#there-is-no-historical-calibration-data-and-that-is-permanent)).
 - All figures publish **absolute counts and denominators**, never a bare percentage, so a
@@ -592,6 +603,15 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   output prints proven reasons only — the half from which recall cannot be computed. The three
   new triggers MUST NOT inherit that asymmetry.
 
+  **Rationale, stronger than the record states.** ADR-0027 requires the marginal figure because
+  escalation is an OR and eight triggers at precision `1.0` by construction would mask a
+  worthless Pass 2. There is a second and sharper reason: for the eight landed triggers the
+  false-versus-absent distinction is **destroyed at emission** and cannot be retrofitted without
+  changing landed behavior (FR-002), so the whole-gate recall denominator is **structurally
+  weaker than the marginal one, permanently**. The marginal figure is the only one whose
+  denominator can be clean. That makes this requirement a **measurement necessity**, not a
+  policy choice. See [Q7](#q7).
+
 - **FR-021 — Evidence-absent MUST be distinguishable from evaluated-and-false.** For each of
   the three new triggers, a not-proven result MUST record which of the two it is: the pass ran
   and the condition was false, or the evidence was never available. ADR-0027 records the cost
@@ -636,10 +656,20 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   `passes` registry against the existing dependency-boundary gate (`bun run check:deps`, and
   feature 005's SC-006, which already asserts the evaluator imports no
   model/prompt/embedding/retrieval library). A **silent disagreement between the dependency
-  graph and the registry fails the release**, by design: it is what stops a pass from shipping
-  without the holdout that governs it. Any pass this feature ships MUST therefore be declared
-  in that registry in the same change that ships it, and the declaration MUST be kept
+  graph and the registry fails the release**, by design, and in **either** direction: a
+  model/prompt/embedding/retrieval dependency the registry does not declare, or a registry
+  entry with no matching dependency. Any pass this feature ships MUST therefore be declared in
+  that registry **in the same change that ships it**, and the declaration MUST be kept
   consistent with the dependency graph.
+
+- **FR-028 — An uncomputable value is reported as `not-computable` with a machine reason code.**
+  Any value this feature emits that cannot be computed MUST be rendered as an explicit
+  `not-computable` (or the equivalent token feature 012 lands on) carrying a machine-readable
+  reason code. It MUST NOT be rendered as a passing-looking value, coerced, defaulted, or
+  omitted in a way a consumer could read as success — no `0`, no `1.0`, no empty set standing in
+  for "we did not measure this". This mirrors feature 012's FR-017a, applies to this feature's
+  outputs, and is the general form of the failure mode named in the Overview: *the fabricated
+  value always looks healthier than the honest one.*
 
 ## Key Entities
 
@@ -817,26 +847,45 @@ settled when it is not is the failure mode this project exists to prevent.
 
 <a id="q7"></a>
 
-- **Q7 — `[NEEDS CLARIFICATION]` What is the middle trigger state actually called?** This spec
-  and feature 012 agree on **three** states and disagree on the **name of one of them**, which
-  must be reconciled before either is implemented:
+- **Q7 — `[NEEDS CLARIFICATION]` (scope narrowed; the architectural half is ruled) What are the
+  calibration vocabulary's three tokens?** This spec and feature 012 agree on **three** states.
+  The naming is resolved in principle and open only in its final tokens:
 
-  | State | This spec (FR-021) | Feature 012's holdout format |
-  |---|---|---|
-  | condition held | `proven` | `proven` |
-  | evaluated, condition false | **`evaluated-and-false`** | **`not-proven`** |
-  | evidence never available | `evidence-absent` | `evidence-absent` |
+  **Ruled — the routing vocabulary is not widened.** `packages/evaluator/src/types.ts` declares
+  `status: 'proven' | 'not-proven'`, and `routing/route.ts` documents that missing optional
+  evidence yields `not-proven`. For the eight landed triggers that token therefore means
+  *"false **or** absent"* — the two conflated. That is correct **for routing**, whose rule is
+  *escalate only on proven evidence, never fabricate*, and widening it would change landed
+  behavior for eight triggers to serve a calibration need. FR-002 forbids it.
 
-  This is not cosmetic. `not-proven` is **already taken** by the landed two-state vocabulary:
-  `packages/evaluator/src/types.ts` declares `status: 'proven' | 'not-proven'`, and for the
-  eight existing triggers `not-proven` means *"false **or** absent"* — the two conflated. If
-  the three new triggers reuse that token for the **narrow** "false only" meaning, then one
-  string carries two different meanings across the eleven triggers of a single report, and
-  anyone computing a recall denominator across all of them is silently wrong in exactly the way
-  ADR-0027 was corrected to prevent. FR-002 forbids changing the eight triggers' serialization,
-  so the ambiguity cannot be resolved by widening the existing token.
+  **Ruled — calibration is a separate namespace that reuses neither token.** Not `not-proven`
+  in a narrow sense, and not `proven` either. Three distinctly named states.
+  **Owner: 012**, who own the holdout format; 011 consumes whatever they land on. This spec's
+  `evaluated-and-false` is a placeholder for the middle state pending that choice, and is
+  aligned with ADR-0027's own Consequences wording, which requires the evidence index *"MUST
+  distinguish a trigger that was evaluated-and-false from one whose evidence was absent."*
 
-  **Recommendation from this side**: use a distinct token for the narrow state —
-  `evaluated-and-false` or equivalent — and reserve `not-proven` for the landed two-state
-  meaning. **Owner: 012** (they own the holdout format), but flagged here rather than resolved
-  unilaterally, and reconciliation is a Phase 0 task ([`tasks.md`](./tasks.md) T004).
+  **This trips no one-way door.** `not-proven` appears **0 times** in `schema/adr.schema.json`
+  and 0 times in `packages/core/src/schema/adr.schema.ts` — it is internal to the evaluator's
+  runtime types, not part of the published schema contract. A new distinct calibration
+  vocabulary therefore needs **no schema change and no Principle V ADR**. Recorded here so the
+  question is not re-opened later out of a fear of a breaking change that does not exist.
+
+  **The consequence that outlives the naming.** A distinct token prevents *new* damage; it does
+  **not** repair the existing loss. For the eight landed triggers the false-versus-absent
+  distinction is **destroyed at emission** — the information never enters the report, so no
+  downstream consumer can recover it from the report alone. Feature 012's reconstructed
+  snapshots recover it only partially, and only with the disclosure ADR-0027's Consequences
+  already requires. The three new triggers can carry three states from day one; the landed eight
+  cannot be retrofitted without changing landed behavior.
+
+  Therefore: **the whole-gate recall denominator is structurally weaker than the marginal one,
+  permanently.** This is not a defect awaiting a fix — it is an asymmetry to state. It also
+  supplies a second and sharper justification for ADR-0027 §3 than the record itself gives:
+  the marginal figure is required not only because deterministic perfection would mask a
+  worthless Pass 2, but because **it is the only figure whose denominator can be clean.** That
+  converts the marginal requirement from a policy choice into a **measurement necessity**, which
+  is considerably harder to argue away later. See FR-020.
+
+  **Remains open**: the three final token strings, from 012. Phase 0 blocker on
+  [`tasks.md`](./tasks.md) T004, because the evidence shape (T005) depends on them.

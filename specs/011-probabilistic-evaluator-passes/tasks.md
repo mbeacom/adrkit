@@ -6,7 +6,7 @@ description: "Dependency-ordered task list for Probabilistic Evaluator Passes (P
 
 **Input**: Design documents from `specs/011-probabilistic-evaluator-passes/`
 
-**Prerequisites**: [`spec.md`](./spec.md) (FR-001–FR-027, SC-001–SC-016, Q1–Q7) and
+**Prerequisites**: [`spec.md`](./spec.md) (FR-001–FR-028, SC-001–SC-016, Q1–Q7) and
 [`plan.md`](./plan.md)
 
 **Normative**: `docs/adr/0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md`,
@@ -64,10 +64,13 @@ lockfileVersion 1.
 code exists. These gates are the entire reason this feature is scoped rather than started.
 
 - [ ] T001 Verify that `specs/012-evaluator-calibration/` has **landed** and that its frozen
-      holdout set exists as a tracked artifact with a recorded freeze proof (content hash plus
-      commit SHA, or the equivalent mechanism 012 defines). Record the artifact path and the
-      freeze proof here. Keep T001 open and stop all T002+ work while any item is missing.
-      **This gate cannot be satisfied by backfilling** (ADR-0027 §3).
+      holdout set exists as a tracked artifact. 012's gate enforces ordering by **commit
+      ancestry, not by a date field**: the holdout's **freeze commit MUST be an ancestor of the
+      first commit that produces a score**. Record the artifact path and the freeze commit SHA,
+      and confirm the ancestry relation holds (`git merge-base --is-ancestor <freeze> <HEAD>`).
+      Keep T001 open and stop all T002+ work while any item is missing. **Nothing on this side
+      can satisfy this after the fact** — a holdout frozen after the scorer ran is not a
+      holdout (ADR-0027 §3).
 - [ ] T002 After T001, verify that 012's holdout-precondition gate has been **observed failing**
       — that is, observed *rejecting* a probabilistic pass that lacks a frozen holdout — and
       link that observation. ADR-0027 §4 states the requirement directly: the gate *"must be
@@ -370,6 +373,17 @@ escalate on model discretion.
       failing** — declare a pass the graph does not support, and separately add a
       graph dependency the registry does not declare — before trusting it (ADR-0016). A
       registry that has only ever agreed has proven nothing.
+- [ ] T037 After Phase 6, produce the **ε-derivation observation set** feature 012's FR-019a
+      requires: per-dimension D1–D8 scores from this feature's **first two model versions** over
+      the **same frozen holdout**, so 012 can derive the per-dimension observed spread. **No `ε`
+      value ships from this feature**, and none may be hardcoded — 012 owns the derivation, and
+      the resulting value needs its own record before it governs breaking-change status. Report
+      the observations per dimension, **never averaged across dimensions**: an average hides a
+      compensating pair.
+- [ ] T038 [P] After T037, assert that every uncomputable value this feature emits renders as
+      `not-computable` with a machine reason code, and is never coerced, defaulted, or omitted
+      into something a consumer could read as success (FR-028; 012 FR-017a). **Observe it
+      failing** against a deliberately defaulted value, then revert (ADR-0016).
 
 **Checkpoint**: every promised boundary is enforced by a check that has been observed failing.
 
@@ -388,7 +402,7 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
         ─▶ Phase 4 (US2: T016,T017 ─▶ T018 ─▶ T019,T020)
         ─▶ Phase 5 (US3: T021,T022 ─▶ T023)
         ─▶ Phase 6 (US4: T024,T025,T026 ─▶ T027 ─▶ T028,T029)
-        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035)
+        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035, T036, T037 ─▶ T038)
 ```
 
 **Blocking rules**
@@ -400,10 +414,15 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
 - Phase 3 (degradation) precedes Passes 2–3 deliberately.
 - T028 is a deliberate non-implementation: `novel-no-precedent` stays `evidence-absent` until a
   relevance primitive exists, and building one is out of scope.
+- T001's ancestry check is unsatisfiable retroactively: the holdout's freeze commit must be an
+  ancestor of the first commit that produces a score, enforced by ancestry rather than by a date
+  field, so no later artifact can be made to qualify.
+- T036 must be observed failing in **both** directions; a one-directional check passes while the
+  registry silently under-reports.
 
 ## Status
 
-**Scoped.** Zero of 35 tasks are checked, and none may be checked until T001–T004 clear. Per
+**Scoped.** Zero of 38 tasks are checked, and none may be checked until T001–T004 clear. Per
 [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 this feature is *scoped* and **nothing above it** — not implemented, not reference-verified, not
 landed, not released, not externally validated, not adopted.

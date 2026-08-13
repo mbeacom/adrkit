@@ -146,7 +146,7 @@ needs a ratifying record before code exists.
 
 ```text
 specs/011-probabilistic-evaluator-passes/
-├── spec.md                         # Feature spec (binding; FR-001–FR-027, SC-001–SC-016, Q1–Q7)
+├── spec.md                         # Feature spec (binding; FR-001–FR-028, SC-001–SC-016, Q1–Q7)
 ├── plan.md                         # This file
 └── tasks.md                        # Phase 0 hard gates + dependency-ordered task list (all unchecked)
 ```
