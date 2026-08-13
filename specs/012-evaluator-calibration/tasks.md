@@ -6,8 +6,10 @@ description: "Dependency-ordered task list for the Evaluator Calibration Harness
 
 **Input**: Design documents from `specs/012-evaluator-calibration/`
 
-**Prerequisites**: [`spec.md`](./spec.md), [`plan.md`](./plan.md), and the four
-`contracts/` documents
+**Prerequisites**: [`spec.md`](./spec.md) and [`plan.md`](./plan.md). The four
+`contracts/` documents do **not** exist yet — they are authored by T004 and
+T007–T009 in this list, and are prerequisites for the *implementation* phases,
+not for starting it.
 
 **Normative**:
 [`docs/adr/0027-*`](../../docs/adr/0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md),
@@ -21,10 +23,10 @@ description: "Dependency-ordered task list for the Evaluator Calibration Harness
 (**read-only for this feature**), and
 [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md).
 
-> # ⛔ T010 IS A HARD ORDERING GATE
+> # ⛔ T012 IS A HARD ORDERING GATE
 >
-> **No task in Execution Phase 4 or later may begin until T010 records a `PASS`
-> verdict.** T010 is the independent pre-derivation audit of the frozen labels.
+> **No task in Execution Phase 4 or later may begin until T012 records a `PASS`
+> verdict.** T012 is the independent pre-derivation audit of the frozen labels.
 > A holdout frozen after a scorer ran against it is not a holdout; a label
 > authored after seeing which cases the evaluator escalated is not a label. This
 > is the `specs/009-catalog-binding-viability/` T014 → T014a → T016 shape, as
@@ -35,8 +37,8 @@ description: "Dependency-ordered task list for the Evaluator Calibration Harness
 > an open blocker — it proves the audit catches the defect rather than warning
 > that one is possible.
 >
-> If T010 returns `FAIL`, the required response is a **new freeze cycle**
-> (T007 → T010 re-run), never an in-place correction of the frozen artifact.
+> If T012 returns `FAIL`, the required response is a **new freeze cycle**
+> (T010b → T012 re-run), never an in-place correction of the frozen artifact.
 
 **Tests**: REQUIRED and test-first. Every gate and enforcement must be **written
 and observed failing against a deliberate violation** before its implementation
@@ -334,7 +336,7 @@ score to grade. US6 constrains how the rest lands.
 | SC-026 | T043b |
 | SC-027 | T043c |
 | SC-028 | T043d, T041 |
-| SC-029 | T043, T041 |
+| SC-029 | T043a, T041, T026 |
 | SC-030 | T023a, T026 |
 | SC-031 | T023b, T026 |
 | SC-032, SC-033 | T023c, T026, T027 |

@@ -378,7 +378,7 @@ here, and the marginal figure is the one that satisfies the obligation.
 | A `0.0` disagreement rate is manufactured by missing data rather than by a real defect | FR-020 excludes `evidence-absent` cases from the denominator, and reports `not-computable` below `N` evaluated cases rather than firing the defect signal. |
 | A reader treats the whole-gate figure as equally trustworthy as the marginal one | FR-016a: the landed eight destroy the false/absent distinction at emission and cannot be retrofitted without changing landed behavior, so the whole-gate denominator is **permanently** weaker. Every whole-gate figure is emitted carrying a machine-readable qualifier saying so. |
 | The calibration vocabulary is confused with the routing vocabulary, corrupting a denominator | FR-005 freezes three tokens (`condition-met` / `condition-unmet` / `evidence-absent`) that share none with `proven` / `not-proven`, requires exact-equality comparison, and records that neither vocabulary appears in the published schema. |
-| A calibratable threshold gets hardcoded downstream where calibration cannot reach it | FR-020a assigns `ε`, the `low-confidence` threshold, and the relevance floor to this feature as *calibration parameters*, while leaving the computations they threshold to the pass that produces them. |
+| A calibratable threshold gets hardcoded downstream where calibration cannot reach it | FR-020a assigns `ε` and the `low-confidence` threshold to this feature as *calibration parameters*, and FR-020b/FR-020c define the quantities they threshold. The relevance floor is **withdrawn**, not owned (FR-020d): there is no ranking function for it to be a floor over. |
 
 ## ADR-0014 standing
 

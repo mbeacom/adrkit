@@ -816,6 +816,30 @@ verdict.
   release, so the qualifier is repeated here rather than left to a reader who
   arrives at this table first.
 
+  **The four classes are disjoint by a stated total precedence, not by
+  inspection.** A single observed state can satisfy more than one class
+  description — `no pass declared` **and** `|H| < N` is the state the repository
+  is in today — so SC-021's "exactly one class" requires an order. The class is
+  the **first** match in this fixed order, evaluated against observed state:
+
+  1. `measurement-failed` — an input that should exist could not be used.
+  2. `nothing-to-measure` — the subject does not exist yet.
+  3. `input-unavailable` — the subject exists; a required input does not.
+  4. `undefined-value` — everything needed was present; the quantity is undefined.
+
+  `measurement-failed` is first because a broken measurement must never be
+  reported as any kind of absence — that is the whole of this requirement.
+  `nothing-to-measure` precedes `input-unavailable` because a subject that does
+  not exist cannot have a missing input. Applying this to today's state: with **no
+  pass declared and `N` unratified**, the class is `nothing-to-measure` (rule 2
+  matches before rule 4), which is what makes FR-011a's holdout branch inert and
+  what FR-025/FR-026 render the absence statement from.
+
+  The class attaches to the **observed state**, not to the reason code
+  (FR-023a) — a single state may satisfy several reason codes, and the codes
+  describe *why*, while the class decides *what kind of absence* and therefore
+  what happens.
+
   Two collapses are specifically forbidden, because each destroys the signal the
   report exists to carry:
   - **`undefined-value` MUST NOT be represented as `measurement-failed`, or the
@@ -991,6 +1015,24 @@ verdict.
   three or more are uncited or absent. A definition that made the rubric's own
   default absurd would be evidence against the definition.
 
+  **The boundary against `evidence-absent`.** Making absent dimensions lower
+  confidence is correct for *routing* — it is fail-safe, and a thin result should
+  escalate. For *calibration accounting* it needs a boundary, or a pass that
+  produced almost nothing fires `low-confidence`, is recorded `condition-met`,
+  and is counted as a **measured escalation** — from which a recall of `1.0`
+  could be manufactured by a pass that barely ran.
+
+  - **Pass 2 produced no comparable result at all** ⇒ `evidence-absent` for
+    `low-confidence`; the case leaves the denominator (FR-020).
+  - **Pass 2 produced a result covering at least one dimension** ⇒ confidence is
+    computed over the fixed denominator of 8 as above, and the trigger's evidence
+    is `condition-met` / `condition-unmet` normally.
+
+  Additionally, escalations whose **sole** driver is `low-confidence` arising
+  from structurally-absent input MUST be counted as a separately-reported
+  subpopulation, so a marginal recall figure cannot be inflated by a pass whose
+  only contribution was to produce too little.
+
   **Rejected alternatives**, recorded so the choice is auditable:
   *score dispersion* measures disagreement **between dimensions**, not
   confidence — a proposal genuinely excellent on D1 and poor on D7 has high
@@ -1021,10 +1063,28 @@ verdict.
   **is** the rubric's own statement that the dimension was adequately handled, so
   an objection against it is a contradiction by the rubric's own vocabulary.
 
-  An adversarial output that is **explicitly absent** contributes nothing; it is
-  neither a contradiction nor evidence of agreement. If Pass 2 or Pass 3 produced
-  no comparable output for `d` at all, the trigger's evidence for that case is
-  `evidence-absent` (FR-005), which FR-020 excludes from the denominator.
+  **`condition-unmet` is the ordinary agreement case, and it must have a path.**
+  A case is `condition-unmet` for `d` when **both passes produced comparable
+  output for `d` and neither disjunct above held** — including, centrally, when
+  Pass 3 examined the proposal and **raised no objection bearing on `d`**. That
+  is what agreement looks like, and it is the case the denominator is mostly
+  made of.
+
+  The distinction that carries this is between **"produced no output"** and
+  **"produced output containing nothing"**:
+
+  | Situation | State |
+  |---|---|
+  | Pass 3 ran and reported no objection bearing on `d` (an explicitly absent *output* within a produced result) | **`condition-unmet`** — agreement |
+  | Pass 2 or Pass 3 produced no comparable result for `d` at all | **`evidence-absent`** — excluded from the denominator (FR-020) |
+
+  An earlier draft said an explicitly absent adversarial output "contributes
+  nothing; it is neither a contradiction nor evidence of agreement," and that
+  anything without comparable output is `evidence-absent`. Together those left
+  **no path to `condition-unmet`**, so the disagreement denominator would have
+  collapsed to the cases where Pass 3 objected — making the rate approach `1.0`
+  by construction and rendering FR-020's zero-is-a-defect-signal unreachable. The
+  table above is the correction.
 
   **This predicate is defined once and evaluated once.** `specs/011-*` evaluates
   it as the `pass-disagreement` trigger and **records** the resulting three-state
