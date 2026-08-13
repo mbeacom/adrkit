@@ -146,12 +146,13 @@ phases and were closed here on their merits; see §3.
 | T098 | clause 5: two distinct steps, neither inheriting | `clause8-gate/` case 3 | `step (b) does not record \`inheritsFromStepA: false\`` |
 | T099 | the register maps to the tree — a case with no row | `observed-failing-register/` case 1 | `+ ["observed-failing-register", "spike-heuristic"]` |
 | T099 | the register maps to the tree — a row with no case | `observed-failing-register/` case 2 | `every directory the register names exists on disk` |
+| T099 | a gaps section softened into an unfalsifiable claim | `observed-failing-register/` case 3 | `Expected to contain: "observed succeeding on the CI runner itself"`, `Expected to contain: "2 name the host"` |
 | T100 | the honesty check fires on a real claim | `honesty-close-out/` case 1 | `"ruleId": "rung-2-claim"`, `"ruleId": "release-claim"` |
 | T100 | the honesty check stays green on the same terms as denials | `honesty-close-out/` case 2 | 35 pass, 0 fail — the vocabulary is identical to case 1 |
 
 ---
 
-## 3. Seven defects this phase found — four by observation, three by review
+## 3. Ten defects this phase found — four by observation, three by review, three by running the job where it runs
 
 Recorded because they are the argument for ADR-0016 rather than illustrations of it. In the
 first four, the defect lived on a path that **only a failing run ever executes**, so no
@@ -183,7 +184,7 @@ amount of green runs would have surfaced it.
    `Bun.serve` calls in the two files whose job is to *prove* network denial. The conflict
    is structural, not a bug: a two-sided control has to touch the network boundary. The job
    no longer wraps `bun test`; the consequence for FR-050's wording is recorded at
-   §4.5 and at `negative-cases/clean-clone-offline/` case 3.
+   §4.6 and at `negative-cases/clean-clone-offline/` case 3.
 
    This one was found only because T093's clean-clone verification was actually performed
    against a fresh clone rather than assumed from the working tree, where `node_modules`
@@ -221,6 +222,37 @@ Findings 5–7 came from an independent adversarial review of this phase's diff 
 from running the checks, which is why they are listed separately from 1–4 above: the first
 four were found by observing failures, these three by someone reading for them.
 
+8. **A qualifying denial mechanism was rejected while it was working.** `sudo -n unshare
+   --net` succeeded on `ubuntu-latest` and created the namespace; only the payload could
+   not be resolved, because `sudo` replaces `PATH` with `secure_path`, which does not
+   contain `~/.bun/bin`. `run-network-denied.ts` inferred availability from the probe's own
+   failure, so "my payload is broken" and "this environment cannot deny" were the same
+   observation — and it reported the second, fail-closed, and discarded a mechanism that
+   worked. **This is §5's denial-versus-absence distinction collapsing inside the check
+   written to enforce it**: "no qualifying mechanism is available here" is an absence claim,
+   and it was being made without being earned. Availability is now proved by a sentinel
+   that touches no network; a payload failure under a working mechanism is reported as one.
+   `negative-cases/network-denial/` case 5.
+
+9. **The command would have run as root.** `sudo unshare` keeps root, so `bun run build`
+   would have left root-owned output that then broke the *un-sandboxed* steps later in the
+   same job. `setpriv` returns the invoking uid/gid — after `ip link set lo up`, which needs
+   privilege inside the namespace. Case 3.
+
+10. **Resolving the command was necessary and not sufficient.** `bun run build` execs its
+    package scripts through `bash`, and those scripts say `bun`, so the *children* needed
+    `PATH` even where the parent did not. `typecheck` passed in the same run because its
+    script is `tsc`, which Bun resolves itself — so a fix verified only against the step
+    that first failed looked complete and died on the next one. Case 4.
+
+Findings 8–10 were found by **running the job on the platform that runs it**, which is the
+uncomfortable part and the reason they are listed. Every check in §2 above was observed
+failing on macOS, where the first candidate mechanism succeeds and the Linux fallback is
+unreachable; ADR-0016 was satisfied to the letter on a host where the defective path could
+not execute. `clean-clone-builds` — the job enforcing FR-050 — then failed **five runs out
+of five** while T093 stood checked, and the failure text said the environment was
+incapable rather than that this repository was wrong.
+
 ---
 
 ## 4. Gaps, reported rather than closed
@@ -238,20 +270,46 @@ the test, and T096 discharges no FR or SC of its own — it supports FR-044, who
 half is discharged by T037 and carries `consumer-adapter-import/`. Recorded here so a
 reader counting directories against tasks does not conclude one was lost.
 
-### 4.2 The Linux denial candidates have not been observed running on Linux
+### 4.2 The Linux denial candidates — predicted open, now settled, and the prediction was right
 
-`scripts/run-network-denied.ts` carries three candidates. Only `sandbox-exec` was proved by
-this session, because this session ran on macOS. The two `unshare` forms are exercised by
-the same code path and are rejected-with-reason when unavailable — that behaviour *was*
-observed — but **neither has been watched succeeding on a Linux host**.
+This section previously read: *"neither has been watched succeeding on a Linux host … the
+claim 'network is denied in CI' is designed and unit-tested rather than observed in CI, and
+the first CI run is what will settle it."*
 
-Consequence, stated plainly: if neither proves on the CI runner, `clean-clone-builds` fails
-closed. That is the designed behaviour and would appear as a red build immediately. It is
-not a silent degradation. But the claim "network is denied in CI" is, as of this writing,
-**designed and unit-tested rather than observed in CI**, and the first CI run is what will
-settle it.
+It settled it, against us, five times. `clean-clone-builds` **failed on every run of this
+branch** from 2026-08-08 to 2026-08-12, always fail-closed at the first denied step, always
+reporting that no qualifying mechanism could be proved. The section's predicted consequence
+— "a red build immediately … not a silent degradation" — held exactly, which is the one
+comforting thing in the episode.
 
-### 4.3 ADR-0012 gate 3: recorded as observed, never claimed in advance
+What the section did **not** anticipate is that the report would be **wrong**. A qualifying
+mechanism was available on the runner the entire time; `sudo -n unshare --net` succeeded and
+only the payload failed to resolve under `secure_path`. The gate was not merely unproven on
+Linux — it was misdiagnosing Linux, and saying so in the vocabulary of an environment
+limitation. See §3 findings 8–10 and `negative-cases/network-denial/` Part 2.
+
+**Now closed.** The mechanism is observed succeeding on the CI runner itself: run
+[31656503096](https://github.com/mbeacom/adrkit/actions/runs/31656503096/job/94312031698),
+all 18 steps green, `mechanism = unshare --net under sudo, dropped back to the invoking
+user`, both halves of the control recorded on the runner (`CONNECTED:200` unsandboxed,
+`DENIED` under the mechanism), running as uid 1001 rather than root, 2434 pass / 0 fail.
+The claim is no longer "designed and unit-tested"; it is observed where it is enforced.
+
+### 4.3 Which host produced each observation is recorded for 2 of 37 cases
+
+§3's findings 8–10 exist because a check was observed failing only on a host where its
+defective path is unreachable. The general form of that risk is unaddressed here: of this
+feature's 37 negative-case directories, **2 name the host** (`network-denial/`,
+`clean-clone-offline/`) and 35 do not.
+
+For most of the 35 the check under test is platform-independent and the omission costs
+nothing. That is a judgement a reader currently has to take on trust rather than verify,
+and "platform-independent in most cases" is precisely the reasoning that left FR-050's gate
+unexercised. It is **not** closed by backfilling host strings into records of runs that
+cannot now be re-observed — that would **manufacture provenance** rather than record it.
+Stated here so the next feature's convention can require it at capture time.
+
+### 4.4 ADR-0012 gate 3: recorded as observed, never claimed in advance
 
 Gate 3 requires *"a maintainer-authored reference oracle — synthetic explicit annotations
 over pinned public corpora under independent adversarial review — validating real entity
@@ -268,7 +326,7 @@ closed: gate 3 is ADR-0012's to close, on a record of its own, and `plan.md` is 
 that a pass here is *"a **possible outcome** for ADR-0012 gate 3, never a claim made in
 advance."* What is recorded is what ran and what it returned.
 
-### 4.4 ADR-0012 gate 4: unmet, and not yet testable
+### 4.5 ADR-0012 gate 4: unmet, and not yet testable
 
 Gate 4 is *"clean-clone / offline / adapter-boundary / **release** evidence passing."*
 
@@ -291,7 +349,7 @@ records: **gate 4 remains unmet and not yet testable regardless of this feature'
 and is recorded as unmet — never as passed, and never as failed.** Failed would imply it
 was tested; it was not, because it cannot yet be.
 
-### 4.5 FR-050's second half is met in a weaker form than its wording implies
+### 4.6 FR-050's second half is met in a weaker form than its wording implies
 
 FR-050 asks that network access be permitted **only** during
 `bun install --frozen-lockfile`. Every step of `clean-clone-builds` is wrapped in

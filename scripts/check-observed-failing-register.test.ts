@@ -269,9 +269,24 @@ describe('the register reports gaps rather than hiding them', () => {
     expect(flat).toContain('cross-package-envelope.test.ts');
   });
 
-  test('the unobserved Linux denial path is stated as unobserved', () => {
-    expect(flat).toContain('have not been observed running on Linux');
-    expect(flat).toContain('designed and unit-tested rather than observed in CI');
+  test('the Linux denial path records how it was settled, not merely that it was', () => {
+    // This assertion previously required the register to state the path as *unobserved*,
+    // which was true when written and is no longer. It is replaced rather than deleted,
+    // and deliberately not weakened to "mentions Linux": the register has to name the run
+    // that settled it, so the claim stays checkable against something outside this repo.
+    expect(flat).toContain('observed succeeding on the CI runner itself');
+    expect(flat).toMatch(/actions\/runs\/\d+/u);
+    // And it must still say the prediction failed five times, so the resolution cannot be
+    // written up as though it had gone smoothly.
+    expect(flat).toContain('failed on every run of this branch');
+  });
+
+  test('the host-provenance gap is reported rather than backfilled', () => {
+    // The generalisation of the defect that caused all of the above: an observed failure
+    // is evidence about the environment it was observed in. Most cases do not record one.
+    // Stating that is the honest move; inventing host strings for unrepeatable runs is not.
+    expect(flat).toContain('2 name the host');
+    expect(flat).toContain('manufacture provenance');
   });
 
   test('all three retention shapes are documented, not just the two that are common', () => {

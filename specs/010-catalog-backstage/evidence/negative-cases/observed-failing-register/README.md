@@ -89,6 +89,42 @@ It also asserts the two ADR-0012 gate outcomes are recorded in the required form
 never recorded as passed or failed — and that the register's gaps section names the checks
 it could not close.
 
+---
+
+## Case 3 — a gap section softened into a claim
+
+Input: [`case-3-gap-sections-softened.patch`](./case-3-gap-sections-softened.patch) ·
+Output: [`case-3-gap-sections-softened.observed.txt`](./case-3-gap-sections-softened.observed.txt)
+
+The gaps section is the part of the register a reader has least reason to doubt and most
+reason to rely on, so it is the part most worth guarding against quiet erosion.
+
+This case exists because one of those guards **went stale by being satisfied**. §4.2
+originally required the register to state that the Linux denial path was *unobserved* —
+true when written, and false the moment CI proved it. The honest options were to delete the
+assertion or to replace it; deleting it would have removed the only check that the section
+says anything falsifiable at all.
+
+It was replaced with two assertions that cannot be satisfied by softening: §4.2 must name
+the **run** that settled it (checkable outside this repository) and must still record that
+the prediction failed five times, so the resolution cannot be written up as though it had
+gone smoothly; and §4.3 must state the host-provenance gap **with its count**, `2 name the
+host`, rather than an unfalsifiable "some".
+
+The mutation is exactly the erosion those two guard against — `observed succeeding on the
+CI runner itself` → `observed working fine`, and `2 name the host` → `some name the host`.
+Both are still true-ish English. Neither is checkable.
+
+```
+(fail) … > the Linux denial path records how it was settled, not merely that it was
+   Expected to contain: "observed succeeding on the CI runner itself"
+
+(fail) … > the host-provenance gap is reported rather than backfilled
+   Expected to contain: "2 name the host"
+```
+
+Restored: 229 pass, 0 fail.
+
 ## Standing constraints
 
 ADR-0014 **rung 1 only**. A register that maps correctly is unit-level evidence about the
