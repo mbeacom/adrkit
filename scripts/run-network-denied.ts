@@ -15,18 +15,35 @@
  * a **denial** and never "no network calls happened to occur", so the denial has to be
  * *proved* at the moment it is used.
  *
- * This script therefore does three things in order, and refuses to run the command if any
+ * This script therefore does four things in order, and refuses to run the command if any
  * of them fails:
  *
  * 1. Start a loopback listener, and confirm a probe **reaches it** without the sandbox.
- * 2. Run the same probe **under** the candidate mechanism, and confirm it is **denied**.
- * 3. Only then exec the real command under that same mechanism.
+ * 2. Confirm the candidate mechanism can execute a payload **at all**, with a sentinel
+ *    that touches no network.
+ * 3. Run the same probe **under** the mechanism, and confirm it is **denied**.
+ * 4. Only then exec the real command under that same mechanism.
  *
- * Step 1 is what makes step 2 mean anything. Without it, a `DENIED` result is equally
+ * Step 1 is what makes step 3 mean anything. Without it, a `DENIED` result is equally
  * consistent with an environment where nothing was reachable in the first place — the
  * same absence-versus-denial confusion one level up. The listener is on loopback
  * precisely so the control needs no internet and behaves identically on an air-gapped
  * runner.
+ *
+ * Step 2 exists because of a defect that shipped and cost this job five red CI runs. A
+ * mechanism is only ever tried by *running the probe under it*, so any failure of that
+ * command was attributed to the mechanism. On `ubuntu-latest`, `sudo -n unshare --net`
+ * succeeded and created the namespace, and only the **payload** failed to resolve — sudo's
+ * `secure_path` does not contain `/home/runner/.bun/bin`, so the bare name `bun` was not
+ * found. The inner shell said `exec: bun: not found`; the script reported "unavailable
+ * here" and fail-closed, having discarded a mechanism that worked.
+ *
+ * That is this file's own subject matter turned on itself: a broken payload was laundered
+ * into a claim about the environment's capabilities. §5's distinction is between a denial
+ * and an absence, and "no mechanism is available here" is an absence claim that must be
+ * earned. So availability is now established by a sentinel that only has to *run*, and a
+ * probe that fails under a demonstrably-working mechanism is reported as a payload
+ * failure — never as a missing mechanism.
  *
  * # Fail-closed
  *
@@ -54,6 +71,20 @@ export interface DenialMechanism {
 }
 
 /**
+ * This Bun binary, by absolute path.
+ *
+ * Never the bare name `bun`. `sudo` replaces `PATH` with `secure_path`, which does not
+ * contain `~/.bun/bin`, so a bare name is unresolvable inside the sudo'd candidates — the
+ * exact defect described in this file's header. `process.execPath` is the interpreter
+ * already running, so it cannot disagree with the one that was invoked.
+ */
+export const BUN = process.execPath;
+
+/** The invoking user, preserved across the `sudo` candidate so nothing runs as root. */
+const UID = process.getuid?.() ?? 0;
+const GID = process.getgid?.() ?? 0;
+
+/**
  * Candidates, in the order they are tried.
  *
  * `unshare --net` gives a namespace whose loopback interface is **down**, which would
@@ -78,8 +109,25 @@ export const CANDIDATES: readonly DenialMechanism[] = [
     ],
   },
   {
-    mechanismUsed: 'unshare --net under sudo (empty network namespace, loopback up)',
-    configuration: "sudo -n unshare --net -- sh -c 'ip link set lo up || true; exec \"$@\"' --",
+    // `--map-root-user` is unavailable on GitHub-hosted `ubuntu-latest`, where AppArmor
+    // restricts unprivileged user namespaces (`write failed /proc/self/uid_map: Operation
+    // not permitted`). `sudo` supplies the privilege the namespace itself requires.
+    //
+    // The order inside is load-bearing and was got wrong once. `ip link set lo up` needs
+    // privilege *inside* the namespace, so it must run before the drop; the command must
+    // run after it, or `bun run build` executes as **root** and leaves root-owned output
+    // that then breaks the later un-sandboxed steps of the same job (`git diff
+    // --exit-code packages/ci/dist`, `bun test`). So: root brings `lo` up, `setpriv` hands
+    // the original uid/gid back, and only then does the command exec.
+    //
+    // `setpriv` ships in util-linux, the same package as `unshare`; where one exists so
+    // does the other. If it is absent the sentinel fails and this candidate is rejected,
+    // which is the correct outcome — falling back to running as root would trade a
+    // provable denial for a silent side effect.
+    mechanismUsed: 'unshare --net under sudo, dropped back to the invoking user (loopback up)',
+    configuration:
+      "sudo -n unshare --net -- sh -c 'ip link set lo up || true; " +
+      `exec setpriv --reuid=${UID} --regid=${GID} --clear-groups "$@"' --`,
     qualifyingMechanism: 2,
     argv: [
       'sudo',
@@ -89,7 +137,8 @@ export const CANDIDATES: readonly DenialMechanism[] = [
       '--',
       'sh',
       '-c',
-      'ip link set lo up 2>/dev/null || true; exec "$@"',
+      'ip link set lo up 2>/dev/null || true; ' +
+        `exec setpriv --reuid=${UID} --regid=${GID} --clear-groups "$@"`,
       '--',
     ],
   },
@@ -100,6 +149,13 @@ export const CANDIDATES: readonly DenialMechanism[] = [
     argv: ['sandbox-exec', '-p', '(version 1)(allow default)(deny network*)'],
   },
 ];
+
+/**
+ * Printed by the availability sentinel. Deliberately not a word the probe can emit, so
+ * "the mechanism can run something" and "the mechanism denied the network" can never be
+ * satisfied by the same output.
+ */
+export const SENTINEL = 'ADRKIT_MECHANISM_CAN_EXEC';
 
 /** The probe run on both sides of the control. Prints one line: `CONNECTED:*` or `DENIED:*`. */
 export const PROBE_SOURCE = `
@@ -169,11 +225,44 @@ export interface ProofOutcome {
   readonly rejected: readonly { readonly mechanism: string; readonly why: string }[];
 }
 
+/** Why a candidate was not used. The three are **not** interchangeable — see {@link proveDenial}. */
+export const REJECTION = {
+  /** The mechanism could not execute anything here. The only one that is a claim about the environment. */
+  unavailable: 'unavailable here: ',
+  /** The mechanism ran, but the payload under it did not. Never evidence about the environment. */
+  payloadFailed: 'mechanism works, but the probe payload failed under it: ',
+  /** The mechanism ran the probe, and the probe reached the network. */
+  didNotDeny: 'did not deny: ',
+} as const;
+
+/**
+ * Can this candidate execute a payload at all, independent of any network question?
+ *
+ * Separating this from the denial probe is the whole point. Previously the two were one
+ * step, so a payload that failed to resolve was indistinguishable from a mechanism that
+ * did not exist — and the script reported the latter, which is a claim about the
+ * environment it had not earned. The sentinel touches no network, so it cannot be denied;
+ * it can only fail if the mechanism genuinely cannot run something.
+ */
+export async function checkAvailability(
+  candidate: DenialMechanism,
+): Promise<{ readonly available: boolean; readonly why: string }> {
+  const attempt = await run([...candidate.argv, BUN, '-e', `console.log(${JSON.stringify(SENTINEL)})`]);
+  if (attempt.stdout.includes(SENTINEL)) return { available: true, why: '' };
+  const detail = attempt.stderr.trim().split('\n')[0] ?? `exit ${attempt.exitCode}`;
+  return { available: false, why: detail };
+}
+
 /**
  * Prove that some candidate denies **in this environment**, by the two-sided control.
  *
  * `probePath` is a file containing {@link PROBE_SOURCE}; `port` is a listener the caller
  * has already started on loopback.
+ *
+ * A candidate is only rejected as {@link REJECTION.unavailable} when the sentinel could
+ * not run. If the sentinel ran and the probe then produced nothing, the mechanism is
+ * working and the *payload* is broken — reported as such, and never as an absence of
+ * mechanisms, because those two facts call for opposite responses from whoever reads it.
  */
 export async function proveDenial(
   probePath: string,
@@ -182,7 +271,7 @@ export async function proveDenial(
 ): Promise<ProofOutcome> {
   const rejected: { mechanism: string; why: string }[] = [];
 
-  const unsandboxed = await run(['bun', probePath, String(port)]);
+  const unsandboxed = await run([BUN, probePath, String(port)]);
   const controlUnsandboxed = unsandboxed.stdout.trim();
 
   // Half one. If the probe cannot reach the listener even unsandboxed, nothing below is
@@ -192,20 +281,27 @@ export async function proveDenial(
   }
 
   for (const candidate of candidates) {
-    const attempt = await run([...candidate.argv, 'bun', probePath, String(port)]);
-    const line = attempt.stdout.trim();
-
-    if (line === '' && attempt.exitCode !== 0) {
-      rejected.push({
-        mechanism: candidate.mechanismUsed,
-        why: `unavailable here: ${attempt.stderr.trim().split('\n')[0] ?? `exit ${attempt.exitCode}`}`,
-      });
+    const availability = await checkAvailability(candidate);
+    if (!availability.available) {
+      rejected.push({ mechanism: candidate.mechanismUsed, why: REJECTION.unavailable + availability.why });
       continue;
     }
+
+    const attempt = await run([...candidate.argv, BUN, probePath, String(port)]);
+    const line = attempt.stdout.trim();
+
     if (line.startsWith('DENIED')) {
       return { proven: candidate, controlUnsandboxed, controlSandboxed: line, rejected };
     }
-    rejected.push({ mechanism: candidate.mechanismUsed, why: `did not deny: ${line}` });
+    if (line.startsWith('CONNECTED')) {
+      rejected.push({ mechanism: candidate.mechanismUsed, why: REJECTION.didNotDeny + line });
+      continue;
+    }
+
+    rejected.push({
+      mechanism: candidate.mechanismUsed,
+      why: REJECTION.payloadFailed + (attempt.stderr.trim().split('\n')[0] ?? `exit ${attempt.exitCode}`),
+    });
   }
 
   return { proven: undefined, controlUnsandboxed, controlSandboxed: '', rejected };
@@ -232,10 +328,36 @@ export function commandFromArgv(argv: readonly string[]): readonly string[] {
   return argv[0] === '--' ? argv.slice(1) : [...argv];
 }
 
+/**
+ * The command, with its executable resolved to an absolute path.
+ *
+ * The mechanisms run the command through `sudo`, which replaces `PATH` with `secure_path`.
+ * A command named by bare word is therefore resolvable *outside* the sandbox and not
+ * inside it, which is how the shipped defect presented: `bun run typecheck` became
+ * `exec: bun: not found`. Resolution happens here, against the caller's real `PATH`,
+ * before the name ever crosses the boundary.
+ *
+ * A name that cannot be resolved is a usage error, not a mechanism problem — returning it
+ * unresolved would push the failure inside the sandbox where it gets misread as one.
+ */
+export function resolveCommand(command: readonly string[]): readonly string[] | undefined {
+  const [executable, ...rest] = command;
+  if (executable === undefined) return undefined;
+  if (executable.includes('/')) return [executable, ...rest];
+  const resolved = Bun.which(executable);
+  return resolved === null ? undefined : [resolved, ...rest];
+}
+
 async function main(): Promise<number> {
   const command = commandFromArgv(process.argv.slice(2));
   if (command.length === 0) {
     console.error('usage: bun scripts/run-network-denied.ts -- <command> [args...]');
+    return 2;
+  }
+
+  const resolved = resolveCommand(command);
+  if (resolved === undefined) {
+    console.error(`run-network-denied: cannot resolve "${command[0]}" on PATH; refusing to run.`);
     return 2;
   }
 
@@ -267,9 +389,9 @@ async function main(): Promise<number> {
     console.log(`run-network-denied: configuration = ${proof.proven.configuration}`);
     console.log(`run-network-denied: control unsandboxed = ${proof.controlUnsandboxed}`);
     console.log(`run-network-denied: control sandboxed  = ${proof.controlSandboxed}`);
-    console.log(`run-network-denied: running: ${command.join(' ')}`);
+    console.log(`run-network-denied: running: ${resolved.join(' ')}`);
 
-    const proc = Bun.spawn([...proof.proven.argv, ...command], {
+    const proc = Bun.spawn([...proof.proven.argv, ...resolved], {
       stdout: 'inherit',
       stderr: 'inherit',
       stdin: 'inherit',
