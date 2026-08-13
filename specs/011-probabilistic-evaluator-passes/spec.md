@@ -248,12 +248,16 @@ disagreement signal. That is an interface negotiation, not a definitional one.
 
 ### The metric definitions this feature consumes
 
-Frozen by feature 012 (`specs/012-evaluator-calibration/`, PR #141; the metric definitions at
-commit `e7c2fb7`, with the vocabulary and class additions landing in later commits on that PR)
-and reproduced
+Frozen by feature 012 (`specs/012-evaluator-calibration/`, **PR #141**) and reproduced
 here **only so that this spec cites rather than restates them**. If any wording below diverges
 from that spec, **it wins and this section is the defect**. 012's FR-022 requires this
 consumption relationship, and their T044 verifies it.
+
+Cited by **PR number and FR number, never by commit SHA.** A branch SHA for unmerged work is
+fragile by construction: 012's branch has already been rebased twice — once onto the
+coordinator's re-signed ADR-0027 commits, once for `git rebase --signoff` — and a squash-merge
+would rewrite it a third time. An earlier revision of this section cited `e7c2fb7`, which is now
+unreachable from any remote branch.
 
 - **Positive class** (012 FR-018), derived from the rubric's four outcome labels and frozen in
   spec rather than chosen per release: `caused-incident` (the class recall is optimized on),
