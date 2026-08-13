@@ -51,7 +51,7 @@ The reason it stalled is not disagreement. Pass 0 shipped, and shipped well:
 |---|---|
 | Pass 0 — deterministic, eleven rules | **landed / reference-verified** (Phase 4, `specs/005-deterministic-evaluator/`, PR #14) |
 | Action item 1 — Pass 0 complete before any prompt is written | Met |
-| Action item 3 — log every escalation with reason codes from day one | Met (`route.escalate.*`, `route.evidence.*.not-proven`) |
+| Action item 3 — log every escalation with reason codes from day one | **Emitted, never retained.** `route.escalate.*` and `route.evidence.*.not-proven` are computed on every run and persisted by none |
 | Pass 1 retrieval · Pass 2 rubric · Pass 3 adversarial | Not built; deferred to Phase 7+ |
 | 3 of 11 escalation triggers (`low-confidence`, `pass-disagreement`, `novel-no-precedent`) | Not evaluable — each is defined as a function of Pass 2/Pass 3 output |
 | Action item 2 — freeze a holdout set | Not done |
@@ -62,6 +62,31 @@ as a declarative OR over deterministically **proven** evidence, computed after t
 eleven rule results and never as a twelfth rule. Missing optional evidence yields
 `not-proven`, never a fabricated escalation. That is the substance of ADR-0005 working
 as designed.
+
+One row of that table deserves its own paragraph, because an earlier draft of this
+record got it wrong. ADR-0005's action item 3 and Phase 4's exit criterion both ask
+for escalation reason codes *"logged from the first run — this is the calibration
+set, and it cannot be backfilled."* The codes are **emitted** on every run and
+**retained** on none. No historical Pass 0 evaluation exists anywhere in the
+repository: no record in `docs/adr/` carries an `evaluation:` block, `adr evaluate`
+has no `--write`, and `RunMetadata.ranAt` is declared but never populated by any
+production path. Nor is that an oversight to be corrected by adding persistence —
+`specs/005-deterministic-evaluator/` SC-008 ratifies that **"Pass 0 persists
+nothing"**, and §1 of this record forbids any evaluator surface to persist. The two
+commitments were always in tension and the tension was never resolved; the exit
+criterion's own warning is what came true. The calibration set that was supposed to
+accumulate from day one does not exist, and the window in which it could have been
+captured cheaply is closed.
+
+Two consequences follow, and both are load-bearing below. The calibration corpus
+must be built by **re-derivation from committed history** rather than harvested from
+a log, which makes it a separate tracked artifact under ADR-0004 and leaves SC-008
+untouched. And re-derivation is only ever partial: `adr evaluate` requires a
+`--snapshot` that historical evaluations never had, so a `not-proven` produced by an
+*absent* snapshot is byte-identical to one produced by *evaluated-and-false*
+evidence. Counting the first as a true negative would inflate deterministic
+precision and corrupt the recall denominator — the same absence-versus-evidence
+confusion this project polices everywhere else.
 
 What blocked acceptance is one sentence in ADR-0005's Consequences, stated as an
 **explicit commitment**:
@@ -133,6 +158,18 @@ precondition**:
 > any probabilistic pass, and every release thereafter, escalation precision and
 > recall — including the false-negative rate — are published for the probabilistic
 > triggers.
+
+Those figures MUST be published **twice**: once whole-gate, and once
+**probabilistic-marginal** — restricted to the cases where no deterministic trigger
+fired. Escalation is a boolean OR, so eight deterministic triggers whose precision
+is 1.0 by construction will carry a whole-gate figure regardless of whether the
+probabilistic passes contribute anything at all. A worthless Pass 2 hides perfectly
+behind deterministic perfection, and a whole-gate-only report would show a healthy
+gate while measuring none of the judgment the probabilistic layer was added to
+supply. **The obligation above is satisfied by the probabilistic-marginal figure;
+the whole-gate figure alone does not satisfy it.** This is the same theater failure
+this record was written to prevent, displaced one level down, and it is the reason
+the requirement is stated here rather than left to the calibration spec.
 
 Three properties are load-bearing and are the reason this is a rescope rather than
 a retreat:
@@ -222,13 +259,21 @@ pass must clear a gate the deterministic layer never had to.
   `specs/`, `plan.md`, and the constitution without a `proposed`-status caveat.
 - Harder: whoever ships the first probabilistic pass inherits a precondition they
   cannot satisfy late. That is the intent.
+- **Permanently harder**: the calibration set ADR-0005 asked to accumulate from day
+  one was never retained, and that window is closed. The corpus must now be
+  re-derived from committed history with maintainer-authored snapshots, and its
+  evidence index MUST disclose that its snapshots are **reconstructed, not
+  harvested**, and MUST distinguish a trigger that was evaluated-and-false from one
+  whose evidence was absent. A calibration set that silently conflates those two
+  reports a precision it did not measure.
 - Explicit commitment: **while no probabilistic pass has shipped, each release
   states that fact and states that no precision/recall figures exist.** Absence
   reported as absence, never as success.
-- Revisit if: a probabilistic pass ships without a frozen holdout, or a release
-  omits the absence statement. Either is evidence this rescope became the quiet
-  drop it was written to prevent, and this record should be superseded explicitly
-  rather than reinterpreted.
+- Revisit if: a probabilistic pass ships without a frozen holdout, a release omits
+  the absence statement, or a release satisfies the obligation with a whole-gate
+  figure alone. Each is evidence this rescope became the quiet drop it was written
+  to prevent, and this record should be superseded explicitly rather than
+  reinterpreted.
 
 ## Action items
 
