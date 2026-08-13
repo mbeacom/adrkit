@@ -41,7 +41,7 @@ implementation
 - [x] Requirements are testable and unambiguous — each FR maps to at least one
       acceptance scenario or Success Criterion (see the traceability table in
       [tasks.md](../tasks.md)).
-- [x] Success criteria are measurable — SC-001 … SC-019 each name a specific,
+- [x] Success criteria are measurable — SC-001 … SC-025 each name a specific,
       checkable outcome, and the gate/enforcement criteria each name an
       **observed failure** rather than only a passing state (ADR-0016).
 - [x] Success criteria are technology-agnostic in outcome even where citations
@@ -100,7 +100,10 @@ implementation
 
 - [x] Ordering gate is explicit and blocking: the label freeze and its
       independent pre-derivation audit precede all derivation
-      (tasks.md T012), imitating `specs/009-*`'s T014 → T014a → T016.
+      (tasks.md T012), imitating `specs/009-*`'s T014 → T014a → T016 as
+      discharged and strengthened by `specs/010-*` Phase B — the auditor
+      recomputes rather than confirms, and must reach an explicit adequacy
+      finding (T012a observes the FAIL for an integrity-only audit).
 - [x] Every gate and enforcement carries an observed-failing-first task
       (ADR-0016): tasks.md T013, T015, T016, T020–T024, T028–T030, T033–T038,
       T046.

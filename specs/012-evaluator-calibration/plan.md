@@ -222,9 +222,14 @@ label classes are present, confirms each label is justified by outcome evidence
 records an explicit `PASS`/`FAIL`. A `FAIL` blocks derivation.
 
 After the freeze, correction is a **new cycle**, never an in-place edit (FR-007).
-This is prospective application of `specs/009-*`'s carry-forward blocker, which
-declined to correct a frozen oracle after generator work had run — the right call
-there, and cheaper to design for than to discover.
+This is prospective application of the procedure `specs/010-*` Phase B used to
+**discharge** spike 009's carry-forward blocker: a fresh T014 → T014a cycle
+rather than a correction of the frozen artifact. That discharge also sharpened
+the audit itself, and this feature adopts both refinements — the auditor
+**recomputes** hashes rather than copying recorded values, and must reach an
+explicit **adequacy** finding, because an audit that confirms every hash and
+stops has established that the corpus is unmodified, not that it is fit to
+calibrate against.
 
 ### 2. Derive, don't author (US2)
 
@@ -322,7 +327,10 @@ two features could quietly implement the same idea twice:
 |---|---|
 | `H` is too small for a meaningful recall denominator (27 records, a subset labelable) | Not hidden: FR-023 + FR-017a make an undersized `H` report `not-computable` with a reason code. The path is expected to be exercised on day one (spec clarification 5). |
 | Labels get fitted to evaluator output | FR-009 forbids it and FR-008's independent audit is scoped to check exactly that; the audit precedes derivation. |
-| The freeze is corrected after the fact "just this once" | FR-007 requires a new cycle and retains the superseded artifact. `specs/009-*` shows the failure mode is real. |
+| The freeze is corrected after the fact "just this once" | FR-007 requires a new cycle and retains the superseded artifact — the procedure `specs/010-*` Phase B used to discharge spike 009's blocker. |
+| A broken measurement is reported as an honest absence | FR-017b's four disjoint classes: `measurement-failed` can never render as `nothing-to-measure`, and FR-026 derives the absence statement from the class-1 state rather than a boolean branch. This is the `run-network-denied.ts` failure shape, which survived five CI failures because the wrong branch looked like "not available here". |
+| "Measured, and clean" is indistinguishable from "could not measure" | FR-017b requires a computed zero to be representable distinctly from every `not-computable` state, and forbids collapsing `undefined-value` into `measurement-failed`. Zero probabilistic escalations is a **finding**, not a harness failure. |
+| An audit confirms integrity and is read as confirming adequacy | FR-008 requires an explicit adequacy finding and recomputation rather than confirmation; T012a observes the FAIL for an integrity-only audit. |
 | A probabilistic pass ships and the registry is simply not updated | FR-013's two-source cross-check fails on the dependency the registry does not declare. |
 | The absence statement ossifies and becomes false | FR-026's auto-flip makes it fail the moment a pass is declared. |
 | `ε` or `N` gets a guessed value that later reads as validated | Neither ships. FR-019a specifies the derivation mechanism; FR-017a makes the unset state explicit and non-passing. |

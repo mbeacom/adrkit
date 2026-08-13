@@ -48,9 +48,21 @@ Principles I–V.
 
 **Precedent imitated, not invented**:
 [`specs/009-catalog-binding-viability/`](../009-catalog-binding-viability/) —
-its T014 → T014a → T016 freeze-then-independently-audit-then-gate procedure, its
-`checklists/evidence-index.md` sanitized-evidence pattern, and its carry-forward
-blocker (which refused to correct a frozen artifact after derivation had run).
+its T014 → T014a → T016 freeze-then-independently-audit-then-gate procedure and
+its `checklists/evidence-index.md` sanitized-evidence pattern; and
+[`specs/010-catalog-backstage/`](../010-catalog-backstage/) Phase B, which
+**discharged** spike 009's carry-forward blocker by running a fresh
+T014 → T014a cycle rather than reusing the defective oracle (010 T017 re-froze
+`derivedPathPatterns` in `compareCodeUnits` order; T019's independent auditor
+**recomputes** both hashes rather than copying recorded values and records an
+explicit **adequacy** finding, since integrity alone does not satisfy; T020
+**observed the audit FAIL** against a deliberate input-order variant, retained at
+`evidence/negative-cases/oracle-input-order/`).
+
+That discharge is a **stronger** precedent than the open blocker it replaced. An
+open blocker is a warning that a freeze can go wrong; a retained negative case is
+proof that the audit **catches** it when it does — which is precisely the
+ADR-0016 standard this feature holds its own gates to.
 
 ---
 
@@ -220,8 +232,9 @@ is an ancestor of the first derivation commit.
    (Finding 3; the `proposalPath` in a `Pass0Report` is a display path).
 4. **Given** the frozen corpus, **When** anyone proposes editing a case after the
    freeze, **Then** the required procedure is a **new freeze cycle** (re-author,
-   re-hash, re-audit) — never an in-place correction, matching the
-   `specs/009-*` carry-forward blocker precedent.
+   re-hash, re-audit) — never an in-place correction, matching the fresh
+   T014 → T014a cycle `specs/010-*` Phase B ran to discharge spike 009's
+   carry-forward blocker.
 5. **Given** the independent audit, **When** its verdict is `FAIL`, **Then** US2
    does not begin and the checkpoint does not clear.
 
@@ -524,15 +537,29 @@ verdict.
 - **FR-007 — Correction requires a new freeze cycle.** After the freeze, a case
   MUST NOT be edited in place. Any correction requires re-authoring, re-hashing,
   and re-auditing (a fresh FR-006 → FR-008 cycle), and the superseded artifact
-  MUST be retained rather than deleted. This is the `specs/009-*` carry-forward
-  blocker precedent applied prospectively.
+  MUST be retained rather than deleted. This is the procedure `specs/010-*`
+  Phase B used to discharge spike 009's carry-forward blocker — a fresh cycle,
+  not a correction of the frozen artifact — applied here prospectively.
 
-- **FR-008 — Labels are independently audited before any derivation.** A
+- **FR-008 — Labels are independently audited before any derivation; the audit
+  recomputes rather than confirms, and must reach an adequacy finding.** A
   reviewer with **no authoring involvement** in the labels MUST, in a separate
-  task and before US2 begins: recompute every recorded hash; confirm all four
-  label classes are present; confirm each label is justified by evidence
-  independent of any evaluator output; and record an explicit `PASS`/`FAIL`
-  verdict. A `FAIL` blocks US2.
+  task and before US2 begins: **recompute** every recorded hash from the
+  artifacts themselves — never copy or merely confirm the recorded values;
+  confirm all four label classes are present; confirm each label is justified by
+  evidence independent of any evaluator output; record an explicit **adequacy**
+  finding on the corpus; and record the auditor's **own** `PASS`/`FAIL` verdict.
+  A `FAIL` blocks US2.
+
+  **Integrity alone does not satisfy this requirement.** An audit that confirms
+  every hash matches and stops there has established that the corpus is
+  unmodified, not that it is fit to calibrate against — an `H` can be perfectly
+  intact and still lack a label class, or be too small, or carry labels derived
+  from evaluator output. Reporting integrity as if it were adequacy is the same
+  substitution FR-017b forbids of the metrics: a narrower measurement presented
+  as a broader assurance. `specs/010-*` T019 and T021 establish this shape, T021
+  by **observing a FAIL** for an audit that confirmed integrity but never reached
+  an adequacy finding.
 
 - **FR-009 — Labels MUST NOT be derived from evaluator output.** A label
   justified by which triggers fired is circular and MUST be rejected by FR-008's
@@ -646,6 +673,41 @@ verdict.
   from silently becoming a green figure. Reason codes follow the existing
   `packages/evaluator/src/catalog.ts` convention (exhaustive, stable,
   namespaced).
+
+- **FR-017b — Not-computable is four disjoint classes, and they may never be
+  collapsed.** Every `not-computable` state MUST carry exactly one of the
+  following classes alongside its specific reason code:
+
+  | Class | Meaning | Disposition |
+  |---|---|---|
+  | `nothing-to-measure` | The subject does not exist yet, by construction — e.g. no probabilistic pass has shipped. | Honest and expected. **The only class that may render ADR-0027's absence statement.** |
+  | `input-unavailable` | The measurement is well-defined, but a required input does not exist in the project at all — e.g. the override rate's decision log (FR-021). | Honest; a named gap. **Not** ADR-0027's absence statement. |
+  | `undefined-value` | The measurement ran over real data and the quantity is mathematically undefined — e.g. zero probabilistic escalations, so `TP + FP = 0`. | **A finding, not a failure.** |
+  | `measurement-failed` | The input should exist and could not be used — holdout unreadable, hash mismatch, `\|H\| < N`, a missing label class, a model version absent from the drift baseline. | **A defect. MUST fail the gate (FR-011).** |
+
+  Two collapses are specifically forbidden, because each destroys the signal the
+  report exists to carry:
+
+  - **`undefined-value` MUST NOT be represented as `measurement-failed`, or the
+    reverse.** "We measured, and the quantity is undefined" is a finding about
+    the passes — zero probabilistic escalations may mean the passes contribute
+    nothing, which is exactly what this feature exists to surface. "We failed to
+    measure" is a defect in the harness. Collapsing them hides whichever is real.
+  - **A computed value of zero MUST be representable distinctly from every
+    `not-computable` state.** *Measured, and clean* and *could not measure* are
+    different facts and MUST NOT share a representation.
+
+  **Why this is a requirement and not a style note.** PR #98's
+  `run-network-denied.ts` treated empty stdout plus a non-zero exit as *"this
+  environment cannot deny network access"*, when in fact the sandbox had been
+  created successfully and only the payload inside it failed to resolve. A
+  `measurement-failed` was reported as an environmental absence — in a file whose
+  entire purpose was to **prove** denial rather than infer it from absent
+  traffic. It survived five consecutive CI failures because the wrong branch
+  looked like an honest "not available here". This feature computes metrics with
+  exactly that failure surface, and a calibration report that collapses "could
+  not measure" into "measured, and clean" is indistinguishable from a healthy
+  gate right up until it matters.
 
 - **FR-018 — The positive class is fixed here, not per release.** Ground truth
   `positive(c)` is derived from the FR-004 label by this frozen mapping:
@@ -819,10 +881,25 @@ verdict.
   MUST report what it examined, so an empty document set cannot satisfy it
   vacuously (ADR-0016 clause 3).
 
-- **FR-026 — The absence statement flips automatically.** When the FR-013
-  registry declares a probabilistic pass, the absence statement MUST become
-  **forbidden** and the FR-016 probabilistic-marginal figures MUST become
-  **required**. The enforcement MUST NOT be satisfiable by a stale statement.
+- **FR-026 — The absence statement flips automatically, and is rendered from the
+  report's own state.** When the FR-013 registry declares a probabilistic pass,
+  the absence statement MUST become **forbidden** and the FR-016
+  probabilistic-marginal figures MUST become **required**. The enforcement MUST
+  NOT be satisfiable by a stale statement.
+
+  **The statement MUST be rendered from the report's `nothing-to-measure` state
+  (FR-017b class 1), never from a bare `if (noProbabilisticPass)` branch.** The
+  metric layer is the single source: when no pass has shipped, every
+  probabilistic metric is `not-computable / nothing-to-measure`, and the absence
+  statement is a rendering of that state carrying its reason code.
+
+  A state in any other class MUST NOT render the absence statement. In
+  particular, a `measurement-failed` state MUST NOT produce ADR-0027's *"no
+  probabilistic pass has shipped; no precision/recall figures exist"* — that
+  sentence would be **false and reassuring at the same time**, which is the exact
+  shape of the `run-network-denied.ts` defect described in FR-017b. A separate
+  boolean branch is what makes that substitution possible; deriving the statement
+  from the state is what makes it impossible.
 
 #### Safety
 
@@ -936,6 +1013,23 @@ verdict.
 - **SC-020**: No holdout case stores `positive(c)`, an expected-escalation
   boolean, or any per-dimension reference score — **observed** failing if such a
   field is added (FR-005a, FR-005b).
+- **SC-021**: Every `not-computable` state carries exactly one of the four
+  FR-017b classes; a state carrying none or more than one is **observed**
+  failing, and a fixture collapsing `undefined-value` into `measurement-failed`
+  (or the reverse) is **observed** failing.
+- **SC-022**: A computed value of **zero** is **observed** representable
+  distinctly from every `not-computable` state — *measured, and clean* never
+  shares a representation with *could not measure*.
+- **SC-023**: A `measurement-failed` state — an unreadable holdout, a hash
+  mismatch, `|H| < N`, a missing label class, or a model version absent from the
+  drift baseline — is **observed** failing the gate, and **observed** not
+  producing ADR-0027's absence statement.
+- **SC-024**: The absence statement is **observed** originating in the report's
+  `nothing-to-measure` state; a renderer that emits it from a bare
+  `if (noProbabilisticPass)` branch is **observed** failing (FR-026).
+- **SC-025**: The label audit records an explicit **adequacy** finding; an audit
+  that confirms hash integrity but never reaches an adequacy finding is
+  **observed** recorded as `FAIL` (FR-008, matching `specs/010-*` T021).
 - **SC-012**: Removing the absence statement from `docs/RELEASING.md` is
   **observed** failing the enforcement; declaring a probabilistic pass while the
   absence statement remains is **observed** failing it for the opposite reason.

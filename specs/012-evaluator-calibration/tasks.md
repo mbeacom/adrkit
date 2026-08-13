@@ -27,9 +27,13 @@ description: "Dependency-ordered task list for the Evaluator Calibration Harness
 > verdict.** T010 is the independent pre-derivation audit of the frozen labels.
 > A holdout frozen after a scorer ran against it is not a holdout; a label
 > authored after seeing which cases the evaluator escalated is not a label. This
-> is the `specs/009-catalog-binding-viability/` T014 → T014a → T016 shape, and
-> that spike's carry-forward blocker is the evidence that the failure mode is
-> real rather than hypothetical.
+> is the `specs/009-catalog-binding-viability/` T014 → T014a → T016 shape, as
+> **discharged and strengthened** by `specs/010-*` Phase B: T019's auditor
+> recomputes hashes rather than copying them and must reach an explicit adequacy
+> finding, and T020/T021 **observed the audit FAIL** against deliberate variants,
+> retained as negative cases. A retained negative case is stronger evidence than
+> an open blocker — it proves the audit catches the defect rather than warning
+> that one is possible.
 >
 > If T010 returns `FAIL`, the required response is a **new freeze cycle**
 > (T007 → T010 re-run), never an in-place correction of the frozen artifact.
@@ -124,7 +128,8 @@ commit is an ancestor of the first derivation commit.
 
 ### The ordering gate
 
-- [ ] T012 [US1] **⛔ ORDERING GATE — independent pre-derivation audit.** A reviewer with **no authoring involvement** in T010a–T011 must, in this separate task and **before Phase 4 begins**: recompute every recorded hash; confirm all four label classes are present and `|H|` is recorded; confirm each label is justified by evidence independent of evaluator output (FR-009); confirm every `evidence-absent` marking is justified; and record an explicit **`PASS` / `FAIL`** verdict in `checklists/evidence-index.md`. A `FAIL` blocks Phase 4 and requires a fresh T010b → T012 cycle. Depends on: T011
+- [ ] T012 [US1] **⛔ ORDERING GATE — independent pre-derivation audit.** A reviewer with **no authoring involvement** in T010a–T011 must, in this separate task and **before Phase 4 begins**: **recompute** every recorded hash from the artifacts themselves (never copy or merely confirm the recorded values); confirm all four label classes are present and `|H|` is recorded; confirm each label is justified by evidence independent of evaluator output (FR-009); confirm every `evidence-absent` marking is justified; record an explicit **adequacy** finding on the corpus — integrity alone does not satisfy; and record the auditor's **own** `PASS` / `FAIL` verdict in `checklists/evidence-index.md`. A `FAIL` blocks Phase 4 and requires a fresh T010b → T012 cycle. Depends on: T011
+- [ ] T012a [US1] [OBSERVE-FAIL] Observe the audit **FAIL** against a deliberately altered case, and separately against an audit run that confirms hash integrity but never reaches an adequacy finding (SC-025). Retain both negative cases, matching `specs/010-*` T020/T021 — a retained negative case is what makes the audit's PASS mean something
 - [ ] T013 [US1] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/freeze.test.ts` and **observe it failing** against a deliberately altered case before implementing verification: assert a recomputed manifest hash mismatch is a **failure** and never a silent re-freeze (SC-001); assert a corpus missing a label class is rejected (SC-002); assert the audit record exists, names an independent reviewer, and carries an explicit verdict (SC-003)
 - [ ] T014 [US1] Implement `packages/evaluator/src/calibration/case.ts` (parse/validate a case and corpus) and `calibration/freeze.ts` (compute and verify the manifest), making T013 pass. Pure: no clock, network, or filesystem inside the functions; ordering via `byCodeUnit`
 
@@ -193,6 +198,7 @@ shipped, and the statement becomes forbidden the moment one does.
 - [ ] T028 [US4] [OBSERVE-FAIL] Write the enforcement test on the model of `packages/catalog-envelope/test/no-correctness-claim.test.ts`: while no pass is declared, the absence statement is **required** in `docs/RELEASING.md` and consistent with README's Dogfooding section. **Observe it failing** with the statement deleted (SC-012). It must report what it examined, so an empty document set cannot satisfy it vacuously (FR-025; ADR-0016 clause 3)
 - [ ] T029 [US4] [OBSERVE-FAIL] Extend the test: while no pass is declared, any published precision, recall, or false-negative-rate figure is **forbidden** — including a `1.0` / `n/a` placeholder, which ADR-0027 names as *"the more dangerous artifact"*. Observe it failing against a fabricated figure and against the placeholder (SC-013)
 - [ ] T030 [US4] [OBSERVE-FAIL] Extend the test for the **auto-flip** (FR-026): with a pass declared in the registry, the absence statement becomes **forbidden** and the FR-016 probabilistic-marginal figures become **required**. Observe it failing for that opposite reason with a declared pass and a retained absence statement (SC-012)
+- [ ] T030a [US4] [OBSERVE-FAIL] Assert the absence statement is **rendered from the report's `nothing-to-measure` state** (FR-017b class 1), not from a bare `if (noProbabilisticPass)` branch (SC-024). Observe failing against a renderer driven by a registry boolean, and against one that emits the statement from a `measurement-failed` state — the sentence would be false and reassuring at once
 
 ### Implementation for User Story 4
 
@@ -215,6 +221,8 @@ exists to grade.
 
 - [ ] T033 [P] [US5] [OBSERVE-FAIL] Empty-denominator fixtures: precision with `TP+FP = 0` and recall/FNR with `TP+FN = 0` each return **absent** — never `1.0`, never `0`, never `n/a` as a value (SC-008). Observe failing against an implementation that returns `1.0`
 - [ ] T034 [P] [US5] [OBSERVE-FAIL] `not-computable` fixtures: every uncomputable metric returns `not-computable` with a machine reason code naming why — empty denominator, `|H| < N`, missing label class, absent input source (FR-017a, SC-008a). Observe failing against any rendering that coerces the state to a passing-looking value
+- [ ] T034a [P] [US5] [OBSERVE-FAIL] **Four-class fixtures (FR-017b).** Assert every `not-computable` state carries exactly one of `nothing-to-measure` / `input-unavailable` / `undefined-value` / `measurement-failed` (SC-021); observe failing against a state carrying none, more than one, or collapsing `undefined-value` into `measurement-failed`. Assert a **computed zero** is distinct from every `not-computable` state (SC-022) — this is the "measured, and clean" vs "could not measure" boundary
+- [ ] T034b [P] [US5] [OBSERVE-FAIL] `measurement-failed` fixtures: an unreadable holdout, a hash mismatch, `|H| < N`, a missing label class, and a model version absent from the drift baseline each **fail the gate** and each **do not** produce ADR-0027's absence statement (SC-023). Observe failing against an implementation that reports any of them as an environmental absence — the `run-network-denied.ts` failure shape
 - [ ] T035 [P] [US5] [OBSERVE-FAIL] Split fixtures: a case with **any** deterministic trigger proven is excluded from the probabilistic-marginal population, and precision/recall/FNR are each produced in **both** forms (FR-016, SC-009). Observe failing against a whole-gate-only implementation
 - [ ] T035a [P] [US5] [OBSERVE-FAIL] Whole-gate qualifier fixture: every whole-gate figure carries the machine-readable denominator-limitation qualifier naming the landed-eight false/absent conflation, emitted **from the report** rather than from prose (FR-016a, SC-005b). Observe failing against a report that emits a whole-gate figure without it
 - [ ] T036 [P] [US5] [OBSERVE-FAIL] Drift fixtures: reported per dimension, with a compensating-pair fixture producing **no** single averaged figure (FR-019, SC-010); and with no `ε` observed, drift reports `not-computable` rather than a passing comparison
@@ -225,7 +233,7 @@ exists to grade.
 
 ### Implementation for User Story 5
 
-- [ ] T040 [US5] Extend `packages/evaluator/src/catalog.ts` with a **new namespaced** `not-computable` reason-code group — exhaustive, stable, with fixed precedence, matching the existing convention. It is a new group, not an extension of the routing groups
+- [ ] T040 [US5] Extend `packages/evaluator/src/catalog.ts` with a **new namespaced** `not-computable` reason-code group — exhaustive, stable, with fixed precedence, matching the existing convention. Each code carries exactly one FR-017b class (`nothing-to-measure` / `input-unavailable` / `undefined-value` / `measurement-failed`). It is a new group, not an extension of the routing groups
 - [ ] T041 [US5] Implement `packages/evaluator/src/calibration/not-computable.ts` and `calibration/metrics.ts`: the FR-018 positive-class mapping; precision, recall, FNR in both split forms; per-dimension drift; disagreement with the zero-defect signal; and override rate as published-`not-computable`. Pure and model-free (FR-022)
 - [ ] T042 [US5] Implement `calibration/report.ts`: canonical `CalibrationReport` assembly and serialization via `canonicalBytes`, with every sort using `byCodeUnit`
 - [ ] T043 [US5] Specify the **`ε` derivation mechanism** (FR-019a) in `contracts/metric-definitions.md` and implement it as a testable function over two model versions' scores on the same frozen `H` — **shipping no `ε` value** (SC-010a). Record that the resulting value requires ratification in a record before it governs breaking-change status
@@ -301,6 +309,10 @@ score to grade. US6 constrains how the rest lands.
 | SC-010, SC-010a | T036, T041, T043, T043a |
 | SC-011, SC-011a, SC-011b | T037, T041 |
 | SC-020 | T037a, T014 |
+| SC-021, SC-022 | T034a, T041 |
+| SC-023 | T034b, T026, T041 |
+| SC-024 | T030a, T031 |
+| SC-025 | T012, T012a |
 | SC-012, SC-013 | T028, T029, T030, T031 |
 | SC-014 | T017, T049 |
 | SC-015 | T048 |
