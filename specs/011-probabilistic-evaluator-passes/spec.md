@@ -116,13 +116,25 @@ constrains this feature, and each is easy to violate while appearing to succeed:
   the present tense until the corresponding pass ships** (ADR-0027 §2). That includes this
   spec, which is written throughout in the conditional.
 
-One failure mode recurs across all of the above and is worth naming once, plainly, because it
-has already appeared three separate times in this project's history: **absence reported as
-evidence.** A missing snapshot read as a true negative, an empty retrieval set read as
-novelty, an emitted-but-unretained reason code read as a calibration corpus — each is the same
-mistake, and each is cheap to make because the fabricated value always looks healthier than the
-honest one. FR-021 and FR-018 exist specifically to make that mistake unrepresentable here
-rather than merely discouraged.
+One hazard cuts across all of the above and is worth naming plainly, because it is the specific
+way this feature could fail while appearing to succeed: **absence reported as evidence.** A
+missing snapshot counted as a true negative, an empty retrieval set read as novelty, an
+unretained reason code read as a calibration corpus — the same mistake in three costumes, and
+each is cheap to make because the fabricated value always looks healthier than the honest one.
+
+This is not a new observation; it is **established project law**, which is why this feature
+inherits the rule rather than inventing it. ADR-0014 requires status be *"reported as explicitly
+absent or present"* with evidence, never assumed and never fabricated.
+[ADR-0026](../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
+applies the same
+distinction in a different domain — *"a permission-shaped refusal … is not an absence of"* the
+thing being sought. Principle IV requires a matcher whose backing source is missing to resolve
+*"to inert with an informational finding — never a fatal error."* ADR-0027's own Consequences
+states the cost in the calibration case: *"A calibration set that silently conflates those two
+reports a precision it did not measure."*
+
+FR-018, FR-021, and FR-028 exist to make that mistake **unrepresentable here** rather than
+merely discouraged.
 
 ## Architecture: the model produces evidence, deterministic code does the deciding
 
