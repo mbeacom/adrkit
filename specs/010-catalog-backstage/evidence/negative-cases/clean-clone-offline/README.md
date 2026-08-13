@@ -150,24 +150,69 @@ unwrapped step is the one whose own content proves the generator never reaches t
 That is a weaker statement than the original wording implies, and it is recorded here
 rather than left for a reader to discover from the workflow file.
 
----## What the CI job does with this
+---
 
-`.github/workflows/ci.yml`'s `clean-clone-builds` runs `check:clean-clone` immediately
-after the install, then routes **every** subsequent step through
-`scripts/run-network-denied.ts`. `bun install --frozen-lockfile` is the only step permitted
-to use the network.
+## What the CI job does with this
+
+`.github/workflows/ci.yml`'s `clean-clone-builds` routes its post-install steps through
+`scripts/run-network-denied.ts`, with two exceptions that are named here rather than left
+to be discovered from the workflow file.
+
+**Exception 1 — `bun test`, permanent and structural.** See below.
+
+**Exception 2 — `check:clean-clone`, incidental and pending removal.** It runs unwrapped
+purely because it happens to run first, while this paragraph previously claimed every
+subsequent step was routed. The claim was wrong, and it is corrected here rather than left
+standing: it is a Bun script and has ambient network access it has no need of. The one-line
+change that wraps it (and the `git diff` bundle check with it) is written and verified but
+**not yet applied**, because pushing `.github/workflows/**` needs a `workflow`-scoped token
+this session does not hold. Recorded as pending rather than described as done.
+
+**Why `bun test` cannot be wrapped, on either platform.** The suite contains the two-sided
+controls that *prove* the denial, and a control cannot establish a denial from inside one.
+Observed on both, failing differently, which is what makes it structural rather than a
+macOS quirk:
+
+| Platform | Mechanism | Result of wrapping |
+|---|---|---|
+| macOS | `sandbox-exec` (denies loopback outright) | 3 failures, `Failed to start server. Is port 0 in use?` |
+| Linux | `unshare --net` (brings `lo` **up**) | that failure does **not** occur — and 11 tests still fail, because the denial-proving tests must nest a sandbox inside the one wrapping them |
+
+Case 3 records the macOS observation; [`case-3b-linux-wrapped-suite.observed.txt`](./case-3b-linux-wrapped-suite.observed.txt)
+records the Linux one. The Linux result is the more informative of the two: it rules out
+the obvious reading of case 3, which is that loopback denial was the whole problem and a
+kinder sandbox would fix it.
+
+Narrowing the exemption to just the two denial-proving files was considered and rejected.
+`bun test` has no exclusion filter, so it would mean an explicit allowlist of paths to run
+denied — and a stale entry in that list means tests silently not running, which is the
+defect `check:clean-clone` exists to catch. Trading a disclosed exemption for an
+undisclosed coverage hole is not an improvement.
+
+**T093 is left unchecked on account of this**, rather than claimed with a footnote: its
+second conjunct — network "permitted **only** during `bun install`" — is false as written.
+Closing it needs an ADR rescoping FR-050, or a split of the task, not more code.
 
 A bare `unshare --net` prefix was considered and rejected: if it silently stopped denying —
 a changed flag, a kernel refusing the namespace, a profile typo — the job would keep
 passing and the guarantee would be gone with nothing to notice. Case 1 above is that
 scenario, made observable.
 
-**Honest limit, stated rather than left to inference.** The two cases above were observed
-on macOS (Darwin), where `sandbox-exec` is the mechanism that proves. The Linux candidates
-(`unshare --net --map-root-user`, then `sudo -n unshare --net`) are exercised by the same
-code path but **have not been observed running on a Linux host by this session**. If
-neither proves on the CI runner, the job fails closed — which is the designed behaviour and
-would be visible immediately as a red build, not as a silent downgrade.
+**Honest limit, and how it resolved.** The two cases above were observed on macOS (Darwin),
+where `sandbox-exec` is the mechanism that proves; this section previously recorded that
+the Linux candidates "have not been observed running on a Linux host by this session", and
+that if neither proved the job would fail closed — "visible immediately as a red build, not
+a silent downgrade".
+
+Both halves turned out to matter. The job did fail closed, five runs running, exactly as
+predicted and never silently. But the reason it gave was **wrong**: a qualifying mechanism
+was available on the runner the whole time and was being discarded because the payload
+could not be resolved under `sudo`'s `secure_path`. See
+[`../network-denial/`](../network-denial/) Part 2 for the three defects and their cases.
+
+Now observed: `sudo -n unshare --net` with the invoking user restored, proving on the CI
+runner itself, in
+[run 31656503096](https://github.com/mbeacom/adrkit/actions/runs/31656503096/job/94312031698).
 
 ## Standing constraints
 

@@ -120,6 +120,57 @@ one.
 | clause 9: no release claimed or prepared | consumer version; `RELEASE_PACKAGES` entry |
 | clause 8: the assertion is still inert | assertion removed; `engine:` changed |
 
+---
+
+## Cases 4 and 5 — two things the gate claimed and did not check
+
+Both came from PR review, and both are the same defect wearing different clothes: the gate
+printed a summary line broader than the check underneath it.
+
+### Case 4 — a release claimed in prose
+
+Input: [`case-4-prose-release-claim.patch`](./case-4-prose-release-claim.patch) ·
+Output: [`case-4-prose-release-claim.observed.txt`](./case-4-prose-release-claim.observed.txt)
+
+`RELEASE_CLAIM_PATTERNS` existed, with careful negation handling so that *denying* a
+release would not be mistaken for making one — and was applied to **nothing at all**.
+`checkNoReleaseClaim` read package versions and `RELEASE_PACKAGES` and stopped there, while
+the gate reported "no release claimed, scheduled, or prepared". A sentence asserting npm
+publication, added to either package README, left the gate green.
+
+The patterns are now applied to the three artifacts a consumer would actually read to
+decide whether this is shippable. The success line names the count it scanned, so the
+summary cannot outrun the check again without the number moving.
+
+```
+check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.
+    packages/adapters/catalog-backstage/README.md [claims-released]: "is published to npm"
+```
+
+### Case 5 — the port, not the frontmatter
+
+Input: [`case-5-custom-engine-port-registered.patch`](./case-5-custom-engine-port-registered.patch) ·
+Output: [`case-5-custom-engine-port-registered.observed.txt`](./case-5-custom-engine-port-registered.observed.txt)
+
+`engine: custom` in ADR-0020's frontmatter says which port the assertion *would* use. It
+says nothing about whether that port exists — and the port's absence is what makes the
+assertion inert. Composition code could register a custom engine and the frontmatter would
+not move, leaving this gate reporting an assertion as inert **after it had gone live**: a
+gate asserting the one thing it had stopped being able to see.
+
+The condition is now read from `packages/cli/src/evaluate.ts`, where the registry is
+actually composed. It fails closed — a composition the gate cannot locate is reported, not
+passed over — because "I could not find it" and "it is not there" are the same
+absence-versus-denial confusion this feature keeps meeting.
+
+```
+check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.
+    packages/cli/src/evaluate.ts registers a `custom` engine port, so
+    catalog-adapter-accept-path-needs-annotated-real-corpus may now be live.
+```
+
+Restored: [`restored.observed.txt`](./restored.observed.txt) — `check-clause8-gate: ok`.
+
 ## Standing constraints
 
 ADR-0014 **rung 1 only**. This gate passing does not make the feature reference-verified

@@ -1,0 +1,9 @@
+$ bun run check:clause8   # with case-4-prose-release-claim.patch applied
+
+$ bun run scripts/check-clause8-gate.ts
+check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.
+  [no release or rung-2 status is claimed in prose (clause 9, ADR-0014)]
+    packages/adapters/catalog-backstage/README.md [claims-released]: "is published to npm"
+
+  This gate is the enforcement clause 8 requires. ADR-0020’s own frontmatter assertion is inert (engine: custom, no port registered → status 'inert', reason 'assertions-compile.engine-absent') and records the rule without enforcing it.
+error: script "check:clause8" exited with code 1

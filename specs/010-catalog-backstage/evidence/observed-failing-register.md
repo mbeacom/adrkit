@@ -144,6 +144,8 @@ phases and were closed here on their merits; see §3.
 | T098 | clause 5: zero false positives / zero false negatives | `clause8-gate/` case 1 | `step (b) records falseNegatives = 2` |
 | T098 | clause 9: no release prepared | `clause8-gate/` case 2 | `declares version 0.1.0; clause 9 defers release` |
 | T098 | clause 5: two distinct steps, neither inheriting | `clause8-gate/` case 3 | `step (b) does not record \`inheritsFromStepA: false\`` |
+| T098 | clause 9: a release claimed in **prose**, not just prepared structurally | `clause8-gate/` case 4 | `[claims-released]` on a README sentence asserting npm publication — verbatim in that case's `.observed.txt`, not quoted here, because this file is itself scanned |
+| T098 | clause 8: the assertion is inert only while **no custom port is registered** | `clause8-gate/` case 5 | `packages/cli/src/evaluate.ts registers a \`custom\` engine port, so … may now be live` |
 | T099 | the register maps to the tree — a case with no row | `observed-failing-register/` case 1 | `+ ["observed-failing-register", "spike-heuristic"]` |
 | T099 | the register maps to the tree — a row with no case | `observed-failing-register/` case 2 | `every directory the register names exists on disk` |
 | T099 | a gaps section softened into an unfalsifiable claim | `observed-failing-register/` case 3 | `Expected to contain: "observed succeeding on the CI runner itself"`, `Expected to contain: "2 name the host"` |

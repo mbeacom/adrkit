@@ -1179,13 +1179,33 @@ the barrier exists to prevent.
 **Barrier side: BEHIND.** Every task lists **T024** in `Depends`. Phase G runs after
 Phase F completes.
 
-- [X] T093 [US9] Verify from a **clean clone** that build, typecheck, lint, and
+- [ ] T093 [US9] Verify from a **clean clone** that build, typecheck, lint, and
       `bun test` are all green with both new packages present, and that network access
       is permitted **only** during `bun install --frozen-lockfile`.
       Files: `.github/workflows/ci.yml` (job `clean-clone-builds`).
       Barrier: BEHIND
       Discharges: FR-050
       Depends: T024, T092
+      **Left unchecked deliberately — first conjunct met, second not.** A clean clone does
+      build, typecheck, lint and test green, and that is now verified on the runner itself
+      (all 18 steps of `clean-clone-builds`, evidence in
+      `<EVIDENCE>/negative-cases/clean-clone-offline/clean-clone-verification.observed.txt`).
+      But `bun test` runs with ambient network, so "permitted **only** during install" is
+      false as written, and a conjunction with a false conjunct is not satisfied.
+      The exemption is structural, not effort: the suite contains the two-sided controls
+      that *prove* the denial, and they cannot run inside it. Observed on both platforms,
+      failing differently — macOS `sandbox-exec` denies loopback (3 failures); Linux
+      `unshare --net` brings `lo` up so that failure does not occur, and 11 still fail
+      because the denial-proving tests must nest a sandbox inside the one wrapping them
+      (`clean-clone-offline/` case 3 and case 3b).
+      Narrowing the exemption to the two denial-proving files was considered and rejected:
+      `bun test` has no exclusion filter, so it would require an explicit path allowlist
+      whose staleness means tests silently not running — the defect `check:clean-clone`
+      exists to catch.
+      **Closing this needs authorization, not code**: FR-050's second half must either be
+      rescoped to "every step except the one that proves the denial" by an ADR, or T093
+      split so the verified half can be claimed on its own. Neither is taken unilaterally.
+      Recorded at `<EVIDENCE>/observed-failing-register.md` §4.6.
 
 - [X] T094 [US2] Run the generator with network access **actively denied** — no
       credential present, no service reachable — and confirm it completes. Confirm

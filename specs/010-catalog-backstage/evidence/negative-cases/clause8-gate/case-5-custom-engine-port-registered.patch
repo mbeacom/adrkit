@@ -1,0 +1,13 @@
+diff --git a/packages/cli/src/evaluate.ts b/packages/cli/src/evaluate.ts
+index ba7da05..0d4f586 100644
+--- a/packages/cli/src/evaluate.ts
++++ b/packages/cli/src/evaluate.ts
+@@ -32,7 +32,7 @@ import { loadSnapshotBundle, SnapshotContractError, type NormalizedSnapshot } fr
+  * a Rego/grep/custom engine are absent by default (the affected rules report inert).
+  */
+ const TARGET_REGISTRY = createTargetResolutionRegistry([createPathTargetResolver(), createPackageTargetResolver()]);
+-const ASSERTION_ENGINES = createAssertionEngineRegistry({ jsonpath: createJsonPathEngine() });
++const ASSERTION_ENGINES = createAssertionEngineRegistry({ jsonpath: createJsonPathEngine(), custom: createJsonPathEngine() as never });
+ 
+ export interface EvaluateOptions {
+   readonly proposalPath: string;

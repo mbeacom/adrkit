@@ -312,6 +312,20 @@ export const RELEASE_CLAIM_PATTERNS: readonly { readonly id: string; readonly pa
   },
 ];
 
+/**
+ * The prose {@link RELEASE_CLAIM_PATTERNS} is applied to.
+ *
+ * Deliberately the artifacts a consumer would read to decide whether this thing is
+ * shippable — the two package READMEs and the feature's own close-out. Scanning the whole
+ * tree would drag in this file, its tests, and the negative cases, all of which quote the
+ * claim in order to forbid it.
+ */
+export const RELEASE_CLAIM_SCAN_TARGETS: readonly string[] = [
+  'packages/adapters/catalog-backstage/README.md',
+  'packages/catalog-envelope/README.md',
+  'specs/010-catalog-backstage/evidence/honesty-close-out.md',
+];
+
 /** Limb B — nothing claims release or ADR-0014 rung 2. */
 function checkNoReleaseClaim(repoRoot: string): Finding[] {
   const findings: Finding[] = [];
@@ -319,7 +333,6 @@ function checkNoReleaseClaim(repoRoot: string): Finding[] {
     'packages/adapters/catalog-backstage/package.json',
     'packages/catalog-envelope/package.json',
   ];
-
   for (const relative of targets) {
     const path = join(repoRoot, relative);
     if (!existsSync(path)) continue;
@@ -347,6 +360,27 @@ function checkNoReleaseClaim(repoRoot: string): Finding[] {
         findings.push({
           requirement: 'no release is scheduled, implied, or prepared (clause 9)',
           reason: `${name} appears in RELEASE_PACKAGES`,
+        });
+      }
+    }
+  }
+
+  // And nothing may *say* it either. The two structural checks above cover a release
+  // having been prepared; they say nothing about prose, so `RELEASE_CLAIM_PATTERNS` was
+  // defined with careful negation handling and then applied to nothing at all. The gate
+  // still printed "no release claimed, scheduled, or prepared" — a broader claim than it
+  // checked, which is the exact shape of defect clause 8 exists to prevent. A sentence in
+  // either README asserting npm publication left this green.
+  for (const relative of RELEASE_CLAIM_SCAN_TARGETS) {
+    const path = join(repoRoot, relative);
+    if (!existsSync(path)) continue;
+    const prose = readFileSync(path, 'utf8');
+    for (const { id, pattern } of RELEASE_CLAIM_PATTERNS) {
+      const match = pattern.exec(prose);
+      if (match !== null) {
+        findings.push({
+          requirement: 'no release or rung-2 status is claimed in prose (clause 9, ADR-0014)',
+          reason: `${relative} [${id}]: ${JSON.stringify(match[0])}`,
         });
       }
     }
@@ -384,7 +418,61 @@ function checkAssertionStillInert(repoRoot: string): Finding[] {
         'the assertion may be live — revisit clause 8 rather than leaving this gate describing it as inert.',
     });
   }
+
+  // `engine: custom` on the ADR side is only half of "inert". It says which port the
+  // assertion *would* use; it says nothing about whether that port exists. Composition
+  // code could register a custom engine tomorrow and the frontmatter would not move, so
+  // this gate would keep reporting an assertion as inert while it was live — a gate
+  // asserting the very thing it had stopped being able to see.
+  //
+  // The absent port is the condition, so the condition is what is checked.
+  findings.push(...checkNoCustomEnginePortRegistered(repoRoot));
+
   return findings;
+}
+
+/** Where the CLI composes the engine registry actually used in production. */
+const ENGINE_COMPOSITION = 'packages/cli/src/evaluate.ts';
+
+/**
+ * No `custom` assertion-engine port is registered anywhere the CLI composes its registry.
+ *
+ * Read from the composition source rather than from a type: the registry is a module-level
+ * const and is not exported, so there is nothing to import. Parsing the one call that
+ * builds it is the closest available check to evaluating it, and it fails closed — if the
+ * call cannot be found at all, that is reported rather than passed over, because a
+ * composition this gate can no longer locate is one it can no longer vouch for.
+ */
+function checkNoCustomEnginePortRegistered(repoRoot: string): Finding[] {
+  const requirement = "clause 8's assertion is inert because no custom engine port is registered";
+  const path = join(repoRoot, ENGINE_COMPOSITION);
+  if (!existsSync(path)) {
+    return [{ requirement, reason: `${ENGINE_COMPOSITION} is absent, so the registry cannot be inspected` }];
+  }
+
+  const source = readFileSync(path, 'utf8');
+  const call = /createAssertionEngineRegistry\(\s*\{([\s\S]*?)\}\s*\)/u.exec(source);
+  if (call === null) {
+    return [
+      {
+        requirement,
+        reason: `${ENGINE_COMPOSITION} no longer contains a createAssertionEngineRegistry({…}) call this gate can read`,
+      },
+    ];
+  }
+
+  if (/(^|[{,\s])custom\s*:/u.test(call[1] ?? '')) {
+    return [
+      {
+        requirement,
+        reason:
+          `${ENGINE_COMPOSITION} registers a \`custom\` engine port, so ${ASSERTION_ID} may now be live. ` +
+          'Clause 8 describes it as inert and names this gate as the enforcement; revisit both.',
+      },
+    ];
+  }
+
+  return [];
 }
 
 export function checkClause8Gate(repoRoot: string = REPO_ROOT): Finding[] {
@@ -417,9 +505,13 @@ function main(): number {
   console.log('  clause 5: populated digest-verified envelope, 0 false positives / 0 false negatives');
   console.log('  clause 5: expectations unchanged; corpus upstream-authored at the pinned commit');
   console.log('  clause 5: at least one non-empty owned-paths annotation; adequacy finding recorded');
-  console.log('  clause 9: no release claimed, scheduled, or prepared; both packages at 0.0.0');
   console.log(
-    `  clause 8: enforcement is THIS check. ADR-0020\u2019s assertion ${ASSERTION_ID} is inert and is not cited as enforcement.`,
+    '  clause 9: no release claimed, scheduled, or prepared; both packages at 0.0.0, absent from ' +
+      `RELEASE_PACKAGES, and no release/rung-2 prose claim in ${RELEASE_CLAIM_SCAN_TARGETS.length} scanned artifacts`,
+  );
+  console.log(
+    `  clause 8: enforcement is THIS check. ADR-0020\u2019s assertion ${ASSERTION_ID} is inert — it declares ` +
+      `\`engine: custom\` and ${ENGINE_COMPOSITION} registers no custom port — and is not cited as enforcement.`,
   );
   return 0;
 }

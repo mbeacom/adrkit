@@ -64,7 +64,7 @@ import { computeEnvelopeDigest, verifyEnvelopeDigest } from '../src/envelope/dig
 import type { SnapshotEnvelope } from '../src/envelope/shape.ts';
 import { serializeEnvelope } from '../src/envelope/write.ts';
 import { generateAndWriteEnvelope, runGeneration } from '../src/pipeline.ts';
-import { REPO_ROOT } from './source-scan.ts';
+import { REPO_ROOT, stripComments } from './source-scan.ts';
 import { type Checkout, createCheckout, descriptor, stage, validDescriptor } from './pipeline-fixtures.ts';
 
 let checkout: Checkout;
@@ -101,6 +101,49 @@ function acceptCorpusIsMaterialized(): boolean {
       return false;
     }
   });
+}
+
+/**
+ * Count occurrences of `needle` that are actually executable code.
+ *
+ * `stripComments` handles the realistic evasion — a commented-out call holding a floor up
+ * while the block beneath it is gutted. Literals are the other half, and they are handled
+ * **per line** rather than by a whole-file regex, deliberately.
+ *
+ * A regex of the obvious shape (`/(['"`])(?:\\.|(?!\1)[^\\])*\1/`) was written first and
+ * was wrong: character classes match newlines, so one unbalanced quote anywhere swallows
+ * everything up to the next one. It took the count from 5 to 0 — blanking the very calls
+ * it was meant to leave standing, and turning a working pin into an unsatisfiable one.
+ * That is the same runaway-match failure `stripComments` documents as its own limitation,
+ * reproduced by trying to fix it.
+ *
+ * A line is bounded, so a mistake stays inside it. The check is therefore: within the
+ * line, is the match preceded by an odd number of unescaped quotes? If so it is inside a
+ * literal and does not count. Multi-line template literals are not modelled, and the
+ * failure direction is a false *positive* count on that construct alone.
+ */
+function countExecutableOccurrences(source: string, needle: string): number {
+  let count = 0;
+  for (const line of stripComments(source).split('\n')) {
+    let from = 0;
+    for (;;) {
+      const at = line.indexOf(needle, from);
+      if (at === -1) break;
+      const before = line.slice(0, at);
+      let quotes = 0;
+      for (let index = 0; index < before.length; index += 1) {
+        const character = before[index];
+        if (character === '\\') {
+          index += 1;
+          continue;
+        }
+        if (character === "'" || character === '"' || character === '`') quotes += 1;
+      }
+      if (quotes % 2 === 0) count += 1;
+      from = at + needle.length;
+    }
+  }
+  return count;
 }
 
 describe('T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection', () => {
@@ -291,7 +334,11 @@ describe('T086 / SC-009 limb 2 — discharged over the frozen accept corpus', ()
     // Five live calls at the time of writing: three `await`ed directly, two inside the
     // determinism test's `Promise.all`. The floor is set below that so an added or
     // removed case does not trip it, but gutting the block does.
-    const liveCalls = block.split('compareAcceptCorpus(REPO_ROOT)').length - 1;
+    //
+    // Counted on **executable** source. Raw substring counting let a commented-out call —
+    // or the call named inside a string — hold the floor up while the block underneath was
+    // gutted, which is the exact false-positive state this pin exists to prevent.
+    const liveCalls = countExecutableOccurrences(block, 'compareAcceptCorpus(REPO_ROOT)');
     expect(liveCalls).toBeGreaterThanOrEqual(4);
     expect(block).toContain('report.run.envelope.entities.length');
     expect(block).toContain('the committed diff report records the PASS and the counts it was run at');

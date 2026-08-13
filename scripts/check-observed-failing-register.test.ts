@@ -100,6 +100,24 @@ function files(directory: string): string[] {
   return readdirSync(join(CASES_DIR, directory), { recursive: true }).map(String);
 }
 
+/**
+ * The negative-case directory named by each **table row** of the register.
+ *
+ * Rows, not the whole document. `register.includes('`name/`')` was satisfied by any
+ * mention anywhere — so deleting a row left the directory "covered" by a narrative
+ * sentence such as "see `spike-heuristic/`", and §3 and §4 are full of exactly those.
+ * The register's claim is that every case is *accounted for in the table*; prose is not
+ * that, and a check that accepted prose was not checking the claim.
+ */
+const registerRowDirectories: readonly string[] = [
+  ...new Set(
+    register
+      .split('\n')
+      .filter((line) => line.trimStart().startsWith('|'))
+      .flatMap((row) => [...row.matchAll(/`([a-z0-9-]+)\/`/gu)].map((match) => match[1] as string)),
+  ),
+].sort();
+
 describe('the register maps to the tree, in both directions', () => {
   test('there are negative cases to enumerate at all', () => {
     // A guard on the guard: if the tree were empty, every assertion below would pass
@@ -107,11 +125,17 @@ describe('the register maps to the tree, in both directions', () => {
     expect(directories.length).toBeGreaterThan(30);
   });
 
-  test('every directory on disk appears in the register', () => {
+  test('the rows parse at all, so neither direction below is vacuous', () => {
+    // If the table format changed and nothing matched, "every row exists" would pass on an
+    // empty set and "every directory has a row" would fail confusingly. Fail here instead.
+    expect(registerRowDirectories.length).toBeGreaterThan(30);
+  });
+
+  test('every directory on disk is named by a register ROW, not merely mentioned', () => {
     // The FR-059 direction. An unlisted case means a check whose observation exists but
     // that the close-out does not account for — or, read the other way, a check the
     // register has silently left in the passing column.
-    const missing = directories.filter((directory) => !register.includes(`\`${directory}/\``));
+    const missing = directories.filter((directory) => !registerRowDirectories.includes(directory));
     expect(missing).toEqual([]);
   });
 

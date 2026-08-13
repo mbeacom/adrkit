@@ -47,6 +47,11 @@ beforeEach(async () => {
     'packages/adapters/catalog-backstage/package.json',
     'packages/catalog-envelope/package.json',
     'scripts/release-pack.ts',
+    // The engine composition. The gate reads it to establish that no `custom` port is
+    // registered — the actual condition behind "the assertion is inert" — and fails closed
+    // when it cannot, so the sandbox has to carry it or every case reports that absence
+    // instead of the thing it was constructed to test.
+    'packages/cli/src/evaluate.ts',
   ]) {
     await cp(join(REPO_ROOT, relative), join(sandbox, relative), { recursive: true });
   }
