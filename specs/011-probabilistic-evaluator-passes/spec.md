@@ -248,10 +248,13 @@ disagreement signal. That is an interface negotiation, not a definitional one.
 
 ### The metric definitions this feature consumes
 
-Frozen by feature 012 (`specs/012-evaluator-calibration/`, **PR #141**) and reproduced
+Frozen by feature 012 (`specs/012-evaluator-calibration/` **FR-005** and **FR-016 – FR-023a**,
+**PR #141**) and reproduced
 here **only so that this spec cites rather than restates them**. If any wording below diverges
 from that spec, **it wins and this section is the defect**. 012's FR-022 requires this
-consumption relationship, and their T044 verifies it.
+consumption relationship, and their T044 verifies it. Each item below also carries the specific
+FR it comes from, so a reviewer checking faithfulness lands on the requirement rather than on a
+snapshot of a whole file.
 
 Cited by **PR number and FR number, never by commit SHA.** A branch SHA for unmerged work is
 fragile by construction: 012's branch has already been rebased twice — once onto the
