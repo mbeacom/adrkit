@@ -426,7 +426,15 @@ escalate on model discretion.
       shipped passes, for the reason FR-027 and [Q8](./spec.md#q8) give.
 - [ ] T033 [P] Add a documentation check asserting no repository artifact describes the
       evaluator as four-pass, rubric-scoring, or adversarial in the **present tense** while the
-      corresponding pass is unshipped (FR-026, SC-016, ADR-0027 §2).
+      corresponding pass is unshipped (FR-026, SC-016, ADR-0027 §2). Extend the same check to
+      **superseded mechanism vocabulary**: when a design is withdrawn, its terms MUST NOT survive
+      in prose that still argues for it. Scan for the *mechanism's* words, not the requirement's
+      ID — reference integrity passes cleanly on this class, because every FR/SC id still resolves
+      while the prose disagrees. Two rules follow from having hit this twice in this feature and
+      twice in feature 012: state the withdrawal **where the old design was argued**, since
+      rationale sections outlive requirement edits; and keep the superseded reasoning attached as
+      its own counterexample rather than deleting it, so a reader wondering why the obvious
+      approach is unused finds the answer instead of proposing it again.
 - [ ] T034 Update `plan.md`'s Spec-kit realization table and the outcome ladder to reflect this
       feature's true state using ADR-0014 vocabulary **exactly**. Do not describe the
       maintainer's own reference repository as external validation or as a community adopter.
