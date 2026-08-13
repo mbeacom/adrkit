@@ -460,6 +460,14 @@ escalate on model discretion.
       grepping the cited range finds nothing; and **a count must match the property, not the
       token** — counting occurrences of a marker string also counts legends, quotations, and the
       check's own text.
+
+      **Resolve a cross-artifact citation against the artifact it cites.** A range or identifier
+      naming another feature's requirements (this spec cites 012's `FR-005` and `FR-016`–`FR-023a`)
+      cannot be validated against the local identifier set: a check that tries will either report
+      it as dangling — a false positive — or silently skip it, and both outcomes are wrong in a way
+      the output does not distinguish. Fetch the cited artifact and resolve against it, or state
+      that the citation was not verified. **Do not let the check's scope decide the claim's
+      meaning without saying so.**
 - [ ] T034 Update `plan.md`'s Spec-kit realization table and the outcome ladder to reflect this
       feature's true state using ADR-0014 vocabulary **exactly**. Do not describe the
       maintainer's own reference repository as external validation or as a community adopter.
