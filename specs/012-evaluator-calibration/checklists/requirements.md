@@ -29,7 +29,7 @@ implementation
 ## Requirement Completeness
 
 - [ ] **No [NEEDS CLARIFICATION] markers remain** — **deliberately not met.**
-      Five markers remain **by decision of the coordinating review**, not by
+      Six markers remain **by decision of the coordinating review**, not by
       oversight. Each is a value a maintainer must set (`ε`, `N`, the
       override-rate source, label-class exhaustiveness, external-case
       admissibility). In every case the spec fixes the **mechanism or behavior**
@@ -41,7 +41,7 @@ implementation
 - [x] Requirements are testable and unambiguous — each FR maps to at least one
       acceptance scenario or Success Criterion (see the traceability table in
       [tasks.md](../tasks.md)).
-- [x] Success criteria are measurable — SC-001 … SC-025 each name a specific,
+- [x] Success criteria are measurable — SC-001 … SC-029 each name a specific,
       checkable outcome, and the gate/enforcement criteria each name an
       **observed failure** rather than only a passing state (ADR-0016).
 - [x] Success criteria are technology-agnostic in outcome even where citations
@@ -117,5 +117,5 @@ implementation
 
 The single unchecked item above is intentional and is the honest state of this
 specification. A checklist that reported "no clarifications remain" by inventing
-five values would be exactly the manufactured assurance ADR-0027 exists to
+six values would be exactly the manufactured assurance ADR-0027 exists to
 prevent.

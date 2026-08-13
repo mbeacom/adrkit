@@ -725,13 +725,26 @@ verdict.
   never left for a reader to infer from recall (ADR-0005 and ADR-0027 both name
   it separately).
 
-- **FR-019 — Score drift is per dimension and never averaged.** For dimension
-  `d ∈ {D1..D8}` and model versions `m₁, m₂` over the **same** frozen `H`:
+- **FR-019 — Score drift is per dimension, measured on the surviving score, and
+  never averaged.** For dimension `d ∈ {D1..D8}` and model versions `m₁, m₂` over
+  the **same** frozen `H`:
   `drift(d) = mean_c score_d(c, m₂) − mean_c score_d(c, m₁)`. `|drift(d)| > ε`
   makes the model upgrade a **breaking change requiring its own ADR** (ADR-0005
   action item 4, carried forward unmodified by ADR-0027 §4). Drift MUST be
   reported per dimension; a cross-dimension average MUST NOT be published,
   because it hides a compensating pair.
+
+  `score_d` is the **post-drop surviving score** from `RubricScoreSnapshot` — the
+  score that actually feeds weighting and routing — not the raw score. The raw
+  score MUST also be retained, because the difference between raw drift and
+  surviving drift distinguishes a **judgment** shift from a **citation-behavior**
+  shift: a model upgrade that cites less diligently moves surviving scores
+  without changing what it thinks, and the two demand different responses.
+  Reporting only one of them would make a citation regression look like a
+  judgment regression, or hide it entirely.
+
+  A model version absent from the drift baseline is `measurement-failed`
+  (FR-017b), never a quiet skip.
 
 - **FR-019a — `ε` is set by a specified mechanism, not by a number chosen now.**
   This feature MUST specify **how `ε` is derived**, and MUST NOT ship a value.
@@ -778,31 +791,125 @@ verdict.
   denominator it reports `not-computable` (FR-017a) rather than a defect signal —
   a zero drawn from too few cases is not evidence of the defect.
 
-- **FR-020a — Calibratable thresholds are owned here; the values they threshold
-  are computed by the pass that produces them.** Three tuning parameters have a
-  calibration story and therefore belong to this feature: `ε` for score drift
-  (FR-019a), the `low-confidence` **threshold** (rubric default `0.7`), and the
-  `novel-no-precedent` **relevance floor**. For each, this feature owns the
-  derivation mechanism from the frozen holdout and the rule that changing a
-  default is an ADR with calibration deltas attached (ADR-0005 action item 4,
-  carried forward by ADR-0027 §4). **No new value ships**; the rubric's
-  documented default stands until calibration justifies moving it, and until a
-  calibrating observation exists the affected figure reports `not-computable`
-  (FR-017a).
+- **FR-020a — Calibratable thresholds are owned here, and so are the definitions
+  they threshold once the producing shape is published.** Two tuning parameters
+  have a calibration story and belong to this feature: `ε` for score drift
+  (FR-019a) and the `low-confidence` **threshold** (rubric default `0.7`). For
+  each, this feature owns the derivation mechanism from the frozen holdout and
+  the rule that changing a default is an ADR with calibration deltas attached
+  (ADR-0005 action item 4, carried forward by ADR-0027 §4). **No new value
+  ships**; the rubric's documented default stands until calibration justifies
+  moving it, and until a calibrating observation exists the affected figure
+  reports `not-computable` (FR-017a).
 
-  The **computations** those thresholds apply to — the function from Pass 2
-  output to a confidence scalar, and the function from retrieval output to a
-  relevance score — are **not** owned here. They are functions of output shapes
-  this feature does not define and must not invent. This feature calibrates a
-  number; it does not decide what the number measures.
+  This feature **also owns the definitions** of the quantities those thresholds
+  apply to — see FR-020b and FR-020c. An earlier draft placed them with
+  `specs/011-*` on the grounds that they are functions of output shapes this
+  feature must not invent. **That premise no longer holds**: `specs/011-*` has
+  published `RubricScoreSnapshot` and `AdversarialSnapshot`, so these are now
+  functions over a *published* shape rather than an invented one. And the
+  original reason for splitting them was never sound in the other direction — a
+  threshold calibrated against a quantity its owner does not define is
+  calibrating something it does not control.
 
-  One constraint this feature's calibration **assumes and depends on**: the
-  confidence scalar MUST be derived from the **structure** of a pass's output
-  (for example citation coverage or dimension coverage), never from a model's
+  One constraint remains, and it is load-bearing: every such quantity MUST be
+  derived from the **structure** of a pass's output, never from a model's
   self-reported certainty. A self-reported confidence is model discretion wearing
   a threshold, which Constitution Principle IV and ADR-0027 §1 both forbid, and
   it is not calibratable — a holdout cannot correct a number the model is free to
   restate.
+
+- **FR-020b — Aggregate confidence is citation coverage over a fixed denominator
+  of eight.**
+
+  `confidence = |{d ∈ D1..D8 : Pass 2 produced a surviving, cited score for d}| / 8`
+
+  The `low-confidence` trigger fires when `confidence` is below its threshold
+  (rubric default `0.7`).
+
+  **The denominator is the constant 8, never "dimensions attempted."** A
+  gameable denominator is the same defect FR-017 guards in the metrics: a pass
+  that attempted two dimensions and cited both would otherwise score `1.0`, which
+  is exactly backwards — that is the *least* confident possible run, not the
+  most. Dimensions that are absent, uncited, or dropped all lower confidence,
+  which is the intended direction.
+
+  This is grounded in the rubric's own mechanics rather than invented: *"every
+  score above 0 must cite a span of the proposal"*, *"every score below 3 must
+  name the specific missing thing"*, and *"Uncited scores are dropped by the
+  aggregator."* Citation coverage is what the rubric already treats as the
+  structural quality signal. It is computable by the pure kernel from
+  `RubricScoreSnapshot` alone, requires no call-out, and is model-free.
+
+  It also keeps the documented default coherent: `0.7 × 8 = 5.6`, so the trigger
+  fires when fewer than six of eight dimensions survive with citations — i.e.
+  three or more are uncited or absent. A definition that made the rubric's own
+  default absurd would be evidence against the definition.
+
+  **Rejected alternatives**, recorded so the choice is auditable:
+  *score dispersion* measures disagreement **between dimensions**, not
+  confidence — a proposal genuinely excellent on D1 and poor on D7 has high
+  dispersion and may be scored with complete confidence, so it would
+  systematically flag heterogeneous-but-well-understood proposals.
+  *Self-consistency across k samples* is the most informative in principle but
+  requires the harness to return `k` samples, multiplying model cost by `k` and
+  changing 011's harness contract; it also measures consistency, and a model can
+  be consistently wrong. It is not excluded forever — it could become a *second*
+  signal — but adding it would change what the threshold means and therefore
+  needs its own record.
+
+- **FR-020c — The contradiction predicate, owned here and evaluated once.**
+
+  For a dimension `d ∈ D1..D8`, Pass 3 **contradicts** Pass 2 on `d` when either
+  holds:
+
+  1. a **present** `hidden-one-way-door` adversarial output carries `d` in its
+     `bearsOn` set — unconditionally, whatever Pass 2 scored; or
+  2. any **present** adversarial output carries `d` in its `bearsOn` set **and**
+     Pass 2's post-drop surviving score for `d` is **≥ 3**.
+
+  Both disjuncts come straight from the rubric, which escalates when Pass 3
+  *"surfaces a hidden one-way door **or** an objection that Pass 2 scored as
+  already addressed."* The cut point is **not invented**: the rubric's shared
+  anchors define `3` as *"adequate for the blast radius"*, and require that
+  *"every score below 3 must name the specific missing thing"*. A score of `≥ 3`
+  **is** the rubric's own statement that the dimension was adequately handled, so
+  an objection against it is a contradiction by the rubric's own vocabulary.
+
+  An adversarial output that is **explicitly absent** contributes nothing; it is
+  neither a contradiction nor evidence of agreement. If Pass 2 or Pass 3 produced
+  no comparable output for `d` at all, the trigger's evidence for that case is
+  `evidence-absent` (FR-005), which FR-020 excludes from the denominator.
+
+  **This predicate is defined once and evaluated once.** `specs/011-*` evaluates
+  it as the `pass-disagreement` trigger and **records** the resulting three-state
+  evidence; this feature **aggregates that record** and never re-derives the
+  comparison (FR-020). One definition, one evaluation, one recording — so the
+  published disagreement rate and the trigger's firings reconcile by
+  construction rather than by diligence.
+
+- **FR-020d — No relevance floor is scoped, because there is nothing for it to be
+  a floor over.** The rubric defines `novel-no-precedent` as firing when
+  *"retrieval returns nothing above the relevance floor"*, and an earlier draft
+  of this spec claimed that floor as a calibratable parameter. **It is
+  withdrawn.** Verified: the repository has no relevance scoring of any kind —
+  `packages/mcp/src/search/normalize.ts` documents the search primitive as *"No
+  stemming, fuzzy, weighting, or ranking"*, and `search-decisions.ts` returns
+  *"bounded summaries only — no ranking, no model, no body."* `specs/011-*`
+  deliberately does not build a ranker.
+
+  A floor calibrated over a ranking function that does not exist would be a
+  parameter whose tuning changes nothing — a measurement that measures nothing,
+  which is the precise failure ADR-0027 rescoped ADR-0005 to prevent, and which
+  FR-017b forbids elsewhere in this same document. Applying this feature's own
+  rule to itself: the relevance floor is **`nothing-to-measure`** (FR-017b class
+  1), not a parameter awaiting a value.
+
+  Consequently `novel-no-precedent` is expected to be permanently
+  `evidence-absent` in the holdout until a ranking primitive exists. That is
+  recorded, not worked around. Who owns such a primitive is unassigned and is
+  **not** claimed here.
+  `[NEEDS CLARIFICATION: relevance primitive ownership]`
 
 - **FR-021 — Override rate is defined now, and `not-computable` is its correct
   published answer.** Override rate = `|{c : a human reversed the routing
@@ -1030,6 +1137,22 @@ verdict.
 - **SC-025**: The label audit records an explicit **adequacy** finding; an audit
   that confirms hash integrity but never reaches an adequacy finding is
   **observed** recorded as `FAIL` (FR-008, matching `specs/010-*` T021).
+- **SC-026**: Aggregate confidence is computed over a **fixed denominator of 8**;
+  a fixture in which only two dimensions were attempted and both cited is
+  **observed** yielding `0.25`, not `1.0` (FR-020b).
+- **SC-027**: The contradiction predicate is **observed** firing on (a) a present
+  `hidden-one-way-door` output regardless of Pass 2's score, and (b) any present
+  adversarial output bearing on a dimension Pass 2 scored **≥ 3**; and
+  **observed** not firing when Pass 2 scored `< 3` on that dimension, or when the
+  adversarial output is explicitly absent (FR-020c).
+- **SC-028**: Drift is **observed** computed on the post-drop surviving score,
+  with the raw score retained; a fixture in which citation behavior changed but
+  judgment did not is **observed** distinguishable from one in which judgment
+  changed (FR-019).
+- **SC-029**: No relevance-floor parameter is shipped or calibrated;
+  `novel-no-precedent` is **observed** reported as `evidence-absent` with the
+  `nothing-to-measure` class rather than as a tunable awaiting a value
+  (FR-020d).
 - **SC-012**: Removing the absence statement from `docs/RELEASING.md` is
   **observed** failing the enforcement; declaring a probabilistic pass while the
   absence statement remains is **observed** failing it for the opposite reason.
@@ -1092,7 +1215,7 @@ one-way door.
 
 ### Outstanding — `[NEEDS CLARIFICATION]`
 
-All five remain open by decision of the coordinating review, not by oversight. In
+All six remain open by decision of the coordinating review, not by oversight. In
 each case a mechanism is specified so the unknown cannot silently become a
 passing value (FR-017a).
 
@@ -1128,6 +1251,14 @@ passing value (FR-017a).
    is expected to be exercised **on day one rather than in theory**. Admitting
    external cases would raise `N`'s reachability but introduces provenance and
    privacy questions (FR-024) this spec does not resolve.
+6. **Who owns a relevance/ranking primitive (FR-020d).** Verified: none exists —
+   `packages/mcp/src/search/normalize.ts` documents *"No stemming, fuzzy,
+   weighting, or ranking"*. So `novel-no-precedent` has no function to threshold
+   and this feature scopes **no** relevance floor: calibrating a floor over a
+   nonexistent ranking function would be a parameter whose tuning changes
+   nothing. The trigger is expected to stay permanently `evidence-absent` until a
+   primitive exists. `specs/011-*` explicitly declines to build one; ownership is
+   unassigned and is **not** claimed here.
 
 ---
 
@@ -1139,6 +1270,9 @@ passing value (FR-017a).
   `pass-disagreement`, `novel-no-precedent`. They stay named in the rubric and
   absent from the router (ADR-0027 §2).
 - **Any model, prompt, embedding, or retrieval dependency** (FR-029).
+- **Building a relevance/ranking primitive** (FR-020d). None exists, and this
+  feature does not claim one — nor does it scope a floor over a function that
+  does not exist.
 - **Any change to Pass 0's behavior, output, or persistence contract** (FR-002).
   Notably: this feature does **not** fix the default human render dropping the
   not-proven half, and does **not** populate `ranAt`. Both are recorded as

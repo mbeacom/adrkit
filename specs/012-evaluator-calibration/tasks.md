@@ -237,7 +237,10 @@ exists to grade.
 - [ ] T041 [US5] Implement `packages/evaluator/src/calibration/not-computable.ts` and `calibration/metrics.ts`: the FR-018 positive-class mapping; precision, recall, FNR in both split forms; per-dimension drift; disagreement with the zero-defect signal; and override rate as published-`not-computable`. Pure and model-free (FR-022)
 - [ ] T042 [US5] Implement `calibration/report.ts`: canonical `CalibrationReport` assembly and serialization via `canonicalBytes`, with every sort using `byCodeUnit`
 - [ ] T043 [US5] Specify the **`ε` derivation mechanism** (FR-019a) in `contracts/metric-definitions.md` and implement it as a testable function over two model versions' scores on the same frozen `H` — **shipping no `ε` value** (SC-010a). Record that the resulting value requires ratification in a record before it governs breaking-change status
-- [ ] T043a [US5] Specify the derivation mechanism for the other two calibratable thresholds (FR-020a) — the `low-confidence` threshold (rubric default `0.7`) and the `novel-no-precedent` relevance floor — **shipping no new value**; record that the rubric's documented defaults stand until calibration justifies moving them, and that moving one is an ADR with calibration deltas attached. Record the assumed constraint that the confidence scalar is derived from output **structure**, never model self-report (Constitution IV)
+- [ ] T043a [US5] Specify the derivation mechanism for the `low-confidence` threshold (FR-020a, rubric default `0.7`) — **shipping no new value**; record that the documented default stands until calibration justifies moving it, and that moving it is an ADR with calibration deltas attached
+- [ ] T043b [P] [US5] [OBSERVE-FAIL] Implement **aggregate confidence** (FR-020b) as a pure function over `RubricScoreSnapshot`: surviving-and-cited dimensions ÷ **8**. Observe failing against an implementation using "dimensions attempted" as the denominator — a two-dimension run with both cited must yield `0.25`, not `1.0` (SC-026)
+- [ ] T043c [P] [US5] [OBSERVE-FAIL] Implement the **contradiction predicate** (FR-020c) as a pure function over `RubricScoreSnapshot` + `AdversarialSnapshot`. Fixtures: present `hidden-one-way-door` fires regardless of Pass 2's score; a present output bearing on a dimension scored **≥ 3** fires; the same output against a dimension scored `< 3` does **not**; an explicitly-absent output contributes nothing (SC-027). Export it for `specs/011-*` to evaluate as the trigger — this feature never re-derives the comparison (FR-020)
+- [ ] T043d [P] [US5] [OBSERVE-FAIL] Drift-input fixtures (FR-019): drift computed on the **post-drop surviving** score with the raw score retained; a citation-behavior-only change is distinguishable from a judgment change (SC-028); a model version absent from the baseline yields `measurement-failed`, never a quiet skip
 - [ ] T044 [US5] Confirm `specs/011-probabilistic-evaluator-passes/` consumes these functions rather than redefining them, and that the `pass-disagreement` trigger records three-state evidence this feature can aggregate (FR-020). Message that session with the published surface
 
 **Checkpoint**: the metrics are binding code, not prose a later author can
@@ -313,6 +316,10 @@ score to grade. US6 constrains how the rest lands.
 | SC-023 | T034b, T026, T041 |
 | SC-024 | T030a, T031 |
 | SC-025 | T012, T012a |
+| SC-026 | T043b |
+| SC-027 | T043c |
+| SC-028 | T043d, T041 |
+| SC-029 | T043, T041 |
 | SC-012, SC-013 | T028, T029, T030, T031 |
 | SC-014 | T017, T049 |
 | SC-015 | T048 |

@@ -5,7 +5,7 @@ branch is created or switched** by this work) | **Date**: 2026-08-12 |
 **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/012-evaluator-calibration/spec.md`
-and its five open `[NEEDS CLARIFICATION]` items, all of which remain open by
+and its six open `[NEEDS CLARIFICATION]` items, all of which remain open by
 decision of the coordinating review rather than by oversight.
 
 **Normative sources** (ADRs win on conflict):
@@ -295,19 +295,28 @@ any probabilistic pass exists to be measured. `specs/011-*` consumes them.
 The dual-figure rule (FR-016) is normative in ADR-0027 §3 rather than original
 here, and the marginal figure is the one that satisfies the obligation.
 
-Two ownership boundaries are drawn deliberately, because both are places where
-two features could quietly implement the same idea twice:
+- **Two ownership boundaries are drawn deliberately**, because both are places
+  where two features could quietly implement the same idea twice:
 
-- **The disagreement metric aggregates; it never recomputes** (FR-020). The
-  `pass-disagreement` trigger is `specs/011-*`'s, over output shapes this feature
-  does not define. Rather than share a predicate — which two callers can still
-  invoke differently — this feature reads the evidence the trigger already
-  recorded. There is one computation and one recording.
-- **This feature owns calibratable thresholds, not the values they threshold**
-  (FR-020a). `ε`, the `low-confidence` threshold, and the `novel-no-precedent`
-  relevance floor are tuning parameters with a calibration story. The functions
-  producing confidence and relevance scores are not, and inventing them here
-  would mean inventing another feature's output schema.
+- **The disagreement metric aggregates; it never recomputes** (FR-020). This
+  feature **defines** the contradiction predicate (FR-020c); `specs/011-*`
+  evaluates it as the `pass-disagreement` trigger and records the resulting
+  three-state evidence; this feature aggregates that record. One definition, one
+  evaluation, one recording — so the published rate and the trigger's firings
+  reconcile by construction rather than by diligence.
+- **This feature owns calibratable thresholds *and*, now that the producing
+  shapes are published, the definitions they threshold** (FR-020a/b/c). An
+  earlier draft split them, on the reasoning that the confidence and
+  contradiction functions depend on shapes this feature must not invent. Once
+  `specs/011-*` published `RubricScoreSnapshot` and `AdversarialSnapshot` that
+  premise dissolved — and the split was never sound in the other direction, since
+  a threshold calibrated against a quantity its owner does not define is
+  calibrating something it does not control.
+
+  Both definitions are grounded in the rubric's own text rather than invented:
+  citation coverage is the rubric's existing structural mechanic (*"Uncited
+  scores are dropped by the aggregator"*), and the contradiction cut point is the
+  rubric's own anchor for `3` — *"adequate for the blast radius"*.
 
 ## Constitution Check (post-design re-check)
 
