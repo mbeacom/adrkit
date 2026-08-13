@@ -539,6 +539,26 @@ escalate on model discretion.
       the cited requirement did not contain. Both were found by **reading**, which is the honest
       reason this check is worth automating. **Observe it failing** against a deliberately
       introduced false assertion, then revert (ADR-0016).
+- [ ] T039b [P] Add a check for **an edit reported as made and never written**. After any change
+      that claims to add a requirement, clause, or property, verify the **text** is present in the
+      artifact — not that the enclosing requirement exists, and not that its identifier resolves.
+      This class is invisible to every other check here: reference integrity passes, the
+      asserted-relationship check (T039a) passes, `adr lint` passes, and the withdrawal scan
+      (T033) passes, because nothing is wrong with what *is* there.
+
+      **It is the one class with no contradictory text to catch by reading.** Withdrawn-design
+      prose contradicts the current design; a false assertion contradicts its target; a stale tally
+      contradicts the record. **A missing paragraph contradicts nothing** — nothing in the document
+      points at its absence, so a reader cannot find it by noticing an inconsistency.
+
+      Both known episodes were caused the same way: a scripted multi-part edit aborted partway on
+      an unrelated assertion, and the retry carried forward only some parts, after which the change
+      was reported as complete in a commit message. In this feature it cost FR-028 its entire
+      FR-023b clause — the requirement that a `not-computable` marginal figure fails 012's gate —
+      which was absent from every commit including the one whose message announced it, and was
+      found only by bisecting for the *text*. Feature 012 lost five edits the same way. **Verify
+      the write, not the intent**: re-read the changed region after every scripted edit, and treat
+      an aborted script as having written nothing until proven otherwise.
 - [ ] T039 Maintain an **FR/SC to task traceability index** in this file: every FR and SC maps to
       at least one task, or is explicitly recorded as *specification-only* (a constraint no task
       implements, such as FR-023's prohibition on persistence). Verify no requirement is silently
@@ -563,7 +583,7 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
         ─▶ Phase 4 (US2: T016,T017 ─▶ T018 ─▶ T019,T020)
         ─▶ Phase 5 (US3: T021,T022 ─▶ T023)
         ─▶ Phase 6 (US4: T024,T025,T026 ─▶ T027 ─▶ T028,T029a,T029)
-        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035, T036, T037 ─▶ T038, T039, T039a)
+        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035, T036, T037 ─▶ T038, T039, T039a, T039b)
 ```
 
 **Blocking rules**
@@ -583,7 +603,7 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
 
 ## Status
 
-**Scoped.** Zero of 41 tasks are checked, and none may be checked until T001–T004 clear. Per
+**Scoped.** Zero of 42 tasks are checked, and none may be checked until T001–T004 clear. Per
 [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 this feature is *scoped* and **nothing above it** — not implemented, not reference-verified, not
 landed, not released, not externally validated, not adopted.
