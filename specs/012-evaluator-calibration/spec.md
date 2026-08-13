@@ -577,6 +577,25 @@ verdict.
   by **observing a FAIL** for an audit that confirmed integrity but never reached
   an adequacy finding.
 
+- **FR-009a — The no-persisted-evaluation premise is a standing check, not a
+  one-time observation.** This feature's entire corpus design rests on an
+  invariant: no record carries an `evaluation:` block, so no Pass 0 result exists
+  to harvest and the corpus must be re-derived (Finding 2). The schema **permits**
+  that block and nothing forbids writing it, so the invariant can be broken by a
+  later feature at any time.
+
+  Confirming it once at T002 is therefore insufficient. It MUST be a standing
+  check, observed failing per ADR-0016, in the shape the repository already uses
+  for load-bearing invariants (`packages/catalog-envelope/test/no-correctness-claim.test.ts`
+  guards a vocabulary claim continuously; feature 010 built
+  `scripts/check-freeze-hashes.ts` rather than recording a hash once).
+
+  Either no record carries an `evaluation:` block, or any that does is **excluded
+  from label derivation** and the exclusion is recorded. Without this, FR-009's
+  anti-circularity rule acquires a hole that fails quietly by construction:
+  nothing breaks, the corpus simply becomes partly fitted to the evaluator it
+  grades.
+
 - **FR-009 — Labels MUST NOT be derived from evaluator output.** A label
   justified by which triggers fired is circular and MUST be rejected by FR-008's
   audit. Labels derive from outcome evidence (revert commits, incident records,
@@ -882,7 +901,22 @@ verdict.
   | `nothing-to-measure` | The subject does not exist yet, by construction — e.g. no probabilistic pass has shipped. | Honest and expected. **The only class that may render ADR-0027's absence statement.** |
   | `input-unavailable` | The measurement is well-defined, but a required input does not exist in the project at all — e.g. the override rate's decision log (FR-021). | Honest; a named gap. **Not** ADR-0027's absence statement. |
   | `undefined-value` | The measurement ran over real data and the quantity is mathematically undefined — e.g. zero probabilistic escalations, so `TP + FP = 0`. | **A finding, not a failure.** |
-  | `measurement-failed` | The input should exist and could not be used — holdout unreadable, hash mismatch, `\|H\| < N`, a missing outcome label class, a model version absent from the drift baseline. | **A defect. MUST fail the gate (FR-011).** |
+  | `measurement-failed` | The input should exist and could not be used. **Sub-classed** — see below. | **A defect. MUST fail the gate (FR-011).** |
+
+  **`measurement-failed` carries a sub-class, because its causes demand opposite
+  responses.** Reported as one class it tells a maintainer at 3am only that
+  something failed:
+
+  | Sub-class | Causes | Response |
+  |---|---|---|
+  | `environmental` | holdout unreadable, unhashable, or unreachable; incomplete object graph | retry, fix access, fetch full history — the artifact is probably fine |
+  | `artifact-defect` | hash mismatch; a model version absent from the drift baseline | **do not retry** — the artifact or its provenance is wrong, and a retry that "fixes" it has destroyed the evidence |
+  | `corpus-inadequate` | `|H| < N`; a missing outcome label class | neither retry nor repair — `H` must grow or be re-frozen (FR-007) |
+
+  Every `measurement-failed` state MUST carry exactly one sub-class and the
+  underlying error detail. The gate's behavior is identical across all three — it
+  fails — but the diagnosis is not, and a retry against `artifact-defect` is
+  actively harmful.
 
   **`measurement-failed` is about outcome label classes, never about trigger
   coverage.** A trigger that is `evidence-absent` — including for **every** case
@@ -953,6 +987,39 @@ verdict.
   **false-negative rate** = `FN/(TP+FN)`, published as its **own number** and
   never left for a reader to infer from recall (ADR-0005 and ADR-0027 both name
   it separately).
+
+- **FR-018a — The delta test: when a rubric touch needs a record, and when it does
+  not.** ADR-0005 action item 4 reads *"Treat rubric changes as ADRs, **with
+  calibration deltas attached**"*, and the qualifier is the test rather than
+  decoration:
+
+  > **If a change has a calibration delta to attach, it needs a record. If there
+  > is no "before" to delta against, it belongs in a spec, with the derivation
+  > shown.**
+
+  A change to a **defined** quantity, threshold, or vocabulary has a prior
+  behavior; the delta against it is the evidence the record carries, and without
+  the record that evidence has nowhere to live. **Completing an undefined term**
+  has no prior behavior, so there is no delta to attach and a record would carry
+  no calibration evidence — the requirement's whole point.
+
+  Two conditions attach to the second case, and both are binding:
+
+  1. The artifact MUST state that it is **completing an undefined term, not
+     changing a defined one**, so a reader can check the classification rather
+     than infer it.
+  2. The **derivation MUST be shown inline**, so the completion is auditable
+     where it is made.
+
+  This test is stated once and cited, rather than restated per requirement. Where
+  the boundary depends on which requirement a reader reaches first, the boundary
+  is not a rule — it is an accident of reading order, and the next feature
+  inherits the accident.
+
+  Applying it to this feature: **FR-020b** (confidence) and **FR-020c** (the
+  `≥ 3` predicate) complete undefined terms and are legitimate here.
+  **FR-024a** (the label-class vocabulary) and **FR-019a**/**FR-020a** (moving a
+  documented default) change defined ones and require records.
 
 - **FR-019 — Score drift is per dimension, measured on the surviving score, and
   never averaged.** For dimension `d ∈ {D1..D8}` and model versions `m₁, m₂` over
@@ -1570,6 +1637,22 @@ verdict.
   case is **observed** passing the gate — not rejected as a missing outcome label class
   (FR-023a); and a fixture conflating **structurally absent** with
   **incidentally absent** is **observed** failing.
+- **SC-041**: Both **agreement and disagreement** rates are published over the
+  same denominator; a report publishing only one is **observed** failing, and an
+  agreement rate of `1.0` over `≥ N` evaluated cases is **observed** producing
+  the same defect signal as a disagreement rate of `0.0` (FR-020).
+- **SC-042**: Every `measurement-failed` state carries exactly one sub-class —
+  `environmental`, `artifact-defect`, or `corpus-inadequate` — plus the
+  underlying error detail; a state carrying none or more than one is **observed**
+  failing (FR-017b).
+- **SC-043**: The no-`evaluation:`-block invariant is a **standing** check —
+  **observed failing** against a record that carries one — rather than a
+  one-time confirmation (FR-009a).
+- **SC-044**: FR-020b and FR-020c each state that they **complete an undefined
+  term rather than change a defined one**, and each shows its derivation inline;
+  FR-024a cites the same test (FR-018a) for the opposite disposition. A
+  rubric-touching requirement asserting neither classification is **observed**
+  failing.
 - **SC-032**: With **no pass declared and `N` unratified**, a release is
   **observed green** — the holdout-precondition branch reports
   `nothing-to-measure` and does not fail, while the detector branch still runs

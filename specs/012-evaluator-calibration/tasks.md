@@ -88,6 +88,7 @@ lockfileVersion 1.
 
 - [ ] T001 Confirm ADR-0027 is `accepted` and read its **corrected** text (as corrected in [#139](https://github.com/mbeacom/adrkit/pull/139)): §3's dual whole-gate / probabilistic-marginal requirement and the sentence *"the whole-gate figure alone does not satisfy it"*, plus the corrected emission-vs-retention table row. Record the ADR's content hash in `checklists/evidence-index.md` so a later drift is detectable
 - [ ] T002 Confirm the four fixed-contract invariants above are true of the tree at start: `adr lint` clean; no record carries an `evaluation:` block; `bun run check:deps` green; `schema:emit` drift clean. Record the baseline in `checklists/evidence-index.md`
+- [ ] T002a [OBSERVE-FAIL] Make the no-`evaluation:`-block invariant a **standing** check rather than a one-time confirmation (FR-009a, SC-043) — the schema permits the block and nothing forbids writing it, so a later feature can break the corpus premise silently. Observe it **failing** against a record that carries one, in the shape of `packages/catalog-envelope/test/no-correctness-claim.test.ts`
 - [ ] T003 Confirm with the maintainer that the five `[NEEDS CLARIFICATION]` items remain open by decision, and that this feature therefore ships **no** `ε` value, **no** `N` value, **no** override-rate source, **no** rubric edit, and draws cases from this repository only unless told otherwise
 
 ## Execution Phase 1: Setup
@@ -234,11 +235,13 @@ exists to grade.
 
 - [ ] T033 [P] [US5] [OBSERVE-FAIL] Empty-denominator fixtures: precision with `TP+FP = 0` and recall/FNR with `TP+FN = 0` are each reported **absent** — never `1.0`, never `0`, never `n/a` as a value (SC-008). **The single representation is `not-computable` carrying the `undefined-value` class (FR-017b)**; "absent" is how that state is *rendered*, never a second return contract. Observe failing against an implementation that returns `1.0`, and against one that returns a bare `absent` sentinel with no class or reason code
 - [ ] T034 [P] [US5] [OBSERVE-FAIL] `not-computable` fixtures: every uncomputable metric returns `not-computable` with a machine reason code naming why — empty denominator, `|H| < N`, missing outcome label class, absent input source (FR-017a, SC-008a). Observe failing against any rendering that coerces the state to a passing-looking value
+- [ ] T034c [P] [US5] [OBSERVE-FAIL] Sub-class fixtures: every `measurement-failed` state carries exactly one of `environmental` / `artifact-defect` / `corpus-inadequate` plus the underlying error detail (SC-042). Observe failing against a state carrying none or more than one — the diagnosis differs even though the gate's behavior does not, and a retry against `artifact-defect` destroys the evidence
 - [ ] T034a [P] [US5] [OBSERVE-FAIL] **Four-class fixtures (FR-017b).** Assert every `not-computable` state carries exactly one of `nothing-to-measure` / `input-unavailable` / `undefined-value` / `measurement-failed` (SC-021); observe failing against a state carrying none, more than one, or collapsing `undefined-value` into `measurement-failed`. Assert a **computed zero** is distinct from every `not-computable` state (SC-022) — this is the "measured, and clean" vs "could not measure" boundary
 - [ ] T034b [P] [US5] [OBSERVE-FAIL] `measurement-failed` fixtures: an unreadable holdout, a hash mismatch, `|H| < N`, a missing outcome label class, and a model version absent from the drift baseline each **fail the gate** and each **do not** produce ADR-0027's absence statement (SC-023). Observe failing against an implementation that reports any of them as an environmental absence — the `run-network-denied.ts` failure shape
 - [ ] T035 [P] [US5] [OBSERVE-FAIL] Split fixtures: a case with **any** deterministic trigger proven is excluded from the probabilistic-marginal population, and precision/recall/FNR are each produced in **both** forms (FR-016, SC-009). Observe failing against a whole-gate-only implementation
 - [ ] T035a [P] [US5] [OBSERVE-FAIL] Whole-gate qualifier fixture: every whole-gate figure carries the machine-readable denominator-limitation qualifier naming the landed-eight false/absent conflation, emitted **from the report** rather than from prose (FR-016a, SC-005b). Observe failing against a report that emits a whole-gate figure without it
 - [ ] T036 [P] [US5] [OBSERVE-FAIL] Drift fixtures: reported per dimension, with a compensating-pair fixture producing **no** single averaged figure (FR-019, SC-010); and with no `ε` observed, drift reports `not-computable` rather than a passing comparison
+- [ ] T037b [P] [US5] [OBSERVE-FAIL] Agreement/disagreement fixtures: **both** rates are published over the same denominator (SC-041); a report publishing only one fails; an agreement rate of `1.0` over `≥ N` evaluated cases produces the same defect signal as a disagreement rate of `0.0`
 - [ ] T037 [P] [US5] [OBSERVE-FAIL] Disagreement fixtures: (a) the metric **aggregates recorded `pass-disagreement` evidence** and never recomputes the Pass 2 / Pass 3 comparison — observe failing against a second implementation that re-derives it (SC-011a); (b) `evidence-absent` cases are excluded from the denominator, not counted as agreement (SC-011b); (c) a rate of exactly `0.0` over ≥ `N` **evaluated** cases produces a **defect signal**, while the same rate below `N` produces `not-computable` (FR-020, SC-011)
 - [ ] T037a [P] [US5] [OBSERVE-FAIL] Case-shape fixtures: a case storing `positive(c)`, an expected-escalation boolean, or a per-dimension reference score is **rejected** (FR-005a, FR-005b, SC-020). Observe failing against a case format that permits any of them
 - [ ] T038 [P] [US5] [OBSERVE-FAIL] Override-rate fixture: the metric is **present** in the report in the `not-computable` state with a reason code naming the missing decision log; a report omitting it entirely **fails** (FR-021, SC-008b)
@@ -347,6 +350,10 @@ score to grade. US6 constrains how the rest lands.
 | SC-037 | T040 |
 | SC-038, SC-039 | T010d, T045, T046 |
 | SC-040 | T010b, T023a, T026 |
+| SC-041 | T037b, T041 |
+| SC-042 | T034c, T040, T041 |
+| SC-043 | T002a |
+| SC-044 | T008, T043b, T043c |
 | SC-012, SC-013 | T028, T029, T030, T031 |
 | SC-014 | T017, T049 |
 | SC-015 | T048 |
