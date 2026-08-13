@@ -175,6 +175,7 @@ pass without a qualifying frozen holdout that predates its first score.
 - [ ] T022 [P] [US3] [OBSERVE-FAIL] Fixture + test: registry/dependency-graph disagreement in **both** directions — a model/prompt/embedding/retrieval dependency the registry does not declare, and a registry entry with no corresponding dependency. Observe failure on each (FR-013, SC-006)
 - [ ] T023 [P] [US3] [OBSERVE-FAIL] Fixture + test: a holdout failing a validity precondition — below `N`, or missing an **outcome label class** (FR-023). Observe failure (SC-006)
 - [ ] T023a [P] [US3] [OBSERVE-FAIL] Fixture + test: a holdout in which one trigger (e.g. `novel-no-precedent`) is `evidence-absent` for **every** case **passes** the gate — outcome label classes and triggers are different axes (FR-023a, SC-030). Observe the gate **wrongly rejecting** it before the distinction is implemented, then observe it passing. Also assert **structurally absent** (`nothing-to-measure`) is recorded distinctly from **incidentally absent** (`input-unavailable`)
+- [ ] T023b [P] [US3] [OBSERVE-FAIL] Fixture + test: the `not-computable` class is **derived from observed state**, never hardcoded per trigger (FR-023a, SC-031). A fixture in which a relevance primitive is present but produces nothing must yield `input-unavailable`, not `nothing-to-measure`. Observe failing against an implementation containing `if (trigger === 'novel-no-precedent') return 'nothing-to-measure'` — correct today, silently wrong the day a primitive ships
 - [ ] T024 [P] [US3] [OBSERVE-FAIL] Fixture + test: **fail-closed** behavior — an unreadable, unhashable, absent, and hash-mismatched manifest each fail; unknown is never treated as satisfied (FR-014, SC-007)
 
 ### Implementation for User Story 3
@@ -322,6 +323,7 @@ score to grade. US6 constrains how the rest lands.
 | SC-028 | T043d, T041 |
 | SC-029 | T043, T041 |
 | SC-030 | T023a, T026 |
+| SC-031 | T023b, T026 |
 | SC-012, SC-013 | T028, T029, T030, T031 |
 | SC-014 | T017, T049 |
 | SC-015 | T048 |

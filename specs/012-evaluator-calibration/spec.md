@@ -948,7 +948,7 @@ verdict.
   first run rather than in theory (see clarification 5).
   `[NEEDS CLARIFICATION: N]`
 
-- **FR-023a — Outcome outcome label classes and triggers are different axes, and a
+- **FR-023a — Outcome label classes and triggers are different axes, and a
   permanently `evidence-absent` trigger is valid.** The four classes in FR-004
   and FR-023 are **outcome labels** on a case (`shipped-clean`,
   `shipped-reverted`, `caused-incident`, `rejected-in-review`). They are **not**
@@ -975,6 +975,22 @@ verdict.
   Collapsing the two would hide a regression in which a working primitive
   silently stops producing evidence, by making it look like the permanent,
   expected condition — the same substitution FR-017b forbids of the metrics.
+
+  **The class MUST be derived from whether the primitive exists, never hardcoded
+  per trigger.** An implementation that writes
+  `if (trigger === 'novel-no-precedent') return 'nothing-to-measure'` is correct
+  today and becomes wrong silently the day a ranking primitive ships: the trigger
+  would keep reporting `nothing-to-measure` while a real primitive sat behind it
+  producing nothing, and the transition to `input-unavailable` — the one that
+  says *this used to be impossible and now it is merely failing* — would never
+  appear.
+
+  This is the same defect as deriving the absence statement from
+  `if (noProbabilisticPass)` rather than from the report state (FR-026), one
+  level down. Both are a **branch on a condition the reporter believes is
+  permanent**, and both go stale without failing. Wherever this feature reports a
+  `not-computable` class, the class is a function of observed state, not of an
+  identifier.
 
 #### Absence statement and privacy
 
@@ -1191,6 +1207,11 @@ verdict.
   case is **observed** passing the gate — not rejected as a missing outcome label class
   (FR-023a); and a fixture conflating **structurally absent** with
   **incidentally absent** is **observed** failing.
+- **SC-031**: The `not-computable` class is **observed** derived from observed
+  state rather than from a trigger identifier — a fixture in which a relevance
+  primitive is present but produces nothing is **observed** yielding
+  `input-unavailable`, not `nothing-to-measure`, and an implementation that
+  hardcodes the class per trigger is **observed** failing (FR-023a).
 - **SC-012**: Removing the absence statement from `docs/RELEASING.md` is
   **observed** failing the enforcement; declaring a probabilistic pass while the
   absence statement remains is **observed** failing it for the opposite reason.
