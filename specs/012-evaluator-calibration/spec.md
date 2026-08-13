@@ -303,7 +303,7 @@ observe it pass on the conforming case.
    dependency that the declared passes registry does not list — **or** a registry
    entry with no corresponding dependency — **When** the gate runs, **Then** it
    **fails**. Neither source may quietly disagree with the other.
-4. **Given** a holdout missing one of the four label classes, or smaller than
+4. **Given** a holdout missing one of the four outcome label classes, or smaller than
    `N`, **When** the gate runs, **Then** it **fails** (FR-023).
 5. **Given** a holdout manifest that is unreadable, unhashable, or whose
    recomputed hash differs from the recorded one, **When** the gate runs, **Then**
@@ -546,7 +546,7 @@ verdict.
   reviewer with **no authoring involvement** in the labels MUST, in a separate
   task and before US2 begins: **recompute** every recorded hash from the
   artifacts themselves — never copy or merely confirm the recorded values;
-  confirm all four label classes are present; confirm each label is justified by
+  confirm all four outcome label classes are present; confirm each label is justified by
   evidence independent of any evaluator output; record an explicit **adequacy**
   finding on the corpus; and record the auditor's **own** `PASS`/`FAIL` verdict.
   A `FAIL` blocks US2.
@@ -554,7 +554,7 @@ verdict.
   **Integrity alone does not satisfy this requirement.** An audit that confirms
   every hash matches and stops there has established that the corpus is
   unmodified, not that it is fit to calibrate against — an `H` can be perfectly
-  intact and still lack a label class, or be too small, or carry labels derived
+  intact and still lack a outcome label class, or be too small, or carry labels derived
   from evaluator output. Reporting integrity as if it were adequacy is the same
   substitution FR-017b forbids of the metrics: a narrower measurement presented
   as a broader assurance. `specs/010-*` T019 and T021 establish this shape, T021
@@ -666,7 +666,7 @@ verdict.
   reason code.** A metric that cannot be computed MUST emit an explicit
   `not-computable` state carrying a stable, namespaced machine reason code naming
   *why* — at minimum: an empty denominator (FR-017), a holdout below `N`
-  (FR-023), a missing label class (FR-023), and an absent input source (FR-021).
+  (FR-023), a missing outcome label class (FR-023), and an absent input source (FR-021).
   A `not-computable` state MUST NEVER be rendered as, coerced to, or defaulted to
   a value that reads as passing. This rule is binding **independently of** the
   values eventually chosen for `ε` and `N`: it is what prevents an unset constant
@@ -683,11 +683,17 @@ verdict.
   | `nothing-to-measure` | The subject does not exist yet, by construction — e.g. no probabilistic pass has shipped. | Honest and expected. **The only class that may render ADR-0027's absence statement.** |
   | `input-unavailable` | The measurement is well-defined, but a required input does not exist in the project at all — e.g. the override rate's decision log (FR-021). | Honest; a named gap. **Not** ADR-0027's absence statement. |
   | `undefined-value` | The measurement ran over real data and the quantity is mathematically undefined — e.g. zero probabilistic escalations, so `TP + FP = 0`. | **A finding, not a failure.** |
-  | `measurement-failed` | The input should exist and could not be used — holdout unreadable, hash mismatch, `\|H\| < N`, a missing label class, a model version absent from the drift baseline. | **A defect. MUST fail the gate (FR-011).** |
+  | `measurement-failed` | The input should exist and could not be used — holdout unreadable, hash mismatch, `\|H\| < N`, a missing outcome label class, a model version absent from the drift baseline. | **A defect. MUST fail the gate (FR-011).** |
+
+  **`measurement-failed` is about outcome label classes, never about trigger
+  coverage.** A trigger that is `evidence-absent` — including for **every** case
+  in `H` — is **not** a `measurement-failed` and does not fail the gate; see
+  FR-023a, which governs. This table is the normative statement of what fails a
+  release, so the qualifier is repeated here rather than left to a reader who
+  arrives at this table first.
 
   Two collapses are specifically forbidden, because each destroys the signal the
   report exists to carry:
-
   - **`undefined-value` MUST NOT be represented as `measurement-failed`, or the
     reverse.** "We measured, and the quantity is undefined" is a finding about
     the passes — zero probabilistic escalations may mean the passes contribute
@@ -942,12 +948,12 @@ verdict.
   first run rather than in theory (see clarification 5).
   `[NEEDS CLARIFICATION: N]`
 
-- **FR-023a — Outcome label classes and triggers are different axes, and a
+- **FR-023a — Outcome outcome label classes and triggers are different axes, and a
   permanently `evidence-absent` trigger is valid.** The four classes in FR-004
   and FR-023 are **outcome labels** on a case (`shipped-clean`,
   `shipped-reverted`, `caused-incident`, `rejected-in-review`). They are **not**
   triggers. A trigger recorded `evidence-absent` — even for **every** case in `H`
-  — MUST NOT be treated as a missing label class and MUST NOT fail the gate.
+  — MUST NOT be treated as a missing outcome label class and MUST NOT fail the gate.
 
   This is not hypothetical: `novel-no-precedent` is expected to be
   `evidence-absent` for 100% of cases permanently, because no relevance primitive
@@ -984,7 +990,7 @@ verdict.
   limitations appendix.** A reader who stops after the verdict must still have
   seen them.
 
-- **FR-024a — The four label classes are treated as closed, and the known gap is
+- **FR-024a — The four outcome label classes are treated as closed, and the known gap is
   recorded rather than papered over.** A case fitting none of the four classes
   MUST be **excluded** from `H` with the exclusion and its reason recorded — it
   MUST NOT be relabeled to fit. The known gap is real: "shipped, later superseded
@@ -1116,7 +1122,7 @@ verdict.
   or `0` in that condition.
 - **SC-008a**: Every uncomputable metric returns `not-computable` carrying a
   machine reason code — proven by fixture for an empty denominator, a holdout
-  below `N`, a missing label class, and the override rate's absent decision log.
+  below `N`, a missing outcome label class, and the override rate's absent decision log.
   A fixture attempting to render any `not-computable` state as a passing value is
   **observed** failing.
 - **SC-008b**: The override rate appears in the report in the `not-computable`
@@ -1156,7 +1162,7 @@ verdict.
   distinctly from every `not-computable` state — *measured, and clean* never
   shares a representation with *could not measure*.
 - **SC-023**: A `measurement-failed` state — an unreadable holdout, a hash
-  mismatch, `|H| < N`, a missing label class, or a model version absent from the
+  mismatch, `|H| < N`, a missing outcome label class, or a model version absent from the
   drift baseline — is **observed** failing the gate, and **observed** not
   producing ADR-0027's absence statement.
 - **SC-024**: The absence statement is **observed** originating in the report's
@@ -1182,7 +1188,7 @@ verdict.
   `nothing-to-measure` class rather than as a tunable awaiting a value
   (FR-020d).
 - **SC-030**: A holdout in which one trigger is `evidence-absent` for **every**
-  case is **observed** passing the gate — not rejected as a missing label class
+  case is **observed** passing the gate — not rejected as a missing outcome label class
   (FR-023a); and a fixture conflating **structurally absent** with
   **incidentally absent** is **observed** failing.
 - **SC-012**: Removing the absence statement from `docs/RELEASING.md` is
@@ -1229,7 +1235,7 @@ one-way door.
    its diff is legible in review and its ancestry is checkable.
 3. **`specs/011-*` is the only consumer** of the metric functions in the
    foreseeable term; the contract is written for that consumer specifically.
-4. **The four rubric label classes are treated as closed** for this feature. A
+4. **The four rubric outcome label classes are treated as closed** for this feature. A
    case fitting none is **excluded with its reason recorded**, never relabeled to
    fit (FR-024a). The gap is real and its resolution is an ADR, not an edit.
 5. **Cases are drawn from this repository's own history** unless clarification 5
@@ -1269,7 +1275,7 @@ passing value (FR-017a).
    neither invented a source nor quietly dropped. A sketch of what such a log
    would need to record is listed under Out of Scope as a pointer, deliberately
    not as scope.
-4. **Whether the four rubric label classes are exhaustive (FR-024a).** They are
+4. **Whether the four rubric outcome label classes are exhaustive (FR-024a).** They are
    not, for this corpus: "shipped, later superseded without incident" describes
    several records in `docs/adr/` and fits none of the four. Recorded as a gap;
    **resolving it requires an ADR**, since rubric changes are ADRs (ADR-0005

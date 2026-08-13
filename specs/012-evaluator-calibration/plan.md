@@ -217,7 +217,7 @@ directory (more discoverable, and it will outlive this feature's spec).
 The corpus is authored, hashed, and audited before anything derives from it. The
 audit is a **separate task with a separate owner** — a fresh-context reviewer
 with no authoring involvement — that recomputes every hash, confirms all four
-label classes are present, confirms each label is justified by outcome evidence
+outcome label classes are present, confirms each label is justified by outcome evidence
 **independent of any evaluator output** (FR-009, the anti-circularity rule), and
 records an explicit `PASS`/`FAIL`. A `FAIL` blocks derivation.
 
