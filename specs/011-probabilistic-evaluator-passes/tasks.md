@@ -476,6 +476,16 @@ escalate on model discretion.
       `nothing-to-measure` can render ADR-0027's absence statement (FR-028; 012 FR-017b).
       **Observe each failing** against a deliberately defaulted value and against a deliberately
       misclassified one, then revert (ADR-0016).
+- [ ] T039a [P] Add an **asserted-relationship check** over these three documents: wherever a
+      requirement, success criterion, or task asserts that another one says something — "per
+      FR-0NN", "FR-0NN requires", "cited in SC-0NN" — verify the claim **holds in that target's
+      text**, not merely that the identifier resolves. Reference integrity is a check on *form*;
+      this class of defect is a failure of *agreement*, and it passes every ID-resolution check
+      cleanly. Both features hit it: a success criterion here asserted a resolved decision while
+      the requirement body still called it open, and feature 012 had an SC assert a citation that
+      the cited requirement did not contain. Both were found by **reading**, which is the honest
+      reason this check is worth automating. **Observe it failing** against a deliberately
+      introduced false assertion, then revert (ADR-0016).
 - [ ] T039 Maintain an **FR/SC to task traceability index** in this file: every FR and SC maps to
       at least one task, or is explicitly recorded as *specification-only* (a constraint no task
       implements, such as FR-023's prohibition on persistence). Verify no requirement is silently
@@ -500,7 +510,7 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
         ─▶ Phase 4 (US2: T016,T017 ─▶ T018 ─▶ T019,T020)
         ─▶ Phase 5 (US3: T021,T022 ─▶ T023)
         ─▶ Phase 6 (US4: T024,T025,T026 ─▶ T027 ─▶ T028,T029a,T029)
-        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035, T036, T037 ─▶ T038, T039)
+        ─▶ Phase 7 (T030–T033 [P] ─▶ T034 ─▶ T035, T036, T037 ─▶ T038, T039, T039a)
 ```
 
 **Blocking rules**
@@ -520,7 +530,7 @@ Phase 1 ─▶ Phase 2 (US1: T008,T009 ─▶ T010 ─▶ T011,T012)
 
 ## Status
 
-**Scoped.** Zero of 40 tasks are checked, and none may be checked until T001–T004 clear. Per
+**Scoped.** Zero of 41 tasks are checked, and none may be checked until T001–T004 clear. Per
 [ADR-0014](../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 this feature is *scoped* and **nothing above it** — not implemented, not reference-verified, not
 landed, not released, not externally validated, not adopted.

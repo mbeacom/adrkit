@@ -927,6 +927,13 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
     surface, and a declared pass whose surface is in **none** of them MUST be a
     `measurement-failed` under 012 FR-013a — source 2 was structurally unable to observe what the
     registry named. It MUST NOT be silently tolerated as a gap.
+  - **The enumeration basis is committed type names, one per pass role** — the request-builder's
+    input type and the response-parser's result type — **not module locations.** A type name is
+    precisely nameable, greppable, and **closed**; *"every module reachable from `index.ts`"* is a
+    transitive graph property that cannot be enumerated without judgment, and it is moved by
+    ordinary refactors, so its enumeration silently narrows as it goes stale. A detector resting
+    on judgment is what the coverage bound below exists to constrain, so the basis must not
+    require any.
   - **Any artifact describing this gate — including this spec — MUST state that its coverage is
     bounded by that enumeration.** This paragraph is that statement.
 
