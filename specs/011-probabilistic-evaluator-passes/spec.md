@@ -643,7 +643,15 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   fewer than six of eight survive with citations. Since a surviving score requires a **validated**
   citation (FR-010), an unresolvable citation lowers confidence rather than inflating it.
 
-  The threshold (default `0.7`) is calibrated by 012.
+  **A pass that barely ran MUST NOT manufacture a measured escalation** (012 FR-020b). Low
+  citation coverage has two very different causes: a pass that ran fully and scored poorly, and a
+  pass that produced almost nothing. Without a boundary the second fires `low-confidence`, records
+  `condition-met`, and counts as a *measured* escalation — from which a recall of `1.0` is
+  manufacturable out of a pass that hardly executed. Below the coverage boundary 012 defines, the
+  trigger MUST record **`evidence-absent`** rather than `condition-met`, so it leaves the
+  denominator instead of flattering it.
+
+  The threshold (default `0.7`) and that boundary are calibrated by 012.
 
 - **FR-017 — `pass-disagreement` records evidence for 012's predicate; it does not recompute
   it.** Pass 3 MUST attribute each of its four outputs to the dimension(s) it bears on
@@ -670,6 +678,13 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   distinguish all three FR-005 states **and** the case where the comparison could not be run at
   all — four distinguishable outcomes, not three — because 012 excludes `evidence-absent` from the
   denominator precisely so a `0.0` cannot be manufactured from missing data (FR-028).
+
+  **The ordinary agreement case MUST be recorded as `condition-unmet`, not left stateless** (012
+  FR-020c). Both passes ran, the comparison was evaluated, and no contradiction was found — that
+  is a measured negative and belongs in the denominator. Left stateless, the denominator would
+  contain only disagreements and collapse toward `1.0` by construction, and the rubric's
+  *"zero disagreement is a defect signal"* would become **unreachable**: the one reading that is
+  supposed to alarm could never occur.
 
 - **FR-018 — `novel-no-precedent` distinguishes novelty from breakage, and is blocked on a
   primitive that does not exist.** The trigger MUST be `condition-met` **only** when retrieval ran
@@ -836,31 +851,50 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   maintainer's own reference repository MUST NOT be described as external validation or as a
   community adopter.
 
-- **FR-027 — This feature MUST declare itself in feature 012's `passes` registry, and the
-  registry's cross-check MUST key on a signal this architecture actually emits.** 012's
-  precondition gate detects *"a probabilistic pass shipped"* so that a pass cannot reach a
-  release without the holdout that governs it. Any pass this feature ships MUST be declared in
-  that registry **in the same change that ships it**.
+- **FR-027 — This feature MUST declare itself in feature 012's `passes` registry, whose
+  cross-check keys on the evaluator's committed pass surface.** 012's precondition gate detects
+  *"a probabilistic pass shipped"* so that a pass cannot reach a release without the holdout that
+  governs it. Any pass this feature ships MUST be declared in that registry **in the same change
+  that ships it**.
 
-  **The dependency graph cannot serve as that signal, and must not be used as one.** Under the
-  harness-driven architecture this same spec ratifies, shipping Passes 1–3 adds **no** model,
-  prompt, embedding, retrieval, or HTTP dependency to any package — FR-004 forbids it, and
-  `scripts/check-deps.ts` inspects declared `package.json` dependencies only. The dependency
-  side of such a cross-check is therefore permanently empty **by construction**, which inverts
-  the gate in both directions: an honestly declared pass is *"a registry entry with no matching
-  dependency"* and would fail every release forever, while an **undeclared** shipped pass leaves
-  registry and graph both empty, they agree, and the gate stays silent — reducing ADR-0027 §3's
-  precondition to a voluntary self-declaration, which is precisely the evasion the record claims
-  it is *"strictly harder to evade"* than.
+  **The detector is the evaluator's committed public surface** (012 FR-013), adopted here rather
+  than re-derived. A shipped probabilistic pass must be **invocable**: a request-builder and a
+  response-parser reachable from `packages/evaluator/src/index.ts` and its committed types. **A
+  pass no caller can invoke has not shipped.** That surface is committed, greppable,
+  deterministic, model-free, observable under the harness architecture, and — the property that
+  makes it a genuine second source — **not authored by the same edit that writes the registry
+  entry**. The cross-check fails in both directions: a pass surface with no registry entry is an
+  undeclared pass; a registry entry with no observable surface is a stale declaration.
 
-  The cross-check MUST therefore key on a signal the harness architecture does emit. Candidate
-  signals, to be settled with 012 before either spec's registry semantics are frozen: the
-  presence of the pass kernels or the prompt-bundle surface in `packages/evaluator/src/index.ts`'s
-  published exports; or the presence of a pass result / `PassAbsence` field in the emitted
-  evaluation output. Both specs MUST name the **same** detector. If no mechanical detector is
-  agreed, the specs MUST state plainly that the registry is **self-declared** and that the
-  cross-check is not evidence of pass-shipping, rather than implying a mechanical guarantee that
-  does not exist. See [Q8](#q8).
+  **The dependency graph is withdrawn as a signal, for two independent reasons, either sufficient
+  alone.** First, it is **empty by construction, permanently**: under the harness architecture
+  adrkit emits a request and consumes a response, so shipping a pass adds no
+  model/prompt/embedding/retrieval dependency to any package (FR-004). Second, it would be
+  **toothless even if non-empty** — `scripts/check-deps.ts` is an **allowlist**, and its own
+  comment records the consequence: a package with no allowlist entry is *"silently unconstrained
+  and passes `check:deps` no matter what it declares"*. No denylist of model libraries exists
+  anywhere in the repository, so even a real model dependency in an unlisted package would pass.
+
+  Per 012 FR-013a the gate **fails** when the second source is structurally unable to observe:
+  *a cross-check whose second source is a constant is one source wearing two names.* Per 012
+  FR-013b **both specs name the same detector** — this requirement is that agreement.
+
+  **The detector is a heuristic with bounded coverage, and MUST say so** (012 FR-013c). It is
+  strictly stronger than what it replaced, which could never fire, but it is not a proof: an
+  implementer who places the request-builder and response-parser outside every location the gate
+  inspects defeats source 2 entirely. Two consequences, both adopted here:
+
+  - The precondition-gate contract MUST **enumerate** the locations that constitute a pass
+    surface, and a declared pass whose surface is in **none** of them MUST be a
+    `measurement-failed` under 012 FR-013a — source 2 was structurally unable to observe what the
+    registry named. It MUST NOT be silently tolerated as a gap.
+  - **Any artifact describing this gate — including this spec — MUST state that its coverage is
+    bounded by that enumeration.** This paragraph is that statement.
+
+  **If no enumeration can be agreed that holds, the correct resolution is to declare the registry
+  self-declared** and state plainly that the cross-check is not evidence of pass-shipping. Weaker
+  and honest beats stronger-sounding and unearned: a gate that reads as mechanical and is not buys
+  confidence it has not earned, which is this feature's own subject matter applied to itself.
 
 - **FR-028 — An uncomputable value is reported as `not-computable` in exactly one of four
   classes.** Any value this feature emits that cannot be computed MUST be rendered as an explicit
