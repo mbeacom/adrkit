@@ -41,7 +41,7 @@ implementation
 - [x] Requirements are testable and unambiguous — each FR maps to at least one
       acceptance scenario or Success Criterion (see the traceability table in
       [tasks.md](../tasks.md)).
-- [x] Success criteria are measurable — SC-001 … SC-029 each name a specific,
+- [x] Success criteria are measurable — SC-001 … SC-030 each name a specific,
       checkable outcome, and the gate/enforcement criteria each name an
       **observed failure** rather than only a passing state (ADR-0016).
 - [x] Success criteria are technology-agnostic in outcome even where citations

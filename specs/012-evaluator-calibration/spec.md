@@ -933,14 +933,42 @@ verdict.
 - **FR-023 — Validity preconditions on `H`, enforced not assumed.** `H` is
   qualifying only if: it is frozen and hash-verified (FR-006); its freeze
   predates the first score (FR-015); `|H| ≥ N`; at least one case of each of the
-  four label classes is present; and every trigger's evidence state is recorded
-  three-state (FR-005). Failure of any precondition MUST fail the gate (FR-011),
-  not merely annotate the report. **When `|H| < N`, or a label class is missing,
-  every affected metric MUST report `not-computable` with its reason code
-  (FR-017a) — never a passing-looking value.** That rule is binding regardless of
-  which number `N` takes, and is expected to be exercised from the first run
-  rather than in theory (see clarification 5).
+  four **outcome label classes** is present; and every trigger's evidence state is
+  recorded three-state (FR-005). Failure of any precondition MUST fail the gate
+  (FR-011), not merely annotate the report. **When `|H| < N`, or an outcome label
+  class is missing, every affected metric MUST report `not-computable` with its
+  reason code (FR-017a) — never a passing-looking value.** That rule is binding
+  regardless of which number `N` takes, and is expected to be exercised from the
+  first run rather than in theory (see clarification 5).
   `[NEEDS CLARIFICATION: N]`
+
+- **FR-023a — Outcome label classes and triggers are different axes, and a
+  permanently `evidence-absent` trigger is valid.** The four classes in FR-004
+  and FR-023 are **outcome labels** on a case (`shipped-clean`,
+  `shipped-reverted`, `caused-incident`, `rejected-in-review`). They are **not**
+  triggers. A trigger recorded `evidence-absent` — even for **every** case in `H`
+  — MUST NOT be treated as a missing label class and MUST NOT fail the gate.
+
+  This is not hypothetical: `novel-no-precedent` is expected to be
+  `evidence-absent` for 100% of cases permanently, because no relevance primitive
+  exists for it to threshold (FR-020d). A gate that read that as a coverage
+  failure would fail-closed on a condition that is structurally permanent and
+  fully expected — turning a correct fail-closed posture into a false alarm that
+  blocks every release.
+
+  Two absence reasons MUST nonetheless be recorded distinctly, because they carry
+  different information and invite different responses:
+
+  - **Structurally absent** — the primitive the trigger depends on does not exist
+    at all, so no case could ever supply it (`novel-no-precedent`). FR-017b class
+    `nothing-to-measure`.
+  - **Incidentally absent** — the primitive exists, but this case's inputs could
+    not supply it (a reconstructed snapshot that could not justify
+    `cost-threshold`). FR-017b class `input-unavailable`.
+
+  Collapsing the two would hide a regression in which a working primitive
+  silently stops producing evidence, by making it look like the permanent,
+  expected condition — the same substitution FR-017b forbids of the metrics.
 
 #### Absence statement and privacy
 
@@ -1153,6 +1181,10 @@ verdict.
   `novel-no-precedent` is **observed** reported as `evidence-absent` with the
   `nothing-to-measure` class rather than as a tunable awaiting a value
   (FR-020d).
+- **SC-030**: A holdout in which one trigger is `evidence-absent` for **every**
+  case is **observed** passing the gate — not rejected as a missing label class
+  (FR-023a); and a fixture conflating **structurally absent** with
+  **incidentally absent** is **observed** failing.
 - **SC-012**: Removing the absence statement from `docs/RELEASING.md` is
   **observed** failing the enforcement; declaring a probabilistic pass while the
   absence statement remains is **observed** failing it for the opposite reason.
