@@ -43,6 +43,14 @@ must be written, run, and **observed failing for the stated reason** before its 
 task begins; a test that passes on first run has proven nothing and must be corrected, not
 accepted. All fixtures are offline, model-free, and network-free.
 
+**Observed-failing is a claim about scope, not just about outcome.** *"The check ran and found
+nothing"* and *"the check could not have found it"* are different results that render
+identically — both are a silent, green pass. Observing a check fail is what distinguishes them,
+because it proves the check's scope actually reaches the thing it reports on. This is why T032
+and T036 must be observed failing in **both** directions rather than once: a cross-check that has
+only ever agreed has not demonstrated it is capable of disagreeing, and would report the honest
+state and the broken state identically.
+
 **Toolchain**: Bun (ADR-0010). `bun install`, `bun run`, `bunx`, `bun test`. Never
 npm/pnpm/yarn/jest/vitest. Any install must use stable Bun **1.3.14** and preserve `bun.lock`
 lockfileVersion 1.

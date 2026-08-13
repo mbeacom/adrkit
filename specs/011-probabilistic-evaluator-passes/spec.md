@@ -1083,8 +1083,14 @@ to prevent. Q7 was resolved during scoping and is recorded under
   inverts the gate in both directions (see FR-027). Candidate replacements — published-surface
   exports, or a pass-result/`PassAbsence` field in the emitted output — are listed in FR-027 and
   are not yet chosen. **Both specs must name the same detector**, or must jointly state that the
-  registry is self-declared and the cross-check is not evidence of pass-shipping. **Owner: the
-  011/012 interface; blocks freezing the registry semantics in either spec.**
+  registry is self-declared and the cross-check is not evidence of pass-shipping.
+
+  Note the shape of the failure, because it is what makes this urgent rather than cosmetic: a
+  cross-check keyed on a signal that cannot fire reports *"no disagreement"* in exactly the same
+  bytes whether the registry is honest or empty. It is not a check that fails open — it is a
+  check whose scope never covered the question, rendering identically to one that looked and
+  found nothing. **Owner: the 011/012 interface; blocks freezing the registry semantics in either
+  spec.**
 
 ## Decisions recorded during scoping
 
