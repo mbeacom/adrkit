@@ -449,6 +449,17 @@ escalate on model discretion.
       that cannot fail is the most dangerous artifact available — it is indistinguishable from a
       working guard. Every `Observe … failing` task in this file MUST name a violation that is
       still constructible, and that MUST be re-audited whenever a design it depends on changes.
+
+      **Scope this check to the pull-request description as well, not only these three files.**
+      The PR body is where the design is argued to a reviewer, and it is the artifact nobody
+      re-reads: a scan over the committed files can be clean for an entire review while the
+      description still argues a withdrawn design or reports a resolved question as an open
+      blocker. Both happened in this feature's own review. Two sub-rules, each from a real miss:
+      **a count stated as an identifier range is its own claim** — verify the highest identifier
+      exists, since suffixed IDs (`T029a`, `T039a`) make the count exceed the maximum and a reader
+      grepping the cited range finds nothing; and **a count must match the property, not the
+      token** — counting occurrences of a marker string also counts legends, quotations, and the
+      check's own text.
 - [ ] T034 Update `plan.md`'s Spec-kit realization table and the outcome ladder to reflect this
       feature's true state using ADR-0014 vocabulary **exactly**. Do not describe the
       maintainer's own reference repository as external validation or as a community adopter.
