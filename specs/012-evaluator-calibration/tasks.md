@@ -103,7 +103,7 @@ exists is how a format gets fitted to the data it was supposed to constrain.
 
 - [ ] T007 [P] Author `contracts/calibration-case.md`: `CalibrationCase` (content-hash + commit identity per FR-003, one label from the closed four-class set per FR-004, three-state trigger evidence per FR-005), `CalibrationCorpus`, and `FreezeManifest` (per-input sha256 + manifest sha256, FR-006). State the FR-007 no-in-place-correction rule and the FR-024a exclusion rule (a case fitting no class is excluded with its reason recorded, never relabeled)
 - [ ] T008 [P] Author `contracts/metric-definitions.md`, **including the field-level shape of `RubricScoreSnapshot` and `AdversarialSnapshot` as the frozen input contract this feature owns** (FR-020a) — `specs/011-*` has not landed and an out-of-tree spec is not a citable contract, so the shapes are defined here and conformed to there. Also: the FR-018 positive-class mapping; precision, recall, and FNR; the FR-016 whole-gate **and** probabilistic-marginal split with ADR-0027 §3 cited as its normative source; FR-019/FR-019a drift (per dimension, never averaged; mechanism not value); FR-020 disagreement with `0.0` as a defect signal; FR-021 override rate as published-`not-computable`; and the FR-017/FR-017a absence and `not-computable` reason-code rules
-- [ ] T009 [P] Author `contracts/precondition-gate.md` (two-source detection per FR-013, commit-ancestry ordering per FR-015, fail-closed behavior per FR-014, validity preconditions per FR-023) and `contracts/absence-statement.md` (required statement, forbidden figures including the `1.0` / `n/a` placeholder, and the FR-026 auto-flip)
+- [ ] T009 [P] Author `contracts/precondition-gate.md` — **including the enumeration of locations that constitute a pass surface (FR-013c), and an explicit statement that the detector's coverage is bounded by that enumeration** — (two-source detection per FR-013, commit-ancestry ordering per FR-015, fail-closed behavior per FR-014, validity preconditions per FR-023) and `contracts/absence-statement.md` (required statement, forbidden figures including the `1.0` / `n/a` placeholder, and the FR-026 auto-flip)
 
 **Checkpoint**: the format cannot be reshaped by the data, because the data does
 not exist yet.
@@ -341,6 +341,7 @@ score to grade. US6 constrains how the rest lands.
 | SC-031 | T023b, T026 |
 | SC-032, SC-033 | T023c, T026, T027 |
 | SC-034 | T022, T026 |
+| SC-034a | T009, T022, T026 |
 | SC-035 | T021, T026 |
 | SC-036 | T023d, T026, T041 |
 | SC-037 | T040 |

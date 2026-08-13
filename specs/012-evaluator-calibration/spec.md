@@ -677,6 +677,40 @@ verdict.
   - a registry entry with no observable pass surface → a stale or speculative
     declaration → **fail**.
 
+- **FR-013c — What the second source proves, and what it does not.** The
+  pass-surface signal is **stronger than the withdrawn dependency check** — that
+  one was empty by construction and could never fire — but it is **not
+  airtight**, and this requirement states the bound rather than letting the gate
+  read as mechanical when it is partly conventional.
+
+  What it proves: a pass whose surface appears in an **enumerated location** is
+  detected without anyone declaring it, and a declaration with no such surface is
+  rejected. Neither direction depends on the declarer's honesty.
+
+  What it does not prove: an implementer who places the request-builder and
+  response-parser **outside every enumerated location** — wired directly through
+  a caller, say — defeats source 2. The signal is therefore a **heuristic over
+  committed state whose coverage is exactly the enumerated set**, not a proof
+  that no pass shipped.
+
+  Two consequences follow, and both are requirements:
+
+  1. The precondition-gate contract MUST **enumerate** the locations that
+     constitute a pass surface. An unenumerated location is not a gap the gate
+     silently tolerates — a declared pass whose surface is in none of them is a
+     `measurement-failed` under FR-013a, because source 2 was structurally unable
+     to observe what the registry named.
+  2. Any artifact describing this gate MUST state that coverage is bounded by
+     that enumeration. **A gate that reads as mechanical and is not is worse than
+     an acknowledged self-report**, because it buys confidence it has not
+     earned — which is this feature's own subject matter applied to itself.
+
+  If `specs/011-*` and this feature cannot agree an enumeration that holds, the
+  correct resolution is **not** a weaker detector described in strong terms: it
+  is to declare the registry **self-declared** and state plainly that the
+  cross-check is not evidence of pass-shipping (FR-013b). Weaker and honest beats
+  stronger-sounding and unearned.
+
 - **FR-013a — The gate fails when the second source cannot observe.** If source 2
   is structurally unable to observe the surface the registry names, the gate MUST
   **fail**, never pass. A cross-check whose second source is a constant is one
@@ -1502,6 +1536,11 @@ verdict.
 - **SC-033**: With **a pass declared and `N` unratified**, the gate is
   **observed failing** with a `measurement-failed` reason code naming the
   unratified `N` (FR-011b).
+- **SC-034a**: The precondition-gate contract **enumerates** the locations that
+  constitute a pass surface, and a declared pass whose surface is in none of them
+  is **observed** producing `measurement-failed` rather than passing (FR-013c);
+  every artifact describing the gate is **observed** stating that its coverage is
+  bounded by that enumeration.
 - **SC-034**: The detector's second source is the committed pass surface, not the
   dependency graph. A pass surface with no registry entry, and a registry entry
   with no observable pass surface, are each **observed failing**; and a fixture
