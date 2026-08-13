@@ -273,7 +273,8 @@ reinterpret.
 - [ ] T048a [P] Record which ADR-0027 action items this feature discharges — **2** (T031, absence statement), **3** (T011/T012, freeze before any score), **4** (T026/T027, gate built and observed failing) — and note that **5** (rubric deferral markers) is authorized by that record but out of scope here, so it is not silently dropped
 - [ ] T049 [P] Confirm `bun run check:deps` and `clean-clone-builds` stay green with the calibration surface present (SC-014)
 - [ ] T050 Record the ADR-0014 standing honestly: this feature is **scoped**; landing targets rungs 1–2 with reproducible, self-verifying, fail-closed, reviewed evidence; **rung 3 is open** and the maintainer's own reference repository is never described as external validation or a community adopter
-- [ ] T051 Final pass: confirm all five `[NEEDS CLARIFICATION]` items are still present and unresolved-by-invention in `spec.md`, and that no `ε` value, `N` value, override-rate source, or rubric edit was introduced anywhere
+- [ ] T051 Final pass: confirm all **six** `[NEEDS CLARIFICATION]` items are still present and unresolved-by-invention in `spec.md`, and that no `ε` value, `N` value, override-rate source, or relevance floor, and no label-class rubric edit, was introduced anywhere
+- [ ] T051a **Assertion-vs-property check.** Where a requirement or success criterion asserts a *relationship* — "FR-A cites FR-B", "both specs name the same detector", "the enumeration covers X" — verify the relationship **holds in the text**, not merely that both IDs resolve. This is a distinct check from cross-reference resolution and catches what that one cannot: during scoping, SC-044 asserted "FR-024a cites the same test (FR-018a)" while FR-024a did not cite it, and every ID in the sentence resolved. A spec that asserts a property of itself which it does not have is the defect this feature exists to prevent, turned inward
 
 ---
 
