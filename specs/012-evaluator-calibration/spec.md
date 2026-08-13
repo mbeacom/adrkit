@@ -1090,7 +1090,17 @@ verdict.
   `disagreement = |{c : pass-disagreement condition-met}| / |{c :
   pass-disagreement condition-met or condition-unmet}|`
 
-  It MUST be reported as *disagreement*, not agreement. A rate of exactly `0.0`
+  **Both figures are published: agreement and disagreement.** The rubric asks for
+  both — line 184 directs *"Publish inter-pass **agreement** rates"*, and line 135
+  says *"**Disagreement** between passes is signal, not noise."* They share a
+  denominator (`agreement = 1 − disagreement`), so publishing both honors 184's
+  letter and 135's intent at zero cost. An earlier draft published only
+  disagreement, which quietly substituted one term for the other: **the
+  substitution was the defect, not the emphasis.** No record is required
+  (FR-018a) — publishing both is not a change to the rubric at all.
+
+  **Disagreement carries the defect signal**, because that is where the rubric
+  locates the failure. A rate of exactly `0.0`
   over a denominator of at least `N` **evaluated** cases MUST be asserted as a
   **defect signal**, not rendered as a passing figure (rubric: *"If Pass 2 and
   Pass 3 never disagree, one of them is not doing its job."*). Below that
@@ -1155,6 +1165,16 @@ verdict.
   most. Dimensions that are absent, uncited, or dropped all lower confidence,
   which is the intended direction.
 
+  **This completes an undefined term; it does not change a defined one**
+  (FR-018a). Rubric line 153 names *"aggregate confidence"* and a `0.7` default
+  and never defines the quantity, so there is no prior behavior to attach a
+  calibration delta to and no record is required. The derivation is shown inline
+  below — FR-018a's second condition — and the `0.7` coherence check is part of
+  it: a definition that makes an existing published constant coherent is
+  completing the rubric, not amending it. The threshold itself still routes
+  through ratification once calibration data exists, exactly as `ε` does
+  (FR-019a, FR-020a).
+
   This is grounded in the rubric's own mechanics rather than invented: *"every
   score above 0 must cite a span of the proposal"*, *"every score below 3 must
   name the specific missing thing"*, and *"Uncited scores are dropped by the
@@ -1206,6 +1226,13 @@ verdict.
      `bearsOn` set — unconditionally, whatever Pass 2 scored; or
   2. any **present** adversarial output carries `d` in its `bearsOn` set **and**
      Pass 2's post-drop surviving score for `d` is **≥ 3**.
+
+  **This too completes an undefined term** (FR-018a). The rubric states the
+  escalation condition in prose and never gives it a cut point, and
+  `pass-disagreement` has never been implementable — so there is no prior firing
+  behavior to delta against. The derivation is shown inline: both disjuncts and
+  the `3` anchor are quoted from published rubric text below. The cut point routes
+  through ratification once calibration data exists, as `ε` does.
 
   Both disjuncts come straight from the rubric, which escalates when Pass 3
   *"surfaces a hidden one-way door **or** an objection that Pass 2 scored as
@@ -1448,9 +1475,14 @@ verdict.
   MUST NOT be relabeled to fit. The known gap is real: "shipped, later superseded
   without incident" describes several records in `docs/adr/` and fits none of the
   four cleanly; forcing it into `shipped-clean` would understate the positive
-  class and inflate recall. Resolving the gap means **changing the rubric's
-  calibration semantics, which is an ADR** (ADR-0005 action item 4, carried
-  forward unmodified by ADR-0027 §4). This feature therefore MUST NOT resolve the
+  class and inflate recall. Resolving the gap means **changing a defined
+  vocabulary**, which under **FR-018a's delta test** requires a record:
+  the four classes are documented, so a change to them has a prior behavior and
+  therefore a calibration delta to attach (ADR-0005 action item 4, carried
+  forward unmodified by ADR-0027 §4). This is the same test that makes FR-020b
+  and FR-020c legitimate *without* a record — they complete undefined terms — so
+  the two dispositions follow from one rule rather than reading as inconsistent
+  treatment. This feature therefore MUST NOT resolve the
   gap by editing `docs/EVALUATOR_RUBRIC.md`; it records the gap and leaves the
   record to be written.
 
