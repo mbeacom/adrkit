@@ -59,9 +59,11 @@ shipping precondition satisfiable:
    dependency-boundary evidence).
 4. **The metric contract** — precision, recall, false-negative rate, score drift,
    inter-pass disagreement, and override rate as pure functions with fixtures,
-   each publishing whole-gate and probabilistic-marginal forms and each able to
-   report `not-computable` with a machine reason code rather than a
-   passing-looking value.
+   each able to report `not-computable` with a machine reason code rather than a
+   passing-looking value. The **whole-gate / probabilistic-marginal split applies
+   to precision, recall, and FNR only** (ADR-0027 §3, FR-016); drift,
+   disagreement, and override rate are not split that way, and creating variants
+   of them would be an unsupported invention.
 
 Plus the **absence statement** in `docs/RELEASING.md`, mechanically enforced and
 **auto-flipping**: forbidden the moment a probabilistic pass is declared, at
@@ -295,12 +297,18 @@ exports, emitted strings, and documents for forbidden vocabulary and asserts a
 required framing is present — and which reports what it examined, so an empty
 document set cannot satisfy it vacuously.
 
-The addition here is the **flip**. Enforcement is a function of the registry:
-while no pass is declared, the absence statement is required and any
-precision/recall/FNR figure — including a `1.0` / `n/a` placeholder — is
-forbidden. The moment a pass is declared, that inverts. This is what makes the
-statement mechanical rather than remembered, and it is what prevents the
-statement from surviving as a lie past the day it stops being true.
+The addition here is the **flip** — and it is driven by the **report**, not by a
+registry boolean. The registry is an *input to report construction*: while no
+pass is declared, every probabilistic metric resolves to `not-computable /
+nothing-to-measure`, and the absence statement is rendered **from that state**.
+Enforcement then consumes the resulting report. While no pass is declared the
+statement is required and any precision/recall/FNR figure — including a `1.0` /
+`n/a` placeholder — is forbidden; the moment a pass is declared, that inverts.
+
+Describing enforcement as "a function of the registry" would reintroduce exactly
+the `if (noProbabilisticPass)` branch FR-026 forbids, and with it the stale
+reassuring statement that branch produces. The registry decides the report's
+state; the report decides the statement.
 
 ADR-0027 is explicit about why the placeholder is banned: *"`precision 1.0,
 recall n/a` reads as a healthy gate and is the more dangerous artifact."*

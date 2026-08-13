@@ -131,7 +131,7 @@ commit is an ancestor of the first derivation commit.
 
 - [ ] T012 [US1] **⛔ ORDERING GATE — independent pre-derivation audit.** A reviewer with **no authoring involvement** in T010a–T011 must, in this separate task and **before Phase 4 begins**: **recompute** every recorded hash from the artifacts themselves (never copy or merely confirm the recorded values); confirm all four outcome label classes are present and `|H|` is recorded; confirm each label is justified by evidence independent of evaluator output (FR-009); confirm every `evidence-absent` marking is justified; record an explicit **adequacy** finding on the corpus — integrity alone does not satisfy; and record the auditor's **own** `PASS` / `FAIL` verdict in `checklists/evidence-index.md`. A `FAIL` blocks Phase 4 and requires a fresh T010b → T012 cycle. Depends on: T011
 - [ ] T012a [US1] [OBSERVE-FAIL] **The audit must be executable for this observation to exist** — model it on `scripts/audit-oracle-freeze.ts`, which is why feature 010's T020/T021 could observe a FAIL at all. Observe the audit **FAIL** against a deliberately altered case, and separately against an audit run that confirms hash integrity but never reaches an adequacy finding (SC-025). Retain both negative cases, matching `specs/010-*` T020/T021 — a retained negative case is what makes the audit's PASS mean something
-- [ ] T013 [US1] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/freeze.test.ts` and **observe it failing** against a deliberately altered case before implementing verification: assert a recomputed manifest hash mismatch is a **failure** and never a silent re-freeze (SC-001); assert a corpus missing a outcome label class is rejected (SC-002); assert the audit record exists, names an independent reviewer, and carries an explicit verdict (SC-003)
+- [ ] T013 [US1] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/freeze.test.ts` and **observe it failing** against a deliberately altered case before implementing verification: assert a recomputed manifest hash mismatch is a **failure** and never a silent re-freeze (SC-001); assert a corpus missing a outcome label class is rejected (SC-002); assert the audit record exists, names an independent reviewer, and carries an explicit verdict — and that derivation is **rejected** when the audit is absent, non-`PASS`, lacks an adequacy finding, or is **not committed before the first derivation commit** (SC-003, FR-023). Accepting any explicit verdict, including `FAIL`, would let T014 go green with the ordering gate unsatisfied
 - [ ] T014 [US1] Implement `packages/evaluator/src/calibration/case.ts` (parse/validate a case and corpus) and `calibration/freeze.ts` (compute and verify the manifest), making T013 pass. Pure: no clock, network, or filesystem inside the functions; ordering via `byCodeUnit`
 
 **Checkpoint**: `H` is frozen, hash-verified, and independently audited `PASS`.
@@ -149,7 +149,7 @@ authored, byte-reproducible, re-derived by CI, and distinguishing
 
 ### Tests for User Story 2 — write and observe failing first
 
-- [ ] T015 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/baseline-determinism.test.ts`: two derivations over identical frozen inputs produce **byte-for-byte identical** output (SC-004); observe it failing against a deliberately non-deterministic ordering (e.g. a `localeCompare` sort) before the implementation is trusted
+- [ ] T015 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/baseline-determinism.test.ts`: two derivations over identical frozen inputs produce **byte-for-byte identical** output (SC-004); observe it failing before the implementation is trusted — the negative case MUST be **discriminating**: two runs of a `localeCompare` sort under the *same* locale are identical, so the fixture must either execute under two known-different ICU locales (as T047 does) or inject two comparators with deliberately different orders. A non-discriminating negative case is an ADR-0016 observation that observes nothing
 - [ ] T016 [P] [US2] [OBSERVE-FAIL] Write `packages/evaluator/test/calibration/evidence-absent.test.ts`: a trigger marked `evidence-absent` contributes to **no** confusion-matrix cell — not TN, not FN (SC-005); observe it failing against an implementation that folds `evidence-absent` into `condition-unmet`. Also assert the calibration vocabulary shares no token with routing's `proven` / `not-proven` and that comparison is exact equality, never substring/prefix matching (`met` is a substring of `unmet`) — SC-005a
 - [ ] T017 [P] [US2] Write `packages/evaluator/test/calibration/purity.test.ts`: the derivation performs no model call and imports no model/prompt/embedding/retrieval library, and its pure functions read no clock, network, or filesystem (SC-014); and `packages/evaluator/test/calibration/no-mutation.test.ts`: no ADR file, acceptance state, or `review` field is written (SC-016)
 
@@ -196,7 +196,13 @@ pass without a qualifying frozen holdout that predates its first score.
 **Goal**: every release states the absence while no probabilistic pass has
 shipped, and the statement becomes forbidden the moment one does.
 
-**Blocked by**: T025 (the enforcement is a function of the registry).
+**Blocked by**: T025 (the registry is an input to report construction) **and
+T040–T042** (the `not-computable` classes and report assembly). FR-026 requires
+the absence statement to be rendered **from the report's `nothing-to-measure`
+state**, not from a registry boolean — so the state must exist before T030a/T031
+can be satisfied. Sequencing Phase 6 on T025 alone would leave the required
+state-driven renderer unimplemented and invite exactly the boolean branch FR-026
+forbids.
 
 ### Tests — write and observe failing first
 
@@ -224,7 +230,7 @@ exists to grade.
 
 ### Tests — write and observe failing first
 
-- [ ] T033 [P] [US5] [OBSERVE-FAIL] Empty-denominator fixtures: precision with `TP+FP = 0` and recall/FNR with `TP+FN = 0` each return **absent** — never `1.0`, never `0`, never `n/a` as a value (SC-008). Observe failing against an implementation that returns `1.0`
+- [ ] T033 [P] [US5] [OBSERVE-FAIL] Empty-denominator fixtures: precision with `TP+FP = 0` and recall/FNR with `TP+FN = 0` are each reported **absent** — never `1.0`, never `0`, never `n/a` as a value (SC-008). **The single representation is `not-computable` carrying the `undefined-value` class (FR-017b)**; "absent" is how that state is *rendered*, never a second return contract. Observe failing against an implementation that returns `1.0`, and against one that returns a bare `absent` sentinel with no class or reason code
 - [ ] T034 [P] [US5] [OBSERVE-FAIL] `not-computable` fixtures: every uncomputable metric returns `not-computable` with a machine reason code naming why — empty denominator, `|H| < N`, missing outcome label class, absent input source (FR-017a, SC-008a). Observe failing against any rendering that coerces the state to a passing-looking value
 - [ ] T034a [P] [US5] [OBSERVE-FAIL] **Four-class fixtures (FR-017b).** Assert every `not-computable` state carries exactly one of `nothing-to-measure` / `input-unavailable` / `undefined-value` / `measurement-failed` (SC-021); observe failing against a state carrying none, more than one, or collapsing `undefined-value` into `measurement-failed`. Assert a **computed zero** is distinct from every `not-computable` state (SC-022) — this is the "measured, and clean" vs "could not measure" boundary
 - [ ] T034b [P] [US5] [OBSERVE-FAIL] `measurement-failed` fixtures: an unreadable holdout, a hash mismatch, `|H| < N`, a missing outcome label class, and a model version absent from the drift baseline each **fail the gate** and each **do not** produce ADR-0027's absence statement (SC-023). Observe failing against an implementation that reports any of them as an environmental absence — the `run-network-denied.ts` failure shape
@@ -287,13 +293,17 @@ Phase 0 (T001–T003)
                         └─ ⛔ T012 PASS ⛔
                               └─> Phase 4 (T015–T019)  derive baseline
                                      ├─> Phase 5 (T020–T027)  the gate
-                                     │      └─> Phase 6 (T028–T032)  absence stmt
                                      └─> Phase 7 (T033–T044)  metrics
+                                            └─> Phase 6 (T028–T032)  absence stmt
+                                                (needs T025 AND T040–T042)
                                             └─> Phase 8 (T045–T051)  polish
 ```
 
 Phases 5 and 7 are independent of each other and may run in parallel once
-Phase 4 completes. Phase 6 depends on T025 from Phase 5.
+Phase 4 completes. **Phase 6 depends on both** — T025 from Phase 5 (the registry)
+and T040–T042 from Phase 7 (the `not-computable` classes and report assembly),
+because FR-026 renders the absence statement from report state rather than from
+a registry boolean.
 
 ### User-story completion order
 

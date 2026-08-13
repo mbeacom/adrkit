@@ -528,11 +528,24 @@ verdict.
   If a later feature needs graded reference scores, that is a new freeze cycle
   (FR-007) and its own scope — not an unused field added speculatively now.
 
-- **FR-006 — The corpus is frozen and content-hashed before any scorer runs.**
-  A manifest MUST record a sha256 for every case input and a sha256 over the
-  manifest itself, and those values MUST be recorded in the tracked evidence
-  index. A recomputed hash that differs from the recorded one is a **failure**,
-  never an occasion to re-freeze silently.
+- **FR-006 — The corpus is frozen and content-hashed before any scorer runs, over
+  a stated canonical projection.**
+  A manifest MUST record a sha256 for every case input, and a manifest digest
+  MUST be recorded in the tracked evidence index. A recomputed hash that differs
+  from the recorded one is a **failure**, never an occasion to re-freeze
+  silently.
+
+  **The manifest digest cannot be a hash over the manifest's own complete
+  bytes** — writing the digest into the file changes the bytes it covers, so no
+  implementation could reproduce it. The digest MUST therefore be computed over
+  a **canonical projection with the self-digest field omitted**, and that
+  projection MUST be defined by reference to one existing canonical form in this
+  repository rather than invented (see `plan.md` — the repository already carries
+  two, and `crypto/sha256.ts` documents itself as "not a general crypto
+  surface"). Storing the manifest digest **only** in the evidence index, and not
+  in the manifest, is an acceptable alternative and avoids the self-reference
+  entirely. T006 records which is chosen; leaving it unstated makes the freeze
+  unverifiable by anyone but its author.
 
 - **FR-007 — Correction requires a new freeze cycle.** After the freeze, a case
   MUST NOT be edited in place. Any correction requires re-authoring, re-hashing,
@@ -1065,8 +1078,16 @@ verdict.
 - **FR-023 — Validity preconditions on `H`, enforced not assumed.** `H` is
   qualifying only if: it is frozen and hash-verified (FR-006); its freeze
   predates the first score (FR-015); `|H| ≥ N`; at least one case of each of the
-  four **outcome label classes** is present; and every trigger's evidence state is
-  recorded three-state (FR-005). Failure of any precondition MUST fail the gate
+  four **outcome label classes** is present; **the FR-008 independent audit exists,
+  records a `PASS` verdict with an adequacy finding, and its commit is an ancestor
+  of the first derivation commit**; and every trigger's evidence state is
+  recorded three-state (FR-005).
+
+  The audit clause is load-bearing and was missing: FR-008 and SC-003 require an
+  adequate `PASS` before derivation, but the *gate* did not check it, so a release
+  could satisfy every gate precondition with no audit at all — or with a recorded
+  `FAIL`. The ordering gate is this feature's centerpiece; a gate that does not
+  verify it enforces the freeze's arithmetic and not its discipline. Failure of any precondition MUST fail the gate
   (FR-011), not merely annotate the report. **When `|H| < N`, or an outcome label
   class is missing, every affected metric MUST report `not-computable` with its
   reason code (FR-017a) — never a passing-looking value.** That rule is binding
