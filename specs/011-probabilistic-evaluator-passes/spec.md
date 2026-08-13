@@ -698,6 +698,20 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   expected condition. If a relevance primitive ever ships, this trigger moves from
   `nothing-to-measure` to `input-unavailable`, and **that transition MUST be visible.**
 
+  **The class MUST be computed from observed state, never branched on the trigger's identity.**
+  `if (trigger === 'novel-no-precedent') return 'nothing-to-measure'` is correct the day it is
+  written and silently wrong the day a ranking primitive ships: the trigger keeps reporting
+  `nothing-to-measure` while a real primitive sits behind it producing nothing, and the very
+  transition the paragraph above requires to be visible never appears. The class MUST therefore be
+  derived from what was actually observed — is a ranking strategy configured, and did it produce
+  output — so that the transition happens by itself.
+
+  This is the general form of the rule FR-028 states for the absence statement, and it is not
+  specific to relevance primitives: **any place a reporter encodes *"this will always be X"* as a
+  branch rather than deriving X is correct when written, invisible when it rots, and rots on
+  exactly the day the thing it described stops being true** — which is the day someone is relying
+  on the report. Both requirements are instances of it (012 FR-023a, FR-026).
+
 - **FR-029 — One module MUST compose the eleven triggers into the canonical ordered output.**
   The landed pipeline emits a single ordered escalation stream: `packages/evaluator/src/patch/project.ts`
   is the sole producer of `EvaluationPatch.escalationReasons`, and feature 007's ARB queue routes

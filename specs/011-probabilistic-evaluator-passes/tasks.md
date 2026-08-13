@@ -51,6 +51,11 @@ and T036 must be observed failing in **both** directions rather than once: a cro
 only ever agreed has not demonstrated it is capable of disagreeing, and would report the honest
 state and the broken state identically.
 
+The sharpest version of this failure is **a check that shares an assumption with the thing it
+checks** — it cannot see the defect, and its green result is not evidence. Construct the failing
+input by a *different route* than the implementation uses: derive it from the requirement's own
+wording rather than from the code, so the check and the code cannot be wrong together.
+
 **Toolchain**: Bun (ADR-0010). `bun install`, `bun run`, `bunx`, `bun test`. Never
 npm/pnpm/yarn/jest/vitest. Any install must use stable Bun **1.3.14** and preserve `bun.lock`
 lockfileVersion 1.
@@ -351,7 +356,12 @@ that escalation resolves to a named human.
       fail 012's gate (012 FR-023a — trigger states and outcome label classes are different axes),
       and that this trigger's metric class is **`nothing-to-measure`** (structurally absent) rather
       than `input-unavailable` (incidentally absent), so a future regression in a working primitive
-      cannot masquerade as the permanent expected condition. **Observe each failing** before T026.
+      cannot masquerade as the permanent expected condition. **Observe an implementation that
+      hardcodes the class per trigger failing** — `if (trigger === 'novel-no-precedent') return
+      'nothing-to-measure'` must be rejected — and assert that a ranking strategy that is present
+      but produces nothing yields `input-unavailable`, not `nothing-to-measure` (FR-018). The class
+      must be a function of observed state, not of an identifier, or the transition FR-018 requires
+      to be visible never happens. **Observe each failing** before T026.
 - [ ] T025 [P] [US4] After Phase 5, write a failing test asserting that `low-confidence`
       thresholds a value **computed by the pure kernel** and that a model-supplied
       self-confidence field, if present in a snapshot, is **ignored** (FR-016). **Observe it
