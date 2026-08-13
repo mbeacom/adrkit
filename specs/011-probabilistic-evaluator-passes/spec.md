@@ -869,8 +869,8 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   governs it. Any pass this feature ships MUST be declared in that registry **in the same change
   that ships it**.
 
-  **The detector is two co-equal enumerated locations** (012 FR-013). **Either firing is
-  detection**; there is no primary:
+  **The detector is two enumerated locations, and either firing is detection** (012 FR-013). This
+  spec states no primary between them:
 
   - **The exported entry-point surface** reachable from `packages/evaluator/src/index.ts` — a
     request-builder and a response-parser. **A pass no caller can invoke has not shipped.**
@@ -883,12 +883,17 @@ triggers are `evidence-absent`, and that the exit code is unchanged.
   cross-check fails in both directions: an observable pass with no registry entry is an undeclared
   pass; a registry entry with neither location observable is a stale declaration.
 
-  **The rank was dropped because nothing depended on it, and it was doing harm.** Both specs
-  ordered these two locations, disagreed, corrected toward each other, and diverged again in the
-  mirror image — four moves in which each ordering argument was individually sound. Nothing in
-  either spec's gate behavior, evidence handling, or ordering anchor reads the rank: either
-  location firing detects. A decorative distinction that cannot change an outcome but *can*
-  disagree between two documents is a defect in the framing, not a question with a right answer.
+  **This spec states no rank because nothing depends on one.** The two specs ranked these
+  locations in opposite directions repeatedly, each ordering argument individually sound, until it
+  was clear the rank carried nothing: no gate behavior, evidence handling, cross-check, or ordering
+  anchor in either spec reads it. A distinction that cannot change an outcome but *can* differ
+  between two documents is a defect in the framing rather than a question with a right answer.
+
+  **Presentation order is not part of the agreement condition.** 012 FR-013b requires the two specs
+  to name the same detector, which means **the same enumerated locations, enumerated on the same
+  basis, with either firing as detection**. Whether a spec presents one location first, or names a
+  primary at all, is presentational. A reader comparing the two documents and finding a difference
+  in emphasis is looking at a difference in prose, not a conflict.
 
   **Both locations are retained, because each is hard to omit in a way the other is not:**
 
@@ -1190,13 +1195,16 @@ variant on the committed report type in `packages/evaluator/src/types.ts`. **Eit
 detection; there is no primary.** Both are enumerated by **committed type name**. The dependency
 graph is **withdrawn** as a signal.
 
-**The ordering churned twice before being dropped, and this record says so rather than reading as
-first-time correct.** Each spec ranked the two locations, disagreed, corrected toward the other,
-and diverged again in the mirror image — four moves, each argument individually sound. The rank
-was then found to be decorative: nothing in either gate reads it. A distinction that cannot change
-an outcome but *can* disagree across two documents required to agree (012 FR-013b) is a defect in
-the framing rather than a question with a right answer. A decision record that hides its own
-revision is the thing this feature spends its requirements arguing against.
+**The rank was inverted repeatedly before being dropped, and this record says so rather than
+reading as first-time correct.** Each ordering argument was individually sound; the rank was
+nonetheless found to carry nothing, since no gate behavior, evidence handling, cross-check, or
+ordering anchor reads it. A distinction that cannot change an outcome but *can* differ across two
+documents is a defect in the framing rather than a question with a right answer. A decision record
+that hides its own revision is the thing this feature spends its requirements arguing against.
+
+This record deliberately does **not** narrate the sequence move by move. A move-by-move history of
+a contested point goes stale on the next move — the same class of rot as prose describing a
+withdrawn design, and the reason T033's scan exists.
 
 **Why the dependency graph failed, in two independent ways.** It is *empty by construction* under
 the harness architecture, since shipping a pass adds no model/prompt/embedding/retrieval
