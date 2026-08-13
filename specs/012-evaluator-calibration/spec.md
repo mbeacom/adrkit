@@ -685,63 +685,58 @@ verdict.
   self-report, which is exactly the evasion ADR-0027 §3 claims a precondition is
   *"strictly harder to evade"* than.
 
-  **The second source is the evaluator's committed pass surface, enumerated in
-  two places, with the exported entry-point surface primary.**
+  **The second source is the evaluator's committed pass surface: two co-equal
+  enumerated locations, each enumerated by committed type name.**
 
-  1. **Primary — the exported entry-point surface, enumerated by committed *type
-     name***: one exported type name per pass role (the request-builder's input
-     type and the response-parser's result type), declared in
-     `packages/evaluator/src/`. **A pass no caller can invoke has not shipped.**
-  2. **Secondary — a pass-result / `PassAbsence` variant** declared on the report
-     type in `packages/evaluator/src/types.ts`.
+  - **The exported entry-point surface** — one exported type name per pass role
+    (the request-builder's input type, the response-parser's result type).
+  - **A pass-result / `PassAbsence` variant** on the report type in
+    `packages/evaluator/src/types.ts`.
+
+  **Either firing is detection.** Both are committed source, greppable without
+  executing anything, deterministic, model-free, and — critically — **not
+  authored by the same edit that writes the registry entry**, which is what makes
+  the two sources independent of the declarer.
+
+  **There is deliberately no primary.** Earlier drafts ranked them, and the rank
+  changed twice: this feature made the report field primary, `specs/011-*`
+  adopted the surface, this feature inverted to match, and `specs/011-*` then
+  inverted back once it was clear the field lives on the committed *type* rather
+  than in emitted output. Reviewing what actually depended on the rank: **nothing
+  did.** Either firing detects; the gate's behavior, the FR-015 anchor (the
+  earliest commit at which *either* location is observed), and the cross-check are
+  all identical under either ordering. The rank was decorative, and a decorative
+  distinction that two careful readers inverted twice is a defect in the framing
+  rather than a disagreement about the answer.
+
+  Both necessity arguments are recorded, because each covers a case the other
+  does not:
+
+  | Location | Why it is hard to omit | Its weakness |
+  |---|---|---|
+  | Entry-point types | A pass that ships must be **invocable** — it cannot talk to the harness without an input and a result type. Omitting them means not shipping. | — |
+  | Report-field variant | The detector and the metrics then read the **same artifact**: a pass that hides by never reporting results also **starves the metrics**, whose figures become `evidence-absent` / `measurement-failed` and, once a pass is declared, **fail the gate** under FR-023b. Evasion leads to a failure by another route rather than to silence. | A field can be added **speculatively**, before any pass exists to populate it, so its presence alone is weaker evidence. |
+
+  The coupling in the second row is a **structural** property, not a stronger
+  heuristic, and it is the one neither ordering argument reached: a module or type
+  location has no such coupling — evading it produces exactly nothing, and nothing
+  is what a gate must never produce about the thing it exists to detect.
+
+  Enumerating **both** means an evader must defeat two independent locations, and
+  the weakness of each is covered by the other.
 
   **The enumeration is by type name, not by module reachability.** An earlier
   draft said "reachable from `packages/evaluator/src/index.ts`" — but
   reachability is a *transitive property over a module graph*, so enumerating it
   is a judgment call, which is precisely what FR-013c warns a bounded detector
   must not rest on. An exported type name is a **precisely nameable, greppable,
-  closed** location. This keeps the committed-state property that made the
-  surface the right source, and supplies the enumerability that made the report
-  field look attractive — the field only ever *seemed* easier to enumerate
-  because it is a field in a type, not because it is in output.
-
-  Both locations are enumerated and **either firing is detection**, so an evader
-  must defeat two independent locations rather than one.
-
-  Either firing is detection. Both are committed source, greppable without
-  executing anything, deterministic, model-free, and — critically — **not
-  authored by the same edit that writes the registry entry**, which is what makes
-  the two sources independent.
-
-  **Why the surface is primary, and the field secondary.** An earlier draft of
-  this requirement inverted them, on the grounds that a report field is a single
-  enumerable location and that keying on it would make the detector and the
-  metrics read the same artifact. `specs/011-*` adopted the surface signal
-  instead and gave two reasons that defeat that ordering:
-
-  - **A field's absence is ambiguous, and observing a value is not reading
-    committed state.** "A field on the emitted report" invites reading the
-    *emitted output*, which would require running the evaluator over some input —
-    and FR-012 confines this gate to committed state at the release commit. Worse,
-    an absent value is ambiguous between *"no pass shipped"* and *"this run
-    produced none"*. This is the same reason FR-015's ordering anchor keys on
-    commit ancestry rather than a date field.
-  - **A field can be added speculatively; an invocable surface cannot.** A type
-    can carry a field before any pass exists to populate it, so the field's
-    presence is weaker evidence than a request-builder and parser that a caller
-    can actually reach. The surface is closer to a necessity.
-
-  The field is kept as the second enumerated location rather than dropped,
-  because the original argument for it still holds as a *secondary* benefit: a
-  pass that hides from the detector by never reporting results also **starves the
-  metrics** — its figures become `evidence-absent` / `measurement-failed`, which
-  under FR-023b fails the gate once a pass is declared. That path turns an
-  evasion into a failure by another route rather than into silence.
+  closed** location.
 
   Cross-check, failing in **both** directions:
-  - a pass surface observed with no registry entry → an undeclared pass → **fail**;
-  - a registry entry with no observable pass surface → a stale or speculative
-    declaration → **fail**.
+  - a pass surface observed at either location with no registry entry → an
+    undeclared pass → **fail**;
+  - a registry entry with no observable pass surface at either location → a stale
+    or speculative declaration → **fail**.
 
 - **FR-013c — What the second source proves, and what it does not.** The
   pass-surface signal is **stronger than the withdrawn dependency check** — that
@@ -802,12 +797,15 @@ verdict.
 
   **Decided and agreed.** `specs/011-*` raised this (its Q8), declined to choose
   unilaterally because the gate is this feature's, and handed the decision back.
-  It was closed here, then **corrected once**: this feature initially made the
-  report field primary; `specs/011-*` adopted the exported surface and gave the
-  two reasons above, which defeat that ordering. **Both specs now name the same
-  detector with the same ordering** — exported surface primary, report field
-  secondary — with FR-013c's coverage bound standing unchanged. `specs/011-*` conforms by carrying the pass-result / `PassAbsence`
-  field on its emitted output. This is recorded as a decision rather than left
+  It was closed here, then the **rank between the two locations changed twice**
+  before both specs converged on dropping it: this feature made the report field
+  primary, `specs/011-*` adopted the surface, this feature inverted to match, and
+  `specs/011-*` inverted back once the field's home on the committed *type* was
+  clear. Nothing depended on the rank, so **there is no primary** — two co-equal
+  enumerated locations, either firing is detection, with both necessity arguments
+  recorded (FR-013). FR-013c's coverage bound stands unchanged. **Conforming, for
+  `specs/011-*`, is carrying both the pass-role types and the pass-result
+  variant.** This is recorded as a decision rather than left
   as an open marker, because an interface question that both parties have
   answered is settled, and leaving it open would misreport the spec's state.
 
@@ -1725,10 +1723,11 @@ verdict.
   is **observed** producing `measurement-failed` rather than passing (FR-013,
   FR-013c); every artifact describing the gate is **observed** stating that its
   coverage is bounded by that enumeration.
-- **SC-034**: The detector's second source is the committed pass surface — the
-  exported entry-point surface primary, the report-type field secondary — and not
-  the dependency graph; both are read from committed source without executing
-  anything (FR-012). A pass surface with no registry entry, and a registry entry
+- **SC-034**: The detector's second source is the committed pass surface — two
+  co-equal enumerated locations, the entry-point types and the report-field
+  variant, with **no primary** — and not the dependency graph; both are read from
+  committed source without executing anything (FR-012), and **either firing is
+  observed to detect**. A pass surface with no registry entry, and a registry entry
   with no observable pass surface, are each **observed failing**; and a fixture
   in which source 2 is structurally unable to observe is **observed failing**
   rather than passing (FR-013, FR-013a).
@@ -1824,8 +1823,8 @@ one-way door.
 
 - **The detector's second source (FR-013b).** Raised by `specs/011-*` as its Q8,
   handed back to this feature, and **decided** rather than deferred: the emitted
-  report's pass-result / `PassAbsence` field is primary, the exported entry-point
-  surface secondary, with FR-013c's coverage bound standing. Recorded here so the
+  two locations are co-equal — the entry-point types and the report-field variant,
+  either firing is detection — with FR-013c's coverage bound standing. Recorded here so the
   marker count's change is legible rather than looking like a dropped item.
 
 ### Outstanding — `[NEEDS CLARIFICATION]`

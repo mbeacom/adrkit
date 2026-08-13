@@ -284,9 +284,12 @@ a package with no entry passes "no matter what it declares". The design
 rationale is kept here rather than deleted, because a reader who wonders why the
 obvious check is not used should find the answer instead of proposing it again.
 
-The second source is the **evaluator's committed pass surface** — primarily the
-exported entry-point surface **enumerated by committed type name** (one per pass
-role), secondarily a pass-result / `PassAbsence` variant on the report type. **A pass no caller can invoke has not
+The second source is the **evaluator's committed pass surface** — two co-equal
+locations, both **enumerated by committed type name**: the entry-point types (one
+per pass role) and a pass-result / `PassAbsence` variant on the report type.
+**Either firing is detection**, and there is deliberately no primary: the rank was
+inverted twice across the two specs before it became clear that nothing depended
+on it. **A pass no caller can invoke has not
 shipped.** Both are read from committed source without executing anything, which
 is what FR-012 requires; an emitted *value* would not be.
 
