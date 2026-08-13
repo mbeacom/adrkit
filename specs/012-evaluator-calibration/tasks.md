@@ -277,6 +277,8 @@ reinterpret.
 - [ ] T051a **Assertion-vs-property check.** Where a requirement or success criterion asserts a *relationship* — "FR-A cites FR-B", "both specs name the same detector", "the enumeration covers X" — verify the relationship **holds in the text**, not merely that both IDs resolve. This is a distinct check from cross-reference resolution and catches what that one cannot: during scoping, SC-044 asserted "FR-024a cites the same test (FR-018a)" while FR-024a did not cite it, and every ID in the sentence resolved. A spec that asserts a property of itself which it does not have is the defect this feature exists to prevent, turned inward
 - [ ] T051b **Withdrawn-design scan.** When a design is withdrawn or replaced, scan for the **mechanism's own vocabulary** — and for descriptions of its *behavior*, which contain none of its words — never for the requirement's ID. Reference integrity passes cleanly on this class while the prose disagrees. Two rules travel with it: state the withdrawal **where the old design was argued**, because rationale sections outlive requirement edits; and keep the superseded reasoning attached as its own counterexample, so a reader who wonders why the obvious approach is unused finds the answer instead of proposing it again. **This check exists because this feature was bitten by it twice** — first leaving `plan.md`'s design-rationale section still arguing for the withdrawn dependency-graph detector, then leaving four more references that described the mechanism by what it *did* rather than by its name, including SC-006, which enumerated a deliberate violation that could no longer occur
 
+- [ ] T051c **Extend T051a and T051b to the pull-request description, and to any other prose that argues for the design but is not a tracked file in this directory.** A scan scoped to `spec.md` / `plan.md` / `tasks.md` is narrower than the claim "the withdrawn design is gone", because the PR description is where the design is *argued to a reviewer* and is the first thing read and the last thing re-read. **This task exists because that gap was real and load-bearing:** during scoping, PR #141's description still described the detector as "a declared registry cross-checked against `check:deps`" — the withdrawn design, presented as current — for the entire review, while every scan over the three committed files came back clean. The same pass found all six numbers in its file table stale (`1,337`/`42 FRs`/`38 SCs`/`372`/`375`/`30 [OBSERVE-FAIL]` against actual `1,930`/`52`/`53`/`422`/`409`/`38`), each measuring a superseded revision. Two sub-rules, both observed: **a count stated as an identifier range is a distinct defect** — 52 FRs whose highest identifier is `FR-030` is not "FR-001–FR-052", and a reader who greps `FR-052` to verify finds nothing and concludes requirements are missing; and **an unversioned description silently ages**, so any count in it either cites the revision it was measured at or is derived rather than transcribed
+
 ---
 
 ## Dependencies & Execution Order
@@ -284,6 +286,12 @@ reinterpret.
 ### Hard-gate dependencies
 
 - T001–T003 (Phase 0) block everything.
+- **Task-ID ranges in this document are inclusive of suffixed IDs that fall
+  within them** — `T001–T003` includes `T002a`, `T033–T044` includes `T034a`,
+  and so on. Twenty-five task IDs carry a letter suffix, so the number of tasks
+  (75) is larger than the highest task number, and a range is **not** a count.
+  Stating a count as a range is its own defect: a reader who resolves the
+  endpoint to check it finds nothing and concludes tasks are missing (T051c).
 - **T012 `PASS` blocks Phase 4 and everything downstream of it.** This is the
   ordering gate; a `FAIL` requires a fresh T010b → T012 cycle, never an in-place
   correction (FR-007).
@@ -303,7 +311,7 @@ Phase 0 (T001–T003)
                                      └─> Phase 7 (T033–T044)  metrics
                                             └─> Phase 6 (T028–T032)  absence stmt
                                                 (needs T025 AND T040–T042)
-                                            └─> Phase 8 (T045–T051)  polish
+                                            └─> Phase 8 (T045–T051c)  polish
 ```
 
 Phases 5 and 7 are independent of each other and may run in parallel once
