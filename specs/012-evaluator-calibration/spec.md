@@ -431,9 +431,10 @@ verdict.
 - **A model upgrade with `|drift(d)| > ε` for one dimension and compensating
   drift in another.** Per-dimension reporting (FR-019) catches it; a cross-
   dimension average would hide it. This is why averaging is forbidden.
-- **The registry declares a pass that was later removed.** The registry/graph
-  cross-check (FR-013) fails in the "registry entry with no dependency"
-  direction, which is deliberate: the registry must be corrected explicitly.
+- **The registry declares a pass that was later removed.** The
+  registry/pass-surface cross-check (FR-013) fails in the "registry entry with no
+  observable pass surface" direction, which is deliberate: the registry must be
+  corrected explicitly.
 - **A release with no probabilistic pass and no absence statement.** Fails US4 —
   this is ADR-0027's own named "revisit if" trigger.
 - **Two runs of the derivation in different ICU locales.** Must produce identical
@@ -1455,7 +1456,7 @@ verdict.
 - **DeterministicBaseline** — the derived, byte-reproducible Pass 0 result per
   case (FR-010).
 - **PassesRegistry** — the declared list of shipped probabilistic passes,
-  cross-checked against dependency evidence (FR-013).
+  cross-checked against the evaluator's committed pass surface (FR-013).
 - **CalibrationReport** — whole-gate and probabilistic-marginal figures with
   counts and denominators, plus drift, disagreement, and explicit absences
   (FR-016, FR-017).
@@ -1491,7 +1492,7 @@ verdict.
   report rather than in prose (FR-016a).
 - **SC-006**: The precondition gate is **observed failing** on each of the four
   deliberate violations — declared pass with no holdout; holdout frozen after the
-  first score; registry/dependency-graph disagreement (both directions); holdout
+  first score; registry/pass-surface disagreement (both directions); holdout
   failing a validity precondition — before it is trusted (ADR-0016).
 - **SC-007**: The gate is **observed failing** on an unreadable and on a
   hash-mismatched manifest (fail-closed), and passing only on the conforming case.
