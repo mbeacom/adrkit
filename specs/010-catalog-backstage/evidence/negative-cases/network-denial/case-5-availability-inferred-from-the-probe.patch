@@ -1,0 +1,28 @@
+diff --git a/scripts/run-network-denied.ts b/scripts/run-network-denied.ts
+index a52ddef..15a1bfa 100644
+--- a/scripts/run-network-denied.ts
++++ b/scripts/run-network-denied.ts
+@@ -309,15 +309,17 @@ export async function proveDenial(
+   }
+ 
+   for (const candidate of candidates) {
+-    const availability = await checkAvailability(candidate);
+-    if (!availability.available) {
+-      rejected.push({ mechanism: candidate.mechanismUsed, why: REJECTION.unavailable + availability.why });
+-      continue;
+-    }
+-
+     const attempt = await run([...candidate.argv, BUN, probePath, String(port)]);
+     const line = attempt.stdout.trim();
+ 
++    if (line === '' && attempt.exitCode !== 0) {
++      rejected.push({
++        mechanism: candidate.mechanismUsed,
++        why: REJECTION.unavailable + (attempt.stderr.trim().split('\n')[0] ?? `exit ${attempt.exitCode}`),
++      });
++      continue;
++    }
++
+     if (line.startsWith('DENIED')) {
+       return { proven: candidate, controlUnsandboxed, controlSandboxed: line, rejected };
+     }

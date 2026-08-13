@@ -134,6 +134,9 @@ phases and were closed here on their merits; see §3.
 | T093 | wrapping the whole suite in total denial is self-contradictory | `clean-clone-offline/` case 3 | `Failed to start server. Is port 0 in use?` / `EADDRINUSE` |
 | T094 | the denial mechanism must actually deny | `network-denial/` case 1 | `did not deny: CONNECTED:200` |
 | T094 | no network call site in generator source (corroborating) | `network-denial/` case 2 | `"ruleId": "fetch-call"` |
+| T093 | the sudo candidate must drop privilege back, after loopback | `network-denial/` case 3 | `the sudo candidate drops privilege back, and only AFTER bringing loopback up` |
+| T093 | `PATH` must be **restored** inside the sandbox, not left as `secure_path` | `network-denial/` case 4 | `/usr/bin/bash: line 1: bun: command not found` (Linux); `the sudo candidate RESTORES PATH rather than restricting it` |
+| T094 | a broken payload may not be reported as a missing mechanism | `network-denial/` case 5 | `the working-mechanism/broken-payload case is reported as a payload failure` |
 | T095 | the control must be two-sided | `sc-016-denial-not-absence/` case 1 | `Expected to contain: "expect(controlUnsandboxed).toStartWith('CONNECTED')"` |
 | T095 | an absence may not be offered as the basis of the claim | `sc-016-denial-not-absence/` case 2 | `"ruleId": "absence-as-evidence"` |
 | T097 | no option-B descriptor-parent heuristic | `spike-heuristic/` case 1 | `[option B] derivation-receives-a-path: matched "sourcePath"` |

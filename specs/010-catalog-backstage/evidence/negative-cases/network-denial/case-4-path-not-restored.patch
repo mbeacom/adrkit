@@ -1,0 +1,12 @@
+diff --git a/scripts/run-network-denied.ts b/scripts/run-network-denied.ts
+index a52ddef..6e138f3 100644
+--- a/scripts/run-network-denied.ts
++++ b/scripts/run-network-denied.ts
+@@ -165,7 +165,6 @@ export const CANDIDATES: readonly DenialMechanism[] = [
+       'sh',
+       '-c',
+       'ip link set lo up 2>/dev/null || true; ' +
+-        PATH_RESTORE +
+         `exec setpriv --reuid=${UID} --regid=${GID} --clear-groups "$@"`,
+       '--',
+     ],

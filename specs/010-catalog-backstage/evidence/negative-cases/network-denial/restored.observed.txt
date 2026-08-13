@@ -1,16 +1,10 @@
+$ bun test scripts/run-network-denied.test.ts   # all three mutations reverted
+
 bun test v1.3.14 (0d9b296a)
 
-test/offline-run.test.ts:
-(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > a qualifying mechanism is available — fail-closed, never skipped [0.06ms]
-(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the control connects WITHOUT the sandbox, so a denial under it means something [0.01ms]
-(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the same probe is DENIED under the mechanism [0.01ms]
-(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the mechanism is not an environment or PATH convention [0.04ms]
-(pass) T094 / FR-052 — the generation completes with network access denied > a full generation run inside the sandbox produces an envelope [70.83ms]
-(pass) T094 / FR-052 — the generation completes with network access denied > the offline path is the ONLY path — a networked run produces identical bytes [77.76ms]
-(pass) T094 / FR-052 — the generation completes with network access denied > no credential or bearer-token variable was set for either run [0.20ms]
-(pass) T094 — the generator has no network call site to degrade to > no source module opens a socket, fetches, or resolves a host [8.00ms]
+scripts/run-network-denied.test.ts:
 
- 8 pass
+ 29 pass
  0 fail
- 20 expect() calls
-Ran 8 tests across 1 file. [256.00ms]
+ 77 expect() calls
+Ran 29 tests across 1 file. [344.00ms]

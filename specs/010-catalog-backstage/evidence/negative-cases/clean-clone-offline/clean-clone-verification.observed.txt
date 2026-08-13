@@ -35,3 +35,53 @@ compare-accept-corpus: PASS — 24 expected entities, 0 false positive(s), 0 fal
 
 $ bun scripts/run-network-denied.ts -- bun run adr lint
 checked 20 records, 0 errors, 0 warnings
+
+================================================================================
+T093 — clean-clone verification, RUN OF RECORD, 2026-08-12
+
+The Darwin capture above is retained but is NOT the run of record, and on its own
+it was not adequate evidence for T093. It was taken on a host where the FIRST
+candidate mechanism succeeds, so it could not exercise the Linux fallback that CI
+depends on -- and `clean-clone-builds`, the job that enforces this very claim,
+failed on all five runs of this branch while the task stood checked.
+
+That is recorded rather than quietly replaced: the gap was not that the capture
+was dishonest (it names `Host: Darwin arm64` plainly), but that a macOS-only
+observation was accepted as discharging a claim enforced only on Linux.
+
+Run of record:
+  GitHub Actions, ubuntu-latest, job `clean-clone-builds`
+  https://github.com/mbeacom/adrkit/actions/runs/31656503096/job/94312031698
+  commit 6180a9b -- all 18 steps completed/success
+
+$ bun install --frozen-lockfile          # the ONLY networked step
+
+$ bun scripts/check-clean-clone.ts
+check-clean-clone: ok @adrkit/catalog-backstage (packages/adapters/catalog-backstage, 31 src + 51 test modules)
+check-clean-clone: ok @adrkit/catalog-envelope (packages/catalog-envelope, 7 src + 11 test modules)
+
+$ bun scripts/run-network-denied.ts -- bun run typecheck
+run-network-denied: mechanism = unshare --net under sudo, dropped back to the invoking user (loopback up)
+run-network-denied: configuration = sudo -n unshare --net -- sh -c 'ip link set lo up || true; <restore PATH>; exec setpriv --reuid=1001 --regid=1001 --clear-groups "$@"' --
+run-network-denied: control unsandboxed = CONNECTED:200
+run-network-denied: control sandboxed  = DENIED:Unable to connect. Is the computer able to access the url?
+run-network-denied: running: /home/runner/.bun/bin/bun run typecheck
+
+  -- the mechanism selected on Linux is candidate 2, NOT the macOS `sandbox-exec`
+     of the capture above. Both halves of the control are recorded on the runner
+     itself: CONNECTED unsandboxed, DENIED under the mechanism. The command runs
+     as uid 1001, not root.
+
+Every denied step -- build, release:pack, lint, schema:emit, check:deps,
+check:freeze-hashes, check:doc-pins, check:clause8, check:no-spike-heuristics,
+adr lint -- reports the same mechanism and the same two-sided control.
+
+$ bun test
+ 2434 pass
+ 0 fail
+
+Local pre-verification (constrains the claim; does not establish it): the whole
+job was reproduced from a genuine clean clone in ubuntu:24.04, with the runner's
+AppArmor restriction on unprivileged user namespaces reproduced by its observable
+behaviour so candidate 1 is refused and candidate 2 is selected. 15/15 steps
+passed, 2367 pass / 0 fail, and no root-owned path existed in the tree afterwards.

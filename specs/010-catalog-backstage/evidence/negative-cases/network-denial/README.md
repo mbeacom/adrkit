@@ -170,3 +170,155 @@ ADR-0014 **rung 1 only**. A proved denial is a stronger claim than an absence of
 calls; it is not a claim about rung 2 or rung 3, and it is maintainer-owned throughout.
 
 No claim is made about Backstage as a running system.
+
+---
+
+# Part 2 — the mechanism that was rejected while it was working
+
+**Tasks**: T093 (FR-050), T094 (FR-052) · **Observed**: 2026-08-12, Phase G
+**Command for cases 3–5**: `bun test scripts/run-network-denied.test.ts`
+**Permanent automated cases**: `scripts/run-network-denied.test.ts`
+
+Part 1 records that the denial is proved rather than assumed. This part records that the
+proof itself was wrong in a way the tests above could not see, because every one of them
+ran on a host where the *first* candidate succeeds.
+
+`clean-clone-builds` failed on **every run of this branch**, five for five, from
+2026-08-08 to 2026-08-12 — always at its first denied step, always reporting:
+
+```
+run-network-denied: FAIL-CLOSED — no qualifying denial mechanism could be proved here.
+  rejected: unshare --net (…) — unavailable here: unshare: write failed /proc/self/uid_map: Operation not permitted
+  rejected: unshare --net under sudo (…) — unavailable here: --: 1: exec: bun: not found
+  rejected: sandbox-exec network-deny profile — unavailable here: Executable not found in $PATH: "sandbox-exec"
+```
+
+That report was false. `--: 1:` is the *inner* `sh` speaking, not `unshare`: `sudo -n
+unshare --net` had already succeeded and the namespace existed. Only the payload could not
+be resolved, because `sudo` replaces `PATH` with `secure_path`, which does not contain
+`/home/runner/.bun/bin` where `setup-bun` installs Bun. **A qualifying mechanism was
+available on that runner the whole time, and was discarded on the strength of a broken
+payload.**
+
+This is the file's own subject matter turned on itself. §5 distinguishes a denial from an
+absence; "no qualifying mechanism is available in this environment" is an absence claim,
+and it was being made without being earned.
+
+## Why the existing cases could not catch it
+
+Case 1 and case 2 were observed on macOS, where `sandbox-exec` is selected first and the
+`unshare` candidates are never reached. The task's own verification
+(`clean-clone-offline/clean-clone-verification.observed.txt`) records `Host: Darwin arm64`
+honestly — but a macOS-only observation cannot exercise a Linux-only fallback, and the CI
+job that would have is the one that never ran.
+
+## Reproduced before it was fixed
+
+`ubuntu:24.04`, non-root user with passwordless sudo, payload installed off `secure_path`,
+loopback control listener — the runner's shape:
+
+| Step | Result | Meaning |
+|---|---|---|
+| control, unsandboxed | `CONNECTED:200` | the two-sided control is valid here |
+| candidate 2 **as shipped**, bare-name payload | `--: 1: exec: probe: not found` | reproduces CI character-for-character |
+| candidate 2, **absolute-path** payload | `DENIED:URLError` | the mechanism qualifies and denies |
+| identity inside the above | `root` | defect 3, below |
+| plus `setpriv` back to the invoking uid | `runner`, `DENIED:URLError` | denies **and** keeps the user |
+| control re-run | `CONNECTED:200` | the listener had not simply died |
+
+## The three defects, and the cases that hold them
+
+### Case 3 — the command keeps root
+
+Input: [`case-3-privilege-not-dropped.patch`](./case-3-privilege-not-dropped.patch) ·
+Output: [`case-3-privilege-not-dropped.observed.txt`](./case-3-privilege-not-dropped.observed.txt)
+
+`sudo unshare` runs the command as **root**. `bun run build` would then leave root-owned
+output in the workspace, and the *un-sandboxed* steps later in the same job — `git diff
+--exit-code packages/ci/dist`, `bun test` — would fail on files they could not touch. The
+denial would still be real; the job would break for a reason having nothing to do with it.
+
+`setpriv` hands the invoking uid/gid back. The **order** is the property, not the presence:
+`ip link set lo up` needs privilege *inside* the namespace, so it must run first.
+
+```
+(fail) … > the sudo candidate drops privilege back, and only AFTER bringing loopback up
+(fail) … > the sudo candidate RESTORES PATH rather than restricting it
+```
+
+Two tests fail, not one, and that is worth stating plainly: the PATH assertion anchors its
+ordering check on `setpriv`, so deleting `setpriv` also removes the anchor. The coupling is
+recorded rather than tidied away, because a reader comparing case 3 against case 4 would
+otherwise wonder why the same assertion appears in both.
+
+### Case 4 — `PATH` is not restored
+
+Input: [`case-4-path-not-restored.patch`](./case-4-path-not-restored.patch) ·
+Output: [`case-4-path-not-restored.observed.txt`](./case-4-path-not-restored.observed.txt)
+
+Resolving the command to an absolute path is necessary and **not sufficient**. `bun run
+build` execs its package scripts through `bash`, and those scripts say `bun` — so the
+*children* need `PATH` even where the parent did not:
+
+```
+$ bun run --filter='*' build
+/usr/bin/bash: line 1: bun: command not found
+error: script "build" exited with code 127
+```
+
+In the same Linux run, `typecheck` **passed**, because its script is `tsc` and Bun resolves
+that from `node_modules/.bin` itself. A fix verified only against the step that first
+failed would have looked complete and died on the next one — which is what happened, and
+why the whole job is now reproduced locally rather than one step at a time.
+
+**Restoring `PATH` is not the `env -i`/restricted-`PATH` convention §5 rejects. It is its
+opposite.** §5 rejects a *stripped* environment as a claimed denial *mechanism*; here the
+denial comes from the network namespace and from nothing else, and putting `PATH` back is
+what makes the sandboxed run the same run as the unsandboxed one. The test asserts the
+restored value equals the caller's real `PATH` — a subset would be the thing §5 forbids.
+
+### Case 5 — availability inferred from the probe's own failure
+
+Input: [`case-5-availability-inferred-from-the-probe.patch`](./case-5-availability-inferred-from-the-probe.patch) ·
+Output: [`case-5-availability-inferred-from-the-probe.observed.txt`](./case-5-availability-inferred-from-the-probe.observed.txt)
+
+The original defect, and the reason the other two hid behind it. A candidate was only ever
+tried by running the probe under it, so *any* failure of that command was attributed to the
+mechanism — "my payload is broken" and "this environment cannot deny" were the same
+observation, and the second was reported.
+
+Availability is now established by a sentinel that touches no network and only has to
+*run*; a probe that fails under a demonstrably-working mechanism is reported as a payload
+failure. The three reasons are additionally asserted mutually non-prefixing, so they cannot
+quietly collapse back into one.
+
+```
+(fail) … > the working-mechanism/broken-payload case is reported as a payload failure
+```
+
+Restored: [`restored.observed.txt`](./restored.observed.txt) — 29 pass, 0 fail.
+
+## The same three defects existed twice
+
+`packages/adapters/catalog-backstage/test/offline-run.test.ts` carried its own copy of the
+candidate list, with all three. Fixing the script left the adapter suite failing three
+tests on Linux; both had to be fixed. No test in that package reaches outside it and this
+was not going to be the first, so the duplication stays and the invariants are asserted on
+both sides instead. `sc-016.test.ts` additionally reads the script's source, which is why
+the two are cross-checked at all.
+
+## What was verified, and where
+
+The whole `clean-clone-builds` job was run from a genuine clean clone in `ubuntu:24.04`,
+with the runner's AppArmor restriction reproduced by its observable behaviour so that
+candidate 1 is refused and the sudo candidate is the one selected — the path CI takes. All
+fifteen steps pass, `bun test` reports 2367 pass / 0 fail, and no root-owned path exists
+anywhere in the tree afterwards.
+
+Two container-only artifacts were found and are recorded so they are not mistaken for
+repository defects: the spec-kit harness requires `node` on `PATH`, and its ESM-in-`.js`
+fixture requires Node ≥ 22. A first attempt with Node 18 and no Node at all produced 20
+and 1 failures respectively, none of which occur on a GitHub-hosted runner.
+
+**This is local reproduction, not the run of record.** It constrains the claim rather than
+establishing it: the run of record is the CI job itself, on the real runner.
