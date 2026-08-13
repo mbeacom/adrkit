@@ -403,8 +403,39 @@ async function main(): Promise<number> {
     const proof = await proveDenial(probePath, portOf(listener));
 
     if (proof.proven === undefined) {
+      // The message is branched on failure class, because these three call for opposite
+      // responses and used to be indistinguishable. §5's "available in the execution
+      // environment" is a claim ABOUT THE ENVIRONMENT, and printing it for our own broken
+      // control or payload is how the five-run episode misdirected the maintainer in the
+      // first place — one level up from where it was then fixed.
+      const unavailable = proof.rejected.filter((entry) => entry.why.startsWith(REJECTION.unavailable));
+      const controlFailed = !proof.controlUnsandboxed.startsWith('CONNECTED');
+
+      if (controlFailed) {
+        console.error(
+          'run-network-denied: FAIL-CLOSED — the loopback control never connected, so no denial ' +
+            'below could have been interpreted. This is a fault in THIS SCRIPT or its environment, ' +
+            'not evidence that the environment cannot deny.',
+        );
+        console.error(`  control (unsandboxed): ${proof.controlUnsandboxed || '(no output)'}`);
+        console.error(
+          '  Look at: the probe file, the loopback listener, and any HTTP(S)_PROXY that would ' +
+            'route 127.0.0.1 off-host. No candidate was tried.',
+        );
+        return 1;
+      }
+
+      if (unavailable.length === 0) {
+        console.error(
+          'run-network-denied: FAIL-CLOSED — every candidate MECHANISM RAN, and the probe payload ' +
+            'failed under all of them. This is a fault in the payload, not in the environment.',
+        );
+        for (const entry of proof.rejected) console.error(`  rejected: ${entry.mechanism} — ${entry.why}`);
+        return 1;
+      }
+
       console.error('run-network-denied: FAIL-CLOSED — no qualifying denial mechanism could be proved here.');
-      console.error(`  control (unsandboxed): ${proof.controlUnsandboxed || '(no output)'}`);
+      console.error(`  control (unsandboxed): ${proof.controlUnsandboxed}`);
       for (const entry of proof.rejected) console.error(`  rejected: ${entry.mechanism} — ${entry.why}`);
       console.error(
         '  scale-and-security-measurement.md §5: "If neither qualifying mechanism is available in the ' +
@@ -424,7 +455,22 @@ async function main(): Promise<number> {
       stderr: 'inherit',
       stdin: 'inherit',
     });
-    return await proc.exited;
+    const code = await proc.exited;
+    // Verified on Bun 1.3.14: a SIGKILLed child resolves `exited` to 137, so this branch
+    // does not fire today. It is kept because the cost of being wrong is a green gate for
+    // a command that never completed — an OOM-killed `bun run build` reported as success
+    // by the check whose entire purpose is that a broken guarantee cannot pass silently.
+    if (typeof code !== 'number') {
+      console.error(
+        `run-network-denied: the command did not exit normally (signal ${String(proc.signalCode)}); reporting failure.`,
+      );
+      return 1;
+    }
+    if (proc.signalCode !== null && code === 0) {
+      console.error(`run-network-denied: the command was terminated by ${proc.signalCode}; reporting failure.`);
+      return 1;
+    }
+    return code;
   } finally {
     listener.stop(true);
     await rm(workspace, { recursive: true, force: true });

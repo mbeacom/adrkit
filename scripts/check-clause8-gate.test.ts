@@ -52,6 +52,12 @@ beforeEach(async () => {
     // when it cannot, so the sandbox has to carry it or every case reports that absence
     // instead of the thing it was constructed to test.
     'packages/cli/src/evaluate.ts',
+    // The three prose scan targets. Without them the prose scan was a no-op in every test
+    // in this file, including the baseline — so emptying the patterns or the target list
+    // was invisible to `bun test`, which is the shape of gap the scan was added to close.
+    'packages/adapters/catalog-backstage/README.md',
+    'packages/catalog-envelope/README.md',
+    `${EVIDENCE}/honesty-close-out.md`,
   ]) {
     await cp(join(REPO_ROOT, relative), join(sandbox, relative), { recursive: true });
   }
@@ -268,20 +274,74 @@ describe('limb B — nothing claims release or ADR-0014 rung 2 (clause 9)', () =
     expect(findings.some((finding) => finding.reason.includes('1.0.0'))).toBe(true);
   });
 
-  test('adding either package to RELEASE_PACKAGES fails', async () => {
+  test('adding either package to RELEASE_PACKAGES fails — at the END of the array', async () => {
+    // Appended, not prepended. The previous version of this test inserted the name as the
+    // array's FIRST element, which was the one position the old lazy
+    // `/RELEASE_PACKAGES[^=]*=\s*\[([\s\S]*?)\]/` window happened to cover — so it passed
+    // while four of the five real entries were already invisible to the check, and a
+    // package added in the ordinary place would not have been seen.
     const path = join(sandbox, 'scripts', 'release-pack.ts');
     const source = await readFile(path, 'utf8');
+    const close = source.lastIndexOf('];');
     await writeFile(
       path,
-      source.replace(
-        /RELEASE_PACKAGES([^=]*)=\s*\[/u,
-        "RELEASE_PACKAGES$1= [\n  '@adrkit/catalog-backstage',",
-      ),
+      `${source.slice(0, close)}  { name: '@adrkit/catalog-backstage', directory: 'packages/adapters/catalog-backstage' },\n${source.slice(close)}`,
       'utf8',
     );
     expect(requirements(checkClause8Gate(sandbox))).toContain(
       'no release is scheduled, implied, or prepared (clause 9)',
     );
+  });
+
+  test('a release claimed in prose fails, in each of the three scanned artifacts', async () => {
+    for (const relative of [
+      'packages/adapters/catalog-backstage/README.md',
+      'packages/catalog-envelope/README.md',
+      `${EVIDENCE}/honesty-close-out.md`,
+    ]) {
+      const path = join(sandbox, relative);
+      const original = await readFile(path, 'utf8');
+      await writeFile(path, `${original}\n\nThis package is published to npm.\n`, 'utf8');
+      expect(requirements(checkClause8Gate(sandbox))).toContain(
+        'no release or rung-2 status is claimed in prose (clause 9, ADR-0014)',
+      );
+      await writeFile(path, original, 'utf8');
+    }
+    // And restoring all three returns the gate to clean, so the case above is not passing
+    // for some unrelated reason already present in the sandbox.
+    expect(checkClause8Gate(sandbox)).toEqual([]);
+  });
+
+  test('an HONEST DENIAL does not fail, however many forbidden terms it contains', async () => {
+    // The direction that matters. If a denial tripped the gate, the cheapest way to green
+    // would be to delete the denial — the "reward silence" outcome ADR-0016 and T100 exist
+    // to prevent. Both sentences are verbatim shapes from T100's own denial fixtures, and
+    // both defeated the two-token lookbehind this check used to rely on.
+    const path = join(sandbox, 'packages/catalog-envelope/README.md');
+    const original = await readFile(path, 'utf8');
+    await writeFile(
+      path,
+      `${original}\n\nNeither package is published to npm. No release is scheduled for any version.\n`,
+      'utf8',
+    );
+    expect(checkClause8Gate(sandbox)).toEqual([]);
+    await writeFile(path, original, 'utf8');
+  });
+
+  test('a MOVED scan target is a finding, not a silent skip', async () => {
+    // Skipping made the scan fail open: renaming a scanned artifact deleted that coverage
+    // while the summary line kept claiming it had been scanned.
+    await rm(join(sandbox, 'packages/catalog-envelope/README.md'));
+    expect(requirements(checkClause8Gate(sandbox))).toContain(
+      'no release or rung-2 status is claimed in prose (clause 9, ADR-0014)',
+    );
+  });
+
+  test('an unparseable evidence artifact is a finding, not an uncaught SyntaxError', async () => {
+    await writeFile(join(sandbox, `${EVIDENCE}/comparison/step-b-record.json`), '{', 'utf8');
+    const findings = checkClause8Gate(sandbox);
+    expect(requirements(findings)).toContain('every clause-5 evidence artifact is readable');
+    expect(findings.some((finding) => finding.reason.includes('step-b-record.json'))).toBe(true);
   });
 });
 

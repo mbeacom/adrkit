@@ -91,9 +91,14 @@ erode: producing evidence that a gate is met is not the same as deciding to walk
 | neither ships a `dist` or an exports map | both manifests |
 | each carries a `"//release"` note saying so in prose | both manifests |
 
-`check:clause8` fails the build if any of that changes — observed failing at
-`negative-cases/clause8-gate/` case 2, where giving the adapter version `0.1.0` produced
-`declares version 0.1.0; clause 9 defers release, so 0.0.0 is the only honest value`.
+`check:clause8` fails the build if the **first two** of those change — the version and the
+`RELEASE_PACKAGES` membership — and it additionally scans three consumer-facing artifacts
+for a release or rung-2 claim in prose. It does **not** read `exports`, `dist`, or the
+`"//release"` note: those three rows are stated here as facts about the manifests, not as
+machine-enforced ones. Observed failing at `negative-cases/clause8-gate/` case 2, where
+giving the adapter version `0.1.0` produced
+`declares version 0.1.0; clause 9 defers release, so 0.0.0 is the only honest value`, and
+at case 4, where a prose release claim in a README produced `[claims-released]`.
 
 The clause-8 gate is deliberately shaped as a **prohibition** rather than a permission. It
 never concludes "clause 5 is met, therefore release"; it fails if clause 5's evidence rots

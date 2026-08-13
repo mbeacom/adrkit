@@ -3,7 +3,7 @@
 **Task**: T093 · **Discharges**: FR-050 · **Observed**: 2026-08-05, Phase G
 **Tools**: Bun 1.3.14, TypeScript 6.0.3
 **Commands**: `bun run check:clean-clone` · `bun scripts/run-network-denied.ts -- <cmd>`
-**Permanent automated case**: `scripts/run-network-denied.test.ts` (12 tests)
+**Permanent automated case**: `scripts/run-network-denied.test.ts` (29 tests)
 
 FR-050 has two halves, and they fail in different ways:
 
@@ -83,7 +83,7 @@ the arrangement worked at all. That distinction is what turned up case 3 below.
 | Step | Network | Result |
 |---|---|---|
 | `bun install --frozen-lockfile` | **permitted** — the only step | ok |
-| `check:clean-clone` | denied | both packages present, 31+51 and 7+11 modules |
+| `check:clean-clone` | **unwrapped** (see below) | both packages present, 31+51 and 7+11 modules |
 | `typecheck` | denied | clean |
 | `build` | denied | both new packages built, exit 0 |
 | `lint` | denied | clean |
@@ -138,17 +138,26 @@ the denial. Three responses were possible:
    needs an *external* endpoint to prove egress is denied, which reintroduces the internet
    dependency the loopback control was designed to remove. Rejected for the macOS profile;
    the Linux candidates keep this shape because there the isolation is structural.
-3. **Do not wrap `bun test`** — chosen. Every other step is wrapped; `bun test` is not, and
-   the offline claim for the **generator** is discharged *inside* the suite by
-   `offline-run.test.ts`, which sandboxes its own generation run and proves the mechanism
-   denies before using it.
+3. **Do not wrap `bun test`** — chosen. The offline claim for the **generator** is
+   discharged *inside* the suite by `offline-run.test.ts`, which sandboxes its own
+   generation run and proves the mechanism denies before using it.
 
 **What that costs, stated plainly.** FR-050's second half is met in the form "no step
 requires network beyond `bun install --frozen-lockfile`, and every step that *can* run
-under a proved denial does" — rather than "every step runs under ambient denial". The one
-unwrapped step is the one whose own content proves the generator never reaches the network.
-That is a weaker statement than the original wording implies, and it is recorded here
-rather than left for a reader to discover from the workflow file.
+under a proved denial does" — rather than "every step runs under ambient denial".
+
+**Three** post-install steps are unwrapped, not one, and an earlier draft of this section
+said one. Only the first is a property of the design:
+
+| Unwrapped step | Kind |
+|---|---|
+| `bun test` | permanent, structural — the suite contains the controls that prove the denial |
+| `bun scripts/check-clean-clone.ts` | incidental, pending a `workflow`-scoped push |
+| `git diff --exit-code packages/ci/dist`, and the `&& git diff --exit-code schema/adr.schema.json` half of the schema step | incidental, pending the same push |
+
+That is weaker than the original wording implies, and it is recorded here — with the count
+— rather than left for a reader to discover from the workflow file. `observed-failing-register.md`
+§4.6 carries the same table, and T093 is unchecked on account of it.
 
 ---
 

@@ -297,6 +297,14 @@ user`, both halves of the control recorded on the runner (`CONNECTED:200` unsand
 `DENIED` under the mechanism), running as uid 1001 rather than root, 2434 pass / 0 fail.
 The claim is no longer "designed and unit-tested"; it is observed where it is enforced.
 
+**Does that run still describe the tree being merged?** `.github/workflows/ci.yml` and
+`scripts/check-clean-clone.ts` are unchanged since that commit. `scripts/run-network-denied.ts`
+is not: PR review added failure-path message branching and an exit-code guard for
+signal-terminated children. Neither touches candidate selection, the two-sided control, or
+the success path, so the observation still holds — but the question is answered by a later
+green run on the merged tree rather than by that argument, and the register cites the
+latest such run rather than reasoning about the delta.
+
 ### 4.3 Which host produced each observation is recorded for 2 of 37 cases
 
 §3's findings 8–10 exist because a check was observed failing only on a host where its
@@ -354,21 +362,35 @@ was tested; it was not, because it cannot yet be.
 ### 4.6 FR-050's second half is met in a weaker form than its wording implies
 
 FR-050 asks that network access be permitted **only** during
-`bun install --frozen-lockfile`. Every step of `clean-clone-builds` is wrapped in
-`scripts/run-network-denied.ts` **except `bun test`**, which is not.
+`bun install --frozen-lockfile`. **Three** post-install steps of `clean-clone-builds` are
+not wrapped in `scripts/run-network-denied.ts`, and an earlier draft of this section said
+one. The count is given here in full so the disclosure is not narrower than the gap:
 
-The reason is structural and is recorded at `negative-cases/clean-clone-offline/` case 3:
-the suite contains the tests that *prove* network denial, and their two-sided control needs
-a loopback listener that a total-denial sandbox correctly refuses. Wrapping the suite
-denies the control that establishes the denial, and it was observed doing exactly that —
-three failures, all `Bun.serve`, on a genuinely fresh clone.
+| Unwrapped step | Kind | Why |
+|---|---|---|
+| `bun test` | **permanent, structural** | the suite contains the two-sided controls that prove the denial; a control cannot establish a denial from inside one |
+| `bun scripts/check-clean-clone.ts` | **incidental, pending** | unwrapped only because it runs first; the one-line change that wraps it is written and verified but needs a `workflow`-scoped token to push |
+| `git diff --exit-code packages/ci/dist` and the `&& git diff --exit-code schema/adr.schema.json` half of the schema step | **incidental, pending** | same change; `git diff` needs no network, but the ledger closes by enumeration and these were not enumerated |
+
+Only the first is a property of the design. The other two are an artifact of this session's
+push permissions and are recorded as pending rather than described as done.
+
+The structural reason for `bun test` is recorded at `negative-cases/clean-clone-offline/`
+case 3 and case 3b, and it was observed on **both** platforms, failing differently on each
+— which is what makes it structural rather than a macOS quirk:
+
+- macOS `sandbox-exec` denies loopback outright: 3 failures, all `Bun.serve`.
+- Linux `unshare --net` brings `lo` up, so that failure does **not** occur — and 11 tests
+  still fail, because the denial-proving tests must nest a sandbox inside the one wrapping
+  them.
 
 So the honest statement of what holds is: **no step requires network beyond the install,
-and every step that can run under a proved denial does.** The one unwrapped step is the one
-whose own content proves the generator never reaches the network
-(`offline-run.test.ts` sandboxes its own generation run). That is weaker than "every step
-runs under ambient denial", and it is recorded here rather than left for a reader to infer
-from the workflow file.
+and every step that can run under a proved denial does, with three that currently do not
+named above.** That is weaker than "every step runs under ambient denial", and it is
+recorded here rather than left for a reader to infer from the workflow file.
+
+**T093 is unchecked on account of this**, not footnoted as complete. Closing it needs an
+ADR rescoping FR-050, or a split of the task, not more code.
 
 ---
 

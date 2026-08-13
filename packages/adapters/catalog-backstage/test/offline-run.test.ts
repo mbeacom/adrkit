@@ -69,13 +69,16 @@ interface DenialMechanism {
  * additionally creates an empty network namespace, which §5 mechanism 1 also describes.
  * It is claimed as 2 because that is the numbered item naming it.
  *
- * This list is deliberately **not** imported from `scripts/run-network-denied.ts`: no test
- * in this package reaches outside it, and this file is not going to be the first. The cost
- * is that the two lists can drift, and they did — the sudo entry here carried the same
- * three defects that made `clean-clone-builds` fail every run of this branch, and had to
- * be fixed twice. `test/sc-016.test.ts` reads the script's source and cross-checks it, and
- * the invariants below are asserted here, so a future divergence on the load-bearing
- * properties fails rather than silently degrades.
+ * This list is deliberately **not** imported from `scripts/run-network-denied.ts`. The
+ * binding constraint is the *import* boundary — `envelope-shape-locality.test.ts` runs
+ * `escapingRelativeImports` over `scanned(ADAPTER_ROOT)`, which includes this directory,
+ * per `contracts/package-boundary.md` §3 — and not a convention against reading files:
+ * `sc-016.test.ts` and `sc-009.test.ts` both read outside the package via `REPO_ROOT`.
+ *
+ * The cost of duplicating is drift, and it is real: the two lists had already diverged on
+ * `ip link set lo up` while a comment here claimed a cross-check that did not exist.
+ * `sc-016.test.ts`'s `both denial candidate lists agree on the load-bearing properties`
+ * now reads both files and asserts the shared invariants, so a future divergence fails.
  */
 const CANDIDATES: readonly DenialMechanism[] = [
   {
@@ -85,10 +88,23 @@ const CANDIDATES: readonly DenialMechanism[] = [
     argv: ['sandbox-exec', '-p', '(version 1)(allow default)(deny network*)'],
   },
   {
-    mechanismUsed: 'unshare --net (empty network namespace)',
-    configuration: 'unshare --net --map-root-user',
+    // `lo` is brought up for the same reason as in the script: `unshare --net` leaves the
+    // namespace's loopback DOWN, so a command that binds or dials 127.0.0.1 fails for a
+    // reason unrelated to the denial and the failure is misattributed. Its absence here
+    // was the divergence that went unnoticed.
+    mechanismUsed: 'unshare --net (empty network namespace, loopback up)',
+    configuration: "unshare --net --map-root-user -- sh -c 'ip link set lo up || true; exec \"$@\"' --",
     qualifyingMechanism: 2,
-    argv: ['unshare', '--net', '--map-root-user'],
+    argv: [
+      'unshare',
+      '--net',
+      '--map-root-user',
+      '--',
+      'sh',
+      '-c',
+      'ip link set lo up 2>/dev/null || true; exec "$@"',
+      '--',
+    ],
   },
   {
     // `--map-root-user` is refused on GitHub-hosted `ubuntu-latest`, where AppArmor
@@ -101,8 +117,11 @@ const CANDIDATES: readonly DenialMechanism[] = [
     //     contain `~/.bun/bin` — restoring it is the opposite of the restricted-`PATH`
     //     convention §5 rejects, and the denial still comes only from the namespace;
     //   * the payload is passed by absolute path, for the same reason.
-    mechanismUsed: 'unshare --net under sudo, dropped back to the invoking user',
-    configuration: `sudo -n unshare --net -- sh -c '<restore PATH>; exec setpriv --reuid=${process.getuid?.() ?? 0} --regid=${process.getgid?.() ?? 0} --clear-groups "$@"' --`,
+    //
+    // `ip link set lo up` runs while still root and BEFORE the drop, because it needs
+    // privilege inside the namespace.
+    mechanismUsed: 'unshare --net under sudo, dropped back to the invoking user (loopback up)',
+    configuration: `sudo -n unshare --net -- sh -c 'ip link set lo up || true; <restore PATH>; exec setpriv --reuid=${process.getuid?.() ?? 0} --regid=${process.getgid?.() ?? 0} --clear-groups "$@"' --`,
     qualifyingMechanism: 2,
     argv: [
       'sudo',
@@ -112,7 +131,8 @@ const CANDIDATES: readonly DenialMechanism[] = [
       '--',
       'sh',
       '-c',
-      `export PATH='${(Bun.env['PATH'] ?? '').replaceAll("'", String.raw`'\''`)}'; ` +
+      'ip link set lo up 2>/dev/null || true; ' +
+        `export PATH='${(Bun.env['PATH'] ?? '').replaceAll("'", String.raw`'\''`)}'; ` +
         `exec setpriv --reuid=${process.getuid?.() ?? 0} --regid=${process.getgid?.() ?? 0} --clear-groups "$@"`,
       '--',
     ],
@@ -316,10 +336,18 @@ describe('T094 / FR-052 — the generation completes with network access denied'
     const destination = join(workspace, 'denied', 'envelope.json');
 
     const driver = join(ADAPTER_ROOT, 'test', 'offline-run-driver.ts');
-    const result = await run(
-      [...(proven?.argv ?? []), 'bun', driver, requestPath, destination],
-      ADAPTER_ROOT,
-    );
+    // Fail closed rather than degrade. `proven?.argv ?? []` silently ran the generator
+    // with **no sandbox at all** when no mechanism could be proved, so this test — named
+    // for running inside one — passed with the network fully available, and so did the
+    // byte-comparison below whose premise is that one of its two runs was denied. The job
+    // was still red overall via the fail-closed assertion above, but the per-test claim
+    // was false in exactly the file `sc-016.test.ts` and the register cite as the proof.
+    if (proven === undefined) {
+      throw new Error(
+        'no qualifying denial mechanism was proved; refusing to run the generation unsandboxed',
+      );
+    }
+    const result = await run([...proven.argv, BUN, driver, requestPath, destination], ADAPTER_ROOT);
 
     expect(result.exitCode).toBe(0);
     const verdict = JSON.parse(result.stdout.trim().split('\n').at(-1) ?? '{}') as {
@@ -356,11 +384,11 @@ describe('T094 / FR-052 — the generation completes with network access denied'
 
     // Confirm the network really is available for this run, so "identical" is a
     // comparison between a denied run and a genuinely networked one.
-    const reachable = await run(['bun', PROBE_PROGRAM, String(port)], workspace);
+    const reachable = await run([BUN, PROBE_PROGRAM, String(port)], workspace);
     expect(reachable.stdout.trim()).toStartWith('CONNECTED');
 
     const driver = join(ADAPTER_ROOT, 'test', 'offline-run-driver.ts');
-    const result = await run(['bun', driver, requestPath, destination], ADAPTER_ROOT);
+    const result = await run([BUN, driver, requestPath, destination], ADAPTER_ROOT);
     expect(result.exitCode).toBe(0);
 
     const networkedEnvelope = await readFile(destination, 'utf8');

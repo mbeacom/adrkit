@@ -240,7 +240,11 @@ describe('every retained case is a real one', () => {
         expect(files(directory)).toContain(capture);
         const text = readFileSync(join(CASES_DIR, directory, capture), 'utf8');
         expect(text).not.toContain('(fail)');
-        expect(text).toContain('0 fail');
+        // Anchored on the count, not on a substring: `toContain('0 fail')` is satisfied by
+        // `10 fail`, so a capture recording ten or more failures was accepted as evidence
+        // of a pass by the guard whose whole job is to reject exactly that.
+        expect(text, `${directory}/${capture}`).toMatch(/(^|\s)0 fail\b/mu);
+        expect(text, `${directory}/${capture}`).not.toMatch(/(^|\s)(?!0\b)\d+ fail\b/mu);
       }
     }
   });
@@ -250,7 +254,9 @@ describe('every retained case is a real one', () => {
     (directory) => {
       const text = readFileSync(join(CASES_DIR, directory, 'restored.observed.txt'), 'utf8');
       expect(text).not.toContain('(fail)');
-      expect(/\b1 fail\b|\b[2-9] fail\b/u.test(text)).toBe(false);
+      // `\b1 fail\b|\b[2-9] fail\b` did not match `10 fail` — there is no word boundary
+      // between `1` and `0` — so a double-digit failure count read as a restored pass.
+      expect(text, `${directory}/restored.observed.txt`).not.toMatch(/(^|\s)(?!0\b)\d+ fail\b/mu);
     },
   );
 });

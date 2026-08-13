@@ -190,6 +190,43 @@ describe('T095 / SC-016 — what does NOT qualify is not being leaned on', () =>
 });
 
 describe('T095 / SC-016 — standing honesty constraints', () => {
+  test('both denial candidate lists agree on the load-bearing properties', async () => {
+    // The cross-check `offline-run.test.ts` claimed existed and did not. Nothing read both
+    // copies of the candidate list, and they had already diverged: the script's namespace
+    // candidates bring `lo` up and the adapter's did not, while the script's own suite
+    // asserts that property and the adapter's asserted only the runtime-selected mechanism.
+    //
+    // Reading a repo-root file is not the boundary this package respects — that is the
+    // *import* boundary (`envelope-shape-locality.test.ts`), and this file already reads
+    // the spike-009 contract through `REPO_ROOT` for the same reason.
+    const script = await Bun.file(join(REPO_ROOT, 'scripts', 'run-network-denied.ts')).text();
+    const adapter = await offlineRunSource();
+
+    for (const [label, source] of [
+      ['scripts/run-network-denied.ts', script],
+      ['test/offline-run.test.ts', adapter],
+    ] as const) {
+      // Every `unshare` candidate brings loopback up, or a denied run is also a broken one.
+      const unshareCount = source.split("'unshare',").length - 1;
+      expect(unshareCount, `${label}: unshare candidates`).toBeGreaterThanOrEqual(1);
+      expect(source, `${label}: loopback`).toContain('ip link set lo up');
+
+      // The sudo candidate drops privilege back, and only AFTER bringing loopback up.
+      expect(source, `${label}: setpriv`).toContain('--clear-groups');
+      expect(source, `${label}: reuid`).toContain('--reuid=');
+      expect(source, `${label}: regid`).toContain('--regid=');
+      expect(
+        source.indexOf('ip link set lo up'),
+        `${label}: lo up must precede the privilege drop`,
+      ).toBeLessThan(source.indexOf('--clear-groups'));
+
+      // PATH is restored inside the sudo candidate, and the payload never crosses the
+      // boundary as a bare name.
+      expect(source, `${label}: PATH restore`).toContain('export PATH=');
+      expect(source, `${label}: no bare bun payload`).not.toMatch(/argv:\s*\[[^\]]*'bun'/u);
+    }
+  });
+
   test('the claim is scoped to a predicate return, not to Backstage as a system', async () => {
     const source = await offlineRunSource();
     // The offline run makes no Backstage claim at all; asserted so one is not added.

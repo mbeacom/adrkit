@@ -3,7 +3,7 @@
 **Task**: T098 · **Discharges**: FR-060 · **Observed**: 2026-08-05, Phase G
 **Tools**: Bun 1.3.14, TypeScript 6.0.3
 **Command for every case below**: `bun run check:clause8`, run from the repository root
-**Permanent automated case**: `scripts/check-clause8-gate.test.ts` (18 tests)
+**Permanent automated case**: `scripts/check-clause8-gate.test.ts` (30 tests)
 
 ## The gate is this check. It is NOT ADR-0020's frontmatter assertion.
 
@@ -139,8 +139,21 @@ the gate reported "no release claimed, scheduled, or prepared". A sentence asser
 publication, added to either package README, left the gate green.
 
 The patterns are now applied to the three artifacts a consumer would actually read to
-decide whether this is shippable. The success line names the count it scanned, so the
-summary cannot outrun the check again without the number moving.
+decide whether this is shippable. The success line names the artifacts it **actually read**
+— not the length of the target list, which was the same defect one level down: a hard-coded
+3 that could not move, so a moved or renamed artifact reported "3 scanned" having scanned
+two. A missing target is now a finding rather than a silent skip, and the three targets are
+copied into the test sandbox, without which the scan was a no-op in every test in
+`check-clause8-gate.test.ts` including its baseline.
+
+Negation is handled at sentence scope rather than by lookbehind. Only one of the three
+patterns carried a guard at all, and it was a two-token `(?<!not\s)(?<!never\s)` — which
+`check-honesty-close-out.test.ts` already records as insufficient, because the honest
+sentences this repository writes put the negation further away: *"**Neither** package is
+published to npm"*, *"**No** release is scheduled for any version"*. Both are verbatim
+shapes from T100's denial fixtures and both would have turned the build red, whose cheapest
+repair is deleting the denial — the reward-silence outcome ADR-0016 exists to prevent. A
+denial case is now asserted alongside the claim case.
 
 ```
 check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.

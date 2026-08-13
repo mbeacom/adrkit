@@ -63,10 +63,27 @@ export interface Finding {
   readonly reason: string;
 }
 
+/**
+ * Read a JSON evidence artifact, treating an unparseable one as absent-with-a-reason.
+ *
+ * `JSON.parse` was called bare here, so a truncated or hand-edited evidence file threw a
+ * `SyntaxError` out of `main()` — carrying no filename, from inside a network-denied
+ * wrapper, which reads to an operator like a sandbox or toolchain failure rather than the
+ * evidence problem it is. The parse failure is recorded and surfaces as a finding naming
+ * the file, on the same principle as everything else here: the message must point at the
+ * thing that is actually wrong.
+ */
+const unparseable: string[] = [];
+
 function readJson(repoRoot: string, relative: string): unknown {
   const path = join(repoRoot, relative);
   if (!existsSync(path)) return undefined;
-  return JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  } catch (error) {
+    unparseable.push(`${relative}: ${(error as Error).message}`);
+    return undefined;
+  }
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -300,17 +317,54 @@ export const RELEASE_CLAIM_PATTERNS: readonly { readonly id: string; readonly pa
   {
     id: 'claims-released',
     pattern:
-      /(?<!not\s)(?<!never\s)\b(?:is|was|has\s+been|will\s+be)\s+(?:now\s+)?(?:published|released)\s+(?:to|on)\s+npm\b/iu,
+      /\b(?:is|was|has\s+been|will\s+be)\s+(?:now\s+)?(?:published|released)\s+(?:to|on)\s+npm\b/giu,
   },
   {
     id: 'claims-rung-2',
-    pattern: /\bthis\s+(?:package|adapter|feature)\s+is\s+reference-verified\b/iu,
+    pattern: /\bthis\s+(?:package|adapter|feature)\s+is\s+reference-verified\b/giu,
   },
   {
     id: 'schedules-a-release',
-    pattern: /\brelease\s+(?:is\s+)?scheduled\s+for\b/iu,
+    pattern: /\brelease\s+(?:is\s+)?scheduled\s+for\b/giu,
   },
 ];
+
+/**
+ * Cues that make the sentence containing a match a **denial** rather than a claim.
+ *
+ * A two-token lookbehind was here first — `(?<!not\s)(?<!never\s)` — on only one of the
+ * three patterns. It fails for the same reason T100's own file records
+ * (`check-honesty-close-out.test.ts`): a lookbehind sees a few characters, and the honest
+ * sentences this repository actually writes put the negation further away —
+ * *"**Neither** package is published to npm"*, *"**No** release is scheduled for any
+ * version"*. Both are verbatim shapes from T100's denial fixtures, and both would have
+ * turned the build red.
+ *
+ * That direction of failure is the dangerous one: the cheapest way to get green would be
+ * to delete the denial, so the check would reward saying nothing — the outcome ADR-0016
+ * and T100 exist to prevent. Scoped to the sentence, as T100 does.
+ */
+const NEGATION_CUES =
+  /\b(?:not|never|neither|nor|no|cannot|without|refus\w*|forbid\w*|prohibit\w*|must\s+not|may\s+not|is\s+not|are\s+not)\b/iu;
+
+/** Is the match inside a sentence that denies rather than asserts? */
+export function isNegated(text: string, index: number): boolean {
+  const start = Math.max(0, text.lastIndexOf('.', index - 1) + 1);
+  const newline = text.lastIndexOf('\n', index - 1) + 1;
+  const sentence = text.slice(Math.max(start, newline), index);
+  return NEGATION_CUES.test(sentence);
+}
+
+/** Strip `//` line comments, so a name discussed in a comment is not read as a release entry. */
+function stripLineComments(source: string): string {
+  return source
+    .split('\n')
+    .map((line) => {
+      const at = line.indexOf('//');
+      return at === -1 ? line : line.slice(0, at);
+    })
+    .join('\n');
+}
 
 /**
  * The prose {@link RELEASE_CLAIM_PATTERNS} is applied to.
@@ -325,6 +379,15 @@ export const RELEASE_CLAIM_SCAN_TARGETS: readonly string[] = [
   'packages/catalog-envelope/README.md',
   'specs/010-catalog-backstage/evidence/honesty-close-out.md',
 ];
+
+/**
+ * The scan targets actually read on the last run, for the success line.
+ *
+ * Printing `RELEASE_CLAIM_SCAN_TARGETS.length` was the same defect the prose scan was
+ * added to fix, one level down: a hard-coded 3 that could not move, so a moved or renamed
+ * artifact reported "3 scanned" having scanned two. The number now comes from the files.
+ */
+const scanned: string[] = [];
 
 /** Limb B — nothing claims release or ADR-0014 rung 2. */
 function checkNoReleaseClaim(repoRoot: string): Finding[] {
@@ -351,15 +414,30 @@ function checkNoReleaseClaim(repoRoot: string): Finding[] {
   }
 
   // Neither package may be in the release set.
+  //
+  // Scanned by name across the whole file rather than by capturing the array. The obvious
+  // `/RELEASE_PACKAGES[^=]*=\s*\[([\s\S]*?)\]/` is lazy, so it stopped at the first `]` in
+  // the file — which is the one closing the *first* entry's `expectedFiles`. Four of the
+  // five real entries were already outside the window, and a catalog package appended in
+  // the ordinary place would have been invisible while the gate printed that both packages
+  // were absent from `RELEASE_PACKAGES`. The unit test did not catch it because it inserted
+  // its mutation at the head of the array, the one position the window covered.
   const releasePack = join(repoRoot, 'scripts', 'release-pack.ts');
-  if (existsSync(releasePack)) {
-    const source = readFileSync(releasePack, 'utf8');
-    const releaseSet = /RELEASE_PACKAGES[^=]*=\s*\[([\s\S]*?)\]/u.exec(source)?.[1] ?? '';
+  if (!existsSync(releasePack)) {
+    findings.push({
+      requirement: 'no release is scheduled, implied, or prepared (clause 9)',
+      reason: 'scripts/release-pack.ts is absent, so the release set cannot be inspected',
+    });
+  } else {
+    const source = stripLineComments(readFileSync(releasePack, 'utf8'));
     for (const name of ['@adrkit/catalog-backstage', '@adrkit/catalog-envelope']) {
-      if (releaseSet.includes(name)) {
+      // Substring, not a regex: the name contains `/`, and escaping it for a `u`-flagged
+      // pattern is an easy way to produce an invalid one. Comment-stripped so a name
+      // merely discussed in a comment is not read as a release-set entry.
+      if (source.includes(name)) {
         findings.push({
           requirement: 'no release is scheduled, implied, or prepared (clause 9)',
-          reason: `${name} appears in RELEASE_PACKAGES`,
+          reason: `${name} appears in scripts/release-pack.ts as a release-set entry`,
         });
       }
     }
@@ -371,13 +449,24 @@ function checkNoReleaseClaim(repoRoot: string): Finding[] {
   // still printed "no release claimed, scheduled, or prepared" — a broader claim than it
   // checked, which is the exact shape of defect clause 8 exists to prevent. A sentence in
   // either README asserting npm publication left this green.
+  //
+  // A missing target is a finding, not a skip. Skipping made the scan fail *open*: moving
+  // or renaming a scanned artifact deleted that coverage silently while the summary line
+  // kept claiming it, which is the same defect one level down.
   for (const relative of RELEASE_CLAIM_SCAN_TARGETS) {
     const path = join(repoRoot, relative);
-    if (!existsSync(path)) continue;
+    if (!existsSync(path)) {
+      findings.push({
+        requirement: 'no release or rung-2 status is claimed in prose (clause 9, ADR-0014)',
+        reason: `${relative} is absent, so it cannot be scanned for a release claim`,
+      });
+      continue;
+    }
+    scanned.push(relative);
     const prose = readFileSync(path, 'utf8');
     for (const { id, pattern } of RELEASE_CLAIM_PATTERNS) {
-      const match = pattern.exec(prose);
-      if (match !== null) {
+      for (const match of prose.matchAll(pattern)) {
+        if (isNegated(prose, match.index)) continue;
         findings.push({
           requirement: 'no release or rung-2 status is claimed in prose (clause 9, ADR-0014)',
           reason: `${relative} [${id}]: ${JSON.stringify(match[0])}`,
@@ -476,11 +565,22 @@ function checkNoCustomEnginePortRegistered(repoRoot: string): Finding[] {
 }
 
 export function checkClause8Gate(repoRoot: string = REPO_ROOT): Finding[] {
-  return [
+  scanned.length = 0;
+  unparseable.length = 0;
+  const findings = [
     ...checkClause5Evidence(repoRoot),
     ...checkNoReleaseClaim(repoRoot),
     ...checkAssertionStillInert(repoRoot),
   ];
+  // Appended last so a parse failure is reported alongside whatever the missing data made
+  // the other limbs conclude, rather than replacing it.
+  for (const detail of unparseable) {
+    findings.push({
+      requirement: 'every clause-5 evidence artifact is readable',
+      reason: `unparseable JSON — ${detail}`,
+    });
+  }
+  return findings;
 }
 
 function main(): number {
@@ -507,7 +607,7 @@ function main(): number {
   console.log('  clause 5: at least one non-empty owned-paths annotation; adequacy finding recorded');
   console.log(
     '  clause 9: no release claimed, scheduled, or prepared; both packages at 0.0.0, absent from ' +
-      `RELEASE_PACKAGES, and no release/rung-2 prose claim in ${RELEASE_CLAIM_SCAN_TARGETS.length} scanned artifacts`,
+      `RELEASE_PACKAGES, and no release/rung-2 prose claim in ${scanned.length} scanned artifacts (${scanned.join(', ')})`,
   );
   console.log(
     `  clause 8: enforcement is THIS check. ADR-0020\u2019s assertion ${ASSERTION_ID} is inert — it declares ` +
