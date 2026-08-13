@@ -780,7 +780,10 @@ verdict.
      an acknowledged self-report**, because it buys confidence it has not
      earned — which is this feature's own subject matter applied to itself.
 
-  The general principle, which this feature has now hit three times: **the scope
+  The general principle, which this feature has hit repeatedly — the count is
+  deliberately not given, because a tally is a fact about a conversation and
+  conversations keep going, so a disclosure carrying one must be maintained to
+  stay true: **the scope
   of a verification is part of its result, not a detail of how it was run.** A
   check reporting "clean" over a scope that never covered the case reads as
   corroboration and is not — the same structural error as counting one
