@@ -194,8 +194,10 @@ every PR and push simultaneously, and the fix would live in a workflow file — 
 | `the loopback control never connected` | fault in this script or a proxy routing 127.0.0.1 off-host | check `HTTP(S)_PROXY`/`NO_PROXY`; no candidate was tried |
 | `every candidate MECHANISM RAN, and the probe payload failed` | our payload, not the environment | check the probe file and `PATH` handling |
 
-Verified green on `ubuntu-24.04` image `20260810.271.1`, run
-[31660248989](https://github.com/mbeacom/adrkit/actions/runs/31660248989). The other jobs
+Verified green on the pinned `ubuntu-24.04` image, run
+[31761606849](https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631)
+— the first run after pinning, which records `Image: ubuntu-24.04` rather than resolving
+`ubuntu-latest`. The other jobs
 stay on `ubuntu-latest` deliberately: none depends on image internals, so pinning them
 would add bumps to review without covering a risk.
 

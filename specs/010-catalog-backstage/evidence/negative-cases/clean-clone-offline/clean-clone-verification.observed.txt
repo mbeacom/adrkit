@@ -85,3 +85,42 @@ job was reproduced from a genuine clean clone in ubuntu:24.04, with the runner's
 AppArmor restriction on unprivileged user namespaces reproduced by its observable
 behaviour so candidate 1 is refused and candidate 2 is selected. 15/15 steps
 passed, 2367 pass / 0 fail, and no root-owned path existed in the tree afterwards.
+
+================================================================================
+T093 — supersedes the run of record above, 2026-08-13
+
+The 2026-08-12 run remains accurate for what it recorded. It is superseded because
+the job changed after it: three post-install steps that ran unwrapped are now
+wrapped, and the image is pinned rather than floating.
+
+Run of record:
+  GitHub Actions, ubuntu-24.04 (PINNED, not `ubuntu-latest`), job `clean-clone-builds`
+  https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631
+  commit 97aeba2 -- all steps completed/success
+
+$ # Set up job
+Image: ubuntu-24.04
+
+  -- the pin is observable in the log rather than argued for. Before pinning, this
+     line was the resolution of `ubuntu-latest` and could change without a commit.
+
+Thirteen steps ran under a proved denial. The three that had been unwrapped now
+appear with the wrapper, including the one review found:
+
+run-network-denied: running: /home/runner/.bun/bin/bun scripts/check-clean-clone.ts
+run-network-denied: running: /usr/bin/sh -c bun run schema:emit && git diff --exit-code schema/adr.schema.json
+run-network-denied: running: /usr/bin/git diff --exit-code packages/ci/dist
+
+  -- the schema step previously read `... -- bun run schema:emit && git diff ...`,
+     which put only the FIRST half inside the wrapper while the step's name said
+     network denied. Both halves are inside it now.
+
+`bun test` remains the single exemption, for the structural reason recorded in
+this directory's README and in observed-failing-register.md 4.6. T093 stays
+unchecked on account of it.
+
+Local pre-verification (constrains the claim; does not establish it): the whole
+job was reproduced from a clean clone in ubuntu:24.04 with the runner's AppArmor
+restriction simulated so the sudo candidate is the one selected. 15/15 steps
+passed, including all three newly-wrapped ones, with no root-owned path in the
+tree afterwards.

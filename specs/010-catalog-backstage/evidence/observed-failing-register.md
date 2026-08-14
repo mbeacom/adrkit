@@ -303,8 +303,10 @@ is not: PR review added failure-path message branching and an exit-code guard fo
 signal-terminated children. Neither touches candidate selection, the two-sided control, or
 the success path, so the observation still holds — but the question is
 answered by a run on the merged tree rather than by that argument:
-[31660000133](https://github.com/mbeacom/adrkit/actions/runs/31660000133/job/94322645016),
-green at commit `04349fa`, after the review changes.
+[31761606849](https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631),
+green at commit `97aeba2` on the pinned `ubuntu-24.04` image, after the review changes and
+after the three incidental exemptions were wrapped. Thirteen steps run under a proved
+denial; `bun test` is the only one that does not.
 
 ### 4.3 Which host produced each observation is recorded for 2 of 37 cases
 
