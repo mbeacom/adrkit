@@ -292,3 +292,43 @@ review that ships with this migration are the mitigation.
    landed / released / externally validated / adopted / sustained adoption) across
    the affected artifacts and remove vague `real-user` / `release-ready` /
    `authoritative-go` wording unless the precise state is also named.
+
+## Status note — 2026-08-14: the Context's premise has partly expired
+
+Appended rather than edited into the Context above, because the Context records
+the forces that produced this decision and rewriting it would erase why the
+ladder exists. This record's own honesty rules require rung-3 status to be
+reported as explicitly absent or present **with evidence, never assumed**, and
+that cuts both ways: understating what has since happened is as much a fabricated
+status as overstating it.
+
+**What changed.** The Context says the project "has no third-party adopters and no
+external team today, and none is on the horizon it controls." The second clause is
+no longer true. As of 2026-08-14 this repository has two recurring outside
+contributors — [`davesheffer`](https://github.com/davesheffer) (3 commits, 4
+issues/pull requests) and [`aballiet`](https://github.com/aballiet) (2 commits, 4
+issues/pull requests) — observed in `git log origin/main` and the issues API, not
+inferred.
+
+**What has not changed.** Under this record's own vocabulary, a contributor is
+neither `adopted` ("an external party uses it in real work") nor `externally
+validated` ("a party other than the maintainer verified the surface **in their own
+repository**"). Contributions arrive *into* this repository; neither state does.
+**Rung 3 remains absent**, and every artifact that says so stays correct.
+
+That distinction is doing real work rather than splitting hairs. The tempting move
+on seeing outside contributors is to relabel the project as externally validated,
+which would be exactly the fabricated maturity claim the honesty rules forbid, and
+would do it while feeling like an update rather than a claim.
+
+**What was examined, and what it could not settle.** Adoption was searched for and
+not established: public code search for `mbeacom/adrkit/packages/ci` returns only
+`mbeacom/*` repositories; the repository has 6 stars, 3 forks, 1 watcher; npm
+last-month downloads sit between 384 and 1,095 per package. None of those can
+separate an adopter from a mirror, a scraper, or CI. Private repositories and npm
+consumers are unobservable from here, so this is "could not look", **not** "looked
+and found nothing" — the distinction
+[ADR-0016](./0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
+exists to keep visible. Absence of adopters is therefore still asserted in
+`packages/mcp/README.md` and elsewhere on the conservative side, and is left
+standing rather than upgraded on a signal that cannot carry it.

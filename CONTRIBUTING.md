@@ -144,6 +144,16 @@ Adding a decision:
 adr new "Use X for Y"
 ```
 
+**First check whether it should be a new record at all.** Run `adr explain` on the
+paths you would put in `affects`. If an accepted record already governs them, a
+completed action item on *that* record is usually the right artifact — that is how
+the DCO gate landed (a new CI job and a new `scripts/check-dco.ts`, recorded as
+action item 2 on [ADR-0006](docs/adr/0006-license-apache-2-and-single-monorepo.md),
+adding no record), and how the Action's end-to-end signal landed on ADR-0026. A new
+record earns its place when it makes a commitment no existing record made. The
+rubric scores how good a record is, never whether it needed to exist, so nothing
+downstream will catch this for you.
+
 Fill in the alternatives honestly. An alternative no competent engineer would
 choose is a straw man and scores zero — see
 [the rubric](docs/EVALUATOR_RUBRIC.md).
