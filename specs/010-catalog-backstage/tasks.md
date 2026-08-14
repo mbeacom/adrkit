@@ -1188,7 +1188,7 @@ Phase F completes.
       Depends: T024, T092
       **Left unchecked deliberately — first conjunct met, second not.** A clean clone does
       build, typecheck, lint and test green, and that is now verified on the runner itself
-      (all 18 steps of `clean-clone-builds`, evidence in
+      (all steps of `clean-clone-builds`, evidence in
       `<EVIDENCE>/negative-cases/clean-clone-offline/clean-clone-verification.observed.txt`).
       But `bun test` runs with ambient network, so "permitted **only** during install" is
       false as written, and a conjunction with a false conjunct is not satisfied.
@@ -1198,7 +1198,10 @@ Phase F completes.
       `unshare --net` brings `lo` up so that failure does not occur, and 11 still fail
       because the denial-proving tests must nest a sandbox inside the one wrapping them
       (`clean-clone-offline/` case 3 and case 3b).
-      Narrowing the exemption to the two denial-proving files was considered and rejected:
+      Every other post-install step **is** wrapped, including the three that were not when
+      this was first recorded (`check:clean-clone` and the two `git diff --exit-code`
+      verifications); `bun test` is the only remaining exemption.
+      Narrowing it further to the two denial-proving files was considered and rejected:
       `bun test` has no exclusion filter, so it would require an explicit path allowlist
       whose staleness means tests silently not running — the defect `check:clean-clone`
       exists to catch.

@@ -363,31 +363,31 @@ was tested; it was not, because it cannot yet be.
 ### 4.6 FR-050's second half is met in a weaker form than its wording implies
 
 FR-050 asks that network access be permitted **only** during
-`bun install --frozen-lockfile`. **Three** post-install steps of `clean-clone-builds` are
-not wrapped in `scripts/run-network-denied.ts`, and an earlier draft of this section said
-one. The count is given here in full so the disclosure is not narrower than the gap:
+`bun install --frozen-lockfile`. **One** post-install step of `clean-clone-builds` is not
+wrapped in `scripts/run-network-denied.ts`: `bun test`.
 
-| Unwrapped step | Kind | Why |
-|---|---|---|
-| `bun test` | **permanent, structural** | the suite contains the two-sided controls that prove the denial; a control cannot establish a denial from inside one |
-| `bun scripts/check-clean-clone.ts` | **incidental, pending** | unwrapped only because it runs first; the one-line change that wraps it is written and verified but needs a `workflow`-scoped token to push |
-| `git diff --exit-code packages/ci/dist` and the `&& git diff --exit-code schema/adr.schema.json` half of the schema step | **incidental, pending** | same change; `git diff` needs no network, but the ledger closes by enumeration and these were not enumerated |
+Three were unwrapped when this section was first written, and it said one — the disclosure
+was narrower than the gap it exists to disclose. Two of those three (`check:clean-clone`,
+and the `git diff --exit-code` verifications for the Action bundle and the emitted schema)
+were incidental rather than structural, and are now wrapped. That history is recorded
+rather than tidied away, because the register's value is that it does not quietly become
+correct.
 
-Only the first is a property of the design. The other two are an artifact of this session's
-push permissions and are recorded as pending rather than described as done.
-
-The structural reason for `bun test` is recorded at `negative-cases/clean-clone-offline/`
-case 3 and case 3b, and it was observed on **both** platforms, failing differently on each
-— which is what makes it structural rather than a macOS quirk:
+`bun test` is the one that remains, and it is **permanent and structural**: the suite
+contains the two-sided controls that prove the denial, and a control cannot establish a
+denial from inside one. Observed on **both** platforms, failing differently on each —
+which is what makes it structural rather than a macOS quirk:
 
 - macOS `sandbox-exec` denies loopback outright: 3 failures, all `Bun.serve`.
 - Linux `unshare --net` brings `lo` up, so that failure does **not** occur — and 11 tests
   still fail, because the denial-proving tests must nest a sandbox inside the one wrapping
   them.
 
+Recorded at `negative-cases/clean-clone-offline/` case 3 and case 3b.
+
 So the honest statement of what holds is: **no step requires network beyond the install,
-and every step that can run under a proved denial does, with three that currently do not
-named above.** That is weaker than "every step runs under ambient denial", and it is
+and every step that can run under a proved denial does — with `bun test` named as the one
+that cannot.** That is weaker than "every step runs under ambient denial", and it is
 recorded here rather than left for a reader to infer from the workflow file.
 
 **T093 is unchecked on account of this**, not footnoted as complete. Closing it needs an

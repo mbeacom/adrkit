@@ -83,7 +83,7 @@ the arrangement worked at all. That distinction is what turned up case 3 below.
 | Step | Network | Result |
 |---|---|---|
 | `bun install --frozen-lockfile` | **permitted** — the only step | ok |
-| `check:clean-clone` | **unwrapped** (see below) | both packages present, 31+51 and 7+11 modules |
+| `check:clean-clone` | denied | both packages present, 31+51 and 7+11 modules |
 | `typecheck` | denied | clean |
 | `build` | denied | both new packages built, exit 0 |
 | `lint` | denied | clean |
@@ -146,41 +146,64 @@ the denial. Three responses were possible:
 requires network beyond `bun install --frozen-lockfile`, and every step that *can* run
 under a proved denial does" — rather than "every step runs under ambient denial".
 
-**Three** post-install steps are unwrapped, not one, and an earlier draft of this section
-said one. Only the first is a property of the design:
+**One** post-install step is unwrapped: `bun test`, for the structural reason below.
 
-| Unwrapped step | Kind |
-|---|---|
-| `bun test` | permanent, structural — the suite contains the controls that prove the denial |
-| `bun scripts/check-clean-clone.ts` | incidental, pending a `workflow`-scoped push |
-| `git diff --exit-code packages/ci/dist`, and the `&& git diff --exit-code schema/adr.schema.json` half of the schema step | incidental, pending the same push |
+Three were unwrapped when this section was first written and it said one. The other two —
+`check:clean-clone`, and the `git diff --exit-code` verifications for the Action bundle and
+the emitted schema — were incidental rather than structural and are now wrapped; the schema
+step's `&& git diff` in particular ran outside the wrapper under a step whose *name* said
+network denied. The history is kept rather than tidied away, because a ledger that quietly
+becomes correct teaches a reader nothing about how far to trust it.
 
-That is weaker than the original wording implies, and it is recorded here — with the count
-— rather than left for a reader to discover from the workflow file. `observed-failing-register.md`
-§4.6 carries the same table, and T093 is unchecked on account of it.
+That is still weaker than "every step runs under ambient denial", and it is recorded here
+rather than left for a reader to discover from the workflow file.
+`observed-failing-register.md` §4.6 says the same, and T093 is unchecked on account of it.
 
 ---
 
 ## What the CI job does with this
 
-`.github/workflows/ci.yml`'s `clean-clone-builds` routes its post-install steps through
-`scripts/run-network-denied.ts`, with two exceptions that are named here rather than left
-to be discovered from the workflow file.
+`.github/workflows/ci.yml`'s `clean-clone-builds` routes every post-install step through
+`scripts/run-network-denied.ts` **except one**, and the exception is named here rather than
+left to be discovered from the workflow file: `bun test`.
 
-**Exception 1 — `bun test`, permanent and structural.** See below.
+`check:clean-clone` and the two `git diff --exit-code` verifications were a second and
+third exception until they were wrapped. They ran unwrapped only because of where they sat
+in the job, while this paragraph claimed every subsequent step was routed — the claim was
+wrong, and it is recorded as having been wrong rather than quietly corrected.
 
-**Exception 2 — `check:clean-clone`, incidental and pending removal.** It runs unwrapped
-purely because it happens to run first, while this paragraph previously claimed every
-subsequent step was routed. The claim was wrong, and it is corrected here rather than left
-standing: it is a Bun script and has ambient network access it has no need of. The one-line
-change that wraps it (and the `git diff` bundle check with it) is written and verified but
-**not yet applied**, because pushing `.github/workflows/**` needs a `workflow`-scoped token
-this session does not hold. Recorded as pending rather than described as done.
+## The image is pinned, and why only this job
 
-**Why `bun test` cannot be wrapped, on either platform.** The suite contains the two-sided
-controls that *prove* the denial, and a control cannot establish a denial from inside one.
-Observed on both, failing differently, which is what makes it structural rather than a
-macOS quirk:
+`runs-on: ubuntu-24.04`, not `ubuntu-latest`. This job's viability depends on three
+properties of the runner image rather than on anything in this repository: AppArmor's
+unprivileged-user-namespace restriction (which is why candidate 1 is refused and the sudo
+candidate is selected), passwordless `sudo -n` with a `secure_path` that excludes
+`~/.bun/bin`, and `unshare`/`setpriv` from util-linux. The 22.04 → 24.04 migration is what
+introduced the first of those.
+
+Because the gate is fail-closed by design, an ambient image bump would turn this job red on
+every PR and push simultaneously, and the fix would live in a workflow file — needing a
+`workflow`-scoped token while branch protection built on this job blocks everything else.
+
+**Break-glass**, recorded so it does not have to be reconstructed under that pressure:
+
+| Symptom | What it means | Action |
+|---|---|---|
+| `unavailable here: … /proc/self/uid_map: Operation not permitted` on candidate 1 **and** the sudo candidate proves | normal on `ubuntu-24.04` | none; this is the expected path |
+| every candidate `unavailable here:` | the image lost `sudo -n`, `unshare`, or `setpriv` | revert `runs-on` to `ubuntu-24.04` image `20260810.271.1` behaviour by pinning the older label, or add a candidate for the new image — **do not** remove the wrapper |
+| `the loopback control never connected` | fault in this script or a proxy routing 127.0.0.1 off-host | check `HTTP(S)_PROXY`/`NO_PROXY`; no candidate was tried |
+| `every candidate MECHANISM RAN, and the probe payload failed` | our payload, not the environment | check the probe file and `PATH` handling |
+
+Verified green on `ubuntu-24.04` image `20260810.271.1`, run
+[31660248989](https://github.com/mbeacom/adrkit/actions/runs/31660248989). The other jobs
+stay on `ubuntu-latest` deliberately: none depends on image internals, so pinning them
+would add bumps to review without covering a risk.
+
+## Why `bun test` cannot be wrapped, on either platform
+
+The suite contains the two-sided controls that *prove* the denial, and a control cannot
+establish a denial from inside one. Observed on both, failing differently, which is what
+makes it structural rather than a macOS quirk:
 
 | Platform | Mechanism | Result of wrapping |
 |---|---|---|

@@ -22,7 +22,29 @@ jobs:
     #
     # A bare `unshare --net` prefix was rejected: if it silently stopped denying, this job
     # would keep passing and the guarantee would be gone with nothing to notice.
-    runs-on: ubuntu-latest
+    #
+    # Pinned to a concrete image, unlike every other job in this file, because this one's
+    # viability depends on three properties of the image itself rather than on anything in
+    # this repository:
+    #
+    #   * AppArmor's unprivileged-user-namespace restriction, which is why candidate 1
+    #     (`unshare --net --map-root-user`) is refused here and the sudo candidate is the
+    #     one selected;
+    #   * passwordless `sudo -n` with a `secure_path` that excludes `~/.bun/bin`;
+    #   * `unshare` and `setpriv` from util-linux.
+    #
+    # The 22.04 → 24.04 migration is what introduced the first of those. Because the gate
+    # is fail-closed by design, the next such migration would turn this job red on every
+    # PR and push at once, and the fix would live in this file — needing a `workflow`-scoped
+    # token while branch protection built on this job blocks everything else. Pinning makes
+    # that bump a reviewed change rather than an ambient one.
+    #
+    # Verified green on `ubuntu-24.04` image 20260810.271.1, run 31660248989. Break-glass
+    # and the reasoning are recorded in
+    # `specs/010-catalog-backstage/evidence/negative-cases/clean-clone-offline/README.md`.
+    # The other jobs here stay on `ubuntu-latest` deliberately: none of them depends on
+    # image internals, so pinning them would add bumps to review without covering a risk.
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -37,8 +59,13 @@ jobs:
         run: bun install --frozen-lockfile
       # Asserted before anything is built: a green build that silently skipped both new
       # packages would look identical to one that included them.
-      - name: Verify both feature-010 packages are present in this clone
-        run: bun scripts/check-clean-clone.ts
+      #
+      # Wrapped like every other post-install step. It is a Bun script and would otherwise
+      # have had ambient network access purely because it happens to run early — and the
+      # evidence README claims every subsequent step is routed through the wrapper, which
+      # this step was quietly falsifying.
+      - name: Verify both feature-010 packages are present in this clone (network denied)
+        run: bun scripts/run-network-denied.ts -- bun scripts/check-clean-clone.ts
       - name: Typecheck (network denied)
         run: bun scripts/run-network-denied.ts -- bun run typecheck
       - name: Build (network denied)
@@ -53,14 +80,31 @@ jobs:
       # Running them under ambient denial is self-contradictory: it would deny the control
       # that establishes the denial. The offline claim for the generator is discharged
       # inside this suite by `offline-run.test.ts`, which sandboxes its own generation run
-      # and proves the mechanism denies before using it. Observed: wrapping this step
-      # fails 3 tests with `Failed to start server`.
+      # and proves the mechanism denies before using it.
+      #
+      # Observed on BOTH platforms, and they fail differently — which is why the exemption
+      # is structural rather than a macOS quirk:
+      #   macOS  `sandbox-exec` denies loopback outright: 3 tests, `Failed to start server`.
+      #   Linux  `unshare --net` brings `lo` up, so that failure does NOT occur — and 11
+      #          tests still fail, because the denial-proving tests must nest a sandbox
+      #          inside the one already wrapping them.
+      # See `<EVIDENCE>/negative-cases/clean-clone-offline/` case 3 and case 3b.
+      #
+      # This is the one step FR-050's "network only during install" is NOT true of, and
+      # T093 is left UNCHECKED on account of it rather than claimed. Narrowing the
+      # exemption to just the two denial-proving files was considered and rejected: bun
+      # test has no exclusion filter, so it would mean an explicit path allowlist, and a
+      # stale entry there means tests silently not running — the same defect
+      # `check:clean-clone` exists to catch, reintroduced to tidy up a disclosure.
       - name: Test (includes resolution-is-pure and the proved-denial generator run)
         run: bun test
+      # Both halves wrapped. The `&& git diff` used to run outside the wrapper under a step
+      # whose name said "(network denied)", which made the disclosed exemption list wrong
+      # by one and was found by review rather than by the ledger.
       - name: Verify schema emit matches (network denied)
-        run: bun scripts/run-network-denied.ts -- bun run schema:emit && git diff --exit-code schema/adr.schema.json
-      - name: Verify committed Action bundle matches source
-        run: git diff --exit-code packages/ci/dist
+        run: bun scripts/run-network-denied.ts -- sh -c 'bun run schema:emit && git diff --exit-code schema/adr.schema.json'
+      - name: Verify committed Action bundle matches source (network denied)
+        run: bun scripts/run-network-denied.ts -- git diff --exit-code packages/ci/dist
       - name: Verify dependency boundaries (adapters + toolkit confinement)
         run: bun scripts/run-network-denied.ts -- bun run check:deps
       - name: Verify frozen oracle hashes match (feature 010 Barrier B, R5 mechanism 2)
