@@ -78,11 +78,11 @@ adrkit/
   Not `mbeacom.github.io` — ADR-0006 publishes under a personal namespace that
   may later transfer to an org, and a namespace-encoded `$id` breaks every
   pinned reference on transfer.
-- One record remains `proposed` (0005). It is queued for review by `adr queue`;
-  being proposed does not stop the code it describes from having shipped, and the
-  queue reports that state rather than hiding it. Records 0003 and 0006–0009 were
-  ratified on 2026-08-12, closing a gap in which accepted records rested on a
-  proposed foundation.
+- No record remains `proposed`. 0005 was superseded by 0027 on 2026-08-12, which
+  ratified the deterministic evaluator and re-timed its calibration obligation;
+  `adr queue` is consequently empty. Records 0003 and 0006–0009 were ratified on
+  2026-08-12, closing a gap in which accepted records rested on a proposed
+  foundation.
 - ADR-0014 rung-3 external/community validation is open for both the Phase 6 ARB
   queue and the Spec Kit extension. Tracked honestly as absent, never as met.
 - Catalog binding is not built. `packages/adapters/catalog-backstage` exists as
@@ -102,8 +102,8 @@ independent of the GitHub namespace and unaffected either way.
 
 ## Verification
 
-27 files under `docs/adr/` — the template plus 26 records, ids 0001–0026, no
-gaps. All at schema 0.1.0: 24 accepted, 1 proposed, 1 superseded, and the
+28 files under `docs/adr/` — the template plus 27 records, ids 0001–0027, no
+gaps. All at schema 0.1.0: 25 accepted, 0 proposed, 2 superseded, and the
 template at `draft`.
 No dangling `relatesTo`. No one-way door on the auto tier. No accepted record
 without a decider or an import provenance. JSON Schema and Zod agree on property

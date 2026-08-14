@@ -40,10 +40,11 @@ reviewBy: 2027-08-12
 
 [ADR-0005](./0005-deterministic-first-evaluator-with-declarative-escalation.md)
 specified a four-pass evaluator and has sat at `proposed` since 2026-07-18. It is
-the only record in the corpus that never reached `accepted`, and for eleven months
-it has been the sole item in `adr queue` — tier `arb`, routed to `@mbeacom`,
+the only record in the corpus that never reached `accepted`, and it has been the
+sole item in `adr queue` throughout — tier `arb`, routed to `@mbeacom`,
 `within-sla` against a 2027-01-18 deadline that has never been the binding
-constraint.
+constraint. The record did not stall long; it stalled *structurally*, and the
+deadline would not have forced the question for another five months.
 
 The reason it stalled is not disagreement. Pass 0 shipped, and shipped well:
 
