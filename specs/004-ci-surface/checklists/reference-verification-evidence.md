@@ -50,8 +50,8 @@ indistinguishable from verified to anyone who did not go looking.
 
 | # | Scenario | Expected | Observed | Evidence |
 |---|---|---|---|---|
-| 1 | Two dispatches on one pull request | Exactly one comment leads with `<!-- adrkit:ci -->`; its author is a Bot; `check-ci-comment` exits 0 | _pending_ | _pending_ |
-| 2 | A third dispatch on the same pull request, after a push | Still exactly one comment; `updated_at` has advanced past `created_at` | _pending_ | _pending_ |
+| 1 | Two dispatches on one pull request | Exactly one comment leads with `<!-- adrkit:ci -->`; its author is a Bot; the list matches the count GitHub reports for the issue; `check-ci-comment` exits 0 | _pending_ | _pending_ |
+| 2 | The second dispatch updates rather than creates | The surviving comment's **id is unchanged** from the one observed after the first dispatch (`--expect-id`), so a count of one cannot be satisfied by a replacement | _pending_ | _pending_ |
 | 3 | **Fail-closed**: `dir` is a plain file (`ENOTDIR`) | Step `outcome=failure`; before/after comment snapshot byte-identical over `id`, `updated_at`, and body | _pending_ | _pending_ |
 | 4 | **FR-014 degrade**: `pull-requests: read` | Step `outcome=success` (a log notice, not a failure); comment set unchanged | _pending_ | _pending_ |
 | 5 | Credential surface | Only the default `GITHUB_TOKEN`; permissions exactly as declared per job | _pending_ | _pending_ |

@@ -19,9 +19,12 @@
 
 name: adrkit comment Action — reference verification
 
+# `pull_request` only. A `workflow_dispatch` trigger was removed after review: every
+# job below is gated on `github.event_name == 'pull_request'`, so a manual dispatch
+# produced a green run with every job skipped — a pass that proved nothing, which is
+# the exact shape this artifact exists to detect.
 on:
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -47,38 +50,64 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out this reference repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: Check out adrkit at the pinned commit (for the shared assertion script)
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: mbeacom/adrkit
           ref: ${{ env.ADRKIT_REF }}
           path: .adrkit
           persist-credentials: false
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
           bun-version: 1.3.14
       - name: First dispatch (creates)
         uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
         with:
           dir: docs/adr
+      # The same read-your-writes barrier `action-dogfood` uses. Without it a correct
+      # Action can list stale state on the second dispatch, create a second comment,
+      # and fail a run this file calls reproducible.
+      - name: Assert the first dispatch left exactly one comment, and capture its id
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            total=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
+            gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+              > "$RUNNER_TEMP/after-first.json"
+            if bun run .adrkit/scripts/check-ci-comment.ts "$RUNNER_TEMP/after-first.json" \
+                 --expect-total="$total" --id-file="$RUNNER_TEMP/comment-id"; then
+              exit 0
+            fi
+            echo "attempt $attempt: the comment list is not consistent yet; retrying in 5s" >&2
+            sleep 5
+          done
+          echo "the first dispatch's comment never became visible, or was not unique" >&2
+          exit 1
       - name: Second dispatch (must update in place)
         uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
         with:
           dir: docs/adr
       # The same script adrkit's own `action-dogfood` job runs, at the pinned commit,
       # so both rungs answer "is the comment unique?" with one rule rather than two.
-      - name: Assert exactly one governing-decisions comment
+      # `--expect-id` is what makes "updated in place" an assertion: an update preserves
+      # the comment id, a create issues a new one, and a count of one is also what
+      # "created a replacement and the old one is gone" looks like.
+      - name: Assert the second dispatch updated in place rather than creating
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          total=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             > "$RUNNER_TEMP/comments.json"
-          bun run .adrkit/scripts/check-ci-comment.ts "$RUNNER_TEMP/comments.json"
+          bun run .adrkit/scripts/check-ci-comment.ts "$RUNNER_TEMP/comments.json" \
+            --expect-total="$total" --expect-id="$(cat "$RUNNER_TEMP/comment-id")"
 
   # Rung-2 scenario 2 (fail-closed): an invalid corpus directory must fail the step
   # BEFORE any comment is written, and must mutate nothing. The snapshot is captured
@@ -92,7 +121,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out this reference repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: Snapshot every comment before the dispatch
@@ -132,7 +161,7 @@ jobs:
           diff "$RUNNER_TEMP/before.tsv" "$RUNNER_TEMP/after.tsv"
           echo "observed: comment set unchanged across the failed dispatch"
       - name: Upload the sanitized before/after snapshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: fail-closed-comment-snapshots
           path: ${{ runner.temp }}/*.tsv
@@ -150,7 +179,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Check out this reference repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: Snapshot every comment before the dispatch

@@ -23,7 +23,7 @@ attached, is a check that cannot fail dressed as a handoff."
 | Fail-closed: invalid corpus dir writes nothing | no | yes, byte-for-byte snapshot compare |
 | FR-014 degrade on a read-only token | **no — structurally impossible** | yes |
 
-The third row is the reason both rungs exist rather than one. `action-dogfood` skips
+The fourth row is the reason both rungs exist rather than one. `action-dogfood` skips
 fork pull requests precisely because their token is read-only, so the repository's own
 CI can never exercise the degrade path it skips over. A reference repository can grant
 `pull-requests: read` deliberately and assert the Action stays green and writes

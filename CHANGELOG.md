@@ -36,7 +36,11 @@ Until `1.0.0`, minor releases may include breaking changes
   and an empty list is what a revoked permission, a wrong pull-request number, and a
   silently-degraded Action all produce — the blind-pass shape
   [ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
-  exists to prevent. The gate is `scripts/check-ci-comment.ts`, which imports only
+  exists to prevent. Two cross-checks close the remaining blind spots: the list is
+  compared against the comment count GitHub reports for the issue, so a lost
+  `--paginate` cannot hide a duplicate on page two, and the surviving comment's **id**
+  is compared across dispatches, so a count of one cannot be satisfied by a replacement.
+  The gate is `scripts/check-ci-comment.ts`, which imports only
   builtins, reports every marked comment it examined rather than only its verdict, and
   ships permanent negative fixtures for the duplicate (#107), absent, empty, and
   human-authored shapes, each observed rejecting.

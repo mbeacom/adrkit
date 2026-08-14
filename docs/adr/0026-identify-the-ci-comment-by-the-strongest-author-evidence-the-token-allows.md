@@ -370,6 +370,16 @@ have one.
      healthy Action. The second assertion is deliberately not retried — a stale read
      there can only hide a duplicate, never invent one, and duplicates persist until a
      human removes them.
+   - **Two cross-checks the comment list cannot answer on its own.** The list is
+     compared against the comment count GitHub reports for the issue, because a caller
+     who loses `--paginate` sees page one and a duplicate on page two then reads
+     exactly like a healthy single comment; and the surviving comment's **id** is
+     compared against the one observed after the first dispatch, because an update
+     preserves the id while a create issues a new one. The second replaces an earlier,
+     weaker idea — asserting that `updated_at` advanced — which cannot be relied on,
+     since whether GitHub bumps it on a PATCH with a byte-identical body is not
+     contractual. Id stability is contractual, and it is a specific observed value
+     rather than a count.
 
    Still open: making `action-dogfood` a required check on the `main` ruleset, which
    cannot happen until it has run green at least once, since it skips on the pull

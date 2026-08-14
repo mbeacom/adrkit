@@ -7,6 +7,7 @@ import {
   findCommentViolations,
   formatReport,
   main,
+  parseArgs,
   parseComments,
   type ExaminedComment,
 } from './check-ci-comment.ts';
@@ -196,6 +197,85 @@ describe('fixtures', () => {
   test('human-authored.json fails — the count is right, the author is not', async () => {
     const report = findCommentViolations(parseComments(await readFixture('human-authored.json')));
     expect(report.violations.map((violation) => violation.rule)).toEqual(['not-a-bot']);
+  });
+});
+
+describe('cross-checks', () => {
+  // Raised in review of #143: `gh api --paginate` was thought to emit one JSON document
+  // per page. It does not — it merges a top-level array into one document (verified
+  // against gh 2.96.0 over 12 pages of 1). But the adjacent gap is real: a caller who
+  // drops --paginate gets page 1 only, and a duplicate sitting on page 2 then reads
+  // exactly like a healthy single comment. That is a blind pass, so it is asserted.
+  test('rejects a list shorter than the count GitHub reports for the issue', () => {
+    const report = findCommentViolations([comment()], { expectTotal: 31 });
+    expect(report.violations.map((violation) => violation.rule)).toEqual(['incomplete']);
+    expect(report.violations[0]?.message).toContain('--paginate');
+  });
+
+  test('accepts a list matching the reported count', () => {
+    expect(findCommentViolations([comment()], { expectTotal: 1 }).violations).toEqual([]);
+  });
+
+  // The caller reads the total before the list, so a comment arriving between the two
+  // makes the list longer. Failing there would turn a human commenting mid-job into a
+  // red run on a healthy Action.
+  test('accepts a list longer than the reported count — a comment arrived mid-run', () => {
+    const report = findCommentViolations([comment(), comment({ id: 2, body: 'nice' })], { expectTotal: 1 });
+    expect(report.violations).toEqual([]);
+  });
+
+  test('reports incompleteness alongside the other rules, not instead of them', () => {
+    const report = findCommentViolations([comment(), comment({ id: 2 })], { expectTotal: 9 });
+    expect(report.violations.map((violation) => violation.rule)).toEqual(['incomplete', 'duplicate']);
+  });
+
+  // The reviewer's improvement on the un-asserted `edited` field: an in-place update
+  // preserves the comment id, a create issues a new one, and unlike `updated_at` on a
+  // byte-identical PATCH that is contractual.
+  test('rejects a comment whose id changed since the previous dispatch', () => {
+    const report = findCommentViolations([comment({ id: 77 })], { expectId: 42 });
+    expect(report.violations.map((violation) => violation.rule)).toEqual(['id-changed']);
+    expect(report.violations[0]?.message).toContain('#42');
+  });
+
+  test('accepts a comment whose id is unchanged', () => {
+    expect(findCommentViolations([comment({ id: 42 })], { expectId: 42 }).violations).toEqual([]);
+  });
+
+  test('applies no cross-checks when none are supplied', () => {
+    expect(findCommentViolations([comment()]).violations).toEqual([]);
+  });
+});
+
+describe('parseArgs', () => {
+  test('reads a bare path', () => {
+    expect(parseArgs(['comments.json'])).toEqual({ path: 'comments.json', checks: {}, idFile: undefined });
+  });
+
+  test('reads both cross-checks and --id-file', () => {
+    expect(parseArgs(['c.json', '--expect-total=5', '--expect-id=9', '--id-file=/tmp/id'])).toEqual({
+      path: 'c.json',
+      checks: { expectTotal: 5, expectId: 9 },
+      idFile: '/tmp/id',
+    });
+  });
+
+  test('refuses an empty --id-file path', () => {
+    expect(() => parseArgs(['--id-file='])).toThrow(/needs a path/);
+  });
+
+  // An empty or non-numeric value would otherwise disable the check while looking
+  // exactly like it was applied — the failure this whole gate exists to prevent.
+  test('refuses an empty cross-check value rather than dropping the check', () => {
+    expect(() => parseArgs(['--expect-total='])).toThrow(/non-negative integer/);
+  });
+
+  test('refuses a non-numeric cross-check value', () => {
+    expect(() => parseArgs(['--expect-id=abc'])).toThrow(/non-negative integer/);
+  });
+
+  test('refuses an unrecognised option rather than treating it as a path', () => {
+    expect(() => parseArgs(['--pagniate'])).toThrow(/unrecognised option/);
   });
 });
 

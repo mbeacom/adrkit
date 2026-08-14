@@ -14,9 +14,13 @@
  *
  *   gh api --paginate "repos/$REPO/issues/$PR/comments" | bun run scripts/check-ci-comment.ts
  *   bun run scripts/check-ci-comment.ts comments.json
+ *   bun run scripts/check-ci-comment.ts comments.json --expect-total=42 --expect-id=123
  *
  * Input is the JSON array `GET /repos/{owner}/{repo}/issues/{issue_number}/comments`
- * returns, read from a file argument or from stdin.
+ * returns, read from a file argument or from stdin. `gh api --paginate` merges pages of
+ * a top-level array into one document (verified against gh 2.96.0), so the payload
+ * parses as a single array — but a caller who forgets `--paginate` gets a silently
+ * short list, which `--expect-total` exists to catch.
  *
  * The same script backs the reference-repository run
  * ([ADR-0014](../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
@@ -33,7 +37,7 @@
  * invoking it can produce a green status over a broken Action.
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 
 /**
  * Must equal `CI_COMMENT_MARKER` in `packages/ci/src/comment.ts`. Asserted by
@@ -76,11 +80,32 @@ export interface ClassifiedComment {
   edited: boolean;
 }
 
-export type ViolationRule = 'absent' | 'duplicate' | 'not-a-bot';
+export type ViolationRule = 'absent' | 'duplicate' | 'not-a-bot' | 'incomplete' | 'id-changed';
 
 export interface Violation {
   rule: ViolationRule;
   message: string;
+}
+
+/**
+ * Optional cross-checks the caller can supply from outside the comment list.
+ *
+ * Both exist because the list alone cannot answer them, and both failures are silent
+ * without them (ADR-0016):
+ *
+ * - `expectTotal` — the comment count GitHub reports for the issue itself. A list that
+ *   is short of it was truncated, and a duplicate hiding on an unfetched page reads
+ *   exactly like a healthy single comment. This is the same completeness property R5
+ *   requires of the Action's own `octokit.paginate` call, applied to the verifier.
+ * - `expectId` — the comment id observed after an earlier dispatch. An in-place update
+ *   preserves the id; a create issues a new one. This is a **specific observed value**
+ *   rather than a count (ADR-0016 clause 3), and it is strictly better evidence than
+ *   `edited`: whether GitHub bumps `updated_at` on a PATCH whose body is byte-identical
+ *   is not contractual, whereas id stability is.
+ */
+export interface CrossChecks {
+  expectTotal?: number;
+  expectId?: number;
 }
 
 export interface CommentReport {
@@ -155,7 +180,10 @@ export function classify(comment: ExaminedComment): ClassifiedComment | undefine
  *   here means a person's hand-written comment is being counted as the Action's and
  *   the real one may be missing.
  */
-export function findCommentViolations(comments: readonly ExaminedComment[]): CommentReport {
+export function findCommentViolations(
+  comments: readonly ExaminedComment[],
+  checks: CrossChecks = {},
+): CommentReport {
   const own: ClassifiedComment[] = [];
   const quoting: ClassifiedComment[] = [];
 
@@ -166,6 +194,26 @@ export function findCommentViolations(comments: readonly ExaminedComment[]): Com
   }
 
   const violations: Violation[] = [];
+
+  // Checked first, and reported alongside rather than instead of the rules below: if
+  // the list is short, every count derived from it is drawn from a partial view, and
+  // saying so is more useful than reporting a verdict that was reached blind.
+  //
+  // Deliberately `<` and not `!==`. The caller reads the reported total *before* the
+  // list, so a comment arriving between the two calls makes the list one LONGER than
+  // the total, which is benign. Treating that as a mismatch would fail a healthy run
+  // whenever a human commented mid-job.
+  if (checks.expectTotal !== undefined && comments.length < checks.expectTotal) {
+    violations.push({
+      rule: 'incomplete',
+      message:
+        `GitHub reports ${checks.expectTotal} comment(s) on this pull request but the list ` +
+        `held only ${comments.length}. The comment list was truncated, so a duplicate on an ` +
+        `unfetched page would read exactly like a healthy single comment. Check that the ` +
+        `caller passed --paginate.`,
+    });
+  }
+
   if (own.length === 0) {
     violations.push({
       rule: 'absent',
@@ -192,6 +240,16 @@ export function findCommentViolations(comments: readonly ExaminedComment[]): Com
           `the only comment leading with ${CI_COMMENT_MARKER} is authored by ${only.author} ` +
           `(type ${only.authorType}), not a Bot, so it cannot be attributed to the Action. ` +
           `The Action's own comment may be missing behind a human's.`,
+      });
+    }
+    if (checks.expectId !== undefined && only.id !== checks.expectId) {
+      violations.push({
+        rule: 'id-changed',
+        message:
+          `the governing-decisions comment is #${only.id}, but #${checks.expectId} was ` +
+          `observed after the previous dispatch. An in-place update preserves the id, so a ` +
+          `new id means the Action created a replacement — the count is one only because ` +
+          `the earlier comment is gone, not because it was updated.`,
       });
     }
   }
@@ -235,10 +293,10 @@ export function parseComments(input: string): ExaminedComment[] {
  *
  * `edited` is reported and never asserted. It is the signal the #107 reporter used —
  * `updated_at` advancing past `created_at` — but whether GitHub bumps `updated_at` on a
- * PATCH whose body is byte-identical is not contractual, and the two runs this gate
- * follows render identical bodies. Asserting it would trade a real regression signal
- * for a flake; printing it keeps the observation available to a human without letting
- * an undocumented API detail decide a merge.
+ * PATCH whose body is byte-identical is not contractual, and two dispatches in one run
+ * render identical bodies. `--expect-id` is the assertion that carries that weight
+ * instead: id stability across dispatches distinguishes an in-place update from a
+ * replacement without depending on an undocumented API detail.
  */
 export function formatReport(report: CommentReport): string {
   const lines = [
@@ -256,10 +314,49 @@ export function formatReport(report: CommentReport): string {
   return lines.join('\n');
 }
 
+/**
+ * Pure: read the flags this gate accepts, so argument handling is testable rather than
+ * improvised in bash. A malformed value throws instead of being silently dropped —
+ * `--expect-total=` with an empty value would otherwise disable the completeness check
+ * while looking like it was applied.
+ */
+export function parseArgs(argv: readonly string[]): { path?: string; checks: CrossChecks; idFile?: string } {
+  const checks: CrossChecks = {};
+  let path: string | undefined;
+  let idFile: string | undefined;
+
+  for (const arg of argv) {
+    const idOut = /^--id-file=(.*)$/.exec(arg);
+    if (idOut) {
+      if ((idOut[1] as string).trim() === '') throw new Error('--id-file needs a path');
+      idFile = idOut[1] as string;
+      continue;
+    }
+    const flag = /^--(expect-total|expect-id)=(.*)$/.exec(arg);
+    if (flag) {
+      const raw = flag[2] as string;
+      // `Number('')` is 0, which is a perfectly good non-negative integer — so an empty
+      // value would disable the check while looking exactly like it was applied. Test
+      // `refuses an empty cross-check value` observed this passing before the guard.
+      const value = raw.trim() === '' ? Number.NaN : Number(raw);
+      if (!Number.isInteger(value) || value < 0) {
+        throw new Error(`--${flag[1]} needs a non-negative integer, got "${raw}"`);
+      }
+      if (flag[1] === 'expect-total') checks.expectTotal = value;
+      else checks.expectId = value;
+      continue;
+    }
+    if (arg.startsWith('--')) throw new Error(`unrecognised option ${arg}`);
+    path = arg;
+  }
+
+  return { path, checks, idFile };
+}
+
 export async function main(argv: readonly string[]): Promise<void> {
-  const path = argv[0];
+  const { path, checks, idFile } = parseArgs(argv);
   const payload = path ? await readFile(path, 'utf8') : await Bun.stdin.text();
-  const report = findCommentViolations(parseComments(payload));
+  const report = findCommentViolations(parseComments(payload), checks);
   console.log(formatReport(report));
 
   if (report.violations.length > 0) {
@@ -274,10 +371,14 @@ export async function main(argv: readonly string[]): Promise<void> {
     );
   }
 
+  const only = report.own[0] as ClassifiedComment;
   console.log(
-    `check-ci-comment: ok — exactly one governing-decisions comment, authored by ` +
-      `${(report.own[0] as ClassifiedComment).author}`,
+    `check-ci-comment: ok — exactly one governing-decisions comment (#${only.id}), authored by ${only.author}`,
   );
+  // Written to a file rather than a stream so the caller can feed it to the next
+  // dispatch's --expect-id without redirecting stdout, which would hide the report
+  // above from the job log — the half of ADR-0016 that says state what you examined.
+  if (idFile) await writeFile(idFile, `${only.id}\n`, 'utf8');
 }
 
 if (import.meta.main) {

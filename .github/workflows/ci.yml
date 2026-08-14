@@ -210,9 +210,15 @@ jobs:
           # Action. Retrying turns that race into a bounded, named failure instead of a
           # false positive.
           for attempt in 1 2 3 4 5; do
+            # The reported total is read BEFORE the list, deliberately. A comment
+            # arriving between the two calls then makes the list one longer than the
+            # total, which the checker treats as benign; the other order would make it
+            # one shorter, which reads as truncation and fails a healthy run.
+            total=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
             gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
               > "$RUNNER_TEMP/after-first.json"
-            if bun run check:ci-comment "$RUNNER_TEMP/after-first.json"; then
+            if bun run check:ci-comment "$RUNNER_TEMP/after-first.json" \
+                 --expect-total="$total" --id-file="$RUNNER_TEMP/comment-id"; then
               exit 0
             fi
             echo "attempt $attempt: the comment list is not consistent yet; retrying in 5s" >&2
@@ -233,9 +239,16 @@ jobs:
           # dispatch created, never invent one — and a duplicate persists, so the next
           # push catches it. Retrying a passing assertion until it fails would be the
           # opposite of a gate.
+          #
+          # --expect-id is what makes "updated in place" an assertion rather than an
+          # inference: an update preserves the comment id, a create issues a new one.
+          # A count of one is also what "created a replacement and the old one is gone"
+          # looks like, and the id distinguishes them.
+          total=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             > "$RUNNER_TEMP/after-second.json"
-          bun run check:ci-comment "$RUNNER_TEMP/after-second.json"
+          bun run check:ci-comment "$RUNNER_TEMP/after-second.json" \
+            --expect-total="$total" --expect-id="$(cat "$RUNNER_TEMP/comment-id")"
 
   dco:
     # ADR-0006 chose a DCO over a CLA. CONTRIBUTING.md and the PR template have
