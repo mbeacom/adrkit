@@ -339,11 +339,18 @@ have one.
      identity path executing in the wild, not inferred from source.
    - **A `pull-requests: read` token can list issue comments at all** — previously
      unestablished, and the reason the snapshot step asserts its result is non-empty.
-   - **`updated_at` does not move on a byte-identical PATCH.** In both attempts the
+   - **`updated_at` does not move on a byte-identical PATCH.** In every attempt the
      Action logged `updated` while `updated_at == created_at`. The gate asserts **id
-     stability** instead precisely because that API detail is uncontractual; this run
-     shows an artifact asserting `updated_at` would have failed against a healthy Action.
-     A design hedge became an observation.
+     stability** instead precisely because that API detail is uncontractual, and a design
+     hedge became an observation.
+
+     A controlled measurement settles the mechanism rather than inferring it: PATCHing a
+     comment with a **byte-identical** body leaves `updated_at` at its previous value,
+     while PATCHing the same comment with a changed body advances it (probe on this
+     repository, 2026-08-14 — create `05:47:25Z`, identical PATCH `05:47:25Z`, changed
+     PATCH `05:47:33Z`, probe comment deleted). So `updated_at` is a signal about the
+     *body*, not about whether a write occurred, and an artifact asserting it would fail
+     against a healthy Action whenever two runs render the same text.
 
 9. [x] **Deferred when this record was written; done 2026-08-14 ([#135](https://github.com/mbeacom/adrkit/issues/135)).**
    This repository did not run its own governing-decisions Action on its own pull

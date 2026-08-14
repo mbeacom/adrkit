@@ -90,15 +90,29 @@ All nine jobs (3 × 3 runs) concluded `success`. Run 3 head SHA
 
 ## An assertion this run converted from rationale into observation
 
-In **both** attempts, `updated_at == created_at` after the second dispatch and `[edited]`
+In **every** attempt, `updated_at == created_at` after the second dispatch and `[edited]`
 was never flagged, even though the Action logged `updated the governing-decisions
-comment` and therefore issued a PATCH. GitHub does not bump `updated_at` for a PATCH
-whose body is byte-identical.
+comment` and therefore issued a PATCH.
+
+The mechanism was then **measured directly** rather than inferred from those runs, after
+a sibling observation on `mbeacom/openleague#328` showed `updated_at` advancing across
+two dispatches and raised the question of whether the rule held. A probe comment on
+`mbeacom/adrkit#143` (created `05:47:25Z`, deleted afterwards) gave:
+
+| Operation | `updated_at` |
+|---|---|
+| create | `05:47:25Z` |
+| PATCH with a **byte-identical** body | `05:47:25Z` — unchanged |
+| PATCH with a **changed** body | `05:47:33Z` — advanced |
+
+So `updated_at` reports whether the *body* changed, not whether a write occurred, and the
+openleague case is consistent: its two runs were on **different head commits**
+(`208663a2` and `c225e146`), so the rendered body legitimately differed.
 
 `check-ci-comment.ts` asserts **id stability** rather than `updated_at` advancing, and
-documents that choice as a hedge against an uncontractual API detail. This run shows the
-hedge was load-bearing: an artifact asserting `updated_at` would have failed both
-attempts against a healthy Action.
+documents that choice as a hedge against an uncontractual API detail. The measurement
+shows the hedge was load-bearing: an artifact asserting `updated_at` would fail against a
+healthy Action on every run that renders the same text twice.
 
 ## Why the first attempt is not cited
 
