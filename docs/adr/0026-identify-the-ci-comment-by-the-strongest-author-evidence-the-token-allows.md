@@ -303,12 +303,15 @@ have one.
 8. [ ] Confirm on a reference repository that a second push updates the comment
    ([ADR-0014](./0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
    rung 2); rung 1 is the unit and contract coverage above.
-9. [ ] **Deferred, tracked separately.** This repository does not run its own
-   governing-decisions Action on its own pull requests, so no automated signal would
-   catch a recurrence before adopters see duplicate comments — which is precisely how
-   this defect survived two releases. Closing that is a larger change than this record
-   authorizes, and it interacts with the ADR-0014 rung-2 mechanism rather than
-   replacing it.
+9. [x] **Deferred, tracked separately — now closed by
+   [ADR-0028](./0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md)
+   ([#135](https://github.com/mbeacom/adrkit/issues/135)).** This repository did not run
+   its own governing-decisions Action on its own pull requests, so no automated signal
+   would catch a recurrence before adopters see duplicate comments — which is precisely
+   how this defect survived two releases. Closing that was a larger change than this
+   record authorizes, and it interacts with the ADR-0014 rung-2 mechanism rather than
+   replacing it; ADR-0028 covers both rungs. Item 8 above remains open and is tracked
+   there as its own action item 7.
 10. [ ] **Deferred, tracked separately.** `v0` is a moving tag with no documented
     rollback, so recovering from a bad Action release depends on a maintainer knowing
     to force-move it by hand.

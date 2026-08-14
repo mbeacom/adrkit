@@ -1,0 +1,30 @@
+[
+  {
+    "id": 3001,
+    "user": { "login": "octocat", "type": "User" },
+    "created_at": "2026-08-11T09:00:00Z",
+    "updated_at": "2026-08-11T09:00:00Z",
+    "body": "Rebased onto main to pick up the schema fix."
+  },
+  {
+    "id": 3002,
+    "user": { "login": "github-actions[bot]", "type": "Bot" },
+    "created_at": "2026-08-11T09:04:11Z",
+    "updated_at": "2026-08-11T09:04:11Z",
+    "body": "<!-- adrkit:ci -->\n### Decisions governing this change\n\n- **ADR-0026** — Identify the CI comment by the strongest author evidence the token allows\n"
+  },
+  {
+    "id": 3003,
+    "user": { "login": "github-actions[bot]", "type": "Bot" },
+    "created_at": "2026-08-11T09:31:47Z",
+    "updated_at": "2026-08-11T09:31:47Z",
+    "body": "<!-- adrkit:ci -->\n### Decisions governing this change\n\n- **ADR-0026** — Identify the CI comment by the strongest author evidence the token allows\n"
+  },
+  {
+    "id": 3004,
+    "user": { "login": "github-actions[bot]", "type": "Bot" },
+    "created_at": "2026-08-11T10:02:05Z",
+    "updated_at": "2026-08-11T10:02:05Z",
+    "body": "<!-- adrkit:ci -->\n### Decisions governing this change\n\n- **ADR-0026** — Identify the CI comment by the strongest author evidence the token allows\n"
+  }
+]

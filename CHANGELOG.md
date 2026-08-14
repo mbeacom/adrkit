@@ -9,6 +9,55 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **The comment-posting Action now has an end-to-end signal** ([ADR-0028](docs/adr/0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md),
+  #135, closing [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
+  action item 9). `self-dogfood` runs the **CLI** with `contents: read`, so it never
+  constructed a GitHub client, resolved an identity, or posted a comment — the surface
+  #107 lived in had no coverage before it shipped to every adopter pinned at the moving
+  `v0` tag. That is how #107 survived two releases: every suite was green, and the job
+  log it printed (`adrkit: created the governing-decisions comment.`) is what healthy
+  operation prints.
+
+  **A new `action-dogfood` job** runs `uses: ./packages/ci` **twice** against the
+  repository's own pull requests and asserts, over the API, that exactly one comment
+  leads with `<!-- adrkit:ci -->` and that a Bot authored it. It is gated on
+  `clean-clone-builds` so it cannot pass over a stale committed bundle, and serialized
+  per pull request so two concurrent runs cannot both create and fail a correct Action.
+  The assertion also runs *between* the two dispatches, on a bounded retry, as a
+  read-your-writes barrier — GitHub can serve the comment list from a replica, and a
+  second dispatch that listed before the first comment became visible would create a
+  duplicate and fail a healthy Action. This is the only job in the repository with a
+  write capability (`pull-requests: write`), scoped to one job rather than raised at the
+  workflow level.
+
+  **`exactly one`, not `at most one`.** An empty comment list satisfies "at most one",
+  and an empty list is what a revoked permission, a wrong pull-request number, and a
+  silently-degraded Action all produce — the blind-pass shape
+  [ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
+  exists to prevent. The gate is `scripts/check-ci-comment.ts`, which imports only
+  builtins, reports every marked comment it examined rather than only its verdict, and
+  ships permanent negative fixtures for the duplicate (#107), absent, empty, and
+  human-authored shapes, each observed rejecting.
+
+  **Fork and Dependabot pull requests are excluded**, because their `GITHUB_TOKEN` is
+  read-only whatever `permissions:` declares — the Action correctly degrades to a log
+  notice (FR-014) and posts nothing, so the assertion would fail a healthy Action.
+  `pull_request_target` would close that blind spot by running base-repo workflows with
+  a write token against fork-authored code, and was rejected outright.
+
+- **A runnable rung-2 reference-repository artifact for the comment path**
+  (`specs/004-ci-surface/evidence/reference-repo/`). It calls the Action as a consumer
+  does — `uses: mbeacom/adrkit/packages/ci@<sha>` — and covers two scenarios the
+  in-repository job structurally cannot: a fail-closed dispatch against an invalid
+  corpus directory that must write nothing, and the FR-014 degrade under
+  `pull-requests: read` that must stay green. Shipped as a workflow file rather than as
+  a task, per ADR-0016 clause 4. Its evidence index
+  (`specs/004-ci-surface/checklists/reference-verification-evidence.md`) is created
+  **empty and explicitly `NOT YET OBSERVED`**: the comment path remains `implemented`,
+  not `reference-verified`, until a real run fills it in.
+
 ## [0.7.0] - 2026-08-12
 
 ### Added

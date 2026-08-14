@@ -1,0 +1,9 @@
+[
+  {
+    "id": 6001,
+    "user": { "login": "octocat", "type": "User" },
+    "created_at": "2026-08-11T09:00:00Z",
+    "updated_at": "2026-08-11T09:00:00Z",
+    "body": "<!-- adrkit:ci -->\n### Decisions governing this change\n\nPasting what the bot said last week so it's easy to find.\n"
+  }
+]

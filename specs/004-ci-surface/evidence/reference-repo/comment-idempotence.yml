@@ -1,0 +1,182 @@
+# Drop-in reference-repository workflow for the governing-decisions comment Action.
+#
+# This is the ADR-0014 rung-2 artifact for `packages/ci`'s comment path, shipped as a
+# runnable file rather than as an instruction: ADR-0016 clause 4 says a deferral hands
+# over the failing case, not the request to build one.
+#
+# Install: copy to `.github/workflows/` in the maintainer-owned isolated reference
+# repository (`mbeacom/adrkit-t018-dogfood`), set ADRKIT_REF to the 40-character
+# adrkit commit under test, commit the fixture named under `fail-closed`, and open a
+# pull request. Then record the observed rows in
+# `specs/004-ci-surface/checklists/reference-verification-evidence.md`.
+#
+# It is self-verifying in ADR-0014's sense: every job asserts its own expected outcome,
+# so behaviour that diverges fails the run rather than requiring a human to read a log.
+#
+# The three jobs are serialized with `needs`, not for speed but for correctness — they
+# each read the same pull request's comment list, and two of them assert it did not
+# change.
+
+name: adrkit comment Action — reference verification
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # An immutable 40-character commit SHA. Never a tag and never a branch: ADR-0016
+  # records a stale read by ref that returned HTTP 200 and coherent markdown while
+  # being behind the branch head, which is indistinguishable from a current read.
+  ADRKIT_REF: 0000000000000000000000000000000000000000
+  # A path that is a plain FILE, not a directory, committed to this repository. Used as
+  # the Action's `dir` input so the corpus loader throws ENOTDIR inside `lintCorpus`,
+  # which `runAction` calls before it renders or posts anything.
+  INVALID_CORPUS_DIR: fixtures/fail-closed-invalid-corpus-dir
+
+jobs:
+  # Rung-2 scenario 1: the property issue #107 violated. Two dispatches against one
+  # pull request must leave exactly one comment behind.
+  idempotence:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out this reference repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Check out adrkit at the pinned commit (for the shared assertion script)
+        uses: actions/checkout@v5
+        with:
+          repository: mbeacom/adrkit
+          ref: ${{ env.ADRKIT_REF }}
+          path: .adrkit
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: First dispatch (creates)
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: docs/adr
+      - name: Second dispatch (must update in place)
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: docs/adr
+      # The same script adrkit's own `action-dogfood` job runs, at the pinned commit,
+      # so both rungs answer "is the comment unique?" with one rule rather than two.
+      - name: Assert exactly one governing-decisions comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            > "$RUNNER_TEMP/comments.json"
+          bun run .adrkit/scripts/check-ci-comment.ts "$RUNNER_TEMP/comments.json"
+
+  # Rung-2 scenario 2 (fail-closed): an invalid corpus directory must fail the step
+  # BEFORE any comment is written, and must mutate nothing. The snapshot is captured
+  # over the API; the comparison itself is network-free.
+  fail-closed:
+    if: github.event_name == 'pull_request'
+    needs: idempotence
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out this reference repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Snapshot every comment before the dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/before.tsv"
+          sha256sum "$RUNNER_TEMP/before.tsv" | tee "$RUNNER_TEMP/before.sha256"
+      - name: Dispatch against an invalid corpus directory (expected to fail)
+        id: invalid
+        continue-on-error: true
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: ${{ env.INVALID_CORPUS_DIR }}
+      - name: Assert the step failed rather than commenting
+        run: |
+          if [ "${{ steps.invalid.outcome }}" != "failure" ]; then
+            echo "expected the Action to fail on an invalid corpus dir, got '${{ steps.invalid.outcome }}'" >&2
+            exit 1
+          fi
+          echo "observed: steps.invalid.outcome=failure"
+      - name: Assert no comment was created, edited, or deleted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/after.tsv"
+          sha256sum "$RUNNER_TEMP/after.tsv" | tee "$RUNNER_TEMP/after.sha256"
+          # Byte-for-byte, over id + updated_at + the full body. A comment that was
+          # rewritten with identical text still moves updated_at; one that was deleted
+          # and recreated changes its id.
+          diff "$RUNNER_TEMP/before.tsv" "$RUNNER_TEMP/after.tsv"
+          echo "observed: comment set unchanged across the failed dispatch"
+      - name: Upload the sanitized before/after snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: fail-closed-comment-snapshots
+          path: ${{ runner.temp }}/*.tsv
+
+  # Rung-2 scenario 3: FR-014's degrade path, which is what a fork pull request gets and
+  # what adrkit's own `action-dogfood` job cannot cover. A token without
+  # `pull-requests: write` must produce a log notice and a GREEN job, not a failure, and
+  # must still write nothing.
+  degrade-read-only:
+    if: github.event_name == 'pull_request'
+    needs: fail-closed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out this reference repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Snapshot every comment before the dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/before.tsv"
+      - name: Dispatch with a read-only token (expected to degrade, not fail)
+        id: readonly
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: docs/adr
+      - name: Assert the job stayed green and nothing was written
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "${{ steps.readonly.outcome }}" != "success" ]; then
+            echo "FR-014: a read-only token must degrade to a log notice, not fail the job" >&2
+            exit 1
+          fi
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/after.tsv"
+          diff "$RUNNER_TEMP/before.tsv" "$RUNNER_TEMP/after.tsv"
+          echo "observed: read-only dispatch degraded, comment set unchanged"

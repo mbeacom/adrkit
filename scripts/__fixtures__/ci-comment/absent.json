@@ -1,0 +1,16 @@
+[
+  {
+    "id": 4001,
+    "user": { "login": "octocat", "type": "User" },
+    "created_at": "2026-08-11T09:00:00Z",
+    "updated_at": "2026-08-11T09:00:00Z",
+    "body": "Rebased onto main to pick up the schema fix."
+  },
+  {
+    "id": 4002,
+    "user": { "login": "octocat", "type": "User" },
+    "created_at": "2026-08-11T09:12:00Z",
+    "updated_at": "2026-08-11T09:12:00Z",
+    "body": "The bot comment used to say:\n\n> <!-- adrkit:ci -->\n> ### Decisions governing this change\n\nbut I can't see it any more — did it get deleted?"
+  }
+]

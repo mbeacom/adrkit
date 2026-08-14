@@ -82,6 +82,18 @@ validates the changed records, and posts (or updates) a single comment.
 This repo runs `adr check` on its own PRs (the `self-dogfood` CI job) so the CI surface
 governs the project that ships it — the same dogfooding stance as `adr lint`.
 
+It also runs the **Action** on its own PRs (the `action-dogfood` job), twice per run,
+and asserts the PR ends up carrying exactly one `<!-- adrkit:ci -->` comment. That gap
+— `self-dogfood` covers only the CLI, so nothing exercised the comment identity and
+upsert path — is what let [#107](https://github.com/mbeacom/adrkit/issues/107) ship for
+two releases while every suite stayed green. See
+[ADR-0028](../../docs/adr/0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md)
+and [#135](https://github.com/mbeacom/adrkit/issues/135). Fork and Dependabot PRs are
+excluded because their token is read-only; that path is covered instead by the rung-2
+artifact in [`evidence/reference-repo/`](./evidence/reference-repo/README.md), whose
+evidence index is [`checklists/reference-verification-evidence.md`](./checklists/reference-verification-evidence.md)
+and is **not yet observed**.
+
 ## Owner-run exit check (T018 — completed)
 
 The rung-3 exit criterion was manually verified on the public
