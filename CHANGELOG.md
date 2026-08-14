@@ -83,9 +83,26 @@ Until `1.0.0`, minor releases may include breaking changes
   to be read from the REST API; and `--paginate` with `join(",")` inside `--jq` emits one
   line per page, which would hand `--expect-ids` a multi-line value past 30 comments —
   reproduced against the labels endpoint and fixed in **`action-dogfood` too**, which
-  carried the same defect. A third run against the corrected artifact confirmed all four
-  fixes and is the cited evidence — an artifact fixed after its own verification run is
-  an unverified artifact.
+  carried the same defect. A run against the corrected artifact confirmed all four fixes
+  and is the cited evidence — an artifact fixed after its own verification run is an
+  unverified artifact.
+
+  **A fifth defect was in the instructions, and it caused a real failure.** The README
+  said to delete the marker comment *before* pushing. That removes the accidental
+  protection a pre-existing comment provides — it makes a second writer *update* rather
+  than create — so both the verification workflow and the reference repository's own
+  `adr.yml` listed an empty set and both created, within the same second, producing
+  consecutive comment ids and a failed run that blamed #107 for an Action that had
+  behaved correctly. The order is now push → settle → delete → `gh run rerun`, which
+  excludes the race structurally, because a re-run does not re-trigger other workflows.
+
+  That failure is also the first time the `duplicate` rule has been observed **firing**
+  outside a fixture, which closes an ADR-0016 gap the evidence index had recorded as
+  open. It exposed a sixth defect in passing: the message asserted "a dispatch in this
+  run created rather than updated — the regression of #107" when a concurrent writer was
+  responsible. `--expect-ids` separates *predates this run* from *created during it*, but
+  not *created by this run* from *created by another writer*, so the message now names
+  both causes and points at the Action's own log, which does distinguish them.
 
   It also converted a design rationale into an observation: `updated_at` did **not** move
   on either in-place update, because GitHub does not bump it for a PATCH whose body is

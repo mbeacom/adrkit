@@ -186,9 +186,23 @@ describe('findCommentViolations', () => {
       expect(report.violations[0]?.message).not.toContain('issues/107');
     });
 
-    test('blames the regression only when nothing predates this run', () => {
+    test('names the regression when nothing predates this run', () => {
       const report = findCommentViolations(two, { priorIds: [] });
       expect(report.violations[0]?.message).toContain('issues/107');
+    });
+
+    // Observed on the reference run: with the comment cleared beforehand, this
+    // workflow and a second marker-writing workflow both listed an empty set and both
+    // created, on the same second. `--expect-ids` separates "predates this run" from
+    // "created during it"; it cannot separate "created by this run's dispatch" from
+    // "created by a concurrent foreign writer", so the message must not assert the
+    // former. It names both causes and points at the Action's own log, which does
+    // distinguish them.
+    test('does not assert the #107 regression as the only cause', () => {
+      const message = findCommentViolations(two, { priorIds: [] }).violations[0]?.message ?? '';
+      expect(message).toContain('second writer created one concurrently');
+      expect(message).toContain('cannot tell them apart');
+      expect(message).toContain('`created` line');
     });
 
     test('reports a mixed provenance precisely', () => {

@@ -301,8 +301,12 @@ export function findCommentViolations(
           : preexisting.length > 0
             ? `${preexisting.length} of them predate this run (${preexisting.map((c) => `#${c.id}`).join(', ')}); ` +
               `the rest were created during it.`
-            : `None of them predate this run, so a dispatch in this run created rather than updated ` +
-              `— the regression of https://github.com/mbeacom/adrkit/issues/107.`;
+            : `None of them predate this run, so they were created while it ran. Two causes ` +
+              `produce that, and this gate cannot tell them apart: a dispatch in this run ` +
+              `created rather than updated (the regression of ` +
+              `https://github.com/mbeacom/adrkit/issues/107), or a second writer created one ` +
+              `concurrently. Check the Action's own log: it names each write, so more than one ` +
+              `\`created\` line is the regression and exactly one means something else also wrote.`;
     violations.push({
       rule: 'duplicate',
       message:

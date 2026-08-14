@@ -38,7 +38,7 @@ indistinguishable from verified to anyone who did not go looking.
 | Component | Value |
 |---|---|
 | adrkit under test (pinned) | `b840e915477c6532ca9697eae1fa277cafa971bc` — the corrected artifact. Runs 1–2 used `71f46d61595b4b956ec640adc72db219ff991385`, which shipped the four defects listed below |
-| Comment Action bundle at that ref | `packages/ci/dist/index.js`, git blob `8f039d0d0521baff403a769c278780538f542f6d`, 1,809,405 bytes |
+| Comment Action bundle at that ref | `packages/ci/dist/index.js`, git blob `8f039d0d0521baff403a769c278780538f542f6d`, 1,809,405 bytes — **byte-identical at both pins**, so runs 1–4 exercised the same Action through a changing harness, and the behavioural evidence carries across the correction |
 | `packages/ci/action.yml` at that ref | git blob `471327bfa93c3195077bf80da1a448f6175cfc66`, 823 bytes (`using: node24`, `main: dist/index.js`) |
 | Action reference used by the reference repo | `mbeacom/adrkit/packages/ci@b840e915477c6532ca9697eae1fa277cafa971bc` |
 | Assertion script at that ref | `scripts/check-ci-comment.ts`, git blob `6e93b491b753ea8119536a9d870d6177733c114a`, 24,737 bytes (the same one `action-dogfood` runs) |
@@ -59,10 +59,11 @@ head `77050b7d579333d9d9701bae15d246996b2f41d3`.
 |---|---|---|---|---|
 | 1 — update/update | `71f46d6` | [31773014051 attempt 1](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773014051/attempts/1) | 05:26:43 → 05:27:27 | success |
 | 2 — create/update | `71f46d6` | [31773014051 attempt 2](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773014051/attempts/2) | 05:30:37 → 05:31:18 | success |
-| 3 — **cited**, create/update, corrected artifact | `b840e91` | [31773788433](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773788433) | 05:41:14 → 05:43:35 | success |
+| 3 — corrected artifact, **failed** | `b840e91` | [31773788433 attempt 1](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773788433/attempts/1) | 05:41:14 → 05:41:31 | **failure** |
+| 4 — **cited**, create/update, corrected artifact | `b840e91` | [31773788433 attempt 2](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773788433/attempts/2) | 05:42:51 → 05:43:35 | success |
 
-All nine jobs (3 × 3 runs) concluded `success`. Run 3 head SHA
-`668ae517b2577be361402ef331bdea6cc3109d31`.
+Runs 3 and 4 share head SHA `668ae517b2577be361402ef331bdea6cc3109d31`. **Run 3 failed**,
+and it is the most useful run in this table — see *The one run that failed*.
 
 ## Expected vs. observed
 
@@ -134,17 +135,51 @@ Scenario 4 is the one rung 1 cannot reach at all: `action-dogfood` excludes fork
 Dependabot pull requests *because* their token is read-only, so the repository's own CI
 structurally cannot exercise the degrade path it skips.
 
+## The one run that failed, and why it is the most useful
+
+Run 3 failed, on a real two-comment state, with the `duplicate` rule firing exactly as
+designed:
+
+```
+check-ci-comment: examined 2 comment(s); 2 owned, 0 lead with the marker but are not bot-authored, 0 quote it
+  own      #5289920445  github-actions[bot] (Bot)  created 2026-08-14T05:41:24Z
+  own      #5289920446  github-actions[bot] (Bot)  created 2026-08-14T05:41:24Z
+  [duplicate] 2 bot-authored comments lead with <!-- adrkit:ci -->; exactly one is expected
+```
+
+Two things follow, and they point in opposite directions.
+
+**It closes the observed-failure gap at rung 2.** Until this run, every rung-2 assertion
+had passed, which shows the gate accepting healthy behaviour and never shows it catching
+anything — the exact insufficiency
+[ADR-0016](../../../docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
+names. The `duplicate` rule has now been observed rejecting a genuine duplicate produced
+by real infrastructure, not by a fixture.
+
+**It was caused by this repository's own instructions.** An earlier revision of the
+reference README said to delete the comment *before* pushing. Doing so removed the
+accidental protection that a pre-existing comment provides — it makes a second writer
+*update* rather than create — so both this workflow and the repository's `adr.yml` listed
+an empty set and both created, within the same second, producing consecutive ids. The
+guidance made the race likely instead of preventing it. The README now specifies
+push → settle → delete → `gh run rerun`, which excludes the race structurally because a
+re-run does not re-trigger other workflows.
+
+**And the message it printed was wrong about the cause.** It said "a dispatch in this run
+created rather than updated — the regression of #107", when the Action had behaved
+correctly and logged exactly one `created`. `--expect-ids` separates *predates this run*
+from *created during it*; it cannot separate *created by this run's dispatch* from
+*created by a concurrent foreign writer*. The message now names both causes and points at
+the Action's own log, which does distinguish them.
+
 ## Known limitations, stated up front
 
-- **Nothing in this run was observed *failing*.** Every assertion passed. That shows the
-  gate accepting healthy behaviour; it does not show the gate *catching* a regression,
-  which is the property [ADR-0016](../../../docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
-  says a check must demonstrate before it counts as coverage. The observed-failure
-  requirement is met at rung 1 instead, by `scripts/__fixtures__/ci-comment/` — the
-  duplicate (#107), absent, empty, human-authored, and impostor shapes, each watched
-  rejecting. A rung-2 run pinned to a **pre-`1426916`** adrkit commit would supply the
-  missing half against real published behaviour; it has not been done, and is recorded
-  here as an option not taken rather than as a plan.
+- **A rung-2 run against genuinely broken published behaviour has not been done.** The
+  `duplicate` rule has now been observed firing (above), but on a duplicate produced by a
+  concurrent writer rather than by the #107 defect itself. A run pinned to a
+  **pre-`1426916`** adrkit commit would exercise the real regression; it is recorded here
+  as an option not taken rather than as a plan. The fixture-based negative cases in
+  `scripts/__fixtures__/ci-comment/` remain the rung-1 evidence.
 - **The retry paths never executed.** `--expect-total`'s `incomplete` rule did not fire
   in either attempt, so neither the 5× nor the 3× retry loop ran a single retry. They are
   unexercised in practice.
@@ -183,9 +218,15 @@ an unverified artifact, which is the state this index exists to make visible.
 
 Confirmed in run 3 specifically:
 
-- `Deleting the contents of '…/.adrkit'` no longer appears — the only remaining deletion
-  line is the ordinary workspace checkout — and `.adrkit/lint.json` and
-  `.adrkit/queue.json` still exist in the reference repository afterwards.
+- `Deleting the contents of '…/.adrkit'` no longer appears. All three deletion lines in
+  the run are the ordinary root-workspace clear, one per job, and the checkout now
+  initialises `…/.adrkit-src/.git/` rather than clearing `.adrkit`. Repository integrity
+  is evidenced indirectly rather than claimed directly: `ADR ARB queue validation` on the
+  same head SHA ran `scripts/validate-badge-reports.sh`, whose *Assert the committed
+  badge reports are current* step concluded `success`, and that script fails if
+  `.adrkit/lint.json` or `.adrkit/queue.json` is missing or stale. The files' survival
+  **inside the `idempotence` runner workspace** was not directly observed — the artifact
+  prints no file listing — and is not claimed.
 - `already ours before this run:` is **empty**, so the create was genuinely observed.
 - `observed: steps.readonly.outcome=success` now appears in the degrade log, so that row
   is fillable from a log line rather than from the REST API.

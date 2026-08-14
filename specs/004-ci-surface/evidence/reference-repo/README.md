@@ -76,11 +76,27 @@ nothing.
   seconds before the snapshot step read it. GitHub concurrency groups cannot serialise
   across workflows, so the `concurrency` block here cannot guard it.
 
-  Before the run, confirm the pull request carries **zero** `<!-- adrkit:ci -->` comments.
-  If one appears from another workflow, delete it and re-run **this workflow alone**
-  (`gh run rerun <run-id>`), which does not re-trigger the other. Verify from the log that
-  `already ours before this run:` is **empty** — that line is what distinguishes a run
-  that observed a create from one that only observed updates.
+  **Order matters, and the obvious order is wrong.** Do NOT delete the comment before
+  pushing. An earlier revision of this file said to, and it caused a genuine
+  double-create: with the comment cleared, both writers listed an empty set and both
+  created, on the same second, producing consecutive ids `#5289920445` and `#5289920446`
+  and a failed run that blamed #107 for an Action that had behaved correctly. Clearing
+  the comment first removes the accidental protection — a pre-existing comment makes the
+  other writer *update* — and converts an unlikely race into a likely one.
+
+  The race-free order is:
+
+  1. **Push first**, and let any other marker-writing workflow run to completion.
+  2. **Confirm it has finished**, then delete every `<!-- adrkit:ci -->` comment on the
+     pull request and confirm the count is **zero**.
+  3. **`gh run rerun <run-id>` for this workflow alone.** A re-run does not re-trigger
+     other workflows, so the race is *structurally excluded* rather than merely unlikely
+     — verified twice: after `gh run rerun`, this workflow advanced to `attempt=2` while
+     the other stayed at `attempt=1, completed`.
+
+  Then verify from the log that `already ours before this run:` is **empty** — that line
+  is what distinguishes a run which observed a create from one which only observed
+  updates.
 
 ## Why it does not live in adrkit's own CI
 

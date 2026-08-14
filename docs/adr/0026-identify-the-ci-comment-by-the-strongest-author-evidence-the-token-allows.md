@@ -344,6 +344,13 @@ have one.
      stability** instead precisely because that API detail is uncontractual, and a design
      hedge became an observation.
 
+     The `duplicate` rule has also now been observed **firing** on a real two-comment
+     state rather than only on a fixture — caused, instructively, by this repository's own
+     reference instructions, which told the operator to clear the comment before pushing
+     and thereby put two writers into create mode simultaneously. Corrected there; the
+     rule behaved correctly, though its message named #107 as the cause when a concurrent
+     writer was responsible, and now names both.
+
      A controlled measurement settles the mechanism rather than inferring it: PATCHing a
      comment with a **byte-identical** body leaves `updated_at` at its previous value,
      while PATCHing the same comment with a changed body advances it (probe on this
