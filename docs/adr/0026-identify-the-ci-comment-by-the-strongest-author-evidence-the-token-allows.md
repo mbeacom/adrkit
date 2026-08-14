@@ -381,9 +381,34 @@ have one.
      contractual. Id stability is contractual, and it is a specific observed value
      rather than a count.
 
+   - **Ownership is bot-authored *and* marker-leading, exactly as this record defines
+     it.** The verifier's rule must not be *stricter* than the Action's. It was until
+     the deep review of [#143](https://github.com/mbeacom/adrkit/pull/143): counting any
+     marker-leading comment as ours let anyone who can comment turn the check red with
+     one line that renders invisibly, and the failure text then blamed #107 for a defect
+     that did not exist. A non-bot marker-leading comment is now reported as an
+     *impostor* and never counted toward the duplicate rule.
+
+   **What this rung does not cover.** After a pull request's first push its comment
+   already exists, so a dispatch that writes *nothing* satisfies both assertions — one
+   comment, same id, which is precisely what a no-op produces. The gate therefore
+   catches the inverse of #107 on every newly-opened pull request's first run, and not
+   on subsequent pushes within one pull request; the rung-2 artifact, which runs against
+   a fresh reference pull request, covers the create-then-update pair from a clean state.
+   Closing it at rung 1 would mean either an Action **output** naming what it wrote —
+   rejected, because expanding a published contract to serve a test is the wrong
+   direction, and because a self-report is the evidence #107 already defeated — or
+   deleting the prior comment before each run, which would notify every subscriber on
+   every push. Stated as a bounded limitation rather than closed badly.
+
    Still open: making `action-dogfood` a required check on the `main` ruleset, which
    cannot happen until it has run green at least once, since it skips on the pull
-   requests that cannot satisfy it.
+   requests that cannot satisfy it. Two operational facts belong with that step, because
+   both live in repository settings rather than in this repository: the check is named by
+   the **job id `action-dogfood`**, so renaming or relocating that job leaves every pull
+   request waiting on a check that will never report, which only an administrator can
+   clear; and disabling the gate means removing it from the ruleset, not editing
+   `ci.yml`, since a workflow edit lands in the same pull request the gate is blocking.
 10. [ ] **Deferred, tracked separately.** `v0` is a moving tag with no documented
     rollback, so recovering from a bad Action release depends on a maintainer knowing
     to force-move it by hand.

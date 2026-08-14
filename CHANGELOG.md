@@ -36,14 +36,26 @@ Until `1.0.0`, minor releases may include breaking changes
   and an empty list is what a revoked permission, a wrong pull-request number, and a
   silently-degraded Action all produce — the blind-pass shape
   [ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
-  exists to prevent. Two cross-checks close the remaining blind spots: the list is
+  exists to prevent. Three cross-checks close the remaining blind spots: the list is
   compared against the comment count GitHub reports for the issue, so a lost
-  `--paginate` cannot hide a duplicate on page two, and the surviving comment's **id**
-  is compared across dispatches, so a count of one cannot be satisfied by a replacement.
-  The gate is `scripts/check-ci-comment.ts`, which imports only
-  builtins, reports every marked comment it examined rather than only its verdict, and
-  ships permanent negative fixtures for the duplicate (#107), absent, empty, and
-  human-authored shapes, each observed rejecting.
+  `--paginate` cannot hide a duplicate on page two; the surviving comment's **id** is
+  compared across dispatches, so a count of one cannot be satisfied by a replacement;
+  and the ids owned **before** the run are recorded, so a duplicate the pull request
+  already carried is not reported as a fresh regression. Ownership requires a **bot
+  author** as well as a leading marker, matching the Action's own rule — without that,
+  anyone able to comment could red the check with one invisible line. The gate is
+  `scripts/check-ci-comment.ts`, which imports only builtins, reports every marked
+  comment it examined rather than only its verdict, and ships permanent negative
+  fixtures for the duplicate (#107), absent, empty, human-authored, and impostor shapes,
+  each observed rejecting.
+
+  **What it does not cover, stated rather than implied.** After a pull request's first
+  push the comment already exists, so a dispatch that writes nothing satisfies both
+  assertions. The inverse of #107 is therefore caught on every newly-opened pull
+  request's first run and not on later pushes within one pull request; the rung-2
+  artifact covers the create-then-update pair from a clean state. Adding an Action
+  output to close it was rejected — expanding a published contract to serve a test is
+  the wrong direction, and a self-report is the evidence #107 already defeated.
 
   **Fork and Dependabot pull requests are excluded**, because their `GITHUB_TOKEN` is
   read-only whatever `permissions:` declares — the Action correctly degrades to a log

@@ -37,12 +37,24 @@ nothing.
    the four `uses:` refs — with the 40-character adrkit commit under test. A tag or a
    branch is not acceptable here: ADR-0016 records a stale read by ref that returned
    HTTP 200 and coherent content while being behind the branch head.
+
+   **The commit must contain `scripts/check-ci-comment.ts`**, because the assertion
+   steps run that script from this ref. No published release tag does yet, so pinning
+   the commit `@v0` resolves to would check out cleanly and then fail with a
+   module-not-found inside the assertion — a broken-looking artifact that is really a
+   mis-set input.
 3. Commit a **plain file** at `fixtures/fail-closed-invalid-corpus-dir` (any content).
    It must be a file, not a directory — that is what makes `readdir()` throw `ENOTDIR`
    inside adrkit's corpus loader, before any GitHub write is attempted.
-4. Open a pull request in that repository and let the three jobs run in order.
+4. Push a branch **in that repository** carrying the workflow and the fixture, and open
+   the pull request from it. Not from a fork: a fork's token is read-only, so the
+   `idempotence` job would find nothing to assert. A pull request opened from a branch
+   that does not carry steps 1 and 3 runs no jobs at all, which looks like success.
 5. Record the observed values, run URLs, and content hashes in
-   [`../../checklists/reference-verification-evidence.md`](../../checklists/reference-verification-evidence.md).
+   [`../../checklists/reference-verification-evidence.md`](../../checklists/reference-verification-evidence.md),
+   and update the comment-Action maturity sentence in `site/src/content/docs/ci.mdx` —
+   that page is what adopters read, and it is where the claim has to move once the
+   evidence exists.
 
 ## Why it does not live in adrkit's own CI
 

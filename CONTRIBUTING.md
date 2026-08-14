@@ -131,6 +131,32 @@ Aimed at checks guarding a corpus or an input the tool must not silently skip;
 applying it to every trivial equality assertion is cargo cult. See
 [ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md).
 
+## The `action-dogfood` check
+
+This repository runs its own governing-decisions Action against its own pull requests.
+The `action-dogfood` job dispatches it twice and asserts that the pull request ends up
+carrying exactly one `<!-- adrkit:ci -->` comment, and that the second dispatch updated
+it rather than posting another. That gap is how
+[#107](https://github.com/mbeacom/adrkit/issues/107) shipped duplicate comments to every
+adopter for two releases while every test stayed green.
+
+Two things you will notice:
+
+- **Your pull request gets a bot comment** listing the decisions that govern your
+  changed files. That is the product working; it is updated in place on every push, not
+  re-posted.
+- **On a fork pull request the job is skipped.** A fork's `GITHUB_TOKEN` is read-only
+  whatever the workflow asks for, so the Action correctly declines to comment and there
+  is nothing to assert. A skipped job reports success and will not block your merge.
+  Dependabot pull requests skip it for the same reason.
+
+If it goes red and you did not touch `packages/ci`, `scripts/check-ci-comment.ts`, or
+`.github/workflows/ci.yml`, it is almost certainly not your branch — say so on the pull
+request rather than changing your code. The one failure a contributor cannot clear
+alone is a **duplicate** comment: the Action never deletes, so a surplus comment
+outlives whatever created it and a maintainer has to delete it (hiding it as off-topic
+does not work — the API still returns it).
+
 ## Changing a decision
 
 This project governs itself. If your change contradicts an accepted record in

@@ -50,6 +50,11 @@ the Action never reads the variable to identify its token.
 `v0` is a moving major tag, and it now resolves to a `v0.7.0` build. Pin the
 immutable `v0.7.0` tag or a commit SHA for maximum reproducibility.
 
+Every pull request in the adrkit repository runs this Action against itself and asserts
+the result, so the comment path has continuous end-to-end coverage. It is **not yet
+reference-verified** on [ADR-0014](/adr/) rung 2 — unlike the queue Action below — and
+that gap is tracked openly rather than implied away.
+
 <Aside type="note" title="Comments from before the upgrade">
 	The Action is comment-only and deletes nothing, so duplicate comments a pull request
 	already accumulated stay where they are. It updates the newest of them and leaves the
