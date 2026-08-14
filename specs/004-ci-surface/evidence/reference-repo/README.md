@@ -61,6 +61,15 @@ nothing.
    that page is what adopters read. Steps 5 and 6 are separate because whoever runs this
    artifact is working in the reference repository and cannot commit to adrkit.
 
+7. **Close the pull request without merging, and keep the branch.** This is a run-once
+   harness on a throwaway branch, not a workflow to adopt. Merging it to the reference
+   repository's default branch makes it run on **every** future pull request there,
+   concurrently with whatever else writes the marker — which converts the documented race
+   from an incidental hazard into a permanent CI failure mode: false #107 reports on
+   unrelated changes, and `fail-closed`/`degrade-read-only` reddening whenever another
+   write lands inside their byte-for-byte snapshot brackets. Retaining the branch keeps
+   the run, its logs, and its uploaded artifacts reachable for the evidence index to cite.
+
 ## Prerequisites that are easy to discover the hard way
 
 - **A token with the `workflow` scope.** The entire artifact is delivered as a file under
