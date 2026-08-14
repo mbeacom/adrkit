@@ -93,10 +93,13 @@ export interface Violation {
  * Both exist because the list alone cannot answer them, and both failures are silent
  * without them (ADR-0016):
  *
- * - `expectTotal` — the comment count GitHub reports for the issue itself. A list that
- *   is short of it was truncated, and a duplicate hiding on an unfetched page reads
- *   exactly like a healthy single comment. This is the same completeness property R5
- *   requires of the Action's own `octokit.paginate` call, applied to the verifier.
+ * - `expectTotal` — the comment count GitHub reports for the issue itself, read around
+ *   the list. A list shorter than that was truncated, and a duplicate hiding on an
+ *   unfetched page reads exactly like a healthy single comment. This is the same
+ *   completeness property R5 requires of the Action's own `octokit.paginate` call,
+ *   applied to the verifier. Treat it as a **lower bound**: a caller reading the count
+ *   and the list non-atomically should pass the *smallest* count it observed, so that
+ *   a comment created or deleted mid-read cannot masquerade as truncation.
  * - `expectId` — the comment id observed after an earlier dispatch. An in-place update
  *   preserves the id; a create issues a new one. This is a **specific observed value**
  *   rather than a count (ADR-0016 clause 3), and it is strictly better evidence than
@@ -199,10 +202,12 @@ export function findCommentViolations(
   // the list is short, every count derived from it is drawn from a partial view, and
   // saying so is more useful than reporting a verdict that was reached blind.
   //
-  // Deliberately `<` and not `!==`. The caller reads the reported total *before* the
-  // list, so a comment arriving between the two calls makes the list one LONGER than
-  // the total, which is benign. Treating that as a mismatch would fail a healthy run
-  // whenever a human commented mid-job.
+  // Deliberately `<` and not `!==`, and `expectTotal` is documented as a lower bound.
+  // The caller cannot read the count and the list atomically, so both directions of
+  // concurrent edit have to be benign: a comment created mid-read makes the list
+  // longer, and one deleted mid-read makes it shorter. This side tolerates the first;
+  // the caller resolves the second by passing the *smallest* count it observed around
+  // the read. Only a genuinely truncated list is short of every count observed.
   if (checks.expectTotal !== undefined && comments.length < checks.expectTotal) {
     violations.push({
       rule: 'incomplete',

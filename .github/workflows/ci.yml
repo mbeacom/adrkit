@@ -210,13 +210,17 @@ jobs:
           # Action. Retrying turns that race into a bounded, named failure instead of a
           # false positive.
           for attempt in 1 2 3 4 5; do
-            # The reported total is read BEFORE the list, deliberately. A comment
-            # arriving between the two calls then makes the list one longer than the
-            # total, which the checker treats as benign; the other order would make it
-            # one shorter, which reads as truncation and fails a healthy run.
-            total=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
+            # The list read is bracketed by two count reads and the SMALLER is passed,
+            # because the count and the list cannot be read atomically. A comment
+            # created mid-read makes the list longer than the earlier count; one
+            # deleted mid-read makes it shorter than it. Only a genuinely truncated
+            # list is short of both, so the minimum is the bound that cannot turn a
+            # concurrent edit into a false truncation report.
+            before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
             gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
               > "$RUNNER_TEMP/after-first.json"
+            after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
+            total=$(( before < after ? before : after ))
             if bun run check:ci-comment "$RUNNER_TEMP/after-first.json" \
                  --expect-total="$total" --id-file="$RUNNER_TEMP/comment-id"; then
               exit 0
@@ -244,11 +248,16 @@ jobs:
           # inference: an update preserves the comment id, a create issues a new one.
           # A count of one is also what "created a replacement and the old one is gone"
           # looks like, and the id distinguishes them.
-          total=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
+          # Bracketed the same way, and it matters more here: this assertion is not
+          # retried, so a comment deleted mid-read would otherwise fail a healthy run
+          # outright rather than self-healing on the next attempt.
+          before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             > "$RUNNER_TEMP/after-second.json"
+          after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
           bun run check:ci-comment "$RUNNER_TEMP/after-second.json" \
-            --expect-total="$total" --expect-id="$(cat "$RUNNER_TEMP/comment-id")"
+            --expect-total="$(( before < after ? before : after ))" \
+            --expect-id="$(cat "$RUNNER_TEMP/comment-id")"
 
   dco:
     # ADR-0006 chose a DCO over a CLA. CONTRIBUTING.md and the PR template have

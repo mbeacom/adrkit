@@ -216,10 +216,12 @@ describe('cross-checks', () => {
     expect(findCommentViolations([comment()], { expectTotal: 1 }).violations).toEqual([]);
   });
 
-  // The caller reads the total before the list, so a comment arriving between the two
-  // makes the list longer. Failing there would turn a human commenting mid-job into a
-  // red run on a healthy Action.
-  test('accepts a list longer than the reported count — a comment arrived mid-run', () => {
+  // `expectTotal` is a lower bound, not an equality, because the caller cannot read the
+  // count and the list atomically. A comment created mid-read makes the list longer
+  // (handled here); one deleted mid-read makes it shorter, which the caller handles by
+  // passing the smallest count it observed around the list. Only a genuinely truncated
+  // list is short of every observed count.
+  test('accepts a list longer than the reported count — a comment arrived mid-read', () => {
     const report = findCommentViolations([comment(), comment({ id: 2, body: 'nice' })], { expectTotal: 1 });
     expect(report.violations).toEqual([]);
   });
