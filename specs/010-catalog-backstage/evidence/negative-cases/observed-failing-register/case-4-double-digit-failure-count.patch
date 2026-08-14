@@ -1,0 +1,13 @@
+diff --git a/specs/010-catalog-backstage/evidence/negative-cases/clean-clone-offline/clean-clone-verification.observed.txt b/specs/010-catalog-backstage/evidence/negative-cases/clean-clone-offline/clean-clone-verification.observed.txt
+index 4e3ba68..39f4546 100644
+--- a/specs/010-catalog-backstage/evidence/negative-cases/clean-clone-offline/clean-clone-verification.observed.txt
++++ b/specs/010-catalog-backstage/evidence/negative-cases/clean-clone-offline/clean-clone-verification.observed.txt
+@@ -26,7 +26,7 @@ $ bun scripts/run-network-denied.ts -- bun run build
+ 
+ $ bun test
+  2136 pass
+- 0 fail
++ 10 fail
+  7518 expect() calls
+ Ran 2136 tests across 166 files. [12.78s]
+ 

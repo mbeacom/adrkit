@@ -125,6 +125,40 @@ Both are still true-ish English. Neither is checkable.
 
 Restored: 229 pass, 0 fail.
 
+---
+
+## Case 4 — a pass-capture recording ten failures
+
+Input: [`case-4-double-digit-failure-count.patch`](./case-4-double-digit-failure-count.patch) ·
+Output: [`case-4-double-digit-failure-count.observed.txt`](./case-4-double-digit-failure-count.observed.txt)
+
+The guard on `DELIBERATE_PASS_CAPTURES` — the exemption that lets a capture be cited as
+evidence of a **pass** — was two substring tests, and a double-digit failure count walked
+through both:
+
+- `expect(text).toContain('0 fail')` is satisfied by `10 fail`, because `10 fail` contains
+  `0 fail`.
+- the companion `/\b1 fail\b|\b[2-9] fail\b/` does **not** match `10 fail` either: there is
+  no word boundary between `1` and `0`.
+
+So a capture recording ten or more failures was accepted as evidence of a pass by the
+assertion whose entire job is to reject exactly that — including
+`clean-clone-verification.observed.txt`, which is T093's positive evidence.
+
+The mutation changes one line of that capture from ` 0 fail` to ` 10 fail`. The file
+contains no `(fail)` substring, so the companion guard does not rescue it; under the old
+assertions it passed.
+
+```
+Expected substring or pattern: not /(^|\s)(?!0\b)\d+ fail\b/mu
+Received: "# T093 — clean-clone verification …" [ 10 fail]
+
+(fail) every retained case is a real one > every deliberate pass-capture really exists, and really records a pass
+```
+
+Both assertions are anchored on the count now rather than on a substring. Restored: 230
+pass, 0 fail.
+
 ## Standing constraints
 
 ADR-0014 **rung 1 only**. A register that maps correctly is unit-level evidence about the

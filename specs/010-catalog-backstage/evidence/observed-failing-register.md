@@ -149,6 +149,7 @@ phases and were closed here on their merits; see §3.
 | T099 | the register maps to the tree — a case with no row | `observed-failing-register/` case 1 | `+ ["observed-failing-register", "spike-heuristic"]` |
 | T099 | the register maps to the tree — a row with no case | `observed-failing-register/` case 2 | `every directory the register names exists on disk` |
 | T099 | a gaps section softened into an unfalsifiable claim | `observed-failing-register/` case 3 | `Expected to contain: "observed succeeding on the CI runner itself"`, `Expected to contain: "2 name the host"` |
+| T099 | a pass-capture recording a **double-digit** failure count | `observed-failing-register/` case 4 | `Expected substring or pattern: not /(^\|\s)(?!0\b)\d+ fail\b/mu` |
 | T100 | the honesty check fires on a real claim | `honesty-close-out/` case 1 | `"ruleId": "rung-2-claim"`, `"ruleId": "release-claim"` |
 | T100 | the honesty check stays green on the same terms as denials | `honesty-close-out/` case 2 | 35 pass, 0 fail — the vocabulary is identical to case 1 |
 

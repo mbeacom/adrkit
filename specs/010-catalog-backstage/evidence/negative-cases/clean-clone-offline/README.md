@@ -83,17 +83,28 @@ the arrangement worked at all. That distinction is what turned up case 3 below.
 | Step | Network | Result |
 |---|---|---|
 | `bun install --frozen-lockfile` | **permitted** — the only step | ok |
-| `check:clean-clone` | denied | both packages present, 31+51 and 7+11 modules |
+| `check:clean-clone` | **not denied in this run** | both packages present, 31+51 and 7+11 modules |
 | `typecheck` | denied | clean |
 | `build` | denied | both new packages built, exit 0 |
-| `lint` | denied | clean |
-| `bun test` | see case 3 | **2136 pass, 0 fail** |
-| `check:deps`, `check:freeze-hashes`, `check:clause8`, `check:no-spike-heuristics` | denied | all ok |
+| `bun test` | not denied — see case 3 | **2136 pass, 0 fail** |
 | `compare-accept-corpus` | denied | **PASS — 24 expected, 0 FP, 0 FN** |
 | `adr lint` | denied | 20 records, 0 errors, 0 warnings |
 
-Every denied step printed its proof first — `control unsandboxed = CONNECTED:200`,
-`control sandboxed = DENIED` — so none of those greens rests on an unverified sandbox.
+**Those are the seven commands the capture contains, and no others.** An earlier version of
+this table also listed `lint`, `check:deps`, `check:freeze-hashes`, `check:clause8` and
+`check:no-spike-heuristics` as `denied / all ok`, and marked `check:clean-clone` as denied.
+None of that is in the cited file: those five commands were never run in this session, and
+`check:clean-clone` ran unwrapped here (it is wrapped now, but was not on 2026-08-05).
+
+A table that reports results its own capture does not contain is the failure this evidence
+family exists to make impossible, so the rows are cut to the capture rather than the
+capture being described more generously. The full set of steps is covered by the CI run of
+record below, which is the authority for what the job does today.
+
+Every step marked `denied` above printed its proof first — `control unsandboxed =
+CONNECTED:200`, `control sandboxed = DENIED` — so none of those greens rests on an
+unverified sandbox. The two marked otherwise printed no such lines, which is how the
+overstatement was caught.
 
 ---
 
