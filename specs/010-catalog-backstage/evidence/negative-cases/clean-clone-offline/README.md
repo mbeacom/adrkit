@@ -153,30 +153,22 @@ the denial. Three responses were possible:
    discharged *inside* the suite by `offline-run.test.ts`, which sandboxes its own
    generation run and proves the mechanism denies before using it.
 
-**What that costs, stated plainly.** FR-050's second half is met in the form "no step
-requires network beyond `bun install --frozen-lockfile`, and every step that *can* run
-under a proved denial does" — rather than "every step runs under ambient denial".
+**What that costs.** **Thirteen of the fourteen post-install steps run under a proved
+denial; `bun test` is the fourteenth.** Never "every step is denied" — rounding the count
+up claims coverage the run does not have.
 
-**One** post-install step is unwrapped: `bun test`, for the structural reason below.
-
-Three were unwrapped when this section was first written and it said one. The other two —
-`check:clean-clone`, and the `git diff --exit-code` verifications for the Action bundle and
-the emitted schema — were incidental rather than structural and are now wrapped; the schema
-step's `&& git diff` in particular ran outside the wrapper under a step whose *name* said
-network denied. The history is kept rather than tidied away, because a ledger that quietly
-becomes correct teaches a reader nothing about how far to trust it.
-
-That is still weaker than "every step runs under ambient denial", and it is recorded here
-rather than left for a reader to discover from the workflow file.
-`observed-failing-register.md` §4.6 says the same, and T093 is unchecked on account of it.
+The canonical statement of that exemption, and its history, is
+[`observed-failing-register.md` §4.6](../../observed-failing-register.md). It is not
+restated here: this directory owns the *observation* — cases 3 and 3b below, with their
+captures — and §4.6 owns the *disclosure*. Three copies would be three places to drift.
 
 ---
 
 ## What the CI job does with this
 
-`.github/workflows/ci.yml`'s `clean-clone-builds` routes every post-install step through
-`scripts/run-network-denied.ts` **except one**, and the exception is named here rather than
-left to be discovered from the workflow file: `bun test`.
+`.github/workflows/ci.yml`'s `clean-clone-builds` runs **thirteen of its fourteen
+post-install steps** through `scripts/run-network-denied.ts`. The fourteenth is `bun test`,
+named in the workflow step itself, so an unwrapped step is never merely unexplained.
 
 `check:clean-clone` and the two `git diff --exit-code` verifications were a second and
 third exception until they were wrapped. They ran unwrapped only because of where they sat
@@ -223,9 +215,10 @@ denied — and a stale entry in that list means tests silently not running, whic
 defect `check:clean-clone` exists to catch. Trading a disclosed exemption for an
 undisclosed coverage hole is not an improvement.
 
-**T093 is left unchecked on account of this**, rather than claimed with a footnote: its
-second conjunct — network "permitted **only** during `bun install`" — is false as written.
-Closing it needs an ADR rescoping FR-050, or a split of the task, not more code.
+**T093 is closed on this basis.** It stood unchecked while FR-050 read "permitted
+**only** during `bun install`" — a claim about *availability*, stricter than the Principle
+II clauses it cites, which test *dependence*. This step failed the wording while satisfying
+the principle, so the wording was corrected rather than the job.
 
 A bare `unshare --net` prefix was considered and rejected: if it silently stopped denying —
 a changed flag, a kernel refusing the namespace, a profile typo — the job would keep

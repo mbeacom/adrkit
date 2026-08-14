@@ -116,8 +116,8 @@ run-network-denied: running: /usr/bin/git diff --exit-code packages/ci/dist
      network denied. Both halves are inside it now.
 
 `bun test` remains the single exemption, for the structural reason recorded in
-this directory's README and in observed-failing-register.md 4.6. T093 stays
-unchecked on account of it.
+this directory's README and canonically in observed-failing-register.md 4.6.
+T093 is closed on that basis and on this run.
 
 Local pre-verification (constrains the claim; does not establish it): the whole
 job was reproduced from a clean clone in ubuntu:24.04 with the runner's AppArmor

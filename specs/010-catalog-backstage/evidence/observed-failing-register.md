@@ -363,34 +363,58 @@ records: **gate 4 remains unmet and not yet testable regardless of this feature'
 and is recorded as unmet — never as passed, and never as failed.** Failed would imply it
 was tested; it was not, because it cannot yet be.
 
-### 4.6 FR-050's second half is met in a weaker form than its wording implies
+### 4.6 One post-install step of fourteen is not network-denied — the canonical statement
 
-FR-050 asks that network access be permitted **only** during
-`bun install --frozen-lockfile`. **One** post-install step of `clean-clone-builds` is not
-wrapped in `scripts/run-network-denied.ts`: `bun test`.
+**This section is the single source for the exemption.** `tasks.md` T093, the workflow
+comment, and `negative-cases/clean-clone-offline/` all point here rather than restate it.
+Three restatements would be three places to drift, and this feature has twice been bitten
+by a description outliving the thing it described.
 
-Three were unwrapped when this section was first written, and it said one — the disclosure
-was narrower than the gap it exists to disclose. Two of those three (`check:clean-clone`,
-and the `git diff --exit-code` verifications for the Action bundle and the emitted schema)
-were incidental rather than structural, and are now wrapped. That history is recorded
-rather than tidied away, because the register's value is that it does not quietly become
-correct.
+`clean-clone-builds` has **fourteen post-install steps. Thirteen run through
+`scripts/run-network-denied.ts`. The fourteenth is `bun test`.** The count is stated rather
+than rounded to "every step is denied": rounding up claims coverage the run does not have,
+which under ADR-0016's own reasoning is a defect, not a simplification. Counted from the
+workflow — 17 steps in the job, 3 before and including the install, 14 after, 13 of which
+name the wrapper in their `run:` — and counted independently twice, because the number now
+appears in a requirement.
 
-`bun test` is the one that remains, and it is **permanent and structural**: the suite
-contains the two-sided controls that prove the denial, and a control cannot establish a
-denial from inside one. Wrapping it was observed failing on **both** platforms, failing
-differently on each — which is what makes it structural rather than a macOS quirk. The
-observation itself lives with the case that retains it,
-`negative-cases/clean-clone-offline/` cases 3 and 3b, and is not restated here: this
-section owns the *disclosure*, that directory owns the *evidence*.
+`bun test` **cannot** be wrapped, and this is structural rather than effort or preference:
+the suite contains the two-sided controls that establish the denial, and a control cannot
+prove one from inside it. Wrapping it was observed failing on **both** platforms, failing
+*differently* on each — which is what distinguishes an obstruction from a macOS quirk. The
+observation lives with the case that retains it, `negative-cases/clean-clone-offline/`
+cases 3 and 3b, and is not restated here: this section owns the *disclosure*, that
+directory owns the *evidence*.
 
-So the honest statement of what holds is: **no step requires network beyond the install,
-and every step that can run under a proved denial does — with `bun test` named as the one
-that cannot.** That is weaker than "every step runs under ambient denial", and it is
-recorded here rather than left for a reader to infer from the workflow file.
+The step has a network ambiently reachable and **never uses one**. That distinction is
+FR-050's operative test — Principle II forbids network *dependence*, and a test that
+reached the network would be a defect under it regardless of any exemption.
 
-**T093 is unchecked on account of this**, not footnoted as complete. Closing it needs an
-ADR rescoping FR-050, or a split of the task, not more code.
+Three steps were unwrapped when this section was first written, and it said one. Two
+(`check:clean-clone`, and the `git diff --exit-code` verifications for the Action bundle
+and the emitted schema) were incidental rather than structural and are now wrapped; the
+schema step's `&& git diff` in particular ran outside the wrapper under a step whose *name*
+said network denied. That history is kept rather than tidied away, because a ledger that
+quietly becomes correct teaches a reader nothing about how far to trust it.
+
+**T093 is closed on this basis**, on the corrected FR-050 and the runner evidence.
+
+#### A test this nearly failed
+
+FR-050 originally read "network access is permitted **only** during dependency
+installation" — a claim about *availability*, stricter than the Principle II clauses it
+cites, which test *dependence*. `bun test` failed the wording while satisfying the
+principle. The first attempt to resolve that was a constitutional ADR interpreting the
+principle and recording a bounded exemption; it was ratified, and then reverted.
+
+What it lacked is worth naming, because it is a reusable test: **if a record would contain
+no fact that is not already established elsewhere, it is ratification theatre.** Every fact
+in that record was already true and already written down before it existed — the two-platform
+failure signature, the nesting obstruction, the rejected allowlist. It added a ratification
+step, not a finding. The tell was that the analysis never changed.
+
+A decision record is where a decision is *made*. This needed a corrected sentence in a
+requirement, which is what it got.
 
 ---
 

@@ -79,29 +79,17 @@ jobs:
         run: bun scripts/run-network-denied.ts -- bun run release:pack -- --skip-build --skip-smoke-install
       - name: Lint (network denied)
         run: bun scripts/run-network-denied.ts -- bun run lint
-      # NOT wrapped, deliberately — see `<EVIDENCE>/negative-cases/clean-clone-offline/`.
-      # The suite contains the tests that *prove* network denial, and their two-sided
-      # control needs a loopback listener that a total-denial sandbox correctly refuses.
-      # Running them under ambient denial is self-contradictory: it would deny the control
-      # that establishes the denial. The offline claim for the generator is discharged
-      # inside this suite by `offline-run.test.ts`, which sandboxes its own generation run
-      # and proves the mechanism denies before using it.
+      # The ONE unwrapped post-install step: 13 of the 14 run under a proved denial, and
+      # this is the 14th. It cannot be wrapped, because the suite contains the two-sided
+      # controls that establish the denial and a control cannot prove one from inside it —
+      # observed on both platforms, failing differently (3 tests on macOS, where
+      # `sandbox-exec` denies loopback outright; 11 on Linux, where `lo` comes up and the
+      # denial-proving tests instead fail to nest a sandbox inside the one wrapping them).
       #
-      # Observed on BOTH platforms, and they fail differently — which is why the exemption
-      # is structural rather than a macOS quirk:
-      #   macOS  `sandbox-exec` denies loopback outright: 3 tests, `Failed to start server`.
-      #   Linux  `unshare --net` brings `lo` up, so that failure does NOT occur — and 11
-      #          tests still fail, because the denial-proving tests must nest a sandbox
-      #          inside the one already wrapping them.
-      # See `<EVIDENCE>/negative-cases/clean-clone-offline/` case 3 and case 3b.
-      #
-      # This is the one step FR-050's "network only during install" is NOT true of, and
-      # T093 is left UNCHECKED on account of it rather than claimed. Narrowing the
-      # exemption to just the two denial-proving files was considered and rejected: bun
-      # test has no exclusion filter, so it would mean an explicit path allowlist, and a
-      # stale entry there means tests silently not running — the same defect
-      # `check:clean-clone` exists to catch, reintroduced to tidy up a disclosure.
-      - name: Test (includes resolution-is-pure and the proved-denial generator run)
+      # Ambient availability, never use: a test that reaches the network is an FR-050
+      # defect regardless. Reasoning and both captures:
+      # `<EVIDENCE>/negative-cases/clean-clone-offline/` case 3 and case 3b.
+      - name: Test (the one post-install step not network-denied)
         run: bun test
       # Both halves wrapped. The `&& git diff` used to run outside the wrapper under a step
       # whose name said "(network denied)", which made the disclosed exemption list wrong

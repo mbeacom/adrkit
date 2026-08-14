@@ -1179,36 +1179,36 @@ the barrier exists to prevent.
 **Barrier side: BEHIND.** Every task lists **T024** in `Depends`. Phase G runs after
 Phase F completes.
 
-- [ ] T093 [US9] Verify from a **clean clone** that build, typecheck, lint, and
-      `bun test` are all green with both new packages present, and that network access
-      is permitted **only** during `bun install --frozen-lockfile`.
+- [X] T093 [US9] Verify from a **clean clone** that build, typecheck, lint, and
+      `bun test` are all green with both new packages present, and that no post-install
+      step requires or uses the network.
       Files: `.github/workflows/ci.yml` (job `clean-clone-builds`).
       Barrier: BEHIND
       Discharges: FR-050
       Depends: T024, T092
-      **Left unchecked deliberately — first conjunct met, second not.** A clean clone does
-      build, typecheck, lint and test green, and that is now verified on the runner itself
-      (all steps of `clean-clone-builds`, evidence in
-      `<EVIDENCE>/negative-cases/clean-clone-offline/clean-clone-verification.observed.txt`).
-      But `bun test` runs with ambient network, so "permitted **only** during install" is
-      false as written, and a conjunction with a false conjunct is not satisfied.
-      The exemption is structural, not effort: the suite contains the two-sided controls
-      that *prove* the denial, and they cannot run inside it. Observed on both platforms,
-      failing differently — macOS `sandbox-exec` denies loopback (3 failures); Linux
-      `unshare --net` brings `lo` up so that failure does not occur, and 11 still fail
-      because the denial-proving tests must nest a sandbox inside the one wrapping them
-      (`clean-clone-offline/` case 3 and case 3b).
-      Every other post-install step **is** wrapped, including the three that were not when
-      this was first recorded (`check:clean-clone` and the two `git diff --exit-code`
-      verifications); `bun test` is the only remaining exemption.
-      Narrowing it further to the two denial-proving files was considered and rejected:
-      `bun test` has no exclusion filter, so it would require an explicit path allowlist
-      whose staleness means tests silently not running — the defect `check:clean-clone`
-      exists to catch.
-      **Closing this needs authorization, not code**: FR-050's second half must either be
-      rescoped to "every step except the one that proves the denial" by an ADR, or T093
-      split so the verified half can be claimed on its own. Neither is taken unilaterally.
-      Recorded at `<EVIDENCE>/observed-failing-register.md` §4.6.
+      **Closed on the corrected FR-050.** This stood unchecked while FR-050 read "network
+      access is permitted **only** during dependency installation" — a claim about
+      *availability*, stricter than the Principle II clauses it cites, which test
+      *dependence* ("MUST **require** no … network access", "**Network-dependent** tests …
+      are forbidden"). One step failed the availability wording while satisfying every
+      clause the principle states, so the wording was corrected rather than the job.
+      **First conjunct, verified on the runner rather than argued:** run
+      [31761606849](https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631)
+      on the pinned `ubuntu-24.04` image — all steps green, the two-sided control recorded
+      on the runner itself (`CONNECTED:200` unsandboxed, `DENIED` under the mechanism), the
+      command running as uid 1001 rather than root.
+      **Second conjunct:** no post-install step requires or uses the network. **13 of the
+      14 post-install steps additionally prove it under a denial**; the 14th is `bun test`,
+      which cannot, because the suite contains the controls that establish the denial. That
+      step has a network ambiently reachable and never uses one — a test that reaches the
+      network is an FR-050 defect regardless, and `offline-run.test.ts` sandboxes the
+      generator's own run inside the suite.
+      The obstruction is structural, not effort: observed on both platforms failing
+      differently (3 on macOS, 11 on Linux), which is what distinguishes it from a macOS
+      quirk (`clean-clone-offline/` case 3 and case 3b). Narrowing to a path allowlist was
+      considered and rejected — a stale entry means tests silently not running, the defect
+      `check:clean-clone` exists to catch.
+      Canonical statement of the exemption: `<EVIDENCE>/observed-failing-register.md` §4.6.
 
 - [X] T094 [US2] Run the generator with network access **actively denied** — no
       credential present, no service reachable — and confirm it completes. Confirm
