@@ -315,15 +315,34 @@ have one.
    block from `quickstart.md`, which documented the broken model.
 7. [x] Note in `site/src/content/docs/ci.mdx` that a `v*` release tag is annotated, so
    `uses:` needs the dereferenced commit rather than the tag object's own SHA.
-8. [ ] Confirm on a reference repository that a second push updates the comment
-   ([ADR-0014](./0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-   rung 2); rung 1 is the unit and contract coverage above. The run is no longer an
-   instruction: the workflow that performs it ships at
-   [`specs/004-ci-surface/evidence/reference-repo/comment-idempotence.yml`](../../specs/004-ci-surface/evidence/reference-repo/comment-idempotence.yml)
-   and its evidence index is created empty and explicitly `NOT YET OBSERVED` at
-   [`specs/004-ci-surface/checklists/reference-verification-evidence.md`](../../specs/004-ci-surface/checklists/reference-verification-evidence.md).
-   Until that index carries observed values, the comment path is `implemented`, not
+8. [x] **Confirmed 2026-08-14.** A second dispatch updates the comment rather than
+   posting another, observed on the maintainer-owned isolated reference repository
+   ([`adrkit-t018-dogfood#16`](https://github.com/mbeacom/adrkit-t018-dogfood/pull/16),
+   run 31773014051 attempt 2, adrkit pinned at `71f46d6`): the Action logged `created`
+   then `updated`, and the comment id was `#5289855976` after both dispatches, from a
+   pull request that carried zero comments beforehand. The full index is
+   [`specs/004-ci-surface/checklists/reference-verification-evidence.md`](../../specs/004-ci-surface/checklists/reference-verification-evidence.md);
+   the artifact that produced it is
+   [`specs/004-ci-surface/evidence/reference-repo/`](../../specs/004-ci-surface/evidence/reference-repo/README.md).
+   **A reviewer verdict is still outstanding**, and ADR-0014 rung 2 requires the evidence
+   to be reviewed, so the comment path remains `implemented` and is not yet
    `reference-verified`.
+
+   Three things the run established that reading could not:
+
+   - **The FR-014 degrade works, and had never been observed anywhere.** Under
+     `pull-requests: read` the Action logged `an app installation token, whose login is
+     not resolvable; matching on the marker and a bot author` and then the read-only
+     notice, left the job green, and wrote nothing. That is this record's degraded
+     identity path executing in the wild, not inferred from source.
+   - **A `pull-requests: read` token can list issue comments at all** — previously
+     unestablished, and the reason the snapshot step asserts its result is non-empty.
+   - **`updated_at` does not move on a byte-identical PATCH.** In both attempts the
+     Action logged `updated` while `updated_at == created_at`. The gate asserts **id
+     stability** instead precisely because that API detail is uncontractual; this run
+     shows an artifact asserting `updated_at` would have failed against a healthy Action.
+     A design hedge became an observation.
+
 9. [x] **Deferred when this record was written; done 2026-08-14 ([#135](https://github.com/mbeacom/adrkit/issues/135)).**
    This repository did not run its own governing-decisions Action on its own pull
    requests. `self-dogfood` runs the **CLI** with `contents: read`, so it never

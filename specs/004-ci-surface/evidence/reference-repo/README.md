@@ -43,18 +43,44 @@ nothing.
    the commit `@v0` resolves to would check out cleanly and then fail with a
    module-not-found inside the assertion — a broken-looking artifact that is really a
    mis-set input.
-3. Commit a **plain file** at `fixtures/fail-closed-invalid-corpus-dir` (any content).
-   It must be a file, not a directory — that is what makes `readdir()` throw `ENOTDIR`
-   inside adrkit's corpus loader, before any GitHub write is attempted.
+3. Ensure a **plain file** exists at `fixtures/fail-closed-invalid-corpus-dir` (any
+   content). It must be a file, not a directory — that is what makes `readdir()` throw
+   `ENOTDIR` inside adrkit's corpus loader, before any GitHub write is attempted. In
+   `adrkit-t018-dogfood` it is already committed; leave it alone rather than recreating
+   it, so the corpus is not perturbed between runs.
 4. Push a branch **in that repository** carrying the workflow and the fixture, and open
    the pull request from it. Not from a fork: a fork's token is read-only, so the
    `idempotence` job would find nothing to assert. A pull request opened from a branch
    that does not carry steps 1 and 3 runs no jobs at all, which looks like success.
-5. Record the observed values, run URLs, and content hashes in
-   [`../../checklists/reference-verification-evidence.md`](../../checklists/reference-verification-evidence.md),
-   and update the comment-Action maturity sentence in `site/src/content/docs/ci.mdx` —
-   that page is what adopters read, and it is where the claim has to move once the
-   evidence exists.
+5. **In the reference repository:** record the observed values — run URLs, job
+   conclusions, verbatim `check-ci-comment:` lines, comment ids before and after each
+   dispatch, `steps.<id>.outcome` strings, and snapshot hashes.
+6. **Back in adrkit, by a maintainer:** transcribe them into
+   [`../../checklists/reference-verification-evidence.md`](../../checklists/reference-verification-evidence.md)
+   and move the comment-Action maturity sentence in `site/src/content/docs/ci.mdx` —
+   that page is what adopters read. Steps 5 and 6 are separate because whoever runs this
+   artifact is working in the reference repository and cannot commit to adrkit.
+
+## Prerequisites that are easy to discover the hard way
+
+- **A token with the `workflow` scope.** The entire artifact is delivered as a file under
+  `.github/workflows/`, and a push that creates or updates one is rejected without that
+  scope (`refusing to allow an OAuth App to create or update workflow … without
+  `workflow` scope`). Observed on the first real run.
+- **No other workflow in the reference repository may post the `<!-- adrkit:ci -->`
+  comment.** A second writer does not necessarily fail the run, and that is what makes it
+  dangerous: if it wins the race it satisfies the `absent` rule with a comment *this*
+  workflow did not create, and `idempotence` then passes having observed two updates and
+  no create — proving strictly less than a green run appears to. Exactly that happened on
+  the first real run, where the repository's own `adr.yml` created the comment four
+  seconds before the snapshot step read it. GitHub concurrency groups cannot serialise
+  across workflows, so the `concurrency` block here cannot guard it.
+
+  Before the run, confirm the pull request carries **zero** `<!-- adrkit:ci -->` comments.
+  If one appears from another workflow, delete it and re-run **this workflow alone**
+  (`gh run rerun <run-id>`), which does not re-trigger the other. Verify from the log that
+  `already ours before this run:` is **empty** — that line is what distinguishes a run
+  that observed a create from one that only observed updates.
 
 ## Why it does not live in adrkit's own CI
 

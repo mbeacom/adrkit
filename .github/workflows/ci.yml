@@ -204,10 +204,16 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          # One id per line, joined afterwards. `--paginate` applies `--jq` per page and
+          # concatenates the results, so a `join(",")` INSIDE the filter emits one
+          # comma-joined line PER PAGE — and a pull request past one page of comments
+          # would then hand `--expect-ids` a multi-line value that parses as NaN. Not
+          # hypothetical: measured against the labels endpoint at `per_page=5`, the
+          # in-filter form produced three lines and this form produced one.
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-            --jq '[.[] | select((.body // "") | split("\n")[0] == "<!-- adrkit:ci -->")
-                       | select(.user.type == "Bot") | .id] | join(",")' \
-            > "$RUNNER_TEMP/prior-ids"
+            --jq '.[] | select((.body // "") | split("\n")[0] == "<!-- adrkit:ci -->")
+                      | select(.user.type == "Bot") | .id' \
+            | paste -sd, - > "$RUNNER_TEMP/prior-ids"
           echo "already ours before this run: $(cat "$RUNNER_TEMP/prior-ids" || echo none)"
       - name: Run the governing-decisions Action (first dispatch)
         uses: ./packages/ci

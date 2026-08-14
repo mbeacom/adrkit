@@ -70,7 +70,12 @@ jobs:
         with:
           repository: mbeacom/adrkit
           ref: ${{ env.ADRKIT_REF }}
-          path: .adrkit
+          # NOT `.adrkit`: `mbeacom/adrkit-t018-dogfood` already tracks `.adrkit/lint.json`
+          # and `.adrkit/queue.json`, and checkout deletes the contents of its target
+          # directory — observed as "Deleting the contents of '…/.adrkit'" on the first
+          # real run. That repository already reserves `.adrkit-src/` in `.gitignore` for
+          # exactly this purpose.
+          path: .adrkit-src
           persist-credentials: false
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
@@ -82,10 +87,16 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          # One id per line, joined afterwards. `--paginate` applies `--jq` per page and
+          # concatenates the results, so a `join(",")` INSIDE the filter emits one
+          # comma-joined line PER PAGE — and a pull request past one page of comments
+          # would then hand `--expect-ids` a multi-line value that parses as NaN. Not
+          # hypothetical: measured against the labels endpoint at `per_page=5`, the
+          # in-filter form produced three lines and this form produced one.
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-            --jq '[.[] | select((.body // "") | split("\n")[0] == "<!-- adrkit:ci -->")
-                       | select(.user.type == "Bot") | .id] | join(",")' \
-            > "$RUNNER_TEMP/prior-ids"
+            --jq '.[] | select((.body // "") | split("\n")[0] == "<!-- adrkit:ci -->")
+                      | select(.user.type == "Bot") | .id' \
+            | paste -sd, - > "$RUNNER_TEMP/prior-ids"
           echo "already ours before this run: $(cat "$RUNNER_TEMP/prior-ids" || echo none)"
       - name: First dispatch (creates)
         uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
@@ -107,7 +118,7 @@ jobs:
               > "$RUNNER_TEMP/after-first.json"
             after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
             set +e
-            bun run .adrkit/scripts/check-ci-comment.ts "$RUNNER_TEMP/after-first.json" \
+            bun run .adrkit-src/scripts/check-ci-comment.ts "$RUNNER_TEMP/after-first.json" \
               --expect-total="$(( before < after ? before : after ))" \
               --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
               --id-file="$RUNNER_TEMP/comment-id"
@@ -139,7 +150,7 @@ jobs:
               > "$RUNNER_TEMP/comments.json"
             after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
             set +e
-            bun run .adrkit/scripts/check-ci-comment.ts "$RUNNER_TEMP/comments.json" \
+            bun run .adrkit-src/scripts/check-ci-comment.ts "$RUNNER_TEMP/comments.json" \
               --expect-total="$(( before < after ? before : after ))" \
               --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
               --expect-id="$(cat "$RUNNER_TEMP/comment-id")"
@@ -266,4 +277,5 @@ jobs:
             | sort > "$RUNNER_TEMP/after.tsv"
           [ -s "$RUNNER_TEMP/after.tsv" ] || { echo "after-snapshot is empty; the API read failed" >&2; exit 1; }
           diff "$RUNNER_TEMP/before.tsv" "$RUNNER_TEMP/after.tsv"
+          echo "observed: steps.readonly.outcome=${{ steps.readonly.outcome }}"
           echo "observed: read-only dispatch degraded, comment set unchanged"

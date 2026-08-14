@@ -63,6 +63,34 @@ Until `1.0.0`, minor releases may include breaking changes
   `pull_request_target` would close that blind spot by running base-repo workflows with
   a write token against fork-authored code, and was rejected outright.
 
+- **The rung-2 reference run happened, and closed [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
+  action item 8.** Three scenarios green on
+  [`adrkit-t018-dogfood#16`](https://github.com/mbeacom/adrkit-t018-dogfood/pull/16)
+  against adrkit pinned at `71f46d6`. The Action logged `created` then `updated` with the
+  comment id unchanged at `#5289855976` from a clean start; a plain file as `dir` failed
+  the step with `ENOTDIR` leaving the comment set byte-identical; and a
+  `pull-requests: read` token produced the FR-014 degrade — a log notice, a green job,
+  nothing written. That degrade path had **never been observed anywhere**; it had only
+  ever been read from source. A reviewer verdict is still outstanding, so the comment
+  path is `implemented`, not yet `reference-verified`.
+
+  **Running it found four defects in the artifact, all invisible to static review.**
+  `path: .adrkit` deleted the contents of a directory the reference repository tracks
+  (now `.adrkit-src`, the name that repo already reserves); a second workflow posting the
+  same marker silently *weakens* a run rather than failing it, because a foreign comment
+  satisfies the `absent` rule — the first attempt was green having observed two updates
+  and no create; `degrade-read-only` never echoed its outcome, so that evidence row had
+  to be read from the REST API; and `--paginate` with `join(",")` inside `--jq` emits one
+  line per page, which would hand `--expect-ids` a multi-line value past 30 comments —
+  reproduced against the labels endpoint and fixed in **`action-dogfood` too**, which
+  carried the same defect.
+
+  It also converted a design rationale into an observation: `updated_at` did **not** move
+  on either in-place update, because GitHub does not bump it for a PATCH whose body is
+  byte-identical. The gate asserts id stability instead precisely because that detail is
+  uncontractual, and an artifact asserting `updated_at` would have failed both attempts
+  against a healthy Action.
+
 - **A runnable rung-2 reference-repository artifact for the comment path**
   (`specs/004-ci-surface/evidence/reference-repo/`). It calls the Action as a consumer
   does — `uses: mbeacom/adrkit/packages/ci@<sha>` — and covers two scenarios the
