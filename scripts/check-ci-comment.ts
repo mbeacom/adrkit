@@ -9,7 +9,7 @@
  * it produced (`adrkit: created the governing-decisions comment.`) is exactly what
  * healthy operation prints. The only thing that distinguishes the two is the state of
  * the pull request afterwards, which is what this reads
- * ([ADR-0028](../docs/adr/0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md),
+ * ([ADR-0026](../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md) action item 9,
  * [#135](https://github.com/mbeacom/adrkit/issues/135)).
  *
  *   gh api --paginate "repos/$REPO/issues/$PR/comments" | bun run scripts/check-ci-comment.ts

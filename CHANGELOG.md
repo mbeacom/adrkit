@@ -11,9 +11,9 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
-- **The comment-posting Action now has an end-to-end signal** ([ADR-0028](docs/adr/0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md),
-  #135, closing [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
-  action item 9). `self-dogfood` runs the **CLI** with `contents: read`, so it never
+- **The comment-posting Action now has an end-to-end signal**
+  ([ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
+  action item 9, #135). `self-dogfood` runs the **CLI** with `contents: read`, so it never
   constructed a GitHub client, resolved an identity, or posted a comment — the surface
   #107 lived in had no coverage before it shipped to every adopter pinned at the moving
   `v0` tag. That is how #107 survived two releases: every suite was green, and the job
@@ -53,7 +53,8 @@ Until `1.0.0`, minor releases may include breaking changes
   in-repository job structurally cannot: a fail-closed dispatch against an invalid
   corpus directory that must write nothing, and the FR-014 degrade under
   `pull-requests: read` that must stay green. Shipped as a workflow file rather than as
-  a task, per ADR-0016 clause 4. Its evidence index
+  a task, per ADR-0016 clause 4 — it is the mechanism for ADR-0026 action item 8, which
+  stays open until it is run. Its evidence index
   (`specs/004-ci-surface/checklists/reference-verification-evidence.md`) is created
   **empty and explicitly `NOT YET OBSERVED`**: the comment path remains `implemented`,
   not `reference-verified`, until a real run fills it in.

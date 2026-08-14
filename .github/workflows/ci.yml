@@ -143,7 +143,7 @@ jobs:
   action-dogfood:
     # Run the *Action* against this repository's own pull requests, twice, and assert
     # the pull request ends up carrying exactly one governing-decisions comment
-    # (ADR-0028, issue #135).
+    # (ADR-0026 action item 9, issue #135).
     #
     # `self-dogfood` above exercises the CLI — the corpus loader, `affects` resolution,
     # and exit codes — with `contents: read`. It never constructs a GitHub client,
@@ -161,7 +161,7 @@ jobs:
     # Action, because the token is read-only and the Action correctly degrades to a
     # log notice (FR-014) leaving no comment for the assertion to find:
     #   - a fork pull request, whose GITHUB_TOKEN is read-only whatever `permissions`
-    #     says. This is a documented blind spot (ADR-0028), not a solved case;
+    #     says. This is a documented blind spot (ADR-0026 item 9), not a solved case;
     #     `pull_request_target` would close it by running base-repo workflows with a
     #     write token against fork-authored code, which is not a trade this repository
     #     will make for a CI signal.

@@ -3,7 +3,7 @@
 **Purpose**: the tracked, sanitized evidence index for the governing-decisions
 **comment** path of `packages/ci`, per
 [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-rung 2 and [ADR-0028](../../../docs/adr/0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md).
+rung 2 and [ADR-0026](../../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md) action items 8–9.
 This is **rung-2 reference verification, not rung-3 external / community
 validation** — the reference repository is maintainer-owned and isolated, not a
 third-party adopter.
@@ -30,7 +30,7 @@ claim from `implemented`, and the comment path is currently **implemented** with
 continuous rung-1 evidence only.
 
 The distinction this index exists to keep visible: an empty `Observed` column is
-*visibly* unverified, whereas the state before ADR-0028 — no index at all — was
+*visibly* unverified, whereas the state before this index existed — was
 indistinguishable from verified to anyone who did not go looking.
 
 ## Tool versions / environment

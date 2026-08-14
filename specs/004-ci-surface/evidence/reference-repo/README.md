@@ -3,7 +3,7 @@
 [ADR-0014](../../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
 rung 2 asks for maintainer-owned isolated reference-repository validation that is
 **reproducible, self-verifying, fail-closed, and reviewed**.
-[ADR-0028](../../../../docs/adr/0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md)
+[ADR-0026](../../../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md) action item 9
 places the comment path's end-to-end evidence on **both** rungs: rung 1 continuously,
 inside this repository's own CI (`action-dogfood` in `.github/workflows/ci.yml`), and
 rung 2 here, against a published-shaped consumer.

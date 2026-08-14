@@ -20,6 +20,8 @@ affects:
   - type: path
     pattern: "packages/ci/action.yml"
   - type: path
+    pattern: "scripts/check-ci-comment.ts"
+  - type: path
     pattern: "specs/004-ci-surface/spec.md"
   - type: path
     pattern: "specs/004-ci-surface/research.md"
@@ -27,6 +29,19 @@ affects:
     pattern: "specs/004-ci-surface/quickstart.md"
   - type: path
     pattern: "site/src/content/docs/ci.mdx"
+assertions:
+  - id: ci-comment-unique
+    description: >-
+      After the governing-decisions Action runs on a pull request, that pull
+      request carries exactly one comment whose first line is the marker, and a
+      bot authored it. Asserted as "exactly one" rather than "at most one"
+      deliberately: an empty comment list satisfies "at most one", and an empty
+      list is what a revoked permission, a wrong pull-request number, and a
+      silently-degraded Action all produce.
+    engine: custom
+    expression: ci-comment-unique
+    input: source
+    severity: error
 provenance:
   authoredBy: agent-drafted
   ratifiedBy: "@mbeacom"
@@ -302,16 +317,63 @@ have one.
    `uses:` needs the dereferenced commit rather than the tag object's own SHA.
 8. [ ] Confirm on a reference repository that a second push updates the comment
    ([ADR-0014](./0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-   rung 2); rung 1 is the unit and contract coverage above.
-9. [x] **Deferred, tracked separately — now closed by
-   [ADR-0028](./0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md)
-   ([#135](https://github.com/mbeacom/adrkit/issues/135)).** This repository did not run
-   its own governing-decisions Action on its own pull requests, so no automated signal
-   would catch a recurrence before adopters see duplicate comments — which is precisely
-   how this defect survived two releases. Closing that was a larger change than this
-   record authorizes, and it interacts with the ADR-0014 rung-2 mechanism rather than
-   replacing it; ADR-0028 covers both rungs. Item 8 above remains open and is tracked
-   there as its own action item 7.
+   rung 2); rung 1 is the unit and contract coverage above. The run is no longer an
+   instruction: the workflow that performs it ships at
+   [`specs/004-ci-surface/evidence/reference-repo/comment-idempotence.yml`](../../specs/004-ci-surface/evidence/reference-repo/comment-idempotence.yml)
+   and its evidence index is created empty and explicitly `NOT YET OBSERVED` at
+   [`specs/004-ci-surface/checklists/reference-verification-evidence.md`](../../specs/004-ci-surface/checklists/reference-verification-evidence.md).
+   Until that index carries observed values, the comment path is `implemented`, not
+   `reference-verified`.
+9. [x] **Deferred when this record was written; done 2026-08-14 ([#135](https://github.com/mbeacom/adrkit/issues/135)).**
+   This repository did not run its own governing-decisions Action on its own pull
+   requests. `self-dogfood` runs the **CLI** with `contents: read`, so it never
+   constructed a GitHub client, resolved an identity, or posted — meaning the surface
+   this record is about had no automated signal at all, which is precisely how the
+   defect survived two releases while every suite stayed green.
+
+   Closed as the `action-dogfood` job in `.github/workflows/ci.yml`, backed by
+   `scripts/check-ci-comment.ts`, asserting the `ci-comment-unique` assertion declared
+   above. It runs `uses: ./packages/ci` **twice** against the pull request and checks,
+   over the API, that exactly one comment leads with the marker and a bot authored it.
+   Structured as a repository script for the reasons
+   [ADR-0006](./0006-license-apache-2-and-single-monorepo.md) action item 2 gives for
+   `check-dco.ts` — it imports only builtins, so a broken dependency graph cannot take
+   the gate down with it — and observed rejecting the real duplicate-comment shape
+   before it counted as coverage
+   ([ADR-0016](./0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)),
+   with the negative cases kept in `scripts/__fixtures__/ci-comment/`.
+
+   Four properties are load-bearing and easy to undo by accident:
+
+   - **It is the first job in this repository that can write.** `pull-requests: write`
+     is scoped to that one job rather than raised at the workflow level, so the
+     capability is visible in one place. `ci.yml` executes the *pull request's own*
+     definition ([#137](https://github.com/mbeacom/adrkit/issues/137)), so a
+     contributor who can push a branch here can edit the job and use that token; what
+     bounds it is that only collaborators can push such a branch, which is the same
+     trust boundary as merging, and a fork's token is read-only regardless.
+   - **Fork and Dependabot pull requests are excluded, and must stay excluded.** Their
+     token is read-only whatever `permissions:` declares, so the Action correctly
+     degrades to a log notice (FR-014) and posts nothing — the assertion would fail a
+     *healthy* Action. `pull_request_target` would close that blind spot by running
+     base-repo workflows with a write token against fork-authored code, and is
+     rejected: that is not a trade this repository will make for a CI signal. The
+     uncovered path is instead covered at rung 2 by item 8's `pull-requests: read`
+     scenario, which this repository's own CI structurally cannot exercise.
+   - **`needs: clean-clone-builds` is correctness, not ordering hygiene.** `uses:` runs
+     the *committed* `packages/ci/dist`, so without the bundle-drift gate ahead of it
+     the job could pass over a stale bundle while the source it claims to cover is
+     broken.
+   - **The assertion also runs between the two dispatches, on a bounded retry.** GitHub
+     can serve the comment list from a replica, and a second dispatch that listed
+     before the first comment became visible would create a duplicate and fail a
+     healthy Action. The second assertion is deliberately not retried — a stale read
+     there can only hide a duplicate, never invent one, and duplicates persist until a
+     human removes them.
+
+   Still open: making `action-dogfood` a required check on the `main` ruleset, which
+   cannot happen until it has run green at least once, since it skips on the pull
+   requests that cannot satisfy it.
 10. [ ] **Deferred, tracked separately.** `v0` is a moving tag with no documented
     rollback, so recovering from a bad Action release depends on a maintainer knowing
     to force-move it by hand.

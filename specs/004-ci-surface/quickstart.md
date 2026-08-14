@@ -87,7 +87,7 @@ and asserts the PR ends up carrying exactly one `<!-- adrkit:ci -->` comment. Th
 — `self-dogfood` covers only the CLI, so nothing exercised the comment identity and
 upsert path — is what let [#107](https://github.com/mbeacom/adrkit/issues/107) ship for
 two releases while every suite stayed green. See
-[ADR-0028](../../docs/adr/0028-give-the-comment-posting-action-an-end-to-end-signal-on-both-rungs.md)
+[ADR-0026](../../docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md) action item 9
 and [#135](https://github.com/mbeacom/adrkit/issues/135). Fork and Dependabot PRs are
 excluded because their token is read-only; that path is covered instead by the rung-2
 artifact in [`evidence/reference-repo/`](./evidence/reference-repo/README.md), whose
