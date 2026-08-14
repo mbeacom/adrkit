@@ -380,7 +380,9 @@ have one.
 
      That is a controlled result, not a story: one repository, one credential, one endpoint,
      one body. **Editing another author's comment always moves `updated_at`; editing your own
-     with an identical body does not.**
+     with an identical body does not.** Reproduced independently in `mbeacom/openleague` with
+     the same shape — self-authored held at `11:53:58Z` across three PATCHes, bot-authored
+     advanced on all three — so it is not a property of one repository.
 
      It also invalidates a refutation. The run-boundary variable was reported as measured out
      by three byte-identical PATCHes in one session on `openleague#328` — but those were a

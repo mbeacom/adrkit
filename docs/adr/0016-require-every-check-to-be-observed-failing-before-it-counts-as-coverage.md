@@ -235,6 +235,17 @@ failure message asserted a single cause where two were possible. Had the agent
 quietly substituted a better ordering, all three would still be latent, and the
 substitution would have been invisible to everyone including the reviewer.
 
+A third failure kind surfaced in the same exchange, distinct from both the ones this
+record already describes. The reference operator wrote down a confound — "editing another
+author's comment may always bump" — and then, one message later, ran three measurements
+carrying that exact confound and reported the variable closed. Not a boundary error, and
+not blindness to data in view: the correct caveat had already been stated, in their own
+prior output, and was not carried forward. Neither more careful reading of the evidence
+nor more scepticism about the conclusion would have caught it — only re-reading their own
+earlier message would. That is the same mechanism as this record's drafting story above,
+where its author asserted two things from memory rather than re-reading a thread whose
+subject was that failure.
+
 The rule this yields is narrow and worth stating: **when an instruction and your
 own prediction disagree, follow the instruction and report the outcome, rather
 than pre-empting it.** A silently corrected instruction is an unobserved failure,

@@ -125,7 +125,9 @@ the only thing varied is whether the editor authored the comment:
 
 That is a controlled result, not a story: one repository, one credential, one endpoint,
 one body. **Editing another author's comment always moves `updated_at`; editing your own
-with an identical body does not.**
+with an identical body does not.** Reproduced independently in `mbeacom/openleague` with
+the same shape — self-authored held at `11:53:58Z` across three PATCHes, bot-authored
+advanced on all three — so it is not a property of one repository.
 
 It also invalidates a refutation. The run-boundary variable was reported as measured out
 by three byte-identical PATCHes in one session on `openleague#328` — but those were a
@@ -202,6 +204,17 @@ correctly and logged exactly one `created`. `--expect-ids` separates *predates t
 from *created during it*; it cannot separate *created by this run's dispatch* from
 *created by a concurrent foreign writer*. The message now names both causes and points at
 the Action's own log, which does distinguish them.
+
+## A trap for anyone repeating these probes
+
+`gh api <comment> --jq '.body'` appends a trailing newline to its output. Round-tripping
+that back through `-F body=@file` therefore PATCHes `body + "\n"` — silently changing the
+body a byte-identical test exists to hold constant, and mutating a real comment. It
+happened here, to the live governing-decisions comment on `#143`; it was restored
+byte-exactly and verified by hash with the first line intact and the gate re-run green.
+The other operator avoided it only by parsing JSON in Python rather than by noticing it.
+Read and write the body as JSON, and hash what is **stored** rather than what a shell
+redirect produced.
 
 ## Known limitations, stated up front
 
