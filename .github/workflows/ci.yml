@@ -39,9 +39,14 @@ jobs:
     # token while branch protection built on this job blocks everything else. Pinning makes
     # that bump a reviewed change rather than an ambient one.
     #
-    # Verified green on `ubuntu-24.04` image 20260810.271.1, run 31660248989. Break-glass
-    # and the reasoning are recorded in
-    # `specs/010-catalog-backstage/evidence/negative-cases/clean-clone-offline/README.md`.
+    # Verified green on `ubuntu-24.04` image 20260810.271.1, run 31761606849. If this job
+    # ever goes red here, read the wrapper's own failure output rather than a runbook: it
+    # branches on the three classes that need telling apart — the loopback control never
+    # connected (a fault in the script or a proxy), the mechanisms ran and the payload
+    # failed (a fault in ours), or no mechanism is available (a fault in the image) — and
+    # names what to look at in each. Whatever the cause, do not remove the wrapper: it is
+    # fail-closed by design, and a red build is the intended behaviour.
+    #
     # The other jobs here stay on `ubuntu-latest` deliberately: none of them depends on
     # image internals, so pinning them would add bumps to review without covering a risk.
     runs-on: ubuntu-24.04

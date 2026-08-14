@@ -183,34 +183,23 @@ third exception until they were wrapped. They ran unwrapped only because of wher
 in the job, while this paragraph claimed every subsequent step was routed — the claim was
 wrong, and it is recorded as having been wrong rather than quietly corrected.
 
-## The image is pinned, and why only this job
+## The image is pinned
 
-`runs-on: ubuntu-24.04`, not `ubuntu-latest`. This job's viability depends on three
-properties of the runner image rather than on anything in this repository: AppArmor's
-unprivileged-user-namespace restriction (which is why candidate 1 is refused and the sudo
-candidate is selected), passwordless `sudo -n` with a `secure_path` that excludes
-`~/.bun/bin`, and `unshare`/`setpriv` from util-linux. The 22.04 → 24.04 migration is what
-introduced the first of those.
+`runs-on: ubuntu-24.04`, not `ubuntu-latest`, for `clean-clone-builds` only — because this
+job's viability depends on properties of the runner image rather than on anything in this
+repository. The reasoning lives in the `ci.yml` comment beside `runs-on:`, where someone
+changing that line will see it; it is not repeated here, because this directory is an
+archive of observations and that is a live operational constraint.
 
-Because the gate is fail-closed by design, an ambient image bump would turn this job red on
-every PR and push simultaneously, and the fix would live in a workflow file — needing a
-`workflow`-scoped token while branch protection built on this job blocks everything else.
+First run after pinning:
+[31761606849](https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631),
+which records `Image: ubuntu-24.04` rather than the resolution of a floating label.
 
-**Break-glass**, recorded so it does not have to be reconstructed under that pressure:
-
-| Symptom | What it means | Action |
-|---|---|---|
-| `unavailable here: … /proc/self/uid_map: Operation not permitted` on candidate 1 **and** the sudo candidate proves | normal on `ubuntu-24.04` | none; this is the expected path |
-| every candidate `unavailable here:` | the image lost `sudo -n`, `unshare`, or `setpriv` | revert `runs-on` to `ubuntu-24.04` image `20260810.271.1` behaviour by pinning the older label, or add a candidate for the new image — **do not** remove the wrapper |
-| `the loopback control never connected` | fault in this script or a proxy routing 127.0.0.1 off-host | check `HTTP(S)_PROXY`/`NO_PROXY`; no candidate was tried |
-| `every candidate MECHANISM RAN, and the probe payload failed` | our payload, not the environment | check the probe file and `PATH` handling |
-
-Verified green on the pinned `ubuntu-24.04` image, run
-[31761606849](https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631)
-— the first run after pinning, which records `Image: ubuntu-24.04` rather than resolving
-`ubuntu-latest`. The other jobs
-stay on `ubuntu-latest` deliberately: none depends on image internals, so pinning them
-would add bumps to review without covering a risk.
+There is deliberately **no break-glass runbook here.** `run-network-denied.ts` branches its
+failure output on the three classes an operator has to tell apart — the control never
+connected, the mechanisms ran and the payload failed, or no mechanism is available — and
+each message names what to look at. A prose table restating that is strictly worse than
+the diagnostic: it duplicates it, and it is the copy that goes stale.
 
 ## Why `bun test` cannot be wrapped, on either platform
 

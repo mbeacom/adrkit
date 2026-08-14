@@ -378,15 +378,11 @@ correct.
 
 `bun test` is the one that remains, and it is **permanent and structural**: the suite
 contains the two-sided controls that prove the denial, and a control cannot establish a
-denial from inside one. Observed on **both** platforms, failing differently on each —
-which is what makes it structural rather than a macOS quirk:
-
-- macOS `sandbox-exec` denies loopback outright: 3 failures, all `Bun.serve`.
-- Linux `unshare --net` brings `lo` up, so that failure does **not** occur — and 11 tests
-  still fail, because the denial-proving tests must nest a sandbox inside the one wrapping
-  them.
-
-Recorded at `negative-cases/clean-clone-offline/` case 3 and case 3b.
+denial from inside one. Wrapping it was observed failing on **both** platforms, failing
+differently on each — which is what makes it structural rather than a macOS quirk. The
+observation itself lives with the case that retains it,
+`negative-cases/clean-clone-offline/` cases 3 and 3b, and is not restated here: this
+section owns the *disclosure*, that directory owns the *evidence*.
 
 So the honest statement of what holds is: **no step requires network beyond the install,
 and every step that can run under a proved denial does — with `bun test` named as the one
