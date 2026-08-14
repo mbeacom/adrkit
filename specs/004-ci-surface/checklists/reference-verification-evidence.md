@@ -114,6 +114,31 @@ uncontrolled is that rows 1–2 update within a single run or session and row 3 
 across separate workflow runs. **The mechanism is not established**, and it is left
 unexplained here rather than given a third plausible story — two have already been wrong.
 
+**One variable has now been isolated by measurement, and it changes the picture.** All
+in `mbeacom/adrkit`, same endpoint, same actor (a User token), same byte-identical body —
+the only thing varied is whether the editor authored the comment:
+
+| Editor's relationship to the comment | PATCHes | `updated_at` |
+|---|---|---|
+| editing **its own** comment | 6, from +5s to +310s | **never advanced** |
+| editing **another author's** comment (`github-actions[bot]`'s) | 3, at +0s/+6s/+20s | **advanced every time** |
+
+That is a controlled result, not a story: one repository, one credential, one endpoint,
+one body. **Editing another author's comment always moves `updated_at`; editing your own
+with an identical body does not.**
+
+It also invalidates a refutation. The run-boundary variable was reported as measured out
+by three byte-identical PATCHes in one session on `openleague#328` — but those were a
+*User* token editing a *bot-authored* comment, which the table above shows advances
+unconditionally. That test could not have produced any other result, so the run boundary
+is **not** refuted.
+
+What remains genuinely unexplained is narrower than before, and is one row: the Action
+editing **its own** comment with an identical body advanced `updated_at` across separate
+workflow runs on `openleague#328`, while the same operation within a single run on
+`adrkit-t018-dogfood#16` did not. Endpoint, elapsed time, and actor are closed. The run
+boundary is the surviving candidate for that row and is **not** claimed as the answer.
+
 **Why this strengthens the gate.** `check-ci-comment.ts` asserts **id stability**, and
 that never depended on which direction `updated_at` moves — only on the field being
 uncontractual. Contexts that disagree evidence that better than agreement would have. An
