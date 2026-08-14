@@ -302,13 +302,17 @@ reported as explicitly absent or present **with evidence, never assumed**, and
 that cuts both ways: understating what has since happened is as much a fabricated
 status as overstating it.
 
-**What changed.** The Context says the project "has no third-party adopters and no
-external team today, and none is on the horizon it controls." The second clause is
-no longer true. As of 2026-08-14 this repository has two recurring outside
-contributors — [`davesheffer`](https://github.com/davesheffer) (3 commits, 4
-issues/pull requests) and [`aballiet`](https://github.com/aballiet) (2 commits, 4
-issues/pull requests) — observed in `git log origin/main` and the issues API, not
-inferred.
+**What changed.** The Context opens "adrkit ships governance tooling before it has
+a community." That premise is outdated. As of 2026-08-14 this repository has two
+recurring outside contributors — [`davesheffer`](https://github.com/davesheffer)
+(3 commits, 4 issues/pull requests) and [`aballiet`](https://github.com/aballiet)
+(2 commits, 4 issues/pull requests) — observed in `git log origin/main` and the
+issues API, not inferred.
+
+The Context's narrower clause — "no third-party adopters and no **external
+team**" — is a different claim and is **not** contradicted here. "External team"
+in this record means a team running the surface in a separate repository, which
+is what the gates it supersedes demanded. Contributors are not that.
 
 **What has not changed.** Under this record's own vocabulary, a contributor is
 neither `adopted` ("an external party uses it in real work") nor `externally
@@ -322,13 +326,19 @@ which would be exactly the fabricated maturity claim the honesty rules forbid, a
 would do it while feeling like an update rather than a claim.
 
 **What was examined, and what it could not settle.** Adoption was searched for and
-not established: public code search for `mbeacom/adrkit/packages/ci` returns only
-`mbeacom/*` repositories; the repository has 6 stars, 3 forks, 1 watcher; npm
-last-month downloads sit between 384 and 1,095 per package. None of those can
-separate an adopter from a mirror, a scraper, or CI. Private repositories and npm
-consumers are unobservable from here, so this is "could not look", **not** "looked
-and found nothing" — the distinction
+**not established** — which is not the same as established absent. Public code
+search for `mbeacom/adrkit/packages/ci` returns only `mbeacom/*` repositories; the
+repository has 6 stars, 3 forks, 1 watcher; npm last-month downloads sit between
+384 and 1,095 per package. None of those can separate an adopter from a mirror, a
+scraper, or CI, and private repositories and npm consumers are unobservable from
+here. So this is "could not look", **not** "looked and found nothing" — the
+distinction
 [ADR-0016](./0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
-exists to keep visible. Absence of adopters is therefore still asserted in
-`packages/mcp/README.md` and elsewhere on the conservative side, and is left
-standing rather than upgraded on a signal that cannot carry it.
+exists to keep visible.
+
+It follows that the flat absence claims elsewhere in the project — for example
+"no external adopters or production users yet" in `packages/mcp/README.md` — assert
+something these signals cannot verify either. They are left unchanged rather than
+endorsed: they err toward understating maturity, which is the safe direction, and
+rewriting them is out of scope for a status note. Read them as "not established",
+which is what the evidence supports.
