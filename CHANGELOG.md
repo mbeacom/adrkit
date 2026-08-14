@@ -67,7 +67,7 @@ Until `1.0.0`, minor releases may include breaking changes
   action item 8.** Three scenarios green on
   [`adrkit-t018-dogfood#16`](https://github.com/mbeacom/adrkit-t018-dogfood/pull/16)
   against adrkit pinned at `71f46d6`. The Action logged `created` then `updated` with the
-  comment id unchanged at `#5289855976` from a clean start; a plain file as `dir` failed
+  comment id unchanged at `#5289930628` from a clean start; a plain file as `dir` failed
   the step with `ENOTDIR` leaving the comment set byte-identical; and a
   `pull-requests: read` token produced the FR-014 degrade — a log notice, a green job,
   nothing written. That degrade path had **never been observed anywhere**; it had only
@@ -83,7 +83,9 @@ Until `1.0.0`, minor releases may include breaking changes
   to be read from the REST API; and `--paginate` with `join(",")` inside `--jq` emits one
   line per page, which would hand `--expect-ids` a multi-line value past 30 comments —
   reproduced against the labels endpoint and fixed in **`action-dogfood` too**, which
-  carried the same defect.
+  carried the same defect. A third run against the corrected artifact confirmed all four
+  fixes and is the cited evidence — an artifact fixed after its own verification run is
+  an unverified artifact.
 
   It also converted a design rationale into an observation: `updated_at` did **not** move
   on either in-place update, because GitHub does not bump it for a PATCH whose body is

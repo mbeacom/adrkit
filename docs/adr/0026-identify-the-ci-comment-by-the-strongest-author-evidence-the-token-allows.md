@@ -318,9 +318,11 @@ have one.
 8. [x] **Confirmed 2026-08-14.** A second dispatch updates the comment rather than
    posting another, observed on the maintainer-owned isolated reference repository
    ([`adrkit-t018-dogfood#16`](https://github.com/mbeacom/adrkit-t018-dogfood/pull/16),
-   run 31773014051 attempt 2, adrkit pinned at `71f46d6`): the Action logged `created`
-   then `updated`, and the comment id was `#5289855976` after both dispatches, from a
-   pull request that carried zero comments beforehand. The full index is
+   run 31773788433, adrkit pinned at `b840e91`): the Action logged `created` then
+   `updated`, and the comment id was `#5289930628` after both dispatches, from a pull
+   request that carried zero comments beforehand. Running the artifact exposed four
+   defects in it; the cited run is the one against the corrected copy, because an
+   artifact fixed after its own verification run is an unverified artifact. The full index is
    [`specs/004-ci-surface/checklists/reference-verification-evidence.md`](../../specs/004-ci-surface/checklists/reference-verification-evidence.md);
    the artifact that produced it is
    [`specs/004-ci-surface/evidence/reference-repo/`](../../specs/004-ci-surface/evidence/reference-repo/README.md).

@@ -37,10 +37,10 @@ indistinguishable from verified to anyone who did not go looking.
 
 | Component | Value |
 |---|---|
-| adrkit under test (pinned) | `71f46d61595b4b956ec640adc72db219ff991385` (committed 2026-08-14T04:20:31Z) |
+| adrkit under test (pinned) | `b840e915477c6532ca9697eae1fa277cafa971bc` — the corrected artifact. Runs 1–2 used `71f46d61595b4b956ec640adc72db219ff991385`, which shipped the four defects listed below |
 | Comment Action bundle at that ref | `packages/ci/dist/index.js`, git blob `8f039d0d0521baff403a769c278780538f542f6d`, 1,809,405 bytes |
 | `packages/ci/action.yml` at that ref | git blob `471327bfa93c3195077bf80da1a448f6175cfc66`, 823 bytes (`using: node24`, `main: dist/index.js`) |
-| Action reference used by the reference repo | `mbeacom/adrkit/packages/ci@71f46d61595b4b956ec640adc72db219ff991385` |
+| Action reference used by the reference repo | `mbeacom/adrkit/packages/ci@b840e915477c6532ca9697eae1fa277cafa971bc` |
 | Assertion script at that ref | `scripts/check-ci-comment.ts`, git blob `6e93b491b753ea8119536a9d870d6177733c114a`, 24,737 bytes (the same one `action-dogfood` runs) |
 | Reference-repo runner | `ubuntu-24.04` — images differed **between jobs of one run** (`ubuntu24/20260720.247` and `ubuntu24/20260810.271`), which bounds how reproducible "ubuntu-latest" is |
 | Bun (assertion step) | `1.3.14`, pinned by the artifact |
@@ -55,22 +55,24 @@ Pull request [`adrkit-t018-dogfood#16`](https://github.com/mbeacom/adrkit-t018-d
 branch `mbeacom-rung-2-comment-verification` (a branch in that repository, not a fork),
 head `77050b7d579333d9d9701bae15d246996b2f41d3`.
 
-| Attempt | URL | Window (UTC) | Conclusion |
-|---|---|---|---|
-| 1 — update/update | [run 31773014051 attempt 1](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773014051/attempts/1) | 05:26:43 → 05:27:27 | success |
-| 2 — **cited**, create/update | [run 31773014051 attempt 2](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773014051/attempts/2) | 05:30:37 → 05:31:18 | success |
+| Run | Artifact | URL | Window (UTC) | Conclusion |
+|---|---|---|---|---|
+| 1 — update/update | `71f46d6` | [31773014051 attempt 1](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773014051/attempts/1) | 05:26:43 → 05:27:27 | success |
+| 2 — create/update | `71f46d6` | [31773014051 attempt 2](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773014051/attempts/2) | 05:30:37 → 05:31:18 | success |
+| 3 — **cited**, create/update, corrected artifact | `b840e91` | [31773788433](https://github.com/mbeacom/adrkit-t018-dogfood/actions/runs/31773788433) | 05:41:14 → 05:43:35 | success |
 
-All six jobs (3 × 2 attempts) concluded `success`.
+All nine jobs (3 × 3 runs) concluded `success`. Run 3 head SHA
+`668ae517b2577be361402ef331bdea6cc3109d31`.
 
 ## Expected vs. observed
 
-| # | Scenario | Expected | Observed (attempt 2) | Evidence |
+| # | Scenario | Expected | Observed (run 3, corrected artifact) | Evidence |
 |---|---|---|---|---|
-| 1 | First dispatch, from **zero** comments | The Action creates; exactly one comment leads with `<!-- adrkit:ci -->`, authored by a Bot; `check-ci-comment` exits 0 | `already ours before this run:` **empty**; `adrkit: created the governing-decisions comment.`; `1 owned, 0 lead with the marker but are not bot-authored, 0 quote it`; comment **#5289855976** | `idempotence` job `94683213626` |
-| 2 | Second dispatch updates rather than creates | The surviving comment's **id is unchanged** (`--expect-id`), so a count of one cannot be satisfied by a replacement | `adrkit: updated the governing-decisions comment.`; id after dispatch 1 = **#5289855976**, after dispatch 2 = **#5289855976** — same, and distinct from the deleted #5289832099 | `idempotence` job `94683213626` |
-| 3 | **Fail-closed**: `dir` is a plain file (`ENOTDIR`) | Step `outcome=failure`; before/after comment snapshot byte-identical over `id`, `updated_at`, and body | `observed: steps.invalid.outcome=failure`; `ENOTDIR: not a directory, scandir '…/fixtures/fail-closed-invalid-corpus-dir'`; `before.tsv` = `after.tsv` = sha256 `dff3abf92c7cbc6074b56b19cb01c72e8fe9cc1733cad128d0d966a14e3eab49`; verified again offline with `cmp` after downloading the artifact | `fail-closed` job `94683269202`; artifact zip sha256 `8ed723256019e07739d6c0c0bd34f60ad6ef14def15b3a742f43776e7503ee6b` (558 B) |
-| 4 | **FR-014 degrade**: `pull-requests: read` | Step `outcome=success` (a log notice, not a failure); comment set unchanged | `steps.readonly.outcome=success`; `adrkit: an app installation token, whose login is not resolvable; matching on the marker and a bot author.`; `##[notice] adrkit: no permission to comment on this PR (read-only token); posting the result to the job log instead.`; `observed: read-only dispatch degraded, comment set unchanged` | `degrade-read-only` job `94683296850` |
-| 5 | A `pull-requests: read` token can list issue comments at all | The non-empty snapshot guard does not trip | Guard did not trip; step concluded `success`. Nothing had established this before — the Action's degrade path had only ever been read from source | `degrade-read-only` job `94683296850` |
+| 1 | First dispatch, from **zero** comments | The Action creates; exactly one comment leads with `<!-- adrkit:ci -->`, authored by a Bot; `check-ci-comment` exits 0 | `already ours before this run:` **empty**; `adrkit: created the governing-decisions comment.`; `1 owned, 0 lead with the marker but are not bot-authored, 0 quote it`; comment **#5289930628** | `idempotence` job `94685162912` |
+| 2 | Second dispatch updates rather than creates | The surviving comment's **id is unchanged** (`--expect-id`), so a count of one cannot be satisfied by a replacement | `adrkit: updated the governing-decisions comment.`; id after dispatch 1 = **#5289930628**, after dispatch 2 = **#5289930628** — same, and distinct from every earlier run's comment | `idempotence` job `94685162912` |
+| 3 | **Fail-closed**: `dir` is a plain file (`ENOTDIR`) | Step `outcome=failure`; before/after comment snapshot byte-identical over `id`, `updated_at`, and body | `observed: steps.invalid.outcome=failure`; `ENOTDIR: not a directory, scandir '…/fixtures/fail-closed-invalid-corpus-dir'`; `before.tsv` = `after.tsv` = sha256 `037f3377bafb696b86a9b81885fc9baf9fd303e77a22f7030be0ba903437a781` | `fail-closed` job `94685221523`; artifact zip sha256 `28b6344989ac683267d40a9b81bbf3b15e929c7bd23a8638fd7ab644ae54809d`. Run 2's members hashed `dff3abf9…` and its zip `8ed72325…`, re-verified offline with `cmp` |
+| 4 | **FR-014 degrade**: `pull-requests: read` | Step `outcome=success` (a log notice, not a failure); comment set unchanged | `steps.readonly.outcome=success`; `adrkit: an app installation token, whose login is not resolvable; matching on the marker and a bot author.`; `##[notice] adrkit: no permission to comment on this PR (read-only token); posting the result to the job log instead.`; `observed: steps.readonly.outcome=success`; `observed: read-only dispatch degraded, comment set unchanged` | `degrade-read-only` job `94685245595` |
+| 5 | A `pull-requests: read` token can list issue comments at all | The non-empty snapshot guard does not trip | Guard did not trip; step concluded `success`. Nothing had established this before — the Action's degrade path had only ever been read from source | `degrade-read-only` job `94685245595` |
 | 6 | Credential surface | Only the default `GITHUB_TOKEN`; permissions exactly as declared per job | Confirmed in all three job definitions; repository `default_workflow_permissions` is `read` | Workflow definition + run logs |
 
 ## Two values that are easy to record wrongly
@@ -98,7 +100,7 @@ documents that choice as a hedge against an uncontractual API detail. This run s
 hedge was load-bearing: an artifact asserting `updated_at` would have failed both
 attempts against a healthy Action.
 
-## Why attempt 1 is not the cited run
+## Why the first attempt is not cited
 
 Attempt 1 was green and proved strictly less than it appeared to. The reference
 repository's own `adr.yml` — pinned at the **moving** `@main`, not at the commit under
@@ -161,5 +163,15 @@ and because all four were invisible to static review:
 4. **`prior-ids` was multi-line past one page.** Fixed in the reference workflow *and* in
    adrkit's own `action-dogfood`, which carried the same defect.
 
-Items 1, 3, and 4 were fixed without a re-run being required to establish the evidence
-above; a confirming run of the corrected artifact is the remaining step.
+All four were fixed in `b840e91` and **confirmed by run 3**, which is why run 3 is the
+cited evidence rather than run 2: an artifact corrected after its own verification run is
+an unverified artifact, which is the state this index exists to make visible.
+
+Confirmed in run 3 specifically:
+
+- `Deleting the contents of '…/.adrkit'` no longer appears — the only remaining deletion
+  line is the ordinary workspace checkout — and `.adrkit/lint.json` and
+  `.adrkit/queue.json` still exist in the reference repository afterwards.
+- `already ours before this run:` is **empty**, so the create was genuinely observed.
+- `observed: steps.readonly.outcome=success` now appears in the degrade log, so that row
+  is fillable from a log line rather than from the REST API.
