@@ -104,11 +104,16 @@ Until `1.0.0`, minor releases may include breaking changes
   not *created by this run* from *created by another writer*, so the message now names
   both causes and points at the Action's own log, which does distinguish them.
 
-  It also converted a design rationale into an observation: `updated_at` did **not** move
-  on either in-place update, because GitHub does not bump it for a PATCH whose body is
-  byte-identical. The gate asserts id stability instead precisely because that detail is
-  uncontractual, and an artifact asserting `updated_at` would have failed both attempts
-  against a healthy Action.
+  It also produced a claim that had to be withdrawn, which is worth recording because the
+  withdrawal is the useful part. `updated_at` did not move across either in-place update,
+  and that was generalised into "GitHub does not bump `updated_at` for a byte-identical
+  PATCH" on the strength of a probe in one context. It does not hold in another: on
+  `mbeacom/openleague`, three same-commit re-runs with a SHA-256-identical body advanced
+  it every time. Endpoint and elapsed time are ruled out; the remaining difference is the
+  actor, which is a hypothesis and is not recorded as a finding. The gate asserts **id
+  stability** rather than `updated_at`, and that choice never depended on the direction —
+  only on the field being uncontractual, which two contradicting contexts evidence better
+  than either result alone.
 
 - **A runnable rung-2 reference-repository artifact for the comment path**
   (`specs/004-ci-surface/evidence/reference-repo/`). It calls the Action as a consumer

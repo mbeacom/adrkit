@@ -91,29 +91,32 @@ and it is the most useful run in this table — see *The one run that failed*.
 
 ## An assertion this run converted from rationale into observation
 
-In **every** attempt, `updated_at == created_at` after the second dispatch and `[edited]`
-was never flagged, even though the Action logged `updated the governing-decisions
-comment` and therefore issued a PATCH.
+In every dogfood attempt, `updated_at == created_at` after the second dispatch and
+`[edited]` was never flagged, even though the Action logged `updated the
+governing-decisions comment` and therefore issued a PATCH.
 
-The mechanism was then **measured directly** rather than inferred from those runs, after
-a sibling observation on `mbeacom/openleague#328` showed `updated_at` advancing across
-two dispatches and raised the question of whether the rule held. A probe comment on
-`mbeacom/adrkit#143` (created `05:47:25Z`, deleted afterwards) gave:
+An earlier revision of this index generalised that into a mechanism — "GitHub does not
+bump `updated_at` for a PATCH whose body is byte-identical" — on the strength of a probe
+run in one context. **That claim is withdrawn.** It does not hold in another:
 
-| Operation | `updated_at` |
-|---|---|
-| create | `05:47:25Z` |
-| PATCH with a **byte-identical** body | `05:47:25Z` — unchanged |
-| PATCH with a **changed** body | `05:47:33Z` — advanced |
+| Context | Actor | Body | `updated_at` |
+|---|---|---|---|
+| `adrkit#143` probe, twice (+5s and +50s after create) | a **User** via OAuth | byte-identical | **unchanged** |
+| `adrkit-t018-dogfood#16`, both dispatches, every run | `github-actions[bot]` | identical render | **unchanged** |
+| `openleague#328`, three same-commit workflow re-runs | `github-actions[bot]` | SHA-256 identical | **advanced every time** |
 
-So `updated_at` reports whether the *body* changed, not whether a write occurred, and the
-openleague case is consistent: its two runs were on **different head commits**
-(`208663a2` and `c225e146`), so the rendered body legitimately differed.
+Two explanations are ruled out: both paths use the same endpoint
+(`octokit.rest.issues.updateComment`), and elapsed time makes no difference (the probe
+was repeated at +5s and +50s with the same result). The remaining observed difference is
+the actor, and that is a hypothesis rather than a finding — recording it as one would
+repeat the error this paragraph exists to correct.
 
-`check-ci-comment.ts` asserts **id stability** rather than `updated_at` advancing, and
-documents that choice as a hedge against an uncontractual API detail. The measurement
-shows the hedge was load-bearing: an artifact asserting `updated_at` would fail against a
-healthy Action on every run that renders the same text twice.
+**Why this strengthens the gate rather than weakening it.** `check-ci-comment.ts` asserts
+**id stability**, not `updated_at`, and the reason was never that `updated_at` moves in
+some particular direction — it was that the field is uncontractual. Two contexts
+disagreeing about the same operation is better evidence of that than either result alone.
+An artifact asserting `updated_at` advanced would fail in the first two rows; one
+asserting it held would fail in the third. Id stability holds in all three.
 
 ## Why the first attempt is not cited
 
