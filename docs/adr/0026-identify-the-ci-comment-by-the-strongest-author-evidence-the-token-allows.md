@@ -352,27 +352,29 @@ have one.
      writer was responsible, and now names both.
 
      **`updated_at` is not a reliable signal, and that — not any particular direction —
-     is why the gate does not use it.** Two contexts give opposite results for what looks
-     like the same operation:
+     is why the gate does not use it.** The same operation gives opposite results:
 
-     | Context | Actor | Body | `updated_at` |
-     |---|---|---|---|
-     | `adrkit#143` probe, ×2 (+5s and +50s) | a **User** via OAuth | byte-identical | **unchanged** |
-     | `openleague#328`, ×3 same-commit re-runs | `github-actions[bot]`, app installation | SHA-256 identical | **advanced every time** |
+     | Context | Actor | Body | Gap | `updated_at` |
+     |---|---|---|---|---|
+     | `adrkit#143` probes ×3 (6 PATCHes, +5s to +310s) | User via OAuth | byte-identical | seconds–minutes | **unchanged** |
+     | `adrkit-t018-dogfood#16`, both dispatches, every run | `github-actions[bot]` | identical render | seconds, one run | **unchanged** |
+     | `openleague#328`, 3 same-commit workflow re-runs | `github-actions[bot]` | SHA-256 identical | minutes, separate runs | **advanced every time** |
 
-     An earlier revision of this record asserted, on the strength of the first row alone,
-     that "GitHub does not bump `updated_at` for a PATCH whose body is byte-identical".
-     That claim is **withdrawn**: it was measured in one context and generalised to all.
-     Two candidate explanations are ruled out — both paths use the same endpoint
-     (`issues.updateComment`), and elapsed time makes no difference — leaving the actor
-     type as the only observed difference, which is a hypothesis and is not recorded as a
-     finding.
+     An earlier revision asserted, on the first row alone, that "GitHub does not bump
+     `updated_at` for a PATCH whose body is byte-identical", and called it measured. That
+     claim is **withdrawn**. A later revision then named the **actor** as the remaining
+     variable — also wrong, and contradicted by the table it sat beside: rows 2 and 3 are
+     the same actor with opposite outcomes. Ruled out by measurement: the endpoint (both
+     paths call `issues.updateComment`) and elapsed time (probed to ~5 minutes). No single
+     variable has been isolated, and **the mechanism is not established**. It is left
+     unexplained rather than given a third plausible story.
 
-     The rationale for asserting **id stability** never depended on the direction. It
-     depended on `updated_at` being uncontractual, and two contexts disagreeing about the
-     same operation is stronger evidence of that than either result alone. An artifact
-     asserting `updated_at` advanced would fail in the first context; one asserting it
-     held would fail in the second. Id stability holds in both.
+     **The falsification strengthened this decision rather than weakening it**, which is
+     the part a reader should take from it. Asserting **id stability** never depended on
+     the direction `updated_at` moves — only on the field being uncontractual. Contexts
+     that disagree evidence that far better than agreement would have: an artifact
+     asserting `updated_at` advanced fails rows 1–2, one asserting it held fails row 3,
+     and id stability holds in all three.
 
 9. [x] **Deferred when this record was written; done 2026-08-14 ([#135](https://github.com/mbeacom/adrkit/issues/135)).**
    This repository did not run its own governing-decisions Action on its own pull

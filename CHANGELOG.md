@@ -109,8 +109,11 @@ Until `1.0.0`, minor releases may include breaking changes
   and that was generalised into "GitHub does not bump `updated_at` for a byte-identical
   PATCH" on the strength of a probe in one context. It does not hold in another: on
   `mbeacom/openleague`, three same-commit re-runs with a SHA-256-identical body advanced
-  it every time. Endpoint and elapsed time are ruled out; the remaining difference is the
-  actor, which is a hypothesis and is not recorded as a finding. The gate asserts **id
+  it every time. A second explanation — the actor — was then offered and is also wrong,
+  contradicted by the evidence table it sat beside: the unchanged and advanced bot rows
+  are the same actor. Endpoint and elapsed time are ruled out by measurement. **The
+  mechanism is not established**, and is left unexplained rather than given a third
+  plausible story. The gate asserts **id
   stability** rather than `updated_at`, and that choice never depended on the direction —
   only on the field being uncontractual, which two contradicting contexts evidence better
   than either result alone.

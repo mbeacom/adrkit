@@ -95,28 +95,31 @@ In every dogfood attempt, `updated_at == created_at` after the second dispatch a
 `[edited]` was never flagged, even though the Action logged `updated the
 governing-decisions comment` and therefore issued a PATCH.
 
-An earlier revision of this index generalised that into a mechanism — "GitHub does not
-bump `updated_at` for a PATCH whose body is byte-identical" — on the strength of a probe
-run in one context. **That claim is withdrawn.** It does not hold in another:
+An earlier revision of this index generalised the dogfood observation into a mechanism —
+"GitHub does not bump `updated_at` for a PATCH whose body is byte-identical" — on the
+strength of a probe in one context. **That claim is withdrawn**, and so is its
+replacement, which named the actor as the remaining variable:
 
-| Context | Actor | Body | `updated_at` |
-|---|---|---|---|
-| `adrkit#143` probe, twice (+5s and +50s after create) | a **User** via OAuth | byte-identical | **unchanged** |
-| `adrkit-t018-dogfood#16`, both dispatches, every run | `github-actions[bot]` | identical render | **unchanged** |
-| `openleague#328`, three same-commit workflow re-runs | `github-actions[bot]` | SHA-256 identical | **advanced every time** |
+| Context | Actor | Body | Gap | `updated_at` |
+|---|---|---|---|---|
+| `adrkit#143` probes ×3 (6 PATCHes, +5s to +310s) | User via OAuth | byte-identical | seconds–minutes | **unchanged** |
+| `adrkit-t018-dogfood#16`, both dispatches, every run | `github-actions[bot]` | identical render | seconds, one run | **unchanged** |
+| `openleague#328`, 3 same-commit workflow re-runs | `github-actions[bot]` | SHA-256 identical | minutes, separate runs | **advanced every time** |
 
-Two explanations are ruled out: both paths use the same endpoint
-(`octokit.rest.issues.updateComment`), and elapsed time makes no difference (the probe
-was repeated at +5s and +50s with the same result). The remaining observed difference is
-the actor, and that is a hypothesis rather than a finding — recording it as one would
-repeat the error this paragraph exists to correct.
+Rows 2 and 3 are the **same actor** with opposite outcomes, so the actor does not explain
+it. Ruled out by measurement rather than argument: the endpoint (the Action calls
+`octokit.rest.issues.updateComment`; the probe PATCHed `/issues/comments/:id` — the same
+one) and elapsed time (probed at +5s, +50s, +70s, +90s and +150s). What remains
+uncontrolled is that rows 1–2 update within a single run or session and row 3 updates
+across separate workflow runs. **The mechanism is not established**, and it is left
+unexplained here rather than given a third plausible story — two have already been wrong.
 
-**Why this strengthens the gate rather than weakening it.** `check-ci-comment.ts` asserts
-**id stability**, not `updated_at`, and the reason was never that `updated_at` moves in
-some particular direction — it was that the field is uncontractual. Two contexts
-disagreeing about the same operation is better evidence of that than either result alone.
-An artifact asserting `updated_at` advanced would fail in the first two rows; one
-asserting it held would fail in the third. Id stability holds in all three.
+**Why this strengthens the gate.** `check-ci-comment.ts` asserts **id stability**, and
+that never depended on which direction `updated_at` moves — only on the field being
+uncontractual. Contexts that disagree evidence that better than agreement would have. An
+artifact asserting `updated_at` advanced fails rows 1–2; one asserting it held fails row
+3; id stability holds in all three. The falsification made the gate more defensible, not
+less.
 
 ## Why the first attempt is not cited
 
