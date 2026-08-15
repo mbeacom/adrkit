@@ -26,7 +26,8 @@
     "access": "public"
   },
   "bin": {
-    "adr": "./dist/index.js"
+    "adr": "./dist/index.js",
+    "adrkit": "./dist/index.js"
   },
   "exports": {
     ".": {

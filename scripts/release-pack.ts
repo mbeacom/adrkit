@@ -595,6 +595,10 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
     validatePackedManifest(definition, packedManifest, packageVersion, versionOfDependency);
     if (definition.name === '@adrkit/cli') {
       assert(packedManifest.bin?.adr === './dist/index.js', 'Packed CLI must expose the adr binary');
+      assert(
+        packedManifest.bin?.adrkit === './dist/index.js',
+        'Packed CLI must expose the adrkit binary, which is the unambiguous alias for the `adr` name npm already assigns to an unrelated package',
+      );
     }
     if (definition.name === '@adrkit/mcp') {
       assert(packedManifest.bin?.['adrkit-mcp'] === './dist/bin.js', 'Packed MCP must expose the adrkit-mcp binary');

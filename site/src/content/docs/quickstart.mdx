@@ -112,6 +112,19 @@ the unrelated registry package instead of failing. An npm script has no such
 ambiguity — it resolves `node_modules/.bin` and stops with `command not found`
 if the dependency is missing.
 
+<Aside type="tip" title="`adrkit` — the unambiguous alias">
+	`@adrkit/cli` installs a second binary, `adrkit`, identical to `adr`. Nothing
+	else on npm claims that name, so it is never ambiguous: `adrkit lint` works
+	wherever `adr lint` does, and `npx adrkit lint` either runs your locally
+	installed binary or fails with a clean `404` — it can never reach the
+	unrelated package the way `npx adr` does.
+
+	Prefer it in anything shared or long-lived — CI, `Makefile`s, READMEs, and
+	agent instructions — where a silent wrong-tool substitution is hardest to
+	notice. Zero-install still needs `npx @adrkit/cli`, since no `adrkit`
+	*package* is published.
+</Aside>
+
 ## Validate a corpus — `adr lint`
 
 Validate every record under `docs/adr/` against the schema, enforce unique ids,

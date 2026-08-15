@@ -28,6 +28,16 @@ npm install -g @adrkit/cli
 adr lint
 ```
 
+Every install also provides `adrkit`, an identical alias for the same binary.
+Nothing else on npm claims that name, so prefer it wherever a silent
+wrong-tool substitution would be hard to notice — CI, `Makefile`s, and agent
+instructions:
+
+```sh
+adrkit lint          # same binary, unambiguous name
+npx adrkit lint      # local binary, or a clean 404 — never the wrong tool
+```
+
 The `adr` binary includes `new`, `lint`, `graph`, `explain`, `check`, `queue`,
 `migrate --from madr`, and the offline deterministic `evaluate` command.
 

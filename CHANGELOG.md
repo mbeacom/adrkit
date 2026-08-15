@@ -40,6 +40,22 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **`@adrkit/cli` now installs an `adrkit` binary alongside `adr`.** The bare name `adr`
+  on npm belongs to an unrelated package (`phodal/adr`, published since 2017), so the
+  `adr` command is ambiguous in two ways adrkit does not control: a bare `npx adr` fetches
+  that package whenever adrkit's binary is not linked into `node_modules/.bin`, and a
+  project holding both dependencies has them compete for the same `.bin` entry. `adrkit`
+  collides with nothing, so `adrkit lint` is unambiguous for globally-installed users and
+  in `node_modules/.bin`. `adr` is unchanged and remains the primary name — this is purely
+  additive, and nothing that works today stops working. The alias is also safe under
+  `npx`/`bunx` in a way `adr` is not: `npx adrkit` runs the local binary when one is
+  installed and otherwise fails with a clean 404, where `npx adr` silently runs the
+  unrelated package. That 404 becomes a success only if the unclaimed `adrkit` name is
+  later published, so the zero-install form to document remains `npx @adrkit/cli`.
+  `release-pack` now asserts both binaries are present in the packed manifest, and that
+  assertion was observed failing with the alias removed before it was counted as coverage
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
+
 - **The comment-posting Action now has an end-to-end signal**
   ([ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
   action item 9, #135). `self-dogfood` runs the **CLI** with `contents: read`, so it never
