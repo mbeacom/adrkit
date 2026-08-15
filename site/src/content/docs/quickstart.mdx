@@ -21,42 +21,55 @@ evaluator.
 
 Add the CLI to a project, or run it one-off. It exposes the `adr` binary.
 
-<Aside type="caution" title="Name the package: @adrkit/cli">
+<Aside type="caution" title="Always name the package: @adrkit/cli">
 	adrkit's binary is `adr`, but the bare name `adr` on npm belongs to an
-	**unrelated package**. A bare `npx adr …` / `bunx adr …` downloads that other
-	tool, which has no `lint`, `explain`, `graph`, or `migrate` — but does ship
-	its own `new`, so it can look like it works before failing on everything
-	else.
+	**unrelated package**. It has no `lint`, `explain`, `graph`, or `migrate` —
+	but does ship its own `new`, so it can look like it works before failing on
+	everything else.
 
-	Either name the package every time — `npx @adrkit/cli lint` — or install
-	`@adrkit/cli` into the project first. Once it is a local dependency,
-	`npx adr …` resolves your installed binary instead of the registry.
+	**Avoid bare `npx adr …` / `bunx adr …` entirely.** It only reaches adrkit if
+	the binary happens to be linked into `node_modules/.bin`, and when it is not
+	— which is common in workspaces and monorepos — it does not fail. It
+	silently downloads and runs the other tool instead.
+
+	Name the package (`npx @adrkit/cli lint`), or install `@adrkit/cli` and drive
+	it from an npm script — a script resolves `node_modules/.bin` directly and
+	fails loudly with `command not found` rather than reaching the registry.
 </Aside>
 
 <Tabs>
 <TabItem label="npm / npx">
 
 ```sh
-# one-off, no install — name the package
+# one-off, no install — always name the package
 npx @adrkit/cli lint
 npx @adrkit/cli explain src/payments/api.ts
 
-# or add it to the project first
+# or add it to the project and drive it from a script
 npm install --save-dev @adrkit/cli
-npx adr lint   # now resolves the locally installed binary
+npm pkg set scripts.adr=adr
+npm run adr -- lint
+
+# or install globally, for a bare `adr` on your PATH
+npm install -g @adrkit/cli
+adr lint
 ```
 
 </TabItem>
 <TabItem label="Bun">
 
 ```sh
-# one-off, no install — name the package
+# one-off, no install — always name the package
 bunx @adrkit/cli lint
 bunx @adrkit/cli explain src/payments/api.ts
 
-# or add it to the project first
+# or add it to the project and drive it from a script
 bun add --dev @adrkit/cli
-bunx adr lint   # now resolves the locally installed binary
+bun run adr lint   # with "adr": "adr" in package.json scripts
+
+# or install globally, for a bare `adr` on your PATH
+bun add --global @adrkit/cli
+adr lint
 ```
 
 </TabItem>
@@ -81,10 +94,23 @@ npm install @adrkit/core @adrkit/evaluator
 	```
 </Aside>
 
-The examples below are written as bare `adr …` for readability. Unless you have
-installed `@adrkit/cli` into the project, run them as `npx @adrkit/cli …` /
-`bunx @adrkit/cli …` — see the caution above. From a source checkout, use
-`bun run adr`.
+The examples below are written as bare `adr …` for readability. A local install
+does **not** put `adr` on your shell `PATH` — it lands in `node_modules/.bin/`
+— so translate them to whichever way you installed:
+
+| How you installed | Run the examples as |
+|---|---|
+| Nothing installed (one-off) | `npx @adrkit/cli lint` / `bunx @adrkit/cli lint` |
+| Project dev dependency | an npm script — `npm run adr -- lint` |
+| Global (`npm i -g @adrkit/cli`) | `adr lint` — bare, as written |
+| Source checkout | `bun run adr lint` |
+
+Only the global install makes the bare form work in a normal shell. Note that
+`npx adr lint` is absent from that table deliberately: it reaches adrkit only
+when the binary is linked into `node_modules/.bin`, and otherwise silently runs
+the unrelated registry package instead of failing. An npm script has no such
+ambiguity — it resolves `node_modules/.bin` and stops with `command not found`
+if the dependency is missing.
 
 ## Validate a corpus — `adr lint`
 

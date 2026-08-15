@@ -24,11 +24,15 @@ adr --version             Print the @adrkit/cli version
 ```
 
 <Aside type="caution" title="Invoking these commands">
-	Every command below is written as bare `adr …`. That works when `@adrkit/cli`
-	is installed in the project. Running one-off, name the package —
-	`npx @adrkit/cli lint` — because a bare `npx adr` resolves an **unrelated**
-	`adr` package on npm that does not implement these commands. See the
-	[quickstart](/quickstart/#install).
+	Every command below is written as bare `adr …`, which works as written only
+	if you installed `@adrkit/cli` **globally**. A project-local install puts the
+	binary in `node_modules/.bin/`, not on your `PATH`, so drive it from an npm
+	script (`npm run adr -- lint`).
+
+	With nothing installed, name the package — `npx @adrkit/cli lint`. Avoid bare
+	`npx adr`: it resolves an **unrelated** `adr` package on npm whenever the
+	binary is not linked locally, and runs that other tool rather than failing.
+	See the [quickstart](/quickstart/#install).
 </Aside>
 
 ## adr lint
