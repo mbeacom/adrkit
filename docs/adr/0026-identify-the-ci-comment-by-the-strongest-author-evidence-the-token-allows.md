@@ -335,9 +335,10 @@ have one.
    [`specs/004-ci-surface/checklists/reference-verification-evidence.md`](../../specs/004-ci-surface/checklists/reference-verification-evidence.md);
    the artifact that produced it is
    [`specs/004-ci-surface/evidence/reference-repo/`](../../specs/004-ci-surface/evidence/reference-repo/README.md).
-   **A reviewer verdict is still outstanding**, and ADR-0014 rung 2 requires the evidence
-   to be reviewed, so the comment path remains `implemented` and is not yet
-   `reference-verified`.
+   **Reviewed and passed by `@mbeacom` on 2026-08-15**, which is the last of ADR-0014's
+   four rung-2 criteria, so the comment path is now **landed / reference-verified** on
+   rungs 1–2. It is **not** `externally validated`: the reference repository is
+   maintainer-owned, so rung 3 stays absent.
 
    Three things the run established that reading could not:
 

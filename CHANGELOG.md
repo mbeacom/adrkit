@@ -22,6 +22,22 @@ Until `1.0.0`, minor releases may include breaking changes
   exactly like one skipped by an `if:`, and nothing in `ci.yml` says that dropping
   `clean-clone-builds` from the ruleset would silently weaken the comment gate.
 
+- **The comment path is `reference-verified`** — reviewed and passed by `@mbeacom` on
+  2026-08-15, completing the last of ADR-0014's four rung-2 criteria. Still **not**
+  `externally validated`; the reference repository is maintainer-owned, so rung 3 remains
+  absent, and the index's stated limitations are part of the verdict rather than footnotes
+  to it.
+
+### Fixed
+
+- **The rung-2 evidence index shipped in #143 with a header contradicting its own body** —
+  `NOT YET OBSERVED` and `Reviewer verdict: none. No run has occurred.` directly above a
+  table of observed runs with comment ids and content hashes. The cause was a scripted
+  `.replace()` written without an assertion, against text a previous edit had already
+  changed: it matched nothing, did nothing, and reported success. That is the failure this
+  index exists to make visible, committed in the index itself, so the corrected header
+  records it rather than quietly overwriting it.
+
 ### Added
 
 - **The comment-posting Action now has an end-to-end signal**
@@ -84,8 +100,10 @@ Until `1.0.0`, minor releases may include breaking changes
   the step with `ENOTDIR` leaving the comment set byte-identical; and a
   `pull-requests: read` token produced the FR-014 degrade — a log notice, a green job,
   nothing written. That degrade path had **never been observed anywhere**; it had only
-  ever been read from source. A reviewer verdict is still outstanding, so the comment
-  path is `implemented`, not yet `reference-verified`.
+  ever been read from source. Reviewed and passed by `@mbeacom` on 2026-08-15, which
+  completes ADR-0014's rung-2 criteria: the comment path is **landed /
+  reference-verified**, and still **not** `externally validated` — the reference
+  repository is maintainer-owned, so rung 3 stays absent.
 
   **Running it found four defects in the artifact, all invisible to static review.**
   `path: .adrkit` deleted the contents of a directory the reference repository tracks
@@ -166,9 +184,9 @@ Until `1.0.0`, minor releases may include breaking changes
   `pull-requests: read` that must stay green. Shipped as a workflow file rather than as
   a task, per ADR-0016 clause 4 — it is the mechanism for ADR-0026 action item 8, which
   stays open until it is run. Its evidence index
-  (`specs/004-ci-surface/checklists/reference-verification-evidence.md`) is created
-  **empty and explicitly `NOT YET OBSERVED`**: the comment path remains `implemented`,
-  not `reference-verified`, until a real run fills it in.
+  (`specs/004-ci-surface/checklists/reference-verification-evidence.md`) was created
+  **empty and explicitly `NOT YET OBSERVED`**, and has since been filled from real runs
+  and reviewed.
 
 ## [0.7.0] - 2026-08-12
 

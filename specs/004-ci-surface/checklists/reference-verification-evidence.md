@@ -19,19 +19,29 @@ names.
 **Runnable artifact**: [`../evidence/reference-repo/comment-idempotence.yml`](../evidence/reference-repo/comment-idempotence.yml)
 · [how to run it](../evidence/reference-repo/README.md)
 
-## Status: NOT YET OBSERVED
+## Status: REFERENCE-VERIFIED — observed 2026-08-14, reviewed 2026-08-15
 
-**Reviewer verdict: none. No run has occurred.**
+**Reviewer verdict: PASS — maintainer `@mbeacom`, 2026-08-15.** ADR-0014's four rung-2
+criteria are met: *reproducible* (every run pins an immutable adrkit commit and its inputs
+are committed), *self-verifying* (each job asserts its own expected outcome, so divergence
+fails the run rather than needing a human to read a log), *fail-closed* (scenario 3 proves
+the Action fails before any write and mutates nothing, byte-for-byte), and *reviewed*
+(this entry).
 
-Nothing below is claimed as evidence. The `Observed` column is empty on purpose, and
-this file must not be read as satisfying rung 2 until it is filled from real runs with
-immutable links. ADR-0014's honesty rules make `landed / reference-verified` a distinct
-claim from `implemented`, and the comment path is currently **implemented** with
-continuous rung-1 evidence only.
+The comment path is therefore **landed / reference-verified** on rungs 1–2. It is **not**
+`externally validated`: the reference repository is maintainer-owned, so rung 3 remains
+absent. The *Known limitations* below are part of this verdict rather than footnotes to
+it — in particular, no rung-2 assertion has been observed catching a real #107 regression,
+and the retry paths have never executed an iteration.
 
-The distinction this index exists to keep visible: an empty `Observed` column is
-*visibly* unverified, whereas the state before this index existed — was
-indistinguishable from verified to anyone who did not go looking.
+> **This header was wrong when PR #143 merged.** It read `NOT YET OBSERVED` and
+> `Reviewer verdict: none. No run has occurred.` directly above the run table below. The
+> cause: a scripted `.replace()` intended to update it was written without an assertion,
+> and an earlier edit had already altered text inside the block it was matching, so it
+> silently did nothing and the run reported success. Fixed in #147. Recorded rather than
+> quietly overwritten, because it is this index's own subject matter — an operation that
+> failed to look, rendered identically to one that looked and found nothing, in the
+> document that exists to make that distinction visible.
 
 ## Tool versions / environment
 
