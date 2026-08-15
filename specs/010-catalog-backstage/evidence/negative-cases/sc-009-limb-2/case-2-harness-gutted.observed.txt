@@ -1,0 +1,35 @@
+bun test v1.3.14 (0d9b296a)
+
+test/sc-009.test.ts:
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > an accept pass yields a populated envelope [15.90ms]
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > a reject pass yields a rejection that is deterministic, atomic and classified [15.95ms]
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > there is no third outcome — every pass lands on one of the two [36.89ms]
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > a rejecting pass writes no file, so "either/or" is exclusive on disk too [7.89ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the frozen accept corpus is materialized in this repository (T086a) [0.10ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > a pass over that corpus produced a POPULATED envelope — 25 entities, 0 FP / 0 FN [0.15ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the corpus the pass ran over is the frozen one, at the pinned commit [0.17ms]
+290 |     // Every assertion in that block is driven by a live comparison, not by a record.
+291 |     // Five live calls at the time of writing: three `await`ed directly, two inside the
+292 |     // determinism test's `Promise.all`. The floor is set below that so an added or
+293 |     // removed case does not trip it, but gutting the block does.
+294 |     const liveCalls = block.split('compareAcceptCorpus(REPO_ROOT)').length - 1;
+295 |     expect(liveCalls).toBeGreaterThanOrEqual(4);
+                            ^
+error: expect(received).toBeGreaterThanOrEqual(expected)
+
+Expected: >= 4
+Received: 0
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/sc-009.test.ts:295:23)
+(fail) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the live pass this close-out cites really is a live pass, and still exists [0.20ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the freeze still records the corpus metadata, not the descriptors [0.10ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > every fixture in THIS suite is still maintainer-authored, so none meets clause 5 [7.90ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > a hand-edited envelope fails digest verification [0.06ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > a wholly fabricated envelope fails digest verification [0.24ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > an edited-then-re-signed envelope passes its digest but is not what a pass produces [0.08ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > re-running the generator over the same input reproduces the genuine bytes exactly [7.07ms]
+
+ 13 pass
+ 1 fail
+ 44 expect() calls
+Ran 14 tests across 1 file. [173.00ms]

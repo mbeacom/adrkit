@@ -1,0 +1,35 @@
+bun test v1.3.14 (0d9b296a)
+
+test/sc-009.test.ts:
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > an accept pass yields a populated envelope [16.23ms]
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > a reject pass yields a rejection that is deterministic, atomic and classified [15.20ms]
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > there is no third outcome — every pass lands on one of the two [37.45ms]
+(pass) T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection > a rejecting pass writes no file, so "either/or" is exclusive on disk too [7.66ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the frozen accept corpus is materialized in this repository (T086a) [0.11ms]
+220 |     // that recorded outcome. The citation is pinned below so it cannot rot silently.
+221 |     const record = (await Bun.file(
+222 |       join(REPO_ROOT, 'specs', '010-catalog-backstage', 'evidence', 'comparison', 'step-b-record.json'),
+223 |     ).json()) as Record<string, unknown>;
+224 | 
+225 |     expect(record['verdict']).toBe('PASS');
+                                    ^
+error: expect(received).toBe(expected)
+
+Expected: "PASS"
+Received: "FAIL"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/sc-009.test.ts:225:31)
+(fail) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > a pass over that corpus produced a POPULATED envelope — 25 entities, 0 FP / 0 FN [0.24ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the corpus the pass ran over is the frozen one, at the pinned commit [0.19ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the live pass this close-out cites really is a live pass, and still exists [0.27ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > the freeze still records the corpus metadata, not the descriptors [0.09ms]
+(pass) T086 / SC-009 limb 2 — discharged over the frozen accept corpus > every fixture in THIS suite is still maintainer-authored, so none meets clause 5 [8.29ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > a hand-edited envelope fails digest verification [0.09ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > a wholly fabricated envelope fails digest verification [0.22ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > an edited-then-re-signed envelope passes its digest but is not what a pass produces [0.09ms]
+(pass) T086 / SC-009 limb 3 — a fabricated or hand-edited envelope never satisfies it > re-running the generator over the same input reproduces the genuine bytes exactly [9.13ms]
+
+ 13 pass
+ 1 fail
+ 42 expect() calls
+Ran 14 tests across 1 file. [175.00ms]

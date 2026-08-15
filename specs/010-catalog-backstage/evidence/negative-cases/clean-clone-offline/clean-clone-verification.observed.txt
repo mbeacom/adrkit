@@ -1,0 +1,126 @@
+# T093 — clean-clone verification, performed 2026-08-05
+
+Clone: fresh `git clone` into /tmp, no node_modules, HEAD 37b89b4
+Host: Darwin arm64 · Bun 1.3.14
+
+$ bun install --frozen-lockfile          # the ONLY networked step
+
+Checked 58 installs across 56 packages (no changes) [2.00ms]
+
+$ bun run check:clean-clone
+check-clean-clone: ok @adrkit/catalog-backstage (packages/adapters/catalog-backstage, 31 src + 51 test modules)
+check-clean-clone: ok @adrkit/catalog-envelope (packages/catalog-envelope, 7 src + 11 test modules)
+
+$ bun scripts/run-network-denied.ts -- bun run typecheck
+run-network-denied: mechanism = sandbox-exec network-deny profile
+run-network-denied: configuration = sandbox-exec -p '(version 1)(allow default)(deny network*)'
+run-network-denied: control unsandboxed = CONNECTED:200
+run-network-denied: control sandboxed  = DENIED:Was there a typo in the url or port?
+run-network-denied: running: bun run typecheck
+
+$ bun scripts/run-network-denied.ts -- bun run build
+@adrkit/catalog-envelope build: $ tsc --noEmit --customConditions bun --project ../../tsconfig.json
+@adrkit/catalog-backstage build: $ tsc --noEmit --customConditions bun --project ../../../tsconfig.json
+@adrkit/catalog-envelope build: Exited with code 0
+@adrkit/catalog-backstage build: Exited with code 0
+
+$ bun test
+ 2136 pass
+ 0 fail
+ 7518 expect() calls
+Ran 2136 tests across 166 files. [12.78s]
+
+$ bun scripts/run-network-denied.ts -- bun scripts/compare-accept-corpus.ts
+compare-accept-corpus: PASS — 24 expected entities, 0 false positive(s), 0 false negative(s), 0 other mismatch(es)
+
+$ bun scripts/run-network-denied.ts -- bun run adr lint
+checked 20 records, 0 errors, 0 warnings
+
+================================================================================
+T093 — clean-clone verification, RUN OF RECORD, 2026-08-12
+
+The Darwin capture above is retained but is NOT the run of record, and on its own
+it was not adequate evidence for T093. It was taken on a host where the FIRST
+candidate mechanism succeeds, so it could not exercise the Linux fallback that CI
+depends on -- and `clean-clone-builds`, the job that enforces this very claim,
+failed on all five runs of this branch while the task stood checked.
+
+That is recorded rather than quietly replaced: the gap was not that the capture
+was dishonest (it names `Host: Darwin arm64` plainly), but that a macOS-only
+observation was accepted as discharging a claim enforced only on Linux.
+
+Run of record:
+  GitHub Actions, ubuntu-latest, job `clean-clone-builds`
+  https://github.com/mbeacom/adrkit/actions/runs/31656503096/job/94312031698
+  commit 6180a9b -- all 18 steps completed/success
+
+$ bun install --frozen-lockfile          # the ONLY networked step
+
+$ bun scripts/check-clean-clone.ts
+check-clean-clone: ok @adrkit/catalog-backstage (packages/adapters/catalog-backstage, 31 src + 51 test modules)
+check-clean-clone: ok @adrkit/catalog-envelope (packages/catalog-envelope, 7 src + 11 test modules)
+
+$ bun scripts/run-network-denied.ts -- bun run typecheck
+run-network-denied: mechanism = unshare --net under sudo, dropped back to the invoking user (loopback up)
+run-network-denied: configuration = sudo -n unshare --net -- sh -c 'ip link set lo up || true; <restore PATH>; exec setpriv --reuid=1001 --regid=1001 --clear-groups "$@"' --
+run-network-denied: control unsandboxed = CONNECTED:200
+run-network-denied: control sandboxed  = DENIED:Unable to connect. Is the computer able to access the url?
+run-network-denied: running: /home/runner/.bun/bin/bun run typecheck
+
+  -- the mechanism selected on Linux is candidate 2, NOT the macOS `sandbox-exec`
+     of the capture above. Both halves of the control are recorded on the runner
+     itself: CONNECTED unsandboxed, DENIED under the mechanism. The command runs
+     as uid 1001, not root.
+
+Every denied step -- build, release:pack, lint, schema:emit, check:deps,
+check:freeze-hashes, check:doc-pins, check:clause8, check:no-spike-heuristics,
+adr lint -- reports the same mechanism and the same two-sided control.
+
+$ bun test
+ 2434 pass
+ 0 fail
+
+Local pre-verification (constrains the claim; does not establish it): the whole
+job was reproduced from a genuine clean clone in ubuntu:24.04, with the runner's
+AppArmor restriction on unprivileged user namespaces reproduced by its observable
+behaviour so candidate 1 is refused and candidate 2 is selected. 15/15 steps
+passed, 2367 pass / 0 fail, and no root-owned path existed in the tree afterwards.
+
+================================================================================
+T093 — supersedes the run of record above, 2026-08-13
+
+The 2026-08-12 run remains accurate for what it recorded. It is superseded because
+the job changed after it: three post-install steps that ran unwrapped are now
+wrapped, and the image is pinned rather than floating.
+
+Run of record:
+  GitHub Actions, ubuntu-24.04 (PINNED, not `ubuntu-latest`), job `clean-clone-builds`
+  https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631
+  commit 97aeba2 -- all steps completed/success
+
+$ # Set up job
+Image: ubuntu-24.04
+
+  -- the pin is observable in the log rather than argued for. Before pinning, this
+     line was the resolution of `ubuntu-latest` and could change without a commit.
+
+Thirteen steps ran under a proved denial. The three that had been unwrapped now
+appear with the wrapper, including the one review found:
+
+run-network-denied: running: /home/runner/.bun/bin/bun scripts/check-clean-clone.ts
+run-network-denied: running: /usr/bin/sh -c bun run schema:emit && git diff --exit-code schema/adr.schema.json
+run-network-denied: running: /usr/bin/git diff --exit-code packages/ci/dist
+
+  -- the schema step previously read `... -- bun run schema:emit && git diff ...`,
+     which put only the FIRST half inside the wrapper while the step's name said
+     network denied. Both halves are inside it now.
+
+`bun test` remains the single exemption, for the structural reason recorded in
+this directory's README and canonically in observed-failing-register.md 4.6.
+T093 is closed on that basis and on this run.
+
+Local pre-verification (constrains the claim; does not establish it): the whole
+job was reproduced from a clean clone in ubuntu:24.04 with the runner's AppArmor
+restriction simulated so the sudo candidate is the one selected. 15/15 steps
+passed, including all three newly-wrapped ones, with no root-owned path in the
+tree afterwards.

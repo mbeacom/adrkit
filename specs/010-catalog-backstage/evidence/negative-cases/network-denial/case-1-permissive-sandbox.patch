@@ -1,0 +1,11 @@
+--- /tmp/offline2.bak	2026-08-05 22:12:34
++++ test/offline-run.test.ts	2026-08-05 22:12:34
+@@ -74,7 +74,7 @@
+     mechanismUsed: 'sandbox-exec network-deny profile',
+     configuration: "sandbox-exec -p '(version 1)(allow default)(deny network*)'",
+     qualifyingMechanism: 2,
+-    argv: ['sandbox-exec', '-p', '(version 1)(allow default)(deny network*)'],
++    argv: ['sandbox-exec', '-p', '(version 1)(allow default)'],
+   },
+   {
+     mechanismUsed: 'unshare --net (empty network namespace)',

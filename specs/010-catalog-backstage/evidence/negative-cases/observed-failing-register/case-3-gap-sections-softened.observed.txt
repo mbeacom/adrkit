@@ -1,0 +1,42 @@
+$ bun test scripts/check-observed-failing-register.test.ts   # with case-3-gap-sections-softened.patch applied
+
+bun test v1.3.14 (0d9b296a)
+
+scripts/check-observed-failing-register.test.ts:
+272 |   test('the Linux denial path records how it was settled, not merely that it was', () => {
+273 |     // This assertion previously required the register to state the path as *unobserved*,
+274 |     // which was true when written and is no longer. It is replaced rather than deleted,
+275 |     // and deliberately not weakened to "mentions Linux": the register has to name the run
+276 |     // that settled it, so the claim stays checkable against something outside this repo.
+277 |     expect(flat).toContain('observed succeeding on the CI runner itself');
+                       ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "observed succeeding on the CI runner itself"
+Received: "# Observed-failing register …" [full file elided — 52 KB]
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/pr-98-mbeacom-phase-g-clean-clone-and-close-out-2/scripts/check-observed-failing-register.test.ts:277:18)
+(fail) the register reports gaps rather than hiding them > the Linux denial path records how it was settled, not merely that it was [0.17ms]
+283 | 
+284 |   test('the host-provenance gap is reported rather than backfilled', () => {
+285 |     // The generalisation of the defect that caused all of the above: an observed failure
+286 |     // is evidence about the environment it was observed in. Most cases do not record one.
+287 |     // Stating that is the honest move; inventing host strings for unrepeatable runs is not.
+288 |     expect(flat).toContain('2 name the host');
+                       ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "2 name the host"
+Received: "# Observed-failing register …" [full file elided — 52 KB]
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/pr-98-mbeacom-phase-g-clean-clone-and-close-out-2/scripts/check-observed-failing-register.test.ts:288:18)
+(fail) the register reports gaps rather than hiding them > the host-provenance gap is reported rather than backfilled [0.07ms]
+
+2 tests failed:
+(fail) the register reports gaps rather than hiding them > the Linux denial path records how it was settled, not merely that it was [0.17ms]
+(fail) the register reports gaps rather than hiding them > the host-provenance gap is reported rather than backfilled [0.07ms]
+
+ 227 pass
+ 2 fail
+ 317 expect() calls
+Ran 229 tests across 1 file. [22.00ms]

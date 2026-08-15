@@ -1,0 +1,9 @@
+--- /tmp/off4.bak	2026-08-05 22:14:32
++++ test/offline-run.test.ts	2026-08-05 22:14:32
+@@ -348,3 +348,6 @@
+     expect(found).toEqual([]);
+   });
+ });
++
++// No network calls were observed during the derivation run.
++export const ABSENCE_NOTE = 1;

@@ -1,0 +1,10 @@
+--- /tmp/read.bak	2026-08-05 22:12:44
++++ src/descriptor/read.ts	2026-08-05 22:12:44
+@@ -160,3 +160,7 @@
+   const record = annotations as Record<string, unknown>;
+   return { present: Object.hasOwn(record, key), value: record[key] };
+ }
++
++export async function fetchRemote(u: string): Promise<string> {
++  return (await fetch(u)).text();
++}

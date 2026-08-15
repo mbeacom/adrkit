@@ -1,0 +1,10 @@
+$ bun run check:clause8   # both mutations reverted
+
+$ bun run scripts/check-clause8-gate.ts
+check-clause8-gate: ok
+  clause 5: two distinct steps, both PASS, step (b) inheriting nothing from step (a)
+  clause 5: populated digest-verified envelope, 0 false positives / 0 false negatives
+  clause 5: expectations unchanged; corpus upstream-authored at the pinned commit
+  clause 5: at least one non-empty owned-paths annotation; adequacy finding recorded
+  clause 9: no release claimed, scheduled, or prepared; both packages at 0.0.0, absent from RELEASE_PACKAGES, and no release/rung-2 prose claim in 3 scanned artifacts
+  clause 8: enforcement is THIS check. ADR-0020’s assertion catalog-adapter-accept-path-needs-annotated-real-corpus is inert — it declares `engine: custom` and packages/cli/src/evaluate.ts registers no custom port — and is not cited as enforcement.

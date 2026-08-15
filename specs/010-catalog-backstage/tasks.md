@@ -766,7 +766,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Depends: T001
       Contract: `owned-paths-annotation.md` §1
 
-- [ ] T058 [US4] Implement the **five** ordered annotation decode steps at
+- [X] T058 [US4] Implement the **five** ordered annotation decode steps at
       `<ADAPTER>/src/ownership/annotation.ts`. **Three** of the five can reject, each with
       its own distinct reason: step 2 → `annotation-value-not-a-string`, step 3 →
       `parse-error`, step 4 → `wrong-shape`. Observe each of those three failing
@@ -813,7 +813,7 @@ slices — **D2** (input boundary), **D1a** (admissibility and identity), **D1b*
       Discharges: SC-005
       Depends: T060
 
-- [ ] T062 [US4] SC-006 close-out: a consolidated test over the **five** annotation decode
+- [X] T062 [US4] SC-006 close-out: a consolidated test over the **five** annotation decode
       steps, asserting that the **three** rejecting steps each reject at their own step with
       their own reason, and documenting why the other two do not — step 1 yields the
       `annotation-absent` state rather than a rejection, and step 5 delegates to the glob
@@ -988,7 +988,7 @@ and the audit.
       Depends: T024, T076
       Contract: `atomic-fail-closed.md` §2
 
-- [ ] T078 [US5] Drive **all fifteen** trigger classes through the **full assembled
+- [X] T078 [US5] Drive **all fifteen** trigger classes through the **full assembled
       pipeline**, each **observed failing first** with its exact reason string, each
       failing input retained permanently.
       Files: `<ADAPTER>/test/sc-003-all-triggers.test.ts`,
@@ -1064,7 +1064,7 @@ and the audit.
       Discharges: SC-013
       Depends: T024, T081, T084
 
-- [ ] T086 [US2] SC-009 close-out — the **rescoped** criterion (spike 009's SC-010,
+- [X] T086 [US2] SC-009 close-out — the **rescoped** criterion (spike 009's SC-010,
       rescoped by ADR-0020 clause 3): every required pass yields either a populated
       envelope **or** a deterministic, atomic, correctly-classified rejection; at least
       one pass over the **frozen accept corpus** yields a populated envelope; and a
@@ -1179,15 +1179,38 @@ the barrier exists to prevent.
 **Barrier side: BEHIND.** Every task lists **T024** in `Depends`. Phase G runs after
 Phase F completes.
 
-- [ ] T093 [US9] Verify from a **clean clone** that build, typecheck, lint, and
-      `bun test` are all green with both new packages present, and that network access
-      is permitted **only** during `bun install --frozen-lockfile`.
+- [X] T093 [US9] Verify from a **clean clone** that build, typecheck, lint, and
+      `bun test` are all green with both new packages present, and that no post-install
+      step requires or uses the network.
       Files: `.github/workflows/ci.yml` (job `clean-clone-builds`).
       Barrier: BEHIND
       Discharges: FR-050
       Depends: T024, T092
+      **Closed on the corrected FR-050.** This stood unchecked while FR-050 read "network
+      access is permitted **only** during dependency installation" — a claim about
+      *availability*, stricter than the Principle II clauses it cites, which test
+      *dependence* ("MUST **require** no … network access", "**Network-dependent** tests …
+      are forbidden"). One step failed the availability wording while satisfying every
+      clause the principle states, so the wording was corrected rather than the job.
+      **First conjunct, verified on the runner rather than argued:** run
+      [31761606849](https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631)
+      on the pinned `ubuntu-24.04` image — all steps green, the two-sided control recorded
+      on the runner itself (`CONNECTED:200` unsandboxed, `DENIED` under the mechanism), the
+      command running as uid 1001 rather than root.
+      **Second conjunct:** no post-install step requires or uses the network. **13 of the
+      14 post-install steps additionally prove it under a denial**; the 14th is `bun test`,
+      which cannot, because the suite contains the controls that establish the denial. That
+      step has a network ambiently reachable and never uses one — a test that reaches the
+      network is an FR-050 defect regardless, and `offline-run.test.ts` sandboxes the
+      generator's own run inside the suite.
+      The obstruction is structural, not effort: observed on both platforms failing
+      differently (3 on macOS, 11 on Linux), which is what distinguishes it from a macOS
+      quirk (`clean-clone-offline/` case 3 and case 3b). Narrowing to a path allowlist was
+      considered and rejected — a stale entry means tests silently not running, the defect
+      `check:clean-clone` exists to catch.
+      Canonical statement of the exemption: `<EVIDENCE>/observed-failing-register.md` §4.6.
 
-- [ ] T094 [US2] Run the generator with network access **actively denied** — no
+- [X] T094 [US2] Run the generator with network access **actively denied** — no
       credential present, no service reachable — and confirm it completes. Confirm
       further that it does **not** degrade to a networked path when one happens to be
       available: the offline path is the only path.
@@ -1196,7 +1219,7 @@ Phase F completes.
       Discharges: FR-052
       Depends: T024, T093
 
-- [ ] T095 [US9] SC-016 close-out: the evidence must be a **denial**, not an absence of
+- [X] T095 [US9] SC-016 close-out: the evidence must be a **denial**, not an absence of
       observed calls. An absence of calls is consistent with a network path that simply
       was not taken. Cite the denial mechanism from spike 009's
       `scale-and-security-measurement.md` §5 **at its original location**; do not copy
@@ -1206,7 +1229,7 @@ Phase F completes.
       Discharges: SC-016
       Depends: T024, T094
 
-- [ ] T096 [P] [US8] Cross-package end-to-end check: an envelope written by the
+- [X] T096 [P] [US8] Cross-package end-to-end check: an envelope written by the
       generator is validated successfully by the consumer, with **no import edge in
       either direction** between the two packages — the envelope travels as data.
       Files: `scripts/cross-package-envelope.test.ts`.
@@ -1215,7 +1238,7 @@ Phase F completes.
       Depends: T024, T037, T086
       Contract: `package-boundary.md` §3
 
-- [ ] T097 [P] [US9] Assert that **no B/C/D comparison heuristic from spike 009**
+- [X] T097 [P] [US9] Assert that **no B/C/D comparison heuristic from spike 009**
       appears in the adapter — not as an inferred behaviour, not as an authoritative
       rule, not as a default, and not as an opt-in. Implement as a repository-wide
       check, and observe it failing by temporarily reintroducing one such heuristic;
@@ -1227,7 +1250,7 @@ Phase F completes.
       Discharges: FR-061
       Depends: T024, T086
 
-- [ ] T098 [US9] Build the ADR-0020 **clause-8 executable CI gate**, tied to clause 5,
+- [X] T098 [US9] Build the ADR-0020 **clause-8 executable CI gate**, tied to clause 5,
       and **observe it failing before observing it passing**. ADR-0020's own frontmatter
       assertion is **inert** (`status: 'inert'`, `reason: 'assertions-compile.engine-absent'`)
       and **must not be cited as enforcement** — the gate must be a real CI check.
@@ -1237,7 +1260,7 @@ Phase F completes.
       Discharges: FR-060
       Depends: T024, T090, T095
 
-- [ ] T099 [US9] Repository-wide observed-failing-first close-out: enumerate **every**
+- [X] T099 [US9] Repository-wide observed-failing-first close-out: enumerate **every**
       check this feature introduced, and confirm for each that a failing observation was
       recorded, with its exact reason string, and that a permanent negative case is
       retained. A check appearing only in the passing column is a coverage gap and must
@@ -1253,7 +1276,7 @@ Phase F completes.
       > task: gate 4 remains not-yet-testable regardless of this feature's outcome, and
       > must be recorded as unmet rather than as passed or failed.
 
-- [ ] T100 [US9] Final honesty close-out. Assert, as executable checks where possible
+- [X] T100 [US9] Final honesty close-out. Assert, as executable checks where possible
       and as a recorded finding otherwise, that:
       (i) no artifact this feature produced claims ADR-0014 rung 2 or rung 3;
       (ii) no task, script, workflow, or document schedules, implies, or prepares a

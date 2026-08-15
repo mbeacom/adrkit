@@ -1,0 +1,10 @@
+$ bun test scripts/run-network-denied.test.ts   # all three mutations reverted
+
+bun test v1.3.14 (0d9b296a)
+
+scripts/run-network-denied.test.ts:
+
+ 29 pass
+ 0 fail
+ 77 expect() calls
+Ran 29 tests across 1 file. [344.00ms]

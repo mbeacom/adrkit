@@ -10,7 +10,46 @@ permissions:
 
 jobs:
   clean-clone-builds:
-    runs-on: ubuntu-latest
+    # T093 / FR-050 — a clean clone builds, typechecks, lints and tests green with both
+    # feature-010 packages present, and **network access is permitted only during
+    # `bun install --frozen-lockfile`**.
+    #
+    # The second half is enforced, not merely intended. Every step after the install runs
+    # through `scripts/run-network-denied.ts`, which proves a qualifying denial mechanism
+    # actually denies *in this environment* before it runs anything, and fails closed if
+    # none can be proved. See `specs/009-catalog-binding-viability/contracts/
+    # scale-and-security-measurement.md` §5, cited at its original location.
+    #
+    # A bare `unshare --net` prefix was rejected: if it silently stopped denying, this job
+    # would keep passing and the guarantee would be gone with nothing to notice.
+    #
+    # Pinned to a concrete image, unlike every other job in this file, because this one's
+    # viability depends on three properties of the image itself rather than on anything in
+    # this repository:
+    #
+    #   * AppArmor's unprivileged-user-namespace restriction, which is why candidate 1
+    #     (`unshare --net --map-root-user`) is refused here and the sudo candidate is the
+    #     one selected;
+    #   * passwordless `sudo -n` with a `secure_path` that excludes `~/.bun/bin`;
+    #   * `unshare` and `setpriv` from util-linux.
+    #
+    # The 22.04 → 24.04 migration is what introduced the first of those. Because the gate
+    # is fail-closed by design, the next such migration would turn this job red on every
+    # PR and push at once, and the fix would live in this file — needing a `workflow`-scoped
+    # token while branch protection built on this job blocks everything else. Pinning makes
+    # that bump a reviewed change rather than an ambient one.
+    #
+    # Verified green on `ubuntu-24.04` image 20260810.271.1, run 31761606849. If this job
+    # ever goes red here, read the wrapper's own failure output rather than a runbook: it
+    # branches on the three classes that need telling apart — the loopback control never
+    # connected (a fault in the script or a proxy), the mechanisms ran and the payload
+    # failed (a fault in ours), or no mechanism is available (a fault in the image) — and
+    # names what to look at in each. Whatever the cause, do not remove the wrapper: it is
+    # fail-closed by design, and a red build is the intended behaviour.
+    #
+    # The other jobs here stay on `ubuntu-latest` deliberately: none of them depends on
+    # image internals, so pinning them would add bumps to review without covering a risk.
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -20,30 +59,57 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
           bun-version: 1.3.14
+      # The ONLY step permitted to use the network.
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Typecheck
-        run: bun run typecheck
-      - name: Build
-        run: bun run build
-      - name: Verify publishable package tarballs
-        run: bun run release:pack -- --skip-build --skip-smoke-install
-      - name: Lint
-        run: bun run lint
-      - name: Test (includes resolution-is-pure)
+      # Asserted before anything is built: a green build that silently skipped both new
+      # packages would look identical to one that included them.
+      #
+      # Wrapped like every other post-install step. It is a Bun script and would otherwise
+      # have had ambient network access purely because it happens to run early — and the
+      # evidence README claims every subsequent step is routed through the wrapper, which
+      # this step was quietly falsifying.
+      - name: Verify both feature-010 packages are present in this clone (network denied)
+        run: bun scripts/run-network-denied.ts -- bun scripts/check-clean-clone.ts
+      - name: Typecheck (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run typecheck
+      - name: Build (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run build
+      - name: Verify publishable package tarballs (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run release:pack -- --skip-build --skip-smoke-install
+      - name: Lint (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run lint
+      # The ONE unwrapped post-install step: 13 of the 14 run under a proved denial, and
+      # this is the 14th. It cannot be wrapped, because the suite contains the two-sided
+      # controls that establish the denial and a control cannot prove one from inside it —
+      # observed on both platforms, failing differently (3 tests on macOS, where
+      # `sandbox-exec` denies loopback outright; 11 on Linux, where `lo` comes up and the
+      # denial-proving tests instead fail to nest a sandbox inside the one wrapping them).
+      #
+      # Ambient availability, never use: a test that reaches the network is an FR-050
+      # defect regardless. Reasoning and both captures:
+      # `<EVIDENCE>/negative-cases/clean-clone-offline/` case 3 and case 3b.
+      - name: Test (the one post-install step not network-denied)
         run: bun test
-      - name: Verify schema emit matches
-        run: bun run schema:emit && git diff --exit-code schema/adr.schema.json
-      - name: Verify committed Action bundle matches source
-        run: git diff --exit-code packages/ci/dist
+      # Both halves wrapped. The `&& git diff` used to run outside the wrapper under a step
+      # whose name said "(network denied)", which made the disclosed exemption list wrong
+      # by one and was found by review rather than by the ledger.
+      - name: Verify schema emit matches (network denied)
+        run: bun scripts/run-network-denied.ts -- sh -c 'bun run schema:emit && git diff --exit-code schema/adr.schema.json'
+      - name: Verify committed Action bundle matches source (network denied)
+        run: bun scripts/run-network-denied.ts -- git diff --exit-code packages/ci/dist
       - name: Verify dependency boundaries (adapters + toolkit confinement)
-        run: bun run check:deps
+        run: bun scripts/run-network-denied.ts -- bun run check:deps
       - name: Verify frozen oracle hashes match (feature 010 Barrier B, R5 mechanism 2)
-        run: bun run check:freeze-hashes
-      - name: Verify published docs pin the current CLI release
-        run: bun run check:doc-pins
-      - name: Lint ADR corpus
-        run: bun run adr lint
+        run: bun scripts/run-network-denied.ts -- bun run check:freeze-hashes
+      - name: Verify published docs pin the current CLI release (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run check:doc-pins
+      - name: Verify the ADR-0020 clause-8 gate (clause 5 evidence is present and PASSing)
+        run: bun scripts/run-network-denied.ts -- bun run check:clause8
+      - name: Verify no spike-009 B/C/D comparison heuristic is present (FR-061)
+        run: bun scripts/run-network-denied.ts -- bun run check:no-spike-heuristics
+      - name: Lint ADR corpus (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run adr lint
 
   node-smoke-built-artifacts:
     runs-on: ubuntu-latest

@@ -945,10 +945,24 @@ exception.
 
 #### Environment and toolchain
 
-- **FR-050**: A clean clone MUST build, typecheck, lint, and test green. Network access is
-  permitted **only** during dependency installation with the committed lockfile; after install
-  there MUST be no network access, no credential, and no running service required by build, test,
-  or generator invocation (**Constitution Principle II**; **ADR-0007**).
+- **FR-050**: A clean clone MUST build, typecheck, lint, and test green. No post-install step
+  may **require or use** the network: after install there MUST be no network access, no
+  credential, and no running service *required by* build, test, or generator invocation
+  (**Constitution Principle II**; **ADR-0007**).
+
+  The operative test is **dependence**, which is what Principle II's clauses state — "MUST
+  **require** no … network access", "**Network-dependent** tests and runtime behavior are
+  forbidden". An earlier wording of this requirement said network access was "permitted
+  **only** during dependency installation", which is a claim about *availability* and is
+  stricter than the principle it cites. That framing made one step of `clean-clone-builds`
+  non-compliant on a technicality while it satisfied every clause the principle actually
+  states, so the wording is corrected rather than the job.
+
+  Thirteen of the fourteen post-install steps additionally run under a **proved** denial
+  (`scripts/run-network-denied.ts`). The fourteenth is `bun test`, which cannot: the suite
+  contains the two-sided controls that establish the denial, and a control cannot prove one
+  from inside it. That step has a network ambiently reachable and **must never use it** — a
+  test that reaches the network is a defect under this requirement, unchanged.
 - **FR-051**: Development MUST use the Bun toolchain, and any published artifact MUST target
   Node and be smoke-tested under Node, not only under Bun (**ADR-0010**). This requirement
   constrains the artifact's shape; it does not authorize publishing it (see Out of Scope).

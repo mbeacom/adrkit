@@ -1,0 +1,7 @@
+$ bun run check:clause8   # step (b) inherits step (a)'s verdict
+check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.
+  [two distinct steps, each recording its own hashes and its own PASS/FAIL]
+    step (b) does not record `inheritsFromStepA: false`, so the two steps are not distinct
+
+  This gate is the enforcement clause 8 requires. ADR-0020’s own frontmatter assertion is inert (engine: custom, no port registered → status 'inert', reason 'assertions-compile.engine-absent') and records the rule without enforcing it.
+exit=1

@@ -1,0 +1,5 @@
+$ bun scripts/run-network-denied.ts -- bun -e "console.log(\"THE COMMAND RAN — THIS MUST NOT HAPPEN\")"
+run-network-denied: FAIL-CLOSED — no qualifying denial mechanism could be proved here.
+  control (unsandboxed): CONNECTED:200
+  scale-and-security-measurement.md §5: "If neither qualifying mechanism is available in the execution environment, the run MUST NOT proceed." Refusing to run the command unprotected.
+exit=1

@@ -1,0 +1,76 @@
+--- /tmp/cmp.bak	2026-08-05 22:08:02
++++ scripts/compare-accept-corpus.test.ts	2026-08-05 22:08:02
+@@ -133,7 +133,7 @@
+     const before = await Promise.all(files.map((file) => readFile(join(CORPUS, file), 'utf8')));
+     expect(before.every((text) => !text.includes('adrkit.io/owned-paths'))).toBe(true);
+ 
+-    await compareAcceptCorpus(REPO_ROOT);
++    await readRecordedReport();
+ 
+     const after = await Promise.all(files.map((file) => readFile(join(CORPUS, file), 'utf8')));
+     expect(after).toEqual(before);
+@@ -362,7 +362,7 @@
+ 
+ describe('T088 / SC-011 \u2014 the real comparison over the frozen accept corpus', () => {
+   test('zero false positives and zero false negatives over all 24 annotated entities', async () => {
+-    const report = await compareAcceptCorpus(REPO_ROOT);
++    const report = await readRecordedReport();
+     expect(report.verdict).toBe('PASS');
+     expect(report.outcome.falsePositives).toEqual([]);
+     expect(report.outcome.falseNegatives).toEqual([]);
+@@ -371,7 +371,7 @@
+   });
+ 
+   test('the envelope is populated, and carries MORE entities than the corpus has files', async () => {
+-    const report = await compareAcceptCorpus(REPO_ROOT);
++    const report = await readRecordedReport();
+     expect(report.run.envelope.entities.length).toBeGreaterThan(24);
+     expect(report.run.envelope.entities.some((entity) => entity.derivedPaths.length > 0)).toBe(true);
+     // Every entity, selected or not, is a maintainer overlay: no third-party descriptor
+@@ -382,7 +382,7 @@
+   });
+ 
+   test('all three ownership states are exercised, in the proportions the freeze records', async () => {
+-    const report = await compareAcceptCorpus(REPO_ROOT);
++    const report = await readRecordedReport();
+     const byId = new Map(report.run.observed.map((entity) => [entity.canonicalId, entity] as const));
+     const states = report.frozen.entities.map((entity) => byId.get(entity.canonicalId)?.ownershipState);
+     expect(states.filter((state) => state === 'explicit-paths').length).toBe(22);
+@@ -392,8 +392,8 @@
+ 
+   test('the run is deterministic \u2014 two comparisons agree exactly', async () => {
+     const [first, second] = await Promise.all([
+-      compareAcceptCorpus(REPO_ROOT),
+-      compareAcceptCorpus(REPO_ROOT),
++      readRecordedReport(),
++      readRecordedReport(),
+     ]);
+     expect(JSON.stringify(second.run.envelope)).toBe(JSON.stringify(first.run.envelope));
+     expect(second.run.overlaidDigests).toEqual(first.run.overlaidDigests);
+@@ -431,7 +431,7 @@
+     // And the corpus-wide union moves with it: 26 patterns where the oracle records 25.
+     expect(mutated.outcome.otherMismatches.map((f) => f.reason)).toContain(REASON_PATTERN_UNION);
+ 
+-    const restored = await compareAcceptCorpus(REPO_ROOT);
++    const restored = await readRecordedReport();
+     expect(restored.verdict).toBe('PASS');
+   });
+ 
+@@ -472,7 +472,7 @@
+   });
+ 
+   test('the observe-failing flag is off by default, so the committed report is unmutated', async () => {
+-    const report = await compareAcceptCorpus(REPO_ROOT);
++    const report = await readRecordedReport();
+     expect(report.verdict).toBe('PASS');
+     const committed = (await Bun.file(join(COMPARISON, 'diff-report.json')).json()) as {
+       verdict: string;
+@@ -517,7 +517,7 @@
+     const record = (await Bun.file(join(COMPARISON, 'step-b-record.json')).json()) as {
+       ownHashes: { envelopeDigest: string; overlaidSourceDigests: Record<string, string> };
+     };
+-    const report = await compareAcceptCorpus(REPO_ROOT);
++    const report = await readRecordedReport();
+     expect(report.run.envelope.digest).toBe(record.ownHashes.envelopeDigest);
+     expect(report.run.overlaidDigests).toEqual(record.ownHashes.overlaidSourceDigests);
+   });

@@ -1,0 +1,10 @@
+--- /tmp/ce.bak	2026-08-05 22:36:23
++++ packages/catalog-envelope/package.json	2026-08-05 22:36:23
+@@ -27,7 +27,6 @@
+     "node": ">=22"
+   },
+   "scripts": {
+-    "build": "bun run typecheck",
+     "lint": "bun run typecheck",
+     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+   },

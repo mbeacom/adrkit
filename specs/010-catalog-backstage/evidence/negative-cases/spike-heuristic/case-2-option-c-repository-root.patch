@@ -1,0 +1,11 @@
+--- /tmp/derive.bak	2026-08-05 22:28:41
++++ packages/adapters/catalog-backstage/src/ownership/derive.ts	2026-08-05 22:28:52
+@@ -87,6 +87,8 @@
+   }
+ 
+   const ownershipState = classifyOwnershipState(decoded.value);
++  const fallbackPatterns = decoded.value.patterns ?? ['**'];
++  void fallbackPatterns;
+ 
+   // `annotation-absent` and `explicit-empty` both yield `[]`, and the two are kept
+   // apart by `ownershipState` alone — never by inspecting `derivedPaths`, which is

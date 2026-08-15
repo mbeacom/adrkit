@@ -1,0 +1,39 @@
+bun test v1.3.14 (0d9b296a)
+
+test/offline-run.test.ts:
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > a qualifying mechanism is available — fail-closed, never skipped [0.06ms]
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the control connects WITHOUT the sandbox, so a denial under it means something [0.01ms]
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the same probe is DENIED under the mechanism [0.01ms]
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the mechanism is not an environment or PATH convention [0.04ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > a full generation run inside the sandbox produces an envelope [69.33ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > the offline path is the ONLY path — a networked run produces identical bytes [78.55ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > no credential or bearer-token variable was set for either run [0.21ms]
+343 |           pattern: /\bBun\.(?:serve|connect|listen)\s*\(/u,
+344 |           why: 'the generator is offline-only; a socket API would be a networked path',
+345 |         },
+346 |       ],
+347 |     );
+348 |     expect(found).toEqual([]);
+                        ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   {
++     "matched": "fetch(",
++     "path": "packages/adapters/catalog-backstage/src/descriptor/read.ts",
++     "ruleId": "fetch-call",
++     "why": "the generator is offline-only; a fetch call site would be a networked path",
++   },
++ ]
+
+- Expected  - 1
++ Received  + 8
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/offline-run.test.ts:348:19)
+(fail) T094 — the generator has no network call site to degrade to > no source module opens a socket, fetches, or resolves a host [8.43ms]
+
+ 7 pass
+ 1 fail
+ 20 expect() calls
+Ran 8 tests across 1 file. [260.00ms]

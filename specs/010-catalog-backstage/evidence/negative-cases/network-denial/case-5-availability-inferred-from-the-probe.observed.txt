@@ -1,0 +1,27 @@
+$ bun test scripts/run-network-denied.test.ts   # with case-5-availability-inferred-from-the-probe.patch applied
+
+bun test v1.3.14 (0d9b296a)
+
+scripts/run-network-denied.test.ts:
+318 |   test('the working-mechanism/broken-payload case is reported as a payload failure', async () => {
+319 |     const outcome = await proveDenial(probePath, port, [worksButBreaksTheProbe]);
+320 | 
+321 |     expect(outcome.proven).toBeUndefined();
+322 |     expect(outcome.rejected).toHaveLength(1);
+323 |     expect(outcome.rejected[0]?.why).toStartWith(REJECTION.payloadFailed);
+                                           ^
+error: expect(received).toStartWith(expected)
+
+Expected to start with: "mechanism works, but the probe payload failed under it: "
+Received: "unavailable here: simulated payload failure"
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/pr-98-mbeacom-phase-g-clean-clone-and-close-out-2/scripts/run-network-denied.test.ts:323:38)
+(fail) a broken payload is never laundered into "no mechanism is available" > the working-mechanism/broken-payload case is reported as a payload failure [15.70ms]
+
+1 tests failed:
+(fail) a broken payload is never laundered into "no mechanism is available" > the working-mechanism/broken-payload case is reported as a payload failure [15.70ms]
+
+ 28 pass
+ 1 fail
+ 76 expect() calls
+Ran 29 tests across 1 file. [281.00ms]

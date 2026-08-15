@@ -1,0 +1,10 @@
+diff --git a/packages/adapters/catalog-backstage/README.md b/packages/adapters/catalog-backstage/README.md
+index 92749d0..14250e8 100644
+--- a/packages/adapters/catalog-backstage/README.md
++++ b/packages/adapters/catalog-backstage/README.md
+@@ -133,3 +133,5 @@ bun run check:deps           # the dependency boundary above
+ ## License
+ 
+ Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
++
++This package is published to npm.

@@ -1,0 +1,75 @@
+bun test v1.3.14 (0d9b296a)
+
+test/offline-run.test.ts:
+203 | describe('T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny', () => {
+204 |   test('a qualifying mechanism is available — fail-closed, never skipped', () => {
+205 |     // §5: "If neither qualifying mechanism is available in the execution environment,
+206 |     // the run MUST NOT proceed." A skip here would report an unsatisfied constraint as
+207 |     // a pass, so this asserts instead.
+208 |     expect({ proven: proven?.mechanismUsed, rejected, controlUnsandboxed }).toMatchObject({
+                                                                                  ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "proven": Any<String>,
++   "controlUnsandboxed": "CONNECTED:200",
++   "proven": undefined,
++   "rejected": [
++     {
++       "mechanism": "sandbox-exec network-deny profile",
++       "why": "did not deny: CONNECTED:200",
++     },
++     {
++       "mechanism": "unshare --net (empty network namespace)",
++       "why": "unavailable in this environment: Executable not found in $PATH: "unshare"",
++     },
++     {
++       "mechanism": "unshare --net under sudo (empty network namespace)",
++       "why": "unavailable in this environment: sudo: a password is required",
++     },
++   ],
+  }
+
+- Expected  - 1
++ Received  + 16
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/offline-run.test.ts:208:77)
+(fail) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > a qualifying mechanism is available — fail-closed, never skipped [0.25ms]
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the control connects WITHOUT the sandbox, so a denial under it means something [0.01ms]
+215 |     expect(controlUnsandboxed).toStartWith('CONNECTED');
+216 |   });
+217 | 
+218 |   test('the same probe is DENIED under the mechanism', () => {
+219 |     // Half two. Together with the line above, this is a denial rather than an absence.
+220 |     expect(controlSandboxed).toStartWith('DENIED');
+                                   ^
+error: expect(received).toStartWith(expected)
+
+Expected to start with: "DENIED"
+Received: ""
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/offline-run.test.ts:220:30)
+(fail) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the same probe is DENIED under the mechanism [0.04ms]
+223 | 
+224 |   test('the mechanism is not an environment or PATH convention', () => {
+225 |     // §5 rejects those by name. Asserted so a future "simplification" to `env -i` is a
+226 |     // test failure rather than a silent downgrade of the claim.
+227 |     const argv = proven?.argv.join(' ') ?? '';
+228 |     expect(argv).toMatch(/^(sandbox-exec|unshare|sudo -n unshare)\b/u);
+                       ^
+error: expect(received).toMatch(expected)
+
+Expected substring or pattern: /^(sandbox-exec|unshare|sudo -n unshare)\b/u
+Received: ""
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/mbeacom-congenial-parakeet/packages/adapters/catalog-backstage/test/offline-run.test.ts:228:18)
+(fail) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the mechanism is not an environment or PATH convention [0.08ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > a full generation run inside the sandbox produces an envelope [63.96ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > the offline path is the ONLY path — a networked run produces identical bytes [77.56ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > no credential or bearer-token variable was set for either run [0.22ms]
+(pass) T094 — the generator has no network call site to degrade to > no source module opens a socket, fetches, or resolves a host [7.87ms]
+
+ 5 pass
+ 3 fail
+ 17 expect() calls
+Ran 8 tests across 1 file. [264.00ms]

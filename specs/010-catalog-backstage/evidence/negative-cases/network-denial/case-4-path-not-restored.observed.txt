@@ -1,0 +1,27 @@
+$ bun test scripts/run-network-denied.test.ts   # with case-4-path-not-restored.patch applied
+
+bun test v1.3.14 (0d9b296a)
+
+scripts/run-network-denied.test.ts:
+239 |     // the sandboxed run the same run as the unsandboxed one. The denial comes from the
+240 |     // namespace and from nothing else — so the value must be the real PATH, not a subset.
+241 |     const sudo = CANDIDATES.find((one) => one.argv[0] === 'sudo');
+242 |     const script = sudo?.argv.find((part) => part.includes('setpriv')) ?? '';
+243 | 
+244 |     expect(script).toContain(shellQuote(process.env['PATH'] ?? ''));
+                         ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "'/Applications/GitHub Copilot.app/Contents/MacOS:/Users/markbeacom/Library/Caches/github-copilot-git-2.53.0-4/bin:/Users/markbeacom/Library/Caches/copilot-desktop-gh-2.96.0:/Users/markbeacom/.antigravity/antigravity/bin:/opt/homebrew/opt/libpq/bin:/Users/markbeacom/Downloads/google-cloud-sdk/bin:/Users/markbeacom/.local/bin:/Users/markbeacom/.bun/bin:/Users/markbeacom/.nvm/versions/node/v22.22.2/bin:/Applications/SnowSQL.app/Contents/MacOS:/Users/markbeacom/reactor/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/podman/bin:/Users/markbeacom/.lmstudio/bin'"
+Received: "ip link set lo up 2>/dev/null || true; exec setpriv --reuid=501 --regid=20 --clear-groups \"$@\""
+
+      at <anonymous> (/Users/markbeacom/github/mbeacom/copilot-worktrees/adrkit/pr-98-mbeacom-phase-g-clean-clone-and-close-out-2/scripts/run-network-denied.test.ts:244:20)
+(fail) the candidate list stays within §5’s qualifying mechanisms > the sudo candidate RESTORES PATH rather than restricting it [0.11ms]
+
+1 tests failed:
+(fail) the candidate list stays within §5’s qualifying mechanisms > the sudo candidate RESTORES PATH rather than restricting it [0.11ms]
+
+ 28 pass
+ 1 fail
+ 76 expect() calls
+Ran 29 tests across 1 file. [333.00ms]

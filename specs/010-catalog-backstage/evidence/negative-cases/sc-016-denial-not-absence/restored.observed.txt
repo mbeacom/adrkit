@@ -1,0 +1,29 @@
+bun test v1.3.14 (0d9b296a)
+
+test/offline-run.test.ts:
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > a qualifying mechanism is available — fail-closed, never skipped [0.04ms]
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the control connects WITHOUT the sandbox, so a denial under it means something [0.01ms]
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the same probe is DENIED under the mechanism
+(pass) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the mechanism is not an environment or PATH convention [0.04ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > a full generation run inside the sandbox produces an envelope [63.45ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > the offline path is the ONLY path — a networked run produces identical bytes [69.50ms]
+(pass) T094 / FR-052 — the generation completes with network access denied > no credential or bearer-token variable was set for either run [0.17ms]
+(pass) T094 — the generator has no network call site to degrade to > no source module opens a socket, fetches, or resolves a host [7.17ms]
+
+test/sc-016.test.ts:
+(pass) T095 / SC-016 — the cited requirement is read at its original location > spike 009 §5 exists where it is cited, and says what is attributed to it [0.16ms]
+(pass) T095 / SC-016 — the cited requirement is read at its original location > this feature did not copy §5 into its own contracts [0.51ms]
+(pass) T095 / SC-016 — the evidence is a denial > a qualifying mechanism is named, with its exact configuration [0.11ms]
+(pass) T095 / SC-016 — the evidence is a denial > the denial is PROVED by a two-sided control, not merely invoked [0.08ms]
+(pass) T095 / SC-016 — the evidence is a denial > the run is fail-closed: no mechanism means failure, never a skip [0.10ms]
+(pass) T095 / SC-016 — the evidence is a denial > no credential or bearer-token variable is set for the run [0.06ms]
+(pass) T095 / SC-016 — what does NOT qualify is not being leaned on > the mechanism is not an env-stripping or PATH convention [0.09ms]
+(pass) T095 / SC-016 — what does NOT qualify is not being leaned on > the static source review is labelled corroborating, never the sole mechanism [0.08ms]
+(pass) T095 / SC-016 — what does NOT qualify is not being leaned on > SC-016 is not claimed from an absence of observed calls anywhere in this package [5.65ms]
+(pass) T095 / SC-016 — standing honesty constraints > the claim is scoped to a predicate return, not to Backstage as a system [0.32ms]
+(pass) T095 / SC-016 — standing honesty constraints > nothing here claims rung 2 or rung 3 [0.47ms]
+
+ 19 pass
+ 0 fail
+ 63 expect() calls
+Ran 19 tests across 2 files. [254.00ms]

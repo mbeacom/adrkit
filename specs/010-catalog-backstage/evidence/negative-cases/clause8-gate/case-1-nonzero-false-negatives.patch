@@ -1,0 +1,11 @@
+--- /tmp/sb.bak	2026-08-05 22:22:35
++++ specs/010-catalog-backstage/evidence/comparison/step-b-record.json	2026-08-05 22:22:35
+@@ -83,7 +83,7 @@
+     "expectedEntities": 24,
+     "envelopeEntities": 25,
+     "falsePositives": 0,
+-    "falseNegatives": 0,
++    "falseNegatives": 2,
+     "otherMismatches": 0
+   },
+   "honesty": {

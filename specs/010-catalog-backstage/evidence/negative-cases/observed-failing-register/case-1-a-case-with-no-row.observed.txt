@@ -1,0 +1,9 @@
+$ bun test scripts/check-observed-failing-register.test.ts   # T097 rows dropped from the register
+- []
++ [
++   "observed-failing-register",
++   "spike-heuristic",
++ ]
+- Expected  - 1
++ Received  + 4
+(fail) the register maps to the tree, in both directions > every directory on disk appears in the register [0.14ms]

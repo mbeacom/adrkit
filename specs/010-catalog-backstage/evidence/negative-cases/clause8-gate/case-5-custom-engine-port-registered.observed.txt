@@ -1,0 +1,9 @@
+$ bun run check:clause8   # with case-5-custom-engine-port-registered.patch applied
+
+$ bun run scripts/check-clause8-gate.ts
+check-clause8-gate: FAIL — ADR-0020 clause 5 is not satisfied by the recorded evidence.
+  [clause 8's assertion is inert because no custom engine port is registered]
+    packages/cli/src/evaluate.ts registers a `custom` engine port, so catalog-adapter-accept-path-needs-annotated-real-corpus may now be live. Clause 8 describes it as inert and names this gate as the enforcement; revisit both.
+
+  This gate is the enforcement clause 8 requires. ADR-0020’s own frontmatter assertion is inert (engine: custom, no port registered → status 'inert', reason 'assertions-compile.engine-absent') and records the rule without enforcing it.
+error: script "check:clause8" exited with code 1

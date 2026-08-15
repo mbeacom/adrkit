@@ -1,0 +1,49 @@
+--- /tmp/rnd.bak	2026-08-05 22:18:40
++++ scripts/run-network-denied.ts	2026-08-05 22:18:40
+@@ -61,45 +61,7 @@
+  * The candidates that use it therefore bring `lo` up inside the namespace first — the
+  * namespace still has no route off the host, which is the property being relied on.
+  */
+-export const CANDIDATES: readonly DenialMechanism[] = [
+-  {
+-    mechanismUsed: 'unshare --net (empty network namespace, loopback up)',
+-    configuration: "unshare --net --map-root-user -- sh -c 'ip link set lo up || true; exec \"$@\"' --",
+-    qualifyingMechanism: 2,
+-    argv: [
+-      'unshare',
+-      '--net',
+-      '--map-root-user',
+-      '--',
+-      'sh',
+-      '-c',
+-      'ip link set lo up 2>/dev/null || true; exec "$@"',
+-      '--',
+-    ],
+-  },
+-  {
+-    mechanismUsed: 'unshare --net under sudo (empty network namespace, loopback up)',
+-    configuration: "sudo -n unshare --net -- sh -c 'ip link set lo up || true; exec \"$@\"' --",
+-    qualifyingMechanism: 2,
+-    argv: [
+-      'sudo',
+-      '-n',
+-      'unshare',
+-      '--net',
+-      '--',
+-      'sh',
+-      '-c',
+-      'ip link set lo up 2>/dev/null || true; exec "$@"',
+-      '--',
+-    ],
+-  },
+-  {
+-    mechanismUsed: 'sandbox-exec network-deny profile',
+-    configuration: "sandbox-exec -p '(version 1)(allow default)(deny network*)'",
+-    qualifyingMechanism: 2,
+-    argv: ['sandbox-exec', '-p', '(version 1)(allow default)(deny network*)'],
+-  },
+-];
++export const CANDIDATES: readonly DenialMechanism[] = [];
+ 
+ /** The probe run on both sides of the control. Prints one line: `CONNECTED:*` or `DENIED:*`. */
+ export const PROBE_SOURCE = `

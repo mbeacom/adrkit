@@ -1,0 +1,22 @@
+$ bun scripts/run-network-denied.ts -- bun test   # Linux (ubuntu:24.04), unshare --net under sudo, loopback UP
+
+# Case 3 was observed on macOS `sandbox-exec`, which denies loopback outright and failed
+# 3 tests with `Failed to start server`. On Linux the namespace brings `lo` up, so that
+# particular failure does NOT occur — and the step still cannot be wrapped, for a
+# different and more fundamental reason: the denial-proving tests must nest a sandbox
+# inside the one already wrapping them, and cannot.
+
+11 tests failed:
+(fail) proveDenial — the two-sided control > a real mechanism is proved, and both halves of the control are recorded [10.02ms]
+(fail) proveDenial — the two-sided control > a mechanism that does NOT deny is rejected, with the reason recorded [9.55ms]
+(fail) proveDenial — the two-sided control > a mechanism that is not installed is rejected rather than crashing the run [8.66ms]
+(fail) the script fails closed, and does not run the command unprotected > the command runs under the mechanism, and network is denied inside it [20.16ms]
+(fail) the script fails closed, and does not run the command unprotected > the command’s exit code is propagated, so a failure inside is a failure outside [20.94ms]
+(fail) a broken payload is never laundered into "no mechanism is available" > the working-mechanism/broken-payload case is reported as a payload failure [8.04ms]
+(fail) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > a qualifying mechanism is available — fail-closed, never skipped [0.13ms]
+(fail) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the control connects WITHOUT the sandbox, so a denial under it means something [0.03ms]
+(fail) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the same probe is DENIED under the mechanism [0.02ms]
+(fail) T094 — the denial mechanism is one of the two §5 qualifies, and is proved to deny > the mechanism is not an environment or PATH convention [0.07ms]
+(fail) T094 / FR-052 — the generation completes with network access denied > the offline path is the ONLY path — a networked run produces identical bytes [9.37ms]
+ 2357 pass
+ 11 fail

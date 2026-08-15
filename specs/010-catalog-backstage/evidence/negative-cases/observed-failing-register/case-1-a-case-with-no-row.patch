@@ -1,0 +1,13 @@
+--- /tmp/reg.bak	2026-08-05 22:40:31
++++ specs/010-catalog-backstage/evidence/observed-failing-register.md	2026-08-05 22:40:31
+@@ -135,8 +135,8 @@
+ | T094 | no network call site in generator source (corroborating) | `network-denial/` case 2 | `"ruleId": "fetch-call"` |
+ | T095 | the control must be two-sided | `sc-016-denial-not-absence/` case 1 | `Expected to contain: "expect(controlUnsandboxed).toStartWith('CONNECTED')"` |
+ | T095 | an absence may not be offered as the basis of the claim | `sc-016-denial-not-absence/` case 2 | `"ruleId": "absence-as-evidence"` |
+-| T097 | no option-B descriptor-parent heuristic | `spike-heuristic/` case 1 | `[option B] derivation-receives-a-path: matched "sourcePath"` |
+-| T097 | no option-C repository-root heuristic | `spike-heuristic/` case 2 | `[option C] repository-root-fallback: matched "['**']"` |
++| T097 | no option-B descriptor-parent heuristic | (pending) | `[option B] derivation-receives-a-path: matched "sourcePath"` |
++| T097 | no option-C repository-root heuristic | (pending) | `[option C] repository-root-fallback: matched "['**']"` |
+ | T098 | clause 5: zero false positives / zero false negatives | `clause8-gate/` case 1 | `step (b) records falseNegatives = 2` |
+ | T098 | clause 9: no release prepared | `clause8-gate/` case 2 | `declares version 0.1.0; clause 9 defers release` |
+ | T098 | clause 5: two distinct steps, neither inheriting | `clause8-gate/` case 3 | `step (b) does not record \`inheritsFromStepA: false\`` |

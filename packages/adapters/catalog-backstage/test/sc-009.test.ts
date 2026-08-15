@@ -34,16 +34,25 @@
  *
  * **That gap is now closed.** T086a vendored the 24 descriptors verbatim from the pin
  * into `specs/010-catalog-backstage/corpus/`, verified against the content address the
- * pinned commit fixes (`scripts/vendor-accept-corpus.ts`). The block below is updated to
- * record the new fact rather than left asserting a false one — but it is updated *only*
- * to that extent.
+ * pinned commit fixes (`scripts/vendor-accept-corpus.ts`).
  *
- * **Limb 2 is still not discharged here, and T086 stays unchecked.** Discharging it means
- * asserting, in this file, that a pass over the frozen accept corpus produces a populated
- * envelope. That pass is Phase F's (`scripts/compare-accept-corpus.ts`, T088), and wiring
- * its result into SC-009's close-out is T086's own remaining work — outside the scope of
- * the session that vendored the corpus. What the block below now records is the state of
- * the repository, which is the fact it was always about.
+ * **Limb 2 is discharged, and this is where — precisely.** The clause-5 conforming pass
+ * is Phase F's, not this file's. `scripts/compare-accept-corpus.test.ts` runs
+ * `generateOverCorpus` against the vendored tree on every `bun test`, and Phase F
+ * recorded its outcome at `evidence/comparison/step-b-record.json`: verdict `PASS`, a
+ * populated envelope of **25** entities over **24** expected ones, **0** false positives
+ * and **0** false negatives. The limb-2 block below asserts that recorded outcome and
+ * **pins the citation**, so that if the harness ever stops running a live generation the
+ * assertions here cannot keep passing while meaning nothing.
+ *
+ * The 25/24 gap is not a discrepancy: 24 *selected descriptor files* carry 24 annotated
+ * entities, and one of those files holds a second, unselected document. Descriptor file
+ * counts and entity document counts are different numbers throughout this feature.
+ *
+ * **What is still true, and still asserted:** every fixture authored *in this file* is
+ * maintainer-authored and meets none of clause 5's conditions. Limb 2 is discharged by
+ * the corpus pass, never by them — which is why the assertion that they are all
+ * `maintainer-overlay` is retained rather than dropped now that the limb is closed.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -55,7 +64,7 @@ import { computeEnvelopeDigest, verifyEnvelopeDigest } from '../src/envelope/dig
 import type { SnapshotEnvelope } from '../src/envelope/shape.ts';
 import { serializeEnvelope } from '../src/envelope/write.ts';
 import { generateAndWriteEnvelope, runGeneration } from '../src/pipeline.ts';
-import { REPO_ROOT } from './source-scan.ts';
+import { REPO_ROOT, stripComments } from './source-scan.ts';
 import { type Checkout, createCheckout, descriptor, stage, validDescriptor } from './pipeline-fixtures.ts';
 
 let checkout: Checkout;
@@ -92,6 +101,49 @@ function acceptCorpusIsMaterialized(): boolean {
       return false;
     }
   });
+}
+
+/**
+ * Count occurrences of `needle` that are actually executable code.
+ *
+ * `stripComments` handles the realistic evasion — a commented-out call holding a floor up
+ * while the block beneath it is gutted. Literals are the other half, and they are handled
+ * **per line** rather than by a whole-file regex, deliberately.
+ *
+ * A regex of the obvious shape (`/(['"`])(?:\\.|(?!\1)[^\\])*\1/`) was written first and
+ * was wrong: character classes match newlines, so one unbalanced quote anywhere swallows
+ * everything up to the next one. It took the count from 5 to 0 — blanking the very calls
+ * it was meant to leave standing, and turning a working pin into an unsatisfiable one.
+ * That is the same runaway-match failure `stripComments` documents as its own limitation,
+ * reproduced by trying to fix it.
+ *
+ * A line is bounded, so a mistake stays inside it. The check is therefore: within the
+ * line, is the match preceded by an odd number of unescaped quotes? If so it is inside a
+ * literal and does not count. Multi-line template literals are not modelled, and the
+ * failure direction is a false *positive* count on that construct alone.
+ */
+function countExecutableOccurrences(source: string, needle: string): number {
+  let count = 0;
+  for (const line of stripComments(source).split('\n')) {
+    let from = 0;
+    for (;;) {
+      const at = line.indexOf(needle, from);
+      if (at === -1) break;
+      const before = line.slice(0, at);
+      let quotes = 0;
+      for (let index = 0; index < before.length; index += 1) {
+        const character = before[index];
+        if (character === '\\') {
+          index += 1;
+          continue;
+        }
+        if (character === "'" || character === '"' || character === '`') quotes += 1;
+      }
+      if (quotes % 2 === 0) count += 1;
+      from = at + needle.length;
+    }
+  }
+  return count;
 }
 
 describe('T086 / SC-009 limb 1 — every pass yields an envelope or a clean rejection', () => {
@@ -193,14 +245,110 @@ describe('T086 / SC-009 limb 1 — every pass yields an envelope or a clean reje
   });
 });
 
-describe('T086 / SC-009 limb 2 — still NOT discharged here, and why', () => {
-  test('the frozen accept corpus is now materialized in this repository (T086a)', () => {
+describe('T086 / SC-009 limb 2 — discharged over the frozen accept corpus', () => {
+  test('the frozen accept corpus is materialized in this repository (T086a)', () => {
     // Phase E recorded the opposite, because it was true then. T086a vendored the 24
-    // pinned descriptors, so the fact changed and this record changed with it. What has
-    // NOT changed is that limb 2 is undischarged: a populated envelope over this corpus
-    // is produced by Phase F's harness, and wiring that result into SC-009's close-out
-    // is T086's remaining work.
+    // pinned descriptors, so the fact changed and this record changed with it.
     expect(acceptCorpusIsMaterialized()).toBe(true);
+  });
+
+  test('a pass over that corpus produced a POPULATED envelope — 25 entities, 0 FP / 0 FN', async () => {
+    // Limb 2: "at least one pass over a real corpus meeting ADR-0020 clause 5's
+    // conditions produces a populated envelope."
+    //
+    // The pass itself is Phase F's, and it is a **live** run, not a transcription:
+    // `scripts/compare-accept-corpus.test.ts` calls `generateOverCorpus` against the
+    // vendored tree on every `bun test`, and separately asserts that the committed
+    // report "records the PASS and the counts it was run at". This close-out asserts
+    // that recorded outcome. The citation is pinned below so it cannot rot silently.
+    const record = (await Bun.file(
+      join(REPO_ROOT, 'specs', '010-catalog-backstage', 'evidence', 'comparison', 'step-b-record.json'),
+    ).json()) as Record<string, unknown>;
+
+    expect(record['verdict']).toBe('PASS');
+
+    const counts = record['counts'] as Record<string, number>;
+    // 24 selected descriptors carry 24 expected (annotated) entities; the envelope
+    // carries 25, because one selected file holds a second, unselected document.
+    // Descriptor FILE counts and entity DOCUMENT counts are not the same number.
+    expect(counts['expectedEntities']).toBe(24);
+    expect(counts['envelopeEntities']).toBe(25);
+    expect(counts['envelopeEntities']).toBeGreaterThan(0); // populated, not merely present
+    expect(counts['falsePositives']).toBe(0);
+    expect(counts['falseNegatives']).toBe(0);
+
+    // A populated envelope has a digest. Integrity, not correctness — the zero/zero
+    // comparison above is what speaks to correctness.
+    expect((record['ownHashes'] as Record<string, unknown>)['envelopeDigest']).toMatch(
+      /^[0-9a-f]{64}$/u,
+    );
+  });
+
+  test('the corpus the pass ran over is the frozen one, at the pinned commit', async () => {
+    // Guards the substitution this limb is most vulnerable to: a PASS recorded over
+    // some *other* corpus would satisfy every assertion above and none of clause 5.
+    const freeze = (await Bun.file(
+      join(REPO_ROOT, 'specs', '010-catalog-backstage', 'evidence', 'accept-corpus-freeze', 'accept-corpus-freeze.json'),
+    ).json()) as Record<string, unknown>;
+    const record = (await Bun.file(
+      join(REPO_ROOT, 'specs', '010-catalog-backstage', 'evidence', 'comparison', 'step-b-record.json'),
+    ).json()) as Record<string, unknown>;
+
+    // Step (b) recomputes the freeze's hash rather than trusting it; that recomputed
+    // value must equal the hash of the freeze as it exists right now.
+    const recomputed = (record['recomputedFrozenHashes'] as Record<string, Record<string, unknown>>)[
+      'accept-corpus-freeze/accept-corpus-freeze.json'
+    ];
+    expect(recomputed?.['match']).toBe(true);
+    expect(recomputed?.['recorded']).toBe(recomputed?.['recomputed']);
+
+    expect((freeze['corpusRef'] as Record<string, unknown>)['repository']).toBe(
+      'github.com/backstage/community-plugins',
+    );
+    expect(freeze['size']).toBe(24);
+  });
+
+  test('the live pass this close-out cites really is a live pass, and still exists', async () => {
+    // The citation, pinned. If `compare-accept-corpus.test.ts` stops running a live
+    // generation over the corpus, the assertions above would still pass while meaning
+    // nothing — so the thing being cited is asserted, not merely named in a comment.
+    //
+    // A bare `toContain` was tried first and was observed **passing** against a harness
+    // whose SC-011 block had been gutted, because the same call appears in other blocks
+    // of the same file. That is recorded at
+    // `<EVIDENCE>/negative-cases/sc-009-limb-2/`. The pin below is therefore scoped to
+    // the SC-011 block itself and counts the live calls inside it.
+    const harnessTest = await Bun.file(
+      join(REPO_ROOT, 'scripts', 'compare-accept-corpus.test.ts'),
+    ).text();
+
+    const start = harnessTest.indexOf('describe(\u2019T088 / SC-011');
+    const blockStart =
+      start === -1 ? harnessTest.indexOf('the real comparison over the frozen accept corpus') : start;
+    expect(blockStart).toBeGreaterThan(-1);
+    const rest = harnessTest.slice(blockStart);
+    const blockEnd = rest.indexOf('\ndescribe(');
+    const block = blockEnd === -1 ? rest : rest.slice(0, blockEnd);
+
+    // Every assertion in that block is driven by a live comparison, not by a record.
+    // Five live calls at the time of writing: three `await`ed directly, two inside the
+    // determinism test's `Promise.all`. The floor is set below that so an added or
+    // removed case does not trip it, but gutting the block does.
+    //
+    // Counted on **executable** source. Raw substring counting let a commented-out call —
+    // or the call named inside a string — hold the floor up while the block underneath was
+    // gutted, which is the exact false-positive state this pin exists to prevent.
+    const liveCalls = countExecutableOccurrences(block, 'compareAcceptCorpus(REPO_ROOT)');
+    expect(liveCalls).toBeGreaterThanOrEqual(4);
+    expect(block).toContain('report.run.envelope.entities.length');
+    expect(block).toContain('the committed diff report records the PASS and the counts it was run at');
+
+    // And that `compareAcceptCorpus` genuinely generates rather than reading a record:
+    // it is the caller of `generateOverCorpus`, which runs the assembled pipeline over
+    // the vendored tree with the overlay applied into a temporary directory.
+    const harness = await Bun.file(join(REPO_ROOT, 'scripts', 'compare-accept-corpus.ts')).text();
+    expect(harness).toContain('export async function generateOverCorpus');
+    expect(harness).toContain('runGeneration');
   });
 
   test('the freeze still records the corpus metadata, not the descriptors', async () => {
@@ -223,7 +371,8 @@ describe('T086 / SC-009 limb 2 — still NOT discharged here, and why', () => {
     // Stated as an assertion so no reader mistakes a passing accept case above for a
     // clause-5 conforming pass. Clause 5 requires descriptors "authored upstream and
     // otherwise unmodified"; these were written by this test file. The vendored corpus
-    // is not used here — it is used by scripts/compare-accept-corpus.ts.
+    // is not used here — it is used by scripts/compare-accept-corpus.ts, which is
+    // exactly why limb 2 is discharged by citing that run rather than by these.
     const { request } = await stage(
       checkout,
       { 'sc009-prov/catalog-info.yaml': validDescriptor('sconineprov', '["packages/p/**"]') },

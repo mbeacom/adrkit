@@ -1,0 +1,10 @@
+$ bun test scripts/check-observed-failing-register.test.ts   # with case-4-double-digit-failure-count.patch applied
+
+246 |         expect(text, `${directory}/${capture}`).toMatch(/(^|\s)0 fail\b/mu);
+247 |         expect(text, `${directory}/${capture}`).not.toMatch(/(^|\s)(?!0\b)\d+ fail\b/mu);
+Expected substring or pattern: not /(^|\s)(?!0\b)\d+ fail\b/mu
+Received: "# T093 — clean-clone verification …" [full capture elided; the discriminating line is ` 10 fail`]
+(fail) every retained case is a real one > every deliberate pass-capture really exists, and really records a pass [0.59ms]
+(fail) every retained case is a real one > every deliberate pass-capture really exists, and really records a pass [0.59ms]
+ 229 pass
+ 1 fail
