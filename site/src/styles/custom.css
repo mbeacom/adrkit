@@ -929,7 +929,7 @@ starlight-theme-select select {
 	align-items: end;
 }
 
-.adr-closing blockquote {
+.adr-closing h2 {
 	margin: 0;
 	padding: 0;
 	border: 0;
@@ -1313,8 +1313,18 @@ tbody tr:nth-child(even) {
 
 	.adr-thesis h2,
 	.adr-section-heading h2,
-	.adr-closing blockquote {
+	.adr-closing h2 {
 		font-size: clamp(2.35rem, 12vw, 3.6rem);
+	}
+
+	/* The clamp minimums are in rem, so they grow with the user's default font
+	   size while the container does not. Without this a single long word cannot
+	   break and overflows the viewport at large text sizes. */
+	.adr-hero h1,
+	.adr-thesis h2,
+	.adr-section-heading h2,
+	.adr-closing h2 {
+		overflow-wrap: break-word;
 	}
 }
 

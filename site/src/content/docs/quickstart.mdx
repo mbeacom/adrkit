@@ -112,6 +112,44 @@ the unrelated registry package instead of failing. An npm script has no such
 ambiguity — it resolves `node_modules/.bin` and stops with `command not found`
 if the dependency is missing.
 
+## Create your first record — `adr new`
+
+If you have no `docs/adr/` yet, start here: `adr new` creates the directory and
+writes the first record, so it is the bootstrap step as well as the everyday one.
+Running `adr lint` first on a repository with no corpus exits `2` with
+`Corpus directory not found: 'docs/adr'`.
+
+<Aside type="tip" title="Already have MADR records?">
+	Go to [Adopt an existing MADR corpus](#adopt-an-existing-madr-corpus--adr-migrate)
+	first. adrkit requires `id`, `title`, `status`, and `date`, and rejects unknown
+	keys, so linting an unmigrated corpus reports errors on every record. `adr
+	migrate` adds the fields in place and is additive.
+</Aside>
+
+Scaffold a record with the next sequential id and valid frontmatter.
+
+```sh
+adr new "Use server-side rendering for authenticated routes"
+# choose a starting status (accepted/superseded need extra fields and are refused)
+adr new "Adopt OpenTelemetry" --status proposed
+```
+
+That writes `docs/adr/0001-use-server-side-rendering-for-authenticated-routes.md`
+with `affects: []`. Filling `affects` in is what makes the decision locatable by
+CI and agents — a record with no `affects` is advisory only. Each entry is a
+`type` plus a `pattern`:
+
+```yaml
+affects:
+  - type: path
+    pattern: "apps/web/app/(authed)/**"
+  - type: package
+    pattern: "next@>=16"
+```
+
+`type` is one of `path`, `package`, `api`, `resource`, `entity`, or `data`. See
+the [JSON Schema reference](/schema/) for the full field list.
+
 ## Validate a corpus — `adr lint`
 
 Validate every record under `docs/adr/` against the schema, enforce unique ids,
@@ -130,20 +168,6 @@ adr lint --json
 
 `adr lint` exits non-zero when it finds errors, so it drops straight into a CI
 gate.
-
-## Create a record — `adr new`
-
-Scaffold a new record with the next sequential id and valid frontmatter.
-
-```sh
-adr new "Use server-side rendering for authenticated routes"
-# choose a starting status (accepted/superseded need extra fields and are refused)
-adr new "Adopt OpenTelemetry" --status proposed
-```
-
-Fill in `affects` — it is what makes a decision locatable by CI and agents. A
-record with no `affects` is advisory only. See the
-[JSON Schema reference](/schema/) for every field.
 
 ## Explain what governs a file — `adr explain`
 

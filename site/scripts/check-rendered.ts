@@ -229,7 +229,7 @@ async function checkHome(page: Page, origin: string): Promise<void> {
       return {
         hero: L('.adr-hero h1'),
         section: L('.adr-section-heading h2'),
-        closing: L('.adr-closing blockquote'),
+        closing: L('.adr-closing h2'),
       };
     });
     record(

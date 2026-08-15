@@ -7,7 +7,7 @@
   <text x="90" y="486" fill="#b8ada4" font-size="32" font-weight="400">Typed, locatable ADRs — enforceable in CI, legible to agents.</text>
   <g transform="translate(90 548)">
     <rect x="0" y="0" width="360" height="46" rx="23" fill="#e56a4a"/>
-    <text x="180" y="31" fill="#191411" font-size="24" font-weight="700" text-anchor="middle">v0.2.1 on npm · adrkit.dev</text>
+    <text x="180" y="31" fill="#191411" font-size="24" font-weight="700" text-anchor="middle">on npm · adrkit.dev</text>
   </g>
   <text x="1110" y="580" fill="#6f665f" font-size="24" font-weight="400" text-anchor="end">CLI · CI · MCP · evaluator</text>
 </svg>
