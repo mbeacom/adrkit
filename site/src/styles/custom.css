@@ -737,19 +737,19 @@ starlight-theme-select select {
 	align-items: flex-start;
 }
 
-/* Must out-specify `.sl-markdown-content :not(pre) > code` (0,1,2), which
-   otherwise repainted every marketing chip as a bordered grey box — including
-   the ones sitting on the coral roadmap band. Scoping under .adr-home lands
-   this at (0,2,2).
+/* Marketing chips: borderless mono, not the bordered box docs prose uses.
 
-   Overriding Starlight is done three ways in this file and they are not
-   interchangeable: a `:not(:has(.adr-home))` carve-out on the base rule (see the
-   prose block below), specificity escalation like this one, and self-duplication
-   (`.header.header`). Prefer the carve-out for anything that applies to a whole
-   page; escalation is for rules that must stay live on docs pages too. Note that
-   this list is hand-maintained — a new marketing component renders as a docs
-   chip until it is added here. */
-.adr-home :is(.adr-status-band, .adr-capability, .adr-flow, .adr-roadmap) :not(pre) > code {
+   One mechanism, stated once for the whole Starlight-overrides region: the base
+   rule carves the home page out with `:not(:has(.adr-home))`, so these win at
+   their natural specificity instead of escalating past it. That replaces a
+   hand-maintained `:is()` enumeration of marketing components, which silently
+   rendered any component missing from the list as a docs chip.
+
+   Escalation is still correct for a rule that must stay live on docs pages and
+   only change on one surface — the roadmap link colour below is the example.
+   Reach for the carve-out when a rule should not apply to the home page at all;
+   reach for escalation when it should apply everywhere but differently here. */
+.adr-home :not(pre) > code {
 	padding: 0;
 	border: 0;
 	background: transparent;
@@ -759,12 +759,12 @@ starlight-theme-select select {
 	font-weight: 560;
 }
 
-:root[data-theme='dark'] .adr-home :is(.adr-status-band, .adr-capability, .adr-flow) :not(pre) > code {
+:root[data-theme='dark'] .adr-home :not(pre) > code {
 	color: var(--sl-color-text-accent);
 }
 
 /* The roadmap band is coral in both themes, so its chips are theme-independent. */
-.adr-home .adr-roadmap :not(pre) > code {
+:root .adr-home .adr-roadmap :not(pre) > code {
 	color: var(--adr-canvas);
 }
 
@@ -987,7 +987,10 @@ starlight-theme-select select {
 	text-decoration-thickness: 0.08em;
 }
 
-.sl-markdown-content :not(pre) > code {
+/* Carved out of the home page so the marketing chip rules above win at their
+   natural specificity — matching the `:not(:has(.adr-home))` treatment its
+   neighbours already use, rather than making every marketing rule escalate. */
+.sl-markdown-content:not(:has(.adr-home)) :not(pre) > code {
 	border: 1px solid var(--adr-line);
 	border-radius: var(--adr-radius-xs);
 	background: var(--adr-panel);

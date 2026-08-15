@@ -113,6 +113,25 @@ jobs:
       - name: Build site
         run: bun run build
 
+      # `astro build` exiting 0 says the pages compile; it says nothing about how
+      # they render. Every defect fixed in #150 — a rule that silently lost a
+      # specificity contest, a badge at 1.1:1, a page title ~180px out of line —
+      # compiled perfectly and would have deployed. This loads the built output
+      # in the runner's preinstalled Chrome and asserts specific computed styles
+      # and geometry instead.
+      #
+      # The self-test runs first and on its own: it sabotages each invariant and
+      # fails unless the checks catch it, so a checker that has quietly stopped
+      # looking cannot report a green "0 failures" (CONTRIBUTING, third hard
+      # rule). No browser is downloaded — `playwright-core` ships no binaries and
+      # this drives the Chrome already on the image, so the frozen install stays
+      # the only step that touches the network.
+      - name: Guard — the rendered checks can still fail
+        run: bun run check:rendered:self-test
+
+      - name: Check rendered output
+        run: bun run check:rendered
+
       # Only publish an artifact for real deployments (push to main / manual run).
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'

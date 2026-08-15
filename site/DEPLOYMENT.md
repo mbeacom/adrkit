@@ -114,6 +114,40 @@ The `$id` line must read
 `"$id": "https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json"` — the URL and the
 bytes it serves are the same contract every editor and `$ref` depends on.
 
+Those three commands verify the *schema*. They stay green while the marketing
+page is unreadable, so they are not a check on the site itself — that is what
+`bun run check:rendered` does in the workflow, against the built output before it
+is published.
+
+## Rolling back
+
+**The only supported rollback is a revert commit on `main`.**
+
+```sh
+git revert <sha>          # the commit that broke it
+git push origin main      # redeploys, ~2 minutes
+```
+
+Do **not** roll back by re-running an older workflow run, and do not
+`workflow_dispatch` from an older tag or branch. The deploy is whole-artifact:
+one run builds the pages, copies the canonical schema to its `$id` path, and
+projects `queue.json` and `lint.json` from the corpus and the CLI *as they exist
+on the ref it ran on*. Deploying an older ref therefore also republishes:
+
+- an **older schema** at the `$id` that other tools fetch over HTTP, and
+- **stale badge projections**, which degrade to plausible-but-wrong numbers
+  rather than to an error.
+
+Neither failure announces itself. `check:schema` compares the served copy against
+the canonical file *within the deployed ref*, so it passes on an old ref by
+construction — this is the staleness the missing `paths:` filter on the `push`
+trigger exists to prevent (see the comment at the top of
+[`site.yml`](../.github/workflows/site.yml)), and ADR-0011 treats it as a
+governance failure rather than a routine fix.
+
+A revert commit has none of that: it redeploys with the current schema and
+freshly projected badges, and it leaves the reason in the history.
+
 ## Local development
 
 ```sh

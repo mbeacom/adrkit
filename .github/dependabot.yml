@@ -16,6 +16,15 @@ updates:
           - "*"
 
   # Docs site has its own bun.lock and is not part of the root workspace.
+  #
+  # Starlight is ungrouped on purpose. `site/src/styles/custom.css` overrides
+  # Starlight-internal selectors (`.sl-badge.*`, `.starlight-aside--*`,
+  # `--sl-color-asides-*`) and depends on their specificity and on this
+  # stylesheet being unlayered while Starlight's own rules sit in
+  # `@layer starlight.*`. A minor bump that renames a variant class or moves a
+  # rule between layers compiles cleanly and changes what ships. Reviewing it
+  # alone is what makes that visible; `bun run check:rendered` in the site
+  # workflow is what catches it.
   - package-ecosystem: "bun"
     directory: "/site"
     schedule:
@@ -24,6 +33,8 @@ updates:
       site-bun:
         patterns:
           - "*"
+        exclude-patterns:
+          - "@astrojs/starlight"
 
   # GitHub Actions used across .github/workflows are SHA-pinned; keep the pins
   # current (Dependabot updates the SHA and the trailing version comment).
