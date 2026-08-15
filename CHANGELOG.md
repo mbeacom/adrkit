@@ -47,11 +47,12 @@ Until `1.0.0`, minor releases may include breaking changes
   project holding both dependencies has them compete for the same `.bin` entry. `adrkit`
   collides with nothing, so `adrkit lint` is unambiguous for globally-installed users and
   in `node_modules/.bin`. `adr` is unchanged and remains the primary name — this is purely
-  additive, and nothing that works today stops working. The alias is also safe under
-  `npx`/`bunx` in a way `adr` is not: `npx adrkit` runs the local binary when one is
-  installed and otherwise fails with a clean 404, where `npx adr` silently runs the
-  unrelated package. That 404 becomes a success only if the unclaimed `adrkit` name is
-  later published, so the zero-install form to document remains `npx @adrkit/cli`.
+  additive, and nothing that works today stops working. The alias covers the **installed**
+  binary only: the unscoped `adrkit` *package* name is unclaimed, so `npx adrkit` resolves
+  against the registry and would run whatever anyone publishes there — and npm assumes
+  `--yes` on a non-TTY, so CI would install and run it without prompting. `npx --no`
+  declines to install a missing package but still runs one already in the npx cache, so it
+  is not a durable guard; `npx @adrkit/cli` remains the zero-install form.
   `release-pack` now asserts both binaries are present in the packed manifest, and that
   assertion was observed failing with the alias removed before it was counted as coverage
   ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
