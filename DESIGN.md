@@ -64,11 +64,25 @@ spacing:
   section: "clamp(5rem, 11vw, 10rem)"
   # Layout seams for the marketing page. `gutter` is the single horizontal inset
   # the hero and every section below it share — they must resolve to one value
-  # or their headlines sit on two different left edges.
+  # or their headlines sit on two different left edges. These four are the only
+  # tokens re-declared per breakpoint; the overrides are part of the record,
+  # because following the base values alone reproduces different seams.
   gutter: "clamp(1.25rem, 7vw, 8rem)"
   sectionBlock: "clamp(4.5rem, 10vw, 9rem)"
+  bandInline: "clamp(1.25rem, 3vw, 2.25rem)"
   rowBlock: "clamp(1.5rem, 2.5vw, 2.25rem)"
   rowBleed: "clamp(0.75rem, 1.6vw, 1.5rem)"
+  overrides:
+    # Narrowing the gutter moves the hero and every section together; overriding
+    # one component's padding instead would split the shared left edge.
+    "max-width: 72rem":
+      gutter: "clamp(1.5rem, 4vw, 4rem)"
+    # Below this the band stacks and no gutter room is left to bleed rows into.
+    "max-width: 48rem":
+      rowBleed: "0px"
+    "max-width: 40rem":
+      gutter: "1.25rem"
+      sectionBlock: "4rem"
 components:
   button-primary:
     backgroundColor: "{colors.decision-coral}"

@@ -29,8 +29,8 @@
 	--adr-section-block: clamp(4.5rem, 10vw, 9rem);
 	--adr-band-inline: clamp(1.25rem, 3vw, 2.25rem);
 	--adr-row-block: clamp(1.5rem, 2.5vw, 2.25rem);
-	/* Rows widen past the section gutter by this much so a hover fill reads as a
-	   band while the text stays on the shared left edge. */
+	/* Rows widen past the section gutter by this much so their rules read as
+	   full-width bands while the text stays on the shared left edge. */
 	--adr-row-bleed: clamp(0.75rem, 1.6vw, 1.5rem);
 	--adr-bg: var(--adr-canvas);
 	--adr-panel: var(--adr-surface);
@@ -712,8 +712,8 @@ starlight-theme-select select {
 }
 
 /* The list bleeds past the section gutter and each row pads the same amount back,
-   so hover fills and rules read as full-width bands while the text stays on the
-   page's shared left edge. */
+   so the rules between rows run the full width of the band while the text stays
+   on the page's shared left edge. */
 .adr-capabilities {
 	margin: 0 calc(var(--adr-row-bleed) * -1);
 	padding: 0;
