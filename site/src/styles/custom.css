@@ -21,6 +21,17 @@
 	--adr-radius-md: 10px;
 	--adr-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 	--adr-duration: 180ms;
+	/* One horizontal inset for every full-bleed marketing surface. The hero and
+	   the sections below it must resolve to the same value or their headlines
+	   sit on two different left edges. Overridden per breakpoint, never
+	   re-declared per component. */
+	--adr-gutter: clamp(1.25rem, 7vw, 8rem);
+	--adr-section-block: clamp(4.5rem, 10vw, 9rem);
+	--adr-band-inline: clamp(1.25rem, 3vw, 2.25rem);
+	--adr-row-block: clamp(1.5rem, 2.5vw, 2.25rem);
+	/* Rows widen past the section gutter by this much so a hover fill reads as a
+	   band while the text stays on the shared left edge. */
+	--adr-row-bleed: clamp(0.75rem, 1.6vw, 1.5rem);
 	--adr-bg: var(--adr-canvas);
 	--adr-panel: var(--adr-surface);
 	--adr-text: var(--adr-ink);
@@ -205,7 +216,10 @@ starlight-theme-select select {
 	border-block-end-color: var(--adr-line);
 }
 
-main > .content-panel:first-child > .sl-container {
+/* Scoped to hero/splash pages only. Unscoped, this also released the page-title
+   panel on every docs page, so the H1 sat full-bleed while the prose below it
+   stayed capped at --sl-content-width — a ~180px misalignment at wide viewports. */
+:root[data-has-hero] main > .content-panel:first-child > .sl-container {
 	max-width: 100%;
 	padding-inline: 0;
 }
@@ -226,7 +240,7 @@ main > .content-panel:first-child > .sl-container {
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
-	padding: clamp(3.5rem, 8vw, 8rem) clamp(1.5rem, 6vw, 7rem);
+	padding: clamp(3.5rem, 8vw, 8rem) var(--adr-gutter);
 }
 
 .adr-hero__meta {
@@ -244,12 +258,16 @@ main > .content-panel:first-child > .sl-container {
 	display: inline-flex;
 	gap: 0.375rem;
 	align-items: center;
+	justify-content: center;
 	width: fit-content;
 	padding: 0.375rem 0.625rem;
 	border-radius: 999px;
 	font-size: 0.8125rem;
 	font-weight: 700;
-	line-height: 1.2;
+	letter-spacing: 0.02em;
+	line-height: 1.25;
+	text-align: center;
+	text-wrap: balance;
 }
 
 .adr-status svg {
@@ -585,17 +603,34 @@ main > .content-panel:first-child > .sl-container {
 	border-block-end: 1px solid var(--adr-line);
 }
 
+/* Stacked, not a row. As a row the badge column was squeezed by the copy, so a
+   longer label wrapped inside a 999px pill and rendered as a lumpy oval. */
 .adr-status-band__item {
 	display: flex;
+	flex-direction: column;
 	gap: 0.875rem;
-	align-items: center;
+	align-items: flex-start;
 	min-width: 0;
-	padding: 1.125rem clamp(1rem, 3vw, 2.25rem);
+	padding: var(--adr-row-block) var(--adr-band-inline);
 	border-inline-end: 1px solid var(--adr-line);
 }
 
 .adr-status-band__item:last-child {
 	border-inline-end: 0;
+}
+
+/* Pull the strip's outer content onto the page's shared left/right edge so the
+   band reads as part of the same column as the hero above it, while the cell
+   dividers keep running full-bleed. These assume the strip is a single row —
+   true only while `.adr-status-band` is `repeat(3, 1fr)` and index.mdx supplies
+   exactly three items. Adding a fourth wraps it, and the wrapped cell would take
+   the inner inset instead of the page gutter. */
+.adr-status-band__item:first-child {
+	padding-inline-start: var(--adr-gutter);
+}
+
+.adr-status-band__item:last-child {
+	padding-inline-end: var(--adr-gutter);
 }
 
 .adr-status-band__item p {
@@ -606,7 +641,7 @@ main > .content-panel:first-child > .sl-container {
 }
 
 .adr-home__section {
-	padding: clamp(4.5rem, 10vw, 9rem) clamp(1.25rem, 7vw, 8rem);
+	padding: var(--adr-section-block) var(--adr-gutter);
 }
 
 .adr-home__section + .adr-home__section {
@@ -676,8 +711,11 @@ main > .content-panel:first-child > .sl-container {
 	line-height: 1.55;
 }
 
+/* The list bleeds past the section gutter and each row pads the same amount back,
+   so hover fills and rules read as full-width bands while the text stays on the
+   page's shared left edge. */
 .adr-capabilities {
-	margin: 0;
+	margin: 0 calc(var(--adr-row-bleed) * -1);
 	padding: 0;
 	border-block-end: 1px solid var(--adr-line);
 	list-style: none;
@@ -688,7 +726,7 @@ main > .content-panel:first-child > .sl-container {
 	grid-template-columns: minmax(9rem, 0.55fr) minmax(13rem, 0.8fr) minmax(18rem, 1.3fr);
 	gap: clamp(1.25rem, 4vw, 4rem);
 	align-items: start;
-	padding: clamp(1.25rem, 2.5vw, 2rem) 0;
+	padding: var(--adr-row-block) var(--adr-row-bleed);
 	border-block-start: 1px solid var(--adr-line);
 }
 
@@ -699,20 +737,35 @@ main > .content-panel:first-child > .sl-container {
 	align-items: flex-start;
 }
 
-.adr-capability code,
-.adr-flow code,
-.adr-roadmap code {
+/* Must out-specify `.sl-markdown-content :not(pre) > code` (0,1,2), which
+   otherwise repainted every marketing chip as a bordered grey box — including
+   the ones sitting on the coral roadmap band. Scoping under .adr-home lands
+   this at (0,2,2).
+
+   Overriding Starlight is done three ways in this file and they are not
+   interchangeable: a `:not(:has(.adr-home))` carve-out on the base rule (see the
+   prose block below), specificity escalation like this one, and self-duplication
+   (`.header.header`). Prefer the carve-out for anything that applies to a whole
+   page; escalation is for rules that must stay live on docs pages too. Note that
+   this list is hand-maintained — a new marketing component renders as a docs
+   chip until it is added here. */
+.adr-home :is(.adr-status-band, .adr-capability, .adr-flow, .adr-roadmap) :not(pre) > code {
 	padding: 0;
 	border: 0;
 	background: transparent;
 	color: var(--adr-coral-deep);
 	font-family: var(--sl-font-mono);
-	font-size: 0.8125rem;
+	font-size: 0.875em;
 	font-weight: 560;
 }
 
-:root[data-theme='dark'] :is(.adr-capability, .adr-flow, .adr-roadmap) code {
+:root[data-theme='dark'] .adr-home :is(.adr-status-band, .adr-capability, .adr-flow) :not(pre) > code {
 	color: var(--sl-color-text-accent);
+}
+
+/* The roadmap band is coral in both themes, so its chips are theme-independent. */
+.adr-home .adr-roadmap :not(pre) > code {
+	color: var(--adr-canvas);
 }
 
 .adr-capability h3 {
@@ -813,12 +866,8 @@ main > .content-panel:first-child > .sl-container {
 	color: var(--adr-canvas);
 }
 
-.adr-roadmap .adr-section-heading p {
-	color: var(--adr-canvas);
-}
-
 .adr-roadmap__list {
-	margin: 0;
+	margin: 0 calc(var(--adr-row-bleed) * -1);
 	padding: 0;
 	border-block-end: 1px solid oklch(1 0 0 / 0.48);
 	list-style: none;
@@ -829,12 +878,21 @@ main > .content-panel:first-child > .sl-container {
 	grid-template-columns: minmax(10rem, 0.6fr) minmax(13rem, 0.8fr) minmax(18rem, 1.3fr);
 	gap: clamp(1.25rem, 4vw, 4rem);
 	align-items: baseline;
-	padding: clamp(1.25rem, 2.5vw, 2rem) 0;
+	padding: var(--adr-row-block) var(--adr-row-bleed);
 	border-block-start: 1px solid oklch(1 0 0 / 0.48);
 }
 
-.adr-roadmap__item .adr-status {
+/* Only the outlined variant inherits the band's white. Applied to every pill it
+   also hit --current, whose background is var(--adr-text) — near-white in dark
+   mode — producing white-on-white at roughly 1.1:1. The band is coral in both
+   themes, so pin this pair to theme-independent tokens. */
+.adr-roadmap__item .adr-status--planned {
 	color: var(--adr-canvas);
+}
+
+.adr-roadmap__item .adr-status--current {
+	background: var(--adr-canvas);
+	color: var(--adr-coral-deep);
 }
 
 .adr-roadmap__item h3 {
@@ -850,8 +908,18 @@ main > .content-panel:first-child > .sl-container {
 	line-height: 1.55;
 }
 
-.adr-roadmap code {
+/* The site link colour is a dark blue that lands at 1.73:1 on coral in the light
+   theme (2.34:1 in dark). On this band links carry their own colour, and the
+   focus ring must come with them — the shared ring at the top of this file is
+   that same blue and would sit on the band at the same ratio. Out-specifies
+   `.sl-markdown-content a:not(.sl-link-card, .adr-button)` (0,2,1). */
+.adr-home .adr-roadmap a:not(.adr-button) {
 	color: var(--adr-canvas);
+	text-decoration-color: oklch(1 0 0 / 0.65);
+}
+
+.adr-home .adr-roadmap :is(a, button):focus-visible {
+	outline-color: var(--adr-canvas);
 }
 
 .adr-closing {
@@ -944,6 +1012,14 @@ main > .content-panel:first-child > .sl-container {
 	--ec-brdCol: var(--adr-line);
 }
 
+/* Starlight's defaults ship purple/blue/green accents that sit outside this
+   palette. Remap each variant onto the coral/ink/blue system, grouped by what
+   the variant means: note and tip are informational (blue), caution and danger
+   carry consequence (coral) — which is what DESIGN.md's Redline Rule reserves
+   coral for. The border stays a flat 1px Calibration Rule in the neutral line
+   colour: DESIGN.md prohibits coloured side stripes, and Starlight already
+   distinguishes the four types by icon and title text, so type is never carried
+   by colour alone. */
 .starlight-aside {
 	border: 1px solid var(--adr-line);
 	border-inline-start: 1px solid var(--adr-line);
@@ -952,11 +1028,78 @@ main > .content-panel:first-child > .sl-container {
 	box-shadow: none;
 }
 
+.starlight-aside--note,
+.starlight-aside--tip {
+	--sl-color-asides-text-accent: var(--adr-link);
+}
+
+.starlight-aside--caution,
+.starlight-aside--danger {
+	--sl-color-asides-text-accent: var(--adr-coral-deep);
+}
+
+/* --adr-link is already theme-switched; the coral accent needs the lighter
+   dark-theme pair the file defines for text on a dark surface. */
+:root[data-theme='dark'] :is(.starlight-aside--caution, .starlight-aside--danger) {
+	--sl-color-asides-text-accent: var(--sl-color-text-accent);
+}
+
 .starlight-aside__title {
 	font-family: 'Anybody Variable', 'Arial Narrow', sans-serif;
 	font-stretch: 108%;
 	font-weight: 700;
 	letter-spacing: -0.01em;
+}
+
+/* ADR status badges in the sidebar and page headers. Starlight's stock variants
+   are navy/green/orange. `accepted` is 25 of the 28 records, so the modal value
+   is the quiet one and only the exceptional statuses take a fill — otherwise the
+   sidebar reads as a column of chips rather than a list of decisions. */
+.sl-badge {
+	border-radius: var(--adr-radius-xs);
+	font-family: var(--sl-font-mono);
+	font-weight: 620;
+}
+
+.sl-badge.success,
+.sl-badge.note,
+.sl-badge.default {
+	border-color: var(--adr-line);
+	background: transparent;
+	color: var(--adr-text-muted);
+}
+
+.sl-badge.caution {
+	border-color: var(--adr-coral);
+	background: transparent;
+	color: var(--adr-coral-deep);
+}
+
+.sl-badge.danger {
+	border-color: var(--adr-coral-deep);
+	background: var(--adr-coral-deep);
+	color: var(--adr-canvas);
+}
+
+:root[data-theme='dark'] .sl-badge.caution {
+	color: var(--sl-color-text-accent);
+}
+
+:root[data-theme='dark'] .sl-badge.danger {
+	border-color: var(--adr-coral);
+	background: var(--adr-coral);
+}
+
+/* Starlight gives the badge on the current sidebar entry a transparent outline
+   that inherits the row's text colour, but ships it inside @layer
+   starlight.components. This stylesheet is unlayered, so the variant rules above
+   outrank it and would paint muted ink on the coral active row at 1.2:1.
+   Restoring it here — unlayered, and led with `:root` so it also clears the
+   `:root[data-theme='dark']` variant rules at (0,4,0) — puts it back. */
+:root .sidebar-content a[aria-current='page'] > .sl-badge {
+	border-color: currentColor;
+	background: transparent;
+	color: inherit;
 }
 
 .sl-link-card {
@@ -996,12 +1139,14 @@ tbody tr:nth-child(even) {
 }
 
 @media (max-width: 72rem) {
-	.adr-hero {
-		grid-template-columns: minmax(0, 0.9fr) minmax(27rem, 1.1fr);
+	/* Narrowing the shared gutter moves the hero and every section below it
+	   together; overriding one component's padding would split the left edge. */
+	:root {
+		--adr-gutter: clamp(1.5rem, 4vw, 4rem);
 	}
 
-	.adr-hero__copy {
-		padding-inline: clamp(1.5rem, 4vw, 4rem);
+	.adr-hero {
+		grid-template-columns: minmax(0, 0.9fr) minmax(27rem, 1.1fr);
 	}
 
 	.adr-instrument__body {
@@ -1044,11 +1189,19 @@ tbody tr:nth-child(even) {
 }
 
 @media (max-width: 48rem) {
+	/* No room left in the gutter to bleed rows into. */
+	:root {
+		--adr-row-bleed: 0px;
+	}
+
 	.adr-status-band {
 		grid-template-columns: 1fr;
 	}
 
+	/* Stacked, every cell is full width, so all of them take the page gutter —
+	   the first/last edge rules above resolve to the same value. */
 	.adr-status-band__item {
+		padding-inline: var(--adr-gutter);
 		border-inline-end: 0;
 		border-block-end: 1px solid var(--adr-line);
 	}
@@ -1092,10 +1245,12 @@ tbody tr:nth-child(even) {
 @media (max-width: 40rem) {
 	:root {
 		--sl-content-pad-x: 1rem;
+		--adr-gutter: 1.25rem;
+		--adr-section-block: 4rem;
 	}
 
 	.adr-hero__copy {
-		padding: 3.5rem 1.25rem;
+		padding-block: 3.5rem;
 	}
 
 	.adr-hero__meta {
@@ -1153,14 +1308,38 @@ tbody tr:nth-child(even) {
 		content: ' ↓';
 	}
 
-	.adr-home__section {
-		padding: 4rem 1.25rem;
-	}
-
 	.adr-thesis h2,
 	.adr-section-heading h2,
 	.adr-closing blockquote {
 		font-size: clamp(2.35rem, 12vw, 3.6rem);
+	}
+}
+
+/* The roadmap band is the one section whose text is white because its background
+   is coral. Browsers drop background graphics when printing by default, so
+   without this the whole section prints white-on-white. */
+@media print {
+	.adr-roadmap,
+	.adr-roadmap .adr-section-heading h2,
+	.adr-roadmap .adr-section-heading p,
+	.adr-roadmap__item h3,
+	.adr-roadmap__item p,
+	.adr-home .adr-roadmap :not(pre) > code,
+	.adr-home .adr-roadmap a:not(.adr-button) {
+		background: none;
+		color: var(--adr-ink);
+	}
+
+	.adr-roadmap__list,
+	.adr-roadmap__item {
+		border-color: var(--adr-border);
+	}
+
+	.adr-roadmap__item .adr-status--current,
+	.adr-roadmap__item .adr-status--planned {
+		border: 1px solid var(--adr-ink);
+		background: none;
+		color: var(--adr-ink);
 	}
 }
 

@@ -62,6 +62,13 @@ spacing:
   lg: "2rem"
   xl: "clamp(3rem, 7vw, 6rem)"
   section: "clamp(5rem, 11vw, 10rem)"
+  # Layout seams for the marketing page. `gutter` is the single horizontal inset
+  # the hero and every section below it share — they must resolve to one value
+  # or their headlines sit on two different left edges.
+  gutter: "clamp(1.25rem, 7vw, 8rem)"
+  sectionBlock: "clamp(4.5rem, 10vw, 9rem)"
+  rowBlock: "clamp(1.5rem, 2.5vw, 2.25rem)"
+  rowBleed: "clamp(0.75rem, 1.6vw, 1.5rem)"
 components:
   button-primary:
     backgroundColor: "{colors.decision-coral}"
@@ -231,6 +238,15 @@ of one instrument rather than soft promotional objects.
   carries status.
 - **State:** Current capabilities use Working Ink fills. Planned capabilities use
   Instrument Surface with a visible outline.
+- **On a coral field:** the roadmap band is Decision Coral in both themes, so the
+  ink/canvas pair inverts — a current chip becomes a Canvas fill with
+  Decision Coral Deep text, and a planned chip keeps its outline in Canvas. The
+  documented pair would otherwise resolve to near-white text on a near-white fill
+  in dark mode.
+- **Documentation status badges** (`accepted`, `superseded`, `draft`, `rejected`)
+  follow the same rule with one addition: the modal value is the quiet one.
+  `accepted` is the overwhelming majority of the corpus, so it takes the outline
+  and only the exceptional statuses take a fill.
 
 ### Cards / Containers
 
