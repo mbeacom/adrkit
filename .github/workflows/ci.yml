@@ -177,11 +177,23 @@ jobs:
       # The only job in this repository that can write. Scoped to one job rather than
       # raised at the workflow level so the write capability is visible in one place.
       pull-requests: write
+    # `cancel-in-progress: false`, matching `release.yml` and the reference workflow in
+    # `specs/004-ci-surface/evidence/reference-repo/`. This job was the odd one out at
+    # `true` until the second operator review noticed that the reference file argues the
+    # opposite case in writing — for the same write, to the same comment — and that I had
+    # written both. Cancellation is a signal plus a grace period, not a guarantee the run
+    # has stopped, so a cancelled dispatch can still be inside its create call when the
+    # replacement lists an empty set and creates its own. The result is a duplicate, which
+    # is deliberately non-retryable and needs a human to delete a comment: a cancelled
+    # write leaves worse state than a queued one. The cost is that a burst of pushes
+    # queues this job rather than superseding it.
     concurrency:
-      # Two runs of this job on one pull request would both list zero comments and both
-      # create, failing the assertion on a correct Action. Serialize per pull request.
       group: action-dogfood-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
+      cancel-in-progress: false
+    # Without this the job inherits the 360-minute default. A hung `gh api` would leave a
+    # required check Pending for six hours — the one state that produces no notification
+    # and no log line, so the pull request is unmergeable and nothing says why.
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -211,7 +223,7 @@ jobs:
           # hypothetical: measured against the labels endpoint at `per_page=5`, the
           # in-filter form produced three lines and this form produced one.
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select((.body // "") | split("\n")[0] == "<!-- adrkit:ci -->")
+            --jq '.[] | select((.body // "") | test("^<!-- adrkit:ci -->(\r|\n|$)"))
                       | select(.user.type == "Bot") | .id' \
             | paste -sd, - > "$RUNNER_TEMP/prior-ids"
           echo "already ours before this run: $(cat "$RUNNER_TEMP/prior-ids" || echo none)"
@@ -224,6 +236,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          set -euo pipefail
           # This is also a read-your-writes barrier, which is why it runs between the
           # two dispatches rather than only after them. GitHub can serve the comment
           # list from a replica, and a second dispatch that listed before the first
@@ -236,6 +249,10 @@ jobs:
           # comment set that reading again cannot change, and retrying it would just be
           # retrying until a gate passes.
           verdict=""
+          # Five attempts with exponential backoff (5s, 10s, 20s, 40s — 75s total). A
+          # flat 25s was sized for read-replica lag, which is sub-second; the transient
+          # classes actually met are longer — a secondary rate limit is answered with a
+          # Retry-After commonly at or above 60s.
           for attempt in 1 2 3 4 5; do
             # Each API read is soft. Under `bash -e` a bare `gh api` failure would kill
             # the step on attempt 1, so the loop could not retry the transient class it
@@ -252,15 +269,28 @@ jobs:
                     > "$RUNNER_TEMP/after-first.json" \
                || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments'); then
               verdict="the GitHub API could not be read"
-              echo "attempt $attempt: $verdict; retrying in 5s" >&2
-              sleep 5
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+              continue
+            fi
+            # A count that is not a decimal integer would be read by `$(( ))` as a
+            # variable name — 0 when unset — which silently disables the completeness
+            # cross-check while the log shows it applied. Validate rather than assume.
+            if ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              verdict="the comment count was not a number (before='$before' after='$after')"
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
               continue
             fi
             set +e
+            # --just-wrote: a dispatch happened moments ago, so a comment that is not yet
+            # visible is a stale read rather than a missing write. Without it `absent` is
+            # definitive and this loop cannot retry the very race it exists for.
             bun run check:ci-comment "$RUNNER_TEMP/after-first.json" \
               --expect-total="$(( before < after ? before : after ))" \
               --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
-              --id-file="$RUNNER_TEMP/comment-id"
+              --id-file="$RUNNER_TEMP/comment-id" \
+              --just-wrote
             status=$?
             set -e
             if [ "$status" -eq 0 ]; then exit 0; fi
@@ -269,8 +299,8 @@ jobs:
               exit 1
             fi
             verdict="the comment list read is not yet consistent"
-            echo "attempt $attempt: $verdict; retrying in 5s" >&2
-            sleep 5
+            echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+            sleep "$(( 5 * (2 ** (attempt - 1)) ))"
           done
           # Name what was actually observed. "never became visible, or was not unique"
           # is an OR across two causes with opposite responses, and it is the line
@@ -291,24 +321,47 @@ jobs:
           # is raised by a lagging replica as readily as by a lost --paginate, and this
           # assertion previously failed outright on it, which reds a required check on
           # a healthy Action with a message blaming pagination.
-          for attempt in 1 2 3; do
-            before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
-            gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-              > "$RUNNER_TEMP/after-second.json"
-            after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
+          # Same budget as the first assertion. It was 3 attempts with no stated reason
+          # for the asymmetry, and with --just-wrote below it now guards the same race.
+          verdict=""
+          for attempt in 1 2 3 4 5; do
+            # Soft reads, as in the first assertion. These were bare, so a single 502 or
+            # secondary rate limit killed the step on attempt 1 — the transient class the
+            # loop exists for — despite the comment claiming it was bracketed "the same
+            # way as above".
+            if ! before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                    > "$RUNNER_TEMP/after-second.json" \
+               || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments'); then
+              verdict="the GitHub API could not be read"
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+              continue
+            fi
+            if ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              verdict="the comment count was not a number (before='$before' after='$after')"
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+              continue
+            fi
             set +e
             bun run check:ci-comment "$RUNNER_TEMP/after-second.json" \
               --expect-total="$(( before < after ? before : after ))" \
               --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
-              --expect-id="$(cat "$RUNNER_TEMP/comment-id")"
+              --expect-id="$(cat "$RUNNER_TEMP/comment-id")" \
+              --just-wrote
             status=$?
             set -e
             if [ "$status" -eq 0 ]; then exit 0; fi
-            if [ "$status" -ne 2 ]; then exit 1; fi
-            echo "attempt $attempt: the comment list read is not yet consistent; retrying in 5s" >&2
-            sleep 5
+            if [ "$status" -ne 2 ]; then
+              echo "the comment set is wrong, and reading it again will not change that" >&2
+              exit 1
+            fi
+            verdict="the comment list read is not yet consistent"
+            echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+            sleep "$(( 5 * (2 ** (attempt - 1)) ))"
           done
-          echo "gave up after 3 attempts: the comment list read never became consistent" >&2
+          echo "gave up after 5 attempts: $verdict" >&2
           exit 1
 
   dco:

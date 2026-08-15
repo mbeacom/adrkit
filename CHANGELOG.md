@@ -118,6 +118,33 @@ Until `1.0.0`, minor releases may include breaking changes
   only on the field being uncontractual, which two contradicting contexts evidence better
   than either result alone.
 
+- **A second review found the retry loops were decorative, and the fix is `--just-wrote`.**
+  The read-your-writes race the loops exist for — a comment created moments ago and not
+  yet visible on a read replica — produces the `absent` rule, not `incomplete`. With
+  `absent` permanently definitive, the checker exited 1 and the workflow killed the step
+  on attempt 1, so the loops could only ever retry the lost-`--paginate` class, which
+  retrying cannot fix. Reproduced before fixing: `check-ci-comment empty.json
+  --expect-total=1` exited 1, not 2. `--just-wrote` now marks `absent` retryable for a
+  caller that dispatched a write immediately beforehand, and definitive otherwise —
+  a duplicate or a changed id stays fatal either way, by test.
+
+  Also from that review: every `gh api` read is now soft, not just the ones in the first
+  loop (a single 502 killed the step the loop was built to survive); comment counts are
+  validated as decimal integers before `$(( ))`, which read a non-numeric value as a
+  variable name and silently disabled the completeness check at zero; the `prior-ids` jq
+  filter splits on all three line terminators, matching the classifier rather than being a
+  fourth place that decides ownership differently; retries use exponential backoff to 75s,
+  since a secondary rate limit is answered with a `Retry-After` well past a flat 25s; and
+  the job gained `timeout-minutes: 10`, because a hung request would otherwise leave a
+  required check Pending for six hours — the one state with no notification and no log.
+
+  **`cancel-in-progress` is now `false`**, matching `release.yml` and the reference
+  workflow. This job was the odd one out at `true` while the reference file argued the
+  opposite in writing, for the same write to the same comment — both files written here.
+  Cancellation is a signal plus a grace period, so a cancelled dispatch can still be
+  mid-create when its replacement lists an empty set and creates its own, and the
+  resulting duplicate is non-retryable and needs a human to delete a comment.
+
 - **A runnable rung-2 reference-repository artifact for the comment path**
   (`specs/004-ci-surface/evidence/reference-repo/`). It calls the Action as a consumer
   does — `uses: mbeacom/adrkit/packages/ci@<sha>` — and covers two scenarios the

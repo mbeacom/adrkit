@@ -94,7 +94,7 @@ jobs:
           # hypothetical: measured against the labels endpoint at `per_page=5`, the
           # in-filter form produced three lines and this form produced one.
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select((.body // "") | split("\n")[0] == "<!-- adrkit:ci -->")
+            --jq '.[] | select((.body // "") | test("^<!-- adrkit:ci -->(\r|\n|$)"))
                       | select(.user.type == "Bot") | .id' \
             | paste -sd, - > "$RUNNER_TEMP/prior-ids"
           echo "already ours before this run: $(cat "$RUNNER_TEMP/prior-ids" || echo none)"
@@ -113,15 +113,21 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3 4 5; do
-            before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
-            gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-              > "$RUNNER_TEMP/after-first.json"
-            after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
+            if ! before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                    > "$RUNNER_TEMP/after-first.json" \
+               || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              echo "attempt $attempt: the GitHub API could not be read cleanly; retrying in 5s" >&2
+              sleep 5
+              continue
+            fi
             set +e
             bun run .adrkit-src/scripts/check-ci-comment.ts "$RUNNER_TEMP/after-first.json" \
               --expect-total="$(( before < after ? before : after ))" \
               --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
-              --id-file="$RUNNER_TEMP/comment-id"
+              --id-file="$RUNNER_TEMP/comment-id" \
+              --just-wrote
             status=$?
             set -e
             if [ "$status" -eq 0 ]; then exit 0; fi
@@ -145,15 +151,21 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
-            before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
-            gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-              > "$RUNNER_TEMP/comments.json"
-            after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments')
+            if ! before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                    > "$RUNNER_TEMP/comments.json" \
+               || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              echo "attempt $attempt: the GitHub API could not be read cleanly; retrying in 5s" >&2
+              sleep 5
+              continue
+            fi
             set +e
             bun run .adrkit-src/scripts/check-ci-comment.ts "$RUNNER_TEMP/comments.json" \
               --expect-total="$(( before < after ? before : after ))" \
               --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
-              --expect-id="$(cat "$RUNNER_TEMP/comment-id")"
+              --expect-id="$(cat "$RUNNER_TEMP/comment-id")" \
+              --just-wrote
             status=$?
             set -e
             if [ "$status" -eq 0 ]; then exit 0; fi

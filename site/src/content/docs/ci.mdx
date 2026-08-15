@@ -47,6 +47,14 @@ needed an `env: GITHUB_TOKEN: ${{ github.token }}` block
 so that block is no longer required — and costs nothing if you still have it, because
 the Action never reads the variable to identify its token.
 
+That was measured, not just read from the source. On a reference repository the block was
+removed entirely (at **job** level, which is where a copied snippet often puts it, and
+which takes the variable out of the Action's environment for every step), and two
+dispatches on one pull request left a single comment with the **same id** — created, then
+updated in place. The runner log confirms the variable was genuinely absent rather than
+merely deleted from a file. The observation covers the **default `GITHUB_TOKEN`**; a
+custom GitHub App token takes the same code path but has not been observed separately.
+
 `v0` is a moving major tag, and it now resolves to a `v0.7.0` build. Pin the
 immutable `v0.7.0` tag or a commit SHA for maximum reproducibility.
 

@@ -229,6 +229,40 @@ describe('onlyRetryable', () => {
     expect(onlyRetryable(findCommentViolations([comment()], { expectTotal: 9 }).violations)).toBe(true);
   });
 
+  // The read-your-writes race the workflow retry loops exist for produces `absent`, not
+  // `incomplete`: the comment was created moments ago and is not on the replica yet.
+  // With `absent` permanently definitive the loops could only retry the lost-`--paginate`
+  // class, which retrying cannot fix — so they were decorative for their stated purpose.
+  // Found by the second adversarial review and reproduced before this fix.
+  describe('the read-your-writes race', () => {
+    const missing = findCommentViolations([], { expectTotal: 1 }).violations;
+
+    test('is definitive by default, because a bare caller claims no write', () => {
+      expect(missing.map((v) => v.rule)).toEqual(['incomplete', 'absent']);
+      expect(onlyRetryable(missing)).toBe(false);
+    });
+
+    test('is retryable when the caller says it just wrote', () => {
+      expect(onlyRetryable(missing, true)).toBe(true);
+    });
+
+    test('absent alone is retryable when the caller just wrote', () => {
+      expect(onlyRetryable(findCommentViolations([]).violations, true)).toBe(true);
+    });
+
+    // --just-wrote must not make a WRONG comment set retryable, only a possibly-stale
+    // read of one. Retrying a duplicate would be retrying until the gate passes.
+    test('does not make a duplicate retryable', () => {
+      const dup = findCommentViolations([comment(), comment({ id: 2 })]).violations;
+      expect(onlyRetryable(dup, true)).toBe(false);
+    });
+
+    test('does not make id-changed retryable', () => {
+      const changed = findCommentViolations([comment({ id: 7 })], { expectId: 42 }).violations;
+      expect(onlyRetryable(changed, true)).toBe(false);
+    });
+  });
+
   // Retrying a duplicate would be retrying until the gate passes, which it never will:
   // the comment set is wrong, and reading it again cannot change that.
   test('a duplicate alongside an incomplete is NOT retryable', () => {
@@ -262,7 +296,9 @@ describe('parseComments', () => {
 
 describe('parseArgs', () => {
   test('reads a bare path', () => {
-    expect(parseArgs(['comments.json'])).toEqual({ path: 'comments.json', checks: {}, idFile: undefined, help: false });
+    expect(parseArgs(['comments.json'])).toEqual({
+      path: 'comments.json', checks: {}, idFile: undefined, justWrote: false, help: false,
+    });
   });
 
   test('reads every cross-check', () => {
@@ -270,6 +306,7 @@ describe('parseArgs', () => {
       path: 'c.json',
       checks: { expectTotal: 5, expectId: 9, priorIds: [1, 2] },
       idFile: '/tmp/id',
+      justWrote: false,
       help: false,
     });
   });
@@ -302,6 +339,11 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--pagniate'])).toThrow(/unrecognised option/);
   });
 
+  test('recognises --just-wrote', () => {
+    expect(parseArgs(['--just-wrote']).justWrote).toBe(true);
+    expect(parseArgs([]).justWrote).toBe(false);
+  });
+
   test('recognises --help and -h', () => {
     expect(parseArgs(['--help']).help).toBe(true);
     expect(parseArgs(['-h']).help).toBe(true);
@@ -310,7 +352,7 @@ describe('parseArgs', () => {
 
 describe('USAGE', () => {
   test('documents every flag the parser accepts', () => {
-    for (const flag of ['--expect-total', '--expect-id', '--expect-ids', '--id-file', '--help']) {
+    for (const flag of ['--expect-total', '--expect-id', '--expect-ids', '--id-file', '--just-wrote', '--help']) {
       expect(USAGE).toContain(flag);
     }
   });
@@ -403,6 +445,13 @@ describe('main', () => {
     const error = (await main([fixturePath('single.json'), '--expect-total=99']).catch((e) => e)) as CheckFailure;
     expect(error.exitCode).toBe(2);
     expect(error.message).toContain('retryable');
+  });
+
+  test('exits 1 on a missing comment by default, and 2 with --just-wrote', async () => {
+    const bare = (await main([fixturePath('empty.json')]).catch((e) => e)) as CheckFailure;
+    expect(bare.exitCode).toBe(1);
+    const wrote = (await main([fixturePath('empty.json'), '--just-wrote']).catch((e) => e)) as CheckFailure;
+    expect(wrote.exitCode).toBe(2);
   });
 
   test('exits 1 when a retryable violation accompanies a definitive one', async () => {

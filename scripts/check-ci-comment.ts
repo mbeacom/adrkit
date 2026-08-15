@@ -109,12 +109,27 @@ export type ViolationRule = 'absent' | 'duplicate' | 'id-changed' | 'incomplete'
 /**
  * Violations a caller may resolve by reading again, rather than by fixing anything.
  *
- * Only `incomplete` qualifies: it fires when the fetched list is shorter than the count
+ * `incomplete` always qualifies: it fires when the fetched list is shorter than the count
  * GitHub reports for the issue, which a lagging read replica produces as readily as a
- * lost `--paginate`. Every other rule describes the comment set itself, which reading
- * again cannot change — retrying those would be retrying until a gate passes.
+ * lost `--paginate`.
+ *
+ * `absent` qualifies **only when the caller says it just wrote** (`--just-wrote`). This
+ * is the read-your-writes case, and getting it wrong made the retry loops decorative: a
+ * comment created moments ago but not yet visible on a replica produces `absent`, not
+ * `incomplete`, so with `absent` permanently definitive the loops could only ever retry
+ * the one class retrying cannot fix. Found by the second adversarial review, and
+ * reproduced: `check-ci-comment empty.json --expect-total=1` exited 1, not 2.
+ *
+ * It stays definitive by default, because a bare invocation has made no claim about
+ * having written anything, and treating a missing comment as transient there is the
+ * blind pass this gate exists to prevent. Retries are bounded either way — an exhausted
+ * loop still fails.
  */
-const RETRYABLE_RULES: ReadonlySet<ViolationRule> = new Set<ViolationRule>(['incomplete']);
+function retryableRules(justWrote: boolean): ReadonlySet<ViolationRule> {
+  return justWrote
+    ? new Set<ViolationRule>(['incomplete', 'absent'])
+    : new Set<ViolationRule>(['incomplete']);
+}
 
 export interface Violation {
   rule: ViolationRule;
@@ -333,9 +348,15 @@ export function findCommentViolations(
   return { examined: comments.length, own, impostors, quoting, violations };
 }
 
-/** Whether every violation is one a caller could resolve by reading again. */
-export function onlyRetryable(violations: readonly Violation[]): boolean {
-  return violations.length > 0 && violations.every((v) => RETRYABLE_RULES.has(v.rule));
+/**
+ * Whether every violation is one a caller could resolve by reading again.
+ *
+ * `justWrote` reports that the caller dispatched a write immediately before this read,
+ * which is what makes a missing comment plausibly stale rather than plausibly absent.
+ */
+export function onlyRetryable(violations: readonly Violation[], justWrote = false): boolean {
+  const retryable = retryableRules(justWrote);
+  return violations.length > 0 && violations.every((v) => retryable.has(v.rule));
 }
 
 /**
@@ -413,6 +434,9 @@ Options:
                      Diagnostic only: distinguishes a duplicate this run created from
                      one the pull request already carried.
   --id-file=PATH     Write the surviving comment's id to PATH.
+  --just-wrote       The caller dispatched a write immediately before this read, so a
+                     missing comment is treated as a stale read (exit 2) rather than a
+                     definitive absence (exit 1). Bounded retries still fail eventually.
   --help, -h         Show this message.
 
 Exit codes: 0 ok; 1 a definitive violation or a usage error; 2 only retryable
@@ -422,6 +446,7 @@ export interface ParsedArgs {
   path?: string;
   checks: CrossChecks;
   idFile?: string;
+  justWrote: boolean;
   help: boolean;
 }
 
@@ -435,9 +460,16 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const checks: CrossChecks = {};
   let path: string | undefined;
   let idFile: string | undefined;
+  let justWrote = false;
 
   for (const arg of argv) {
-    if (arg === '--help' || arg === '-h') return { path: undefined, checks: {}, help: true };
+    if (arg === '--help' || arg === '-h') {
+      return { path: undefined, checks: {}, justWrote: false, help: true };
+    }
+    if (arg === '--just-wrote') {
+      justWrote = true;
+      continue;
+    }
 
     const idOut = /^--id-file=(.*)$/.exec(arg);
     if (idOut) {
@@ -478,7 +510,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     path = arg;
   }
 
-  return { path, checks, idFile, help: false };
+  return { path, checks, idFile, justWrote, help: false };
 }
 
 /** Thrown with the exit code the CLI should use, so `main` never calls `process.exit`. */
@@ -493,7 +525,7 @@ export class CheckFailure extends Error {
 }
 
 export async function main(argv: readonly string[]): Promise<void> {
-  const { path, checks, idFile, help } = parseArgs(argv);
+  const { path, checks, idFile, justWrote, help } = parseArgs(argv);
   if (help) {
     console.log(USAGE);
     return;
@@ -507,7 +539,7 @@ export async function main(argv: readonly string[]): Promise<void> {
     const detail = report.violations
       .map((violation) => `  [${violation.rule}] ${violation.message}`)
       .join('\n\n');
-    const retryable = onlyRetryable(report.violations);
+    const retryable = onlyRetryable(report.violations, justWrote);
     throw new CheckFailure(
       `the governing-decisions comment is not as expected on this pull request:\n\n${detail}\n\n` +
         (retryable

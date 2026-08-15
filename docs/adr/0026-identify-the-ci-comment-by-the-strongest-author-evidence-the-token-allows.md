@@ -199,6 +199,15 @@ The `isDefaultToken` plumbing is deleted. `GITHUB_TOKEN` remains a fallback *sou
 of the token for a workflow that blanks the input, but it is no longer consulted to
 decide who we are.
 
+That deletion has since been **observed** rather than only reasoned about, which matters
+because the published documentation tells adopters the `env:` block is safe to remove and
+an error there would hand every adopter the #107 defect back. On a reference repository
+the block was removed at job level — verified absent from the Action's environment in the
+runner log, not merely deleted from a file — and two dispatches left one comment with the
+same id (`5299964169`), logging `created` then `updated`, with
+`an app installation token, whose login is not resolvable` on both. Scoped to the default
+`GITHUB_TOKEN` at one pin; a custom App token takes the same path and was not observed.
+
 ## Options considered
 
 ### Option A: classify the lookup failure; match on bot-ness plus a leading marker (chosen)
@@ -482,12 +491,22 @@ have one.
 
    Still open: making `action-dogfood` a required check on the `main` ruleset, which
    cannot happen until it has run green at least once, since it skips on the pull
-   requests that cannot satisfy it. Two operational facts belong with that step, because
-   both live in repository settings rather than in this repository: the check is named by
-   the **job id `action-dogfood`**, so renaming or relocating that job leaves every pull
-   request waiting on a check that will never report, which only an administrator can
-   clear; and disabling the gate means removing it from the ruleset, not editing
-   `ci.yml`, since a workflow edit lands in the same pull request the gate is blocking.
+   requests that cannot satisfy it. Three operational facts belong with that step, because
+   all three live in repository settings rather than in this repository:
+
+   - The check is named by the **job id `action-dogfood`**, so renaming or relocating that
+     job leaves every pull request waiting on a check that will never report, which only
+     an administrator can clear.
+   - Disabling the gate means removing it from the ruleset, not editing `ci.yml`, since a
+     workflow edit lands in the same pull request the gate is blocking.
+   - **`clean-clone-builds` must be made required in the same edit.** `action-dogfood`
+     declares `needs: clean-clone-builds`, and a job skipped because its dependency failed
+     is reported exactly like one skipped by an `if:` — as success. So a pull request whose
+     build fails would satisfy the comment gate without the Action ever having run, which
+     is this record's own blind spot reopened through a mechanism nobody would be watching.
+     Dropping `needs` is not the alternative: the bundle-drift check it waits for is only
+     meaningful after `bun run build`, so removing the dependency would mean rebuilding
+     inside this job. Raised by the second operator review.
 10. [ ] **Deferred, tracked separately.** `v0` is a moving tag with no documented
     rollback, so recovering from a bad Action release depends on a maintainer knowing
     to force-move it by hand.
