@@ -3,6 +3,8 @@ title: Command reference
 description: Every adrkit CLI command, its options, and its documented exit codes.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 The `adr` binary (published as `@adrkit/cli`) is a small set of deterministic
 commands. Run any of them with `--help`, or `adr help <command>`, to print the
 same text shown here. Global synopsis:
@@ -20,6 +22,14 @@ adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
 adr help [command]        Show help, or help for one command
 adr --version             Print the @adrkit/cli version
 ```
+
+<Aside type="caution" title="Invoking these commands">
+	Every command below is written as bare `adr …`. That works when `@adrkit/cli`
+	is installed in the project. Running one-off, name the package —
+	`npx @adrkit/cli lint` — because a bare `npx adr` resolves an **unrelated**
+	`adr` package on npm that does not implement these commands. See the
+	[quickstart](/quickstart/#install).
+</Aside>
 
 ## adr lint
 

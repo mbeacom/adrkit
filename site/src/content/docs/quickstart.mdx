@@ -21,28 +21,42 @@ evaluator.
 
 Add the CLI to a project, or run it one-off. It exposes the `adr` binary.
 
+<Aside type="caution" title="Name the package: @adrkit/cli">
+	adrkit's binary is `adr`, but the bare name `adr` on npm belongs to an
+	**unrelated package**. A bare `npx adr …` / `bunx adr …` downloads that other
+	tool, which has no `lint`, `explain`, `graph`, or `migrate` — but does ship
+	its own `new`, so it can look like it works before failing on everything
+	else.
+
+	Either name the package every time — `npx @adrkit/cli lint` — or install
+	`@adrkit/cli` into the project first. Once it is a local dependency,
+	`npx adr …` resolves your installed binary instead of the registry.
+</Aside>
+
 <Tabs>
 <TabItem label="npm / npx">
 
 ```sh
-# add to a project
-npm install --save-dev @adrkit/cli
-npx adr lint
-
-# one-off, no install
+# one-off, no install — name the package
+npx @adrkit/cli lint
 npx @adrkit/cli explain src/payments/api.ts
+
+# or add it to the project first
+npm install --save-dev @adrkit/cli
+npx adr lint   # now resolves the locally installed binary
 ```
 
 </TabItem>
 <TabItem label="Bun">
 
 ```sh
-# add to a project
-bun add --dev @adrkit/cli
-bunx adr lint
-
-# one-off, no install
+# one-off, no install — name the package
+bunx @adrkit/cli lint
 bunx @adrkit/cli explain src/payments/api.ts
+
+# or add it to the project first
+bun add --dev @adrkit/cli
+bunx adr lint   # now resolves the locally installed binary
 ```
 
 </TabItem>
@@ -67,11 +81,10 @@ npm install @adrkit/core @adrkit/evaluator
 	```
 </Aside>
 
-The examples below use the `adr` binary. From a project that has `@adrkit/cli`
-installed, `npx adr …` / `bunx adr …` resolves the local binary. Without an
-install you must name the package — `npx @adrkit/cli lint`, `bunx @adrkit/cli
-lint` — because a bare `npx adr` resolves an unrelated `adr` package on npm. From
-a source checkout, use `bun run adr`.
+The examples below are written as bare `adr …` for readability. Unless you have
+installed `@adrkit/cli` into the project, run them as `npx @adrkit/cli …` /
+`bunx @adrkit/cli …` — see the caution above. From a source checkout, use
+`bun run adr`.
 
 ## Validate a corpus — `adr lint`
 
