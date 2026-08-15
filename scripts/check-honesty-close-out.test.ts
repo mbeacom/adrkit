@@ -248,10 +248,18 @@ function listStem(text: string, index: number): string | undefined {
  * the rules fired on the evidence *for* the rules. A document that records a violation is
  * not committing one.
  *
- * Fences are counted by **opening/closing pairs of the same marker**, not by raw parity of
- * every backtick line. Naive parity is fragile: a four-backtick fence, or a `~~~` fence,
- * flips the count and would suppress every rule for the rest of the file — turning a
- * formatting choice into a silent hole in the check.
+ * Fences are counted by **opening/closing pairs**, not by raw parity of every backtick
+ * line. Naive parity is fragile: a four-backtick fence, or a `~~~` fence, flips the count
+ * and would suppress every rule for the rest of the file — turning a formatting choice
+ * into a silent hole in the check.
+ *
+ * A pair takes CommonMark's *two* conditions, and keeping only the first was itself such a
+ * hole (found in review on PR #98). Matching the marker character alone let a ` ``` ` line
+ * close a ` ```` ` block — which is precisely how one quotes a fenced block inside a
+ * fenced block. Both directions broke: the quoted content lost its exemption, and, where
+ * the block held an odd number of line-leading ` ``` ` markers, the real closer *reopened*
+ * a fence and suppressed every rule for the remainder of the document. The opening run is
+ * therefore kept whole, and closes only on the same character at **at least** its length.
  */
 function inFencedBlock(text: string, index: number): boolean {
   const before = text.slice(0, index);
@@ -262,11 +270,12 @@ function inFencedBlock(text: string, index: number): boolean {
     if (fence === undefined) continue;
 
     if (open === undefined) {
-      open = fence[0] as string;
+      open = fence;
       continue;
     }
-    // A fence closes only with the same marker character.
-    if (fence.startsWith(open)) open = undefined;
+    // A fence closes only with the same marker character, in a run at least as long as
+    // the one that opened it. Dropping either condition reopens the hole above.
+    if (fence[0] === open[0] && fence.length >= open.length) open = undefined;
   }
 
   return open !== undefined;
@@ -545,6 +554,47 @@ describe('T100 \u2014 the negation test, checked in isolation', () => {
     const row = '| rung 2 | it is reference-verified | no evidence |';
     expect(HONESTY_RULES.filter((rule) => firesOn(rule, row)).map((rule) => rule.id)).toEqual([
       'rung-2-claim',
+    ]);
+  });
+
+  test('a shorter fence does not close a longer one, so quoted content keeps its exemption', () => {
+    // How a negative-case README quotes a fenced block: wrap it in a *longer* fence. On the
+    // marker-character-only rule the inner ``` closed the ```` block, the claim fell out of
+    // the exemption, and the document was flagged for the fixture it exists to show.
+    const quoted = [
+      '````markdown',
+      'The claim this case was built around:',
+      '',
+      '```text',
+      'The adapter is published to npm and is externally validated.',
+      '```',
+      '````',
+    ].join('\n');
+
+    expect(honestyViolations([{ path: 'fixture.md', text: quoted }])).toEqual([]);
+  });
+
+  test('a longer fence closes rather than reopens, so rules still fire below it', () => {
+    // The dangerous direction, and the reason this is not cosmetic. With an odd number of
+    // line-leading ``` markers inside the block, the real ```` closer was read as a fresh
+    // opening — leaving a fence open to end of file and silently exempting everything
+    // after it. The claim below is the same one the sentence-scope test uses, so the rules
+    // it must trigger are already established.
+    const afterBlock = [
+      '````markdown',
+      'How a fenced block is written:',
+      '',
+      '```bash',
+      'adr check',
+      '````',
+      '',
+      'The adapter is published to npm and is externally validated.',
+    ].join('\n');
+
+    const violations = honestyViolations([{ path: 'fixture.md', text: afterBlock }]);
+    expect(violations.map((violation) => violation.ruleId).sort()).toEqual([
+      'release-claim',
+      'rung-3-claim',
     ]);
   });
 });
