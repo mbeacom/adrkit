@@ -9,6 +9,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Changed
+
+- **`action-dogfood` is a required status check on `main`** (2026-08-15), added once it
+  had run green across several commits of #143 — it could not be required before that,
+  since it skips on the pull requests that cannot satisfy it. Checked while adding it:
+  `clean-clone-builds` was **already** required, which closes the hole the second operator
+  review raised conditionally. That coupling is now recorded on
+  [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md),
+  because it is invisible from both sides — `action-dogfood` declares
+  `needs: clean-clone-builds`, a job skipped for a failed dependency reports success
+  exactly like one skipped by an `if:`, and nothing in `ci.yml` says that dropping
+  `clean-clone-builds` from the ruleset would silently weaken the comment gate.
+
 ### Added
 
 - **The comment-posting Action now has an end-to-end signal**
