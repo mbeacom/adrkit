@@ -21,6 +21,14 @@ affects:
     pattern: "packages/cli/src/queue.ts"
 provenance:
   authoredBy: agent-drafted
+externalRefs:
+  - type: doc
+    url: "https://github.com/backstage/community-plugins/tree/main/workspaces/adr/plugins/adr"
+    label: "@backstage-community/plugin-adr — prior art for the document layer (clause 5)"
+  - type: pr
+    id: "98"
+    url: "https://github.com/mbeacom/adrkit/pull/98"
+    label: "Feature 010 Phase G — the ingest-direction work that surfaced this gap"
 review:
   tier: arb
   tierReason: >-
@@ -77,8 +85,34 @@ outputs — are published and usable today.
 
 Finally, the cost of leaving this ambiguous is not hypothetical. It has already produced
 a 97-file, 8,554-line pull request advancing the ingest direction under the shared belief
-that "Backstage support" was being built. Nothing in that work is wasted, and none of it
-moves this direction forward.
+that "Backstage support" was being built. The packages that work produced are not what
+this direction needs — but one artifact of it is. **ADR-0012's `adrkit.io/owned-paths`
+annotation is shared by both directions.** Ingest consumes it to resolve `affects:` to
+owners; publication needs the same mapping in reverse, to answer "which decisions govern
+this component" for an entity whose owned paths it must first know. The contract is
+common ground even though the packages are not.
+
+### Prior art: this is not a greenfield surface
+
+`@backstage-community/plugin-adr` already exists and already solves the **document** half.
+It contributes an entity ADR tab, a backend that fetches markdown through Backstage's URL
+readers (so host integrations and auth are handled), search indexing via
+`search-backend-module-adr`, and New Frontend System support. It exposes real extension
+points — `filePathFilterFn`, `contentDecorators`, and a replaceable `statusComponent`.
+
+Two details make it unusually close to adrkit already: adrkit's `NNNN-title-with-dashes.md`
+filenames match the plugin's own documented custom-filter example, and its sample status
+component switches on `draft`, `proposed`, `accepted`, `rejected`, `deprecated`, and
+`superseded` — every status in `schema/adr.schema.json`.
+
+What it does **not** model is the machine-readable layer that is adrkit's actual
+contribution: path-to-decision governance via `affects:`, the ARB queue and its SLA state,
+assertion enforcement status, the supersession graph, and inbound `@adr` markers. It reads
+ADRs as documents belonging to an entity; it has no concept of a decision governing a path
+across entities.
+
+Any record scoping this surface has to say which of those halves it is building, or it
+invites rebuilding work that already exists.
 
 ## Decision
 
@@ -106,6 +140,25 @@ published output, outside the catalog adapter boundary.** Four clauses, all bind
    ADR-0020's pattern. Nothing scoped here is
    [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
    rung 2 or rung 3, and no publish target, tag, channel, or date is authorized or implied.
+
+5. **The scope is the governance layer, not ADR document rendering.** Where
+   `@backstage-community/plugin-adr` already serves — browsing, rendering, and searching
+   ADR markdown on an entity page — we configure and extend it rather than compete with
+   it. What we build is what it does not model: path-to-decision governance from
+   `affects:`, the ARB queue, assertion enforcement status, the supersession graph, and
+   inbound `@adr` markers. Any proposal to reimplement ADR rendering must first record why
+   the existing plugin's `filePathFilterFn`, `contentDecorators`, and `statusComponent`
+   extension points were insufficient.
+
+6. **Resolution runs through `@adrkit/core`, never a reimplementation.** The consumer reads
+   the corpus and calls the published resolvers. Re-deriving `affects:` matching, status
+   bucketing, or queue construction downstream would create exactly the drift this record's
+   trade-offs section identifies as its main cost, and would do so in the one place where
+   it is avoidable.
+
+**Entity-to-path mapping reuses ADR-0012's `adrkit.io/owned-paths` annotation** rather than
+inventing a second ownership contract. This is the one place the two directions genuinely
+share ground, and duplicating it would be the worst of both.
 
 **This record does not amend or supersede ADR-0013.** ADR-0013's catalog clause remains
 authoritative and unchanged for the ingest direction. This record states what that clause
@@ -152,6 +205,22 @@ substantial work. Without a record, the next contributor re-derives the directio
 distinction by reading feature 010's evidence tree, or does not derive it at all and lands
 the plugin inside the glob.
 
+### Option E: Adopt `@backstage-community/plugin-adr` alone and build nothing
+
+**Pros:** zero engineering. It already renders ADRs on entity pages, indexes them for
+search, and handles host integrations and auth. For teams who want *"show me the ADR
+markdown for this component,"* it is sufficient today and adrkit adds nothing.
+
+**Cons:** it models ADRs as documents belonging to an entity. It cannot answer the
+questions adrkit exists to answer — which decision governs this path, what is in the ARB
+queue and how close to SLA, whether an assertion is enforced or inert, what superseded
+what. Adopting it alone would mean shipping adrkit's decision *records* to Backstage while
+leaving its decision *enforcement* behind, which is the half that differentiates the tool.
+
+**This option is partially chosen.** Clause 5 adopts it for the document layer and builds
+only the governance layer on top. Listing it as rejected outright would misrepresent the
+decision.
+
 ## Trade-offs
 
 What the chosen option costs, stated as plainly as what it buys:
@@ -167,13 +236,23 @@ What the chosen option costs, stated as plainly as what it buys:
   lags the ADR schema after a `schemaVersion` bump.
 - **Some duplication is accepted.** Types consumed from published packages may be
   re-declared downstream rather than shared through an internal package.
+- **A dependency on a third-party plugin's extension points.** Clause 5 reuses
+  `@backstage-community/plugin-adr` for the document layer, which means its
+  `filePathFilterFn`, `contentDecorators`, and `statusComponent` contracts become load-
+  bearing for us. If it drops or reshapes them, or its MADR-oriented parser diverges from
+  adrkit's frontmatter, the document layer degrades and is not ours to fix. Accepted
+  because the alternative — reimplementing ADR rendering, search indexing, and URL-reader
+  integration — is strictly more work for strictly less function, and because degradation
+  is confined to the document layer while the governance layer keeps working.
 
 ## Consequences
 
 - **Easier:** the plugin can be built against contracts that ship today, with no
   dependence on the release-gated feature-010 packages; `core-has-no-adapter-deps` and
   `clean-clone-builds` stay green with no exemption; ADR-0013's invariant is preserved
-  rather than excepted; the two Backstage directions stop being mistaken for one another.
+  rather than excepted; the two Backstage directions stop being mistaken for one another;
+  and the document layer is largely inherited rather than built, so the work is scoped to
+  what only adrkit can supply.
 - **Harder:** cross-repository contract drift, as above; no compile-time edge between
   producer and consumer.
 - **How we would know this was wrong:** if the plugin needs anything from adrkit that is
@@ -197,7 +276,13 @@ What the chosen option costs, stated as plainly as what it buys:
 3. [ ] Inventory precisely what the plugin needs from adrkit and confirm each item is
    already published at `0.7.0`. Anything that is not on that list is the
    "how we would know this was wrong" signal firing before a line is written.
-4. [ ] Correct `packages/adapters/catalog-backstage/README.md` on `main`. It states that
+4. [ ] **Run the document-layer spike before building anything.** Point
+   `@backstage-community/plugin-adr` at an adrkit corpus with
+   `backstage.io/adr-location: docs/adr` and record what its MADR-oriented parser does with
+   adrkit frontmatter — title, status, and date in particular. This is cheap and it decides
+   how much of clause 5 is configuration versus code. Record the observed outcome here,
+   including if it fails.
+5. [ ] Correct `packages/adapters/catalog-backstage/README.md` on `main`. It states that
    the manifest reader, admissibility, canonical identity, glob dialect, fail-closed
    pipeline, and snapshot envelope are "not implemented here" and that "no generator has
    run" — all six modules exist. Unrelated to this decision, but it actively misleads
