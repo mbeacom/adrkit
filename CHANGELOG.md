@@ -9,6 +9,87 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **A portable agent plugin — adrkit's fourth distribution surface**
+  (`packages/adapters/agent-plugin`, plugin name `adrkit`, v0.1.0). One skill
+  (`decision-memory`), one read-only subagent (`decision-checker`), and four
+  commands (`/adr-context`, `/adr-check`, `/adr-draft`, `/adr-queue`), installable
+  into GitHub Copilot CLI, Claude Code, opencode, and anything
+  [APM](https://github.com/microsoft/apm) targets. The repository is now also its
+  own marketplace, via a hand-authored `.claude-plugin/marketplace.json` at the
+  root — the one catalog location both Copilot CLI and Claude Code resolve.
+  Independently versioned per
+  [ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md), not
+  published to npm because every host installs it from git. Authorized by
+  [ADR-0028](docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
+
+  Four host disagreements were measured rather than inferred, and each is now a
+  test that has been observed failing against a deliberate violation
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)):
+  the manifest declares no component paths, because `claude plugin validate`
+  rejects the string form of `commands`/`agents`/`skills` that Copilot CLI
+  documents; no component declares a `tools` list, because opencode requires a
+  name-to-boolean mapping and *rejects the agent at load time* when handed the
+  list the other two hosts take; the manifests carry no `"//"` comment keys; and
+  all three version fields must agree.
+
+  A fifth defect came from exercising the components rather than loading them:
+  the subagent reported "no CLI available" in a repository where `@adrkit/cli`
+  was installed as a dev dependency, because it tried only a bare `adr` and then
+  silently fell back to reading ADR frontmatter by hand — an answer that looks
+  complete but cannot expand glob matchers, read inbound `@adr` markers, or
+  produce an exit code. The skill and the agent now both state the resolution
+  order `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH`. Full scope, and what
+  these runs do *not* establish, in
+  [`docs/reference-verification-agent-plugin.md`](docs/reference-verification-agent-plugin.md).
+
+- **`AGENTS.md` as the canonical, host-neutral project memory.** `CLAUDE.md` and
+  the new `.github/copilot-instructions.md` are now thin pointers to it carrying
+  only genuinely host-specific notes, rather than a second copy that costs
+  context on every session and drifts from the first. opencode reads `AGENTS.md`
+  directly.
+
+### Notes
+
+- **A four-lens deep review (adversarial, architect, consumer, operator) found
+  five further issues in the shipped guidance, all now fixed and guarded.** Three
+  were verified against adrkit 0.8.0 before acting. (1) The four command bodies
+  lacked the `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH` resolution order
+  that the skill and agent had gained — and a slash command is injected
+  deterministically while the skill loads only when the model judges it relevant,
+  so under the documented dev-dependency install the commands would fail and
+  invite the hand-read fallback. (2) The guidance sent the "did we already reject
+  this?" check to `list_superseded`, which skips every record whose status is not
+  `superseded` and can never return a `rejected` one — a well-formed empty answer
+  that defeats one of the three failure modes the skill exists to prevent; it now
+  uses `search_decisions` with `status: ["rejected"]`. (3) `/adr-draft` never set
+  `provenance.authoredBy`, and `adr new` hard-codes `human` with no flag to change
+  it, so agent-drafted records claimed human authorship *and* disarmed the
+  `agent-accepted-requires-ratifier` invariant, which only fires for `agent` /
+  `agent-drafted`. (4) The check flow could report "nothing governs this" at exit
+  `0` while a malformed governing record sat on disk, because `adr check` keeps
+  findings only for the paths given and drops unparseable records entirely; it now
+  runs `adr lint` first and treats an ungoverned verdict as unverified when the
+  corpus is dirty. (5) All four commands carried `allowed-tools` with Copilot
+  CLI's lowercase vocabulary — the same unmeasured portability hazard that got the
+  agent `tools:` field removed — so it is gone, matching the sibling Spec Kit
+  adapter.
+
+- **`docs/RELEASING.md` now documents the plugin's release channel.** It is the
+  one adapter with no release tag: it is `private`, absent from `RELEASE_PACKAGES`,
+  and published by merging to `main`, so the runbook covers the three-field version
+  bump, the host-validator commands CI does not run, and the fact that there is no
+  yank — rolling back means shipping a higher version.
+
+- **The plugin ships no `.mcp.json`, deliberately.** GitHub Copilot CLI spawns a  plugin's MCP servers with a working directory that is neither the workspace nor
+  any Git repository, and exports nothing naming the repository — measured by
+  configuring the server command to record its own `pwd` and environment. Since
+  the adrkit MCP server requires a Git worktree root, it exits during
+  `initialize` and logs `Failed to start MCP client for adrkit` every session. A
+  server that cannot start is worse than one never configured, so MCP stays wired
+  per project, where the working directory is correct.
+
 ## [0.8.0] - 2026-08-15
 
 ### Changed
