@@ -159,6 +159,24 @@ Two smaller measurements, recorded because they will otherwise be rediscovered:
   error-severity findings, a non-git directory, or a missing corpus, beyond the
   CLI's own unit coverage of those paths.
 
+## Open, and owned by the maintainer
+
+Two findings from the deep-review panel are deliberately **not** fixed here,
+because they are release-policy decisions rather than defects:
+
+- **Nothing in CI re-runs the host validators.** `bun test` covers the failure
+  shapes already discovered; it cannot catch the next host schema constraint. A
+  future manifest or component change that Claude Code's validator or opencode
+  rejects will merge green and ship, because the repository is the live
+  marketplace. `docs/RELEASING.md` now documents the commands to run by hand
+  before merging a plugin change; wiring them into CI is the durable fix and
+  needs a decision about adding host CLIs as CI dependencies.
+- **The marketplace `source` is unpinned.** `.claude-plugin/marketplace.json`
+  points at `./packages/adapters/agent-plugin` with no `ref` or `sha`, and the
+  plugin cuts no tag, so an installer during an in-flight `main` state gets that
+  state. Pinning to a cut ref, or protecting the directory behind a single
+  reviewed release commit, are both real options with different costs.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

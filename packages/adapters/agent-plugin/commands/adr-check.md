@@ -1,8 +1,17 @@
 ---
 description: "Check the current change, or a plan, against the decisions that govern it and report a verdict per decision. Read-only."
 argument-hint: "[paths-or-plan-file...]"
-allowed-tools: ["view", "grep", "glob", "bash"]
 ---
+
+## Resolve the CLI first
+
+Try, in order: `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then `adr` on
+`PATH`. `@adrkit/cli` is normally a dev dependency, so a bare `adr` is **not** on
+`PATH` in most projects — trying only that and concluding "no CLI is available"
+is a false negative. If all three fail, say so and tell the user to install
+`@adrkit/cli`. Never fall back to reading ADR frontmatter by hand: it cannot
+expand glob matchers, cannot read inbound `@adr` markers, and has no exit code,
+so it produces an answer that looks complete and is not.
 
 Reconcile `$ARGUMENTS` against the decision record that governs it.
 
@@ -35,17 +44,28 @@ Reconcile `$ARGUMENTS` against the decision record that governs it.
    Or call `get_decision_context(files: [...])` on the `adrkit` MCP server.
 
 3. Add the non-binding context: `adr queue` for decisions still `proposed`, and
-   the graveyard for anything already rejected. Re-proposing a rejected option
-   is a finding even when it conflicts with nothing currently binding.
+   `search_decisions` with `status: ["rejected"]` for anything already ruled
+   out. Do **not** use `list_superseded` for that — it returns only records
+   whose status is `superseded`, never a rejected one, so it answers the
+   rejected-option question with a well-formed empty result. Re-proposing a
+   rejected option is a finding even when it conflicts with nothing currently
+   binding.
 
-4. Give **one verdict per governing decision**, never one verdict for the whole
+4. Run `adr lint` before you report anything as ungoverned. `adr check` reports
+   findings only for the paths you passed it, and a record that fails to parse
+   or validate is dropped from the corpus entirely — so a malformed ADR that
+   intends to govern your path yields "No decisions govern the changed files"
+   at exit `0`. Treat "nothing governs this" as unverified whenever `adr lint`
+   is not clean, and name the broken records.
+
+5. Give **one verdict per governing decision**, never one verdict for the whole
    change: `complies`, `departs`, `supersedes`, `unreconciled`, or
    `re-proposes-rejected`. For anything other than `complies`, state what the
    decision requires, what the work does instead with a `path:line`, and which
    resolution applies — comply, justify the departure in the plan, or supersede
    the record.
 
-5. Close with the honest gaps: paths that resolved to nothing, `affects`
+6. Close with the honest gaps: paths that resolved to nothing, `affects`
    matchers too coarse to be conclusive, and whether a corpus error finding is
    polluting the result.
 

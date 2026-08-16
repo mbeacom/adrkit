@@ -1,8 +1,17 @@
 ---
 description: "Show the review queue — every decision still proposed, with its SLA state — so open questions are visible before they are planned around. Read-only."
 argument-hint: "[--as-of YYYY-MM-DD]"
-allowed-tools: ["view", "bash"]
 ---
+
+## Resolve the CLI first
+
+Try, in order: `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then `adr` on
+`PATH`. `@adrkit/cli` is normally a dev dependency, so a bare `adr` is **not** on
+`PATH` in most projects — trying only that and concluding "no CLI is available"
+is a false negative. If all three fail, say so and tell the user to install
+`@adrkit/cli`. Never fall back to reading ADR frontmatter by hand: it cannot
+expand glob matchers, cannot read inbound `@adr` markers, and has no exit code,
+so it produces an answer that looks complete and is not.
 
 Show the decisions still awaiting review.
 

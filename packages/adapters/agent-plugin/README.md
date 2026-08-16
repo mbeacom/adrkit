@@ -42,10 +42,14 @@ Components resolve it from `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then
 ### opencode
 
 opencode has no plugin-manifest concept, so either let APM place the components
-(`apm install ... --target opencode`, which writes `.opencode/agents/` and
-`.opencode/commands/`), or copy `agents/` and `commands/` into `.opencode/`
-yourself. `opencode/opencode.json` in this directory is the MCP fragment to
-merge into your project config — see [MCP](#mcp-is-configured-per-project-not-shipped-here).
+(`apm install ... --target opencode`, measured writing `.opencode/agents/`,
+`.opencode/commands/`, and the skill to `.agents/skills/`), or copy `agents/`,
+`commands/`, **and `skills/`** into place yourself. Do not omit `skills/`: the
+skill is the part that works without being asked for, and an install without it
+silently degrades to commands-only — you get decision memory when you remember
+to ask for it, which is the failure this plugin exists to prevent.
+`opencode/opencode.json` in this directory is the MCP fragment to merge into your
+project config — see [MCP](#mcp-is-configured-per-project-not-shipped-here).
 
 ## What it ships
 

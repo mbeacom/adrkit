@@ -1,8 +1,17 @@
 ---
 description: "Draft one new ADR from the decision the current work actually makes. Writes a single new record, as proposed."
 argument-hint: "[decision title]"
-allowed-tools: ["view", "grep", "glob", "bash"]
 ---
+
+## Resolve the CLI first
+
+Try, in order: `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then `adr` on
+`PATH`. `@adrkit/cli` is normally a dev dependency, so a bare `adr` is **not** on
+`PATH` in most projects — trying only that and concluding "no CLI is available"
+is a false negative. If all three fail, say so and tell the user to install
+`@adrkit/cli`. Never fall back to reading ADR frontmatter by hand: it cannot
+expand glob matchers, cannot read inbound `@adr` markers, and has no exit code,
+so it produces an answer that looks complete and is not.
 
 Draft one architecture decision record for `$ARGUMENTS`.
 
@@ -14,8 +23,10 @@ Draft one architecture decision record for `$ARGUMENTS`.
    right output is a record that **supersedes** the existing one. A duplicate
    record is worse than none, because it makes the corpus ambiguous.
 
-2. Check the graveyard (`list_superseded`, or `adr graph`). If this was already
-   rejected, say so and stop. Re-proposing it needs a human reason, not a
+2. Check for an existing rejection, with `search_decisions` and
+   `status: ["rejected"]` (or `adr graph`) — not `list_superseded`, which
+   returns only `superseded` records and never a rejected one. If this was
+   already rejected, say so and stop. Re-proposing it needs a human reason, not a
    scaffold.
 
 Then create exactly one record:
@@ -29,6 +40,14 @@ Fill in what the scaffold leaves open:
 - **`status: proposed`.** You are drafting, not ratifying. Do not write
   `accepted` — ratification is a human act, and a record that claims to be
   accepted when nobody accepted it corrupts every downstream check.
+- **`provenance.authoredBy: agent-drafted`.** `adr new` scaffolds
+  `authoredBy: human`, and it has no flag to change that — so a record you
+  drafted ships claiming a human wrote it unless you correct it. Two things
+  break if you leave it. The audit trail can no longer separate agent-originated
+  decisions from human ones, which is the reason the field exists. And the
+  `agent-accepted-requires-ratifier` invariant only fires for `agent` and
+  `agent-drafted`, so a record mislabeled `human` can later reach `accepted`
+  with no named ratifier — the guard is disarmed by the mislabel, silently.
 - **`deciders`** — the humans who will actually decide, not you.
 - **`affects`** — the matchers binding the decision to the code it governs. A
   record with no `affects` matcher governs nothing: it never surfaces in

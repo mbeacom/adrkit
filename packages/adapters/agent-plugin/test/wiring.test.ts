@@ -102,6 +102,26 @@ describe('frontmatter types the hosts will not coerce', () => {
       expect({ agent, declared }).toEqual({ agent, declared: undefined });
     }
   });
+
+  test('no command declares `allowed-tools`', () => {
+    // Same hazard, one field over. `allowed-tools` was shipped on all four
+    // commands carrying Copilot CLI's lowercase vocabulary (`view`, `bash`),
+    // which is not Claude Code's registry (`Read`, `Bash`) and is a list where
+    // opencode wants a mapping. Unlike the agent `tools:` field it was never
+    // measured on those hosts, and the failure it risks is the worst kind: if
+    // a host enforces the allowlist against names it does not recognize, the
+    // command is granted no shell and cannot run `adr` at all. The commands run
+    // without the field on every host verified, and the sibling Spec Kit
+    // adapter's commands declare no such field either, so the portable choice
+    // is to omit it rather than ship one host's vocabulary to all of them.
+    for (const command of COMMANDS) {
+      const front = frontmatterOf(
+        readFileSync(join(packageRoot, 'commands', `${command}.md`), 'utf8'),
+      );
+      const declared = /^allowed-tools:\s*(.+)$/m.exec(front)?.[1]?.trim();
+      expect({ command, declared }).toEqual({ command, declared: undefined });
+    }
+  });
 });
 
 describe('CLI resolution guidance', () => {
@@ -133,6 +153,80 @@ describe('CLI resolution guidance', () => {
 });
 
 describe('guidance that must not regress', () => {
+  test('every command body carries the CLI resolution order', () => {
+    // The skill and the agent gained this after a measured failure, but the
+    // commands did not — and a slash command is injected deterministically when
+    // a user types it, while the skill is only loaded when the model judges it
+    // relevant. Under the documented dev-dependency install a bare `adr` is not
+    // on PATH, so a command without the resolution order fails and the model is
+    // free to fall back to hand-reading frontmatter.
+    for (const command of COMMANDS) {
+      const body = readFileSync(join(packageRoot, 'commands', `${command}.md`), 'utf8');
+      for (const entry of ['$ADRKIT_CLI', './node_modules/.bin/adr', 'PATH']) {
+        expect({ command, entry, present: body.includes(entry) }).toEqual({
+          command,
+          entry,
+          present: true,
+        });
+      }
+    }
+  });
+
+  test('no component sends the rejected-option check to list_superseded', () => {
+    // Verified against packages/mcp/src/tools/list-superseded.ts, which skips
+    // every record whose status is not `superseded` — it can never return a
+    // `rejected` one. Pointing the "did we already rule this out?" step at it
+    // yields a well-formed empty answer and a re-proposed rejected decision,
+    // which is one of the three failure modes the skill exists to prevent.
+    const bodies: Array<readonly [string, string]> = [
+      ...COMMANDS.map((c) => [c, join(packageRoot, 'commands', `${c}.md`)] as const),
+      ['SKILL.md', join(packageRoot, 'skills', 'decision-memory', 'SKILL.md')],
+      ['decision-checker.md', join(packageRoot, 'agents', 'decision-checker.md')],
+    ];
+
+    for (const [label, path] of bodies) {
+      const body = readFileSync(path, 'utf8');
+      if (!body.includes('list_superseded')) continue;
+      // Collapse wrapping and strip markdown emphasis/backticks: the disclaimer
+      // legitimately spans lines and bolds the load-bearing words.
+      const flat = body.replace(/[*`]/g, '').replace(/\s+/g, ' ');
+      expect({ label, disclaims: /only .{0,40}superseded|never .{0,40}rejected/i.test(flat) }).toEqual({
+        label,
+        disclaims: true,
+      });
+    }
+  });
+
+  test('drafting sets agent provenance rather than inheriting the human default', () => {
+    // `adr new` hard-codes `provenance.authoredBy: human` and offers no flag to
+    // change it (verified by scaffolding a record with @adrkit/cli 0.8.0). An
+    // agent-drafted record therefore claims a human wrote it unless corrected,
+    // which also disarms `agent-accepted-requires-ratifier` — that invariant
+    // only fires for `agent` / `agent-drafted`.
+    for (const [label, path] of [
+      ['adr-draft.md', join(packageRoot, 'commands', 'adr-draft.md')],
+      ['SKILL.md', join(packageRoot, 'skills', 'decision-memory', 'SKILL.md')],
+    ] as const) {
+      const body = readFileSync(path, 'utf8');
+      expect({ label, sets: body.includes('agent-drafted') }).toEqual({ label, sets: true });
+    }
+  });
+
+  test('the check flow verifies corpus integrity before reporting nothing governs', () => {
+    // `adr check` keeps findings only for the paths it was given, and a record
+    // that fails to parse or validate is dropped from the corpus entirely — so
+    // a malformed ADR that intends to govern the path yields "No decisions
+    // govern the changed files" at exit 0. Without a lint step the guidance's
+    // own "is a corpus error polluting this?" safeguard cannot fire.
+    for (const [label, path] of [
+      ['adr-check.md', join(packageRoot, 'commands', 'adr-check.md')],
+      ['decision-checker.md', join(packageRoot, 'agents', 'decision-checker.md')],
+    ] as const) {
+      const body = readFileSync(path, 'utf8');
+      expect({ label, lints: /adr lint/.test(body) }).toEqual({ label, lints: true });
+    }
+  });
+
   test('drafting never tells the agent to supersede the record it replaces', () => {
     // Measured against adrkit 0.8.0, not reasoned about. A drafted record is
     // `proposed`, so flipping the predecessor to `status: superseded` in the

@@ -52,8 +52,37 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Notes
 
-- **The plugin ships no `.mcp.json`, deliberately.** GitHub Copilot CLI spawns a
-  plugin's MCP servers with a working directory that is neither the workspace nor
+- **A four-lens deep review (adversarial, architect, consumer, operator) found
+  five further issues in the shipped guidance, all now fixed and guarded.** Three
+  were verified against adrkit 0.8.0 before acting. (1) The four command bodies
+  lacked the `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH` resolution order
+  that the skill and agent had gained — and a slash command is injected
+  deterministically while the skill loads only when the model judges it relevant,
+  so under the documented dev-dependency install the commands would fail and
+  invite the hand-read fallback. (2) The guidance sent the "did we already reject
+  this?" check to `list_superseded`, which skips every record whose status is not
+  `superseded` and can never return a `rejected` one — a well-formed empty answer
+  that defeats one of the three failure modes the skill exists to prevent; it now
+  uses `search_decisions` with `status: ["rejected"]`. (3) `/adr-draft` never set
+  `provenance.authoredBy`, and `adr new` hard-codes `human` with no flag to change
+  it, so agent-drafted records claimed human authorship *and* disarmed the
+  `agent-accepted-requires-ratifier` invariant, which only fires for `agent` /
+  `agent-drafted`. (4) The check flow could report "nothing governs this" at exit
+  `0` while a malformed governing record sat on disk, because `adr check` keeps
+  findings only for the paths given and drops unparseable records entirely; it now
+  runs `adr lint` first and treats an ungoverned verdict as unverified when the
+  corpus is dirty. (5) All four commands carried `allowed-tools` with Copilot
+  CLI's lowercase vocabulary — the same unmeasured portability hazard that got the
+  agent `tools:` field removed — so it is gone, matching the sibling Spec Kit
+  adapter.
+
+- **`docs/RELEASING.md` now documents the plugin's release channel.** It is the
+  one adapter with no release tag: it is `private`, absent from `RELEASE_PACKAGES`,
+  and published by merging to `main`, so the runbook covers the three-field version
+  bump, the host-validator commands CI does not run, and the fact that there is no
+  yank — rolling back means shipping a higher version.
+
+- **The plugin ships no `.mcp.json`, deliberately.** GitHub Copilot CLI spawns a  plugin's MCP servers with a working directory that is neither the workspace nor
   any Git repository, and exports nothing naming the repository — measured by
   configuring the server command to record its own `pwd` and environment. Since
   the adrkit MCP server requires a Git worktree root, it exits during

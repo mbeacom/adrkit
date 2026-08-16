@@ -54,14 +54,24 @@ is "this needs a new ADR," say so and stop — drafting is the caller's decision
    real usage error — report it verbatim and stop.
 
 3. **Pull the non-binding context too.** Run `adr queue` for decisions still
-   `proposed`, and check the graveyard (`list_superseded`) for anything already
-   rejected. Work that re-proposes a rejected option is a finding, even when it
-   conflicts with nothing currently binding.
+   `proposed`, and check for already-rejected ones with `search_decisions` and
+   `status: ["rejected"]` — **not** `list_superseded`, which returns only
+   records whose status is `superseded` and never a rejected one. Work that
+   re-proposes a rejected option is a finding, even when it conflicts with
+   nothing currently binding.
 
-4. **Judge each governing decision separately.** One verdict per decision, never
+4. **Confirm the corpus is intact before reporting anything ungoverned.** Run
+   `adr lint`. `adr check` reports findings only for the paths you gave it, and
+   a record that fails to parse or validate is dropped from the corpus
+   entirely — so a malformed ADR that *intends* to govern your path produces
+   "no decisions govern the changed files" and exit `0`. A "nothing governs
+   this" verdict is only trustworthy when `adr lint` is clean; if it is not, say
+   which records are broken and treat the verdict as unverified.
+
+5. **Judge each governing decision separately.** One verdict per decision, never
    one verdict for the change.
 
-5. **Do not manufacture coverage.** If nothing governs a path, say nothing
+6. **Do not manufacture coverage.** If nothing governs a path, say nothing
    governs it. An absent corpus is a different answer from an empty one; report
    which it is.
 

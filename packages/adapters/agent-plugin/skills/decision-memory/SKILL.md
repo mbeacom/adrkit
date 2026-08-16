@@ -38,10 +38,16 @@ already scoped to this repository:
 
 | Tool | Use it for |
 | --- | --- |
-| `search_decisions` | Filtered search across the corpus |
+| `search_decisions` | Filtered search across the corpus, including `status: ["rejected"]` |
 | `get_decision` | One record by id |
 | `get_decision_context(files[])` | The decisions governing a set of files |
-| `list_superseded` | The graveyard — what was tried and abandoned |
+| `list_superseded` | Records with `status: superseded` — **only** those |
+
+`list_superseded` is narrower than the word "graveyard" suggests: it returns
+records whose status is `superseded` and **never** returns a `rejected` one. Use
+`search_decisions` with `status: ["rejected"]` for the "did we already rule this
+out?" check. Reaching for `list_superseded` there gets you a well-formed, empty
+answer and a re-proposed decision the team already rejected.
 
 If the server is not connected, every retrieval below has a CLI equivalent. Do
 not silently skip the step because the tools are absent.
@@ -125,6 +131,11 @@ Record honestly:
 
 - New records are `proposed`, not `accepted`. You are drafting, not ratifying.
   Ratification is a human act.
+- Set `provenance.authoredBy: agent-drafted` when you drafted it. `adr new`
+  scaffolds `authoredBy: human` and offers no flag to change it, so leaving it
+  alone ships a false authorship claim. It also disarms the
+  `agent-accepted-requires-ratifier` invariant, which only requires a named
+  human ratifier when `authoredBy` is `agent` or `agent-drafted`.
 - Record the alternatives that were actually considered and rejected. The
   rejected option is usually the more valuable half of the record.
 - Set `supersedes` on the **new** record when it replaces an earlier one, and

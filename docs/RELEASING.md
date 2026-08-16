@@ -182,6 +182,50 @@ but narrows what is packed, and requires the tag to match the adapter's own
 version. Publishing remains idempotent per artifact: an adapter already on the
 registry at matching integrity is skipped rather than republished.
 
+### The agent plugin — a release channel with no tag
+
+`packages/adapters/agent-plugin` is an adapter, but it does **not** release the
+way the section above describes, and the difference is easy to miss because it
+looks like every other package under `packages/adapters/*`.
+
+It is `private: true` and absent from `RELEASE_PACKAGES` in
+`scripts/release-pack.ts`, so `release-pack` never packs it, `release.yml` never
+triggers on it, and there is no `agent-plugin-v*` tag. Its channel is **`main`
+itself**: `.claude-plugin/marketplace.json` at the repository root points at
+`./packages/adapters/agent-plugin`, so whatever is on the default branch is what
+`copilot plugin install adrkit@adrkit` and Claude Code's `/plugin install`
+resolve. Merging is publishing.
+
+Three consequences follow, and all three bite at the wrong moment:
+
+1. **Bump all three version fields together, in the same commit as the change.**
+   `.claude-plugin/plugin.json`, `apm.yml`, and `package.json` must agree —
+   `test/manifest.test.ts` enforces agreement, but nothing enforces that a
+   content change moves them. Claude Code keys its plugin cache on
+   `plugin.json` `version`, so shipping changed content under an unchanged
+   version means installed users keep the old bytes indefinitely while new
+   installers get the new bytes under the same number. Two populations, one
+   version string, no way to tell them apart from a bug report.
+2. **Re-run the host validators before merging a change to the plugin.** CI does
+   not. `bun test` covers the failure shapes already discovered, not the ones a
+   host schema will reject next:
+
+   ```sh
+   claude plugin validate packages/adapters/agent-plugin
+   claude plugin validate .claude-plugin/marketplace.json
+   cd "$(mktemp -d)" && git init -q . && printf 'name: probe\nversion: 0.0.1\ndependencies:\n  apm:\n    - path: %s\n' "<repo>/packages/adapters/agent-plugin" > apm.yml
+   for t in claude copilot opencode; do apm install --target "$t"; done   # expect no warnings
+   ```
+
+3. **There is no yank.** Rolling back means shipping a *higher* version with the
+   fix; a revert commit alone leaves every cached install untouched. Users on a
+   bad version need `copilot plugin update adrkit` (or a reinstall) to move, so
+   a bad release is sticky in a way the npm packages are not.
+
+Because merging is publishing, a work-in-progress commit on `main` that touches
+this directory is live. Land plugin changes as a single reviewed commit rather
+than a series.
+
 ### First publish of a new adapter name
 
 npm Trusted Publishing cannot be configured for a package name that does not

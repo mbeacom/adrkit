@@ -137,6 +137,11 @@ copilot plugin marketplace add mbeacom/adrkit && copilot plugin install adrkit@a
 apm install mbeacom/adrkit/packages/adapters/agent-plugin --target opencode
 ```
 
+Every component shells out to the `adr` CLI, so install that too if you have not
+already — `npm i -g @adrkit/cli`, or add `@adrkit/cli` to the project. The
+components resolve it from `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then
+`PATH`.
+
 | Component | Purpose | Writes |
 |---|---|---|
 | `decision-memory` skill | Teaches the context → check → draft loop, the exit-code contract, and the rules that keep the record honest | no |
