@@ -538,3 +538,75 @@ describe('mcp dependency boundary (Phase 5)', () => {
     );
   });
 });
+
+describe('backstage-deps-confined-to-the-backstage-surface (ADR-0029)', () => {
+  const BACKSTAGE_REASON =
+    'Backstage SDK must stay confined to @adrkit/backstage-plugin and never reach core/schema/cli/evaluator/mcp or an adapter';
+
+  test('passes on the current workspace tree, which declares no @backstage/* anywhere', async () => {
+    await expect(checkDependencyRules()).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  test('fails when the core declares a Backstage dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/core/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/core',
+          version: '0.1.0',
+          dependencies: { zod: '^4', yaml: 'latest', '@backstage/core-plugin-api': '^1.10.0' },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(BACKSTAGE_REASON);
+  });
+
+  test('fails on a package the allowlist has never heard of', async () => {
+    // The rule that matters. `allowedDependenciesFor` returns `undefined` for an
+    // unrecognized package — "silently unconstrained" — so an allowlist-only rule would
+    // pass here. Keying on the `@backstage/` prefix across every package is what makes a
+    // brand-new directory unable to smuggle the SDK in.
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/some-new-surface/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/some-new-surface',
+          version: '0.0.0',
+          dependencies: { '@backstage/plugin-catalog-react': '^1.0.0' },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(BACKSTAGE_REASON);
+  });
+
+  test('permits the confined surface itself to declare Backstage', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/backstage-plugin/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/backstage-plugin',
+          version: '0.0.0',
+          dependencies: { '@adrkit/core': 'workspace:*', '@backstage/core-plugin-api': '^1.10.0' },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.violations.map((violation) => violation.reason)).not.toContain(BACKSTAGE_REASON);
+  });
+});

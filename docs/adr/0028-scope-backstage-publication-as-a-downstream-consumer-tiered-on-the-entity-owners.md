@@ -384,11 +384,11 @@ would misrepresent the decision.
    independent four-lens deep reviews (8 blocking findings across both rounds, all closed or
    explicitly accepted and recorded). Agent-drafted and maintainer-ratified, which
    ADR-0013's precedent requires be stated rather than blurred.
-2. [ ] Decide the repository home in a follow-up record against clause 5's named criteria —
-   Principle III's run-time clause, and ADR-0007 Option C's revisit condition — and record
-   the outcome as a new ADR, not as an edit to this one. **Owner: `@mbeacom`. Before any
-   Tier 1 code is published, and in any case by 2026-11-15**, so clause 5's provisional
-   placement does not become permanent by default.
+2. [x] Decide the repository home in a follow-up record against clause 5's named criteria —
+   Principle III's run-time clause, and ADR-0007 Option C's revisit condition. **Resolved by
+   [ADR-0029](0029-site-the-backstage-publication-plugin-in-this-repository-as-a-confined-surface.md)**:
+   `packages/backstage-plugin/`, in this repository, as a confined surface. Clause 5's
+   deferral and its in-repo moratorium are discharged.
 3. [ ] Inventory precisely what Tier 1 needs from adrkit and confirm each item is published
    at `0.7.0`. Anything not on that list is the "how we would know this was wrong" signal
    firing before a line is written.
@@ -408,12 +408,14 @@ would misrepresent the decision.
    and snapshot envelope are "not implemented here" and that "no generator has run" — all
    six modules exist. Unrelated to this decision, but it actively misleads anyone
    approaching the Backstage surface, which is part of how this ambiguity persisted.
-7. [ ] Land the amendment-by-reference note in
-   [ADR-0007](0007-adapter-isolation-and-public-surface-build.md) recording that its
-   `packages/adapters/*` placement clause is narrowed for downstream consumers composed by a
-   third-party host, per the Decision's closing paragraph. Without it, ADR-0007 read alone
-   still answers "in this repository, as an adapter" for this plugin. Follows the mechanism
-   ADR-0013 used on ADR-0007 and ADR-0014 used on ADR-0013.
+7. [x] Land the amendment-by-reference note in ADR-0007 recording that its
+   `packages/adapters/*` placement clause is narrowed for downstream consumers.
+   **Closed as not required by
+   [ADR-0029](0029-site-the-backstage-publication-plugin-in-this-repository-as-a-confined-surface.md)
+   clause 5.** `@adrkit/ci` at `packages/ci/` already establishes that a first-party
+   integration surface may live outside `packages/adapters/` under confinement, so siting the
+   plugin at `packages/backstage-plugin/` narrows no clause of ADR-0007. The Decision's
+   closing paragraph above is superseded on this point; ADR-0007 is untouched.
 8. [ ] Record clause 11's additive-only obligation where the shapes are defined —
    `packages/core/src/queue/types.ts`, `packages/core/src/check/index.ts`, and
    `docs/RELEASING.md` — so it is visible in the diff that would break it, following

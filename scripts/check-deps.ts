@@ -35,6 +35,21 @@ export interface DependencyViolation {
 const TOOLKIT_DEPENDENCY = /^(@actions\/|@octokit\/|octokit$)/;
 const CI_SURFACE_PACKAGE = '@adrkit/ci';
 
+/**
+ * The Backstage SDK is permitted only in the `@adrkit/backstage-plugin` surface
+ * (ADR-0029 clause 2). Same shape as the toolkit rule above, and for the same reason:
+ * a shipped surface may talk to an external host at run time, but its SDK must not
+ * reach the core, the schema, the CLI, the evaluator, the MCP server, or an adapter.
+ *
+ * Keyed on the `@backstage/` prefix across **every** package rather than on the
+ * surface package's own allowlist entry, because `allowedDependenciesFor` returns
+ * `undefined` for an unrecognized package — which this file documents as *silently
+ * unconstrained*. A prefix rule fires on a package the allowlist has never heard of;
+ * an allowlist-only rule would not.
+ */
+const BACKSTAGE_DEPENDENCY = /^@backstage\//;
+const BACKSTAGE_SURFACE_PACKAGE = '@adrkit/backstage-plugin';
+
 export interface DependencyCheckResult {
   ok: boolean;
   violations: DependencyViolation[];
@@ -230,6 +245,17 @@ export async function checkDependencyRules(root = process.cwd()): Promise<Depend
             dependency,
             section,
             reason: 'GitHub Action toolkit must stay confined to @adrkit/ci and never reach core/schema/cli',
+          });
+        }
+
+        if (packageName !== BACKSTAGE_SURFACE_PACKAGE && BACKSTAGE_DEPENDENCY.test(dependency)) {
+          violations.push({
+            packageName,
+            packagePath,
+            dependency,
+            section,
+            reason:
+              'Backstage SDK must stay confined to @adrkit/backstage-plugin and never reach core/schema/cli/evaluator/mcp or an adapter',
           });
         }
 
