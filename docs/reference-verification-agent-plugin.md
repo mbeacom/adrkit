@@ -125,11 +125,17 @@ Two smaller measurements, recorded because they will otherwise be rediscovered:
 
 - `copilot plugin install` prints only a skill count. "Installed 1 skill" does
   not mean the agent and commands were dropped; they load at session start.
-- `npx -y @adrkit/mcp@^0.8.0` resolves correctly in an ordinary repository but
-  fails inside the adrkit monorepo, where `npx` prefers the unbuilt workspace
-  copy (`sh: adrkit-mcp: command not found`). The package's bin name differs
-  from its package name, so `npx -y -p @adrkit/mcp@<range> adrkit-mcp` is the
-  robust form.
+- `npx -y @adrkit/mcp@^0.8.0` starts correctly in an ordinary consumer
+  repository, and fails **inside the adrkit monorepo** with
+  `sh: adrkit-mcp: command not found`. The
+  `npx -y -p @adrkit/mcp@<range> adrkit-mcp` form was measured failing there
+  too, so it is **not** a workaround — an earlier draft of this index and of the
+  plugin README recommended it, on the strength of one run in a different
+  directory, and that recommendation was wrong. The cause is that npx resolves
+  `@adrkit/mcp` to the local workspace package and Bun's isolated linker does not
+  create `node_modules/.bin/adrkit-mcp` for a workspace member. Inside the
+  repository, `node packages/mcp/dist/bin.js` after `bun run build` completes an
+  `initialize` handshake; that is the workspace-local invocation.
 
 ## Limitations (honest scope of this evidence)
 

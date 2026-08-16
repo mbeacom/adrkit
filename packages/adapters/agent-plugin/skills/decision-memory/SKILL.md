@@ -2,7 +2,7 @@
 name: decision-memory
 description: "Use when planning, designing, reviewing, or changing code in a repository that keeps ADRs (usually docs/adr) — to load the decisions that already govern the work, check a plan or diff against them, or record a new decision. Also use when a choice feels already-settled and you cannot find where it was settled."
 license: Apache-2.0
-compatibility: "Requires the `adr` CLI (@adrkit/cli) on PATH, in ./node_modules/.bin, or at $ADRKIT_CLI. The bundled adrkit MCP server provides the same retrieval as tools when it is running; the CLI is the fallback and the only path that can write."
+compatibility: "Requires the `adr` CLI (@adrkit/cli), resolved from $ADRKIT_CLI, then ./node_modules/.bin/adr, then PATH. The adrkit MCP server is optional and is NOT bundled with this plugin — when a project has connected it separately, its tools provide the same retrieval; otherwise the CLI is the only path, and the only one that can write."
 metadata:
   author: Mark Beacom
   version: "0.1.0"
@@ -127,9 +127,16 @@ Record honestly:
   Ratification is a human act.
 - Record the alternatives that were actually considered and rejected. The
   rejected option is usually the more valuable half of the record.
-- Set `supersedes` when the decision replaces an earlier one; leave the old
-  record in place with `status: superseded`. Deleting history destroys the
-  graveyard other agents rely on.
+- Set `supersedes` on the **new** record when it replaces an earlier one, and
+  leave the record it replaces alone. Do not flip the predecessor to
+  `status: superseded` while drafting: your record is `proposed` and governs
+  nothing yet, so that edit leaves the affected paths governed by **neither** —
+  the old decision becomes historical and the new one is not binding. It is also
+  schema-invalid, because `superseded` requires `supersededBy`; `adr lint` fails
+  with `superseded-requires-supersededBy`, and the invalid record then drops out
+  of the corpus, dangling your `supersedes` reference too. The predecessor keeps
+  governing until a human ratifies the replacement — which is correct, because
+  until then the question is still open. Never delete history.
 
 Validate before you finish:
 

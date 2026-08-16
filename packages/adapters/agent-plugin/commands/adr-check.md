@@ -10,9 +10,21 @@ Reconcile `$ARGUMENTS` against the decision record that governs it.
    - Arguments that are paths are the target set.
    - An argument that is a plan or spec document: read it and extract the paths
      it touches.
-   - No arguments: use the working tree's changed paths
-     (`git diff --name-only HEAD`). If that is empty, say the check is unscoped
-     and ask for paths rather than checking everything and reporting noise.
+   - No arguments: use the working tree's changed paths — both tracked and
+     untracked:
+
+     ```bash
+     git diff --name-only HEAD
+     git ls-files --others --exclude-standard
+     ```
+
+     The second command is not optional. `git diff` reports only tracked files,
+     so a brand-new source file — the case most likely to introduce something a
+     decision governs — is invisible to it, and the check would report a clean
+     result for a change it never looked at.
+
+     If both are empty, say the check is unscoped and ask for paths rather than
+     checking everything and reporting noise.
 
 2. Run the check.
 

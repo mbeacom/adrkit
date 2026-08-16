@@ -2,7 +2,7 @@
 
 Decision memory for the agent that is about to change your code.
 
-This is adrkit's third distribution surface, after the npm packages and the
+This is adrkit's fourth distribution surface, after the npm packages, the CI Action, and the
 [Spec Kit extension](../spec-kit/README.md). It packages adrkit's workflow as
 portable agent components — one skill, one read-only subagent, and four slash
 commands — so an agent loads the decisions that already govern a change *before*
@@ -122,10 +122,17 @@ from the workspace.
 Two smaller findings from the same measurements, worth keeping if that wiring is
 ever revisited:
 
-- `npx -y @adrkit/mcp@^0.8.0` resolves correctly in an ordinary repository, but
-  inside this monorepo `npx` prefers the unbuilt workspace copy and fails with
-  `sh: adrkit-mcp: command not found`. Use `npx -y -p @adrkit/mcp@<range>
-  adrkit-mcp` — the package's bin name differs from its package name.
+- `npx -y @adrkit/mcp@^0.8.0` resolves and starts correctly in an ordinary
+  consumer repository. It fails **inside this monorepo**, with
+  `sh: adrkit-mcp: command not found`, and so does the
+  `npx -y -p @adrkit/mcp@<range> adrkit-mcp` form — both were measured failing
+  here. The cause is not the invocation: npx resolves `@adrkit/mcp` to the local
+  workspace package, whose bin is named `adrkit-mcp`, and Bun's isolated linker
+  does not create `node_modules/.bin/adrkit-mcp` for a workspace member. There is
+  no npx spelling that works around that. Inside this repository, run the built
+  entry point directly — `bun run build`, then
+  `node packages/mcp/dist/bin.js` — which was measured completing an
+  `initialize` handshake.
 - JSON has no comments. `"//"` keys survive Copilot's loader but Claude Code's
   validator reports them as unknown fields, so the reasoning belongs in prose
   like this rather than in the manifests.

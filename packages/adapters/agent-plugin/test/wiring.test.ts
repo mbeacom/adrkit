@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENTS, COMMANDS, SKILLS, frontmatterOf, packageRoot } from './harness.ts';
+import {
+  AGENTS,
+  COMMANDS,
+  SKILLS,
+  frontmatterOf,
+  marketplacePath,
+  packageRoot,
+} from './harness.ts';
 
 /**
  * Discovery wiring. Every host decides whether to surface a component from two
@@ -119,6 +126,68 @@ describe('CLI resolution guidance', () => {
           label,
           entry,
           present: true,
+        });
+      }
+    }
+  });
+});
+
+describe('guidance that must not regress', () => {
+  test('drafting never tells the agent to supersede the record it replaces', () => {
+    // Measured against adrkit 0.8.0, not reasoned about. A drafted record is
+    // `proposed`, so flipping the predecessor to `status: superseded` in the
+    // same edit leaves the affected paths governed by NEITHER record:
+    // `adr explain` reports "No accepted decision governs <path>". It is also
+    // schema-invalid — `superseded` requires `supersededBy`, so `adr lint`
+    // fails with superseded-requires-supersededBy, and the invalid record then
+    // drops out of the corpus and dangles the new record's own `supersedes`
+    // reference (two errors, not one). Silently un-governing a path is the
+    // worst outcome a governance tool can produce, so both surfaces must keep
+    // saying to leave the predecessor alone.
+    const sources = [
+      ['adr-draft.md', join(packageRoot, 'commands', 'adr-draft.md')],
+      ['SKILL.md', join(packageRoot, 'skills', 'decision-memory', 'SKILL.md')],
+    ] as const;
+
+    for (const [label, path] of sources) {
+      const body = readFileSync(path, 'utf8');
+      expect({ label, names: body.includes('superseded-requires-supersededBy') }).toEqual({
+        label,
+        names: true,
+      });
+      expect({ label, defers: /ratif/i.test(body) }).toEqual({ label, defers: true });
+    }
+  });
+
+  test('the unscoped check collects untracked files too', () => {
+    // `git diff --name-only HEAD` reports only tracked files, so a brand-new
+    // source file — the case most likely to introduce something a decision
+    // governs — would be invisible, and the command would report a clean result
+    // for a change it never looked at.
+    const body = readFileSync(join(packageRoot, 'commands', 'adr-check.md'), 'utf8');
+    expect(body).toContain('git ls-files --others --exclude-standard');
+  });
+});
+
+describe('claims match the artifact', () => {
+  test('nothing shipped describes the MCP server as bundled with the plugin', () => {
+    // The plugin ships no .mcp.json (see manifest.test.ts). Catalog and skill
+    // copy that promises one sells functionality the artifact deliberately
+    // omits, and a user would reasonably expect installing the plugin to enable
+    // MCP. Both texts said exactly that before review caught it.
+    const sources: Array<readonly [string, string]> = [
+      ['marketplace.json', marketplacePath],
+      ['SKILL.md', join(packageRoot, 'skills', 'decision-memory', 'SKILL.md')],
+      ['plugin.json', join(packageRoot, '.claude-plugin', 'plugin.json')],
+    ];
+
+    for (const [label, path] of sources) {
+      const text = readFileSync(path, 'utf8');
+      for (const claim of [/bundled adrkit MCP/i, /and the local adrkit MCP server/i]) {
+        expect({ label, claim: String(claim), found: claim.test(text) }).toEqual({
+          label,
+          claim: String(claim),
+          found: false,
         });
       }
     }

@@ -12,7 +12,7 @@
     {
       "name": "adrkit",
       "source": "./packages/adapters/agent-plugin",
-      "description": "Load the architecture decisions that already govern a change before planning it, check a produced plan against them, and record a new one. Ships a decision-memory skill, a read-only decision-checker agent, four slash commands, and the local adrkit MCP server.",
+      "description": "Load the architecture decisions that already govern a change before planning it, check a produced plan against them, and record a new one. Ships a decision-memory skill, a read-only decision-checker agent, and four slash commands, all driven by the adr CLI. Ships no MCP server: adrkit's MCP server is configured per project, and the skill uses its tools when they are connected.",
       "version": "0.1.0",
       "author": {
         "name": "Mark Beacom",

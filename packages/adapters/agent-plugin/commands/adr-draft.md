@@ -40,8 +40,24 @@ Fill in what the scaffold leaves open:
       pattern: "src/db/**"
   ```
 
-- **`supersedes`** — set it when this replaces an earlier decision, and leave
-  the old record in place with `status: superseded`. Never delete history.
+- **`supersedes`** — set it on **this** record when it replaces an earlier
+  decision. Do **not** touch the record it replaces.
+
+  That restraint is load-bearing, and getting it wrong is worse than leaving it
+  alone. A drafted record is `proposed`, so it governs nothing yet. Flipping the
+  predecessor to `status: superseded` in the same edit therefore leaves the
+  affected paths governed by **neither** record — the old one has become
+  historical and the new one is not binding. In a governance tool, silently
+  un-governing a path is the worst available outcome. It is also schema-invalid:
+  `superseded` requires a `supersededBy`, so `adr lint` fails with
+  `superseded-requires-supersededBy`, and the now-invalid record drops out of the
+  corpus, which makes your own `supersedes` reference dangle as well.
+
+  Leave the predecessor `accepted` and untouched. It keeps governing until a
+  human ratifies the replacement, which is exactly right — the question is still
+  open. The reciprocal change, setting the old record to `status: superseded`
+  with `supersededBy`, belongs to ratification, not drafting. State plainly in
+  the new record which decision it would replace.
 - **Context, Decision, Consequences** — and the **alternatives actually
   considered and rejected**. The rejected option is usually the more valuable
   half of the record; it is what stops the next person re-proposing it.
