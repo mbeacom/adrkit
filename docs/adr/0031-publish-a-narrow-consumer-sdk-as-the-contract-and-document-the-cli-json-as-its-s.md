@@ -215,11 +215,31 @@ recorded as its own wrongness signal.
   stop being governance events; out-of-repo surfaces get one documented way in; ADR-0030's
   conformance fixture and the SDK's test fixture are the same artifact.
 - **Harder:** one more package, a mapping layer, and two contracts to keep honest.
-- **How we would know this was wrong:** if the SDK's surface has to grow past roughly a dozen
-  entry points to serve its first real consumer, then it is not a facade but a re-export of
-  core under another name, and the insulation is fictional. A second signal: if the first
-  real consumer needs something the SDK lacks and reaches into `@adrkit/core` directly, the
-  facade failed at its only job.
+- **How we would know this was wrong:** if more than a third of the SDK's declared **object
+  shapes** are structurally identical — same member names, same member types — to a type
+  `@adrkit/core` exports, then the facade is an alias for core under another name and the
+  insulation is fictional. Measured baseline at the surface's first enumeration: **0 of 12
+  object shapes identical**, 7 diverged, and 5 with no core counterpart at all. The three
+  **vocabulary unions** (`DecisionStatus`, `DecisionStanding`, `SlaState`) are identical, 3 of
+  3, and are deliberately excluded from this test: they are `schema/adr.schema.json`'s
+  vocabulary rather than core's, ADR-0029 clause 6 commits it separately, and clause 3 above
+  does not narrow it. Re-deriving those values under new spellings would add a translation
+  table that can drift from the schema, and buy no insulation for doing it. A second signal: if
+  the first real consumer needs something the SDK lacks and reaches into `@adrkit/core`
+  directly, the facade failed at its only job.
+
+  > **This criterion was corrected before ratification, and the correction is itself evidence.**
+  > It originally read: *"if the SDK's surface has to grow past roughly a dozen entry points to
+  > serve its first real consumer, then it is not a facade but a re-export of core under another
+  > name."* Action item 3 enumerated the surface at **7 callable entry points and 17 exported
+  > symbols including types**, and the original criterion fired on the second count while the
+  > structural measurement showed no aliasing whatsoever. It was testing the wrong property: it
+  > counted symbols while its stated concern was aliasing, so as written it would have condemned
+  > a facade that demonstrably insulates — and, worse, it never said which of the two counts it
+  > meant, leaving the record's own falsification test to be settled by whoever read it. A
+  > criterion that cannot be evaluated without a judgment call is not a falsification test.
+  > Both counts are retained above so a ratifier sees what was measured rather than only the
+  > conclusion drawn from it.
 - **Revisit if:** a non-JavaScript consumer appears, which would make clause 6's CLI adapter
   worth building rather than merely worth keeping cheap.
 
@@ -229,15 +249,29 @@ recorded as its own wrongness signal.
 2. [ ] Land the amendment note on ADR-0029 recording that clauses 6 and 11 are narrowed by
    this record's clause 3, per the mechanism ADR-0013 used on ADR-0007.
 3. [x] Enumerate the SDK's first surface from what a real consumer needs — the Tier 1
-   capabilities of ADR-0029 clause 1 — rather than from what core exports. Record the count;
-   if it exceeds a dozen entry points, the wrongness signal above has already fired.
-   **Done 2026-08-16: [`docs/sdk-surface.md`](../sdk-surface.md), sketched at `packages/sdk/`.
-   7 callable entry points; 17 exported symbols. The signal fires on the second count and not
-   the first, and the record does not say which it meant — see that document's verdict, which
-   recommends restating this criterion before ratification.**
+   capabilities of ADR-0029 clause 1 — rather than from what core exports, and record the
+   count. **Done 2026-08-16: [`docs/sdk-surface.md`](../sdk-surface.md), sketched at
+   `packages/sdk/`. 7 callable entry points; 17 exported symbols including types; 0 of 12
+   object shapes structurally identical to a core type. Measuring it is what revealed that this
+   record's own wrongness criterion tested the wrong property — see *Consequences*, where the
+   criterion is replaced and the correction recorded.**
 4. [ ] Converge `explain`, `lint`, and `new` `--json` onto core formatters, as `queue` is,
    so the two modes describe the same shapes.
 5. [ ] Document the CLI JSON contract and the SDK surface in `docs/RELEASING.md`, with the
    additive-only obligation stated at both.
 6. [ ] Build the conformance fixture ADR-0030 action item 5 names, as the SDK's own test
    fixture, so one artifact discharges both records.
+7. [ ] **Close the `--as-of` resolution gap: `queue`'s date resolver is a contract that lives
+   outside the contract.** `resolveAsOf` in `packages/cli/src/queue.ts` is ~25 lines
+   implementing `cli-contract.md §As-Of Resolution` — bare `YYYY-MM-DD` or an ISO datetime with
+   an explicit timezone, rejecting timezone-less datetimes as ambiguous — and it is **not
+   exported from `@adrkit/core`**. `buildQueueReport` takes an already-resolved `asOf` string,
+   so a library consumer computing the ARB queue today either reimplements that resolver or
+   silently gets a different answer than CI produces for the same corpus on the same day.
+
+   This is a live defect **independent of whether this record is ratified**, and it is the
+   clearest evidence for clause 3's narrowing: it is a contract gap that additive-only
+   discipline on `@adrkit/core`'s exported API could never have caught, because the missing
+   piece was never exported in the first place. Whatever the SDK's fate, the resolver belongs
+   in core beside the kernel it feeds. Deliberately **not** fixed alongside action item 3;
+   recorded here so it cannot be lost with `docs/sdk-surface.md`.

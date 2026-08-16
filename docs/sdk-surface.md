@@ -47,20 +47,22 @@ diverge in member names and member types; five (`DecisionSet`, `PathGovernance`,
 `OpenDecisionsOptions`, `QueueOptions`, `GoverningOptions`) have no counterpart in core
 whatsoever, because they describe a consumption model core does not have.
 
-**Recommendation for ratification.** The wrongness signal as written would condemn a facade
-that demonstrably insulates, because it counts symbols while its stated concern is aliasing.
-Two possible amendments, either of which is cheap now and expensive after ratification:
+**Recommendation for ratification — adopted.** The wrongness signal as written would condemn a
+facade that demonstrably insulates, because it counts symbols while its stated concern is
+aliasing. Worse, it never said which of the two counts it meant, so the record's own
+falsification test could not be evaluated without a judgment call.
 
-1. Say **callable entry points**, not "entry points" — the count a consumer experiences as
-   surface area. Result types are consequences of the capabilities, not independent
-   commitments, and a rule that penalizes them pushes toward returning `unknown`.
-2. Better: replace the count with the structural test above. *"If more than a third of the
-   SDK's declared types are structurally identical to a core type, the facade is an alias."*
-   That measures the actual concern rather than a proxy for it, and it is scriptable.
+**ADR-0031's criterion has been replaced** (see that record's *Consequences*), on `@mbeacom`'s
+decision, before ratification rather than after. It now reads: *more than a third of the SDK's
+declared object shapes being structurally identical to a core type* — scriptable, with the
+measured baseline of 0 of 12 recorded in the record itself, and with the three vocabulary unions
+explicitly excluded for the reason given below. The second signal — a consumer reaching into
+`@adrkit/core` directly — was sound and is kept unchanged. Both counts stay in the record so a
+ratifier sees what was measured, not only the conclusion.
 
 The honest summary for `@mbeacom`: **the surface is 7 callable entry points and 17 symbols; the
-insulation is real and measured; the record's own falsification criterion is the part that needs
-fixing.**
+insulation is real and measured; the record's own falsification criterion was the part that
+needed fixing, and measuring it is what found that out.**
 
 ## Measurements
 
@@ -112,6 +114,14 @@ So: a consumer importing `@adrkit/core` does not receive Tier 1 capabilities. It
 parts, plus the obligation to assemble them correctly and to keep assembling them correctly as
 core changes. **The mapping layer is the product.** ADR-0031 clause 4 asserts this; the eight-call
 chain is the evidence for it.
+
+The `--as-of` half of that is not merely inconvenient — it is a **live defect independent of the
+SDK's fate**, and it is now ADR-0031 action item 7 so it survives this document. `resolveAsOf` is
+not a helper; it implements `cli-contract.md §As-Of Resolution`, including the rule that a
+timezone-less datetime is rejected as ambiguous rather than guessed at. A consumer that
+reimplements it and guesses differently produces a queue that disagrees with CI's about which
+decisions are overdue, on the same corpus, on the same day, with no error anywhere. Whatever
+happens to this record, the resolver belongs in core beside the kernel it feeds.
 
 ### Both consumption modes, as found
 
