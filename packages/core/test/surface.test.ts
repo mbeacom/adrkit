@@ -84,6 +84,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'renderJsonGraph',
   'renderMigratedContent',
   'resolveAffects',
+  'resolveAsOf',
   'resolveSourceMarkers',
   'scanSourceMarkers',
   'slugifyTitle',

@@ -1,5 +1,5 @@
 import { stat } from 'node:fs/promises';
-import { buildQueueReport, formatQueueReportJson, formatQueueReportMarkdown, lintCorpus } from '@adrkit/core';
+import { buildQueueReport, formatQueueReportJson, formatQueueReportMarkdown, lintCorpus, resolveAsOf } from '@adrkit/core';
 
 const USAGE = `Usage: adr queue [options]
 
@@ -19,31 +19,6 @@ Exit codes: 0 = report, no error findings; 1 = report with corpus error findings
 
 /** Re-exported so `adr help queue` renders the same text as `adr queue --help`. */
 export const QUEUE_USAGE = USAGE;
-
-type AsOfResolution = { ok: true; date: string } | { ok: false; kind: 'tzless' | 'invalid' };
-
-/** Resolve a `--as-of` value to a UTC calendar date (cli-contract.md §As-Of Resolution). */
-function resolveAsOf(value: string): AsOfResolution {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const parsed = new Date(`${value}T00:00:00Z`);
-    if (Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value) {
-      return { ok: true, date: value };
-    }
-    return { ok: false, kind: 'invalid' };
-  }
-
-  const tIndex = value.indexOf('T');
-  if (tIndex !== -1) {
-    const timePart = value.slice(tIndex + 1);
-    const hasTimezone = /Z$/.test(timePart) || /[+-]\d{2}:?\d{2}$/.test(timePart);
-    if (!hasTimezone) return { ok: false, kind: 'tzless' };
-    const parsed = new Date(value);
-    if (Number.isFinite(parsed.getTime())) return { ok: true, date: parsed.toISOString().slice(0, 10) };
-    return { ok: false, kind: 'invalid' };
-  }
-
-  return { ok: false, kind: 'invalid' };
-}
 
 interface ParsedFlags {
   dir: string;

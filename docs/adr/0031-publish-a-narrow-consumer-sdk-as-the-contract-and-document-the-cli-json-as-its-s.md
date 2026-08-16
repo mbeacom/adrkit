@@ -261,7 +261,7 @@ recorded as its own wrongness signal.
    additive-only obligation stated at both.
 6. [ ] Build the conformance fixture ADR-0030 action item 5 names, as the SDK's own test
    fixture, so one artifact discharges both records.
-7. [ ] **Close the `--as-of` resolution gap: `queue`'s date resolver is a contract that lives
+7. [x] **Close the `--as-of` resolution gap: `queue`'s date resolver is a contract that lives
    outside the contract.** `resolveAsOf` in `packages/cli/src/queue.ts` is ~25 lines
    implementing `cli-contract.md §As-Of Resolution` — bare `YYYY-MM-DD` or an ISO datetime with
    an explicit timezone, rejecting timezone-less datetimes as ambiguous — and it is **not
@@ -275,3 +275,16 @@ recorded as its own wrongness signal.
    piece was never exported in the first place. Whatever the SDK's fate, the resolver belongs
    in core beside the kernel it feeds. Deliberately **not** fixed alongside action item 3;
    recorded here so it cannot be lost with `docs/sdk-surface.md`.
+
+   **Closed 2026-08-16.** `resolveAsOf` and its `AsOfResolution` type now live at
+   `packages/core/src/queue/as-of.ts`, exported from the package entry point beside
+   `buildQueueReport`, and `packages/cli/src/queue.ts` consumes them — so the rule has exactly
+   one implementation and a library consumer computes the same calendar date the CLI does. The
+   move is verbatim; CLI behaviour is unchanged, held by its existing 142 tests.
+
+   Observed failing per [ADR-0016](0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md),
+   and the observation is the interesting part: with the entry-point export removed to
+   reproduce the gap as it stood, **7 of the 8 new tests still passed.** Only the reachability
+   test failed. That is the defect stated precisely — it was never a wrong answer, it was an
+   unreachable rule, so no behavioural assertion could ever have detected it. A suite of
+   correctness cases alone would have reported this contract gap as fully covered.
