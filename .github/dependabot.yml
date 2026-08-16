@@ -16,6 +16,20 @@ updates:
           - "*"
 
   # Docs site has its own bun.lock and is not part of the root workspace.
+  #
+  # Starlight is ungrouped on purpose. `site/src/styles/custom.css` overrides
+  # Starlight-internal selectors (`.sl-badge.*`, `.starlight-aside--*`,
+  # `--sl-color-asides-*`) and depends on their specificity and on this
+  # stylesheet being unlayered while Starlight's own rules sit in
+  # `@layer starlight.*`. A minor bump that renames a variant class or moves a
+  # rule between layers compiles cleanly and changes what ships. Reviewing it
+  # alone is what makes that visible.
+  #
+  # `bun run check:rendered` backs only part of that: it asserts the marketing
+  # chips, the docs-prose chips, and one `.sl-badge` variant on the current
+  # sidebar entry. It observes no aside at all, and no `.sl-badge.success`. The
+  # rest of the override surface rests on this single-PR review, which is the
+  # reason for ungrouping rather than an argument that it is already covered.
   - package-ecosystem: "bun"
     directory: "/site"
     schedule:
@@ -24,6 +38,8 @@ updates:
       site-bun:
         patterns:
           - "*"
+        exclude-patterns:
+          - "@astrojs/starlight"
 
   # GitHub Actions used across .github/workflows are SHA-pinned; keep the pins
   # current (Dependabot updates the SHA and the trailing version comment).

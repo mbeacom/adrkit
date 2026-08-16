@@ -7,7 +7,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 adrkit ships two GitHub Actions from this repository. Both run with only the
 default `GITHUB_TOKEN`, hold no database, and never approve anything — they read
-the corpus and write a comment or an issue ([ADR-0004](/adr/)).
+the corpus and write a comment or an issue ([ADR-0004](/adr/0004-git-is-source-of-truth-database-is-an-index/)).
 
 ## Comment governing decisions on a PR
 
@@ -41,9 +41,9 @@ jobs:
 
 The Action finds the comment it posted on an earlier push and edits it in place, so a
 pull request carries one governing-decisions comment however many times you push
-([ADR-0026](/adr/)). Releases **through `v0.6.0` could not do this on their own** and
+([ADR-0026](/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows/)). Releases **through `v0.6.0` could not do this on their own** and
 needed an `env: GITHUB_TOKEN: ${{ github.token }}` block
-([#107](https://github.com/mbeacom/adrkit/issues/107)). `@v0` now resolves to `v0.7.0`,
+([#107](https://github.com/mbeacom/adrkit/issues/107)). `@v0` now resolves to `v0.8.0`,
 so that block is no longer required — and costs nothing if you still have it, because
 the Action never reads the variable to identify its token.
 
@@ -55,13 +55,16 @@ updated in place. The runner log confirms the variable was genuinely absent rath
 merely deleted from a file. The observation covers the **default `GITHUB_TOKEN`**; a
 custom GitHub App token takes the same code path but has not been observed separately.
 
-`v0` is a moving major tag, and it now resolves to a `v0.7.0` build. Pin the
-immutable `v0.7.0` tag or a commit SHA for maximum reproducibility.
+`v0` is a moving major tag, and it now resolves to a `v0.8.0` build. Pin the
+immutable `v0.8.0` tag or a commit SHA for maximum reproducibility.
 
-Every pull request in the adrkit repository runs this Action against itself and asserts
-the result, so the comment path has continuous end-to-end coverage. It is **not yet
-reference-verified** on [ADR-0014](/adr/) rung 2 — unlike the queue Action below — and
-that gap is tracked openly rather than implied away.
+Every same-repository, non-Dependabot pull request in the adrkit repository runs this
+Action against itself and asserts the result. Fork and Dependabot pull requests are
+excluded, because their `GITHUB_TOKEN` is read-only whatever `permissions:` declares.
+The comment path is **landed / reference-verified** on
+[ADR-0014](/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder/)
+rungs 1–2, the same rung as the queue Action below; rung-3 external validation remains
+open for both.
 
 <Aside type="note" title="Comments from before the upgrade">
 	The Action is comment-only and deletes nothing, so duplicate comments a pull request
@@ -70,14 +73,14 @@ that gap is tracked openly rather than implied away.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">
-	The `v*` release tags are **annotated**, so `refs/tags/v0.7.0` resolves to a tag
+	The `v*` release tags are **annotated**, so `refs/tags/v0.8.0` resolves to a tag
 	object rather than a commit, and `uses:` rejects that SHA. Pin the commit the tag
 	points *at*:
 
 	```sh
-	git rev-parse v0.7.0^{commit}
+	git rev-parse v0.8.0^{commit}
 	# or, over the API — this endpoint peels the tag for you:
-	gh api repos/mbeacom/adrkit/commits/v0.7.0 --jq .sha
+	gh api repos/mbeacom/adrkit/commits/v0.8.0 --jq .sha
 	```
 
 	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag
@@ -122,7 +125,7 @@ jobs:
 	commit SHA instead if you need a byte-immutable reference, and read that SHA from
 	the tag rather than from this page — `git rev-parse v0^{commit}` — so it cannot go
 	stale here. Phase 6 is landed and maintainer reference-verified; external
-	validation ([ADR-0014](/adr/) rung 3) remains open.
+	validation ([ADR-0014](/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder/) rung 3) remains open.
 </Aside>
 
 The managed issue's body is the same report you get locally:

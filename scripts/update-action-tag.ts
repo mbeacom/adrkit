@@ -99,7 +99,15 @@ export async function updateActionTag(
   }
 
   const releaseSha = await run(['git', 'rev-list', '-n', '1', releaseTag], repositoryRoot);
-  await run(['git', 'tag', '--force', majorTag, releaseSha], repositoryRoot, true);
+  // `-c tag.gpgSign=false` rather than a bare `git tag`: the moving major tag is
+  // a pointer, not a release artifact, and it is created unannotated so it peels
+  // to the commit directly. A developer with `tag.gpgSign = true` in their global
+  // config — a common and sensible default — turns this into a signed tag, which
+  // requires a message, and the command fails with "Please supply the message
+  // using either -m or -F option." CI runners carry no such config, so this only
+  // ever breaks the local path, and it reads as though the tag were protected
+  // rather than misconfigured.
+  await run(['git', '-c', 'tag.gpgSign=false', 'tag', '--force', majorTag, releaseSha], repositoryRoot, true);
   await run(
     ['git', 'push', '--force', remoteName, `refs/tags/${majorTag}`],
     repositoryRoot,

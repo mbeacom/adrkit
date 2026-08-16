@@ -572,7 +572,14 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
 
   for (const definition of selected) {
     const packageVersion = versionFor(definition, sourceManifests, version);
-    const filename = `${definition.name.slice(1).replace('/', '-')}-${packageVersion}.tgz`;
+    // `npm pack` drops a leading `@` and turns the scope separator into a dash,
+    // so `@adrkit/cli` becomes `adrkit-cli-<version>.tgz`. Strip only the `@`:
+    // an unconditional `slice(1)` is indistinguishable from correct for every
+    // scoped name and silently eats the first letter of an unscoped one. Every
+    // release package is scoped again, so this is currently unobservable here —
+    // it is kept, with a unit test, because the previous form was wrong rather
+    // than merely unexercised, and the next unscoped name would inherit it.
+    const filename = `${definition.name.replace(/^@/, '').replace('/', '-')}-${packageVersion}.tgz`;
     const packageDir = join(RELEASE_ROOT, definition.directory);
     await run(
       [
@@ -595,6 +602,10 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
     validatePackedManifest(definition, packedManifest, packageVersion, versionOfDependency);
     if (definition.name === '@adrkit/cli') {
       assert(packedManifest.bin?.adr === './dist/index.js', 'Packed CLI must expose the adr binary');
+      assert(
+        packedManifest.bin?.adrkit === './dist/index.js',
+        'Packed CLI must expose the adrkit binary, which is the unambiguous alias for the `adr` name npm already assigns to an unrelated package',
+      );
     }
     if (definition.name === '@adrkit/mcp') {
       assert(packedManifest.bin?.['adrkit-mcp'] === './dist/bin.js', 'Packed MCP must expose the adrkit-mcp binary');

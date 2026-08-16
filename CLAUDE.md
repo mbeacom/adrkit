@@ -2,7 +2,7 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–6 landed and v0.7.0 is public. `@adrkit/core`,
+Status: early — phases 0–6 landed and v0.8.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `queue`, `migrate --from madr`, `evaluate`) are published on npm, as is
 the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.2); the

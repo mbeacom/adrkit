@@ -42,6 +42,11 @@ jobs:
         run: bun run check:freeze-hashes
       - name: Verify published docs pin the current CLI release
         run: bun run check:doc-pins
+      # site/ cannot import the loader (ADR-0011), so gen-adr-pages.ts restates
+      # core's corpus grammar. This asserts the copy still matches, and that its
+      # one intentional divergence is still intentional.
+      - name: Verify the site's corpus grammar matches core
+        run: bun run check:site-grammar
       - name: Lint ADR corpus
         run: bun run adr lint
 

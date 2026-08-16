@@ -9,6 +9,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-15
+
 ### Changed
 
 - **`action-dogfood` is a required status check on `main`** (2026-08-15), added once it
@@ -39,6 +41,48 @@ Until `1.0.0`, minor releases may include breaking changes
   records it rather than quietly overwriting it.
 
 ### Added
+
+- **The unscoped `adrkit` package was attempted and abandoned — npm will not issue the
+  name.** The plan was a forwarder to `@adrkit/cli` owning the bare name, so that
+  `npx adrkit` could not resolve to anyone else's package. It was built, tested, and
+  packed; publishing it was attempted during this release and the registry refused the
+  request, so the package does not exist:
+
+  ```
+  403 Forbidden - PUT https://registry.npmjs.org/adrkit
+  Package name too similar to existing package pdfkit
+  ```
+
+  npm's similarity check compares names after stripping punctuation, and `adrkit` is too
+  close to `pdfkit`. This is not a race for the name and not something a retry fixes: the
+  same rule blocks `adr-kit` and `adr_kit`, which normalize to `adrkit` exactly. The
+  availability check that preceded the work — `npm view adrkit` returning 404 — proved
+  only that the name was unused, which is a weaker property than publishable, and the
+  distinction is invisible until the registry rejects the `PUT`.
+
+  The consequence is narrow but real: the zero-install `npx adrkit` form is permanently
+  unavailable, `npx @adrkit/cli` remains the zero-install form, and the documentation
+  warning against `npx adrkit` stays rather than being lifted. Nothing that installs
+  `@adrkit/cli` is affected — see the binary alias below, which is unrelated to the
+  registry and shipped normally.
+
+- **`@adrkit/cli` now installs an `adrkit` binary alongside `adr`.** The bare name `adr`
+  on npm belongs to an unrelated package (`phodal/adr`, published since 2017), so the
+  `adr` command is ambiguous in two ways adrkit does not control: a bare `npx adr` fetches
+  that package whenever adrkit's binary is not linked into `node_modules/.bin`, and a
+  project holding both dependencies has them compete for the same `.bin` entry. `adrkit`
+  collides with nothing, so `adrkit lint` is unambiguous for globally-installed users and
+  in `node_modules/.bin`. `adr` is unchanged and remains the primary name — this is purely
+  additive, and nothing that works today stops working. The alias covers the **installed**
+  binary only. `npx adrkit` is *not* made safe by it — that depended on owning the
+  unscoped package name, which npm refused (above), so `npx adrkit` still resolves against
+  the registry and would run whatever anyone publishes there, without prompting in CI
+  where npm assumes `--yes` on a non-TTY. `npx --no` is not a sufficient answer either: it
+  declines to install a missing package but still runs one already in the npx cache. Use
+  `npx @adrkit/cli` for zero-install, and `adrkit` only as an installed binary.
+  `release-pack` now asserts both binaries are present in the packed manifest, and that
+  assertion was observed failing with the alias removed before it was counted as coverage
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
 
 - **The comment-posting Action now has an end-to-end signal**
   ([ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
@@ -908,7 +952,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/mbeacom/adrkit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mbeacom/adrkit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mbeacom/adrkit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mbeacom/adrkit/compare/v0.4.0...v0.5.0

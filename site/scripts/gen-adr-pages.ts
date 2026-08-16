@@ -47,9 +47,49 @@ const STATUS_VARIANT: Record<string, string> = {
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
-function splitFrontmatter(raw: string): { frontmatter: Frontmatter; body: string } {
+/**
+ * The corpus grammar, restated from `packages/core/src/load/corpus.ts`.
+ *
+ * `site/` is deliberately not a workspace member (ADR-0011), so it cannot import
+ * the loader. `RECORD_FILE_PATTERN` and `NON_RECORD_FILE_NAMES` are copied
+ * verbatim; `scripts/check-site-corpus-grammar.ts` at the repository root asserts
+ * they still match core, so the copy cannot drift silently.
+ *
+ * It diverges from core in exactly one place, on purpose: core's
+ * `isConventionalNonRecordFileName` also returns true for `0000-template.md`,
+ * because the loader skips the template. This site *renders* the template as a
+ * page, so it must classify it as a record. Do not "restore parity" here without
+ * removing that page.
+ *
+ * The failure posture matters as much as the grammar. Core reports a
+ * `corpus-file-skipped` warning for anything it cannot classify; this script
+ * publishes, so an unclassifiable file must stop the build rather than be
+ * rendered under a guessed identity. Guessing is what the previous version did:
+ * a filename that did not match the pattern fell back to `'0000'`, which
+ * `isTemplate` reads as the template. Reproduced in review by adding a
+ * `README.md` to the corpus — it rendered as a page titled "ADR template" with a
+ * fabricated `draft` badge, colliding with the real template's sidebar order.
+ * No such file has been in the corpus on `main`; the hazard was latent.
+ */
+const RECORD_FILE_PATTERN = /^[0-9]{4,}-.+\.md$/;
+const NON_RECORD_FILE_NAMES = new Set(['readme.md', 'index.md', 'contributing.md', 'template.md']);
+
+/** Required by `schema/adr.schema.json`; a file lacking these is not a record. */
+const REQUIRED_RECORD_FIELDS = ['id', 'title', 'status', 'date'] as const;
+
+function isConventionalNonRecordFileName(fileName: string): boolean {
+  return NON_RECORD_FILE_NAMES.has(fileName.toLowerCase());
+}
+
+function splitFrontmatter(file: string, raw: string): { frontmatter: Frontmatter; body: string } {
   const match = FRONTMATTER_RE.exec(raw);
-  if (!match) return { frontmatter: {}, body: raw };
+  // Core's `parseFrontmatter` throws `missing-frontmatter` here. Returning an
+  // empty object instead would publish a page whose every field is a default.
+  if (!match) {
+    throw new Error(
+      `${file}: no YAML frontmatter fence. Every record in the corpus must open with '---'.`,
+    );
+  }
   const parsed = parseYaml(match[1] ?? '') as unknown;
   const frontmatter = parsed && typeof parsed === 'object' ? (parsed as Frontmatter) : {};
   return { frontmatter, body: (match[2] ?? '').trimStart() };
@@ -308,15 +348,48 @@ function renderIndex(docs: AdrDoc[]): string {
 }
 
 function main(): void {
-  const files = readdirSync(sourceDir)
+  const all = readdirSync(sourceDir)
     .filter((name) => name.endsWith('.md'))
     .sort();
+
+  // Classify before reading. Anything that is neither a record nor conventional
+  // corpus documentation is a mistake we must not publish under a guessed
+  // identity — most likely a misnamed record, which core reports and the site
+  // would otherwise render as a second template.
+  const unclassified = all.filter(
+    (name) => !RECORD_FILE_PATTERN.test(name) && !isConventionalNonRecordFileName(name),
+  );
+  if (unclassified.length > 0) {
+    throw new Error(
+      `unclassifiable markdown in ${sourceDir}: ${unclassified.join(', ')}.\n` +
+        `A record filename must match ${RECORD_FILE_PATTERN} (e.g. 0042-some-decision.md).\n` +
+        `Conventional corpus documentation (${[...NON_RECORD_FILE_NAMES].join(', ')}) is skipped.\n` +
+        'Rename the file, or add it to NON_RECORD_FILE_NAMES here and in packages/core/src/load/corpus.ts.',
+    );
+  }
+
+  const files = all.filter((name) => RECORD_FILE_PATTERN.test(name));
 
   const docs: AdrDoc[] = files.map((file) => {
     try {
       const raw = readFileSync(join(sourceDir, file), 'utf8');
-      const { frontmatter, body } = splitFrontmatter(raw);
-      const num = (/^(\d+)-/.exec(file)?.[1] ?? '0000').padStart(4, '0');
+      const { frontmatter, body } = splitFrontmatter(file, raw);
+      // The filename pattern is necessary but not sufficient: a date-prefixed
+      // note like `2026-02-01-arb-minutes.md` matches `^[0-9]{4,}-` and would
+      // otherwise publish as a record with id `2026` and a fabricated status.
+      // Admission depends on the record's content too — these are the fields
+      // the schema marks required.
+      const missing = REQUIRED_RECORD_FIELDS.filter((field) => frontmatter[field] === undefined);
+      if (missing.length > 0) {
+        throw new Error(
+          `${file}: missing required record field(s) ${missing.join(', ')}.\n` +
+            'The filename looks like a record, but the frontmatter is not one. ' +
+            'Rename the file if it is not a decision record.',
+        );
+      }
+      // Safe by construction: RECORD_FILE_PATTERN guarantees a leading run of
+      // at least four digits, so there is no fallback to invent.
+      const num = (/^(\d+)-/.exec(file)?.[1] ?? '').padStart(4, '0');
       return { file, num, frontmatter, body };
     } catch (error) {
       throw new Error(

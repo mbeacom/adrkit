@@ -9,14 +9,40 @@ bare `npx adr` resolves an unrelated `adr` package on npm):
 npx @adrkit/cli lint
 ```
 
-Or add it as a dev dependency and invoke it through your runner, which puts
-`node_modules/.bin` on PATH — a bare `adr` will not be on an interactive shell's
-PATH:
+Or add it as a dev dependency and invoke it through an npm script. A bare `adr`
+will not be on an interactive shell's PATH, and a bare `npx adr` is worse than
+missing — when the binary is not linked into `node_modules/.bin`, it silently
+downloads and runs the unrelated registry package instead of failing. A script
+resolves `node_modules/.bin` directly and stops with `command not found`:
 
 ```sh
 npm install --save-dev @adrkit/cli    # or: bun add --dev @adrkit/cli
-npx adr lint                          # or: bunx adr lint, or an npm script
+npm pkg set scripts.adr=adr
+npm run adr -- lint
 ```
+
+Or install it globally, which does put a bare `adr` on your PATH:
+
+```sh
+npm install -g @adrkit/cli
+adr lint
+```
+
+Every install also provides `adrkit`, an identical alias for the same binary.
+Nothing else on npm claims that binary name, so prefer it wherever a silent
+wrong-tool substitution would be hard to notice — CI, `Makefile`s, and agent
+instructions:
+
+```sh
+adrkit lint          # same binary, unambiguous name
+```
+
+That applies to the installed binary only. Do not use `npx adrkit` / `bunx
+adrkit`: there is no unscoped `adrkit` package and there never will be — npm
+refuses that name as too similar to `pdfkit`. The form resolves against the
+registry and would run whatever anyone publishes under it — and in CI, where npm
+assumes `--yes` on a non-TTY, it would install and run it without prompting. Use
+`npx @adrkit/cli` for zero-install.
 
 The `adr` binary includes `new`, `lint`, `graph`, `explain`, `check`, `queue`,
 `migrate --from madr`, and the offline deterministic `evaluate` command.

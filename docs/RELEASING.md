@@ -7,14 +7,14 @@ Action:
 |---|---|
 | `@adrkit/core` | npm |
 | `@adrkit/evaluator` | npm |
-| `@adrkit/cli` (`adr`) | npm |
+| `@adrkit/cli` (`adr`, `adrkit`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.7.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.8.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
 
-The coordinated lockstep surface is published; the current release is `v0.7.0`. `@adrkit/core`,
+The coordinated lockstep surface is published; the current release is `v0.8.0`. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
 `@adrkit/mcp` was created with the isolated one-time bootstrap path below; its
 Trusted Publisher and token-restriction cleanup must be completed before the
@@ -23,7 +23,7 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
 ## Release guarantees
 
 - All public package versions are identical. Introducing `@adrkit/mcp` as a
-  fourth public package therefore requires bumping `@adrkit/core`,
+  fourth public package therefore required bumping `@adrkit/core`,
   `@adrkit/evaluator`, and `@adrkit/cli` to the same version in the same
   coordinated release. The first MCP release shipped as v0.2.0.
 - The tag is exactly `v<package version>`.
@@ -97,10 +97,13 @@ The PR CI `bun audit` gate deliberately scopes itself to this workspace's
 resolved tree and does **not** audit consumer installs of the published
 `@adrkit/*` manifests
 ([ADR-0017](adr/0017-keep-dependency-audit-scope-explicit-and-release-scoped.md)).
-That audit is release evidence, so it runs here, against the packed tarballs —
-**all four of them**. `release:pack` already builds `.release/smoke/` with every
-artifact in the release manifest wired as a `file:` dependency, so auditing there
-covers the whole published set and cannot drift out of sync with what was packed:
+That audit is release evidence, so it runs here, against **every packed tarball**.
+`release:pack` already builds `.release/smoke/` with every artifact in the release
+manifest wired as a `file:` dependency, so auditing there covers the whole
+published set and cannot drift out of sync with what was packed. Note that a
+lockstep pack carries the independently versioned `@adrkit/spec-kit` alongside the
+four lockstep packages, so the set is five artifacts rather than four — counting
+it by hand is exactly the drift this arrangement avoids:
 
 ```sh
 (
@@ -110,7 +113,7 @@ covers the whole published set and cannot drift out of sync with what was packed
 )
 ```
 
-Audit **all four** packages, not a subset. `@adrkit/evaluator` is the only path to
+Audit **every** packed package, not a subset. `@adrkit/evaluator` is the only path to
 `jsonpath-rfc9535`, and `@adrkit/cli` is the only path to the evaluator, so an
 audit of `@adrkit/core` + `@adrkit/mcp` alone never sees that subtree at all
 (ADR-0017 action item 2).
@@ -185,7 +188,8 @@ npm Trusted Publishing cannot be configured for a package name that does not
 exist yet, so the very first publish needs a credential:
 
 1. Add `NPM_BOOTSTRAP_TOKEN` to the `npm` environment — a granular token with
-   publish rights for the `@adrkit` scope.
+   publish rights for the `@adrkit` scope. An unscoped name such as `adrkit`
+   is not covered by a scope-limited token; grant that one explicitly.
 2. Add the package name to `BOOTSTRAP_PACKAGES` in `scripts/release-publish.ts`.
    It is scrubbed from every other package's environment.
 3. Release.
@@ -198,6 +202,29 @@ An empty `BOOTSTRAP_PACKAGES` is the correct steady state, not an oversight. A
 name belongs in it only between "does not exist on the registry" and "Trusted
 Publishing is configured". `@adrkit/mcp` passed through it for 0.2.0 and
 `@adrkit/spec-kit` for 0.1.0; both publish over OIDC now.
+
+#### Do not retry the unscoped `adrkit` name
+
+`adrkit` was built as a forwarder to `@adrkit/cli` so that `npx adrkit` could
+not resolve to a stranger's package. Publishing it was attempted during the
+v0.8.0 release and the registry refused the request, so the package does not
+exist and never shipped:
+
+```
+403 Forbidden - PUT https://registry.npmjs.org/adrkit
+Package name too similar to existing package pdfkit
+```
+
+The check compares names with punctuation stripped, so `adr-kit` and `adr_kit`
+normalize to `adrkit` and are refused for the same reason. Retrying, waiting, or
+hyphenating does not help; only npm support can grant a name blocked this way.
+
+Two things follow. `npx adrkit` is permanently unsafe and the documentation
+warning against it stays. And an npm 404 means *unused*, not *publishable* — the
+availability check that preceded this work reported 404 and was believed to mean
+the name could be had. If a future package needs a new unscoped name, the only
+reliable test is a real publish attempt, so schedule it where a rejection is
+cheap rather than mid-release.
 
 ## One-time npm bootstrap (completed for v0.1.0)
 
