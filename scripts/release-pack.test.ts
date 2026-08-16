@@ -200,7 +200,6 @@ describe('release package validation — @adrkit/mcp (Phase 5)', () => {
       '@adrkit/evaluator',
       '@adrkit/cli',
       '@adrkit/mcp',
-      'adrkit',
       '@adrkit/spec-kit',
     ]);
     const mcp = RELEASE_PACKAGES.find((p) => p.name === '@adrkit/mcp');
@@ -216,26 +215,14 @@ describe('release package validation — @adrkit/mcp (Phase 5)', () => {
   });
 
   /**
-   * The forwarder is the first *unscoped* release package, which is not a
-   * cosmetic difference. `npm pack` derives a tarball name by dropping a
-   * leading `@`, and the pack step reproduced that with `name.slice(1)` — a
-   * transformation indistinguishable from correct across five scoped names and
-   * one that silently ate the first letter of the sixth, packing `adrkit` as
-   * `drkit-0.7.0.tgz`. This pins the shape of the definition; the naming rule
-   * itself is asserted directly below.
+   * Regression guard with no current subject. `release-pack` derived tarball
+   * names with `name.slice(1)`, which is indistinguishable from correct for a
+   * scoped name and eats the first letter of an unscoped one — briefly packing
+   * `adrkit` as `drkit-0.8.0.tgz`. That package is gone (npm refuses the name),
+   * so nothing exercises the unscoped branch today. The rule is kept and tested
+   * anyway: it was wrong rather than merely unexercised, and the next unscoped
+   * name would inherit the bug silently.
    */
-  test('adrkit is the unscoped forwarder, tracking @adrkit/cli in lockstep', () => {
-    const forwarder = RELEASE_PACKAGES.find((p) => p.name === 'adrkit');
-    expect(forwarder).toBeDefined();
-    expect(forwarder?.directory).toBe('packages/adrkit');
-    expect(forwarder?.workspaceDependencies).toEqual(['@adrkit/cli']);
-    expect(forwarder?.versioning).toBe('lockstep');
-    expect(forwarder?.shipsNodeArtifact).toBe(true);
-    expect(forwarder?.expectedFiles).toContain('dist/index.js');
-    expect(forwarder?.expectedFiles).toContain('dist/index.d.ts');
-    expect(forwarder?.expectedFiles).toContain('src/index.ts');
-  });
-
   test('a tarball name drops only the scope sigil, never a real first letter', () => {
     const tarballName = (name: string, version: string) =>
       `${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`;

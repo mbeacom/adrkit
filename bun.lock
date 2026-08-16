@@ -27,19 +27,6 @@
       "name": "@adrkit/spec-kit",
       "version": "0.1.2",
     },
-    "packages/adrkit": {
-      "name": "adrkit",
-      "version": "0.8.0",
-      "bin": {
-        "adrkit": "./dist/index.js",
-      },
-      "dependencies": {
-        "@adrkit/cli": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "latest",
-      },
-    },
     "packages/catalog-envelope": {
       "name": "@adrkit/catalog-envelope",
       "version": "0.0.0",
@@ -180,8 +167,6 @@
     "@types/picomatch": ["@types/picomatch@4.0.3", "", {}, "sha512-iG0T6+nYJ9FAPmx9SsUlnwcq1ZVRuCXcVEvWnntoPlrOpwtSTKNDC9uVAxTsC3PUvJ+99n4RpAcNgBbHX3JSnQ=="],
 
     "@types/semver": ["@types/semver@7.8.0", "", {}, "sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ=="],
-
-    "adrkit": ["adrkit@workspace:packages/adrkit"],
 
     "before-after-hook": ["before-after-hook@4.0.0", "", {}, "sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ=="],
 

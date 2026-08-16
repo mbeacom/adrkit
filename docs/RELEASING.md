@@ -1,6 +1,6 @@
 # Releasing adrkit
 
-adrkit distributes five public npm packages and one repository-backed GitHub
+adrkit distributes four public npm packages and one repository-backed GitHub
 Action:
 
 | Artifact | Distribution |
@@ -9,7 +9,6 @@ Action:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`, `adrkit`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `adrkit` (forwarder to `@adrkit/cli`) | npm |
 | `packages/ci/action.yml` | Git tag (latest immutable release `v0.8.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
@@ -26,14 +25,11 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
 - All public package versions are identical. Introducing `@adrkit/mcp` as a
   fourth public package therefore required bumping `@adrkit/core`,
   `@adrkit/evaluator`, and `@adrkit/cli` to the same version in the same
-  coordinated release. The first MCP release shipped as v0.2.0. The unscoped
-  `adrkit` forwarder joins the same rule as the fifth: it restates the CLI's
-  version to whoever installs it, so it may never lag behind one.
+  coordinated release. The first MCP release shipped as v0.2.0.
 - The tag is exactly `v<package version>`.
-- Packages publish in dependency order: core, evaluator, CLI, MCP, `adrkit`
-  (`@adrkit/mcp` depends only on core, so it sits after the CLI to preserve the
-  list's chronological order; the `adrkit` forwarder depends on the CLI and is
-  published last).
+- Packages publish in dependency order: core, evaluator, CLI, MCP (`@adrkit/mcp`
+  depends only on core, so it is appended last to preserve the list's
+  chronological order).
 - Bun 1.3.14 builds and packs the artifacts.
 - Packed manifests contain no `workspace:` protocols.
 - Tarballs include compiled ESM, declarations, README, LICENSE, and NOTICE.
@@ -48,10 +44,10 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
 
 ## SemVer and export-surface policy
 
-Until adrkit reaches `1.0.0`, the five public npm packages still move in
+Until adrkit reaches `1.0.0`, the four public npm packages still move in
 lockstep: every release uses the same `0.x.y` version for `@adrkit/core`,
-`@adrkit/evaluator`, `@adrkit/cli`, `@adrkit/mcp`, and `adrkit`, even when only
-one package changed.
+`@adrkit/evaluator`, `@adrkit/cli`, and `@adrkit/mcp`, even when only one
+package changed.
 
 The public surface is:
 
@@ -102,7 +98,7 @@ resolved tree and does **not** audit consumer installs of the published
 `@adrkit/*` manifests
 ([ADR-0017](adr/0017-keep-dependency-audit-scope-explicit-and-release-scoped.md)).
 That audit is release evidence, so it runs here, against the packed tarballs —
-**all five of them**. `release:pack` already builds `.release/smoke/` with every
+**all four of them**. `release:pack` already builds `.release/smoke/` with every
 artifact in the release manifest wired as a `file:` dependency, so auditing there
 covers the whole published set and cannot drift out of sync with what was packed:
 
@@ -114,7 +110,7 @@ covers the whole published set and cannot drift out of sync with what was packed
 )
 ```
 
-Audit **all five** packages, not a subset. `@adrkit/evaluator` is the only path to
+Audit **all four** packages, not a subset. `@adrkit/evaluator` is the only path to
 `jsonpath-rfc9535`, and `@adrkit/cli` is the only path to the evaluator, so an
 audit of `@adrkit/core` + `@adrkit/mcp` alone never sees that subtree at all
 (ADR-0017 action item 2).
@@ -204,7 +200,29 @@ name belongs in it only between "does not exist on the registry" and "Trusted
 Publishing is configured". `@adrkit/mcp` passed through it for 0.2.0 and
 `@adrkit/spec-kit` for 0.1.0; both publish over OIDC now.
 
-#### Pending: `adrkit`, and the doc flip that must follow it
+#### Do not retry the unscoped `adrkit` name
+
+`adrkit` was built as a forwarder to `@adrkit/cli` and published as part of
+v0.8.0 so that `npx adrkit` could not resolve to a stranger's package. npm
+refused it:
+
+```
+403 Forbidden - PUT https://registry.npmjs.org/adrkit
+Package name too similar to existing package pdfkit
+```
+
+The check compares names with punctuation stripped, so `adr-kit` and `adr_kit`
+normalize to `adrkit` and are refused for the same reason. Retrying, waiting, or
+hyphenating does not help; only npm support can grant a name blocked this way.
+
+Two things follow. `npx adrkit` is permanently unsafe and the documentation
+warning against it stays. And an npm 404 means *unused*, not *publishable* — the
+availability check that preceded this work reported 404 and was believed to mean
+the name could be had. If a future package needs a new unscoped name, the only
+reliable test is a real publish attempt, so schedule it where a rejection is
+cheap rather than mid-release.
+
+## Pending: `adrkit`, and the doc flip that must follow it
 
 `adrkit` — the unscoped forwarder — is in `BOOTSTRAP_PACKAGES` now, awaiting its
 first publish. It carries one extra step that the adapter names did not, and the
@@ -261,11 +279,11 @@ bootstrap described below.
 
 ## Subsequent releases
 
-1. Update the version in all five public package manifests, and the three places
+1. Update the version in all four public package manifests, and the three places
    the version is restated outside them: `CLI_VERSION` in
    `packages/cli/src/index.ts`, `SERVER_INFO` in `packages/mcp/src/server.ts`, and
    both `version` fields in `packages/mcp/server.json`.
-2. Update `bun.lock`'s five `packages/*` `version` fields to match. **`bun install`
+2. Update `bun.lock`'s four `packages/*` `version` fields to match. **`bun install`
    will not do this for you.** The dependency graph is unchanged — `workspace:*`
    still resolves to the same paths — so the install is a no-op, and
    `bun install --frozen-lockfile` reports no drift even though the file is stale.
@@ -273,10 +291,9 @@ bootstrap described below.
    `@adrkit/evaluator must resolve @adrkit/core to <version>, got <previous>`,
    because it validates packed manifests through the lockfile rather than the
    manifests. Deleting `bun.lock` does regenerate those fields, but it re-resolves
-   the entire tree and silently upgrades transitive dependencies — edit the five
+   the entire tree and silently upgrades transitive dependencies — edit the four
    fields directly instead, then confirm with `bun install --frozen-lockfile`. The
-   diff was exactly four lines through v0.7.0 (`c5dc677` for v0.6.0); the
-   unscoped `adrkit` forwarder makes it five from the next release on.
+   diff should be exactly four lines, as in v0.6.0 (`c5dc677`) and v0.7.0.
 3. Bump the pinned `@adrkit/cli@<version>` in the published badges recipe
    (`site/src/content/docs/badges.mdx`). It is pinned deliberately — the snippet
    runs inside a job holding `contents: write` (ADR-0025) — so it cannot float
@@ -364,7 +381,7 @@ Three more from the v0.4.0 cutover, all of which cost time:
   independently versioned package rides along in a lockstep pack. The registry
   idempotency check that skips an already-published artifact is gated behind
   `!dryRun`, so the dry run tries to republish `@adrkit/spec-kit` at its current
-  version. The five lockstep packages dry-run cleanly first, and the real run
+  version. The four lockstep packages dry-run cleanly first, and the real run
   skips the adapter because the packed tarball's integrity matches the registry.
   Tracked in [#104](https://github.com/mbeacom/adrkit/issues/104).
 

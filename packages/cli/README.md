@@ -38,10 +38,11 @@ adrkit lint          # same binary, unambiguous name
 ```
 
 That applies to the installed binary only. Do not use `npx adrkit` / `bunx
-adrkit`: the unscoped `adrkit` *package* name is unclaimed, so that form
-resolves against the registry and would run whatever anyone publishes under it
-— and in CI, where npm assumes `--yes` on a non-TTY, it would install and run it
-without prompting. Use `npx @adrkit/cli` for zero-install.
+adrkit`: there is no unscoped `adrkit` package and there never will be — npm
+refuses that name as too similar to `pdfkit`. The form resolves against the
+registry and would run whatever anyone publishes under it — and in CI, where npm
+assumes `--yes` on a non-TTY, it would install and run it without prompting. Use
+`npx @adrkit/cli` for zero-install.
 
 The `adr` binary includes `new`, `lint`, `graph`, `explain`, `check`, `queue`,
 `migrate --from madr`, and the offline deterministic `evaluate` command.

@@ -86,12 +86,12 @@ adr lint
 	notice.
 
 	This applies to the **installed** binary only. Do not reach for
-	`npx adrkit` / `bunx adrkit`: the unscoped `adrkit` *package* name is
-	unclaimed, so that form resolves against the registry and would run whatever
-	someone else publishes there. `npx --no` declines to install a missing
-	package, but it still runs one already in the npx cache, so it is not a
-	durable guard either. For zero-install, name the scoped package —
-	`npx @adrkit/cli lint`.
+	`npx adrkit` / `bunx adrkit`: there is no unscoped `adrkit` *package*, and
+	there never will be — npm refuses the name as too similar to `pdfkit`. That
+	form therefore resolves against the registry and would run whatever someone
+	else publishes there. `npx --no` declines to install a missing package, but
+	it still runs one already in the npx cache, so it is not a durable guard
+	either. For zero-install, name the scoped package — `npx @adrkit/cli lint`.
 </Aside>
 
 The pure library surfaces are independently installable when you only need the
