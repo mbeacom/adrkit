@@ -14,6 +14,7 @@
     "check:schema": "bun run scripts/sync-schema.ts --check",
     "check:rendered": "bun run scripts/check-rendered.ts",
     "check:rendered:self-test": "bun run scripts/check-rendered.ts --self-test",
+    "check:rendered:allow-skip": "bun run scripts/check-rendered.ts --allow-skip",
     "gen:adr": "bun run scripts/gen-adr-pages.ts"
   },
   "dependencies": {

@@ -17,9 +17,12 @@ https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json
 
 - **Workflow:** [`.github/workflows/site.yml`](../.github/workflows/site.yml)
   builds with Bun and deploys via `actions/upload-pages-artifact` +
-  `actions/deploy-pages`. It runs on push to `main` (for changes under `site/`,
-  `schema/adr.schema.json`, `docs/adr/**`, or the workflow), and can be run
-  manually with **workflow_dispatch**.
+  `actions/deploy-pages`. It runs on **every** push to `main` — the push trigger
+  carries no `paths` filter on purpose, because the site serves projections of
+  the corpus and the CLI, so a change to either must redeploy. The path list
+  (`site/`, `schema/adr.schema.json`, `docs/adr/**`, the workflow) filters the
+  *pull-request* build only. It can also be run manually with
+  **workflow_dispatch**.
 - **Pages source:** GitHub Actions (already configured on this repo —
   `build_type: workflow`). No branch/folder source is used.
 - **Schema serving:** `bun run sync:schema` copies the canonical
@@ -124,9 +127,32 @@ is published.
 **The only supported rollback is a revert commit on `main`.**
 
 ```sh
-git revert <sha>          # the commit that broke it
-git push origin main      # redeploys, ~2 minutes
+git revert <sha>                    # the commit that broke it
+git push origin HEAD:refs/heads/main   # if you have push access to main
 ```
+
+`main` is protected by an active ruleset (`deletion`, `non_fast_forward`, and
+required status checks, bypassable by repository role), so if a direct push is
+rejected, open the revert as a pull request and merge it normally. Note that the
+site `build` job is **not** in `main`'s required-checks list, so a red rendered
+check does not block the merge — but `deploy` needs `build`, so it does hold the
+publish.
+
+Two things the timing depends on, neither obvious:
+
+- **The revert has to build before it deploys.** Budget the full job, not the
+  push.
+- **It cannot pre-empt the bad run.** `concurrency` uses
+  `cancel-in-progress: false` so a deploy already in flight finishes and
+  publishes first. If the bad artifact has not published yet, cancel that
+  workflow run in the Actions UI before pushing the revert; otherwise the revert
+  queues behind it.
+
+If the build job itself is red for an environment reason — no browser on the
+runner, a `playwright-core` or Chrome bump — the rendered steps are already
+non-blocking on `main` and annotate instead, so the deploy proceeds. Do not
+delete the steps to unblock a release; that removes the check silently and
+nothing records it.
 
 Do **not** roll back by re-running an older workflow run, and do not
 `workflow_dispatch` from an older tag or branch. The deploy is whole-artifact:

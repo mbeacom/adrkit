@@ -42,6 +42,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # This job now drives a browser, which is the first step here that can hang
+    # rather than error. The concurrency group never cancels, so an unbounded
+    # hang would freeze every later deploy invisibly.
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: site
@@ -126,11 +130,34 @@ jobs:
       # rule). No browser is downloaded — `playwright-core` ships no binaries and
       # this drives the Chrome already on the image, so the frozen install stays
       # the only step that touches the network.
+      # Blocking on pull requests, where nothing deploys and the author is
+      # present — that is where a rendered regression should be stopped.
+      #
+      # Non-blocking on push, deliberately, for the reason stated above the badge
+      # step: a presentational assertion must not stop this job from deploying
+      # the canonical schema at its `$id` (ADR-0011). Withholding the artifact
+      # would leave adrkit.dev serving the *previous* schema bytes to every
+      # `$ref` consumer because a colour moved. The run still goes red and
+      # annotates, so the signal survives; only the veto over the schema is
+      # removed.
       - name: Guard — the rendered checks can still fail
+        id: rendered_self_test
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
         run: bun run check:rendered:self-test
 
       - name: Check rendered output
+        id: rendered
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
         run: bun run check:rendered
+
+      - name: Annotate a rendered failure that did not block the deploy
+        if: >-
+          github.event_name != 'pull_request' &&
+          (steps.rendered.outcome == 'failure' ||
+           steps.rendered_self_test.outcome == 'failure')
+        run: |
+          echo "::error title=Rendered check failed on main::The site deployed anyway so the canonical schema at its \$id stays current (ADR-0011). Fix the rendered regression, or revert — see site/DEPLOYMENT.md."
+          exit 1
 
       # Only publish an artifact for real deployments (push to main / manual run).
       - name: Upload Pages artifact

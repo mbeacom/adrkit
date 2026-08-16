@@ -51,21 +51,31 @@ const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
  * The corpus grammar, restated from `packages/core/src/load/corpus.ts`.
  *
  * `site/` is deliberately not a workspace member (ADR-0011), so it cannot import
- * the loader; this is a verbatim restatement of `RECORD_FILE_PATTERN`,
- * `TEMPLATE_FILE_NAME`, and `NON_RECORD_FILE_NAMES` rather than a second opinion
- * about what a record is. Keep them in step.
+ * the loader. `RECORD_FILE_PATTERN` and `NON_RECORD_FILE_NAMES` are copied
+ * verbatim; `scripts/check-site-corpus-grammar.ts` at the repository root asserts
+ * they still match core, so the copy cannot drift silently.
+ *
+ * It diverges from core in exactly one place, on purpose: core's
+ * `isConventionalNonRecordFileName` also returns true for `0000-template.md`,
+ * because the loader skips the template. This site *renders* the template as a
+ * page, so it must classify it as a record. Do not "restore parity" here without
+ * removing that page.
  *
  * The failure posture matters as much as the grammar. Core reports a
  * `corpus-file-skipped` warning for anything it cannot classify; this script
  * publishes, so an unclassifiable file must stop the build rather than be
- * rendered under a guessed identity. Guessing is what produced the original bug:
+ * rendered under a guessed identity. Guessing is what the previous version did:
  * a filename that did not match the pattern fell back to `'0000'`, which
- * `isTemplate` reads as the template, so a `README.md` in the corpus shipped to
- * adrkit.dev titled "ADR template" with a fabricated `draft` badge.
+ * `isTemplate` reads as the template. Reproduced in review by adding a
+ * `README.md` to the corpus — it rendered as a page titled "ADR template" with a
+ * fabricated `draft` badge, colliding with the real template's sidebar order.
+ * No such file has been in the corpus on `main`; the hazard was latent.
  */
 const RECORD_FILE_PATTERN = /^[0-9]{4,}-.+\.md$/;
-const TEMPLATE_FILE_NAME = '0000-template.md';
 const NON_RECORD_FILE_NAMES = new Set(['readme.md', 'index.md', 'contributing.md', 'template.md']);
+
+/** Required by `schema/adr.schema.json`; a file lacking these is not a record. */
+const REQUIRED_RECORD_FIELDS = ['id', 'title', 'status', 'date'] as const;
 
 function isConventionalNonRecordFileName(fileName: string): boolean {
   return NON_RECORD_FILE_NAMES.has(fileName.toLowerCase());
@@ -364,6 +374,19 @@ function main(): void {
     try {
       const raw = readFileSync(join(sourceDir, file), 'utf8');
       const { frontmatter, body } = splitFrontmatter(file, raw);
+      // The filename pattern is necessary but not sufficient: a date-prefixed
+      // note like `2026-02-01-arb-minutes.md` matches `^[0-9]{4,}-` and would
+      // otherwise publish as a record with id `2026` and a fabricated status.
+      // Admission depends on the record's content too — these are the fields
+      // the schema marks required.
+      const missing = REQUIRED_RECORD_FIELDS.filter((field) => frontmatter[field] === undefined);
+      if (missing.length > 0) {
+        throw new Error(
+          `${file}: missing required record field(s) ${missing.join(', ')}.\n` +
+            'The filename looks like a record, but the frontmatter is not one. ' +
+            'Rename the file if it is not a decision record.',
+        );
+      }
       // Safe by construction: RECORD_FILE_PATTERN guarantees a leading run of
       // at least four digits, so there is no fallback to invent.
       const num = (/^(\d+)-/.exec(file)?.[1] ?? '').padStart(4, '0');

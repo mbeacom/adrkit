@@ -96,7 +96,7 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 				<span class="adr-targets__label">resolved targets</span>
 				<div class="adr-target" data-route-target>
 					<span>path</span>
-					<code>apps/web/app/(authed)/**</code>
+					<code>{String.raw`apps/web/app/\(authed\)/**`}</code>
 				</div>
 				<div class="adr-target" data-route-target>
 					<span>package</span>

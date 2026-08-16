@@ -42,11 +42,15 @@ Plus exactly one hook: `after_plan` **offers** to run
 
 ## Install
 
+Spec Kit discovers extensions under `.specify/extensions/`, and only
+`specify extension add` writes there — so installation goes through Spec Kit,
+not through your package manager.
+
 <Tabs>
-<TabItem label="npm">
+<TabItem label="From a checkout">
 
 ```sh
-npm install --save-dev @adrkit/spec-kit
+specify extension add --dev path/to/packages/adapters/spec-kit
 ```
 
 </TabItem>
@@ -60,17 +64,17 @@ specify extension add adrkit
 ```
 
 </TabItem>
-<TabItem label="From a checkout">
-
-```sh
-specify extension add --dev path/to/packages/adapters/spec-kit
-```
-
-</TabItem>
 </Tabs>
 
 Then `/speckit.adrkit.context` is available in your agent, and `/speckit.plan`
 offers the `after_plan` hook.
+
+<Aside type="caution" title="`npm install` alone does not register the extension">
+	The package is on npm for programmatic and pinned installs, but installing it
+	writes to `node_modules/` and nothing else — no commands, no hook, and no
+	error explaining why. Point `specify extension add --dev` at the installed
+	directory if you pin it that way.
+</Aside>
 
 The package is also published on npm as
 [`@adrkit/spec-kit`](https://www.npmjs.com/package/@adrkit/spec-kit), versioned

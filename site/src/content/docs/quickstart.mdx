@@ -121,9 +121,12 @@ Running `adr lint` first on a repository with no corpus exits `2` with
 
 <Aside type="tip" title="Already have MADR records?">
 	Go to [Adopt an existing MADR corpus](#adopt-an-existing-madr-corpus--adr-migrate)
-	first. adrkit requires `id`, `title`, `status`, and `date`, and rejects unknown
-	keys, so linting an unmigrated corpus reports errors on every record. `adr
-	migrate` adds the fields in place and is additive.
+	first. What `adr lint` reports depends on your filenames. Records already named
+	`NNNN-slug.md` are read and fail on the required fields (`id`, `title`,
+	`status`, `date`) and on unknown keys. Descriptively named files are not
+	discovered at all — they are reported as skipped warnings, so lint checks 0
+	records and exits 0, which is not the same as passing. `adr migrate` adds the
+	fields in place, and `--rename` fixes the filenames.
 </Aside>
 
 Scaffold a record with the next sequential id and valid frontmatter.
@@ -142,13 +145,30 @@ CI and agents — a record with no `affects` is advisory only. Each entry is a
 ```yaml
 affects:
   - type: path
-    pattern: "apps/web/app/(authed)/**"
+    pattern: "apps/web/app/**"
   - type: package
     pattern: "next@>=16"
 ```
 
 `type` is one of `path`, `package`, `api`, `resource`, `entity`, or `data`. See
 the [JSON Schema reference](/schema/) for the full field list.
+
+<Aside type="caution" title="Path patterns are globs, so escape literal brackets">
+	`(`, `)`, `[`, `]`, `{`, `}`, `!`, and `*` are glob syntax. A Next.js route
+	group written as `apps/web/app/(authed)/**` compiles to a group matching the
+	*text* `authed`, so it matches `apps/web/app/authed/**` and never the
+	directory literally named `(authed)` — and it fails silently, because a
+	pattern that matches nothing is not an error. Escape them:
+	`apps/web/app/\(authed\)/**`.
+</Aside>
+
+<Aside type="note" title="When each matcher resolves">
+	`path` matchers resolve everywhere — `adr explain`, `adr check`, CI, and the
+	MCP server. A `package` matcher needs a changed-dependency snapshot, which
+	today only the CI Action supplies, and only from a changed `bun.lock`.
+	Everywhere else it is reported as inert rather than matched, so a record whose
+	only matcher is `package` will not surface locally.
+</Aside>
 
 ## Validate a corpus — `adr lint`
 

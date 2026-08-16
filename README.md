@@ -141,7 +141,7 @@ reversibility: one-way-door
 blastRadius: cross-team
 affects:
   - type: path
-    pattern: "apps/web/app/(authed)/**"
+    pattern: "apps/web/app/\\(authed\\)/**"   # ( and ) are glob syntax — escape them
   - type: package
     pattern: "next@>=16"
 ---

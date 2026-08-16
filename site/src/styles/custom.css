@@ -759,12 +759,12 @@ starlight-theme-select select {
 	font-weight: 560;
 }
 
-:root[data-theme='dark'] .adr-home :not(pre) > code {
+:where(:root[data-theme='dark']) .adr-home :not(pre) > code {
 	color: var(--sl-color-text-accent);
 }
 
 /* The roadmap band is coral in both themes, so its chips are theme-independent. */
-:root .adr-home .adr-roadmap :not(pre) > code {
+.adr-home .adr-roadmap :not(pre) > code {
 	color: var(--adr-canvas);
 }
 
@@ -780,11 +780,6 @@ starlight-theme-select select {
 	margin: 0;
 	color: var(--adr-text-muted);
 	line-height: 1.55;
-}
-
-.adr-capability > p:empty,
-.adr-roadmap__item > p:empty {
-	display: none;
 }
 
 .adr-flow {
@@ -1319,11 +1314,16 @@ tbody tr:nth-child(even) {
 
 	/* The clamp minimums are in rem, so they grow with the user's default font
 	   size while the container does not. Without this a single long word cannot
-	   break and overflows the viewport at large text sizes. */
+	   break and overflows the viewport at large text sizes. This reduces but does
+	   not eliminate the overflow: at 320px with a 32px default font the page
+	   still scrolls horizontally, because several grid track minimums are also
+	   in rem. Measured, and recorded rather than implied. */
 	.adr-hero h1,
 	.adr-thesis h2,
 	.adr-section-heading h2,
-	.adr-closing h2 {
+	.adr-closing h2,
+	.adr-roadmap__item h3,
+	.adr-record strong {
 		overflow-wrap: break-word;
 	}
 }

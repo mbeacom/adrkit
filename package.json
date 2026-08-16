@@ -1,7 +1,7 @@
 {
   "name": "adrkit",
   "version": "0.7.0",
-  "description": "Decision memory for human and agent-authored plans — machine-readable, CI-enforceable architecture decision records.",
+  "description": "Decision memory for human and agent-authored plans \u2014 machine-readable, CI-enforceable architecture decision records.",
   "type": "module",
   "private": true,
   "packageManager": "bun@1.3.14",
@@ -33,6 +33,7 @@
     "check:changelog": "bun run scripts/check-changelog.ts",
     "check:freeze-hashes": "bun run scripts/check-freeze-hashes.ts",
     "check:doc-pins": "bun run scripts/check-doc-cli-versions.ts",
+    "check:site-grammar": "bun run scripts/check-site-corpus-grammar.ts",
     "check:dco": "bun run scripts/check-dco.ts",
     "check:ci-comment": "bun run scripts/check-ci-comment.ts",
     "audit:gate": "bun run scripts/audit-gate.ts",

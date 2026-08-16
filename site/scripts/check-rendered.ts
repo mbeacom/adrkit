@@ -63,12 +63,56 @@ interface Failure {
 }
 
 const failures: Failure[] = [];
-let checksRun = 0;
+/** Every check name in run order, not only the failing ones. */
+const checkNames: string[] = [];
 
 function record(ok: boolean, check: string, detail: string): void {
-  checksRun += 1;
+  checkNames.push(check);
   if (!ok) failures.push({ check, detail });
 }
+
+/**
+ * The checks the sabotage stylesheet is expected to break, by name.
+ *
+ * This is the negative case's assertion, and it is deliberately a list rather
+ * than a ratio. A threshold derived from the live check count falls as
+ * assertions are deleted, so the same edit that removes coverage also lowers the
+ * bar — the self-test stays green while the checker stops looking, which is the
+ * one outcome CONTRIBUTING's third hard rule exists to prevent. Naming them
+ * means a pruned check is a named absence in the diff.
+ *
+ * Checks NOT listed here are the "element present" guards, which a stylesheet
+ * cannot break; they are excluded explicitly rather than absorbed as slack.
+ */
+const SABOTAGE_MUST_BREAK: readonly string[] = [
+  'home/light: roadmap code chip has no border',
+  'home/light: roadmap code chip has no fill',
+  'home/light: roadmap body copy contrast',
+  'home/light: roadmap link contrast',
+  'home/light: roadmap code chip contrast',
+  'home/light: roadmap planned pill contrast',
+  'home/light: roadmap current pill contrast',
+  'home/light: roadmap focus ring is drawn',
+  'home/light: shared left edge',
+  'home/dark: roadmap code chip has no border',
+  'home/dark: roadmap code chip has no fill',
+  'home/dark: roadmap body copy contrast',
+  'home/dark: roadmap link contrast',
+  'home/dark: roadmap code chip contrast',
+  'home/dark: roadmap planned pill contrast',
+  'home/dark: roadmap current pill contrast',
+  'home/dark: roadmap focus ring is drawn',
+  'home/dark: shared left edge',
+  'quickstart: page title aligns with body content',
+  'quickstart: docs prose code chip keeps its border',
+  'quickstart: docs prose code chip keeps its fill',
+  'adr/light: current sidebar badge contrast',
+  'adr/dark: current sidebar badge contrast',
+  'print: roadmap body copy legible on paper',
+  'print: roadmap code chip legible on paper',
+  'print: roadmap link legible on paper',
+  'print: roadmap heading legible on paper',
+];
 
 /**
  * Serve `dist` over HTTP. `file://` resolves the site's absolute asset paths
@@ -130,19 +174,60 @@ async function setTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
 }
 
 /** Contrast of an element's own text against a named ancestor's background. */
-async function contrastAgainst(page: Page, sel: string, bgSel: string): Promise<number | null> {
+async function contrastAgainst(
+  page: Page,
+  sel: string,
+  bgSel: string,
+): Promise<{ ratio: number; fg: string; bg: string } | null> {
   return page.evaluate(
     ([s, b]) => {
       const el = document.querySelector(s as string);
       const bg = document.querySelector(b as string);
       if (!el || !bg) return null;
-      return (window as any).__contrast(
-        getComputedStyle(el).color,
-        getComputedStyle(bg).backgroundColor,
-      );
+      const fg = getComputedStyle(el).color;
+      const bgc = getComputedStyle(bg).backgroundColor;
+      return { ratio: (window as any).__contrast(fg, bgc), fg, bg: bgc };
     },
     [sel, bgSel],
   );
+}
+
+class StylesheetMissingError extends Error {}
+
+/**
+ * Abort unless the site's own stylesheet is actually in effect.
+ *
+ * Without this every assertion passes on a build with no CSS at all: unstyled
+ * `<code>` has no border and no background (the chip checks pass), every
+ * background is transparent so contrast composites to ~21:1 (every contrast
+ * check passes), block boxes share a left edge (alignment passes), and an
+ * unstyled document does not overflow (every width check passes). The run then
+ * prints "N invariants hold" having observed nothing — which is the precise
+ * failure this whole script exists to prevent, so it is a hard abort rather
+ * than a recorded failure.
+ */
+async function assertStylesheetLoaded(page: Page, origin: string): Promise<void> {
+  await page.goto(`${origin}/`, { waitUntil: 'load' });
+  const state = await page.evaluate(() => {
+    const token = getComputedStyle(document.documentElement)
+      .getPropertyValue('--adr-coral')
+      .trim();
+    const band = document.querySelector('.adr-roadmap');
+    const bandBg = band ? getComputedStyle(band).backgroundColor : null;
+    return { token, bandBg, sheets: document.styleSheets.length };
+  });
+  const opaqueBand =
+    state.bandBg !== null && state.bandBg !== 'rgba(0, 0, 0, 0)' && state.bandBg !== 'transparent';
+  if (state.token.length === 0 || !opaqueBand) {
+    console.error(
+      'check-rendered: the site stylesheet is not in effect — refusing to grade an unstyled build.\n' +
+        `  --adr-coral: ${state.token || '(empty)'}\n` +
+        `  .adr-roadmap background: ${state.bandBg ?? '(element missing)'}\n` +
+        `  stylesheets seen: ${state.sheets}\n` +
+        'Every assertion would pass vacuously. This is a build or serving failure, not a regression.',
+    );
+    throw new StylesheetMissingError();
+  }
 }
 
 async function checkHome(page: Page, origin: string): Promise<void> {
@@ -181,11 +266,13 @@ async function checkHome(page: Page, origin: string): Promise<void> {
       ['code chip', '.adr-roadmap :not(pre) > code'],
       ['planned pill', '.adr-roadmap__item .adr-status--planned'],
     ] as const) {
-      const ratio = await contrastAgainst(page, sel, '.adr-roadmap');
+      const m = await contrastAgainst(page, sel, '.adr-roadmap');
       record(
-        ratio !== null && ratio >= AA_TEXT,
+        m !== null && m.ratio >= AA_TEXT,
         `home/${theme}: roadmap ${label} contrast`,
-        `${ratio ?? 'element missing'} (need >= ${AA_TEXT})`,
+        m === null
+          ? `element missing (${sel})`
+          : `${m.ratio} (need >= ${AA_TEXT}) — ${m.fg} on ${m.bg} [${sel}]`,
       );
     }
 
@@ -208,15 +295,33 @@ async function checkHome(page: Page, origin: string): Promise<void> {
       const band = document.querySelector('.adr-roadmap');
       if (!a || !band) return null;
       a.focus();
-      return (window as any).__contrast(
-        getComputedStyle(a).outlineColor,
-        getComputedStyle(band).backgroundColor,
-      );
+      const cs = getComputedStyle(a);
+      return {
+        // Colour alone cannot tell a white ring from no ring: `outline-color`
+        // initialises to `currentcolor`, and this link's text is already
+        // --adr-canvas, so the fallback and the intended value are identical.
+        style: cs.outlineStyle,
+        width: parseFloat(cs.outlineWidth),
+        ratio: (window as any).__contrast(
+          cs.outlineColor,
+          getComputedStyle(band).backgroundColor,
+        ),
+        color: cs.outlineColor,
+      };
     });
     record(
-      ring !== null && ring >= AA_NON_TEXT,
+      ring !== null && ring.style !== 'none' && ring.width >= 2,
+      `home/${theme}: roadmap focus ring is drawn`,
+      ring === null
+        ? 'element missing'
+        : `outline-style=${ring.style} outline-width=${ring.width}px (need a solid ring >= 2px)`,
+    );
+    record(
+      ring !== null && ring.ratio >= AA_NON_TEXT,
       `home/${theme}: roadmap focus ring contrast`,
-      `${ring ?? 'element missing'} (need >= ${AA_NON_TEXT})`,
+      ring === null
+        ? 'element missing'
+        : `${ring.ratio} (need >= ${AA_NON_TEXT}) — ${ring.color} on the band`,
     );
 
     // One shared left edge: the hero headline and every section heading below it
@@ -267,7 +372,32 @@ async function checkDocsPage(page: Page, origin: string): Promise<void> {
   record(
     align !== null && align[0] === align[1],
     'quickstart: page title aligns with body content',
+  'quickstart: docs prose code chip keeps its border',
+  'quickstart: docs prose code chip keeps its fill',
     align ? `title=${align[0]} body=${align[1]}` : 'fewer than two content panels',
+  );
+
+  // The complementary direction of the `:not(:has(.adr-home))` carve-out. The
+  // home-page chip assertions only catch docs chrome leaking onto the marketing
+  // page; this catches the carve-out over-reaching and stripping the box from
+  // docs prose, which is the direction the new mechanism can actually break.
+  const docsChip = await page.evaluate(() => {
+    const el = document.querySelector('.sl-markdown-content :not(pre) > code');
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    return { border: parseFloat(cs.borderTopWidth), background: cs.backgroundColor };
+  });
+  record(
+    docsChip !== null && docsChip.border > 0,
+    'quickstart: docs prose code chip keeps its border',
+    docsChip === null ? 'no inline code on the page' : `border-top-width=${docsChip.border}px`,
+  );
+  record(
+    docsChip !== null &&
+      docsChip.background !== 'rgba(0, 0, 0, 0)' &&
+      docsChip.background !== 'transparent',
+    'quickstart: docs prose code chip keeps its fill',
+    docsChip === null ? 'no inline code on the page' : `background=${docsChip.background}`,
   );
 }
 
@@ -299,6 +429,39 @@ async function checkAdrSidebarBadge(page: Page, origin: string): Promise<void> {
   }
 }
 
+async function checkPrint(page: Page, origin: string): Promise<void> {
+  // The roadmap band is the one section whose text is white because its
+  // background is coral, and browsers drop background graphics when printing.
+  // A specificity change elsewhere in the file silently re-broke exactly this
+  // once already, so it is asserted rather than trusted to the cascade.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin}/`, { waitUntil: 'load' });
+  await page.emulateMedia({ media: 'print' });
+  await setTheme(page, 'light');
+  try {
+    for (const [label, sel] of [
+      ['body copy', '.adr-roadmap__item p'],
+      ['code chip', '.adr-roadmap :not(pre) > code'],
+      ['link', '.adr-roadmap a:not(.adr-button)'],
+      ['heading', '.adr-roadmap__item h3'],
+    ] as const) {
+      const ratio = await page.evaluate((s) => {
+        const el = document.querySelector(s as string);
+        if (!el) return null;
+        // Paper, not the band: print drops the background graphic.
+        return (window as any).__contrast(getComputedStyle(el).color, 'rgb(255,255,255)');
+      }, sel);
+      record(
+        ratio !== null && ratio >= AA_TEXT,
+        `print: roadmap ${label} legible on paper`,
+        `${ratio ?? 'element missing'} against white (need >= ${AA_TEXT})`,
+      );
+    }
+  } finally {
+    await page.emulateMedia({ media: 'screen' });
+  }
+}
+
 /**
  * The negative case. Every invariant above is deliberately broken, and this
  * fails unless the run reports at least as many failures as it has assertions
@@ -323,7 +486,7 @@ const SABOTAGE = `
     background: var(--adr-coral) !important;
     color: var(--adr-coral) !important;
   }
-  .adr-roadmap a:focus-visible { outline-color: var(--adr-coral) !important; }
+  .adr-roadmap a:focus-visible { outline-style: none !important; }
   .adr-hero h1 { margin-inline-start: 40px !important; }
   main > .content-panel:first-child > .sl-container { max-width: 100% !important; }
   .sidebar-content a[aria-current='page'] > .sl-badge {
@@ -331,6 +494,13 @@ const SABOTAGE = `
     background: none !important;
   }
   .adr-home__section { width: 120vw !important; }
+  .sl-markdown-content :not(pre) > code { border-width: 0 !important; background: none !important; }
+  @media print {
+    .adr-roadmap__item p,
+    .adr-roadmap :not(pre) > code,
+    .adr-roadmap a:not(.adr-button),
+    .adr-roadmap__item h3 { color: var(--adr-canvas) !important; }
+  }
 `;
 
 async function run(): Promise<void> {
@@ -358,7 +528,22 @@ async function run(): Promise<void> {
   const { server, origin } = serveDist();
   let browser: Browser | undefined;
   try {
-    browser = await chromium.launch({ executablePath });
+    try {
+      browser = await chromium.launch({ executablePath });
+    } catch (error) {
+      console.error(
+        `check-rendered: found a browser at ${executablePath} but could not launch it.\n` +
+          `  ${error instanceof Error ? error.message : String(error)}\n` +
+          'This is an environment failure, not a site regression.',
+      );
+      server.stop(true);
+      process.exit(2);
+    }
+    // Which browser produced the numbers below. Without this a contrast failure
+    // cannot be attributed to an engine change from the log alone.
+    console.log(
+      `check-rendered: ${executablePath}\ncheck-rendered: ${await browser.version()}`,
+    );
     const page = await browser.newPage();
 
     if (selfTest) {
@@ -373,37 +558,56 @@ async function run(): Promise<void> {
       `);
     }
 
+    await assertStylesheetLoaded(page, origin);
     await checkHome(page, origin);
     await checkDocsPage(page, origin);
     await checkAdrSidebarBadge(page, origin);
+    await checkPrint(page, origin);
+  } catch (error) {
+    if (error instanceof StylesheetMissingError) {
+      // Infrastructure, not a site regression — same exit code as "no browser".
+      await browser?.close();
+      server.stop(true);
+      process.exit(2);
+    }
+    throw error;
   } finally {
     await browser?.close();
     server.stop(true);
   }
 
   if (selfTest) {
-    // Not every assertion is reachable by a stylesheet (the "element present"
-    // guards are not), so require a substantial majority to have fired rather
-    // than an exact count that would need editing with every new check.
-    const needed = Math.ceil(checksRun * 0.6);
-    if (failures.length < needed) {
+    const failed = new Set(failures.map((f) => f.check));
+    const ran = new Set(checkNames);
+    // Named, not counted: report the checks that went silent, which is what a
+    // reader needs, rather than the ones that fired, which they do not.
+    const didNotBreak = SABOTAGE_MUST_BREAK.filter((name) => ran.has(name) && !failed.has(name));
+    const missing = SABOTAGE_MUST_BREAK.filter((name) => !ran.has(name));
+
+    if (didNotBreak.length > 0 || missing.length > 0) {
+      console.error('check-rendered --self-test: the checker is not detecting its own sabotage.\n');
+      for (const name of didNotBreak) {
+        console.error(`  ✗ ran but did NOT fail under sabotage: ${name}`);
+      }
+      for (const name of missing) {
+        console.error(`  ✗ expected check never ran (renamed or deleted?): ${name}`);
+      }
       console.error(
-        `check-rendered --self-test: sabotage produced only ${failures.length} failure(s) ` +
-          `out of ${checksRun} checks; expected at least ${needed}.\n` +
-          'The checks are not detecting the breakage they exist to detect.',
+        '\nEither the assertion stopped working, or SABOTAGE no longer reaches it. ' +
+          'Fix the check, or update SABOTAGE_MUST_BREAK if the change is intended.',
       );
-      for (const f of failures) console.error(`  did fail: ${f.check}`);
       process.exit(1);
     }
+
     console.log(
-      `check-rendered --self-test: ok — sabotage produced ${failures.length} ` +
-        `failure(s) across ${checksRun} checks, so the checks can fail.`,
+      `check-rendered --self-test: ok — all ${SABOTAGE_MUST_BREAK.length} sabotage-reachable ` +
+        `check(s) failed as expected, across ${checkNames.length} total.`,
     );
     process.exit(0);
   }
 
   if (failures.length > 0) {
-    console.error(`check-rendered: ${failures.length} of ${checksRun} check(s) failed:\n`);
+    console.error(`check-rendered: ${failures.length} of ${checkNames.length} check(s) failed:\n`);
     for (const f of failures) console.error(`  ✗ ${f.check}\n      ${f.detail}`);
     console.error(
       '\nThese are rendered-output invariants that `astro build` cannot see. ' +
@@ -412,7 +616,7 @@ async function run(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`check-rendered: ok — ${checksRun} rendered invariant(s) hold.`);
+  console.log(`check-rendered: ok — ${checkNames.length} rendered invariant(s) hold.`);
 }
 
 await run();
