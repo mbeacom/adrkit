@@ -75,6 +75,25 @@ adr lint
 </TabItem>
 </Tabs>
 
+<Aside type="tip" title="`adrkit` — the unambiguous installed alias">
+	Every install above also provides a second binary, `adrkit`, identical to
+	`adr`. Nothing else on npm claims that binary name, so once installed it is
+	unambiguous: `adrkit lint` works wherever `adr lint` does, without competing
+	for the `.bin` entry that `adr` shares with the unrelated package.
+
+	Prefer it in anything shared or long-lived — CI, `Makefile`s, READMEs, and
+	agent instructions — where a silent wrong-tool substitution is hardest to
+	notice.
+
+	This applies to the **installed** binary only. Do not reach for
+	`npx adrkit` / `bunx adrkit`: the unscoped `adrkit` *package* name is
+	unclaimed, so that form resolves against the registry and would run whatever
+	someone else publishes there. `npx --no` declines to install a missing
+	package, but it still runs one already in the npx cache, so it is not a
+	durable guard either. For zero-install, name the scoped package —
+	`npx @adrkit/cli lint`.
+</Aside>
+
 The pure library surfaces are independently installable when you only need the
 resolver or the evaluator:
 
@@ -111,25 +130,6 @@ when the binary is linked into `node_modules/.bin`, and otherwise silently runs
 the unrelated registry package instead of failing. An npm script has no such
 ambiguity — it resolves `node_modules/.bin` and stops with `command not found`
 if the dependency is missing.
-
-<Aside type="tip" title="`adrkit` — the unambiguous installed alias">
-	`@adrkit/cli` installs a second binary, `adrkit`, identical to `adr`. Nothing
-	else on npm claims that binary name, so once installed it is unambiguous:
-	`adrkit lint` works wherever `adr lint` does, without competing for the
-	`.bin` entry that `adr` shares with the unrelated package.
-
-	Prefer it in anything shared or long-lived — CI, `Makefile`s, READMEs, and
-	agent instructions — where a silent wrong-tool substitution is hardest to
-	notice.
-
-	This applies to the **installed** binary only. Do not reach for
-	`npx adrkit` / `bunx adrkit`: the unscoped `adrkit` *package* name is
-	unclaimed, so that form resolves against the registry and would run whatever
-	someone else publishes there. `npx --no` declines to install a missing
-	package, but it still runs one already in the npx cache, so it is not a
-	durable guard either. For zero-install, name the scoped package —
-	`npx @adrkit/cli lint`.
-</Aside>
 
 ## Validate a corpus — `adr lint`
 
