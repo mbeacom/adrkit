@@ -146,7 +146,10 @@ to npm, and catalogued from the repository root's
 `.claude-plugin/marketplace.json`. Authorized by
 [ADR-0028](./docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
 **Rung 1 only** — unit and contract coverage plus maintainer verification
-against the installed hosts. No reference-repository run, no external validation.
+against the installed hosts, including a functional exercise in an ephemeral
+consumer repository. No persistent reference-repository run, no external
+validation. Scope and limitations:
+[`docs/reference-verification-agent-plugin.md`](./docs/reference-verification-agent-plugin.md).
 
 Things that are load-bearing and easy to break — each measured against the real
 hosts rather than read off their docs, so a change that "looks more correct"
@@ -169,6 +172,13 @@ will usually be a regression:
   `Failed to start MCP client for adrkit` every session. MCP is wired per
   project, where the working directory is correct. Do not "fix" this by adding
   the file back.
+- **The subagent must resolve the CLI properly.** `@adrkit/cli` is normally a dev
+  dependency, so a bare `adr` is not on `PATH`. An agent that tries only that
+  concludes "no CLI available" and falls back to reading ADR frontmatter by hand
+  — which cannot expand glob matchers, cannot read inbound `@adr` markers, and
+  has no exit code, so it produces an answer that looks complete and is not.
+  Measured, then fixed: both the skill and the agent now state
+  `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH`, and a test enforces it.
 - **Three version fields must agree**: `.claude-plugin/plugin.json`, `apm.yml`,
   and `package.json`. Claude Code keys its plugin cache on `version`.
 - `copilot plugin install` prints only a skill count. "Installed 1 skill" does

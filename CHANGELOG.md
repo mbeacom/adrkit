@@ -34,6 +34,16 @@ Until `1.0.0`, minor releases may include breaking changes
   list the other two hosts take; the manifests carry no `"//"` comment keys; and
   all three version fields must agree.
 
+  A fifth defect came from exercising the components rather than loading them:
+  the subagent reported "no CLI available" in a repository where `@adrkit/cli`
+  was installed as a dev dependency, because it tried only a bare `adr` and then
+  silently fell back to reading ADR frontmatter by hand — an answer that looks
+  complete but cannot expand glob matchers, read inbound `@adr` markers, or
+  produce an exit code. The skill and the agent now both state the resolution
+  order `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH`. Full scope, and what
+  these runs do *not* establish, in
+  [`docs/reference-verification-agent-plugin.md`](docs/reference-verification-agent-plugin.md).
+
 - **`AGENTS.md` as the canonical, host-neutral project memory.** `CLAUDE.md` and
   the new `.github/copilot-instructions.md` are now thin pointers to it carrying
   only genuinely host-specific notes, rather than a second copy that costs

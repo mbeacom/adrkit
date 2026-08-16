@@ -29,6 +29,15 @@ is "this needs a new ADR," say so and stop — drafting is the caller's decision
 
 ## Method
 
+0. **Resolve the CLI before concluding it is missing.** Try, in order:
+   `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then `adr` on `PATH`. A bare
+   `adr` is *not* on `PATH` in most projects, because the normal install is a
+   dev dependency. Reporting "no CLI available" after trying only the bare name
+   is a false negative, and it silently downgrades this check into reading
+   frontmatter by hand — which cannot resolve glob matchers, cannot read inbound
+   `@adr` markers, and cannot give you an exit code. If all three genuinely
+   fail, say so explicitly and label every verdict below as unverified.
+
 1. **Establish the target set.** Take the changed paths from the caller. If you
    were given a plan or diff instead, extract the paths it touches. If neither
    yields paths, say the check is unscoped and ask for them rather than checking

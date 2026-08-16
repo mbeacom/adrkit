@@ -139,12 +139,16 @@ directory, when they are not.
   unit and contract coverage, each guard observed failing against a deliberate
   violation per
   [ADR-0016](./0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md),
-  plus maintainer verification against installed hosts — `copilot plugin
-  install` from a local marketplace with all six components confirmed present in
-  a fresh session, `claude plugin validate` passing for both manifests, and
-  `apm install` clean across the `claude`, `copilot`, and `opencode` targets.
-  There has been no isolated reference-repository run and no external
-  validation. Rungs 2 and 3 are open.
+  plus maintainer verification against installed hosts. The components were
+  exercised functionally in an ephemeral consumer repository, not merely
+  confirmed to load, and that exercise found a fifth defect: the subagent
+  reported "no CLI available" when `@adrkit/cli` was installed as a dev
+  dependency, because it tried only a bare `adr` and then fell back to reading
+  frontmatter by hand — an answer that looks complete and is not. The skill and
+  the agent now both state the resolution order. There has been no persistent
+  reference-repository run and no external validation; rungs 2 and 3 are open.
+  Full scope and limitations:
+  [`docs/reference-verification-agent-plugin.md`](../reference-verification-agent-plugin.md).
 
 ## Alternatives considered
 

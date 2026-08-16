@@ -97,8 +97,35 @@ describe('frontmatter types the hosts will not coerce', () => {
   });
 });
 
-describe('write boundary', () => {
-  test('exactly one command writes, and it is adr-draft', () => {
+describe('CLI resolution guidance', () => {
+  test('the skill and the agent both name the full resolution order', () => {
+    // Measured defect, not a hypothetical. In an isolated consumer repository
+    // with @adrkit/cli installed as a dev dependency, the subagent tried a bare
+    // `adr`, got "command not found", reported that no CLI was available, and
+    // fell back to reading ADR frontmatter by hand. That fallback cannot expand
+    // glob matchers, cannot read inbound `@adr` markers, and has no exit code —
+    // it produces an answer that looks complete and is not. The middle entry,
+    // ./node_modules/.bin/adr, is the one that was missing and the one a normal
+    // dev-dependency install actually needs.
+    const sources = [
+      ['SKILL.md', join(packageRoot, 'skills', 'decision-memory', 'SKILL.md')],
+      ['decision-checker.md', join(packageRoot, 'agents', 'decision-checker.md')],
+    ] as const;
+
+    for (const [label, path] of sources) {
+      const body = readFileSync(path, 'utf8');
+      for (const entry of ['$ADRKIT_CLI', './node_modules/.bin/adr', 'PATH']) {
+        expect({ label, entry, present: body.includes(entry) }).toEqual({
+          label,
+          entry,
+          present: true,
+        });
+      }
+    }
+  });
+});
+
+describe('write boundary', () => {  test('exactly one command writes, and it is adr-draft', () => {
     // The same rule the Spec Kit adapter enforces: a governance tool that
     // writes as a side effect of being consulted is a governance tool people
     // uninstall. `adr new` is the only CLI verb here that creates a record, so

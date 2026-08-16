@@ -144,13 +144,22 @@ add a second, staler path to the same bytes.
 
 Landed at **rung 1** of the
 [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-evidence ladder — unit and contract coverage plus direct maintainer verification
-against the real hosts: `copilot plugin install` from a local marketplace with
-components confirmed in a fresh session, `claude plugin validate` passing for
-both the plugin and the marketplace manifest, and `apm install` clean across the
-`claude`, `copilot`, and `opencode` targets. It has had **no** isolated
-reference-repository run (rung 2) and **no** external validation (rung 3); both
-are open.
+evidence ladder — unit and contract coverage, each guard observed failing
+against a deliberate violation, plus direct maintainer verification against the
+installed hosts. The components were not merely confirmed to load: in an
+ephemeral consumer repository with a four-record corpus, `/adr-context`
+resolved the governing decision and its inbound marker, `/adr-check` returned
+`re-proposes-rejected` against a rejected record and stopped without writing,
+`/adr-draft` wrote exactly one `proposed` record that then lints and appears in
+the queue, and the `decision-checker` agent produced per-decision verdicts from
+the CLI. Five defects were found and fixed along the way.
+
+It has had **no** persistent reference-repository run (rung 2) — the consumer
+repository was ephemeral, there is no CI attached to it, and the public
+marketplace source is unverified until this branch merges — and **no** external
+validation (rung 3). The full scope, including what these runs do *not*
+establish, is in the
+[evidence index](../../../docs/reference-verification-agent-plugin.md).
 
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).

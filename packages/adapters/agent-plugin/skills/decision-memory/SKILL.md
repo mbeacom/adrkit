@@ -46,6 +46,21 @@ already scoped to this repository:
 If the server is not connected, every retrieval below has a CLI equivalent. Do
 not silently skip the step because the tools are absent.
 
+### Resolving the `adr` CLI
+
+Try, in order: `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then `adr` on
+`PATH`.
+
+The middle one matters. `@adrkit/cli` is normally installed as a dev dependency,
+so a bare `adr` is **not** on `PATH` in most projects. Concluding "no CLI is
+available" after trying only the bare name is a false negative, and the failure
+it causes is quiet: you fall back to reading ADR frontmatter by hand, which
+cannot expand glob matchers, cannot read inbound `@adr` markers, and gives you
+no exit code. That produces an answer that looks complete and is not.
+
+If all three genuinely fail, say so and label the result unverified — do not
+present hand-read frontmatter as a check.
+
 ## Before you plan
 
 Resolve what already governs the work, using the paths you actually intend to
