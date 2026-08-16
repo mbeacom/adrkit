@@ -10,12 +10,12 @@ Action:
 | `@adrkit/cli` (`adr`, `adrkit`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
 | `adrkit` (forwarder to `@adrkit/cli`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.7.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.8.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
 
-The coordinated lockstep surface is published; the current release is `v0.7.0`. `@adrkit/core`,
+The coordinated lockstep surface is published; the current release is `v0.8.0`. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
 `@adrkit/mcp` was created with the isolated one-time bootstrap path below; its
 Trusted Publisher and token-restriction cleanup must be completed before the
@@ -364,7 +364,7 @@ Three more from the v0.4.0 cutover, all of which cost time:
   independently versioned package rides along in a lockstep pack. The registry
   idempotency check that skips an already-published artifact is gated behind
   `!dryRun`, so the dry run tries to republish `@adrkit/spec-kit` at its current
-  version. The four lockstep packages dry-run cleanly first, and the real run
+  version. The five lockstep packages dry-run cleanly first, and the real run
   skips the adapter because the packed tarball's integrity matches the registry.
   Tracked in [#104](https://github.com/mbeacom/adrkit/issues/104).
 

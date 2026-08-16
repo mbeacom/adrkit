@@ -24,9 +24,12 @@ adrkit/
 ├── packages/
 │   ├── core/                      @adrkit/core — schema (SOURCE OF TRUTH:
 │   │                              src/schema/adr.schema.ts), resolver, queue kernel
-│   ├── cli/                       @adrkit/cli — the `adr` binary
+│   ├── cli/                       @adrkit/cli — the `adr` and `adrkit` binaries
 │   ├── evaluator/                 @adrkit/evaluator — deterministic Pass 0
 │   ├── mcp/                       @adrkit/mcp — read-only stdio MCP server
+│   ├── adrkit/                    adrkit — unscoped forwarder to @adrkit/cli;
+│   │                              owns the bare name so `npx adrkit` cannot
+│   │                              resolve to someone else's package
 │   ├── ci/                        private — the two GitHub Actions + bundled dist
 │   └── adapters/
 │       └── spec-kit/              @adrkit/spec-kit — independently versioned

@@ -1,6 +1,6 @@
 {
   "name": "adrkit",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "The adrkit CLI under its unscoped name — forwards to @adrkit/cli.",
   "type": "module",
   "license": "Apache-2.0",
