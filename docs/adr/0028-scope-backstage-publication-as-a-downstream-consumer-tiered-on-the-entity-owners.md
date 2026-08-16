@@ -2,14 +2,14 @@
 schemaVersion: 0.1.0
 id: "0028"
 title: Scope Backstage publication as a downstream consumer, tiered on the entity-ownership mapping
-status: proposed
+status: accepted
 date: 2026-08-15
 deciders: ["@mbeacom"]
 tags: [architecture, packaging, catalog, distribution, governance]
 scope: org
 reversibility: two-way-door
-blastRadius: team
-relatesTo: ["0003", "0007", "0009", "0012", "0013", "0014", "0019", "0020"]
+blastRadius: org
+relatesTo: ["0003", "0007", "0012", "0013", "0014", "0016", "0019", "0020", "0025"]
 affects:
   - type: path
     pattern: "packages/adapters/catalog-*/**"
@@ -35,6 +35,7 @@ affects:
     pattern: "scripts/release-pack.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 externalRefs:
   - type: doc
     url: "https://github.com/backstage/community-plugins/tree/main/workspaces/adr/plugins/adr"
@@ -56,13 +57,16 @@ reviewBy: 2027-02-15
 
 # ADR-0028: Scope Backstage publication as a downstream consumer, tiered on the entity-ownership mapping
 
-> **Status: proposed, agent-drafted, unratified.** This record scopes work toward
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-08-15 after two
+> independent four-lens reviews. This record scopes work toward
 > [ADR-0014](0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-> **rung 1 only**. It does not authorize a release, a publish target, a tag, a channel,
-> or a date, and it does not itself authorize the entity-scoped tier it defines.
-> The largest accepted cost is that cross-repository contract drift is unpoliced by any
-> single CI run. **Nothing here is enforced by a check** — see *Enforcement posture*.
-> Action item 1 asks `@mbeacom` to ratify or reject.
+> **rung 1 only** (clause 10). It does not authorize a release, a publish target, a tag, a
+> channel, or a date, and it does not itself authorize the entity-scoped tier it defines.
+> **Two accepted costs.** *The headline feature waits* — "which decisions govern this
+> component" is Tier 2, deferred behind feature 010's envelope. And, **if clause 5 resolves
+> to a separate repository**, cross-repository contract drift unpoliced by any single CI run.
+> **Nothing here is enforced by a check, and `affects:` detection is partial** — see
+> *Enforcement posture*, which states exactly where it is silent.
 
 ## Context
 
@@ -133,20 +137,24 @@ it is also not unrelated. The envelope it produces is what the entity-scoped tie
 published output, split into two tiers by whether a capability needs the entity-ownership
 mapping.**
 
-The numbered clauses below bind. Unnumbered prose in this record is commentary and binds
-nothing — a deliberate choice, because an earlier draft stated a clause count that its own
-enumeration contradicted, and a miscount is the cheapest way to make a governing record
-argue against itself.
+The clauses below state the decision. No count is given, deliberately: an earlier draft
+stated one its own enumeration contradicted. This record follows the corpus convention that
+a record's decision text binds; it does **not** introduce a two-class rule dividing numbered
+from unnumbered prose, which would be a corpus-wide convention needing its own record.
 
-1. **Tier 1 — corpus-scoped, authorized by this record.** Capabilities that need no
-   entity-to-path mapping: browsing the corpus, the ARB queue and its SLA state, the
-   supersession graph, record status, and path-governance for a path the caller supplies
-   explicitly. This tier is authorized to be built.
+1. **Tier 1 — needs no ownership mapping; authorized by this record.** Browsing the corpus,
+   the ARB queue and its SLA state, the supersession graph, record status, the document
+   layer of clause 9, and path-governance for a path that is **explicitly supplied**. A path
+   is explicitly supplied only when it originates outside the plugin — typed by a person, or
+   set in configuration a person wrote. A path the plugin derives from any catalog entity
+   field, `adrkit.io/owned-paths` or otherwise, is **not** explicitly supplied and is Tier 2.
 
-2. **Tier 2 — entity-scoped, NOT authorized by this record.** Any capability answering
-   "which decisions govern this component," or otherwise requiring the entity-to-path
-   mapping. Scoped here so its constraints are known in advance; authorizing it is a later
-   record's job.
+2. **Tier 2 — requires the entity-to-path ownership mapping; NOT authorized by this
+   record.** Any capability answering "which decisions govern this component," or otherwise
+   needing to learn which paths an entity owns. The test is the ownership mapping, not
+   whether a surface happens to render on an entity page. Scoped here so its constraints are
+   known in advance; authorizing it is a later record's job. **Where clauses 1 and 2 both
+   admit a capability, clause 2 governs.**
 
 3. **The dependency edge is one-way: plugin → adrkit.** adrkit does not discover, resolve,
    import, load, or depend on the plugin, and gains no knowledge that it exists. This
@@ -158,13 +166,16 @@ argue against itself.
    attach a contract it cannot satisfy.
 
 5. **The repository home is deferred to a follow-up record, and until that record no plugin
-   code lands in this repository.** The criteria to decide it are named, not assumed:
-   Constitution Principle III forbids any package depending on "external services at build,
-   test, or run time," which plausibly reaches a plugin that requires a running Backstage
-   instance; and [ADR-0007](0007-adapter-isolation-and-public-surface-build.md) considered
-   separate repositories as its Option C, rejected it for "a project with one maintainer and
-   no users," and set a revisit condition — "once an adapter has independent contributors"
-   — that is not currently met.
+   code lands in this repository.** Tier 1 work **may** begin outside this repository before
+   that record lands; any such placement is provisional and relocation is an accepted
+   possible outcome, so nothing may be published from it (clause 10). The criteria to decide
+   it are named, not assumed: Constitution Principle III forbids any package depending on
+   "external services at build, test, or run time," which plausibly reaches a plugin that
+   requires a running Backstage instance; and
+   [ADR-0007](0007-adapter-isolation-and-public-surface-build.md) considered separate
+   repositories as its Option C, rejected it for "a project with one maintainer and no
+   users," and set a revisit condition — "once an adapter has independent contributors" —
+   that is not currently met.
 
 6. **Tier 1 binds only to contracts published at `0.7.0`**: `schema/adr.schema.json`,
    `@adrkit/core`'s published **runtime API and types**, and the CLI's machine-readable
@@ -177,24 +188,44 @@ argue against itself.
 
 7. **Tier 2, when authorized, obtains the entity-ownership mapping only through ADR-0013's
    mechanism** — the offline generator and its versioned interchange envelope — and never
-   from a live catalog read. It does not reimplement the `adrkit.io/owned-paths` decode; the
-   annotation's ordered decode steps, restricted glob dialect, and ownership states live in
-   feature 010's packages and are consumed, not copied. Tier 2 is therefore blocked until
-   that envelope is published, and this record does not shorten that path.
+   from a live catalog read. It consumes the envelope's **already-normalized entity-to-path
+   output**; it therefore does not need the `adrkit.io/owned-paths` decode at all, and must
+   not transcribe it. That decode is deliberately unreachable from outside this workspace —
+   `@adrkit/catalog-backstage` exports only `PACKAGE_NAME` and declares no entry point — and
+   it stays that way: the envelope is the interchange surface, not the decoder. Tier 2 is
+   therefore blocked until that envelope is published, and this record does not shorten that
+   path.
 
 8. **Resolution runs through `@adrkit/core`'s published resolvers, never a
    reimplementation.** Re-deriving `affects:` matching, status bucketing, queue
    construction, or graph building downstream would create exactly the drift the trade-offs
    section names as this option's main cost, in the one place it is avoidable.
 
-9. **The document layer extends `@backstage-community/plugin-adr` rather than competing with
-   it**, under a bounded, verified version range whose upper edge is a verification
-   boundary — the discipline
+9. **The document layer is Tier 1, and extends `@backstage-community/plugin-adr` rather than
+   competing with it**, under a bounded, verified version range whose upper edge is a
+   verification boundary — the discipline
    [ADR-0019](0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md)
    clause 4 established for `speckit_version`, where widening is a re-verification rather
-   than a version bump. Any proposal to reimplement ADR rendering must first record, **as an
-   ADR in `docs/adr/` accepted by `@mbeacom`**, which extension point was tried and what was
-   observed to fail.
+   than a version bump. **That range is empty until action item 5 fixes its first edge**, so
+   no document-layer code may pin a version before then. Any proposal to reimplement ADR
+   rendering must first record, **as an ADR in `docs/adr/` accepted by `@mbeacom`**, which
+   extension point was tried and what was observed to fail.
+
+10. **No release is authorized by this record** — no publish target, tag, channel, version,
+    or date, for either tier and regardless of where clause 5 places the work. Work
+    authorized here may accumulate ADR-0014 **rung-1 evidence only**, which that record
+    defines as necessary and "never sufficient on its own to land a phase whose value is an
+    operational surface." Releasing is a later record's act.
+
+11. **adrkit's reciprocal obligation: the consumed shapes change additively.** The contracts
+    clause 6 names — `schema/adr.schema.json`, `@adrkit/core`'s exported API and types, and
+    the `queue`/`check`/`explain`/`graph` JSON outputs — may gain fields, but may not remove
+    or repurpose them, except through a stated deprecation path in `docs/RELEASING.md`. Every
+    other clause here constrains the consumer; without this one the record would create a
+    cross-repository contract while leaving the producer free to break it, which is the drift
+    the Trade-offs name as its main cost. This follows
+    [ADR-0025](0025-ship-badges-as-recipes-over-existing-output.md), which recorded the same
+    obligation for `QueueReport` v1 and landed the note at the field itself.
 
 **This record does not amend or supersede ADR-0013.** Clause 7 routes the only part of this
 surface that touches the ingest direction *through* ADR-0013's mechanism rather than around
@@ -202,21 +233,48 @@ it, so the catalog clause remains authoritative and unnarrowed. Clause 4 states 
 ADR-0013's contract does not apply, which is a statement about this new surface, not a
 change to that record.
 
+**ADR-0007's adapter regime does not reach this surface, and that is a narrowing.** ADR-0007
+defines an adapter by the same isolation property clause 3 states, and puts every integration
+under `packages/adapters/*`. Read alone, it answers "in this repository, as an adapter" for
+this plugin, which clause 5 contradicts. The distinction drawn here is that an adapter is a
+thing *adrkit composes* — the core is configured to use it, even offline — whereas this
+plugin is composed by **Backstage** and adrkit is merely its data source. That is a real
+difference, but it is a narrowing of ADR-0007's placement clause for downstream consumers,
+and calling it anything else would be the silent governance drift ADR-0013 exists to prevent.
+Action item 7 lands the amendment note in ADR-0007, following the mechanism ADR-0013 used on
+ADR-0007 and ADR-0014 used on ADR-0013. This would be the project's **third** distribution
+surface after [ADR-0003](0003-ship-as-spec-kit-extension.md)'s CLI and Spec Kit extension.
+
 ## Enforcement posture
 
 Stated plainly because silence here would be its own defect: **this record carries no
-`assertions:` and nothing mechanically enforces any clause today.** Comparable boundary
-records — ADR-0007's `core-has-no-adapter-deps` and `clean-clone-builds`, ADR-0020's
-accept-path assertion — each pair an assertion id with an identically named CI job. This one
-cannot yet, because the surface it governs does not exist and clause 5 forbids in-repo code
-until placement is decided.
+`assertions:` and nothing mechanically enforces any clause today.**
+
+The corpus is weaker on assertion/check pairing than it first appears, and the accurate
+picture matters because action item 4 is modelled on it. Of the three comparable assertion
+ids: `clean-clone-builds` is the only one with an identically named CI job;
+`core-has-no-adapter-deps` is enforced, but by a differently named step ("Verify dependency
+boundaries") inside that job; and ADR-0020's
+`catalog-adapter-accept-path-needs-annotated-real-corpus` pairs with nothing at all — that
+record's own clause 8 states it is "**currently inert**", returns `status: 'inert'`, "never
+fails", and "records the rule; it does not enforce it." So the pattern to follow is
+"assertion plus a check that exists," and exactly one record demonstrates it.
+
+This record cannot pair yet, because the surface it governs does not exist and clause 5
+forbids in-repo code until placement is decided.
 
 Two things follow, and both are real:
 
 - What *is* detectable today is only that `affects:` surfaces this record on pull requests
-  touching the exclusion zone or the bound contracts. That is a reminder, not a gate: it
-  appears identically on compliant and non-compliant changes, and `adr check` exits `0`
-  either way.
+  touching the paths it declares. **That coverage is partial, and the gap is on the bound
+  contracts themselves:** clause 6 binds `@adrkit/core`'s whole published API, but
+  `packages/core/src/status/bucket.ts`, `parse/frontmatter.ts`, `load/corpus.ts` and the
+  other re-exports of `index.ts` match no pattern here, so a breaking change in those files
+  surfaces nothing against this record. Declaring all of core was rejected as noise that
+  would train readers to ignore the signal; the honest statement is that detection reaches
+  the exclusion zone, the queue/check/graph/affects subtrees, the schema, and the release
+  script, and not the rest. Even where it fires it is a reminder, not a gate: it appears
+  identically on compliant and non-compliant changes, and `adr check` exits `0` either way.
 - The one real control is `CODEOWNERS`, which requires `@mbeacom` on `/docs/adr/` and on
   `*`. Every clause here ultimately rests on maintainer review — the same human process that,
   by this record's own Context, already let an 8,554-line effort go the wrong direction.
@@ -315,17 +373,22 @@ would misrepresent the decision.
   releases, or the first request for a plugin-only CLI surface. A third, specific to the
   split: if Tier 1 turns out to be unusable without entity scoping, the tiering is wrong and
   the honest response is to say so, not to quietly widen Tier 1.
-- **Revisit if:** ADR-0012 gates 3 and 4 clear and `@adrkit/catalog-envelope` is published,
-  which is what unblocks Tier 2 and is the moment clause 6's prohibition is reconsidered.
+- **Revisit if:** [ADR-0012](0012-bind-catalog-entities-to-owned-paths-with-an-explicit-annotation.md)
+  gates 3 and 4 clear — the maintainer-authored reference oracle over pinned public corpora,
+  and the gate ADR-0020 records as unmet — and `@adrkit/catalog-envelope` is published. That
+  is what unblocks Tier 2 and the moment clause 6's prohibition is reconsidered.
 
 ## Action items
 
-1. [ ] **Ratify or reject this record.** It is `proposed` and agent-drafted with no
-   `ratifiedBy`; per ADR-0013's precedent against fabricating an acceptance that never
-   happened, it does not govern until `@mbeacom` accepts it.
+1. [x] **Ratify or reject this record.** Ratified by `@mbeacom` on 2026-08-15, after two
+   independent four-lens deep reviews (8 blocking findings across both rounds, all closed or
+   explicitly accepted and recorded). Agent-drafted and maintainer-ratified, which
+   ADR-0013's precedent requires be stated rather than blurred.
 2. [ ] Decide the repository home in a follow-up record against clause 5's named criteria —
    Principle III's run-time clause, and ADR-0007 Option C's revisit condition — and record
-   the outcome as a new ADR, not as an edit to this one.
+   the outcome as a new ADR, not as an edit to this one. **Owner: `@mbeacom`. Before any
+   Tier 1 code is published, and in any case by 2026-11-15**, so clause 5's provisional
+   placement does not become permanent by default.
 3. [ ] Inventory precisely what Tier 1 needs from adrkit and confirm each item is published
    at `0.7.0`. Anything not on that list is the "how we would know this was wrong" signal
    firing before a line is written.
@@ -345,3 +408,13 @@ would misrepresent the decision.
    and snapshot envelope are "not implemented here" and that "no generator has run" — all
    six modules exist. Unrelated to this decision, but it actively misleads anyone
    approaching the Backstage surface, which is part of how this ambiguity persisted.
+7. [ ] Land the amendment-by-reference note in
+   [ADR-0007](0007-adapter-isolation-and-public-surface-build.md) recording that its
+   `packages/adapters/*` placement clause is narrowed for downstream consumers composed by a
+   third-party host, per the Decision's closing paragraph. Without it, ADR-0007 read alone
+   still answers "in this repository, as an adapter" for this plugin. Follows the mechanism
+   ADR-0013 used on ADR-0007 and ADR-0014 used on ADR-0013.
+8. [ ] Record clause 11's additive-only obligation where the shapes are defined —
+   `packages/core/src/queue/types.ts`, `packages/core/src/check/index.ts`, and
+   `docs/RELEASING.md` — so it is visible in the diff that would break it, following
+   [ADR-0025](0025-ship-badges-as-recipes-over-existing-output.md)'s action item 5.
