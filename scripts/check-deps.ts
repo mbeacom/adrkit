@@ -181,6 +181,26 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
     };
   }
 
+  if (packageName === '@adrkit/sdk') {
+    // ADR-0031's proposed consumer facade — a non-adapter workspace library by
+    // *location* (`packages/sdk/`, outside `packages/adapters/`), like
+    // `@adrkit/catalog-envelope` above. Its allowed surface is the workspace core
+    // and nothing else, which is what makes it cheap enough to satisfy ADR-0030
+    // clause 1: a facade that added an install cost would not be one.
+    //
+    // The edge is one-way. `@adrkit/core` must never depend on this package — a
+    // cycle would put the engine back inside the consumer contract and undo the
+    // narrowing that is the record's entire purpose. That direction is caught by
+    // core's own entry above, and is covered by a negative case in
+    // `check-deps.test.ts` rather than assumed.
+    return {
+      dependencies: new Set(['@adrkit/core']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
   if (packageName === '@adrkit/catalog-envelope') {
     // Feature 010's envelope consumer — a non-adapter workspace library, which it
     // is by *location* (`packages/catalog-envelope/`, outside `packages/adapters/`)

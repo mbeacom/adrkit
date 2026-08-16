@@ -1,0 +1,39 @@
+{
+  "name": "@adrkit/sdk",
+  "version": "0.0.0",
+  "description": "The narrow, typed consumer contract for adrkit's decision corpus. Declares its own shapes over @adrkit/core; never re-exports them.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "governance",
+    "sdk"
+  ],
+  "//status": "Types-only design sketch for ADR-0031 action item 3. There is no runtime here \u2014 src/index.ts declares the proposed surface and nothing implements it. The purpose is to make the entry-point count a *measured* number rather than an asserted one, because ADR-0031's own asserted count of @adrkit/ci's core imports was wrong by 11 (3 claimed, 14 measured). ADR-0031 is `proposed` and unratified; if it is rejected, this directory is deleted and nothing else changes.",
+  "//release": "Not released, and no release is prepared. ADR-0031 clause 8 authorizes the SDK's design and construction but explicitly withholds its release, which ADR-0029 clause 10 reserves to a later record. Absent from RELEASE_PACKAGES in scripts/release-pack.ts, ships no dist, declares no exports map, version 0.0.0. Clause 7 specifies `versioning: 'independent'` *when* released; wiring that now would prepare an act that is not authorized.",
+  "//boundary": "This package declares its own types rather than re-exporting @adrkit/core's (ADR-0031 clause 4). The duplication is deliberate and is the entire point: a facade that re-exports is an alias, and the first core rename would reach every consumer through it. This follows packages/catalog-envelope, whose //boundary note records the identical choice for the same reason \u2014 that independence is what makes the boundary a boundary rather than a tautology. The one-way edge is sdk -> core; core, cli, and schema/ must never import from here.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "bun run typecheck",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

@@ -59,10 +59,17 @@ clause 11 binds adrkit to additive-only change on "the consumed shapes," definin
 |---|---|
 | symbols exported from `@adrkit/core` | **173** |
 | re-export lines in its `index.ts` | 23 |
-| symbols the only existing consumer (`@adrkit/ci`) imports | **3** |
+| symbols its in-repo library consumers import | **17** (`@adrkit/ci` 14, `@adrkit/catalog-envelope` 3) |
+
+> **Corrected 2026-08-16**, under action item 3. This table originally read "symbols the only
+> existing consumer (`@adrkit/ci`) imports — **3**." Both halves were wrong: `@adrkit/ci`
+> imports **14** unique symbols (7 values, 7 types), and it is not the only consumer —
+> `@adrkit/catalog-envelope` imports 3 more. The conclusion is unaffected (17 « 173) but the
+> ratio is 5.7×, not 58×, and a record arguing for a narrower surface is the last place an
+> unverified count belongs. Method: `docs/sdk-surface.md` §Measurements.
 
 Clause 11 therefore promises stability across a 173-symbol internal engine to protect a
-consumer surface of roughly three. There are only two ways that resolves: freeze the engine
+consumer surface of roughly seventeen. There are only two ways that resolves: freeze the engine
 against ordinary refactoring, or break the promise quietly. The second is what happens in
 practice, and a governing clause that is routinely and invisibly violated is worse than no
 clause — it is the failure ADR-0016 and ADR-0014 exist to prevent, expressed as an API.
@@ -73,7 +80,7 @@ purpose; reducing consumer boilerplate is secondary.
 ### Two consumption modes already exist, and they do not agree
 
 Both are in production in this repository today: `@adrkit/ci` consumes the **library**
-(three imports from `@adrkit/core`), and `@adrkit/spec-kit` consumes the **CLI**
+(fourteen imports from `@adrkit/core`), and `@adrkit/spec-kit` consumes the **CLI**
 (`scripts/context.sh` shells out to `adr check`). But the CLI's JSON is only sometimes a
 core shape:
 
@@ -221,9 +228,13 @@ recorded as its own wrongness signal.
 1. [ ] Ratify or reject this record. It is `proposed` and agent-drafted with no `ratifiedBy`.
 2. [ ] Land the amendment note on ADR-0029 recording that clauses 6 and 11 are narrowed by
    this record's clause 3, per the mechanism ADR-0013 used on ADR-0007.
-3. [ ] Enumerate the SDK's first surface from what a real consumer needs — the Tier 1
+3. [x] Enumerate the SDK's first surface from what a real consumer needs — the Tier 1
    capabilities of ADR-0029 clause 1 — rather than from what core exports. Record the count;
    if it exceeds a dozen entry points, the wrongness signal above has already fired.
+   **Done 2026-08-16: [`docs/sdk-surface.md`](../sdk-surface.md), sketched at `packages/sdk/`.
+   7 callable entry points; 17 exported symbols. The signal fires on the second count and not
+   the first, and the record does not say which it meant — see that document's verdict, which
+   recommends restating this criterion before ratification.**
 4. [ ] Converge `explain`, `lint`, and `new` `--json` onto core formatters, as `queue` is,
    so the two modes describe the same shapes.
 5. [ ] Document the CLI JSON contract and the SDK surface in `docs/RELEASING.md`, with the

@@ -232,9 +232,14 @@ from unnumbered prose, which would be a corpus-wide convention needing its own r
 > and the surface adrkit's additive-only obligation attaches to, are `@adrkit/sdk` and the
 > documented CLI JSON — **not** `@adrkit/core`'s exported API. As written above, clause 11
 > promised stability across core's **173** exported symbols to protect a consumer surface of
-> roughly **three** (`@adrkit/ci` imports that many), which is keepable only by freezing the
-> engine or by breaking the promise silently. ADR-0031 amends these clauses by reference and
-> does not supersede this record; every other clause here stands unchanged.
+> roughly **17** (`@adrkit/ci` imports 14; `@adrkit/catalog-envelope` imports 3), which is
+> keepable only by freezing the engine or by breaking the promise silently. ADR-0031 amends
+> these clauses by reference and does not supersede this record; every other clause here stands
+> unchanged.
+>
+> *This note originally said the consumer surface was "roughly three (`@adrkit/ci` imports that
+> many)." Corrected 2026-08-16 against a measurement — see `docs/sdk-surface.md`. The narrowing
+> argument is unchanged; the ratio it rests on is 5.7×, not 58×.*
 
 **This record does not amend or supersede ADR-0013.** Clause 7 routes the only part of this
 surface that touches the ingest direction *through* ADR-0013's mechanism rather than around
