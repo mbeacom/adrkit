@@ -86,4 +86,43 @@ describe('moving Action tag version guard', () => {
     const v03Sha = await git(work, 'rev-list', '-n', '1', 'v0.3.0');
     expect(await remoteTagCommit(work, 'v0')).toBe(v03Sha);
   });
+
+  /**
+   * Regression: the test above sets `tag.gpgSign false`, which is exactly the
+   * condition that hid this. With `tag.gpgSign = true` — a common global default
+   * — `git tag --force v0 <sha>` becomes a *signed* tag, which requires a
+   * message, so it fails with "Please supply the message using either -m or -F
+   * option." CI runners set no such config, so the moving tag only ever broke
+   * for a human running the release step locally, and it presented as though the
+   * tag were protected rather than the command being misconfigured.
+   */
+  test('moves the major tag even when the environment forces signed tags', async () => {
+    const root = await resetTestDir(`${DIR_NAME}-gpgsign`);
+    const remote = join(root, 'remote.git');
+    const work = join(root, 'work');
+    await git(root, 'init', '--bare', '--initial-branch=main', remote);
+    await git(root, 'init', '--initial-branch=main', work);
+    await git(work, 'config', 'user.name', 'adrkit test');
+    await git(work, 'config', 'user.email', 'test@adrkit.dev');
+    await git(work, 'config', 'commit.gpgSign', 'false');
+    // The point of this test: signing is ON, and there is no signing key.
+    await git(work, 'config', 'tag.gpgSign', 'true');
+    await git(work, 'remote', 'add', 'origin', remote);
+
+    await writeText(join(work, 'release.txt'), 'v0.1.0\n');
+    await git(work, 'add', 'release.txt');
+    await git(work, 'commit', '-m', 'v0.1.0');
+    await git(work, '-c', 'tag.gpgSign=false', 'tag', '-a', 'v0.1.0', '-m', 'v0.1.0');
+    await git(work, '-c', 'tag.gpgSign=false', 'tag', 'v0');
+    await git(work, 'push', 'origin', '--tags');
+
+    await writeText(join(work, 'release.txt'), 'v0.2.0\n');
+    await git(work, 'commit', '-am', 'v0.2.0');
+    await git(work, '-c', 'tag.gpgSign=false', 'tag', '-a', 'v0.2.0', '-m', 'v0.2.0');
+    await git(work, 'push', 'origin', 'refs/tags/v0.2.0');
+
+    expect(await updateActionTag('v0.2.0', { repositoryRoot: work })).toBe(true);
+    const v02Sha = await git(work, 'rev-list', '-n', '1', 'v0.2.0');
+    expect(await remoteTagCommit(work, 'v0')).toBe(v02Sha);
+  });
 });
