@@ -37,12 +37,14 @@
  *     -> mergeSourceDeclarations -> toGoverningDecisions -> bucketDecisions -> sortFindings
  * ```
  *
- * and the ARB queue additionally needs a 25-line `--as-of` resolver that lives in
- * `packages/cli/src/queue.ts` and **is not exported from core at all**. A consumer that imports
- * core does not receive these capabilities; it receives the parts, plus the obligation to
- * assemble them correctly and to keep assembling them correctly as core changes. The mapping
- * layer is the product. ADR-0031 clause 4 says as much, and this file is what that claim looks
- * like when it is written down.
+ * and the ARB queue additionally needs the `--as-of` resolver that decides which UTC calendar
+ * date SLA state is computed against. That resolver was unexported when this surface was
+ * enumerated; it is now `resolveAsOf` in `@adrkit/core` (ADR-0031 action item 7), which closes
+ * that half of the gap. The eight-call `explain` chain above is unchanged. A consumer that
+ * imports core still does not receive these capabilities; it receives the parts, plus the
+ * obligation to assemble them correctly and to keep assembling them correctly as core changes.
+ * The mapping layer is the product. ADR-0031 clause 4 says as much, and this file is what that
+ * claim looks like when it is written down.
  *
  * ## The boundary
  *
@@ -267,10 +269,11 @@ export interface QueueOptions {
    * UTC calendar date, `YYYY-MM-DD`, that SLA state is computed against. Defaults to today.
    *
    * A bare calendar date only — no datetime, and no `Date`. Both alternatives carry a timezone
-   * question, and this contract answers it once here instead of at every call site. The CLI
-   * already resolves the equivalent flag this way; that resolver lives in the CLI and is not
-   * exported from core, so a library consumer building the queue today either reimplements it
-   * or gets a different answer than CI does for the same corpus on the same day.
+   * question, and this contract answers it once here instead of at every call site. A caller
+   * holding a datetime resolves it first with `resolveAsOf` from `@adrkit/core`, which is the
+   * same rule the CLI applies to `--as-of` — so a consumer and CI agree on the calendar date for
+   * the same input. (That resolver was unexported when this surface was enumerated; ADR-0031
+   * action item 7 closed it.)
    */
   readonly asOf?: string;
 }

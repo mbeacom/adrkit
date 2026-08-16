@@ -123,6 +123,15 @@ reimplements it and guesses differently produces a queue that disagrees with CI'
 decisions are overdue, on the same corpus, on the same day, with no error anywhere. Whatever
 happens to this record, the resolver belongs in core beside the kernel it feeds.
 
+> **Closed 2026-08-16 — the two passages above are preserved as measured, not corrected.**
+> `resolveAsOf` now lives at `packages/core/src/queue/as-of.ts` and is exported from the package
+> entry point, so a library consumer computes the same calendar date the CLI does. The
+> present-tense claims above ("is not exported from core at all") describe the tree **as measured
+> at this document's writing**, and they are left standing because they are the evidence for the
+> assembly argument this section makes — rewriting them would erase the finding while keeping the
+> conclusion it produced. ADR-0031 action item 7 records the closure. The eight-call `explain`
+> chain is **unchanged** and remains open.
+
 ### Both consumption modes, as found
 
 | consumer | mode | evidence |
@@ -171,7 +180,7 @@ would be exactly the trimming-to-fit that action item 3 warns against.
 | 2 | `.records` | browsing the corpus | `Corpus.records` → flat record, `decisionBucketFor` precomputed | `Adr` nests under `frontmatter`; consumers want `record.status` |
 | 3 | `.issues` | corpus health | `sortFindings`, severity split | `corpus.file-skipped` is `warn`, not `error` — a `proposed` record can otherwise vanish silently |
 | 4 | `.get(id)` | record status, one record | id normalization + lookup | a deep-link route (`/adr/0031`) resolves one record; linear-scanning `records` is the alternative |
-| 5 | `.queue(options?)` | ARB queue + SLA state | `buildQueueReport` **+ the CLI's `--as-of` resolver** | that resolver is 25 lines in `packages/cli/src/queue.ts` and is not exported from core |
+| 5 | `.queue(options?)` | ARB queue + SLA state | `buildQueueReport` **+ the CLI's `--as-of` resolver** | that resolver was 25 lines in `packages/cli/src/queue.ts` and unexported at measurement; **closed 2026-08-16** — now `resolveAsOf` in `packages/core/src/queue/as-of.ts`, exported |
 | 6 | `.graph()` | supersession graph | `buildAdrGraph` | frontmatter alone silently drops a supersession target that does not exist; the built graph reports it |
 | 7 | `.governing(path)` | path-governance, explicit path | the eight-call `explain` chain, incl. the `@adr` marker scan | `runExplain`, `packages/cli/src/index.ts` |
 
