@@ -386,9 +386,10 @@ would misrepresent the decision.
    ADR-0013's precedent requires be stated rather than blurred.
 2. [x] Decide the repository home in a follow-up record against clause 5's named criteria —
    Principle III's run-time clause, and ADR-0007 Option C's revisit condition. **Resolved by
-   [ADR-0029](0029-site-the-backstage-publication-plugin-in-this-repository-as-a-confined-surface.md)**:
-   `packages/backstage-plugin/`, in this repository, as a confined surface. Clause 5's
-   deferral and its in-repo moratorium are discharged.
+   [ADR-0029](0029-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)**:
+   **outside this repository**, on measured install cost (1,274 packages and 1.0 GB against
+   this repository's 94 and 65 MB). Clause 5's deferral and its in-repo moratorium are
+   discharged; the moratorium becomes permanent rather than provisional.
 3. [ ] Inventory precisely what Tier 1 needs from adrkit and confirm each item is published
    at `0.7.0`. Anything not on that list is the "how we would know this was wrong" signal
    firing before a line is written.
@@ -408,14 +409,13 @@ would misrepresent the decision.
    and snapshot envelope are "not implemented here" and that "no generator has run" — all
    six modules exist. Unrelated to this decision, but it actively misleads anyone
    approaching the Backstage surface, which is part of how this ambiguity persisted.
-7. [x] Land the amendment-by-reference note in ADR-0007 recording that its
-   `packages/adapters/*` placement clause is narrowed for downstream consumers.
-   **Closed as not required by
-   [ADR-0029](0029-site-the-backstage-publication-plugin-in-this-repository-as-a-confined-surface.md)
-   clause 5.** `@adrkit/ci` at `packages/ci/` already establishes that a first-party
-   integration surface may live outside `packages/adapters/` under confinement, so siting the
-   plugin at `packages/backstage-plugin/` narrows no clause of ADR-0007. The Decision's
-   closing paragraph above is superseded on this point; ADR-0007 is untouched.
+7. [ ] Land the amendment-by-reference note in
+   [ADR-0007](0007-adapter-isolation-and-public-surface-build.md) recording that its Option C
+   disposition on separate repositories is narrowed for an integration whose dependency tree
+   would dominate this repository's install. **Carried by
+   [ADR-0029](0029-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)
+   action item 4**, on that record's measured evidence rather than on the taxonomy argument
+   the Decision's closing paragraph above makes — which ADR-0029 supersedes on this point.
 8. [ ] Record clause 11's additive-only obligation where the shapes are defined —
    `packages/core/src/queue/types.ts`, `packages/core/src/check/index.ts`, and
    `docs/RELEASING.md` — so it is visible in the diff that would break it, following

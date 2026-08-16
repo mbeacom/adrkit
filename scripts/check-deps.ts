@@ -36,19 +36,17 @@ const TOOLKIT_DEPENDENCY = /^(@actions\/|@octokit\/|octokit$)/;
 const CI_SURFACE_PACKAGE = '@adrkit/ci';
 
 /**
- * The Backstage SDK is permitted only in the `@adrkit/backstage-plugin` surface
- * (ADR-0029 clause 2). Same shape as the toolkit rule above, and for the same reason:
- * a shipped surface may talk to an external host at run time, but its SDK must not
- * reach the core, the schema, the CLI, the evaluator, the MCP server, or an adapter.
+ * The Backstage SDK never enters this repository (ADR-0029 clause 3). The publication
+ * surface is a downstream consumer in its own repository, because its dependency tree
+ * measured 1,274 packages and 1.0 GB against this repository's 94 and 65 MB, and brought
+ * the first two lifecycle scripts this graph would ever carry.
  *
- * Keyed on the `@backstage/` prefix across **every** package rather than on the
- * surface package's own allowlist entry, because `allowedDependenciesFor` returns
- * `undefined` for an unrecognized package — which this file documents as *silently
- * unconstrained*. A prefix rule fires on a package the allowlist has never heard of;
- * an allowlist-only rule would not.
+ * A blanket prohibition rather than the confined allowlist an earlier draft proposed:
+ * there is no exception to get wrong, and it fires on a package `allowedDependenciesFor`
+ * has never heard of — which this file documents below as *silently unconstrained*, and
+ * which an allowlist-keyed rule would therefore wave straight through.
  */
 const BACKSTAGE_DEPENDENCY = /^@backstage\//;
-const BACKSTAGE_SURFACE_PACKAGE = '@adrkit/backstage-plugin';
 
 export interface DependencyCheckResult {
   ok: boolean;
@@ -248,14 +246,14 @@ export async function checkDependencyRules(root = process.cwd()): Promise<Depend
           });
         }
 
-        if (packageName !== BACKSTAGE_SURFACE_PACKAGE && BACKSTAGE_DEPENDENCY.test(dependency)) {
+        if (BACKSTAGE_DEPENDENCY.test(dependency)) {
           violations.push({
             packageName,
             packagePath,
             dependency,
             section,
             reason:
-              'Backstage SDK must stay confined to @adrkit/backstage-plugin and never reach core/schema/cli/evaluator/mcp or an adapter',
+              'Backstage SDK must not enter this repository; the publication surface is a downstream consumer in its own repository (ADR-0029)',
           });
         }
 
