@@ -227,6 +227,15 @@ from unnumbered prose, which would be a corpus-wide convention needing its own r
     [ADR-0025](0025-ship-badges-as-recipes-over-existing-output.md), which recorded the same
     obligation for `QueueReport` v1 and landed the note at the field itself.
 
+> **Amended by [ADR-0030](0030-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+> (2026-08-16).** Clauses 6 and 11 are narrowed: the contract a downstream surface binds to,
+> and the surface adrkit's additive-only obligation attaches to, are `@adrkit/sdk` and the
+> documented CLI JSON — **not** `@adrkit/core`'s exported API. As written above, clause 11
+> promised stability across core's **173** exported symbols to protect a consumer surface of
+> roughly **three** (`@adrkit/ci` imports that many), which is keepable only by freezing the
+> engine or by breaking the promise silently. ADR-0030 amends these clauses by reference and
+> does not supersede this record; every other clause here stands unchanged.
+
 **This record does not amend or supersede ADR-0013.** Clause 7 routes the only part of this
 surface that touches the ingest direction *through* ADR-0013's mechanism rather than around
 it, so the catalog clause remains authoritative and unnarrowed. Clause 4 states where

@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0029"
 title: Keep extension surfaces that carry a dependency tree outside this repository
-status: proposed
+status: accepted
 date: 2026-08-16
 deciders: ["@mbeacom"]
 tags: [architecture, packaging, governance, distribution, supply-chain]
@@ -33,6 +33,7 @@ assertions:
     severity: error
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 externalRefs:
   - type: doc
     url: "https://github.com/backstage/community-plugins/tree/main/workspaces/adr/plugins/adr"
@@ -49,7 +50,7 @@ reviewBy: 2027-02-16
 
 # ADR-0029: Keep extension surfaces that carry a dependency tree outside this repository
 
-> **Status: proposed, agent-drafted, unratified.** Resolves
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-08-16. Resolves
 > [ADR-0028](0028-scope-backstage-publication-as-a-downstream-consumer-tiered-on-the-entity-owners.md)
 > action item 2: the Backstage publication surface lives **outside** this repository. It
 > also states the general rule future surfaces are placed by. It authorizes no release, and
@@ -141,10 +142,14 @@ Otherwise it lives in its own repository and consumes adrkit's published contrac
    there is no exception to get wrong, and it fires on a package the allowlist has never
    heard of, which `allowedDependenciesFor` would otherwise leave *silently unconstrained*.
 
-4. **The consumer contract is unchanged.** ADR-0028 clauses 6, 8, and 11 govern the
+4. **The consumer contract is unchanged for now.** ADR-0028 clauses 6, 8, and 11 govern the
    downstream surface exactly as written. Clause 11 — adrkit changes the consumed shapes
    additively or through a stated deprecation path — is the contractual counterpart to
-   losing same-run drift detection, and it is enforceable here.
+   losing same-run drift detection, and it is enforceable here. **This clause is expected to
+   be superseded** by the consumer-SDK record foreseen in Consequences: clause 11 currently
+   promises additive-only change across `@adrkit/core`'s whole exported surface, which is
+   173 symbols, where the only existing consumer of it (`@adrkit/ci`) imports three. A
+   narrower published facade is what would make that promise keepable.
 
 5. **Mitigations for the one accepted loss**, so it is managed rather than merely admitted:
    the downstream repository pins published `@adrkit/*` versions and tests against them in
@@ -224,17 +229,21 @@ no end condition. The measurement that closes the question now exists.
 - **Harder:** cross-repository drift; two cadences; no dogfooding of the consumer.
 - **How we would know this was wrong:** if the conformance fixture in clause 5 does not get
   built, or is built and still lets a breaking change reach a consumer undetected, then the
-  mitigation failed and the drift cost is larger than accepted here. A second signal: if
-  three or more extension surfaces end up outside, each re-implementing the same consumption
-  boilerplate, the missing thing is a published consumer SDK and this record should be
-  revisited rather than repeated.
+  mitigation failed and the drift cost is larger than accepted here. A second signal, now
+  **anticipated rather than merely watched for**: the consumption surface this record leaves
+  each downstream repository to rebuild is the reason a published consumer SDK is intended,
+  and a record deciding that SDK is expected to follow this one. If it does not arrive before
+  the second out-of-repo surface exists, the boilerplate this record accepts has become
+  duplication it did not intend, and clause 4's contract should be revisited rather than
+  repeated. Recorded as an intent, not a discovery, because it was foreseen here.
 - **Revisit if:** the install cost stops being the binding constraint — a Backstage plugin
   that needs only peer dependencies, or tooling that makes workspace members genuinely
   optional without weakening `clean-clone-builds`.
 
 ## Action items
 
-1. [ ] Ratify or reject this record. It is `proposed` and agent-drafted with no `ratifiedBy`.
+1. [x] Ratify or reject this record. Ratified by `@mbeacom` on 2026-08-16. Agent-drafted and
+   maintainer-ratified, both recorded rather than blurred.
 2. [ ] Land `no-backstage-sdk-in-this-repository` in `scripts/check-deps.ts` with its test,
    observed failing first per ADR-0016.
 3. [ ] Record on ADR-0028 that action item 2 is resolved by this record.
