@@ -36,7 +36,7 @@ const TOOLKIT_DEPENDENCY = /^(@actions\/|@octokit\/|octokit$)/;
 const CI_SURFACE_PACKAGE = '@adrkit/ci';
 
 /**
- * The Backstage SDK never enters this repository (ADR-0029 clause 3). The publication
+ * The Backstage SDK never enters this repository (ADR-0030 clause 3). The publication
  * surface is a downstream consumer in its own repository, because its dependency tree
  * measured 1,274 packages and 1.0 GB against this repository's 94 and 65 MB, and brought
  * the first two lifecycle scripts this graph would ever carry.
@@ -253,7 +253,7 @@ export async function checkDependencyRules(root = process.cwd()): Promise<Depend
             dependency,
             section,
             reason:
-              'Backstage SDK must not enter this repository; the publication surface is a downstream consumer in its own repository (ADR-0029)',
+              'Backstage SDK must not enter this repository; the publication surface is a downstream consumer in its own repository (ADR-0030)',
           });
         }
 

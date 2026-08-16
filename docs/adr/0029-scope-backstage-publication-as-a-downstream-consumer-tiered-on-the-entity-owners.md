@@ -1,6 +1,6 @@
 ---
 schemaVersion: 0.1.0
-id: "0028"
+id: "0029"
 title: Scope Backstage publication as a downstream consumer, tiered on the entity-ownership mapping
 status: accepted
 date: 2026-08-15
@@ -55,7 +55,7 @@ review:
 reviewBy: 2027-02-15
 ---
 
-# ADR-0028: Scope Backstage publication as a downstream consumer, tiered on the entity-ownership mapping
+# ADR-0029: Scope Backstage publication as a downstream consumer, tiered on the entity-ownership mapping
 
 > **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-08-15 after two
 > independent four-lens reviews. This record scopes work toward
@@ -227,13 +227,13 @@ from unnumbered prose, which would be a corpus-wide convention needing its own r
     [ADR-0025](0025-ship-badges-as-recipes-over-existing-output.md), which recorded the same
     obligation for `QueueReport` v1 and landed the note at the field itself.
 
-> **Amended by [ADR-0030](0030-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+> **Amended by [ADR-0031](0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
 > (2026-08-16).** Clauses 6 and 11 are narrowed: the contract a downstream surface binds to,
 > and the surface adrkit's additive-only obligation attaches to, are `@adrkit/sdk` and the
 > documented CLI JSON — **not** `@adrkit/core`'s exported API. As written above, clause 11
 > promised stability across core's **173** exported symbols to protect a consumer surface of
 > roughly **three** (`@adrkit/ci` imports that many), which is keepable only by freezing the
-> engine or by breaking the promise silently. ADR-0030 amends these clauses by reference and
+> engine or by breaking the promise silently. ADR-0031 amends these clauses by reference and
 > does not supersede this record; every other clause here stands unchanged.
 
 **This record does not amend or supersede ADR-0013.** Clause 7 routes the only part of this
@@ -395,7 +395,7 @@ would misrepresent the decision.
    ADR-0013's precedent requires be stated rather than blurred.
 2. [x] Decide the repository home in a follow-up record against clause 5's named criteria —
    Principle III's run-time clause, and ADR-0007 Option C's revisit condition. **Resolved by
-   [ADR-0029](0029-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)**:
+   [ADR-0030](0030-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)**:
    **outside this repository**, on measured install cost (1,274 packages and 1.0 GB against
    this repository's 94 and 65 MB). Clause 5's deferral and its in-repo moratorium are
    discharged; the moratorium becomes permanent rather than provisional.
@@ -422,9 +422,9 @@ would misrepresent the decision.
    [ADR-0007](0007-adapter-isolation-and-public-surface-build.md) recording that its Option C
    disposition on separate repositories is narrowed for an integration whose dependency tree
    would dominate this repository's install. **Carried by
-   [ADR-0029](0029-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)
+   [ADR-0030](0030-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)
    action item 4**, on that record's measured evidence rather than on the taxonomy argument
-   the Decision's closing paragraph above makes — which ADR-0029 supersedes on this point.
+   the Decision's closing paragraph above makes — which ADR-0030 supersedes on this point.
 8. [ ] Record clause 11's additive-only obligation where the shapes are defined —
    `packages/core/src/queue/types.ts`, `packages/core/src/check/index.ts`, and
    `docs/RELEASING.md` — so it is visible in the diff that would break it, following

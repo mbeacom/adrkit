@@ -1,6 +1,6 @@
 ---
 schemaVersion: 0.1.0
-id: "0029"
+id: "0030"
 title: Keep extension surfaces that carry a dependency tree outside this repository
 status: accepted
 date: 2026-08-16
@@ -9,7 +9,7 @@ tags: [architecture, packaging, governance, distribution, supply-chain]
 scope: org
 reversibility: two-way-door
 blastRadius: org
-relatesTo: ["0003", "0007", "0010", "0013", "0016", "0019", "0025", "0028"]
+relatesTo: ["0003", "0007", "0010", "0013", "0016", "0019", "0025", "0029"]
 affects:
   - type: path
     pattern: "scripts/check-deps.ts"
@@ -42,25 +42,25 @@ review:
   tier: arb
   tierReason: >-
     Sets the rule every future extension surface is placed by, narrows ADR-0007's
-    Option C disposition on evidence ADR-0007 did not have, and resolves ADR-0028
+    Option C disposition on evidence ADR-0007 did not have, and resolves ADR-0029
     action item 2. It also reverses this record's own first draft, so the reasoning
     that changed needs to be reviewable rather than quietly replaced.
 reviewBy: 2027-02-16
 ---
 
-# ADR-0029: Keep extension surfaces that carry a dependency tree outside this repository
+# ADR-0030: Keep extension surfaces that carry a dependency tree outside this repository
 
 > **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-08-16. Resolves
-> [ADR-0028](0028-scope-backstage-publication-as-a-downstream-consumer-tiered-on-the-entity-owners.md)
+> [ADR-0029](0029-scope-backstage-publication-as-a-downstream-consumer-tiered-on-the-entity-owners.md)
 > action item 2: the Backstage publication surface lives **outside** this repository. It
 > also states the general rule future surfaces are placed by. It authorizes no release, and
-> does not change ADR-0028's Tier 1 / Tier 2 split.
+> does not change ADR-0029's Tier 1 / Tier 2 split.
 > **This record reverses its own first draft**, which decided in-repo. What changed is
 > measurement, recorded below.
 
 ## Context
 
-ADR-0028 clause 5 deferred the Backstage plugin's repository home. This record's first draft
+ADR-0029 clause 5 deferred the Backstage plugin's repository home. This record's first draft
 decided **in-repo**, on two findings that still hold and one argument that did not.
 
 What holds: Constitution Principle III's "external services at build, test, or run time"
@@ -99,15 +99,15 @@ member's dependencies regardless.
 
 ### And the argument that justified in-repo was overstated
 
-The first draft's decisive claim was that separation makes ADR-0028 unenforceable. Broken
+The first draft's decisive claim was that separation makes ADR-0029 unenforceable. Broken
 down, one mechanism is lost, not a category:
 
 | | in-repo | out-of-repo |
 |---|---|---|
-| ADR-0028 clause 4 — not a catalog adapter | checkable | **stronger**: a blanket SDK prohibition beats an allowlisted exception |
+| ADR-0029 clause 4 — not a catalog adapter | checkable | **stronger**: a blanket SDK prohibition beats an allowlisted exception |
 | SDK confinement | allowlist plus prefix rule | blanket prohibition, still checked here |
-| ADR-0028 clause 8 — no reimplementation of the resolvers | not mechanically checkable either way; a dependency graph cannot detect re-derived `affects` matching | unchanged |
-| ADR-0028 clause 11 — adrkit's additive-only obligation | governs *this* repository | unchanged |
+| ADR-0029 clause 8 — no reimplementation of the resolvers | not mechanically checkable either way; a dependency graph cannot detect re-derived `affects` matching | unchanged |
+| ADR-0029 clause 11 — adrkit's additive-only obligation | governs *this* repository | unchanged |
 | **contract drift caught in a single CI run** | **yes** | **no — the one real loss** |
 
 That loss is real and is accepted below with named mitigations. It is not worth a 15×
@@ -142,7 +142,7 @@ Otherwise it lives in its own repository and consumes adrkit's published contrac
    there is no exception to get wrong, and it fires on a package the allowlist has never
    heard of, which `allowedDependenciesFor` would otherwise leave *silently unconstrained*.
 
-4. **The consumer contract is unchanged for now.** ADR-0028 clauses 6, 8, and 11 govern the
+4. **The consumer contract is unchanged for now.** ADR-0029 clauses 6, 8, and 11 govern the
    downstream surface exactly as written. Clause 11 — adrkit changes the consumed shapes
    additively or through a stated deprecation path — is the contractual counterpart to
    losing same-run drift detection, and it is enforceable here. **This clause is expected to
@@ -182,7 +182,7 @@ Otherwise it lives in its own repository and consumes adrkit's published contrac
 ### Option B: In this repository as a confined surface (this record's first draft)
 
 **Pros:** producer and consumer in one CI run, so drift breaks the build immediately;
-ADR-0028 clause 4 becomes a mechanical check; nothing to publish before Tier 1 can be built.
+ADR-0029 clause 4 becomes a mechanical check; nothing to publish before Tier 1 can be built.
 
 **Cons:** the measured cost — 15× packages and disk, 2 new lifecycle scripts, a slower and
 more fragile `clean-clone-builds` on every pull request including documentation-only ones.
@@ -198,11 +198,11 @@ workspace member." Achieving it would mean a second lockfile or a filtered insta
 which make `clean-clone-builds` prove something weaker than it proves today — the one
 assertion this repository most relies on. Rejected as a real mechanism, not as an idea.
 
-### Option D: Keep deferring, as ADR-0028 clause 5 does
+### Option D: Keep deferring, as ADR-0029 clause 5 does
 
 **Pros:** no decision risk.
 
-**Cons:** ADR-0028 clause 1 authorizes Tier 1 with nowhere to build it, and the deferral had
+**Cons:** ADR-0029 clause 1 authorizes Tier 1 with nowhere to build it, and the deferral had
 no end condition. The measurement that closes the question now exists.
 
 ## Trade-offs
@@ -246,7 +246,7 @@ no end condition. The measurement that closes the question now exists.
    maintainer-ratified, both recorded rather than blurred.
 2. [ ] Land `no-backstage-sdk-in-this-repository` in `scripts/check-deps.ts` with its test,
    observed failing first per ADR-0016.
-3. [ ] Record on ADR-0028 that action item 2 is resolved by this record.
+3. [ ] Record on ADR-0029 that action item 2 is resolved by this record.
 4. [ ] Land the amendment-by-reference note in
    [ADR-0007](0007-adapter-isolation-and-public-surface-build.md) recording that its Option C
    disposition is narrowed for an integration whose dependency tree would dominate this

@@ -539,9 +539,9 @@ describe('mcp dependency boundary (Phase 5)', () => {
   });
 });
 
-describe('no-backstage-sdk-in-this-repository (ADR-0029)', () => {
+describe('no-backstage-sdk-in-this-repository (ADR-0030)', () => {
   const BACKSTAGE_REASON =
-    'Backstage SDK must not enter this repository; the publication surface is a downstream consumer in its own repository (ADR-0029)';
+    'Backstage SDK must not enter this repository; the publication surface is a downstream consumer in its own repository (ADR-0030)';
 
   test('passes on the current workspace tree, which declares no @backstage/* anywhere', async () => {
     await expect(checkDependencyRules()).resolves.toEqual({ ok: true, violations: [] });
@@ -592,7 +592,7 @@ describe('no-backstage-sdk-in-this-repository (ADR-0029)', () => {
   });
 
   test('grants no package an exception, including a would-be Backstage surface', async () => {
-    // The prohibition is blanket. An earlier draft of ADR-0029 confined the SDK to
+    // The prohibition is blanket. An earlier draft of ADR-0030 confined the SDK to
     // `@adrkit/backstage-plugin` instead; naming that package here asserts the exception
     // is really gone, since this is the one input a confinement rule would have allowed.
     const root = await resetTestDir(DIR_NAME);

@@ -1,6 +1,6 @@
 ---
 schemaVersion: 0.1.0
-id: "0030"
+id: "0031"
 title: Publish a narrow consumer SDK as the contract, and document the CLI JSON as its sibling
 status: proposed
 date: 2026-08-16
@@ -9,7 +9,7 @@ tags: [architecture, packaging, distribution, governance, api]
 scope: org
 reversibility: one-way-door
 blastRadius: org
-relatesTo: ["0003", "0007", "0010", "0013", "0019", "0025", "0028", "0029"]
+relatesTo: ["0003", "0007", "0010", "0013", "0019", "0025", "0029", "0030"]
 affects:
   - type: path
     pattern: "packages/sdk/**"
@@ -30,28 +30,28 @@ review:
   tierReason: >-
     Creates a published package carrying a semver promise to consumers outside this
     repository, declares that `@adrkit/core` is not that promise, and amends two clauses
-    of the accepted ADR-0028. A published surface is a one-way door: the commitment
+    of the accepted ADR-0029. A published surface is a one-way door: the commitment
     cannot be withdrawn once someone depends on it.
 reviewBy: 2027-02-16
 ---
 
-# ADR-0030: Publish a narrow consumer SDK as the contract, and document the CLI JSON as its sibling
+# ADR-0031: Publish a narrow consumer SDK as the contract, and document the CLI JSON as its sibling
 
 > **Status: proposed, agent-drafted, unratified.** Creates the conduit
-> [ADR-0029](0029-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)
+> [ADR-0030](0030-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)
 > foresaw. It authorizes the SDK's **design and construction**, not its release; publishing is
-> a later record's act, as ADR-0028 clause 10 requires. It **amends ADR-0028 clauses 6 and 11
+> a later record's act, as ADR-0029 clause 10 requires. It **amends ADR-0029 clauses 6 and 11
 > by reference** — clause 11's current promise is measurably unkeepable.
 
 ## Context
 
-ADR-0029 pushed extension surfaces that carry a dependency tree out of this repository, and
+ADR-0030 pushed extension surfaces that carry a dependency tree out of this repository, and
 recorded that the consumption surface each of them must rebuild is why a consumer SDK was
 intended. This record decides it.
 
 ### The promise that is currently false
 
-[ADR-0028](0028-scope-backstage-publication-as-a-downstream-consumer-tiered-on-the-entity-owners.md)
+[ADR-0029](0029-scope-backstage-publication-as-a-downstream-consumer-tiered-on-the-entity-owners.md)
 clause 11 binds adrkit to additive-only change on "the consumed shapes," defining them as
 `@adrkit/core`'s exported API and types. Measured at this revision:
 
@@ -102,7 +102,7 @@ direction, so process isolation buys a Node consumer very little here.
 and document the CLI JSON as a separate sibling contract rather than as an SDK adapter.**
 
 1. **`@adrkit/sdk` is the consumer contract.** A deliberately small typed facade over
-   `@adrkit/core`, living at `packages/sdk/`. It satisfies ADR-0029 clause 1 — its only
+   `@adrkit/core`, living at `packages/sdk/`. It satisfies ADR-0030 clause 1 — its only
    dependency is the workspace core, so it adds no install cost and belongs in this
    repository.
 
@@ -110,10 +110,10 @@ and document the CLI JSON as a separate sibling contract rather than as an SDK a
    internal engine, free to change with the engine. This is stated so the status quo stops
    being ambiguous by default, and so a core refactor stops being a governance question.
 
-3. **ADR-0028 clause 11 is amended by reference**: adrkit's additive-only obligation attaches
+3. **ADR-0029 clause 11 is amended by reference**: adrkit's additive-only obligation attaches
    to `@adrkit/sdk`'s surface and to the CLI JSON contract of clause 5, **not** to
    `@adrkit/core`. That is the narrowing which makes the obligation keepable rather than
-   nominal. **ADR-0028 clause 6 is amended likewise**: a downstream surface binds to
+   nominal. **ADR-0029 clause 6 is amended likewise**: a downstream surface binds to
    `@adrkit/sdk` and the documented CLI JSON, not to core's runtime API.
 
 4. **The SDK declares its own types rather than re-exporting core's.** A facade that
@@ -142,7 +142,7 @@ and document the CLI JSON as a separate sibling contract rather than as an SDK a
    following `@adrkit/spec-kit`. A stability facade on the lockstep engine's cadence would
    inherit the churn it exists to absorb.
 
-8. **No release is authorized here.** ADR-0028 clause 10 continues to govern; publishing
+8. **No release is authorized here.** ADR-0029 clause 10 continues to govern; publishing
    `@adrkit/sdk` is a later record's act, taken when its surface has been exercised by a real
    consumer rather than designed against a hypothetical one.
 
@@ -152,7 +152,7 @@ and document the CLI JSON as a separate sibling contract rather than as an SDK a
 
 | Dimension | Assessment |
 |---|---|
-| Makes ADR-0028 clause 11 keepable | **Yes — the point** |
+| Makes ADR-0029 clause 11 keepable | **Yes — the point** |
 | Serves the one known consumer (Backstage, Node) | Yes, typed, no subprocess |
 | Serves language-agnostic consumers | Yes, via the documented CLI contract |
 | Commitment surface | One facade plus one JSON schema |
@@ -183,7 +183,7 @@ later, and A → C is additive while C → A is a break.
 **Pros:** no new package, no new semver commitment.
 
 **Cons:** leaves clause 11 false, leaves every core refactor a governance question, and
-makes each out-of-repo surface rebuild the same consumption layer — the duplication ADR-0029
+makes each out-of-repo surface rebuild the same consumption layer — the duplication ADR-0030
 recorded as its own wrongness signal.
 
 ## Trade-offs
@@ -204,8 +204,8 @@ recorded as its own wrongness signal.
 
 ## Consequences
 
-- **Easier:** ADR-0028 clause 11 becomes a promise that can actually be kept; core refactors
-  stop being governance events; out-of-repo surfaces get one documented way in; ADR-0029's
+- **Easier:** ADR-0029 clause 11 becomes a promise that can actually be kept; core refactors
+  stop being governance events; out-of-repo surfaces get one documented way in; ADR-0030's
   conformance fixture and the SDK's test fixture are the same artifact.
 - **Harder:** one more package, a mapping layer, and two contracts to keep honest.
 - **How we would know this was wrong:** if the SDK's surface has to grow past roughly a dozen
@@ -219,14 +219,14 @@ recorded as its own wrongness signal.
 ## Action items
 
 1. [ ] Ratify or reject this record. It is `proposed` and agent-drafted with no `ratifiedBy`.
-2. [ ] Land the amendment note on ADR-0028 recording that clauses 6 and 11 are narrowed by
+2. [ ] Land the amendment note on ADR-0029 recording that clauses 6 and 11 are narrowed by
    this record's clause 3, per the mechanism ADR-0013 used on ADR-0007.
 3. [ ] Enumerate the SDK's first surface from what a real consumer needs — the Tier 1
-   capabilities of ADR-0028 clause 1 — rather than from what core exports. Record the count;
+   capabilities of ADR-0029 clause 1 — rather than from what core exports. Record the count;
    if it exceeds a dozen entry points, the wrongness signal above has already fired.
 4. [ ] Converge `explain`, `lint`, and `new` `--json` onto core formatters, as `queue` is,
    so the two modes describe the same shapes.
 5. [ ] Document the CLI JSON contract and the SDK surface in `docs/RELEASING.md`, with the
    additive-only obligation stated at both.
-6. [ ] Build the conformance fixture ADR-0029 action item 5 names, as the SDK's own test
+6. [ ] Build the conformance fixture ADR-0030 action item 5 names, as the SDK's own test
    fixture, so one artifact discharges both records.
