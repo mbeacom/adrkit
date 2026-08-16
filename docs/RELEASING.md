@@ -97,10 +97,13 @@ The PR CI `bun audit` gate deliberately scopes itself to this workspace's
 resolved tree and does **not** audit consumer installs of the published
 `@adrkit/*` manifests
 ([ADR-0017](adr/0017-keep-dependency-audit-scope-explicit-and-release-scoped.md)).
-That audit is release evidence, so it runs here, against the packed tarballs —
-**all four of them**. `release:pack` already builds `.release/smoke/` with every
-artifact in the release manifest wired as a `file:` dependency, so auditing there
-covers the whole published set and cannot drift out of sync with what was packed:
+That audit is release evidence, so it runs here, against **every packed tarball**.
+`release:pack` already builds `.release/smoke/` with every artifact in the release
+manifest wired as a `file:` dependency, so auditing there covers the whole
+published set and cannot drift out of sync with what was packed. Note that a
+lockstep pack carries the independently versioned `@adrkit/spec-kit` alongside the
+four lockstep packages, so the set is five artifacts rather than four — counting
+it by hand is exactly the drift this arrangement avoids:
 
 ```sh
 (
@@ -110,7 +113,7 @@ covers the whole published set and cannot drift out of sync with what was packed
 )
 ```
 
-Audit **all four** packages, not a subset. `@adrkit/evaluator` is the only path to
+Audit **every** packed package, not a subset. `@adrkit/evaluator` is the only path to
 `jsonpath-rfc9535`, and `@adrkit/cli` is the only path to the evaluator, so an
 audit of `@adrkit/core` + `@adrkit/mcp` alone never sees that subtree at all
 (ADR-0017 action item 2).
@@ -202,9 +205,10 @@ Publishing is configured". `@adrkit/mcp` passed through it for 0.2.0 and
 
 #### Do not retry the unscoped `adrkit` name
 
-`adrkit` was built as a forwarder to `@adrkit/cli` and published as part of
-v0.8.0 so that `npx adrkit` could not resolve to a stranger's package. npm
-refused it:
+`adrkit` was built as a forwarder to `@adrkit/cli` so that `npx adrkit` could
+not resolve to a stranger's package. Publishing it was attempted during the
+v0.8.0 release and the registry refused the request, so the package does not
+exist and never shipped:
 
 ```
 403 Forbidden - PUT https://registry.npmjs.org/adrkit
@@ -221,29 +225,6 @@ availability check that preceded this work reported 404 and was believed to mean
 the name could be had. If a future package needs a new unscoped name, the only
 reliable test is a real publish attempt, so schedule it where a rejection is
 cheap rather than mid-release.
-
-## Pending: `adrkit`, and the doc flip that must follow it
-
-`adrkit` — the unscoped forwarder — is in `BOOTSTRAP_PACKAGES` now, awaiting its
-first publish. It carries one extra step that the adapter names did not, and the
-ordering is not interchangeable.
-
-The site deploys on **every push to `main`**, while packages publish only on a
-**release tag**. So documentation describing `npx adrkit` as usable goes live
-before the name exists, and until the release lands that command resolves
-against the registry to whatever anyone else has published there. For that
-window the docs deliberately tell readers *not* to use `npx adrkit`, which is
-correct while the name is unclaimed and wrong the moment it is not.
-
-After `adrkit` appears on the registry, and not before, update the three places
-that carry the warning:
-
-- `site/src/content/docs/quickstart.mdx` — the "unambiguous installed alias" tip
-- `packages/cli/README.md` — the paragraph after the `adrkit lint` example
-- `packages/adrkit/README.md` — already written for the published state
-
-Confirm with `npm view adrkit version` first. Leaving the warning up is merely
-stale; removing it early is a recommendation to run an unowned name.
 
 ## One-time npm bootstrap (completed for v0.1.0)
 

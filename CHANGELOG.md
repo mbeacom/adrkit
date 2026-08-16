@@ -44,8 +44,9 @@ Until `1.0.0`, minor releases may include breaking changes
 
 - **The unscoped `adrkit` package was attempted and abandoned — npm will not issue the
   name.** The plan was a forwarder to `@adrkit/cli` owning the bare name, so that
-  `npx adrkit` could not resolve to anyone else's package. It was built, tested, packed,
-  and published as part of this release, and the registry refused it:
+  `npx adrkit` could not resolve to anyone else's package. It was built, tested, and
+  packed; publishing it was attempted during this release and the registry refused the
+  request, so the package does not exist:
 
   ```
   403 Forbidden - PUT https://registry.npmjs.org/adrkit
