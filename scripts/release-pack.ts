@@ -165,6 +165,26 @@ export const RELEASE_PACKAGES: readonly ReleasePackageDefinition[] = [
     shipsNodeArtifact: true,
   },
   {
+    // The unscoped name, published so that `npx adrkit` resolves to adrkit by
+    // construction rather than by luck — and so nobody else can claim it. It
+    // forwards to @adrkit/cli and carries no logic, but it is lockstep-versioned
+    // because a forwarder that lags its target is a forwarder that lies.
+    name: 'adrkit',
+    directory: 'packages/adrkit',
+    expectedFiles: [
+      'README.md',
+      'dist/LICENSE',
+      'dist/NOTICE',
+      'dist/index.d.ts',
+      'dist/index.js',
+      'package.json',
+      'src/index.ts',
+    ],
+    workspaceDependencies: ['@adrkit/cli'],
+    versioning: 'lockstep',
+    shipsNodeArtifact: true,
+  },
+  {
     // The first independently versioned package. Not a Node library: it ships a
     // Spec Kit manifest, three command files, and the shell scripts behind them.
     name: '@adrkit/spec-kit',
@@ -572,7 +592,12 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
 
   for (const definition of selected) {
     const packageVersion = versionFor(definition, sourceManifests, version);
-    const filename = `${definition.name.slice(1).replace('/', '-')}-${packageVersion}.tgz`;
+    // `npm pack` drops a leading `@` and turns the scope separator into a dash,
+    // so `@adrkit/cli` becomes `adrkit-cli-<version>.tgz`. Strip only the `@`:
+    // an unconditional `slice(1)` is indistinguishable from correct for every
+    // scoped name and silently eats the first letter of an unscoped one, which
+    // is how `adrkit` first packed itself as `drkit-0.7.0.tgz`.
+    const filename = `${definition.name.replace(/^@/, '').replace('/', '-')}-${packageVersion}.tgz`;
     const packageDir = join(RELEASE_ROOT, definition.directory);
     await run(
       [
@@ -598,6 +623,12 @@ export async function packRelease(args = Bun.argv.slice(2)): Promise<ReleaseMani
       assert(
         packedManifest.bin?.adrkit === './dist/index.js',
         'Packed CLI must expose the adrkit binary, which is the unambiguous alias for the `adr` name npm already assigns to an unrelated package',
+      );
+    }
+    if (definition.name === 'adrkit') {
+      assert(
+        packedManifest.bin?.adrkit === './dist/index.js',
+        'Packed adrkit forwarder must expose the adrkit binary — it is the only reason the package is published',
       );
     }
     if (definition.name === '@adrkit/mcp') {

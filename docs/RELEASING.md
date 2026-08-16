@@ -185,7 +185,8 @@ npm Trusted Publishing cannot be configured for a package name that does not
 exist yet, so the very first publish needs a credential:
 
 1. Add `NPM_BOOTSTRAP_TOKEN` to the `npm` environment — a granular token with
-   publish rights for the `@adrkit` scope.
+   publish rights for the `@adrkit` scope. An unscoped name such as `adrkit`
+   is not covered by a scope-limited token; grant that one explicitly.
 2. Add the package name to `BOOTSTRAP_PACKAGES` in `scripts/release-publish.ts`.
    It is scrubbed from every other package's environment.
 3. Release.
@@ -198,6 +199,29 @@ An empty `BOOTSTRAP_PACKAGES` is the correct steady state, not an oversight. A
 name belongs in it only between "does not exist on the registry" and "Trusted
 Publishing is configured". `@adrkit/mcp` passed through it for 0.2.0 and
 `@adrkit/spec-kit` for 0.1.0; both publish over OIDC now.
+
+#### Pending: `adrkit`, and the doc flip that must follow it
+
+`adrkit` — the unscoped forwarder — is in `BOOTSTRAP_PACKAGES` now, awaiting its
+first publish. It carries one extra step that the adapter names did not, and the
+ordering is not interchangeable.
+
+The site deploys on **every push to `main`**, while packages publish only on a
+**release tag**. So documentation describing `npx adrkit` as usable goes live
+before the name exists, and until the release lands that command resolves
+against the registry to whatever anyone else has published there. For that
+window the docs deliberately tell readers *not* to use `npx adrkit`, which is
+correct while the name is unclaimed and wrong the moment it is not.
+
+After `adrkit` appears on the registry, and not before, update the three places
+that carry the warning:
+
+- `site/src/content/docs/quickstart.mdx` — the "unambiguous installed alias" tip
+- `packages/cli/README.md` — the paragraph after the `adrkit lint` example
+- `packages/adrkit/README.md` — already written for the published state
+
+Confirm with `npm view adrkit version` first. Leaving the warning up is merely
+stale; removing it early is a recommendation to run an unowned name.
 
 ## One-time npm bootstrap (completed for v0.1.0)
 

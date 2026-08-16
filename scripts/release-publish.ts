@@ -18,8 +18,15 @@ const REGISTRY = 'https://registry.npmjs.org';
  * long-lived token to a package that no longer needs one — the credential
  * sprawl the set exists to bound. `@adrkit/mcp` was bootstrapped for 0.2.0 and
  * `@adrkit/spec-kit` for 0.1.0/0.1.1; both now publish over OIDC.
+ *
+ * `adrkit` — the unscoped forwarder — is the current occupant, and is expected
+ * to leave. Its first publish claims a name nobody owns yet, which is the whole
+ * point of shipping it, and that publish cannot use OIDC. Immediately after it
+ * lands: configure Trusted Publishing for `adrkit` on npmjs.com, remove it from
+ * this set, and delete the `NPM_BOOTSTRAP_TOKEN` secret. Until all three are
+ * done the release workflow is holding a token it no longer needs.
  */
-const BOOTSTRAP_PACKAGES: ReadonlySet<string> = new Set();
+const BOOTSTRAP_PACKAGES: ReadonlySet<string> = new Set(['adrkit']);
 type RegistryFetch = (url: string) => Promise<Response>;
 
 function assert(condition: unknown, message: string): asserts condition {

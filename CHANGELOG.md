@@ -40,6 +40,23 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **The unscoped `adrkit` package is now published**, forwarding to `@adrkit/cli`. `adr` on
+  npm belongs to an unrelated package, and #151 established that no bare-name `npx` form
+  can be made safe by documentation: `npx adr` reaches adrkit only when the binary is
+  linked into `node_modules/.bin`, and otherwise runs the other tool without failing —
+  in CI without even prompting, since npm assumes `--yes` on a non-TTY. Owning `adrkit`
+  makes `npx adrkit` resolve to adrkit by construction rather than by luck, and keeps the
+  obvious name from being claimed by someone else. `@adrkit/cli` remains canonical and is
+  what projects should depend on; the forwarder carries no logic, tracks it by
+  `workspace:*`, and is lockstep-versioned, because a forwarder that lags its target
+  reports a version it is not running.
+
+  Its first publish must use a credential rather than OIDC — npm Trusted Publishing cannot
+  be configured for a name that does not exist yet — so `adrkit` is temporarily in
+  `BOOTSTRAP_PACKAGES`. Configure Trusted Publishing, remove it from that set, and delete
+  `NPM_BOOTSTRAP_TOKEN` once the name exists, as was done for `@adrkit/mcp` and
+  `@adrkit/spec-kit`.
+
 - **`@adrkit/cli` now installs an `adrkit` binary alongside `adr`.** The bare name `adr`
   on npm belongs to an unrelated package (`phodal/adr`, published since 2017), so the
   `adr` command is ambiguous in two ways adrkit does not control: a bare `npx adr` fetches
@@ -47,12 +64,13 @@ Until `1.0.0`, minor releases may include breaking changes
   project holding both dependencies has them compete for the same `.bin` entry. `adrkit`
   collides with nothing, so `adrkit lint` is unambiguous for globally-installed users and
   in `node_modules/.bin`. `adr` is unchanged and remains the primary name — this is purely
-  additive, and nothing that works today stops working. The alias covers the **installed**
-  binary only: the unscoped `adrkit` *package* name is unclaimed, so `npx adrkit` resolves
-  against the registry and would run whatever anyone publishes there — and npm assumes
-  `--yes` on a non-TTY, so CI would install and run it without prompting. `npx --no`
-  declines to install a missing package but still runs one already in the npx cache, so it
-  is not a durable guard; `npx @adrkit/cli` remains the zero-install form.
+  additive, and nothing that works today stops working. The bin alias by itself covers
+  only the **installed** binary; `npx adrkit` is safe because this release also publishes
+  the unscoped `adrkit` *package* (above), not because of the bin entry. Had that name
+  stayed unclaimed, `npx adrkit` would have resolved against the registry and run whatever
+  anyone published there — without prompting in CI, where npm assumes `--yes` on a
+  non-TTY. `npx --no` is not a sufficient answer to that: it declines to install a missing
+  package but still runs one already in the npx cache.
   `release-pack` now asserts both binaries are present in the packed manifest, and that
   assertion was observed failing with the alias removed before it was counted as coverage
   ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
