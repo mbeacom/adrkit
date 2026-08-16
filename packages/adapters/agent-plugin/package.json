@@ -1,0 +1,33 @@
+{
+  "name": "@adrkit/agent-plugin",
+  "version": "0.1.0",
+  "description": "Portable agent plugin exposing adrkit's decision memory to GitHub Copilot CLI, Claude Code, APM, and opencode.",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/adapters/agent-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "claude-code",
+    "github-copilot",
+    "apm",
+    "opencode"
+  ],
+  "//private": "Deliberately private, unlike the sibling Spec Kit adapter. Every host that consumes this installs it from git \u2014 `copilot plugin install mbeacom/adrkit:packages/adapters/agent-plugin`, a marketplace entry, or `apm install`. Nothing installs a plugin from npm, so publishing it would create a second, staler distribution path for the same bytes. This file exists so the directory is a real workspace member with a typecheck script and a version that can be asserted against the two manifests.",
+  "//versioning": "Independently versioned per ADR-0007: the semver contract is with the plugin hosts, not with @adrkit/core, so this does not move with the repository release tag. `version` here must equal `.claude-plugin/plugin.json` and `apm.yml` \u2014 Claude Code keys its plugin cache on that field, so a shipped change with a stale version is a change users never receive. Asserted by test/manifest.test.ts.",
+  "//dependencies": "Deliberately none, including devDependencies. `copilot plugin install ./packages/adapters/agent-plugin` copies this directory; a single declared dependency is enough for Bun's isolated linker to create a node_modules/ here that then rides along into the install. Same rule, and same reason, as packages/adapters/spec-kit. Enforced by test/packaging.test.ts.",
+  "scripts": {
+    "build": "bun run typecheck",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../../tsconfig.json"
+  }
+}

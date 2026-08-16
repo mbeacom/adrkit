@@ -120,6 +120,42 @@ rungs 1–2 — see the
 [evidence index](docs/reference-verification-spec-kit-extension.md). Not
 externally validated (rung 3 open).
 
+## For any coding agent: the plugin
+
+[Spec Kit](https://github.com/github/spec-kit) is one workflow. The place plans
+are actually written now is inside a coding agent that has no idea your decision
+corpus exists.
+
+[`packages/adapters/agent-plugin`](packages/adapters/agent-plugin/README.md)
+packages the same loop as portable agent components — installable into GitHub
+Copilot CLI, Claude Code, opencode, and anything
+[APM](https://github.com/microsoft/apm) targets:
+
+```sh
+copilot plugin marketplace add mbeacom/adrkit && copilot plugin install adrkit@adrkit
+/plugin marketplace add mbeacom/adrkit        # Claude Code, then /plugin install adrkit@adrkit
+apm install mbeacom/adrkit/packages/adapters/agent-plugin --target opencode
+```
+
+| Component | Purpose | Writes |
+|---|---|---|
+| `decision-memory` skill | Teaches the context → check → draft loop, the exit-code contract, and the rules that keep the record honest | no |
+| `decision-checker` agent | Reconciles a plan or diff against the corpus, one verdict per decision | no |
+| `/adr-context [paths...]` | Load the decisions governing the paths you are about to change | no |
+| `/adr-check [paths...]` | Check the change, or a plan, against them | no |
+| `/adr-draft <title>` | Draft one ADR from the decision the work actually makes | one new record |
+| `/adr-queue` | The review queue — the questions still open | no |
+
+It deliberately ships **no MCP configuration**: Copilot CLI spawns a plugin's
+MCP servers outside the workspace, and outside any Git repository, so the adrkit
+server exits during `initialize`. MCP is wired per project instead — see the
+[plugin README](packages/adapters/agent-plugin/README.md#mcp-is-configured-per-project-not-shipped-here)
+and [ADR-0028](docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
+
+Independently versioned per ADR-0007. At **rung 1** of ADR-0014 — unit and
+contract coverage plus maintainer verification against the installed hosts. No
+reference-repository run, no external validation.
+
 ## The problem
 
 Your organization decides something. Six months later nobody remembers, the

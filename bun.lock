@@ -10,6 +10,10 @@
         "zod": "^4",
       },
     },
+    "packages/adapters/agent-plugin": {
+      "name": "@adrkit/agent-plugin",
+      "version": "0.1.0",
+    },
     "packages/adapters/catalog-backstage": {
       "name": "@adrkit/catalog-backstage",
       "version": "0.0.0",
@@ -117,6 +121,8 @@
     "@actions/http-client": ["@actions/http-client@4.0.1", "", { "dependencies": { "tunnel": "^0.0.6", "undici": "^6.23.0" } }, "sha512-+Nvd1ImaOZBSoPbsUtEhv+1z99H12xzncCkz0a3RuehINE81FZSe2QTj3uvAPTcJX/SCzUQHQ0D1GrPMbrPitg=="],
 
     "@actions/io": ["@actions/io@3.0.2", "", {}, "sha512-nRBchcMM+QK1pdjO7/idu86rbJI5YHUKCvKs0KxnSYbVe3F51UfGxuZX4Qy/fWlp6l7gWFwIkrOzN+oUK03kfw=="],
+
+    "@adrkit/agent-plugin": ["@adrkit/agent-plugin@workspace:packages/adapters/agent-plugin"],
 
     "@adrkit/catalog-backstage": ["@adrkit/catalog-backstage@workspace:packages/adapters/catalog-backstage"],
 

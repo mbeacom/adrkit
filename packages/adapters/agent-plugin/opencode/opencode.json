@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "//": "Merge this into your project's opencode.json (or ~/.config/opencode/opencode.json). opencode has no plugin-manifest concept, so the wiring is explicit rather than installed. `apm install` performs the equivalent placement automatically; this file is the path for opencode users who are not using APM. Note the field names differ from .mcp.json on purpose: opencode takes `command` as an array and spells the environment block `environment`, where the Copilot/Claude schema takes `command` plus `args` and spells it `env`.",
+  "mcp": {
+    "adrkit": {
+      "type": "local",
+      "command": ["npx", "-y", "@adrkit/mcp@^0.8.0"],
+      "environment": {},
+      "enabled": true
+    }
+  }
+}

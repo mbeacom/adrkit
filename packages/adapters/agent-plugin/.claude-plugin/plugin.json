@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "adrkit",
+  "displayName": "adrkit — decision memory",
+  "version": "0.1.0",
+  "description": "Load the architecture decisions that already govern a change before planning it, check a produced plan against them, and record a new one — driven by the adr CLI.",
+  "author": {
+    "name": "Mark Beacom",
+    "url": "https://github.com/mbeacom"
+  },
+  "homepage": "https://adrkit.dev",
+  "repository": "https://github.com/mbeacom/adrkit",
+  "license": "Apache-2.0",
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "decision-memory",
+    "governance",
+    "claude-code",
+    "github-copilot"
+  ]
+}
