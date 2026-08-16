@@ -19,28 +19,44 @@
  * with the reader is not a boundary.
  */
 
-/** Outcome of resolving a `--as-of` input. `kind` distinguishes the two rejection reasons. */
-export type AsOfResolution = { ok: true; date: string } | { ok: false; kind: 'tzless' | 'invalid' };
+/** Outcome of resolving a `--as-of` input. `code` distinguishes the two rejection reasons. */
+export type AsOfResolution = { ok: true; date: string } | { ok: false; code: 'tzless' | 'invalid' };
+
+/** A resolved value must be a real `YYYY-MM-DD`, which `Date` alone does not guarantee. */
+function isCalendarDate(candidate: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return false;
+  const probe = new Date(`${candidate}T00:00:00Z`);
+  return Number.isFinite(probe.getTime()) && probe.toISOString().slice(0, 10) === candidate;
+}
 
 /** Resolve an `--as-of` value to a UTC calendar date (`cli-contract.md §As-Of Resolution`). */
 export function resolveAsOf(value: string): AsOfResolution {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const parsed = new Date(`${value}T00:00:00Z`);
-    if (Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value) {
-      return { ok: true, date: value };
-    }
-    return { ok: false, kind: 'invalid' };
+    return isCalendarDate(value) ? { ok: true, date: value } : { ok: false, code: 'invalid' };
   }
 
   const tIndex = value.indexOf('T');
   if (tIndex !== -1) {
     const timePart = value.slice(tIndex + 1);
     const hasTimezone = /Z$/.test(timePart) || /[+-]\d{2}:?\d{2}$/.test(timePart);
-    if (!hasTimezone) return { ok: false, kind: 'tzless' };
+    if (!hasTimezone) return { ok: false, code: 'tzless' };
+
+    // The input's own calendar date must be real before any offset is applied. Without this
+    // `2026-02-30T00:00:00Z` is normalized by `Date` to 2026-03-02 and returned as a success,
+    // while the bare `2026-02-30` is rejected — the same input answered two ways depending on
+    // spelling, which is exactly the divergence this export exists to remove.
+    if (!isCalendarDate(value.slice(0, tIndex))) return { ok: false, code: 'invalid' };
+
     const parsed = new Date(value);
-    if (Number.isFinite(parsed.getTime())) return { ok: true, date: parsed.toISOString().slice(0, 10) };
-    return { ok: false, kind: 'invalid' };
+    if (!Number.isFinite(parsed.getTime())) return { ok: false, code: 'invalid' };
+
+    // `toISOString` emits the expanded-year form (`±YYYYYY-MM-DD`) outside 0000-9999, which
+    // `slice(0, 10)` would truncate into a non-date. The kernel compares `asOf` to deadlines
+    // lexicographically, and `+` sorts below every digit, so such a value would silently
+    // report every deadline-bearing item as within SLA rather than failing.
+    const resolved = parsed.toISOString().slice(0, 10);
+    return isCalendarDate(resolved) ? { ok: true, date: resolved } : { ok: false, code: 'invalid' };
   }
 
-  return { ok: false, kind: 'invalid' };
+  return { ok: false, code: 'invalid' };
 }

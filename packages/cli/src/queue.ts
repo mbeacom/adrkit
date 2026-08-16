@@ -106,7 +106,7 @@ export async function runQueue(args: string[]): Promise<number> {
     const resolution = resolveAsOf(flags.asOf);
     if (!resolution.ok) {
       const message =
-        resolution.kind === 'tzless'
+        resolution.code === 'tzless'
           ? `Invalid --as-of value: '${flags.asOf}'. Timezone-less datetimes are ambiguous — use YYYY-MM-DD or add an explicit timezone offset (e.g. Z or +05:00).\n`
           : `Invalid --as-of value: '${flags.asOf}'. Expected YYYY-MM-DD or ISO datetime with explicit timezone (e.g. 2026-01-08 or 2026-01-08T00:00:00Z).\n`;
       process.stderr.write(message);

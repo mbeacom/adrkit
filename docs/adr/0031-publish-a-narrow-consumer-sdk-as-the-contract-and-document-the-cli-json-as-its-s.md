@@ -261,7 +261,7 @@ recorded as its own wrongness signal.
    additive-only obligation stated at both.
 6. [ ] Build the conformance fixture ADR-0030 action item 5 names, as the SDK's own test
    fixture, so one artifact discharges both records.
-7. [x] **Close the `--as-of` resolution gap: `queue`'s date resolver is a contract that lives
+7. [~] **Close the `--as-of` resolution gap: `queue`'s date resolver is a contract that lives
    outside the contract.** `resolveAsOf` in `packages/cli/src/queue.ts` is ~25 lines
    implementing `cli-contract.md §As-Of Resolution` — bare `YYYY-MM-DD` or an ISO datetime with
    an explicit timezone, rejecting timezone-less datetimes as ambiguous — and it is **not
@@ -276,15 +276,40 @@ recorded as its own wrongness signal.
    in core beside the kernel it feeds. Deliberately **not** fixed alongside action item 3;
    recorded here so it cannot be lost with `docs/sdk-surface.md`.
 
-   **Closed 2026-08-16.** `resolveAsOf` and its `AsOfResolution` type now live at
-   `packages/core/src/queue/as-of.ts`, exported from the package entry point beside
-   `buildQueueReport`, and `packages/cli/src/queue.ts` consumes them — so the rule has exactly
-   one implementation and a library consumer computes the same calendar date the CLI does. The
-   move is verbatim; CLI behaviour is unchanged, held by its existing 142 tests.
+   **Done 2026-08-16 — the parsing clause only.** `resolveAsOf` and its `AsOfResolution`
+   type now live at `packages/core/src/queue/as-of.ts`, exported from the package entry
+   point beside `buildQueueReport`, and `packages/cli/src/queue.ts` consumes them — so the
+   rule that turns a *supplied* value into a calendar date has exactly one implementation
+   and a library consumer computes the same date the CLI does.
+
+   **The third clause of `cli-contract.md` §As-Of Resolution is NOT closed.** "If absent:
+   `new Date().toISOString().slice(0,10)`" is still inlined in three places
+   (`packages/cli/src/queue.ts`, `packages/ci/src/queue-action-entrypoint.ts`,
+   `packages/core/src/scaffold/new.ts`) and exported from none, and `resolveAsOf` takes a
+   required `string` so it cannot express the absent case. That matters more than it
+   sounds: defaulting to *today* is the path CI actually uses, and a consumer defaulting
+   from a local calendar date rather than a UTC one disagrees with CI near the midnight
+   boundary — the same divergence class this item was opened to close. Carried as a
+   successor item rather than marked closed.
+
+8. [ ] Export the absent-input clause of `cli-contract.md` §As-Of Resolution — successor to
+   item 7. `new Date().toISOString().slice(0,10)` is inlined at
+   `packages/cli/src/queue.ts`, `packages/ci/src/queue-action-entrypoint.ts`, and
+   `packages/core/src/scaffold/new.ts`. Until it is exported, "the queue as of now" — the
+   dominant consumer case, and the one CI uses — is still hand-rolled downstream.
+
+   Two defects were found in the moved rule during review and fixed before it was
+   published, which is the cheap moment: an expanded-year datetime was truncated into a
+   non-date (and, because the kernel compares `asOf` lexicographically and `+` sorts below
+   every digit, silently reported every deadline-bearing item as within SLA), and an
+   impossible date was rejected when written bare but normalized to a different day when
+   written as a datetime. Both predate the move; publishing them as contract is what made
+   fixing them urgent.
 
    Observed failing per [ADR-0016](0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md),
    and the observation is the interesting part: with the entry-point export removed to
-   reproduce the gap as it stood, **7 of the 8 new tests still passed.** Only the reachability
-   test failed. That is the defect stated precisely — it was never a wrong answer, it was an
-   unreachable rule, so no behavioural assertion could ever have detected it. A suite of
-   correctness cases alone would have reported this contract gap as fully covered.
+   reproduce the gap as it stood, **7 of the then-8 tests still passed.** Only the
+   reachability test failed. That is the defect stated precisely — it was never a wrong
+   answer, it was an unreachable rule, so no behavioural assertion could have detected it.
+   A suite of correctness cases alone would have reported this contract gap as fully
+   covered.

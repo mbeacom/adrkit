@@ -11,6 +11,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **Two new `@adrkit/core` runtime exports, pinned by the package surface test:**
+  `resolveAsOf` and its `AsOfResolution` type
+  (`packages/core/src/queue/as-of.ts`). This is the rule that turns an `--as-of`
+  input into the UTC calendar date `buildQueueReport` computes SLA state against —
+  a bare `YYYY-MM-DD`, or an ISO datetime carrying an explicit timezone, with a
+  timezone-less datetime rejected as ambiguous rather than guessed. It previously
+  lived privately in the CLI, so **a library consumer building the ARB queue had to
+  reimplement it, and any difference produced a queue that disagreed with CI about
+  which decisions were overdue — same corpus, same day, no error raised.** If you
+  reimplemented that rule, you can now stop
+  ([ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+  action item 7).
+
 - **A portable agent plugin — adrkit's fourth distribution surface**
   (`packages/adapters/agent-plugin`, plugin name `adrkit`, v0.1.0). One skill
   (`decision-memory`), one read-only subagent (`decision-checker`), and four
@@ -49,6 +62,18 @@ Until `1.0.0`, minor releases may include breaking changes
   only genuinely host-specific notes, rather than a second copy that costs
   context on every session and drifts from the first. opencode reads `AGENTS.md`
   directly.
+
+### Fixed
+
+- **`--as-of` accepted two classes of input that produced a wrong date rather than
+  an error.** An expanded-year datetime (`+010000-01-01T00:00:00Z`) was truncated to
+  a non-date such as `+010000-01`; because the queue kernel compares `asOf` to
+  deadlines lexicographically and `+` sorts below every digit, that silently reported
+  **every** deadline-bearing item as within SLA. And an impossible date was rejected
+  when written bare (`2026-02-30`) but normalized to a different day when written as a
+  datetime (`2026-02-30T00:00:00Z` → `2026-03-02`) — the same input answered two ways
+  depending on spelling. Both now return `invalid`. Real leap days and legitimate
+  offset shifts are unaffected.
 
 ### Notes
 
