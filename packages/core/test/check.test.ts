@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { sep } from 'node:path';
 import { checkChanges, type CheckLintResult } from '../src/check/index.ts';
 import type { SourceMarkerScan } from '../src/markers/read.ts';
 import type { Adr } from '../src/schema/adr.schema.ts';
@@ -119,14 +120,53 @@ describe('checkChanges (core)', () => {
     expect(outcome.changedRecords).toEqual(['docs/adr/0001-x.md']);
   });
 
-  test('Windows-style backslash changed paths are normalized to forward slashes', () => {
+  test.skipIf(sep !== '\\')('Windows-style backslash changed paths are normalized to forward slashes', () => {
+    const outcome = checkChanges({
+      lint: emptyLint(),
+      changedFiles: ['docs\\adr\\0001-x.md'],
+      dir: 'docs\\adr',
+    });
+    expect(outcome.changedFiles).toEqual(['docs/adr/0001-x.md']);
+    expect(outcome.changedRecords).toEqual(['docs/adr/0001-x.md']);
+  });
+
+  // On POSIX a backslash is an ordinary filename character, so rewriting it invents a
+  // path identity: `src/we\ird.ts` would be matched against `affects` globs — and
+  // reported in `changedFiles` — as `src/we/ird.ts`, which may be a different file.
+  // The marker side already gets this right (`normalizeMarkerPath`); this is the half
+  // that disagreed with it.
+  test.skipIf(sep === '\\')('a literal backslash in a POSIX filename survives normalization', () => {
+    const outcome = checkChanges({
+      lint: emptyLint(),
+      changedFiles: ['src/we\\ird.ts'],
+      dir: 'docs/adr',
+    });
+    expect(outcome.changedFiles).toEqual(['src/we\\ird.ts']);
+  });
+
+  test.skipIf(sep === '\\')('a POSIX backslash path is not mistaken for a corpus record', () => {
+    // `docs\adr\0001-x.md` is one oddly-named file at the repo root on POSIX, not a
+    // record inside `docs/adr`. Rewriting it would make an unrelated file count as a
+    // changed ADR record.
     const outcome = checkChanges({
       lint: emptyLint(),
       changedFiles: ['docs\\adr\\0001-x.md'],
       dir: 'docs/adr',
     });
-    expect(outcome.changedFiles).toEqual(['docs/adr/0001-x.md']);
-    expect(outcome.changedRecords).toEqual(['docs/adr/0001-x.md']);
+    expect(outcome.changedRecords).toEqual([]);
+  });
+
+  test.skipIf(sep === '\\')('a POSIX corpus directory preserves its literal backslash', () => {
+    // `docs\adr` is a directory name containing a literal backslash. The slash before
+    // the record remains the real path separator, so both sides must preserve the same
+    // directory identity.
+    const outcome = checkChanges({
+      lint: emptyLint(),
+      changedFiles: ['docs\\adr/0001-x.md'],
+      dir: 'docs\\adr',
+    });
+    expect(outcome.changedFiles).toEqual(['docs\\adr/0001-x.md']);
+    expect(outcome.changedRecords).toEqual(['docs\\adr/0001-x.md']);
   });
 
   test('resolves pre-scanned markers without performing I/O and reports scan state', () => {

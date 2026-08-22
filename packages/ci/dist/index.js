@@ -48437,10 +48437,11 @@ function mergeSourceDeclarations(patternDecisions, records, markerMatches) {
   return [...merged, ...markerOnly].sort((a, b) => compareCodeUnits(a.recordId, b.recordId));
 }
 // ../core/src/check/index.ts
+import { sep as sep4 } from "node:path";
 var RECORD_BASENAME = /^\d{4,}-.+\.md$/;
 var TEMPLATE_BASENAME = "0000-template.md";
 function normalizeDir(dir) {
-  const forward = (dir ?? "docs/adr").replace(/\\/g, "/");
+  const forward = toForwardSlash(dir ?? "docs/adr");
   let end = forward.length;
   while (end > 0 && forward.charCodeAt(end - 1) === 47)
     end -= 1;
@@ -48448,7 +48449,7 @@ function normalizeDir(dir) {
   return stripped === "." ? "" : stripped;
 }
 function toForwardSlash(path) {
-  return path.replace(/\\/g, "/");
+  return sep4 === "\\" ? path.replace(/\\/g, "/") : path;
 }
 function isCorpusRecordPath(file2, dir) {
   const prefix = dir ? `${dir}/` : "";

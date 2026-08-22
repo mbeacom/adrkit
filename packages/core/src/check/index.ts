@@ -3,6 +3,7 @@
 // same record. It is kept because it is the repository's own working example of the
 // declaration rendering; it does not demonstrate the marker-only case, which needs a
 // file the corpus reaches by no pattern at all.
+import { sep } from 'node:path';
 import type { Adr } from '../schema/adr.schema.ts';
 import { resolveAffects, type ResolutionSnapshots } from '../affects/index.ts';
 import { mergeSourceDeclarations, resolveSourceMarkers } from '../markers/resolve.ts';
@@ -91,7 +92,7 @@ const RECORD_BASENAME = /^\d{4,}-.+\.md$/;
 const TEMPLATE_BASENAME = '0000-template.md';
 
 function normalizeDir(dir: string | undefined): string {
-  const forward = (dir ?? 'docs/adr').replace(/\\/g, '/');
+  const forward = toForwardSlash(dir ?? 'docs/adr');
   // Strip trailing slashes without a regex (avoids super-linear scanning on
   // pathological input — the changed-file paths are attacker-controlled).
   let end = forward.length;
@@ -102,8 +103,20 @@ function normalizeDir(dir: string | undefined): string {
   return stripped === '.' ? '' : stripped;
 }
 
+/**
+ * Normalize separators only where the platform has them.
+ *
+ * A backslash is a separator on Windows and an ordinary filename character on POSIX.
+ * Rewriting it unconditionally invented a path identity: a real file named
+ * `src/we\ird.ts` was matched against `affects` globs — and reported in
+ * `changedFiles` — as `src/we/ird.ts`, which may be an entirely different file.
+ *
+ * This is the same rule `normalizeMarkerPath` applies on the marker side
+ * (`../markers/read.ts`). The two resolvers must agree about path identity, and the
+ * marker side is the one that was already correct.
+ */
 function toForwardSlash(path: string): string {
-  return path.replace(/\\/g, '/');
+  return sep === '\\' ? path.replace(/\\/g, '/') : path;
 }
 
 /**
