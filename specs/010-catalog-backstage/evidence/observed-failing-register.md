@@ -298,16 +298,27 @@ user`, both halves of the control recorded on the runner (`CONNECTED:200` unsand
 `DENIED` under the mechanism), running as uid 1001 rather than root, 2434 pass / 0 fail.
 The claim is no longer "designed and unit-tested"; it is observed where it is enforced.
 
-**Does that run still describe the tree being merged?** `.github/workflows/ci.yml` and
-`scripts/check-clean-clone.ts` are unchanged since that commit. `scripts/run-network-denied.ts`
-is not: PR review added failure-path message branching and an exit-code guard for
-signal-terminated children. Neither touches candidate selection, the two-sided control, or
-the success path, so the observation still holds — but the question is
-answered by a run on the merged tree rather than by that argument:
+**Does that run still describe the tree being merged?** At commit `97aeba2` it did.
+`scripts/check-clean-clone.ts` was unchanged since the mechanism run above;
+`scripts/run-network-denied.ts` had changed only in ways PR review added — failure-path
+message branching and an exit-code guard for signal-terminated children, none of which
+touches candidate selection, the two-sided control, or the success path — and the question
+was answered by a run on that tree rather than by that argument:
 [31761606849](https://github.com/mbeacom/adrkit/actions/runs/31761606849/job/94648969631),
 green at commit `97aeba2` on the pinned `ubuntu-24.04` image, after the review changes and
-after the three incidental exemptions were wrapped. Thirteen steps run under a proved
-denial; `bun test` is the only one that does not.
+after the three incidental exemptions were wrapped. Thirteen steps ran under a proved
+denial there; `bun test` was the only one that did not.
+
+**The reconciliation merge moved the count by one, and nothing else.** Bringing the branch
+up to `main` (repository `v0.8.0`) added one required check, `check:site-grammar` — a pure
+local comparison of the site's corpus grammar against core, with no network need — into
+`clean-clone-builds`. It is wrapped like its neighbours, so the job now runs **fourteen of
+fifteen** post-install steps under the proved denial rather than thirteen of fourteen; `bun
+test` remains the single exemption. That is the only change to the denial surface: candidate
+selection, the two-sided control, and the success path in `run-network-denied.ts` are
+untouched by the merge, so the mechanism observation above still holds. The run-of-record at
+`97aeba2` is left recording thirteen, because that is what it observed; the reconciled head's
+own CI run is the authority for the fourteen-of-fifteen count and its green result.
 
 ### 4.3 Which host produced each observation is recorded for 2 of 37 cases
 
@@ -363,18 +374,18 @@ records: **gate 4 remains unmet and not yet testable regardless of this feature'
 and is recorded as unmet — never as passed, and never as failed.** Failed would imply it
 was tested; it was not, because it cannot yet be.
 
-### 4.6 One post-install step of fourteen is not network-denied — the canonical statement
+### 4.6 One post-install step of fifteen is not network-denied — the canonical statement
 
 **This section is the single source for the exemption.** `tasks.md` T093, the workflow
 comment, and `negative-cases/clean-clone-offline/` all point here rather than restate it.
 Three restatements would be three places to drift, and this feature has twice been bitten
 by a description outliving the thing it described.
 
-`clean-clone-builds` has **fourteen post-install steps. Thirteen run through
-`scripts/run-network-denied.ts`. The fourteenth is `bun test`.** The count is stated rather
+`clean-clone-builds` has **fifteen post-install steps. Fourteen run through
+`scripts/run-network-denied.ts`. The fifteenth is `bun test`.** The count is stated rather
 than rounded to "every step is denied": rounding up claims coverage the run does not have,
 which under ADR-0016's own reasoning is a defect, not a simplification. Counted from the
-workflow — 17 steps in the job, 3 before and including the install, 14 after, 13 of which
+workflow — 18 steps in the job, 3 before and including the install, 15 after, 14 of which
 name the wrapper in their `run:` — and counted independently twice, because the number now
 appears in a requirement.
 

@@ -1197,8 +1197,8 @@ Phase F completes.
       on the pinned `ubuntu-24.04` image — all steps green, the two-sided control recorded
       on the runner itself (`CONNECTED:200` unsandboxed, `DENIED` under the mechanism), the
       command running as uid 1001 rather than root.
-      **Second conjunct:** no post-install step requires or uses the network. **13 of the
-      14 post-install steps additionally prove it under a denial**; the 14th is `bun test`,
+      **Second conjunct:** no post-install step requires or uses the network. **14 of the
+      15 post-install steps additionally prove it under a denial**; the 15th is `bun test`,
       which cannot, because the suite contains the controls that establish the denial. That
       step has a network ambiently reachable and never uses one — a test that reaches the
       network is an FR-050 defect regardless, and `offline-run.test.ts` sandboxes the

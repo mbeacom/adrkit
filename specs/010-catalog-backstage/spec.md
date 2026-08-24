@@ -958,8 +958,8 @@ exception.
   non-compliant on a technicality while it satisfied every clause the principle actually
   states, so the wording is corrected rather than the job.
 
-  Thirteen of the fourteen post-install steps additionally run under a **proved** denial
-  (`scripts/run-network-denied.ts`). The fourteenth is `bun test`, which cannot: the suite
+  Fourteen of the fifteen post-install steps additionally run under a **proved** denial
+  (`scripts/run-network-denied.ts`). The fifteenth is `bun test`, which cannot: the suite
   contains the two-sided controls that establish the denial, and a control cannot prove one
   from inside it. That step has a network ambiently reachable and **must never use it** — a
   test that reaches the network is a defect under this requirement, unchanged.

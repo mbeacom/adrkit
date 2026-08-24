@@ -153,8 +153,8 @@ the denial. Three responses were possible:
    discharged *inside* the suite by `offline-run.test.ts`, which sandboxes its own
    generation run and proves the mechanism denies before using it.
 
-**What that costs.** **Thirteen of the fourteen post-install steps run under a proved
-denial; `bun test` is the fourteenth.** Never "every step is denied" — rounding the count
+**What that costs.** **Fourteen of the fifteen post-install steps run under a proved
+denial; `bun test` is the fifteenth.** Never "every step is denied" — rounding the count
 up claims coverage the run does not have.
 
 The canonical statement of that exemption, and its history, is
@@ -166,8 +166,8 @@ captures — and §4.6 owns the *disclosure*. Three copies would be three places
 
 ## What the CI job does with this
 
-`.github/workflows/ci.yml`'s `clean-clone-builds` runs **thirteen of its fourteen
-post-install steps** through `scripts/run-network-denied.ts`. The fourteenth is `bun test`,
+`.github/workflows/ci.yml`'s `clean-clone-builds` runs **fourteen of its fifteen
+post-install steps** through `scripts/run-network-denied.ts`. The fifteenth is `bun test`,
 named in the workflow step itself, so an unwrapped step is never merely unexplained.
 
 `check:clean-clone` and the two `git diff --exit-code` verifications were a second and
