@@ -9,10 +9,12 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-24
+
 ### Added
 
-- **Two new `@adrkit/core` runtime exports, pinned by the package surface test:**
-  `resolveAsOf` and its `AsOfResolution` type
+- **A new `@adrkit/core` runtime export, plus its result type:**
+  `resolveAsOf` (pinned by the package surface test) and `AsOfResolution`
   (`packages/core/src/queue/as-of.ts`). This is the rule that turns an `--as-of`
   input into the UTC calendar date `buildQueueReport` computes SLA state against —
   a bare `YYYY-MM-DD`, or an ISO datetime carrying an explicit timezone, with a
@@ -64,6 +66,15 @@ Until `1.0.0`, minor releases may include breaking changes
   directly.
 
 ### Fixed
+
+- **Path normalization now preserves literal backslashes on POSIX.**
+  `checkChanges` converts backslashes only where the runtime platform treats them
+  as separators, and applies that same rule to changed paths and the ADR corpus
+  directory. This prevents one POSIX filename from being reported or governed as
+  a different path, and prevents a root-level file such as
+  `docs\adr\0001-x.md` from being mistaken for an ADR under `docs/adr`. The
+  committed governing-decisions Action bundle carries the same fix
+  ([#160](https://github.com/mbeacom/adrkit/pull/160)).
 
 - **`--as-of` accepted two classes of input that produced a wrong date rather than
   an error.** An expanded-year datetime (`+010000-01-01T00:00:00Z`) was truncated to
@@ -1058,7 +1069,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/mbeacom/adrkit/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/mbeacom/adrkit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mbeacom/adrkit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mbeacom/adrkit/compare/v0.5.0...v0.6.0

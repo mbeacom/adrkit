@@ -3,7 +3,7 @@
   "name": "dev.adrkit/mcp",
   "title": "adrkit decision memory",
   "description": "Deterministic, offline, read-only ADR decision memory for coding agents. No model or network calls.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "websiteUrl": "https://adrkit.dev",
   "repository": {
     "url": "https://github.com/mbeacom/adrkit",
@@ -15,7 +15,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@adrkit/mcp",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

@@ -1,6 +1,6 @@
 {
   "name": "adrkit",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Decision memory for human and agent-authored plans \u2014 machine-readable, CI-enforceable architecture decision records.",
   "type": "module",
   "private": true,
