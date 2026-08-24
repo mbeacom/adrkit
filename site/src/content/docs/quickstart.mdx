@@ -10,7 +10,7 @@ decisions govern a file, renders the decision graph, migrates an existing MADR
 corpus in place, emits the ARB operations queue, and runs the deterministic
 evaluator.
 
-<Aside type="tip" title="Published on npm (v0.7.0)">
+<Aside type="tip" title="Published on npm (v0.8.0)">
 	`@adrkit/cli` is live. Consumers install it with your Node package manager and
 	run the `adr` binary — no clone required. Published artifacts are Node-targeted
 	([ADR-0010](/adr/0010-bun-toolchain/)); Bun is used for developing adrkit
@@ -21,32 +21,78 @@ evaluator.
 
 Add the CLI to a project, or run it one-off. It exposes the `adr` binary.
 
+<Aside type="caution" title="Always name the package: @adrkit/cli">
+	adrkit's binary is `adr`, but the bare name `adr` on npm belongs to an
+	**unrelated package**. It has no `lint`, `explain`, `graph`, or `migrate` —
+	but does ship its own `new`, so it can look like it works before failing on
+	everything else.
+
+	**Avoid bare `npx adr …` / `bunx adr …` entirely.** It only reaches adrkit if
+	the binary happens to be linked into `node_modules/.bin`, and when it is not
+	— which is common in workspaces and monorepos — it does not fail. It
+	silently downloads and runs the other tool instead.
+
+	Name the package (`npx @adrkit/cli lint`), or install `@adrkit/cli` and drive
+	it from an npm script — a script resolves `node_modules/.bin` directly and
+	fails loudly with `command not found` rather than reaching the registry.
+</Aside>
+
 <Tabs>
 <TabItem label="npm / npx">
 
 ```sh
-# add to a project
-npm install --save-dev @adrkit/cli
-npx adr lint
-
-# one-off, no install
+# one-off, no install — always name the package
+npx @adrkit/cli lint
 npx @adrkit/cli explain src/payments/api.ts
+
+# or add it to the project and drive it from a script
+npm install --save-dev @adrkit/cli
+npm pkg set scripts.adr=adr
+npm run adr -- lint
+
+# or install globally, for a bare `adr` on your PATH
+npm install -g @adrkit/cli
+adr lint
 ```
 
 </TabItem>
 <TabItem label="Bun">
 
 ```sh
-# add to a project
-bun add --dev @adrkit/cli
-bunx adr lint
-
-# one-off, no install
+# one-off, no install — always name the package
+bunx @adrkit/cli lint
 bunx @adrkit/cli explain src/payments/api.ts
+
+# or add it to the project and drive it from a script
+bun add --dev @adrkit/cli
+bun run adr lint   # with "adr": "adr" in package.json scripts
+
+# or install globally, for a bare `adr` on your PATH
+bun add --global @adrkit/cli
+adr lint
 ```
 
 </TabItem>
 </Tabs>
+
+<Aside type="tip" title="`adrkit` — the unambiguous installed alias">
+	Every install above also provides a second binary, `adrkit`, identical to
+	`adr`. Nothing else on npm claims that binary name, so once installed it is
+	unambiguous: `adrkit lint` works wherever `adr lint` does, without competing
+	for the `.bin` entry that `adr` shares with the unrelated package.
+
+	Prefer it in anything shared or long-lived — CI, `Makefile`s, READMEs, and
+	agent instructions — where a silent wrong-tool substitution is hardest to
+	notice.
+
+	This applies to the **installed** binary only. Do not reach for
+	`npx adrkit` / `bunx adrkit`: there is no unscoped `adrkit` *package*, and
+	there never will be — npm refuses the name as too similar to `pdfkit`. That
+	form therefore resolves against the registry and would run whatever someone
+	else publishes there. `npx --no` declines to install a missing package, but
+	it still runs one already in the npx cache, so it is not a durable guard
+	either. For zero-install, name the scoped package — `npx @adrkit/cli lint`.
+</Aside>
 
 The pure library surfaces are independently installable when you only need the
 resolver or the evaluator:
@@ -67,11 +113,81 @@ npm install @adrkit/core @adrkit/evaluator
 	```
 </Aside>
 
-The examples below use the `adr` binary. From a project that has `@adrkit/cli`
-installed, `npx adr …` / `bunx adr …` resolves the local binary. Without an
-install you must name the package — `npx @adrkit/cli lint`, `bunx @adrkit/cli
-lint` — because a bare `npx adr` resolves an unrelated `adr` package on npm. From
-a source checkout, use `bun run adr`.
+The examples below are written as bare `adr …` for readability. A local install
+does **not** put `adr` on your shell `PATH` — it lands in `node_modules/.bin/`
+— so translate them to whichever way you installed:
+
+| How you installed | Run the examples as |
+|---|---|
+| Nothing installed (one-off) | `npx @adrkit/cli lint` / `bunx @adrkit/cli lint` |
+| Project dev dependency | an npm script — `npm run adr -- lint` |
+| Global (`npm i -g @adrkit/cli`) | `adr lint` — bare, as written |
+| Source checkout | `bun run adr lint` |
+
+Only the global install makes the bare form work in a normal shell. Note that
+`npx adr lint` is absent from that table deliberately: it reaches adrkit only
+when the binary is linked into `node_modules/.bin`, and otherwise silently runs
+the unrelated registry package instead of failing. An npm script has no such
+ambiguity — it resolves `node_modules/.bin` and stops with `command not found`
+if the dependency is missing.
+
+## Create your first record — `adr new`
+
+If you have no `docs/adr/` yet, start here: `adr new` creates the directory and
+writes the first record, so it is the bootstrap step as well as the everyday one.
+Running `adr lint` first on a repository with no corpus exits `2` with
+`Corpus directory not found: 'docs/adr'`.
+
+<Aside type="tip" title="Already have MADR records?">
+	Go to [Adopt an existing MADR corpus](#adopt-an-existing-madr-corpus--adr-migrate)
+	first. What `adr lint` reports depends on your filenames. Records already named
+	`NNNN-slug.md` are read and fail on the required fields (`id`, `title`,
+	`status`, `date`) and on unknown keys. Descriptively named files are not
+	discovered at all — they are reported as skipped warnings, so lint checks 0
+	records and exits 0, which is not the same as passing. `adr migrate` adds the
+	fields in place, and `--rename` fixes the filenames.
+</Aside>
+
+Scaffold a record with the next sequential id and valid frontmatter.
+
+```sh
+adr new "Use server-side rendering for authenticated routes"
+# choose a starting status (accepted/superseded need extra fields and are refused)
+adr new "Adopt OpenTelemetry" --status proposed
+```
+
+That writes `docs/adr/0001-use-server-side-rendering-for-authenticated-routes.md`
+with `affects: []`. Filling `affects` in is what makes the decision locatable by
+CI and agents — a record with no `affects` is advisory only. Each entry is a
+`type` plus a `pattern`:
+
+```yaml
+affects:
+  - type: path
+    pattern: "apps/web/app/**"
+  - type: package
+    pattern: "next@>=16"
+```
+
+`type` is one of `path`, `package`, `api`, `resource`, `entity`, or `data`. See
+the [JSON Schema reference](/schema/) for the full field list.
+
+<Aside type="caution" title="Path patterns are globs, so escape literal brackets">
+	`(`, `)`, `[`, `]`, `{`, `}`, `!`, and `*` are glob syntax. A Next.js route
+	group written as `apps/web/app/(authed)/**` compiles to a group matching the
+	*text* `authed`, so it matches `apps/web/app/authed/**` and never the
+	directory literally named `(authed)` — and it fails silently, because a
+	pattern that matches nothing is not an error. Escape them:
+	`apps/web/app/\(authed\)/**`.
+</Aside>
+
+<Aside type="note" title="When each matcher resolves">
+	`path` matchers resolve everywhere — `adr explain`, `adr check`, CI, and the
+	MCP server. A `package` matcher needs a changed-dependency snapshot, which
+	today only the CI Action supplies, and only from a changed `bun.lock`.
+	Everywhere else it is reported as inert rather than matched, so a record whose
+	only matcher is `package` will not surface locally.
+</Aside>
 
 ## Validate a corpus — `adr lint`
 
@@ -91,20 +207,6 @@ adr lint --json
 
 `adr lint` exits non-zero when it finds errors, so it drops straight into a CI
 gate.
-
-## Create a record — `adr new`
-
-Scaffold a new record with the next sequential id and valid frontmatter.
-
-```sh
-adr new "Use server-side rendering for authenticated routes"
-# choose a starting status (accepted/superseded need extra fields and are refused)
-adr new "Adopt OpenTelemetry" --status proposed
-```
-
-Fill in `affects` — it is what makes a decision locatable by CI and agents. A
-record with no `affects` is advisory only. See the
-[JSON Schema reference](/schema/) for every field.
 
 ## Explain what governs a file — `adr explain`
 

@@ -24,6 +24,8 @@ export {
 } from './ordering/index.ts';
 export { canonicalStringify, fingerprintOf } from './fingerprint/index.ts';
 export { buildQueueReport } from './queue/kernel.ts';
+export { resolveAsOf } from './queue/as-of.ts';
+export type { AsOfResolution } from './queue/as-of.ts';
 export { formatQueueReportJson, formatQueueReportMarkdown } from './queue/format.ts';
 export { sortCorpusFindings, sortItemFindings, sortQueueItems } from './queue/sort.ts';
 export { mapFindingToCorpusFinding, RULE_TO_CORPUS_CODE } from './queue/findings.ts';

@@ -1,6 +1,6 @@
 {
   "name": "@adrkit/cli",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Git-native architecture decision record tooling from adrkit.",
   "type": "module",
   "license": "Apache-2.0",
@@ -26,7 +26,8 @@
     "access": "public"
   },
   "bin": {
-    "adr": "./dist/index.js"
+    "adr": "./dist/index.js",
+    "adrkit": "./dist/index.js"
   },
   "exports": {
     ".": {

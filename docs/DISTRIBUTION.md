@@ -652,3 +652,56 @@ left is per-venue human submission, tracked in the readiness table above.
 > workstream. They are committed locally but **not submitted**; Smithery still needs
 > the human to connect the repo at smithery.ai/new, and Glama will auto-crawl once
 > the branch is merged and public.
+
+## F. Agent plugin hosts (self-hosted marketplace) — **PLACED, NOT ANNOUNCED**
+
+adrkit's fourth surface is a portable agent plugin
+(`packages/adapters/agent-plugin`, plugin name `adrkit`), catalogued from a
+hand-authored `.claude-plugin/marketplace.json` at the repository root. Unlike
+§A and §B, this venue needs no third-party submission: the repository *is* the
+marketplace, so the entire flow works the moment the branch is public.
+
+```sh
+copilot plugin marketplace add mbeacom/adrkit && copilot plugin install adrkit@adrkit
+/plugin marketplace add mbeacom/adrkit        # Claude Code, then /plugin install adrkit@adrkit
+apm install mbeacom/adrkit/packages/adapters/agent-plugin --target opencode
+```
+
+### F1 — catalog location is an intersection, not a preference
+
+Copilot CLI resolves `marketplace.json`, `.plugin/marketplace.json`,
+`.github/plugin/marketplace.json`, then `.claude-plugin/marketplace.json`.
+Claude Code resolves **only** the last of those. `.claude-plugin/` at the
+repository root is therefore the single file both hosts read; `.github/plugin/`
+would be invisible to Claude Code. The same reasoning puts the plugin manifest
+at `.claude-plugin/plugin.json` rather than the plugin root.
+
+### F2 — verification performed (2026-08-15, maintainer, local)
+
+Rung 1 of [ADR-0014](adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md).
+Against the installed hosts, not their documentation:
+
+| Host | Command | Result |
+|---|---|---|
+| Copilot CLI 1.0.80 | `plugin marketplace add` + `plugin install adrkit@adrkit` | skill, agent, and all four commands present in a fresh session; no MCP error in the session log |
+| Claude Code | `claude plugin validate` (plugin **and** marketplace) | passed, after three real errors it caught |
+| APM 0.28.0 | `apm install --target {claude,copilot,opencode}` | 1 agent, 4 commands, 1 skill integrated per target, no warnings |
+
+What this is **not**: there has been no isolated reference-repository run
+(rung 2) and no external/community signal (rung 3). Both are open, and the
+plugin README says so.
+
+### F3 — the venue adrkit deliberately does not use here
+
+MCP. `@adrkit/mcp` is published (§A) and the plugin's skill uses its tools when
+they are connected, but the plugin ships **no `.mcp.json`**: Copilot CLI spawns a
+plugin's MCP servers outside the workspace and outside any Git repository, so
+the server exits during `initialize`. Measured directly; see
+[ADR-0028](adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
+MCP distribution stays per-project, which is what §A already documents.
+
+### F4 — remaining human steps
+
+1. Merge the branch, so `mbeacom/adrkit` resolves as a marketplace for everyone.
+2. Optional: submit to a third-party catalog. Nothing in the repository blocks
+   it, and the entry would be a pointer rather than a fork.

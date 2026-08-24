@@ -14,7 +14,7 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 				</svg>
 				CLI works today
 			</span>
-			<span>v0.7.0 on npm · decision memory in git</span>
+			<span>v0.8.0 on npm · decision memory in git</span>
 		</div>
 
 		<h1 id="_top" data-page-title set:html={title} />
@@ -50,7 +50,7 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 	<div
 		class="adr-instrument"
 		role="img"
-		aria-label="ADR 0042 declares two affected targets: authenticated web routes and Next.js version 16 or newer."
+		aria-label="Accepted decision ADR-0042, use server-side rendering for authenticated routes, resolves to two affected targets: authenticated web routes, and Next.js version 16 or newer."
 	>
 		<div class="adr-instrument__bar">
 			<span>Decision route</span>
@@ -96,7 +96,7 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 				<span class="adr-targets__label">resolved targets</span>
 				<div class="adr-target" data-route-target>
 					<span>path</span>
-					<code>apps/web/app/(authed)/**</code>
+					<code>{String.raw`apps/web/app/\(authed\)/**`}</code>
 				</div>
 				<div class="adr-target" data-route-target>
 					<span>package</span>

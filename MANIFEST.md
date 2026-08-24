@@ -24,7 +24,7 @@ adrkit/
 ├── packages/
 │   ├── core/                      @adrkit/core — schema (SOURCE OF TRUTH:
 │   │                              src/schema/adr.schema.ts), resolver, queue kernel
-│   ├── cli/                       @adrkit/cli — the `adr` binary
+│   ├── cli/                       @adrkit/cli — the `adr` and `adrkit` binaries
 │   ├── evaluator/                 @adrkit/evaluator — deterministic Pass 0
 │   ├── mcp/                       @adrkit/mcp — read-only stdio MCP server
 │   ├── ci/                        private — the two GitHub Actions + bundled dist

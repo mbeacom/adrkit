@@ -108,6 +108,12 @@ jobs:
         run: bun scripts/run-network-denied.ts -- bun run check:clause8
       - name: Verify no spike-009 B/C/D comparison heuristic is present (FR-061)
         run: bun scripts/run-network-denied.ts -- bun run check:no-spike-heuristics
+      # site/ cannot import the loader (ADR-0011), so gen-adr-pages.ts restates
+      # core's corpus grammar. This asserts the copy still matches, and that its
+      # one intentional divergence is still intentional. Pure local file
+      # comparison, so it runs under the same proved denial as its neighbours.
+      - name: Verify the site's corpus grammar matches core (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run check:site-grammar
       - name: Lint ADR corpus (network denied)
         run: bun scripts/run-network-denied.ts -- bun run adr lint
 
@@ -205,6 +211,230 @@ jobs:
             exit 0
           fi
           bun run adr check "${changed[@]}"
+
+  action-dogfood:
+    # Run the *Action* against this repository's own pull requests, twice, and assert
+    # the pull request ends up carrying exactly one governing-decisions comment
+    # (ADR-0026 action item 9, issue #135).
+    #
+    # `self-dogfood` above exercises the CLI — the corpus loader, `affects` resolution,
+    # and exit codes — with `contents: read`. It never constructs a GitHub client,
+    # never resolves an identity, and never posts. That is why issue #107 survived two
+    # releases posting a duplicate comment per push: every suite was green, and the job
+    # log it printed is what healthy operation prints. Only the pull request's own
+    # comment list distinguishes the two, so this job reads it.
+    #
+    # `needs: clean-clone-builds` is load-bearing, not ordering hygiene. `uses:` runs
+    # the *committed* `packages/ci/dist` — what adopters get — so without the bundle
+    # drift gate ahead of it this job could pass over a stale bundle while the source
+    # it claims to cover is broken.
+    #
+    # Two exclusions, both of which would otherwise produce a red run on a healthy
+    # Action, because the token is read-only and the Action correctly degrades to a
+    # log notice (FR-014) leaving no comment for the assertion to find:
+    #   - a fork pull request, whose GITHUB_TOKEN is read-only whatever `permissions`
+    #     says. This is a documented blind spot (ADR-0026 item 9), not a solved case;
+    #     `pull_request_target` would close it by running base-repo workflows with a
+    #     write token against fork-authored code, which is not a trade this repository
+    #     will make for a CI signal.
+    #   - Dependabot, whose runs also receive a read-only token by design.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    needs: clean-clone-builds
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The only job in this repository that can write. Scoped to one job rather than
+      # raised at the workflow level so the write capability is visible in one place.
+      pull-requests: write
+    # `cancel-in-progress: false`, matching `release.yml` and the reference workflow in
+    # `specs/004-ci-surface/evidence/reference-repo/`. This job was the odd one out at
+    # `true` until the second operator review noticed that the reference file argues the
+    # opposite case in writing — for the same write, to the same comment — and that I had
+    # written both. Cancellation is a signal plus a grace period, not a guarantee the run
+    # has stopped, so a cancelled dispatch can still be inside its create call when the
+    # replacement lists an empty set and creates its own. The result is a duplicate, which
+    # is deliberately non-retryable and needs a human to delete a comment: a cancelled
+    # write leaves worse state than a queued one. The cost is that a burst of pushes
+    # queues this job rather than superseding it.
+    concurrency:
+      group: action-dogfood-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    # Without this the job inherits the 360-minute default. A hung `gh api` would leave a
+    # required check Pending for six hours — the one state that produces no notification
+    # and no log line, so the pull request is unmergeable and nothing says why.
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+      # No `bun install`. The Action is a self-contained bundle and the assertion
+      # script imports only builtins, so a broken dependency graph cannot take this
+      # gate down with it — the same property `dco` below is built for.
+      # Record which comments are already ours BEFORE anything dispatches. The Action
+      # never deletes, so a duplicate outlives whatever created it; without this the
+      # gate can only say "the regression of #107" on a pull request whose Action is
+      # healthy and whose surplus comment predates the run.
+      - name: Snapshot the governing-decisions comments that already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # One id per line, joined afterwards. `--paginate` applies `--jq` per page and
+          # concatenates the results, so a `join(",")` INSIDE the filter emits one
+          # comma-joined line PER PAGE — and a pull request past one page of comments
+          # would then hand `--expect-ids` a multi-line value that parses as NaN. Not
+          # hypothetical: measured against the labels endpoint at `per_page=5`, the
+          # in-filter form produced three lines and this form produced one.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select((.body // "") | test("^<!-- adrkit:ci -->(\r|\n|$)"))
+                      | select(.user.type == "Bot") | .id' \
+            | paste -sd, - > "$RUNNER_TEMP/prior-ids"
+          echo "already ours before this run: $(cat "$RUNNER_TEMP/prior-ids" || echo none)"
+      - name: Run the governing-decisions Action (first dispatch)
+        uses: ./packages/ci
+        with:
+          dir: docs/adr
+      - name: Assert the first dispatch left exactly one comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # This is also a read-your-writes barrier, which is why it runs between the
+          # two dispatches rather than only after them. GitHub can serve the comment
+          # list from a replica, and a second dispatch that listed before the first
+          # comment became visible would create a duplicate and fail a *healthy*
+          # Action. Retrying turns that race into a bounded, named failure instead of a
+          # false positive.
+          #
+          # Only exit 2 is retried. That is the checker's "read again" code, raised when
+          # every violation is a consistency artefact; exit 1 is a verdict about the
+          # comment set that reading again cannot change, and retrying it would just be
+          # retrying until a gate passes.
+          verdict=""
+          # Five attempts with exponential backoff (5s, 10s, 20s, 40s — 75s total). A
+          # flat 25s was sized for read-replica lag, which is sub-second; the transient
+          # classes actually met are longer — a secondary rate limit is answered with a
+          # Retry-After commonly at or above 60s.
+          for attempt in 1 2 3 4 5; do
+            # Each API read is soft. Under `bash -e` a bare `gh api` failure would kill
+            # the step on attempt 1, so the loop could not retry the transient class it
+            # exists for. A 502 or a secondary rate limit now costs an attempt, not the
+            # run.
+            #
+            # The list read is bracketed by two count reads and the SMALLER is passed,
+            # because the count and the list cannot be read atomically. A comment
+            # created mid-read makes the list longer than the earlier count; one
+            # deleted mid-read makes it shorter. Only a genuinely truncated list is
+            # short of both.
+            if ! before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                    > "$RUNNER_TEMP/after-first.json" \
+               || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments'); then
+              verdict="the GitHub API could not be read"
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+              continue
+            fi
+            # A count that is not a decimal integer would be read by `$(( ))` as a
+            # variable name — 0 when unset — which silently disables the completeness
+            # cross-check while the log shows it applied. Validate rather than assume.
+            if ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              verdict="the comment count was not a number (before='$before' after='$after')"
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+              continue
+            fi
+            set +e
+            # --just-wrote: a dispatch happened moments ago, so a comment that is not yet
+            # visible is a stale read rather than a missing write. Without it `absent` is
+            # definitive and this loop cannot retry the very race it exists for.
+            bun run check:ci-comment "$RUNNER_TEMP/after-first.json" \
+              --expect-total="$(( before < after ? before : after ))" \
+              --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
+              --id-file="$RUNNER_TEMP/comment-id" \
+              --just-wrote
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then exit 0; fi
+            if [ "$status" -ne 2 ]; then
+              echo "the comment set is wrong, and reading it again will not change that" >&2
+              exit 1
+            fi
+            verdict="the comment list read is not yet consistent"
+            echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+            sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+          done
+          # Name what was actually observed. "never became visible, or was not unique"
+          # is an OR across two causes with opposite responses, and it is the line
+          # GitHub shows in the collapsed step summary.
+          echo "gave up after 5 attempts: $verdict" >&2
+          exit 1
+      - name: Run the governing-decisions Action (second dispatch — must update in place)
+        uses: ./packages/ci
+        with:
+          dir: docs/adr
+      - name: Assert the second dispatch updated in place rather than creating
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Bracketed the same way as above. Exit 2 is retried here too: `incomplete`
+          # is raised by a lagging replica as readily as by a lost --paginate, and this
+          # assertion previously failed outright on it, which reds a required check on
+          # a healthy Action with a message blaming pagination.
+          # Same budget as the first assertion. It was 3 attempts with no stated reason
+          # for the asymmetry, and with --just-wrote below it now guards the same race.
+          verdict=""
+          for attempt in 1 2 3 4 5; do
+            # Soft reads, as in the first assertion. These were bare, so a single 502 or
+            # secondary rate limit killed the step on attempt 1 — the transient class the
+            # loop exists for — despite the comment claiming it was bracketed "the same
+            # way as above".
+            if ! before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                    > "$RUNNER_TEMP/after-second.json" \
+               || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments'); then
+              verdict="the GitHub API could not be read"
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+              continue
+            fi
+            if ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              verdict="the comment count was not a number (before='$before' after='$after')"
+              echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+              sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+              continue
+            fi
+            set +e
+            bun run check:ci-comment "$RUNNER_TEMP/after-second.json" \
+              --expect-total="$(( before < after ? before : after ))" \
+              --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
+              --expect-id="$(cat "$RUNNER_TEMP/comment-id")" \
+              --just-wrote
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then exit 0; fi
+            if [ "$status" -ne 2 ]; then
+              echo "the comment set is wrong, and reading it again will not change that" >&2
+              exit 1
+            fi
+            verdict="the comment list read is not yet consistent"
+            echo "attempt $attempt: $verdict; retrying in $(( 5 * (2 ** (attempt - 1)) ))s" >&2
+            sleep "$(( 5 * (2 ** (attempt - 1)) ))"
+          done
+          echo "gave up after 5 attempts: $verdict" >&2
+          exit 1
 
   dco:
     # ADR-0006 chose a DCO over a CLA. CONTRIBUTING.md and the PR template have

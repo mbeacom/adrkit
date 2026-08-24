@@ -1,0 +1,293 @@
+# Drop-in reference-repository workflow for the governing-decisions comment Action.
+#
+# This is the ADR-0014 rung-2 artifact for `packages/ci`'s comment path, shipped as a
+# runnable file rather than as an instruction: ADR-0016 clause 4 says a deferral hands
+# over the failing case, not the request to build one.
+#
+# Install: copy to `.github/workflows/` in the maintainer-owned isolated reference
+# repository (`mbeacom/adrkit-t018-dogfood`), set ADRKIT_REF and the four `uses:` refs
+# to the 40-character adrkit commit under test, commit the fixture named under
+# `fail-closed`, and open a pull request FROM A BRANCH IN THAT REPOSITORY (not a fork —
+# a fork's token is read-only and the `idempotence` job needs to write). See README.md.
+#
+# It is self-verifying in ADR-0014's sense: every job asserts its own expected outcome,
+# so behaviour that diverges fails the run rather than requiring a human to read a log.
+#
+# Every `run:` block sets `-euo pipefail` explicitly. GitHub's default shell is `bash -e`
+# WITHOUT pipefail, and every snapshot here is a pipeline ending in `sort`, which exits 0
+# on empty input — so a failed `gh api` would otherwise produce an empty snapshot, a
+# passing step, and a before/after `diff` that compares nothing to nothing and prints
+# "comment set unchanged". That is the ADR-0016 substitution this artifact exists to
+# detect, inside the artifact itself; it was caught by the deep review of PR #143.
+# `release.yml` in adrkit sets the same flags for the same reason.
+
+name: adrkit comment Action — reference verification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# Two runs against one pull request would read and write the same comment list
+# concurrently: one could observe a duplicate the other created (a false #107 report),
+# or a fail-closed bracket could straddle the other's dispatch and report a mutation
+# across a failed dispatch. `cancel-in-progress: false` matches adrkit's own write-side
+# precedent in `release.yml` — a cancelled write leaves worse state than a queued one.
+concurrency:
+  group: adrkit-comment-reference-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  # An immutable 40-character commit SHA. Never a tag and never a branch: ADR-0016
+  # records a stale read by ref that returned HTTP 200 and coherent markdown while
+  # being behind the branch head, which is indistinguishable from a current read.
+  #
+  # It must be at or after the commit that added `scripts/check-ci-comment.ts`, because
+  # the assertion steps run that script FROM this ref. No published release tag contains
+  # it yet.
+  ADRKIT_REF: 0000000000000000000000000000000000000000
+  # A path that is a plain FILE, not a directory, committed to this repository. Used as
+  # the Action's `dir` input so the corpus loader throws ENOTDIR inside `lintCorpus`,
+  # which `runAction` calls before it renders or posts anything.
+  INVALID_CORPUS_DIR: fixtures/fail-closed-invalid-corpus-dir
+
+jobs:
+  # Rung-2 scenario 1: the property issue #107 violated. Two dispatches against one
+  # pull request must leave exactly one comment behind, and it must be the same one.
+  idempotence:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out this reference repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out adrkit at the pinned commit (for the shared assertion script)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: mbeacom/adrkit
+          ref: ${{ env.ADRKIT_REF }}
+          # NOT `.adrkit`: `mbeacom/adrkit-t018-dogfood` already tracks `.adrkit/lint.json`
+          # and `.adrkit/queue.json`, and checkout deletes the contents of its target
+          # directory — observed as "Deleting the contents of '…/.adrkit'" on the first
+          # real run. That repository already reserves `.adrkit-src/` in `.gitignore` for
+          # exactly this purpose.
+          path: .adrkit-src
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - name: Snapshot the governing-decisions comments that already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # One id per line, joined afterwards. `--paginate` applies `--jq` per page and
+          # concatenates the results, so a `join(",")` INSIDE the filter emits one
+          # comma-joined line PER PAGE — and a pull request past one page of comments
+          # would then hand `--expect-ids` a multi-line value that parses as NaN. Not
+          # hypothetical: measured against the labels endpoint at `per_page=5`, the
+          # in-filter form produced three lines and this form produced one.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select((.body // "") | test("^<!-- adrkit:ci -->(\r|\n|$)"))
+                      | select(.user.type == "Bot") | .id' \
+            | paste -sd, - > "$RUNNER_TEMP/prior-ids"
+          echo "already ours before this run: $(cat "$RUNNER_TEMP/prior-ids" || echo none)"
+      - name: First dispatch (creates)
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: docs/adr
+      # The same read-your-writes barrier `action-dogfood` uses. Without it a correct
+      # Action can list stale state on the second dispatch, create a second comment,
+      # and fail a run this file calls reproducible. Only exit 2 — the checker's
+      # "read again" code — is retried; exit 1 is a verdict retrying cannot change.
+      - name: Assert the first dispatch left exactly one comment, and capture its id
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if ! before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                    > "$RUNNER_TEMP/after-first.json" \
+               || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              echo "attempt $attempt: the GitHub API could not be read cleanly; retrying in 5s" >&2
+              sleep 5
+              continue
+            fi
+            set +e
+            bun run .adrkit-src/scripts/check-ci-comment.ts "$RUNNER_TEMP/after-first.json" \
+              --expect-total="$(( before < after ? before : after ))" \
+              --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
+              --id-file="$RUNNER_TEMP/comment-id" \
+              --just-wrote
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then exit 0; fi
+            if [ "$status" -ne 2 ]; then exit 1; fi
+            echo "attempt $attempt: the comment list read is not yet consistent; retrying in 5s" >&2
+            sleep 5
+          done
+          echo "gave up after 5 attempts: the comment list read never became consistent" >&2
+          exit 1
+      - name: Second dispatch (must update in place)
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: docs/adr
+      # `--expect-id` is what makes "updated in place" an assertion: an update preserves
+      # the comment id, a create issues a new one, and a count of one is also what
+      # "created a replacement and the old one is gone" looks like.
+      - name: Assert the second dispatch updated in place rather than creating
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ! before=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                    > "$RUNNER_TEMP/comments.json" \
+               || ! after=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER" --jq '.comments') \
+               || ! [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]]; then
+              echo "attempt $attempt: the GitHub API could not be read cleanly; retrying in 5s" >&2
+              sleep 5
+              continue
+            fi
+            set +e
+            bun run .adrkit-src/scripts/check-ci-comment.ts "$RUNNER_TEMP/comments.json" \
+              --expect-total="$(( before < after ? before : after ))" \
+              --expect-ids="$(cat "$RUNNER_TEMP/prior-ids")" \
+              --expect-id="$(cat "$RUNNER_TEMP/comment-id")" \
+              --just-wrote
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then exit 0; fi
+            if [ "$status" -ne 2 ]; then exit 1; fi
+            echo "attempt $attempt: the comment list read is not yet consistent; retrying in 5s" >&2
+            sleep 5
+          done
+          echo "gave up after 3 attempts: the comment list read never became consistent" >&2
+          exit 1
+
+  # Rung-2 scenario 2 (fail-closed): an invalid corpus directory must fail the step
+  # BEFORE any comment is written, and must mutate nothing. The snapshot is captured
+  # over the API; the comparison itself is network-free.
+  fail-closed:
+    needs: idempotence
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out this reference repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Snapshot every comment before the dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/before.tsv"
+          # `idempotence` has already established that this pull request carries at
+          # least one comment, so an empty snapshot means the read failed rather than
+          # that there was nothing to read — and an empty-vs-empty diff would otherwise
+          # "prove" no mutation while having observed nothing.
+          [ -s "$RUNNER_TEMP/before.tsv" ] || { echo "before-snapshot is empty; the API read failed" >&2; exit 1; }
+          sha256sum "$RUNNER_TEMP/before.tsv" | tee "$RUNNER_TEMP/before.sha256"
+      - name: Dispatch against an invalid corpus directory (expected to fail)
+        id: invalid
+        continue-on-error: true
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: ${{ env.INVALID_CORPUS_DIR }}
+      - name: Assert the step failed rather than commenting
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.invalid.outcome }}" != "failure" ]; then
+            echo "expected the Action to fail on an invalid corpus dir, got '${{ steps.invalid.outcome }}'" >&2
+            exit 1
+          fi
+          echo "observed: steps.invalid.outcome=failure"
+      - name: Assert no comment was created, edited, or deleted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/after.tsv"
+          [ -s "$RUNNER_TEMP/after.tsv" ] || { echo "after-snapshot is empty; the API read failed" >&2; exit 1; }
+          sha256sum "$RUNNER_TEMP/after.tsv" | tee "$RUNNER_TEMP/after.sha256"
+          # Byte-for-byte, over id + updated_at + the full body. A comment that was
+          # rewritten with identical text still moves updated_at; one that was deleted
+          # and recreated changes its id.
+          diff "$RUNNER_TEMP/before.tsv" "$RUNNER_TEMP/after.tsv"
+          echo "observed: comment set unchanged across the failed dispatch"
+      - name: Upload the sanitized before/after snapshots
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: fail-closed-comment-snapshots
+          path: ${{ runner.temp }}/*.tsv
+
+  # Rung-2 scenario 3: FR-014's degrade path, which is what a fork pull request gets and
+  # what adrkit's own `action-dogfood` job cannot cover. A token without
+  # `pull-requests: write` must produce a log notice and a GREEN job, not a failure, and
+  # must still write nothing.
+  degrade-read-only:
+    needs: fail-closed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out this reference repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Snapshot every comment before the dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/before.tsv"
+          # Also the one place that proves a `pull-requests: read` token can list issue
+          # comments at all. If it cannot, this fails here rather than silently making
+          # the comparison below vacuous.
+          [ -s "$RUNNER_TEMP/before.tsv" ] || { echo "before-snapshot is empty; a read-only token may not list comments" >&2; exit 1; }
+      - name: Dispatch with a read-only token (expected to degrade, not fail)
+        id: readonly
+        uses: mbeacom/adrkit/packages/ci@0000000000000000000000000000000000000000
+        with:
+          dir: docs/adr
+      - name: Assert the job stayed green and nothing was written
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.readonly.outcome }}" != "success" ]; then
+            echo "FR-014: a read-only token must degrade to a log notice, not fail the job" >&2
+            exit 1
+          fi
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | [.id, .updated_at, (.body | @base64)] | @tsv' \
+            | sort > "$RUNNER_TEMP/after.tsv"
+          [ -s "$RUNNER_TEMP/after.tsv" ] || { echo "after-snapshot is empty; the API read failed" >&2; exit 1; }
+          diff "$RUNNER_TEMP/before.tsv" "$RUNNER_TEMP/after.tsv"
+          echo "observed: steps.readonly.outcome=${{ steps.readonly.outcome }}"
+          echo "observed: read-only dispatch degraded, comment set unchanged"

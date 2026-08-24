@@ -1,0 +1,30 @@
+[
+  {
+    "id": 5001,
+    "user": { "login": "octocat", "type": "User" },
+    "created_at": "2026-08-11T09:00:00Z",
+    "updated_at": "2026-08-11T09:00:00Z",
+    "body": "Rebased onto main to pick up the schema fix."
+  },
+  {
+    "id": 5002,
+    "user": { "login": "github-actions[bot]", "type": "Bot" },
+    "created_at": "2026-08-11T09:04:11Z",
+    "updated_at": "2026-08-11T10:02:05Z",
+    "body": "<!-- adrkit:ci -->\r\n### Decisions governing this change\r\n\r\n- **ADR-0026** — Identify the CI comment by the strongest author evidence the token allows\r\n"
+  },
+  {
+    "id": 5003,
+    "user": { "login": "octocat", "type": "User" },
+    "created_at": "2026-08-11T10:10:00Z",
+    "updated_at": "2026-08-11T10:10:00Z",
+    "body": "Quoting the bot so we can talk about it:\n\n> <!-- adrkit:ci -->\n> ### Decisions governing this change\n\nADR-0026 looks right to me."
+  },
+  {
+    "id": 5004,
+    "user": { "login": "dependabot[bot]", "type": "Bot" },
+    "created_at": "2026-08-11T10:20:00Z",
+    "updated_at": "2026-08-11T10:20:00Z",
+    "body": "Superseded by #142."
+  }
+]

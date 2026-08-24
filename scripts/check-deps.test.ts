@@ -442,6 +442,80 @@ describe('catalog adapter and consumer dependency boundary (feature 010)', () =>
   });
 });
 
+describe('sdk dependency boundary (ADR-0031)', () => {
+  const SDK_MANIFEST = 'packages/sdk/package.json';
+
+  function sdkManifest(extra: Record<string, string> = {}): string {
+    return JSON.stringify(
+      {
+        name: '@adrkit/sdk',
+        version: '0.0.0',
+        dependencies: { '@adrkit/core': 'workspace:*', ...extra },
+        devDependencies: { '@types/bun': 'latest' },
+      },
+      null,
+      2,
+    );
+  }
+
+  test('allows exactly the workspace core, plus @types/bun', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, SDK_MANIFEST), sdkManifest());
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  // The only proof the `@adrkit/sdk` allowlist entry exists at all. Without it,
+  // `allowedDependenciesFor()` returns undefined, the allowed-surface guard is skipped,
+  // and `check:deps` reports the same `ok` for a package declaring `undici` as for a clean
+  // one — the trap the sibling suite above demonstrates directly.
+  //
+  // ADR-0016 clause 2: observed failing before the entry was added. With the entry absent,
+  // this test returned `{ ok: true, violations: [] }`; the retained input is the manifest
+  // below, unchanged.
+  test('proves the sdk allowlist entry exists, by rejecting a disallowed dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, SDK_MANIFEST), sdkManifest({ undici: '^6' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => `${violation.dependency}: ${violation.reason}`)).toEqual([
+      'undici: @adrkit/sdk declares a dependency outside its allowed public surface',
+    ]);
+  });
+
+  // ADR-0031's facade is worth nothing if the engine can reach back through it: a cycle
+  // would make a core refactor a consumer-visible change again, which is the exact
+  // condition the SDK exists to remove.
+  test('rejects @adrkit/core depending on the sdk', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, SDK_MANIFEST), sdkManifest());
+    await writeText(
+      join(root, 'packages/core/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/core',
+          version: '0.1.0',
+          dependencies: {
+            picomatch: '^4',
+            semver: '^7',
+            yaml: 'latest',
+            zod: '^4',
+            '@adrkit/sdk': 'workspace:*',
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toEqual([
+      '@adrkit/core declares a dependency outside its allowed public surface',
+    ]);
+  });
+});
+
 describe('mcp dependency boundary (Phase 5)', () => {
   test('allows exactly core, the pinned SDK server, and zod, plus the dev-only SDK client and @types/bun', async () => {
     const root = await resetTestDir(DIR_NAME);
@@ -536,5 +610,81 @@ describe('mcp dependency boundary (Phase 5)', () => {
     expect(result.violations.map((v) => v.reason)).toContain(
       'GitHub Action toolkit must stay confined to @adrkit/ci and never reach core/schema/cli',
     );
+  });
+});
+
+describe('no-backstage-sdk-in-this-repository (ADR-0030)', () => {
+  const BACKSTAGE_REASON =
+    'Backstage SDK must not enter this repository; the publication surface is a downstream consumer in its own repository (ADR-0030)';
+
+  test('passes on the current workspace tree, which declares no @backstage/* anywhere', async () => {
+    await expect(checkDependencyRules()).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  test('fails when the core declares a Backstage dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/core/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/core',
+          version: '0.1.0',
+          dependencies: { zod: '^4', yaml: 'latest', '@backstage/core-plugin-api': '^1.10.0' },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(BACKSTAGE_REASON);
+  });
+
+  test('fails on a package the allowlist has never heard of', async () => {
+    // The rule that matters. `allowedDependenciesFor` returns `undefined` for an
+    // unrecognized package — "silently unconstrained" — so an allowlist-only rule would
+    // pass here. Keying on the `@backstage/` prefix across every package is what makes a
+    // brand-new directory unable to smuggle the SDK in.
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/some-new-surface/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/some-new-surface',
+          version: '0.0.0',
+          dependencies: { '@backstage/plugin-catalog-react': '^1.0.0' },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(BACKSTAGE_REASON);
+  });
+
+  test('grants no package an exception, including a would-be Backstage surface', async () => {
+    // The prohibition is blanket. An earlier draft of ADR-0030 confined the SDK to
+    // `@adrkit/backstage-plugin` instead; naming that package here asserts the exception
+    // is really gone, since this is the one input a confinement rule would have allowed.
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'packages/backstage-plugin/package.json'),
+      JSON.stringify(
+        {
+          name: '@adrkit/backstage-plugin',
+          version: '0.0.0',
+          dependencies: { '@adrkit/core': 'workspace:*', '@backstage/core-plugin-api': '^1.10.0' },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => violation.reason)).toContain(BACKSTAGE_REASON);
   });
 });

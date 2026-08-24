@@ -35,6 +35,19 @@ export interface DependencyViolation {
 const TOOLKIT_DEPENDENCY = /^(@actions\/|@octokit\/|octokit$)/;
 const CI_SURFACE_PACKAGE = '@adrkit/ci';
 
+/**
+ * The Backstage SDK never enters this repository (ADR-0030 clause 3). The publication
+ * surface is a downstream consumer in its own repository, because its dependency tree
+ * measured 1,274 packages and 1.0 GB against this repository's 94 and 65 MB, and brought
+ * the first two lifecycle scripts this graph would ever carry.
+ *
+ * A blanket prohibition rather than the confined allowlist an earlier draft proposed:
+ * there is no exception to get wrong, and it fires on a package `allowedDependenciesFor`
+ * has never heard of — which this file documents below as *silently unconstrained*, and
+ * which an allowlist-keyed rule would therefore wave straight through.
+ */
+const BACKSTAGE_DEPENDENCY = /^@backstage\//;
+
 export interface DependencyCheckResult {
   ok: boolean;
   violations: DependencyViolation[];
@@ -168,6 +181,26 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
     };
   }
 
+  if (packageName === '@adrkit/sdk') {
+    // ADR-0031's proposed consumer facade — a non-adapter workspace library by
+    // *location* (`packages/sdk/`, outside `packages/adapters/`), like
+    // `@adrkit/catalog-envelope` above. Its allowed surface is the workspace core
+    // and nothing else, which is what makes it cheap enough to satisfy ADR-0030
+    // clause 1: a facade that added an install cost would not be one.
+    //
+    // The edge is one-way. `@adrkit/core` must never depend on this package — a
+    // cycle would put the engine back inside the consumer contract and undo the
+    // narrowing that is the record's entire purpose. That direction is caught by
+    // core's own entry above, and is covered by a negative case in
+    // `check-deps.test.ts` rather than assumed.
+    return {
+      dependencies: new Set(['@adrkit/core']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
   if (packageName === '@adrkit/catalog-envelope') {
     // Feature 010's envelope consumer — a non-adapter workspace library, which it
     // is by *location* (`packages/catalog-envelope/`, outside `packages/adapters/`)
@@ -230,6 +263,17 @@ export async function checkDependencyRules(root = process.cwd()): Promise<Depend
             dependency,
             section,
             reason: 'GitHub Action toolkit must stay confined to @adrkit/ci and never reach core/schema/cli',
+          });
+        }
+
+        if (BACKSTAGE_DEPENDENCY.test(dependency)) {
+          violations.push({
+            packageName,
+            packagePath,
+            dependency,
+            section,
+            reason:
+              'Backstage SDK must not enter this repository; the publication surface is a downstream consumer in its own repository (ADR-0030)',
           });
         }
 

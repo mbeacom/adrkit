@@ -1,0 +1,31 @@
+# Agent Package Manager (APM) manifest — https://github.com/microsoft/apm
+#
+# APM consumes the plugin-native layout directly; there is no `.apm/` directory
+# and no second copy of the components. `.claude-plugin/plugin.json` stays
+# authoritative for GitHub Copilot CLI and Claude Code, and this file adds the
+# metadata APM lists and resolves against.
+#
+# `name` and `version` are strictly identical to `.claude-plugin/plugin.json`
+# and to `package.json`. Claude Code keys its plugin cache on `version`, so a
+# shipped change with a stale version is a change users never receive. The
+# sibling Spec Kit adapter shipped 0.1.1 with two version fields diverged and
+# told every user the wrong number; test/manifest.test.ts asserts all three
+# agree here so that cannot repeat with one more field in play.
+#
+# `description` is deliberately the shorter, CLI-listing variant of the
+# plugin.json description. That is the one intended difference between them.
+name: adrkit
+version: 0.1.0
+description: Load the decisions governing a change before planning it, check the plan against them, and record new ones.
+author: Mark Beacom
+license: Apache-2.0
+homepage: https://adrkit.dev
+repository: https://github.com/mbeacom/adrkit
+keywords: [adr, architecture-decision-records, decision-memory, governance, mcp]
+
+# No `dependencies:` block. This plugin depends on the `adr` CLI and the
+# `@adrkit/mcp` server, both of which are npm artifacts rather than APM
+# packages, so declaring them here would misreport what APM can actually
+# resolve. The skill and every command check for the CLI at runtime and fail
+# with a message naming what is missing (ADR-0007's failure contract), which is
+# the honest place for that dependency to surface.

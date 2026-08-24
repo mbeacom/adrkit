@@ -30,6 +30,16 @@ export default defineConfig({
 					tag: 'meta',
 					attrs: { property: 'og:image:height', content: '630' },
 				},
+				// Platforms render the card with no text alternative unless this is
+				// declared; a shared link is otherwise announced as bare "image".
+				{
+					tag: 'meta',
+					attrs: {
+						property: 'og:image:alt',
+						content:
+							'adrkit — decision memory for human- and agent-authored plans. Machine-readable ADRs, enforceable in CI, on npm at adrkit.dev.',
+					},
+				},
 				{
 					tag: 'meta',
 					attrs: { name: 'twitter:card', content: 'summary_large_image' },
@@ -37,6 +47,14 @@ export default defineConfig({
 				{
 					tag: 'meta',
 					attrs: { name: 'twitter:image', content: 'https://adrkit.dev/og.png' },
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'twitter:image:alt',
+						content:
+							'adrkit — decision memory for human- and agent-authored plans. Machine-readable ADRs, enforceable in CI, on npm at adrkit.dev.',
+					},
 				},
 			],
 			components: {

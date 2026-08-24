@@ -18,66 +18,41 @@ hero:
 <div class="adr-home">
 	<section class="adr-status-band" aria-label="Project status">
 		<div class="adr-status-band__item">
-			<span class="adr-status adr-status--current">Published · v0.7.0</span>
-			<p>
-				<code>@adrkit/core</code>, <code>@adrkit/cli</code>,
-				<code>@adrkit/evaluator</code>, and <code>@adrkit/mcp</code> are on npm,
-				plus the independently versioned <code>@adrkit/spec-kit</code>
-				extension; the CI Action ships at
-				<code>mbeacom/adrkit/packages/ci@v0</code>.
-			</p>
+			<span class="adr-status adr-status--current">Published · v0.8.0</span>
+			<p><code>@adrkit/core</code>, <code>@adrkit/cli</code>, <code>@adrkit/evaluator</code>, and <code>@adrkit/mcp</code> are on npm, plus the independently versioned <code>@adrkit/spec-kit</code> extension; the CI Action ships at <code>mbeacom/adrkit/packages/ci@v0</code>.</p>
 		</div>
 		<div class="adr-status-band__item">
 			<span class="adr-status adr-status--current">Works today</span>
-			<p>
-				Corpus validation, path explanation, graphing, migration, the ARB
-				queue, PR comments, the read-only MCP server, the Spec Kit
-				extension, and the deterministic Pass 0 evaluator.
-			</p>
+			<p>Corpus validation, path explanation, graphing, migration, the ARB queue, PR comments, the read-only MCP server, the Spec Kit extension, and the deterministic Pass 0 evaluator.</p>
 		</div>
 		<div class="adr-status-band__item">
 			<span class="adr-status adr-status--planned">Honest about what's next</span>
-			<p>
-				Evaluator Passes 1–3 and catalog binding are not built, and
-				ADR-0014 rung-3 external validation is still open.
-			</p>
+			<p>Evaluator Passes 1–3 and catalog binding are not built, and ADR-0014 rung-3 external validation is still open.</p>
 		</div>
 	</section>
 
 	<section class="adr-home__section adr-thesis" aria-labelledby="failure-mode">
 		<h2 id="failure-mode">A decision should not disappear after the meeting.</h2>
 		<div class="adr-thesis__copy">
-			<p>
-				Six months later, the same choice gets debated again. The code has
-				drifted. The people — and now the agents — proposing the next change
-				cannot see what was already accepted or rejected.
-			</p>
-			<p>
-				Most ADR tools preserve prose. <strong>adrkit preserves consequence.</strong>
-			</p>
+			<p>Six months later, the same choice gets debated again. The code has drifted. The people — and now the agents — proposing the next change cannot see what was already accepted or rejected.</p>
+			<p>Most ADR tools preserve prose. <strong>adrkit preserves consequence.</strong></p>
 		</div>
 	</section>
 
 	<section class="adr-home__section" aria-labelledby="works-today">
 		<header class="adr-section-heading">
 			<h2 id="works-today">Proof in the repository, not the pitch.</h2>
-			<p>
-				The current CLI reads typed frontmatter, validates the corpus, resolves
-				what a record governs, and keeps migration additive.
-			</p>
+			<p>The current CLI reads typed frontmatter, validates the corpus, resolves what a record governs, and keeps migration additive.</p>
 		</header>
 
-		<ul class="adr-capabilities">
+		<ul class="adr-capabilities" role="list">
 			<li class="adr-capability">
 				<div class="adr-capability__command">
 					<code>adr lint</code>
 					<span class="adr-status adr-status--current">Works today</span>
 				</div>
 				<h3>Validate the corpus</h3>
-				<p>
-					Check every record against the schema, enforce unique ids, catch
-					dangling links, and flag accepted records that declare conflicts.
-				</p>
+				<p>Check every record against the schema, enforce unique ids, catch dangling links, and flag accepted records that declare conflicts.</p>
 			</li>
 
 			<li class="adr-capability">
@@ -86,10 +61,7 @@ hero:
 					<span class="adr-status adr-status--current">Works today</span>
 				</div>
 				<h3>Locate governing decisions</h3>
-				<p>
-					Give adrkit a path. It returns every decision that governs it and
-					the matcher that fired — as readable output or JSON.
-				</p>
+				<p>Give adrkit a path. It returns every decision that governs it and the matcher that fired — as readable output or JSON.</p>
 			</li>
 
 			<li class="adr-capability">
@@ -98,22 +70,16 @@ hero:
 					<span class="adr-status adr-status--current">Works today</span>
 				</div>
 				<h3>Inspect the decision graph</h3>
-				<p>
-					Render supersession and relationships as Graphviz DOT or structured
-					JSON instead of leaving the links trapped in individual files.
-				</p>
+				<p>Render supersession and relationships as Graphviz DOT or structured JSON instead of leaving the links trapped in individual files.</p>
 			</li>
 
 			<li class="adr-capability">
 				<div class="adr-capability__command">
-					<code>adr migrate --from madr</code>
+					{<code>adr migrate --from madr</code>}
 					<span class="adr-status adr-status--current">Works today</span>
 				</div>
 				<h3>Adopt without a rewrite</h3>
-				<p>
-					Add adrkit fields to an existing MADR corpus in place. The migration
-					is additive and preserves current tooling and prose.
-				</p>
+				<p>Add adrkit fields to an existing MADR corpus in place. The migration is additive and preserves current tooling and prose.</p>
 			</li>
 		</ul>
 	</section>
@@ -121,34 +87,21 @@ hero:
 	<section class="adr-home__section adr-flow" aria-labelledby="one-field">
 		<header class="adr-section-heading">
 			<h2 id="one-field">One field makes a decision locatable.</h2>
-			<p>
-				<code>affects</code> declares what a record governs. That turns an ADR
-				from passive documentation into data a tool can resolve.
-			</p>
+			<p><code>affects</code> declares what a record governs. That turns an ADR from passive documentation into data a tool can resolve.</p>
 		</header>
 
-		<ol class="adr-flow__steps">
+		<ol class="adr-flow__steps" role="list">
 			<li>
 				<h3>Declare the reach</h3>
-				<p>
-					A record names the paths, packages, APIs, resources, or data it
-					governs.
-				</p>
+				<p>A record names the paths, packages, APIs, resources, or data it governs.</p>
 			</li>
 			<li>
 				<h3>Resolve the match</h3>
-				<p>
-					A pure function compares a changed target with the corpus and
-					explains every match.
-				</p>
+				<p>A pure function compares a changed target with the corpus and explains every match.</p>
 			</li>
 			<li>
 				<h3>Surface the constraint</h3>
-				<p>
-					<code>adr explain</code> prints it, the CI Action comments it on
-					the pull request that touches it, and the MCP server hands it to an
-					agent before it drafts a plan.
-				</p>
+				<p><code>adr explain</code> prints it, the CI Action comments it on the pull request that touches it, and the MCP server hands it to an agent before it drafts a plan.</p>
 			</li>
 		</ol>
 	</section>
@@ -156,85 +109,52 @@ hero:
 	<section class="adr-home__section adr-roadmap" aria-labelledby="roadmap">
 		<header class="adr-section-heading">
 			<h2 id="roadmap">Shipped, and honestly still ahead.</h2>
-			<p>
-				The surfaces once listed here as planned have shipped — the CI
-				comment, agent retrieval, and Pass 0 in v0.2.0, and the Spec Kit
-				extension since, on its own version line. What remains is stated
-				plainly — no item claims more than the repository proves.
-			</p>
+			<p>The surfaces once listed here as planned have shipped — the CI comment and Pass 0 in v0.1.0, agent retrieval in v0.2.0, and the Spec Kit extension since, on its own version line. What remains is stated plainly — no item claims more than the repository proves.</p>
 		</header>
 
-		<ul class="adr-roadmap__list">
+		<ul class="adr-roadmap__list" role="list">
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--current">Works today</span>
 				<h3>Pull-request context</h3>
-				<p>
-					The <code>packages/ci</code> Action comments the accepted decisions
-					governing touched files, read-only, on the default token.
-				</p>
+				<p>The <code>packages/ci</code> Action comments the accepted decisions governing touched files, read-only, on the default token.</p>
 			</li>
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--current">Works today</span>
 				<h3>Agent retrieval</h3>
-				<p>
-					The <code>@adrkit/mcp</code> server exposes accepted <em>and</em>
-					rejected decisions over stdio, so a new plan does not repeat an old
-					argument.
-				</p>
+				<p>The <code>@adrkit/mcp</code> server exposes accepted <em>and</em> rejected decisions over stdio, so a new plan does not repeat an old argument.</p>
 			</li>
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--current">Works today</span>
 				<h3>Deterministic evaluation</h3>
-				<p>
-					<code>adr evaluate</code> runs the model-free Pass 0 rubric and
-					routes to a named human — it never approves.
-				</p>
+				<p><code>adr evaluate</code> runs the model-free Pass 0 rubric and routes to a named human — it never approves.</p>
 			</li>
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--current">Works today</span>
 				<h3>Spec-driven planning</h3>
-				<p>
-					<code>@adrkit/spec-kit</code> adds three namespaced commands to a
-					<a href="https://github.com/github/spec-kit">Spec Kit</a> project, so
-					a plan is written against the decisions that govern it.
-				</p>
+				<p><code>@adrkit/spec-kit</code> adds three namespaced commands to a <a href="https://github.com/github/spec-kit">Spec Kit</a> project, so a plan is written against the decisions that govern it.</p>
 			</li>
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--planned">Planned</span>
 				<h3>Evaluator Passes 1–3</h3>
-				<p>
-					Only the deterministic Pass 0 is built. The later probabilistic
-					passes are not.
-				</p>
+				<p>Only the deterministic Pass 0 is built. The later probabilistic passes are not.</p>
 			</li>
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--planned">Blocked</span>
 				<h3>Catalog binding</h3>
-				<p>
-					Resolving decisions against a service catalog is recorded as blocked
-					pending a viability spike.
-				</p>
+				<p>The viability spike ran and returned <code>blocked</code> on a named evidence shortfall. <a href="/adr/0020-rescope-sc-010-and-authorize-work-toward-the-backstage-catalog-adapter/">ADR-0020</a> rescoped that criterion and authorized adapter work, which is in the repository and unreleased.</p>
 			</li>
 			<li class="adr-roadmap__item">
 				<span class="adr-status adr-status--planned">Open</span>
 				<h3>External validation</h3>
-				<p>
-					The ARB queue and the Spec Kit extension are maintainer
-					reference-verified; ADR-0014 rung-3 external/community validation is
-					still open for both.
-				</p>
+				<p>The ARB queue and the Spec Kit extension are maintainer reference-verified; ADR-0014 rung-3 external/community validation is still open for both.</p>
 			</li>
 		</ul>
 	</section>
 
-	<section class="adr-home__section adr-closing" aria-label="Human control">
-		<blockquote>It never approves anything. It routes, and humans decide.</blockquote>
+	<section class="adr-home__section adr-closing" aria-labelledby="human-control">
+		<h2 id="human-control">It never approves anything. It routes, and humans decide.</h2>
 		<div class="adr-closing__action">
-			<p>
-				adrkit governs itself. The repository's first commit is its own decision
-				corpus, including the trade-offs and rejected alternatives behind the
-				project.
-			</p>
+			<p>adrkit governs itself. The repository's first commit is its own decision corpus, including the trade-offs and rejected alternatives behind the project.</p>
 			<a class="adr-button adr-button--primary" href="/adr/">
 				<span>Read the decisions that built adrkit</span>
 				<span aria-hidden="true">→</span>

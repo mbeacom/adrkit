@@ -220,6 +220,40 @@ from one negative observation. That is outside what mutation testing would catch
 so they are not evidence for Option C; they are evidence that the clause-3 habit
 should extend past assertions to any claim of the form "X is not there."
 
+**Pre-empting a suspect instruction destroys the observation.** During the rung-2
+reference run for the CI comment path (2026-08-14), the operator's instructions
+told the agent to delete the marker comment *before* pushing. The agent had
+already identified the underlying race in its own earlier report and suspected
+the ordering was wrong — and ran it as written anyway, then reported the result.
+The instruction was wrong: clearing the comment removed the accidental protection
+a pre-existing one provides, so two workflows both created and the run failed.
+
+That failure was worth more than either green run beside it. It produced the first
+observation of the `duplicate` rule firing outside a fixture, exposed an
+instruction defect that would otherwise have shipped, and revealed that the
+failure message asserted a single cause where two were possible. Had the agent
+quietly substituted a better ordering, all three would still be latent, and the
+substitution would have been invisible to everyone including the reviewer.
+
+A third failure kind surfaced in the same exchange, distinct from both the ones this
+record already describes. The reference operator wrote down a confound — "editing another
+author's comment may always bump" — and then, one message later, ran three measurements
+carrying that exact confound and reported the variable closed. Not a boundary error, and
+not blindness to data in view: the correct caveat had already been stated, in their own
+prior output, and was not carried forward. Neither more careful reading of the evidence
+nor more scepticism about the conclusion would have caught it — only re-reading their own
+earlier message would. That is the same mechanism as this record's drafting story above,
+where its author asserted two things from memory rather than re-reading a thread whose
+subject was that failure.
+
+The rule this yields is narrow and worth stating: **when an instruction and your
+own prediction disagree, follow the instruction and report the outcome, rather
+than pre-empting it.** A silently corrected instruction is an unobserved failure,
+which is the thing this record exists to prevent — and it is the same shape as
+clause 4, one level up: there, handing over a request to observe a failure
+without the failing case; here, removing the conditions that would have produced
+one.
+
 ## Known instances outside this repository
 
 `mbeacom/adrkit-t018-dogfood` carries an instance in its own validation scripts:

@@ -9,6 +9,335 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **Two new `@adrkit/core` runtime exports, pinned by the package surface test:**
+  `resolveAsOf` and its `AsOfResolution` type
+  (`packages/core/src/queue/as-of.ts`). This is the rule that turns an `--as-of`
+  input into the UTC calendar date `buildQueueReport` computes SLA state against —
+  a bare `YYYY-MM-DD`, or an ISO datetime carrying an explicit timezone, with a
+  timezone-less datetime rejected as ambiguous rather than guessed. It previously
+  lived privately in the CLI, so **a library consumer building the ARB queue had to
+  reimplement it, and any difference produced a queue that disagreed with CI about
+  which decisions were overdue — same corpus, same day, no error raised.** If you
+  reimplemented that rule, you can now stop
+  ([ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+  action item 7).
+
+- **A portable agent plugin — adrkit's fourth distribution surface**
+  (`packages/adapters/agent-plugin`, plugin name `adrkit`, v0.1.0). One skill
+  (`decision-memory`), one read-only subagent (`decision-checker`), and four
+  commands (`/adr-context`, `/adr-check`, `/adr-draft`, `/adr-queue`), installable
+  into GitHub Copilot CLI, Claude Code, opencode, and anything
+  [APM](https://github.com/microsoft/apm) targets. The repository is now also its
+  own marketplace, via a hand-authored `.claude-plugin/marketplace.json` at the
+  root — the one catalog location both Copilot CLI and Claude Code resolve.
+  Independently versioned per
+  [ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md), not
+  published to npm because every host installs it from git. Authorized by
+  [ADR-0028](docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
+
+  Four host disagreements were measured rather than inferred, and each is now a
+  test that has been observed failing against a deliberate violation
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)):
+  the manifest declares no component paths, because `claude plugin validate`
+  rejects the string form of `commands`/`agents`/`skills` that Copilot CLI
+  documents; no component declares a `tools` list, because opencode requires a
+  name-to-boolean mapping and *rejects the agent at load time* when handed the
+  list the other two hosts take; the manifests carry no `"//"` comment keys; and
+  all three version fields must agree.
+
+  A fifth defect came from exercising the components rather than loading them:
+  the subagent reported "no CLI available" in a repository where `@adrkit/cli`
+  was installed as a dev dependency, because it tried only a bare `adr` and then
+  silently fell back to reading ADR frontmatter by hand — an answer that looks
+  complete but cannot expand glob matchers, read inbound `@adr` markers, or
+  produce an exit code. The skill and the agent now both state the resolution
+  order `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH`. Full scope, and what
+  these runs do *not* establish, in
+  [`docs/reference-verification-agent-plugin.md`](docs/reference-verification-agent-plugin.md).
+
+- **`AGENTS.md` as the canonical, host-neutral project memory.** `CLAUDE.md` and
+  the new `.github/copilot-instructions.md` are now thin pointers to it carrying
+  only genuinely host-specific notes, rather than a second copy that costs
+  context on every session and drifts from the first. opencode reads `AGENTS.md`
+  directly.
+
+### Fixed
+
+- **`--as-of` accepted two classes of input that produced a wrong date rather than
+  an error.** An expanded-year datetime (`+010000-01-01T00:00:00Z`) was truncated to
+  a non-date such as `+010000-01`; because the queue kernel compares `asOf` to
+  deadlines lexicographically and `+` sorts below every digit, that silently reported
+  **every** deadline-bearing item as within SLA. And an impossible date was rejected
+  when written bare (`2026-02-30`) but normalized to a different day when written as a
+  datetime (`2026-02-30T00:00:00Z` → `2026-03-02`) — the same input answered two ways
+  depending on spelling. Both now return `invalid`. Real leap days and legitimate
+  offset shifts are unaffected.
+
+### Notes
+
+- **A four-lens deep review (adversarial, architect, consumer, operator) found
+  five further issues in the shipped guidance, all now fixed and guarded.** Three
+  were verified against adrkit 0.8.0 before acting. (1) The four command bodies
+  lacked the `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH` resolution order
+  that the skill and agent had gained — and a slash command is injected
+  deterministically while the skill loads only when the model judges it relevant,
+  so under the documented dev-dependency install the commands would fail and
+  invite the hand-read fallback. (2) The guidance sent the "did we already reject
+  this?" check to `list_superseded`, which skips every record whose status is not
+  `superseded` and can never return a `rejected` one — a well-formed empty answer
+  that defeats one of the three failure modes the skill exists to prevent; it now
+  uses `search_decisions` with `status: ["rejected"]`. (3) `/adr-draft` never set
+  `provenance.authoredBy`, and `adr new` hard-codes `human` with no flag to change
+  it, so agent-drafted records claimed human authorship *and* disarmed the
+  `agent-accepted-requires-ratifier` invariant, which only fires for `agent` /
+  `agent-drafted`. (4) The check flow could report "nothing governs this" at exit
+  `0` while a malformed governing record sat on disk, because `adr check` keeps
+  findings only for the paths given and drops unparseable records entirely; it now
+  runs `adr lint` first and treats an ungoverned verdict as unverified when the
+  corpus is dirty. (5) All four commands carried `allowed-tools` with Copilot
+  CLI's lowercase vocabulary — the same unmeasured portability hazard that got the
+  agent `tools:` field removed — so it is gone, matching the sibling Spec Kit
+  adapter.
+
+- **`docs/RELEASING.md` now documents the plugin's release channel.** It is the
+  one adapter with no release tag: it is `private`, absent from `RELEASE_PACKAGES`,
+  and published by merging to `main`, so the runbook covers the three-field version
+  bump, the host-validator commands CI does not run, and the fact that there is no
+  yank — rolling back means shipping a higher version.
+
+- **The plugin ships no `.mcp.json`, deliberately.** GitHub Copilot CLI spawns a  plugin's MCP servers with a working directory that is neither the workspace nor
+  any Git repository, and exports nothing naming the repository — measured by
+  configuring the server command to record its own `pwd` and environment. Since
+  the adrkit MCP server requires a Git worktree root, it exits during
+  `initialize` and logs `Failed to start MCP client for adrkit` every session. A
+  server that cannot start is worse than one never configured, so MCP stays wired
+  per project, where the working directory is correct.
+
+## [0.8.0] - 2026-08-15
+
+### Changed
+
+- **`action-dogfood` is a required status check on `main`** (2026-08-15), added once it
+  had run green across several commits of #143 — it could not be required before that,
+  since it skips on the pull requests that cannot satisfy it. Checked while adding it:
+  `clean-clone-builds` was **already** required, which closes the hole the second operator
+  review raised conditionally. That coupling is now recorded on
+  [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md),
+  because it is invisible from both sides — `action-dogfood` declares
+  `needs: clean-clone-builds`, a job skipped for a failed dependency reports success
+  exactly like one skipped by an `if:`, and nothing in `ci.yml` says that dropping
+  `clean-clone-builds` from the ruleset would silently weaken the comment gate.
+
+- **The comment path is `reference-verified`** — reviewed and passed by `@mbeacom` on
+  2026-08-15, completing the last of ADR-0014's four rung-2 criteria. Still **not**
+  `externally validated`; the reference repository is maintainer-owned, so rung 3 remains
+  absent, and the index's stated limitations are part of the verdict rather than footnotes
+  to it.
+
+### Fixed
+
+- **The rung-2 evidence index shipped in #143 with a header contradicting its own body** —
+  `NOT YET OBSERVED` and `Reviewer verdict: none. No run has occurred.` directly above a
+  table of observed runs with comment ids and content hashes. The cause was a scripted
+  `.replace()` written without an assertion, against text a previous edit had already
+  changed: it matched nothing, did nothing, and reported success. That is the failure this
+  index exists to make visible, committed in the index itself, so the corrected header
+  records it rather than quietly overwriting it.
+
+### Added
+
+- **The unscoped `adrkit` package was attempted and abandoned — npm will not issue the
+  name.** The plan was a forwarder to `@adrkit/cli` owning the bare name, so that
+  `npx adrkit` could not resolve to anyone else's package. It was built, tested, and
+  packed; publishing it was attempted during this release and the registry refused the
+  request, so the package does not exist:
+
+  ```
+  403 Forbidden - PUT https://registry.npmjs.org/adrkit
+  Package name too similar to existing package pdfkit
+  ```
+
+  npm's similarity check compares names after stripping punctuation, and `adrkit` is too
+  close to `pdfkit`. This is not a race for the name and not something a retry fixes: the
+  same rule blocks `adr-kit` and `adr_kit`, which normalize to `adrkit` exactly. The
+  availability check that preceded the work — `npm view adrkit` returning 404 — proved
+  only that the name was unused, which is a weaker property than publishable, and the
+  distinction is invisible until the registry rejects the `PUT`.
+
+  The consequence is narrow but real: the zero-install `npx adrkit` form is permanently
+  unavailable, `npx @adrkit/cli` remains the zero-install form, and the documentation
+  warning against `npx adrkit` stays rather than being lifted. Nothing that installs
+  `@adrkit/cli` is affected — see the binary alias below, which is unrelated to the
+  registry and shipped normally.
+
+- **`@adrkit/cli` now installs an `adrkit` binary alongside `adr`.** The bare name `adr`
+  on npm belongs to an unrelated package (`phodal/adr`, published since 2017), so the
+  `adr` command is ambiguous in two ways adrkit does not control: a bare `npx adr` fetches
+  that package whenever adrkit's binary is not linked into `node_modules/.bin`, and a
+  project holding both dependencies has them compete for the same `.bin` entry. `adrkit`
+  collides with nothing, so `adrkit lint` is unambiguous for globally-installed users and
+  in `node_modules/.bin`. `adr` is unchanged and remains the primary name — this is purely
+  additive, and nothing that works today stops working. The alias covers the **installed**
+  binary only. `npx adrkit` is *not* made safe by it — that depended on owning the
+  unscoped package name, which npm refused (above), so `npx adrkit` still resolves against
+  the registry and would run whatever anyone publishes there, without prompting in CI
+  where npm assumes `--yes` on a non-TTY. `npx --no` is not a sufficient answer either: it
+  declines to install a missing package but still runs one already in the npx cache. Use
+  `npx @adrkit/cli` for zero-install, and `adrkit` only as an installed binary.
+  `release-pack` now asserts both binaries are present in the packed manifest, and that
+  assertion was observed failing with the alias removed before it was counted as coverage
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
+
+- **The comment-posting Action now has an end-to-end signal**
+  ([ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
+  action item 9, #135). `self-dogfood` runs the **CLI** with `contents: read`, so it never
+  constructed a GitHub client, resolved an identity, or posted a comment — the surface
+  #107 lived in had no coverage before it shipped to every adopter pinned at the moving
+  `v0` tag. That is how #107 survived two releases: every suite was green, and the job
+  log it printed (`adrkit: created the governing-decisions comment.`) is what healthy
+  operation prints.
+
+  **A new `action-dogfood` job** runs `uses: ./packages/ci` **twice** against the
+  repository's own pull requests and asserts, over the API, that exactly one comment
+  leads with `<!-- adrkit:ci -->` and that a Bot authored it. It is gated on
+  `clean-clone-builds` so it cannot pass over a stale committed bundle, and serialized
+  per pull request so two concurrent runs cannot both create and fail a correct Action.
+  The assertion also runs *between* the two dispatches, on a bounded retry, as a
+  read-your-writes barrier — GitHub can serve the comment list from a replica, and a
+  second dispatch that listed before the first comment became visible would create a
+  duplicate and fail a healthy Action. This is the only job in the repository with a
+  write capability (`pull-requests: write`), scoped to one job rather than raised at the
+  workflow level.
+
+  **`exactly one`, not `at most one`.** An empty comment list satisfies "at most one",
+  and an empty list is what a revoked permission, a wrong pull-request number, and a
+  silently-degraded Action all produce — the blind-pass shape
+  [ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)
+  exists to prevent. Three cross-checks close the remaining blind spots: the list is
+  compared against the comment count GitHub reports for the issue, so a lost
+  `--paginate` cannot hide a duplicate on page two; the surviving comment's **id** is
+  compared across dispatches, so a count of one cannot be satisfied by a replacement;
+  and the ids owned **before** the run are recorded, so a duplicate the pull request
+  already carried is not reported as a fresh regression. Ownership requires a **bot
+  author** as well as a leading marker, matching the Action's own rule — without that,
+  anyone able to comment could red the check with one invisible line. The gate is
+  `scripts/check-ci-comment.ts`, which imports only builtins, reports every marked
+  comment it examined rather than only its verdict, and ships permanent negative
+  fixtures for the duplicate (#107), absent, empty, human-authored, and impostor shapes,
+  each observed rejecting.
+
+  **What it does not cover, stated rather than implied.** After a pull request's first
+  push the comment already exists, so a dispatch that writes nothing satisfies both
+  assertions. The inverse of #107 is therefore caught on every newly-opened pull
+  request's first run and not on later pushes within one pull request; the rung-2
+  artifact covers the create-then-update pair from a clean state. Adding an Action
+  output to close it was rejected — expanding a published contract to serve a test is
+  the wrong direction, and a self-report is the evidence #107 already defeated.
+
+  **Fork and Dependabot pull requests are excluded**, because their `GITHUB_TOKEN` is
+  read-only whatever `permissions:` declares — the Action correctly degrades to a log
+  notice (FR-014) and posts nothing, so the assertion would fail a healthy Action.
+  `pull_request_target` would close that blind spot by running base-repo workflows with
+  a write token against fork-authored code, and was rejected outright.
+
+- **The rung-2 reference run happened, and closed [ADR-0026](docs/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows.md)
+  action item 8.** Three scenarios green on
+  [`adrkit-t018-dogfood#16`](https://github.com/mbeacom/adrkit-t018-dogfood/pull/16)
+  against adrkit pinned at `71f46d6`. The Action logged `created` then `updated` with the
+  comment id unchanged at `#5289930628` from a clean start; a plain file as `dir` failed
+  the step with `ENOTDIR` leaving the comment set byte-identical; and a
+  `pull-requests: read` token produced the FR-014 degrade — a log notice, a green job,
+  nothing written. That degrade path had **never been observed anywhere**; it had only
+  ever been read from source. Reviewed and passed by `@mbeacom` on 2026-08-15, which
+  completes ADR-0014's rung-2 criteria: the comment path is **landed /
+  reference-verified**, and still **not** `externally validated` — the reference
+  repository is maintainer-owned, so rung 3 stays absent.
+
+  **Running it found four defects in the artifact, all invisible to static review.**
+  `path: .adrkit` deleted the contents of a directory the reference repository tracks
+  (now `.adrkit-src`, the name that repo already reserves); a second workflow posting the
+  same marker silently *weakens* a run rather than failing it, because a foreign comment
+  satisfies the `absent` rule — the first attempt was green having observed two updates
+  and no create; `degrade-read-only` never echoed its outcome, so that evidence row had
+  to be read from the REST API; and `--paginate` with `join(",")` inside `--jq` emits one
+  line per page, which would hand `--expect-ids` a multi-line value past 30 comments —
+  reproduced against the labels endpoint and fixed in **`action-dogfood` too**, which
+  carried the same defect. A run against the corrected artifact confirmed all four fixes
+  and is the cited evidence — an artifact fixed after its own verification run is an
+  unverified artifact.
+
+  **A fifth defect was in the instructions, and it caused a real failure.** The README
+  said to delete the marker comment *before* pushing. That removes the accidental
+  protection a pre-existing comment provides — it makes a second writer *update* rather
+  than create — so both the verification workflow and the reference repository's own
+  `adr.yml` listed an empty set and both created, within the same second, producing
+  consecutive comment ids and a failed run that blamed #107 for an Action that had
+  behaved correctly. The order is now push → settle → delete → `gh run rerun`, which
+  excludes the race structurally, because a re-run does not re-trigger other workflows.
+
+  That failure is also the first time the `duplicate` rule has been observed **firing**
+  outside a fixture, which closes an ADR-0016 gap the evidence index had recorded as
+  open. It exposed a sixth defect in passing: the message asserted "a dispatch in this
+  run created rather than updated — the regression of #107" when a concurrent writer was
+  responsible. `--expect-ids` separates *predates this run* from *created during it*, but
+  not *created by this run* from *created by another writer*, so the message now names
+  both causes and points at the Action's own log, which does distinguish them.
+
+  It also produced a claim that had to be withdrawn, which is worth recording because the
+  withdrawal is the useful part. `updated_at` did not move across either in-place update,
+  and that was generalised into "GitHub does not bump `updated_at` for a byte-identical
+  PATCH" on the strength of a probe in one context. It does not hold in another: on
+  `mbeacom/openleague`, three same-commit re-runs with a SHA-256-identical body advanced
+  it every time. A second explanation — the actor — was then offered and is also wrong,
+  contradicted by the evidence table it sat beside: the unchanged and advanced bot rows
+  are the same actor. Endpoint and elapsed time are ruled out by measurement. **The
+  mechanism is not established**, and is left unexplained rather than given a third
+  plausible story. The gate asserts **id
+  stability** rather than `updated_at`, and that choice never depended on the direction —
+  only on the field being uncontractual, which two contradicting contexts evidence better
+  than either result alone.
+
+- **A second review found the retry loops were decorative, and the fix is `--just-wrote`.**
+  The read-your-writes race the loops exist for — a comment created moments ago and not
+  yet visible on a read replica — produces the `absent` rule, not `incomplete`. With
+  `absent` permanently definitive, the checker exited 1 and the workflow killed the step
+  on attempt 1, so the loops could only ever retry the lost-`--paginate` class, which
+  retrying cannot fix. Reproduced before fixing: `check-ci-comment empty.json
+  --expect-total=1` exited 1, not 2. `--just-wrote` now marks `absent` retryable for a
+  caller that dispatched a write immediately beforehand, and definitive otherwise —
+  a duplicate or a changed id stays fatal either way, by test.
+
+  Also from that review: every `gh api` read is now soft, not just the ones in the first
+  loop (a single 502 killed the step the loop was built to survive); comment counts are
+  validated as decimal integers before `$(( ))`, which read a non-numeric value as a
+  variable name and silently disabled the completeness check at zero; the `prior-ids` jq
+  filter splits on all three line terminators, matching the classifier rather than being a
+  fourth place that decides ownership differently; retries use exponential backoff to 75s,
+  since a secondary rate limit is answered with a `Retry-After` well past a flat 25s; and
+  the job gained `timeout-minutes: 10`, because a hung request would otherwise leave a
+  required check Pending for six hours — the one state with no notification and no log.
+
+  **`cancel-in-progress` is now `false`**, matching `release.yml` and the reference
+  workflow. This job was the odd one out at `true` while the reference file argued the
+  opposite in writing, for the same write to the same comment — both files written here.
+  Cancellation is a signal plus a grace period, so a cancelled dispatch can still be
+  mid-create when its replacement lists an empty set and creates its own, and the
+  resulting duplicate is non-retryable and needs a human to delete a comment.
+
+- **A runnable rung-2 reference-repository artifact for the comment path**
+  (`specs/004-ci-surface/evidence/reference-repo/`). It calls the Action as a consumer
+  does — `uses: mbeacom/adrkit/packages/ci@<sha>` — and covers two scenarios the
+  in-repository job structurally cannot: a fail-closed dispatch against an invalid
+  corpus directory that must write nothing, and the FR-014 degrade under
+  `pull-requests: read` that must stay green. Shipped as a workflow file rather than as
+  a task, per ADR-0016 clause 4 — it is the mechanism for ADR-0026 action item 8, which
+  stays open until it is run. Its evidence index
+  (`specs/004-ci-surface/checklists/reference-verification-evidence.md`) was created
+  **empty and explicitly `NOT YET OBSERVED`**, and has since been filled from real runs
+  and reviewed.
+
 ## [0.7.0] - 2026-08-12
 
 ### Added
@@ -729,7 +1058,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/mbeacom/adrkit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mbeacom/adrkit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mbeacom/adrkit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mbeacom/adrkit/compare/v0.4.0...v0.5.0

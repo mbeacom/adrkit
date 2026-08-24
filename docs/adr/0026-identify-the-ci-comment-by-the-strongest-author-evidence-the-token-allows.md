@@ -20,6 +20,8 @@ affects:
   - type: path
     pattern: "packages/ci/action.yml"
   - type: path
+    pattern: "scripts/check-ci-comment.ts"
+  - type: path
     pattern: "specs/004-ci-surface/spec.md"
   - type: path
     pattern: "specs/004-ci-surface/research.md"
@@ -27,6 +29,19 @@ affects:
     pattern: "specs/004-ci-surface/quickstart.md"
   - type: path
     pattern: "site/src/content/docs/ci.mdx"
+assertions:
+  - id: ci-comment-unique
+    description: >-
+      After the governing-decisions Action runs on a pull request, that pull
+      request carries exactly one comment whose first line is the marker, and a
+      bot authored it. Asserted as "exactly one" rather than "at most one"
+      deliberately: an empty comment list satisfies "at most one", and an empty
+      list is what a revoked permission, a wrong pull-request number, and a
+      silently-degraded Action all produce.
+    engine: custom
+    expression: ci-comment-unique
+    input: source
+    severity: error
 provenance:
   authoredBy: agent-drafted
   ratifiedBy: "@mbeacom"
@@ -184,6 +199,15 @@ The `isDefaultToken` plumbing is deleted. `GITHUB_TOKEN` remains a fallback *sou
 of the token for a workflow that blanks the input, but it is no longer consulted to
 decide who we are.
 
+That deletion has since been **observed** rather than only reasoned about, which matters
+because the published documentation tells adopters the `env:` block is safe to remove and
+an error there would hand every adopter the #107 defect back. On a reference repository
+the block was removed at job level — verified absent from the Action's environment in the
+runner log, not merely deleted from a file — and two dispatches left one comment with the
+same id (`5299964169`), logging `created` then `updated`, with
+`an app installation token, whose login is not resolvable` on both. Scoped to the default
+`GITHUB_TOKEN` at one pin; a custom App token takes the same path and was not observed.
+
 ## Options considered
 
 ### Option A: classify the lookup failure; match on bot-ness plus a leading marker (chosen)
@@ -300,15 +324,194 @@ have one.
    block from `quickstart.md`, which documented the broken model.
 7. [x] Note in `site/src/content/docs/ci.mdx` that a `v*` release tag is annotated, so
    `uses:` needs the dereferenced commit rather than the tag object's own SHA.
-8. [ ] Confirm on a reference repository that a second push updates the comment
-   ([ADR-0014](./0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-   rung 2); rung 1 is the unit and contract coverage above.
-9. [ ] **Deferred, tracked separately.** This repository does not run its own
-   governing-decisions Action on its own pull requests, so no automated signal would
-   catch a recurrence before adopters see duplicate comments — which is precisely how
-   this defect survived two releases. Closing that is a larger change than this record
-   authorizes, and it interacts with the ADR-0014 rung-2 mechanism rather than
-   replacing it.
+8. [x] **Confirmed 2026-08-14.** A second dispatch updates the comment rather than
+   posting another, observed on the maintainer-owned isolated reference repository
+   ([`adrkit-t018-dogfood#16`](https://github.com/mbeacom/adrkit-t018-dogfood/pull/16),
+   run 31773788433, adrkit pinned at `b840e91`): the Action logged `created` then
+   `updated`, and the comment id was `#5289930628` after both dispatches, from a pull
+   request that carried zero comments beforehand. Running the artifact exposed four
+   defects in it; the cited run is the one against the corrected copy, because an
+   artifact fixed after its own verification run is an unverified artifact. The full index is
+   [`specs/004-ci-surface/checklists/reference-verification-evidence.md`](../../specs/004-ci-surface/checklists/reference-verification-evidence.md);
+   the artifact that produced it is
+   [`specs/004-ci-surface/evidence/reference-repo/`](../../specs/004-ci-surface/evidence/reference-repo/README.md).
+   **Reviewed and passed by `@mbeacom` on 2026-08-15**, which is the last of ADR-0014's
+   four rung-2 criteria, so the comment path is now **landed / reference-verified** on
+   rungs 1–2. It is **not** `externally validated`: the reference repository is
+   maintainer-owned, so rung 3 stays absent.
+
+   Three things the run established that reading could not:
+
+   - **The FR-014 degrade works, and had never been observed anywhere.** Under
+     `pull-requests: read` the Action logged `an app installation token, whose login is
+     not resolvable; matching on the marker and a bot author` and then the read-only
+     notice, left the job green, and wrote nothing. That is this record's degraded
+     identity path executing in the wild, not inferred from source.
+   - **A `pull-requests: read` token can list issue comments at all** — previously
+     unestablished, and the reason the snapshot step asserts its result is non-empty.
+   - **`updated_at` does not move on a byte-identical PATCH.** In every attempt the
+     Action logged `updated` while `updated_at == created_at`. The gate asserts **id
+     stability** instead precisely because that API detail is uncontractual, and a design
+     hedge became an observation.
+
+     The `duplicate` rule has also now been observed **firing** on a real two-comment
+     state rather than only on a fixture — caused, instructively, by this repository's own
+     reference instructions, which told the operator to clear the comment before pushing
+     and thereby put two writers into create mode simultaneously. Corrected there; the
+     rule behaved correctly, though its message named #107 as the cause when a concurrent
+     writer was responsible, and now names both.
+
+     **`updated_at` is not a reliable signal, and that — not any particular direction —
+     is why the gate does not use it.** The same operation gives opposite results:
+
+     | Context | Actor | Body | Gap | `updated_at` |
+     |---|---|---|---|---|
+     | `adrkit#143` probes ×3 (6 PATCHes, +5s to +310s) | User via OAuth | byte-identical | seconds–minutes | **unchanged** |
+     | `adrkit-t018-dogfood#16`, both dispatches, every run | `github-actions[bot]` | identical render | seconds, one run | **unchanged** |
+     | `openleague#328`, 3 same-commit workflow re-runs | `github-actions[bot]` | SHA-256 identical | minutes, separate runs | **advanced every time** |
+
+     An earlier revision asserted, on the first row alone, that "GitHub does not bump
+     `updated_at` for a PATCH whose body is byte-identical", and called it measured. That
+     claim is **withdrawn**. A later revision then named the **actor** as the remaining
+     variable — also wrong, and contradicted by the table it sat beside: rows 2 and 3 are
+     the same actor with opposite outcomes. Ruled out by measurement: the endpoint (both
+     paths call `issues.updateComment`) and elapsed time (probed to ~5 minutes). No single
+     variable has been isolated, and **the mechanism is not established**. It is left
+     unexplained rather than given a third plausible story.
+
+     **One variable has now been isolated by measurement, and it changes the picture.** All
+     in `mbeacom/adrkit`, same endpoint, same actor (a User token), same byte-identical body —
+     the only thing varied is whether the editor authored the comment:
+
+     | Editor's relationship to the comment | PATCHes | `updated_at` |
+     |---|---|---|
+     | editing **its own** comment | 6, from +5s to +310s | **never advanced** |
+     | editing **another author's** comment (`github-actions[bot]`'s) | 3, at +0s/+6s/+20s | **advanced every time** |
+
+     That is a controlled result, not a story: one repository, one credential, one endpoint,
+     one body. **Editing another author's comment always moves `updated_at`; editing your own
+     with an identical body does not.** Reproduced independently in `mbeacom/openleague` with
+     the same shape — self-authored held at `11:53:58Z` across three PATCHes, bot-authored
+     advanced on all three — so it is not a property of one repository.
+
+     It also invalidates a refutation. The run-boundary variable was reported as measured out
+     by three byte-identical PATCHes in one session on `openleague#328` — but those were a
+     *User* token editing a *bot-authored* comment, which the table above shows advances
+     unconditionally. That test could not have produced any other result, so the run boundary
+     is **not** refuted.
+
+     What remains genuinely unexplained is narrower than before, and is one row: the Action
+     editing **its own** comment with an identical body advanced `updated_at` across separate
+     workflow runs on `openleague#328`, while the same operation within a single run on
+     `adrkit-t018-dogfood#16` did not. Endpoint, elapsed time, and actor are closed. The run
+     boundary is the surviving candidate for that row and is **not** claimed as the answer.
+
+     **The falsification strengthened this decision rather than weakening it**, which is
+     the part a reader should take from it. Asserting **id stability** never depended on
+     the direction `updated_at` moves — only on the field being uncontractual. Contexts
+     that disagree evidence that far better than agreement would have: an artifact
+     asserting `updated_at` advanced fails rows 1–2, one asserting it held fails row 3,
+     and id stability holds in all three.
+
+9. [x] **Deferred when this record was written; done 2026-08-14 ([#135](https://github.com/mbeacom/adrkit/issues/135)).**
+   This repository did not run its own governing-decisions Action on its own pull
+   requests. `self-dogfood` runs the **CLI** with `contents: read`, so it never
+   constructed a GitHub client, resolved an identity, or posted — meaning the surface
+   this record is about had no automated signal at all, which is precisely how the
+   defect survived two releases while every suite stayed green.
+
+   Closed as the `action-dogfood` job in `.github/workflows/ci.yml`, backed by
+   `scripts/check-ci-comment.ts`, asserting the `ci-comment-unique` assertion declared
+   above. It runs `uses: ./packages/ci` **twice** against the pull request and checks,
+   over the API, that exactly one comment leads with the marker and a bot authored it.
+   Structured as a repository script for the reasons
+   [ADR-0006](./0006-license-apache-2-and-single-monorepo.md) action item 2 gives for
+   `check-dco.ts` — it imports only builtins, so a broken dependency graph cannot take
+   the gate down with it — and observed rejecting the real duplicate-comment shape
+   before it counted as coverage
+   ([ADR-0016](./0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)),
+   with the negative cases kept in `scripts/__fixtures__/ci-comment/`.
+
+   Four properties are load-bearing and easy to undo by accident:
+
+   - **It is the first job in this repository that can write.** `pull-requests: write`
+     is scoped to that one job rather than raised at the workflow level, so the
+     capability is visible in one place. `ci.yml` executes the *pull request's own*
+     definition ([#137](https://github.com/mbeacom/adrkit/issues/137)), so a
+     contributor who can push a branch here can edit the job and use that token; what
+     bounds it is that only collaborators can push such a branch, which is the same
+     trust boundary as merging, and a fork's token is read-only regardless.
+   - **Fork and Dependabot pull requests are excluded, and must stay excluded.** Their
+     token is read-only whatever `permissions:` declares, so the Action correctly
+     degrades to a log notice (FR-014) and posts nothing — the assertion would fail a
+     *healthy* Action. `pull_request_target` would close that blind spot by running
+     base-repo workflows with a write token against fork-authored code, and is
+     rejected: that is not a trade this repository will make for a CI signal. The
+     uncovered path is instead covered at rung 2 by item 8's `pull-requests: read`
+     scenario, which this repository's own CI structurally cannot exercise.
+   - **`needs: clean-clone-builds` is correctness, not ordering hygiene.** `uses:` runs
+     the *committed* `packages/ci/dist`, so without the bundle-drift gate ahead of it
+     the job could pass over a stale bundle while the source it claims to cover is
+     broken.
+   - **The assertion also runs between the two dispatches, on a bounded retry.** GitHub
+     can serve the comment list from a replica, and a second dispatch that listed
+     before the first comment became visible would create a duplicate and fail a
+     healthy Action. The second assertion is deliberately not retried — a stale read
+     there can only hide a duplicate, never invent one, and duplicates persist until a
+     human removes them.
+   - **Two cross-checks the comment list cannot answer on its own.** The list is
+     compared against the comment count GitHub reports for the issue, because a caller
+     who loses `--paginate` sees page one and a duplicate on page two then reads
+     exactly like a healthy single comment; and the surviving comment's **id** is
+     compared against the one observed after the first dispatch, because an update
+     preserves the id while a create issues a new one. The second replaces an earlier,
+     weaker idea — asserting that `updated_at` advanced — which cannot be relied on,
+     since whether GitHub bumps it on a PATCH with a byte-identical body is not
+     contractual. Id stability is contractual, and it is a specific observed value
+     rather than a count.
+
+   - **Ownership is bot-authored *and* marker-leading, exactly as this record defines
+     it.** The verifier's rule must not be *stricter* than the Action's. It was until
+     the deep review of [#143](https://github.com/mbeacom/adrkit/pull/143): counting any
+     marker-leading comment as ours let anyone who can comment turn the check red with
+     one line that renders invisibly, and the failure text then blamed #107 for a defect
+     that did not exist. A non-bot marker-leading comment is now reported as an
+     *impostor* and never counted toward the duplicate rule.
+
+   **What this rung does not cover.** After a pull request's first push its comment
+   already exists, so a dispatch that writes *nothing* satisfies both assertions — one
+   comment, same id, which is precisely what a no-op produces. The gate therefore
+   catches the inverse of #107 on every newly-opened pull request's first run, and not
+   on subsequent pushes within one pull request; the rung-2 artifact, which runs against
+   a fresh reference pull request, covers the create-then-update pair from a clean state.
+   Closing it at rung 1 would mean either an Action **output** naming what it wrote —
+   rejected, because expanding a published contract to serve a test is the wrong
+   direction, and because a self-report is the evidence #107 already defeated — or
+   deleting the prior comment before each run, which would notify every subscriber on
+   every push. Stated as a bounded limitation rather than closed badly.
+
+   **Done 2026-08-15**: `action-dogfood` is a required status check on the `main` ruleset,
+   added after it had run green on several commits of #143 — it could not be added before
+   that, since it skips on the pull requests that cannot satisfy it. Three operational
+   facts belong with it, because all three live in repository settings rather than in this
+   repository:
+
+   - The check is named by the **job id `action-dogfood`**, so renaming or relocating that
+     job leaves every pull request waiting on a check that will never report, which only
+     an administrator can clear.
+   - Disabling the gate means removing it from the ruleset, not editing `ci.yml`, since a
+     workflow edit lands in the same pull request the gate is blocking.
+   - **`clean-clone-builds` must stay required for this gate to mean anything.**
+     `action-dogfood` declares `needs: clean-clone-builds`, and a job skipped because its
+     dependency failed is reported exactly like one skipped by an `if:` — as success. So a
+     pull request whose build fails would satisfy the comment gate without the Action ever
+     having run, which is this record's own blind spot reopened through a mechanism nobody
+     would be watching. The second operator review raised this conditionally, not knowing
+     the ruleset; it was then checked, and `clean-clone-builds` **is already required**, so
+     the hole is closed today. It is recorded because the coupling is invisible from either
+     side: removing `clean-clone-builds` from the ruleset would silently weaken this gate,
+     and nothing in `ci.yml` says so. Dropping `needs` is not the alternative either — the
+     bundle-drift check it waits for is only meaningful after `bun run build`.
 10. [ ] **Deferred, tracked separately.** `v0` is a moving tag with no documented
     rollback, so recovering from a bad Action release depends on a maintainer knowing
     to force-move it by hand.
