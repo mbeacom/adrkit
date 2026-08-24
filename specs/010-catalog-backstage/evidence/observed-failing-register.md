@@ -317,8 +317,13 @@ fifteen** post-install steps under the proved denial rather than thirteen of fou
 test` remains the single exemption. That is the only change to the denial surface: candidate
 selection, the two-sided control, and the success path in `run-network-denied.ts` are
 untouched by the merge, so the mechanism observation above still holds. The run-of-record at
-`97aeba2` is left recording thirteen, because that is what it observed; the reconciled head's
-own CI run is the authority for the fourteen-of-fifteen count and its green result.
+`97aeba2` is left recording thirteen, because that is what it observed. The
+fourteen-of-fifteen figure is a static fact about the workflow file, verifiable by reading
+it without any run; the green result on the reconciled head is observed at
+[32682568725](https://github.com/mbeacom/adrkit/actions/runs/32682568725/job/97301654258),
+`clean-clone-builds` green on the pinned `ubuntu-24.04` image at the merge of `fd0b7e4`, with
+the two-sided control recorded on the runner (`CONNECTED:200` unsandboxed, `DENIED` under
+`unshare --net` beneath `sudo`, running as uid 1001).
 
 ### 4.3 Which host produced each observation is recorded for 2 of 37 cases
 
