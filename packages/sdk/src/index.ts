@@ -1,5 +1,5 @@
 /**
- * `@adrkit/sdk` — the proposed consumer contract for adrkit's decision corpus.
+ * `@adrkit/sdk` — the accepted consumer contract design for adrkit's decision corpus.
  *
  * **This module is types only. Nothing here is implemented.** It exists to answer
  * [ADR-0031](../../../docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
@@ -10,8 +10,8 @@
  * an argument for a narrower surface is exactly the kind of argument that should not rest on an
  * unverified count.
  *
- * ADR-0031 is `proposed`, agent-drafted, and **unratified**. If it is rejected, this directory
- * is deleted and nothing else in the repository changes.
+ * ADR-0031 was ratified by `@mbeacom` on 2026-08-24. It authorizes this surface's design and
+ * construction, not publication; this module remains a types-only sketch.
  *
  * ## What the surface is derived from
  *

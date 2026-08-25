@@ -2,12 +2,12 @@
 schemaVersion: 0.1.0
 id: "0031"
 title: Publish a narrow consumer SDK as the contract, and document the CLI JSON as its sibling
-status: proposed
+status: accepted
 date: 2026-08-16
 deciders: ["@mbeacom"]
 tags: [architecture, packaging, distribution, governance, api]
 scope: org
-reversibility: one-way-door
+reversibility: two-way-door
 blastRadius: org
 relatesTo: ["0003", "0007", "0010", "0013", "0019", "0025", "0029", "0030"]
 affects:
@@ -25,19 +25,20 @@ affects:
     pattern: "docs/RELEASING.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
-    Creates a published package carrying a semver promise to consumers outside this
-    repository, declares that `@adrkit/core` is not that promise, and amends two clauses
-    of the accepted ADR-0029. A published surface is a one-way door: the commitment
-    cannot be withdrawn once someone depends on it.
+    Defines the narrow consumer contract to construct, declares that `@adrkit/core` is
+    not that contract, and amends two clauses of the accepted ADR-0029. This record
+    authorizes design and construction only; publishing the independently versioned
+    package remains a later one-way-door decision.
 reviewBy: 2027-02-16
 ---
 
 # ADR-0031: Publish a narrow consumer SDK as the contract, and document the CLI JSON as its sibling
 
-> **Status: proposed, agent-drafted, unratified.** Creates the conduit
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-08-24. Creates the conduit
 > [ADR-0030](0030-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)
 > foresaw. It authorizes the SDK's **design and construction**, not its release; publishing is
 > a later record's act, as ADR-0029 clause 10 requires. It **amends ADR-0029 clauses 6 and 11
@@ -245,9 +246,10 @@ recorded as its own wrongness signal.
 
 ## Action items
 
-1. [ ] Ratify or reject this record. It is `proposed` and agent-drafted with no `ratifiedBy`.
-2. [ ] Land the amendment note on ADR-0029 recording that clauses 6 and 11 are narrowed by
-   this record's clause 3, per the mechanism ADR-0013 used on ADR-0007.
+1. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-08-24.**
+2. [x] Land the amendment note on ADR-0029 recording that clauses 6 and 11 are narrowed by
+   this record's clause 3, per the mechanism ADR-0013 used on ADR-0007. **Done
+   2026-08-16 and made authoritative by this record's ratification on 2026-08-24.**
 3. [x] Enumerate the SDK's first surface from what a real consumer needs — the Tier 1
    capabilities of ADR-0029 clause 1 — rather than from what core exports, and record the
    count. **Done 2026-08-16: [`docs/sdk-surface.md`](../sdk-surface.md), sketched at
@@ -297,6 +299,8 @@ recorded as its own wrongness signal.
    `packages/cli/src/queue.ts`, `packages/ci/src/queue-action-entrypoint.ts`, and
    `packages/core/src/scaffold/new.ts`. Until it is exported, "the queue as of now" — the
    dominant consumer case, and the one CI uses — is still hand-rolled downstream.
+   **Publication gate:** this item must be complete before a later record authorizes
+   publishing `@adrkit/sdk`.
 
    Two defects were found in the moved rule during review and fixed before it was
    published, which is the cheap moment: an expanded-year datetime was truncated into a

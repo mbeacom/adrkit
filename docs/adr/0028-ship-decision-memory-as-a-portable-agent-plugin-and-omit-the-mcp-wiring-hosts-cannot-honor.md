@@ -2,14 +2,14 @@
 schemaVersion: 0.1.0
 id: "0028"
 title: "Ship decision memory as a portable agent plugin, and omit the MCP wiring hosts cannot honor"
-status: proposed
+status: accepted
 date: 2026-08-15
 deciders: ["@mbeacom"]
 tags: [distribution, adapters, agents, mcp, docs]
 scope: org
 reversibility: two-way-door
 blastRadius: org
-relatesTo: ["0003", "0007", "0014", "0016", "0019"]
+relatesTo: ["0003", "0007", "0014", "0016", "0019", "0030"]
 affects:
   - type: path
     pattern: "packages/adapters/agent-plugin/**"
@@ -17,6 +17,7 @@ affects:
     pattern: ".claude-plugin/**"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -30,6 +31,11 @@ reviewBy: 2027-02-15
 ---
 
 # ADR-0028: Ship decision memory as a portable agent plugin, and omit the MCP wiring hosts cannot honor
+
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-08-24.
+> The shipped plugin is at ADR-0014 rung 1: implemented and functionally
+> exercised, but not reference-verified or externally validated. Its
+> zero-dependency packaging also satisfies ADR-0030's later placement rule.
 
 ## Context
 
@@ -115,9 +121,12 @@ connection closed: initialize response
 
 A server that cannot start is worse than one that was never configured: it
 produces a recurring error, and it teaches the user that adrkit is broken. The
-wiring therefore lives where the working directory is correct — the user's own
-project configuration — and `opencode/opencode.json` ships as the opencode
-fragment, whose schema has an explicit `cwd` that resolves from the workspace.
+wiring therefore lives where the working directory can be configured correctly
+— the user's own project configuration — and `opencode/opencode.json` ships as
+the project-level opencode fragment. APM validated that fragment's placement,
+but the MCP process was not driven end to end under opencode; unlike the
+Copilot CLI finding above, its workspace working directory remains an
+expectation to verify rather than measured host behavior.
 
 The skill already degrades correctly: it prefers the MCP tools when they are
 connected and falls back to the CLI, which runs in the agent's working
@@ -134,6 +143,11 @@ directory, when they are not.
   the workspace to a plugin-spawned server. Revisit when one does.
 - The repository root gains `.claude-plugin/marketplace.json`. Root clutter is
   the price of Claude Code compatibility; it reads no other location.
+- The plugin's release channel is `main` itself: merging is publishing, there
+  is no release tag or yank, and rollback requires a higher plugin version
+  rather than only a revert. The operational procedure and cache consequences
+  are recorded in
+  [`docs/RELEASING.md`](../RELEASING.md#the-agent-plugin--a-release-channel-with-no-tag).
 - This is at **rung 1** of
   [ADR-0014](./0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md):
   unit and contract coverage, each guard observed failing against a deliberate

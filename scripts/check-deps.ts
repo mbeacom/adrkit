@@ -182,7 +182,7 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
   }
 
   if (packageName === '@adrkit/sdk') {
-    // ADR-0031's proposed consumer facade — a non-adapter workspace library by
+    // ADR-0031's accepted consumer facade — a non-adapter workspace library by
     // *location* (`packages/sdk/`, outside `packages/adapters/`), like
     // `@adrkit/catalog-envelope` above. Its allowed surface is the workspace core
     // and nothing else, which is what makes it cheap enough to satisfy ADR-0030

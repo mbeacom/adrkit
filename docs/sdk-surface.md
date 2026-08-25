@@ -4,12 +4,12 @@
 needs — the Tier 1 capabilities of ADR-0029 clause 1 — rather than from what `@adrkit/core`
 happens to export, and record the count.
 
-> **Status: investigation, against an unratified record.**
+> **Status: investigation supporting an accepted record.**
 > [ADR-0031](adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
-> is `proposed`, agent-drafted, and awaiting `@mbeacom`'s decision in the ARB queue. Nothing
-> here ratifies it. `packages/sdk/` is a **types-only** sketch: no runtime, no build, no
-> release, absent from `RELEASE_PACKAGES`. If the record is rejected, that directory is deleted
-> and nothing else changes.
+> was ratified by `@mbeacom` on 2026-08-24. `packages/sdk/` remains a
+> **types-only** sketch: no runtime, no build, no release, and absent from
+> `RELEASE_PACKAGES`. ADR-0031 authorizes construction only; a later record must
+> authorize publication.
 
 ## Verdict, first
 
