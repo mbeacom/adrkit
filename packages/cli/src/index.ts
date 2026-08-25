@@ -2,7 +2,6 @@
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import {
   buildAdrGraph,
   bucketDecisions,
@@ -29,6 +28,12 @@ import {
   type SourceMarkerScan,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
+import {
+  corpusDirectoryErrorKind,
+  corpusDirectoryErrorMessage,
+  formatUsageError,
+  type CorpusDirectoryErrorKind,
+} from './errors.ts';
 import { QUEUE_USAGE, runQueue } from './queue.ts';
 import { isMainModule } from './main-module.ts';
 
@@ -47,34 +52,21 @@ function writeStderr(text: string): void {
   process.stderr.write(text);
 }
 
-type CorpusDirectoryErrorKind = 'not-found' | 'not-readable';
-
-function corpusDirectoryUsageError(dir: string, kind: CorpusDirectoryErrorKind): number {
-  const state = kind === 'not-readable' ? 'not readable' : 'not found';
-  writeStderr(`Corpus directory ${state}: '${dir}'.\n`);
-  return 2;
+function corpusDirectoryUsageError(dir: string, kind: CorpusDirectoryErrorKind, command: string): number {
+  return usageError(corpusDirectoryErrorMessage(dir, kind), command);
 }
 
-function corpusDirectoryErrorKind(error: unknown, dir: string): CorpusDirectoryErrorKind | undefined {
-  const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : undefined;
-  if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'EACCES' && code !== 'EPERM') return undefined;
-
-  const path = typeof error === 'object' && error !== null && 'path' in error ? error.path : undefined;
-  if (typeof path === 'string' && resolve(path) !== resolve(dir)) return undefined;
-  return code === 'EACCES' || code === 'EPERM' ? 'not-readable' : 'not-found';
-}
-
-function handleCorpusDirectoryError(error: unknown, dir: string): number | undefined {
+function handleCorpusDirectoryError(error: unknown, dir: string, command: string): number | undefined {
   const kind = corpusDirectoryErrorKind(error, dir);
-  return kind ? corpusDirectoryUsageError(dir, kind) : undefined;
+  return kind ? corpusDirectoryUsageError(dir, kind, command) : undefined;
 }
 
-async function ensureCorpusDirectoryReadable(dir: string): Promise<number | undefined> {
+async function ensureCorpusDirectoryReadable(dir: string, command: string): Promise<number | undefined> {
   try {
     await readdir(dir);
     return undefined;
   } catch (error) {
-    const exitCode = handleCorpusDirectoryError(error, dir);
+    const exitCode = handleCorpusDirectoryError(error, dir, command);
     if (exitCode !== undefined) return exitCode;
     throw error;
   }
@@ -88,20 +80,35 @@ function hasValueFlag(args: readonly string[], flag: string): boolean {
   return false;
 }
 
-const USAGE = `Usage:
-  adr lint [paths...] [--json] [--dir docs/adr]
-  adr migrate --from madr [--dir docs/adr] [--dry-run] [--rename] [--json]
-  adr new <title> [--status draft] [--dir docs/adr] [--json]
-  adr graph [--dir docs/adr] [--format dot|json]
-  adr explain <path> [--dir docs/adr] [--json]
-  adr check <files...> [--dir docs/adr] [--json]
-  adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
-  adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
+const USAGE = `adrkit ${CLI_VERSION}
+Decision memory for human- and agent-authored plans.
 
-  adr help [command]        Show this help, or help for one command
-  adr --version             Print the @adrkit/cli version
+Usage:
+  adr <command> [options]
 
-Round-trip sync is explicitly unsupported (ADR-0008); migrate is one-way and non-destructive.
+Commands:
+  new       Create a decision record
+  lint      Validate ADR files and corpus rules
+  check     Review changed files against governing decisions
+  explain   Explain which decisions govern a path
+  graph     Render decision relationships
+  queue     Show the architecture review board queue
+  evaluate  Evaluate a proposal from an offline snapshot
+  migrate   Import a MADR corpus into adrkit
+  help      Show help for a command
+
+Options:
+  -h, --help       Show help
+  -V, --version    Show version
+
+Examples:
+  adr new "Adopt PostgreSQL"
+  adr lint
+  adr explain src/auth/session.ts
+  adr check src/auth/session.ts package.json
+
+Run 'adr help <command>' for command-specific options and examples.
+Documentation: https://adrkit.dev/commands/
 `;
 
 /**
@@ -109,58 +116,65 @@ Round-trip sync is explicitly unsupported (ADR-0008); migrate is one-way and non
  * `queue` reuses its own richer usage text so there is a single source for it.
  */
 const COMMAND_USAGE: Record<string, string> = {
+  new: `Usage: adr new <title> [options]
+
+Create a decision record with the next available numeric ID.
+
+Arguments:
+  <title>             Decision title
+
+Options:
+  --status <status>   Initial status: draft|proposed|rejected|deprecated
+                      (default: draft)
+  --dir <path>        ADR corpus directory (default: docs/adr)
+  --json              Emit { id, path } as JSON
+  -h, --help          Show this help and exit
+
+Examples:
+  adr new "Adopt PostgreSQL"
+  adr new "Trial a regional cache" --status proposed
+
+Exit codes: 0 = created; 1 = refused to overwrite an existing file; 2 = usage error.
+`,
   lint: `Usage: adr lint [paths...] [options]
 
 Validate the ADR corpus. With no paths, every discoverable record under --dir is checked.
 
+Arguments:
+  [paths...]      Optional ADR files to validate
+
 Options:
   --dir <path>    ADR corpus directory (default: docs/adr)
   --json          Emit { checked, findings } as JSON
-  --help          Show this help and exit
+  -h, --help      Show this help and exit
+
+Examples:
+  adr lint
+  adr lint docs/adr/0012-adopt-postgresql.md
+  adr lint --json
 
 Exit codes: 0 = no error findings; 1 = one or more error findings;
 2 = usage error (invalid invocation or unreachable corpus directory).
 `,
-  migrate: `Usage: adr migrate --from madr [options]
+  check: `Usage: adr check [files...] [options]
 
-Migrate a MADR corpus in place, adding adrkit frontmatter and leaving the body untouched.
-One-way and non-destructive; round-trip sync is unsupported (ADR-0008).
+Report the decisions governing changed files and validate changed ADRs.
+With no files, the command performs a successful no-op.
+
+Arguments:
+  [files...]      Optional repo-relative paths to review
 
 Options:
-  --from madr     Source format (required; only madr is supported)
   --dir <path>    ADR corpus directory (default: docs/adr)
-  --dry-run       Report what would change without writing
-  --rename        Rename each migrated file to <id>-<slug>.md so corpus discovery
-                  can see it. Off by default, because migration is in place.
-  --json          Emit the migration result as JSON
-  --help          Show this help and exit
+  --json          Emit the CheckOutcome as JSON
+  -h, --help      Show this help and exit
 
-Exit codes: 0 = migration ran (findings are reported but do not fail the run);
-2 = usage error (missing or unsupported --from, unknown flag, positional argument,
-or unreachable corpus directory).
-`,
-  new: `Usage: adr new <title> [options]
+Examples:
+  adr check src/auth/session.ts package.json
+  adr check --json src/auth/session.ts
 
-Scaffold a new ADR record.
-
-Options:
-  --status <status>   Initial status (default: draft)
-  --dir <path>        ADR corpus directory (default: docs/adr)
-  --json              Emit { id, path } as JSON
-  --help              Show this help and exit
-
-Exit codes: 0 = created; 1 = refused to overwrite an existing file; 2 = usage error.
-`,
-  graph: `Usage: adr graph [options]
-
-Render the decision graph (supersedes, relatesTo, conflictsWith) for the corpus.
-
-Options:
-  --dir <path>            ADR corpus directory (default: docs/adr)
-  --format dot|json       Output format (default: dot)
-  --help                  Show this help and exit
-
-Exit codes: 0 = rendered; 2 = usage error (invalid invocation or unreachable corpus directory).
+Exit codes: 0 = ok; 1 = a changed record has an error finding;
+2 = usage error (invalid invocation or unreachable corpus directory).
 `,
   explain: `Usage: adr explain <path> [options]
 
@@ -173,46 +187,98 @@ comment ("declared by src/sync.ts:3 (@adr 0012)"). If <path> exists, at most its
 last complete line inside that bound, and --json reports the extent it reached. A marker
 naming a record the corpus does not have is reported as a dangling-marker warning.
 
+Arguments:
+  <path>          Repo-relative path to explain
+
 Options:
   --dir <path>    ADR corpus directory (default: docs/adr)
   --json          Emit { path, governedBy, governing, activeProposals, history,
                   markers, findings }. Pattern matches carry "firedMatchers";
                   file declarations carry "declaredBy".
-  --help          Show this help and exit
+  -h, --help      Show this help and exit
+
+Examples:
+  adr explain src/auth/session.ts
+  adr explain --json src/auth/session.ts
 
 Exit codes: 0 = explained; 1 = corpus has error findings;
 2 = usage error (invalid invocation or unreachable corpus directory).
 `,
-  check: `Usage: adr check <files...> [options]
+  graph: `Usage: adr graph [options]
 
-Report the decisions governing a set of changed files, and validate any changed records.
+Render supersedes, relatesTo, and conflictsWith relationships for the corpus.
 
 Options:
-  --dir <path>    ADR corpus directory (default: docs/adr)
-  --json          Emit the CheckOutcome as JSON
-  --help          Show this help and exit
+  --dir <path>          ADR corpus directory (default: docs/adr)
+  --format dot|json     Output format (default: dot)
+  -h, --help            Show this help and exit
 
-Exit codes: 0 = ok; 1 = a changed record has an error finding;
-2 = usage error (invalid invocation or unreachable corpus directory).
+Examples:
+  adr graph > decisions.dot
+  adr graph --format json
+
+Exit codes: 0 = rendered; 2 = usage error (invalid invocation or unreachable corpus directory).
 `,
+  queue: QUEUE_USAGE,
   evaluate: `Usage: adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [options]
 
 Run the deterministic evaluator over one proposal against an offline snapshot bundle.
 
+Arguments:
+  <proposal-path>      Proposed ADR to evaluate
+
 Options:
   --snapshot <path>   Snapshot bundle (required)
   --date <date>       Evaluation date, YYYY-MM-DD (required)
-  --dir <path>        ADR corpus directory
+  --dir <path>        ADR corpus directory (default: proposal directory)
   --json              Emit the evaluation report as JSON
-  --help              Show this help and exit
+  -h, --help          Show this help and exit
 
 The evaluator routes; it never approves, persists, or writes. There is no --write.
+
+Examples:
+  adr evaluate docs/adr/0042-adopt-postgresql.md \\
+    --snapshot evidence/bundle.json --date 2026-08-24
+  adr evaluate proposals/0042-adopt-postgresql.md --dir docs/adr \\
+    --snapshot evidence/bundle.json --date 2026-08-24
 
 Exit codes: 0 = evaluated (including warn/info/inert and escalation);
 1 = the proposal was returned on a rubric error; 2 = usage error, unreachable
 corpus directory, or malformed snapshot bundle.
 `,
-  queue: QUEUE_USAGE,
+  migrate: `Usage: adr migrate --from madr [options]
+
+Import a MADR corpus in place by adding adrkit frontmatter and preserving each body.
+Migration is one-way: adrkit does not sync later changes back to MADR.
+
+Options:
+  --from madr     Source format (required; only madr is supported)
+  --dir <path>    ADR corpus directory (default: docs/adr)
+  --dry-run       Report what would change without writing
+  --rename        Rename each migrated file to <id>-<slug>.md so corpus discovery
+                  can see it. Off by default, because migration is in place.
+  --json          Emit the migration result as JSON
+  -h, --help      Show this help and exit
+
+Examples:
+  adr migrate --from madr --dry-run
+  adr migrate --from madr --rename
+
+Exit codes: 0 = migration ran (findings are reported but do not fail the run);
+2 = usage error (missing or unsupported --from, unknown flag, positional argument,
+or unreachable corpus directory).
+`,
+  help: `Usage: adr help [command]
+
+Show top-level help or detailed help for one command.
+
+Arguments:
+  [command]       Optional command to describe
+
+Examples:
+  adr help
+  adr help check
+`,
 };
 
 const COMMANDS = Object.keys(COMMAND_USAGE);
@@ -222,10 +288,9 @@ function commandUsageFor(command: string): string | undefined {
   return Object.hasOwn(COMMAND_USAGE, command) ? COMMAND_USAGE[command] : undefined;
 }
 
-/** Usage error: message + usage on stderr, exit 2. Explicit help goes to stdout at 0. */
-function usage(message?: string): number {
-  if (message) writeStderr(`${message}\n`);
-  writeStderr(USAGE);
+/** Usage error: concise guidance on stderr, exit 2. Explicit help goes to stdout at 0. */
+function usageError(message: string, command?: string): number {
+  writeStderr(formatUsageError(message, command ? commandUsageFor(command) ?? '' : USAGE, command));
   return 2;
 }
 
@@ -235,7 +300,13 @@ function isHelpFlag(arg: string): boolean {
 
 /** `adr help [command]` — usage on stdout at 0; unknown command is still a usage error. */
 function runHelp(args: string[]): number {
-  const requested = args.find((arg) => !arg.startsWith('-'));
+  const unsupportedFlag = args.find((arg) => arg.startsWith('-') && !isHelpFlag(arg));
+  if (unsupportedFlag) return usageError(`Unknown option "${unsupportedFlag}".`);
+
+  const positionals = args.filter((arg) => !arg.startsWith('-'));
+  if (positionals.length > 1) return usageError('adr help accepts at most one command.');
+
+  const requested = positionals[0];
   if (requested === undefined) {
     writeStdout(USAGE);
     return 0;
@@ -243,11 +314,32 @@ function runHelp(args: string[]): number {
 
   const commandUsage = commandUsageFor(requested);
   if (!commandUsage) {
-    return usage(`Unknown command "${requested}". Known commands: ${COMMANDS.join(', ')}`);
+    return usageError(unknownCommandMessage(requested));
   }
 
   writeStdout(commandUsage);
   return 0;
+}
+
+function editDistance(left: string, right: string): number {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitution = previous[rightIndex - 1]! + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1);
+      current[rightIndex] = Math.min(previous[rightIndex]! + 1, current[rightIndex - 1]! + 1, substitution);
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length]!;
+}
+
+function unknownCommandMessage(command: string): string {
+  const suggestion = COMMANDS
+    .map((candidate) => ({ candidate, distance: editDistance(command, candidate) }))
+    .sort((left, right) => left.distance - right.distance || left.candidate.localeCompare(right.candidate))[0];
+  const hint = suggestion && suggestion.distance <= 2 ? ` Did you mean "${suggestion.candidate}"?` : '';
+  return `Unknown command "${command}".${hint}`;
 }
 
 function parseCommandArgs(
@@ -294,12 +386,12 @@ async function runLint(args: string[]): Promise<number> {
       dir: { type: 'string', default: 'docs/adr' },
     });
   } catch (error) {
-    return usage(error instanceof Error ? error.message : String(error));
+    return usageError(error instanceof Error ? error.message : String(error), 'lint');
   }
 
   const dir = String(parsed.values.dir);
   if (parsed.positionals.length > 0 && hasValueFlag(args, '--dir')) {
-    const exitCode = await ensureCorpusDirectoryReadable(dir);
+    const exitCode = await ensureCorpusDirectoryReadable(dir, 'lint');
     if (exitCode !== undefined) return exitCode;
   }
 
@@ -310,7 +402,7 @@ async function runLint(args: string[]): Promise<number> {
       paths: parsed.positionals,
     });
   } catch (error) {
-    const exitCode = handleCorpusDirectoryError(error, dir);
+    const exitCode = handleCorpusDirectoryError(error, dir, 'lint');
     if (exitCode !== undefined) return exitCode;
     throw error;
   }
@@ -375,21 +467,22 @@ async function runMigrate(args: string[]): Promise<number> {
       json: { type: 'boolean', default: false },
     });
   } catch (error) {
-    return usage(error instanceof Error ? error.message : String(error));
+    return usageError(error instanceof Error ? error.message : String(error), 'migrate');
   }
 
-  if (parsed.positionals.length > 0) return usage('adr migrate does not accept positional arguments');
+  if (parsed.positionals.length > 0) return usageError('adr migrate does not accept positional arguments.', 'migrate');
   const from = parsed.values.from;
   if (from !== 'madr') {
-    return usage(
+    return usageError(
       from
-        ? `adr migrate --from ${String(from)} is not supported yet; only --from madr is available, and round-trip sync is unsupported (ADR-0008)`
-        : 'adr migrate requires --from madr; non-MADR sources and round-trip sync are unsupported in this phase (ADR-0008)',
+        ? `Unsupported --from value "${String(from)}". Only "madr" is available; migration is one-way.`
+        : 'adr migrate requires --from madr.',
+      'migrate',
     );
   }
 
   const dir = String(parsed.values.dir);
-  const dirExitCode = await ensureCorpusDirectoryReadable(dir);
+  const dirExitCode = await ensureCorpusDirectoryReadable(dir, 'migrate');
   if (dirExitCode !== undefined) return dirExitCode;
 
   let result: Awaited<ReturnType<typeof migrateMadr>>;
@@ -400,7 +493,7 @@ async function runMigrate(args: string[]): Promise<number> {
       rename: parsed.values.rename === true,
     });
   } catch (error) {
-    const exitCode = handleCorpusDirectoryError(error, dir);
+    const exitCode = handleCorpusDirectoryError(error, dir, 'migrate');
     if (exitCode !== undefined) return exitCode;
     throw error;
   }
@@ -423,11 +516,11 @@ async function runNew(args: string[]): Promise<number> {
       status: { type: 'string', default: 'draft' },
     });
   } catch (error) {
-    return usage(error instanceof Error ? error.message : String(error));
+    return usageError(error instanceof Error ? error.message : String(error), 'new');
   }
 
   const title = parsed.positionals.join(' ').trim();
-  if (!title) return usage('adr new requires a title');
+  if (!title) return usageError('adr new requires a title.', 'new');
 
   try {
     const result = await createAdr({
@@ -443,8 +536,9 @@ async function runNew(args: string[]): Promise<number> {
     return 0;
   } catch (error) {
     if (error instanceof ScaffoldError) {
+      if (error.code === 'usage') return usageError(error.message, 'new');
       writeStderr(`${error.message}\n`);
-      return error.code === 'exists' ? 1 : 2;
+      return 1;
     }
     throw error;
   }
@@ -458,19 +552,21 @@ async function runGraph(args: string[]): Promise<number> {
       format: { type: 'string', default: 'dot' },
     });
   } catch (error) {
-    return usage(error instanceof Error ? error.message : String(error));
+    return usageError(error instanceof Error ? error.message : String(error), 'graph');
   }
 
-  if (parsed.positionals.length > 0) return usage('adr graph does not accept positional arguments');
+  if (parsed.positionals.length > 0) return usageError('adr graph does not accept positional arguments.', 'graph');
   const format = String(parsed.values.format);
-  if (format !== 'dot' && format !== 'json') return usage('adr graph --format must be dot or json');
+  if (format !== 'dot' && format !== 'json') {
+    return usageError('adr graph --format must be "dot" or "json".', 'graph');
+  }
 
   const dir = String(parsed.values.dir);
   let result: Awaited<ReturnType<typeof lintCorpus>>;
   try {
     result = await lintCorpus({ dir });
   } catch (error) {
-    const exitCode = handleCorpusDirectoryError(error, dir);
+    const exitCode = handleCorpusDirectoryError(error, dir, 'graph');
     if (exitCode !== undefined) return exitCode;
     throw error;
   }
@@ -487,19 +583,19 @@ async function runExplain(args: string[]): Promise<number> {
       dir: { type: 'string', default: 'docs/adr' },
     });
   } catch (error) {
-    return usage(error instanceof Error ? error.message : String(error));
+    return usageError(error instanceof Error ? error.message : String(error), 'explain');
   }
 
-  if (parsed.positionals.length !== 1) return usage('adr explain requires exactly one path');
+  if (parsed.positionals.length !== 1) return usageError('adr explain requires exactly one path.', 'explain');
   const path = parsed.positionals[0];
-  if (!path) return usage('adr explain requires exactly one path');
+  if (!path) return usageError('adr explain requires exactly one path.', 'explain');
 
   const dir = String(parsed.values.dir);
   let corpus: Awaited<ReturnType<typeof lintCorpus>>;
   try {
     corpus = await lintCorpus({ dir });
   } catch (error) {
-    const exitCode = handleCorpusDirectoryError(error, dir);
+    const exitCode = handleCorpusDirectoryError(error, dir, 'explain');
     if (exitCode !== undefined) return exitCode;
     throw error;
   }
@@ -752,7 +848,7 @@ async function runCheck(args: string[]): Promise<number> {
       dir: { type: 'string', default: 'docs/adr' },
     });
   } catch (error) {
-    return usage(error instanceof Error ? error.message : String(error));
+    return usageError(error instanceof Error ? error.message : String(error), 'check');
   }
 
   const dir = String(parsed.values.dir);
@@ -760,7 +856,7 @@ async function runCheck(args: string[]): Promise<number> {
   try {
     lint = await lintCorpus({ dir });
   } catch (error) {
-    const exitCode = handleCorpusDirectoryError(error, dir);
+    const exitCode = handleCorpusDirectoryError(error, dir, 'check');
     if (exitCode !== undefined) return exitCode;
     throw error;
   }
@@ -786,19 +882,21 @@ async function runEvaluate(args: string[]): Promise<number> {
       dir: { type: 'string' },
     });
   } catch (error) {
-    return usage(error instanceof Error ? error.message : String(error));
+    return usageError(error instanceof Error ? error.message : String(error), 'evaluate');
   }
 
-  if (parsed.positionals.length !== 1) return usage('adr evaluate requires exactly one proposal path');
+  if (parsed.positionals.length !== 1) {
+    return usageError('adr evaluate requires exactly one proposal path.', 'evaluate');
+  }
   const proposalPath = parsed.positionals[0];
-  if (!proposalPath) return usage('adr evaluate requires a proposal path');
+  if (!proposalPath) return usageError('adr evaluate requires a proposal path.', 'evaluate');
   const snapshot = parsed.values.snapshot;
   if (typeof snapshot !== 'string' || snapshot.length === 0) {
-    return usage('adr evaluate requires --snapshot <bundle.json>');
+    return usageError('adr evaluate requires --snapshot <bundle.json>.', 'evaluate');
   }
   const date = parsed.values.date;
   if (typeof date !== 'string' || date.length === 0) {
-    return usage('adr evaluate requires --date YYYY-MM-DD');
+    return usageError('adr evaluate requires --date YYYY-MM-DD.', 'evaluate');
   }
 
   const result = await evaluate({
@@ -808,6 +906,12 @@ async function runEvaluate(args: string[]): Promise<number> {
     json: parsed.values.json === true,
     ...(typeof parsed.values.dir === 'string' ? { dir: parsed.values.dir } : {}),
   });
+  if (result.corpusDirectoryError) {
+    return usageError(
+      corpusDirectoryErrorMessage(result.corpusDirectoryError.dir, result.corpusDirectoryError.kind),
+      'evaluate',
+    );
+  }
   if (result.stderr) writeStderr(result.stderr);
   if (result.stdout) writeStdout(result.stdout);
   return result.exitCode;
@@ -817,7 +921,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const [command, ...args] = argv;
 
   try {
-    if (command === undefined) return usage();
+    if (command === undefined) {
+      writeStdout(USAGE);
+      return 0;
+    }
     if (command === 'help') return runHelp(args);
     if (isHelpFlag(command)) return runHelp(args);
     if (command === '--version' || command === '-V') {
@@ -841,7 +948,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command === 'check') return await runCheck(args);
     if (command === 'evaluate') return await runEvaluate(args);
     if (command === 'queue') return await runQueue(args);
-    return usage(`Unknown command "${command}"`);
+    return usageError(unknownCommandMessage(command));
   } catch (error) {
     writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
     return 1;

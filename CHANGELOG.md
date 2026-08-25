@@ -9,6 +9,16 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Changed
+
+- **The CLI help is now task-oriented and suitable for discovery.** Top-level
+  help names and describes each command, shows common workflows, links to the
+  command reference, and no longer exposes an internal ADR citation. Every
+  command now documents its arguments and examples; usage errors point to the
+  relevant command instead of dumping unrelated global help; likely command
+  typos receive a suggestion; and invoking `adr` without arguments shows help
+  successfully.
+
 ## [0.9.0] - 2026-08-24
 
 ### Added

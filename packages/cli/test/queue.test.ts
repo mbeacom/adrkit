@@ -97,7 +97,8 @@ describe('adr queue — usage errors (exit 2, empty stdout)', () => {
     const { stdout, stderr, exitCode } = await runAdr(['queue', '--dir', `${FIX}/within-sla-corpus`, '--format', 'csv']);
     expect(exitCode).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toContain("Invalid --format value: 'csv'");
+    expect(stderr).toContain('Invalid --format value "csv"');
+    expect(stderr).toContain("Run 'adr help queue' for more information.");
   });
 
   test('(e) timezone-less --as-of is rejected', async () => {
@@ -123,18 +124,31 @@ describe('adr queue — usage errors (exit 2, empty stdout)', () => {
     expect(stderr).toBe('');
   });
 
-  test('(n) unknown flag → exit 2 with frozen message', async () => {
+  test('(n) unknown option points to focused help', async () => {
     const { stdout, stderr, exitCode } = await runAdr(['queue', '--unknown-flag']);
     expect(exitCode).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toBe("Unknown flag: '--unknown-flag'. See 'adr queue --help'.\n");
+    expect(stderr).toBe(
+      `Error: Unknown option "--unknown-flag".\n\nUsage: adr queue [options]\nRun 'adr help queue' for more information.\n`,
+    );
+  });
+
+  test('positional corpus path explains how to use --dir', async () => {
+    const { stdout, stderr, exitCode } = await runAdr(['queue', 'docs/adr']);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe('');
+    expect(stderr).toBe(
+      `Error: Positional argument "docs/adr" is not supported. Use --dir <path> to select the ADR corpus.\n\nUsage: adr queue [options]\nRun 'adr help queue' for more information.\n`,
+    );
   });
 
   test('(o) missing --dir → corpus-not-found exit 2 (not generic exit 1)', async () => {
     const { stdout, stderr, exitCode } = await runAdr(['queue', '--dir', `${FIX}/does-not-exist`, '--as-of', '2026-01-08']);
     expect(exitCode).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toBe(`Corpus directory not found: '${FIX}/does-not-exist'.\n`);
+    expect(stderr).toBe(
+      `Error: Corpus directory not found: "${FIX}/does-not-exist".\n\nUsage: adr queue [options]\nRun 'adr help queue' for more information.\n`,
+    );
   });
 });
 
@@ -143,27 +157,40 @@ describe('adr queue — value-taking flags require a value (exit 2)', () => {
     const { stdout, stderr, exitCode } = await runAdr(['queue', '--as-of']);
     expect(exitCode).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toBe("Missing value for flag '--as-of'. See 'adr queue --help'.\n");
+    expect(stderr).toContain('Error: Missing value for option "--as-of".');
+    expect(stderr).toContain("Run 'adr help queue' for more information.");
   });
 
   test('bare --dir (no value) is a usage error', async () => {
     const { stdout, stderr, exitCode } = await runAdr(['queue', '--dir']);
     expect(exitCode).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toBe("Missing value for flag '--dir'. See 'adr queue --help'.\n");
+    expect(stderr).toContain('Error: Missing value for option "--dir".');
+    expect(stderr).toContain("Run 'adr help queue' for more information.");
   });
+
+  for (const args of [['--dir', ''], ['--dir=']]) {
+    test(`${args.map((arg) => JSON.stringify(arg)).join(' ')} rejects an empty value`, async () => {
+      const { stdout, stderr, exitCode } = await runAdr(['queue', ...args]);
+      expect(exitCode).toBe(2);
+      expect(stdout).toBe('');
+      expect(stderr).toContain('Error: Missing value for option "--dir".');
+    });
+  }
 
   test('bare --format (no value) is a usage error', async () => {
     const { stdout, stderr, exitCode } = await runAdr(['queue', '--format']);
     expect(exitCode).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toBe("Missing value for flag '--format'. See 'adr queue --help'.\n");
+    expect(stderr).toContain('Error: Missing value for option "--format".');
+    expect(stderr).toContain("Run 'adr help queue' for more information.");
   });
 
   test('--as-of does not consume a following flag as its value', async () => {
     const { stdout, stderr, exitCode } = await runAdr(['queue', '--as-of', '--format', 'json']);
     expect(exitCode).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toBe("Missing value for flag '--as-of'. See 'adr queue --help'.\n");
+    expect(stderr).toContain('Error: Missing value for option "--as-of".');
+    expect(stderr).toContain("Run 'adr help queue' for more information.");
   });
 });

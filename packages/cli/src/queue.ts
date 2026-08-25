@@ -1,9 +1,9 @@
-import { stat } from 'node:fs/promises';
 import { buildQueueReport, formatQueueReportJson, formatQueueReportMarkdown, lintCorpus, resolveAsOf } from '@adrkit/core';
+import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
 
 const USAGE = `Usage: adr queue [options]
 
-Emit the ARB operations queue report for the local ADR corpus to stdout.
+Show the architecture review board operations queue for the local ADR corpus.
 
 Options:
   --dir <path>              ADR corpus directory (default: docs/adr)
@@ -11,7 +11,12 @@ Options:
                             Accepts YYYY-MM-DD or an ISO datetime with an explicit
                             timezone (e.g. 2026-01-08 or 2026-01-08T00:00:00Z).
   --format markdown|json    Output format (default: markdown)
-  --help                    Show this help and exit
+  -h, --help                Show this help and exit
+
+Examples:
+  adr queue
+  adr queue --as-of 2026-08-24
+  adr queue --format json
 
 Exit codes: 0 = report, no error findings; 1 = report with corpus error findings;
 2 = usage error (invalid flag/value or unreachable corpus directory).
@@ -20,6 +25,11 @@ Exit codes: 0 = report, no error findings; 1 = report with corpus error findings
 /** Re-exported so `adr help queue` renders the same text as `adr queue --help`. */
 export const QUEUE_USAGE = USAGE;
 
+function usageError(message: string): number {
+  process.stderr.write(formatUsageError(message, USAGE, 'queue'));
+  return 2;
+}
+
 interface ParsedFlags {
   dir: string;
   asOf?: string;
@@ -27,7 +37,11 @@ interface ParsedFlags {
   help: boolean;
 }
 
-type ParseResult = { ok: true; flags: ParsedFlags } | { ok: false; unknown: string } | { ok: false; missing: string };
+type ParseResult =
+  | { ok: true; flags: ParsedFlags }
+  | { ok: false; unknown: string }
+  | { ok: false; positional: string }
+  | { ok: false; missing: string };
 
 function parseFlags(args: string[]): ParseResult {
   const flags: ParsedFlags = { dir: 'docs/adr', format: 'markdown', help: false };
@@ -45,6 +59,7 @@ function parseFlags(args: string[]): ParseResult {
 
     const valueFlag = name === '--dir' || name === '--as-of' || name === '--format';
     if (!valueFlag) {
+      if (!name.startsWith('-')) return { ok: false, positional: name };
       return { ok: false, unknown: name };
     }
 
@@ -61,6 +76,7 @@ function parseFlags(args: string[]): ParseResult {
       value = next;
       i += 1;
     }
+    if (value.length === 0) return { ok: false, missing: name };
 
     if (name === '--dir') flags.dir = value;
     else if (name === '--as-of') flags.asOf = value;
@@ -70,24 +86,17 @@ function parseFlags(args: string[]): ParseResult {
   return { ok: true, flags };
 }
 
-async function directoryExists(dir: string): Promise<boolean> {
-  try {
-    return (await stat(dir)).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
 /** Entrypoint for the `adr queue` subcommand. Returns the process exit code. */
 export async function runQueue(args: string[]): Promise<number> {
   const parsed = parseFlags(args);
   if (!parsed.ok) {
     if ('missing' in parsed) {
-      process.stderr.write(`Missing value for flag '${parsed.missing}'. See 'adr queue --help'.\n`);
-      return 2;
+      return usageError(`Missing value for option "${parsed.missing}".`);
     }
-    process.stderr.write(`Unknown flag: '${parsed.unknown}'. See 'adr queue --help'.\n`);
-    return 2;
+    if ('positional' in parsed) {
+      return usageError(`Positional argument "${parsed.positional}" is not supported. Use --dir <path> to select the ADR corpus.`);
+    }
+    return usageError(`Unknown option "${parsed.unknown}".`);
   }
 
   const { flags } = parsed;
@@ -97,8 +106,7 @@ export async function runQueue(args: string[]): Promise<number> {
   }
 
   if (flags.format !== 'markdown' && flags.format !== 'json') {
-    process.stderr.write(`Invalid --format value: '${flags.format}'. Expected markdown or json.\n`);
-    return 2;
+    return usageError(`Invalid --format value "${flags.format}". Expected "markdown" or "json".`);
   }
 
   let asOf: string;
@@ -107,22 +115,24 @@ export async function runQueue(args: string[]): Promise<number> {
     if (!resolution.ok) {
       const message =
         resolution.code === 'tzless'
-          ? `Invalid --as-of value: '${flags.asOf}'. Timezone-less datetimes are ambiguous — use YYYY-MM-DD or add an explicit timezone offset (e.g. Z or +05:00).\n`
-          : `Invalid --as-of value: '${flags.asOf}'. Expected YYYY-MM-DD or ISO datetime with explicit timezone (e.g. 2026-01-08 or 2026-01-08T00:00:00Z).\n`;
-      process.stderr.write(message);
-      return 2;
+          ? `Invalid --as-of value "${flags.asOf}". Timezone-less datetimes are ambiguous — use YYYY-MM-DD or add an explicit timezone offset (e.g. Z or +05:00).`
+          : `Invalid --as-of value "${flags.asOf}". Expected YYYY-MM-DD or ISO datetime with explicit timezone (e.g. 2026-01-08 or 2026-01-08T00:00:00Z).`;
+      return usageError(message);
     }
     asOf = resolution.date;
   } else {
     asOf = new Date().toISOString().slice(0, 10);
   }
 
-  if (!(await directoryExists(flags.dir))) {
-    process.stderr.write(`Corpus directory not found: '${flags.dir}'.\n`);
-    return 2;
+  let corpus: Awaited<ReturnType<typeof lintCorpus>>;
+  try {
+    corpus = await lintCorpus({ dir: flags.dir });
+  } catch (error) {
+    const kind = corpusDirectoryErrorKind(error, flags.dir);
+    if (kind) return usageError(corpusDirectoryErrorMessage(flags.dir, kind));
+    throw error;
   }
 
-  const corpus = await lintCorpus({ dir: flags.dir });
   const report = buildQueueReport({ corpus, asOf });
   const output = flags.format === 'json' ? formatQueueReportJson(report) : formatQueueReportMarkdown(report);
   process.stdout.write(output);

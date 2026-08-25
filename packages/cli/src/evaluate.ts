@@ -23,6 +23,10 @@ import {
   evaluatePass0,
   type Pass0Input,
 } from '@adrkit/evaluator';
+import {
+  corpusDirectoryErrorKind,
+  type CorpusDirectoryErrorKind,
+} from './errors.ts';
 import { loadSnapshotBundle, SnapshotContractError, type NormalizedSnapshot } from './evaluate-snapshot.ts';
 
 /**
@@ -47,6 +51,10 @@ export interface EvaluateOutput {
   readonly exitCode: 0 | 1 | 2;
   readonly stdout: string;
   readonly stderr: string;
+  readonly corpusDirectoryError?: {
+    readonly dir: string;
+    readonly kind: CorpusDirectoryErrorKind;
+  };
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,24 +68,12 @@ export function isValidIsoDate(value: string): boolean {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
-type CorpusDirectoryErrorKind = 'not-found' | 'not-readable';
-
 function resolveFromCwd(path: string, cwd: string): string {
   return isAbsolute(path) ? path : resolve(cwd, path);
 }
 
 function corpusDirectoryOutput(dir: string, kind: CorpusDirectoryErrorKind): EvaluateOutput {
-  const state = kind === 'not-readable' ? 'not readable' : 'not found';
-  return { exitCode: 2, stdout: '', stderr: `Corpus directory ${state}: '${dir}'.\n` };
-}
-
-function corpusDirectoryErrorKind(error: unknown, dir: string, cwd: string): CorpusDirectoryErrorKind | undefined {
-  const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : undefined;
-  if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'EACCES' && code !== 'EPERM') return undefined;
-
-  const path = typeof error === 'object' && error !== null && 'path' in error ? error.path : undefined;
-  if (typeof path === 'string' && resolveFromCwd(path, cwd) !== resolveFromCwd(dir, cwd)) return undefined;
-  return code === 'EACCES' || code === 'EPERM' ? 'not-readable' : 'not-found';
+  return { exitCode: 2, stdout: '', stderr: '', corpusDirectoryError: { dir, kind } };
 }
 
 function handleCorpusDirectoryError(error: unknown, dir: string, cwd: string): EvaluateOutput | undefined {

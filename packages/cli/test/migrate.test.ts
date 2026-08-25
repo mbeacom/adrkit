@@ -44,10 +44,11 @@ describe('adr migrate CLI', () => {
     expect(second.stdout).toContain('unchanged  ');
   });
 
-  test('rejects non-MADR sources and documents unsupported round-trip sync', async () => {
+  test('rejects non-MADR sources and explains that migration is one-way', async () => {
     const result = await runAdr(['migrate', '--from', 'agent-log']);
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('only --from madr is available');
-    expect(result.stderr).toContain('round-trip sync is unsupported');
+    expect(result.stderr).toContain('Only "madr" is available');
+    expect(result.stderr).toContain('migration is one-way');
+    expect(result.stderr).not.toContain('ADR-0008');
   });
 });
