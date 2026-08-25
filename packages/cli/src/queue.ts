@@ -5,6 +5,7 @@ import {
   lintCorpus,
   resolveAsOf,
 } from '@adrkit/core';
+import { commandOptions, requiredCommandValueChoices } from './command-registry.ts';
 import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
 import { closestCandidate } from './recovery.ts';
 
@@ -44,7 +45,8 @@ interface ParsedFlags {
   help: boolean;
 }
 
-const QUEUE_OPTIONS = ['--dir', '--as-of', '--format', '--help'] as const;
+const QUEUE_OPTIONS = commandOptions('queue');
+const QUEUE_FORMAT_CHOICES = requiredCommandValueChoices('queue', '--format');
 
 function formatChoiceList(values: readonly string[]): string {
   if (values.length === 1) return `"${values[0]}"`;
@@ -58,8 +60,8 @@ function unknownOptionMessage(option: string): string {
 }
 
 function formatMessage(value: string): string {
-  const suggestion = closestCandidate(value, ['markdown', 'json']);
-  const expected = formatChoiceList(['markdown', 'json']);
+  const suggestion = closestCandidate(value, QUEUE_FORMAT_CHOICES);
+  const expected = formatChoiceList(QUEUE_FORMAT_CHOICES);
   const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
   return `Invalid --format value "${value}".${hint} Expected ${expected}.`;
 }

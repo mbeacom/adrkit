@@ -30,6 +30,15 @@ import {
 import { evaluate } from './evaluate.ts';
 import { closestCandidate } from './recovery.ts';
 import {
+  COMMAND_ORDER,
+  TOP_LEVEL_OPTIONS,
+  commandOptions,
+  renderTopLevelUsage,
+  requiredCommandValueChoices,
+  type CommandName,
+} from './command-registry.ts';
+import { COMPLETION_USAGE, runCompletion } from './completion.ts';
+import {
   corpusDirectoryErrorKind,
   corpusDirectoryErrorMessage,
   formatUsageError,
@@ -91,42 +100,13 @@ function hasValueFlag(args: readonly string[], flag: string): boolean {
   return false;
 }
 
-const USAGE = `adrkit ${CLI_VERSION}
-Decision memory for human- and agent-authored plans.
-
-Usage:
-  adr <command> [options]
-
-Commands:
-  new       Create a decision record
-  lint      Validate ADR files and corpus rules
-  check     Review changed files against governing decisions
-  explain   Explain which decisions govern a path
-  graph     Render decision relationships
-  queue     Show the architecture review board queue
-  evaluate  Evaluate a proposal from an offline snapshot
-  migrate   Import a MADR corpus into adrkit
-  help      Show help for a command
-
-Options:
-  -h, --help       Show help
-  -V, --version    Show version
-
-Examples:
-  adr new "Adopt PostgreSQL"
-  adr lint
-  adr explain src/auth/session.ts
-  adr check src/auth/session.ts package.json
-
-Run 'adr help <command>' for command-specific options and examples.
-Documentation: https://adrkit.dev/commands/
-`;
+const USAGE = renderTopLevelUsage(CLI_VERSION);
 
 /**
  * Per-command help, printed by `adr <command> --help` and `adr help <command>`.
  * `queue` reuses its own richer usage text so there is a single source for it.
  */
-const COMMAND_USAGE: Record<string, string> = {
+const COMMAND_USAGE = {
   new: `Usage: adr new <title> [options]
 
 Create a decision record with the next available numeric ID.
@@ -290,22 +270,24 @@ Examples:
   adr help
   adr help check
 `,
-};
+  completion: COMPLETION_USAGE,
+} satisfies Record<CommandName, string>;
 
-const COMMANDS = Object.keys(COMMAND_USAGE);
-const TOP_LEVEL_OPTIONS = ['--help', '--version'] as const;
-const LINT_OPTIONS = ['--json', '--dir', '--help'] as const;
-const MIGRATE_OPTIONS = ['--from', '--dir', '--dry-run', '--rename', '--json', '--help'] as const;
-const NEW_OPTIONS = ['--status', '--dir', '--json', '--help'] as const;
-const GRAPH_OPTIONS = ['--dir', '--format', '--help'] as const;
-const EXPLAIN_OPTIONS = ['--json', '--dir', '--help'] as const;
-const CHECK_OPTIONS = ['--json', '--dir', '--help'] as const;
-const EVALUATE_OPTIONS = ['--snapshot', '--date', '--json', '--dir', '--help'] as const;
-const NEW_ALLOWED_STATUSES = ['draft', 'proposed', 'rejected', 'deprecated'] as const;
+const COMMANDS = COMMAND_ORDER;
+const LINT_OPTIONS = commandOptions('lint');
+const MIGRATE_OPTIONS = commandOptions('migrate');
+const NEW_OPTIONS = commandOptions('new');
+const GRAPH_OPTIONS = commandOptions('graph');
+const EXPLAIN_OPTIONS = commandOptions('explain');
+const CHECK_OPTIONS = commandOptions('check');
+const EVALUATE_OPTIONS = commandOptions('evaluate');
+const NEW_ALLOWED_STATUSES = requiredCommandValueChoices('new', '--status');
+const GRAPH_FORMAT_CHOICES = requiredCommandValueChoices('graph', '--format');
+const MIGRATE_FROM_CHOICES = requiredCommandValueChoices('migrate', '--from');
 
 /** Own-property lookup: `adr help constructor` must be a usage error, not a crash. */
 function commandUsageFor(command: string): string | undefined {
-  return Object.hasOwn(COMMAND_USAGE, command) ? COMMAND_USAGE[command] : undefined;
+  return Object.hasOwn(COMMAND_USAGE, command) ? COMMAND_USAGE[command as CommandName] : undefined;
 }
 
 /** Usage error: concise guidance on stderr, exit 2. Explicit help goes to stdout at 0. */
@@ -484,8 +466,8 @@ async function runMigrate(args: string[]): Promise<number> {
 
   if (parsed.positionals.length > 0) return usageError('adr migrate does not accept positional arguments.', 'migrate');
   const from = parsed.values.from;
-  if (from !== 'madr') {
-    const suggestion = typeof from === 'string' ? closestCandidate(from, ['madr']) : undefined;
+  if (typeof from !== 'string' || !MIGRATE_FROM_CHOICES.includes(from)) {
+    const suggestion = typeof from === 'string' ? closestCandidate(from, MIGRATE_FROM_CHOICES) : undefined;
     return usageError(
       from
         ? suggestion
@@ -580,8 +562,8 @@ async function runGraph(args: string[]): Promise<number> {
 
   if (parsed.positionals.length > 0) return usageError('adr graph does not accept positional arguments.', 'graph');
   const format = String(parsed.values.format);
-  if (format !== 'dot' && format !== 'json') {
-    const suggestion = closestCandidate(format, ['dot', 'json']);
+  if (!GRAPH_FORMAT_CHOICES.includes(format)) {
+    const suggestion = closestCandidate(format, GRAPH_FORMAT_CHOICES);
     return usageError(
       suggestion
         ? `adr graph --format must be "dot" or "json". Did you mean "${suggestion}"?`
@@ -963,8 +945,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command.startsWith('-')) return usageError(unknownOptionMessage(command, TOP_LEVEL_OPTIONS));
 
     // `adr <command> --help` prints that command's usage to stdout at 0. `queue`
-    // parses `--help` itself, so it is excluded here to keep one code path for it.
-    const commandUsage = command === 'queue' ? undefined : commandUsageFor(command);
+    // and `completion` parse `--help` themselves, so they are excluded here to keep
+    // one code path for each.
+    const commandUsage = command === 'queue' || command === 'completion' ? undefined : commandUsageFor(command);
     if (commandUsage && args.some(isHelpFlag)) {
       writeStdout(commandUsage);
       return 0;
@@ -978,6 +961,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command === 'check') return await runCheck(args);
     if (command === 'evaluate') return await runEvaluate(args);
     if (command === 'queue') return await runQueue(args);
+    if (command === 'completion') return await runCompletion(args);
     return usageError(unknownCommandMessage(command));
   } catch (error) {
     writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);

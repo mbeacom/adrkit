@@ -44,8 +44,30 @@ registry and would run whatever anyone publishes under it — and in CI, where n
 assumes `--yes` on a non-TTY, it would install and run it without prompting. Use
 `npx @adrkit/cli` for zero-install.
 
+## Shell completions
+
+`adr completion <bash|zsh|fish>` prints a deterministic completion script to
+stdout. The generated script registers both `adr` and `adrkit` where the shell
+format permits.
+
+```sh
+adr completion bash > ~/.local/share/bash-completion/completions/adr
+cp ~/.local/share/bash-completion/completions/adr ~/.local/share/bash-completion/completions/adrkit
+adr completion zsh > ~/.zsh/completions/_adr
+cp ~/.zsh/completions/_adr ~/.zsh/completions/_adrkit
+adr completion fish > ~/.config/fish/completions/adr.fish
+cp ~/.config/fish/completions/adr.fish ~/.config/fish/completions/adrkit.fish
+```
+
+If you prefer symlinks, point both Fish entry points at the same generated file:
+
+```sh
+ln -sf ~/.config/fish/completions/adr.fish ~/.config/fish/completions/adrkit.fish
+```
+
 The `adr` binary includes `new`, `lint`, `graph`, `explain`, `check`, `queue`,
-`migrate --from madr`, and the offline deterministic `evaluate` command.
+`migrate --from madr`, `completion`, and the offline deterministic `evaluate`
+command.
 
 Run `adr --help` for the command list, `adr help <command>` for one command's
 flags, and `adr --version` to print the installed version.

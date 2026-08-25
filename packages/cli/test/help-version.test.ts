@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { COMMAND_ORDER } from '../src/command-registry.ts';
 import { CLI_VERSION } from '../src/index.ts';
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
@@ -67,6 +68,8 @@ describe('adr help (#42)', () => {
     expect(result.stdout).toContain('Commands:');
     expect(result.stdout).toContain('Create a decision record');
     expect(result.stdout).toContain('Review changed files against governing decisions');
+    expect(result.stdout).toContain('Generate shell completion scripts');
+    expect(result.stdout).toContain('adr completion bash');
     expect(result.stdout).toContain('Examples:');
     expect(result.stdout).toContain("Run 'adr help <command>'");
     expect(result.stdout).toContain('Documentation: https://adrkit.dev/commands/');
@@ -128,13 +131,23 @@ describe('adr help (#42)', () => {
   });
 
   test('adr <command> --help matches adr help <command>', async () => {
-    for (const command of ['lint', 'migrate', 'new', 'graph', 'explain', 'check', 'evaluate', 'queue']) {
+    for (const command of COMMAND_ORDER) {
       const [viaFlag, viaHelp] = await Promise.all([runAdr([command, '--help']), runAdr(['help', command])]);
 
       expect(viaFlag.exitCode).toBe(0);
+      expect(viaHelp.exitCode).toBe(0);
       expect(viaFlag.stderr).toBe('');
-      expect(viaFlag.stdout).toBe(viaHelp.stdout);
       expect(viaFlag.stdout).toContain('Examples:');
+
+      expect(viaHelp.stderr).toBe('');
+
+      if (command === 'help') {
+        expect(viaFlag.stdout).toContain('adrkit');
+        expect(viaHelp.stdout).toContain('Usage: adr help [command]');
+        continue;
+      }
+
+      expect(viaFlag.stdout).toBe(viaHelp.stdout);
     }
   });
 

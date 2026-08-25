@@ -24,6 +24,12 @@ Until `1.0.0`, minor releases may include breaking changes
   `graph --format`, `migrate --from`, and `queue --format` give near-miss
   hints without changing the existing exit codes or stdout/stderr split.
 
+- **`adr completion` now prints deterministic shell scripts for Bash, Zsh, and
+  Fish.** The command writes to stdout only, covers top-level commands plus each
+  command's documented options, and the CLI README now includes copy-paste
+  activation examples for both `adr` and `adrkit`, including Fish instructions
+  that install or symlink both `adr.fish` and `adrkit.fish`.
+
 ## [0.9.0] - 2026-08-24
 
 ### Added
