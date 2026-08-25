@@ -31,10 +31,13 @@ import { evaluate } from './evaluate.ts';
 import { closestCandidate } from './recovery.ts';
 import {
   COMMAND_ORDER,
+  GLOBAL_COLOR_VALUES,
   TOP_LEVEL_OPTIONS,
   commandOptions,
+  renderGlobalColorUsageLine,
   renderTopLevelUsage,
   requiredCommandValueChoices,
+  withGlobalColorOption,
   type CommandName,
 } from './command-registry.ts';
 import { COMPLETION_USAGE, runCompletion } from './completion.ts';
@@ -46,6 +49,7 @@ import {
 } from './errors.ts';
 import { QUEUE_USAGE, runQueue } from './queue.ts';
 import { isMainModule } from './main-module.ts';
+import { getPresentation, setPresentation, styleUsageBlock, type ColorMode, type StreamStyle } from './presentation.ts';
 
 /**
  * The published `@adrkit/cli` version, reported by `adr --version`. Held as a literal
@@ -54,12 +58,53 @@ import { isMainModule } from './main-module.ts';
  */
 export const CLI_VERSION = '0.9.0';
 
+function topLevelUsage(style?: StreamStyle): string {
+  return renderTopLevelUsage(CLI_VERSION, style);
+}
+
 function writeStdout(text: string): void {
   process.stdout.write(text);
 }
 
 function writeStderr(text: string): void {
   process.stderr.write(text);
+}
+
+function extractColorMode(argv: string[]): { colorMode: ColorMode; args: string[] } | { error: string } {
+  let colorMode: ColorMode = 'auto';
+  const args: string[] = [];
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]!;
+    if (arg === '--') {
+      args.push(...argv.slice(index));
+      break;
+    }
+    if (arg !== '--color' && !arg.startsWith('--color=')) {
+      args.push(arg);
+      continue;
+    }
+
+    let value = '';
+    if (arg === '--color') {
+      const next = argv[index + 1];
+      if (next === undefined || next.startsWith('-')) {
+        return { error: 'Missing value for option "--color".' };
+      }
+      value = next;
+      index += 1;
+    } else {
+      value = arg.slice('--color='.length);
+      if (value.length === 0) return { error: 'Missing value for option "--color".' };
+    }
+
+    if (!GLOBAL_COLOR_VALUES.includes(value as (typeof GLOBAL_COLOR_VALUES)[number])) {
+      return { error: `Invalid --color value "${value}". Expected "auto", "always", or "never".` };
+    }
+    colorMode = value as ColorMode;
+  }
+
+  return { colorMode, args };
 }
 
 function extractUnknownOption(message: string): string | undefined {
@@ -100,7 +145,13 @@ function hasValueFlag(args: readonly string[], flag: string): boolean {
   return false;
 }
 
-const USAGE = renderTopLevelUsage(CLI_VERSION);
+function hasHelpFlagBeforeTerminator(args: readonly string[]): boolean {
+  for (const arg of args) {
+    if (arg === '--') return false;
+    if (isHelpFlag(arg)) return true;
+  }
+  return false;
+}
 
 /**
  * Per-command help, printed by `adr <command> --help` and `adr help <command>`.
@@ -119,6 +170,7 @@ Options:
                       (default: draft)
   --dir <path>        ADR corpus directory (default: docs/adr)
   --json              Emit { id, path } as JSON
+${renderGlobalColorUsageLine()}
   -h, --help          Show this help and exit
 
 Examples:
@@ -137,7 +189,8 @@ Arguments:
 Options:
   --dir <path>    ADR corpus directory (default: docs/adr)
   --json          Emit { checked, findings } as JSON
-  -h, --help      Show this help and exit
+${renderGlobalColorUsageLine()}
+    -h, --help      Show this help and exit
 
 Examples:
   adr lint
@@ -158,6 +211,7 @@ Arguments:
 Options:
   --dir <path>    ADR corpus directory (default: docs/adr)
   --json          Emit the CheckOutcome as JSON
+${renderGlobalColorUsageLine()}
   -h, --help      Show this help and exit
 
 Examples:
@@ -186,6 +240,7 @@ Options:
   --json          Emit { path, governedBy, governing, activeProposals, history,
                   markers, findings }. Pattern matches carry "firedMatchers";
                   file declarations carry "declaredBy".
+${renderGlobalColorUsageLine()}
   -h, --help      Show this help and exit
 
 Examples:
@@ -202,6 +257,7 @@ Render supersedes, relatesTo, and conflictsWith relationships for the corpus.
 Options:
   --dir <path>          ADR corpus directory (default: docs/adr)
   --format dot|json     Output format (default: dot)
+${renderGlobalColorUsageLine()}
   -h, --help            Show this help and exit
 
 Examples:
@@ -223,6 +279,7 @@ Options:
   --date <date>       Evaluation date, YYYY-MM-DD (required)
   --dir <path>        ADR corpus directory (default: proposal directory)
   --json              Emit the evaluation report as JSON
+${renderGlobalColorUsageLine()}
   -h, --help          Show this help and exit
 
 The evaluator routes; it never approves, persists, or writes. There is no --write.
@@ -249,6 +306,7 @@ Options:
   --rename        Rename each migrated file to <id>-<slug>.md so corpus discovery
                   can see it. Off by default, because migration is in place.
   --json          Emit the migration result as JSON
+${renderGlobalColorUsageLine()}
   -h, --help      Show this help and exit
 
 Examples:
@@ -269,18 +327,21 @@ Arguments:
 Examples:
   adr help
   adr help check
+
+Options:
+${renderGlobalColorUsageLine()}
 `,
   completion: COMPLETION_USAGE,
 } satisfies Record<CommandName, string>;
 
 const COMMANDS = COMMAND_ORDER;
-const LINT_OPTIONS = commandOptions('lint');
-const MIGRATE_OPTIONS = commandOptions('migrate');
-const NEW_OPTIONS = commandOptions('new');
-const GRAPH_OPTIONS = commandOptions('graph');
-const EXPLAIN_OPTIONS = commandOptions('explain');
-const CHECK_OPTIONS = commandOptions('check');
-const EVALUATE_OPTIONS = commandOptions('evaluate');
+const LINT_OPTIONS = withGlobalColorOption(commandOptions('lint'));
+const MIGRATE_OPTIONS = withGlobalColorOption(commandOptions('migrate'));
+const NEW_OPTIONS = withGlobalColorOption(commandOptions('new'));
+const GRAPH_OPTIONS = withGlobalColorOption(commandOptions('graph'));
+const EXPLAIN_OPTIONS = withGlobalColorOption(commandOptions('explain'));
+const CHECK_OPTIONS = withGlobalColorOption(commandOptions('check'));
+const EVALUATE_OPTIONS = withGlobalColorOption(commandOptions('evaluate'));
 const NEW_ALLOWED_STATUSES = requiredCommandValueChoices('new', '--status');
 const GRAPH_FORMAT_CHOICES = requiredCommandValueChoices('graph', '--format');
 const MIGRATE_FROM_CHOICES = requiredCommandValueChoices('migrate', '--from');
@@ -292,7 +353,7 @@ function commandUsageFor(command: string): string | undefined {
 
 /** Usage error: concise guidance on stderr, exit 2. Explicit help goes to stdout at 0. */
 function usageError(message: string, command?: string): number {
-  writeStderr(formatUsageError(message, command ? commandUsageFor(command) ?? '' : USAGE, command));
+  writeStderr(formatUsageError(message, command ? commandUsageFor(command) ?? '' : topLevelUsage(getPresentation().stderr), command, getPresentation().stderr));
   return 2;
 }
 
@@ -303,14 +364,14 @@ function isHelpFlag(arg: string): boolean {
 /** `adr help [command]` — usage on stdout at 0; unknown command is still a usage error. */
 function runHelp(args: string[]): number {
   const unsupportedFlag = args.find((arg) => arg.startsWith('-') && !isHelpFlag(arg));
-  if (unsupportedFlag) return usageError(unknownOptionMessage(unsupportedFlag, ['--help']));
+  if (unsupportedFlag) return usageError(unknownOptionMessage(unsupportedFlag, withGlobalColorOption(['--help'])));
 
   const positionals = args.filter((arg) => !arg.startsWith('-'));
   if (positionals.length > 1) return usageError('adr help accepts at most one command.');
 
   const requested = positionals[0];
   if (requested === undefined) {
-    writeStdout(USAGE);
+    writeStdout(topLevelUsage(getPresentation().stdout));
     return 0;
   }
 
@@ -319,7 +380,7 @@ function runHelp(args: string[]): number {
     return usageError(unknownCommandMessage(requested));
   }
 
-  writeStdout(commandUsage);
+  writeStdout(styleUsageBlock(commandUsage, getPresentation().stdout));
   return 0;
 }
 
@@ -343,14 +404,14 @@ function parseCommandArgs(
   }
 }
 
-function renderFinding(finding: Finding): string {
+function renderFinding(finding: Finding, style = getPresentation().stdout): string {
   const field = finding.field ? ` ${finding.field}` : '';
   const id = finding.id ? ` ${finding.id}` : '';
   const pattern = finding.pattern ? ` ${finding.pattern}` : '';
-  return `  ${finding.severity} ${finding.rule}${id}${field}${pattern}: ${finding.message}\n`;
+  return `  ${style.severity(finding.severity)} ${style.label(finding.rule)}${id}${field}${pattern}: ${finding.message}\n`;
 }
 
-function renderHumanLint(findings: readonly Finding[]): string {
+function renderHumanLint(findings: readonly Finding[], style = getPresentation().stdout): string {
   const grouped = new Map<string, Finding[]>();
   for (const finding of findings) {
     const group = finding.path ?? '(corpus)';
@@ -364,9 +425,9 @@ function renderHumanLint(findings: readonly Finding[]): string {
 
   let output = '';
   for (const [path, groupFindings] of [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    output += `${path}\n`;
+    output += `${style.path(path)}\n`;
     for (const finding of groupFindings) {
-      output += renderFinding(finding);
+      output += renderFinding(finding, style);
     }
   }
   return output;
@@ -406,15 +467,17 @@ async function runLint(args: string[]): Promise<number> {
   if (parsed.values.json) {
     writeStdout(`${JSON.stringify({ checked: result.checked, findings }, null, 2)}\n`);
   } else {
-    const humanFindings = renderHumanLint(findings);
+    const humanFindings = renderHumanLint(findings, getPresentation().stderr);
     if (humanFindings) writeStderr(humanFindings);
-    writeStdout(`checked ${result.checked} records, ${counts.errors} errors, ${counts.warnings} warnings\n`);
+    writeStdout(
+      `${getPresentation().stdout.label('checked')} ${result.checked} records, ${counts.errors} errors, ${counts.warnings} warnings\n`,
+    );
   }
 
   return exitCodeForFindings(findings);
 }
 
-function renderHumanMigrate(result: Awaited<ReturnType<typeof migrateMadr>>): string {
+function renderHumanMigrate(result: Awaited<ReturnType<typeof migrateMadr>>, style = getPresentation().stdout): string {
   const counts = {
     migrated: 0,
     updated: 0,
@@ -427,23 +490,23 @@ function renderHumanMigrate(result: Awaited<ReturnType<typeof migrateMadr>>): st
   for (const item of result.results) {
     counts[item.outcome] += 1;
     const renamed = item.renamedTo ? ` -> ${item.renamedTo}` : '';
-    output += `${item.outcome}  ${item.path}${renamed}\n`;
+    output += `${style.outcome(item.outcome)}  ${style.path(item.path)}${renamed}\n`;
   }
 
-  output += `summary: migrated ${counts.migrated}, updated ${counts.updated}, unchanged ${counts.unchanged}, diverged ${counts.diverged}, skipped ${counts.skipped}\n`;
-  output += 'Divergence (report only):\n';
+  output += `${style.label('summary:')} migrated ${counts.migrated}, updated ${counts.updated}, unchanged ${counts.unchanged}, diverged ${counts.diverged}, skipped ${counts.skipped}\n`;
+  output += `${style.heading('Divergence (report only):')}\n`;
   if (result.divergence.length === 0) {
-    output += '  none\n';
+    output += `  ${style.note('none')}\n`;
   } else {
     for (const item of result.divergence) {
-      output += `  ${item.path}  sourceRef=${item.sourceRef}\n`;
+      output += `  ${style.path(item.path)}  ${style.label('sourceRef')}=${item.sourceRef}\n`;
     }
   }
 
   if (result.findings.length > 0) {
-    output += 'Findings:\n';
+    output += `${style.heading('Findings:')}\n`;
     for (const finding of result.findings) {
-      output += renderFinding(finding);
+      output += renderFinding(finding, style);
     }
   }
 
@@ -498,7 +561,7 @@ async function runMigrate(args: string[]): Promise<number> {
   if (parsed.values.json) {
     writeStdout(`${JSON.stringify(result, null, 2)}\n`);
   } else {
-    writeStdout(renderHumanMigrate(result));
+    writeStdout(renderHumanMigrate(result, getPresentation().stdout));
   }
 
   return 0;
@@ -536,7 +599,7 @@ async function runNew(args: string[]): Promise<number> {
     if (parsed.values.json) {
       writeStdout(`${JSON.stringify({ id: result.id, path: result.path }, null, 2)}\n`);
     } else {
-      writeStdout(`${result.path}\n`);
+      writeStdout(`${getPresentation().stdout.path(result.path)}\n`);
     }
     return 0;
   } catch (error) {
@@ -634,9 +697,9 @@ async function runExplain(args: string[]): Promise<number> {
         )}\n`,
       );
     } else {
-      const humanFindings = renderHumanLint(corpusFindings);
+      const humanFindings = renderHumanLint(corpusFindings, getPresentation().stderr);
       if (humanFindings) writeStderr(humanFindings);
-      writeStdout(renderMarkerScanNote(scan));
+      writeStdout(renderMarkerScanNote(scan, getPresentation().stdout));
     }
     return 1;
   }
@@ -659,43 +722,48 @@ async function runExplain(args: string[]): Promise<number> {
   }
 
   if (governedBy.length === 0) {
-    writeStdout(`No decision governs ${path}.\n`);
+    writeStdout(`${getPresentation().stdout.note('No decision governs')} ${getPresentation().stdout.path(path)}.\n`);
   } else {
     if (buckets.governing.length === 0) {
-      writeStdout(`No accepted decision governs ${path}.\n`);
+      writeStdout(`${getPresentation().stdout.note('No accepted decision governs')} ${getPresentation().stdout.path(path)}.\n`);
     } else {
-      writeStdout(renderDecisionGroup(`Decisions governing ${path}:`, buckets.governing));
+      writeStdout(renderDecisionGroup(`Decisions governing ${path}:`, buckets.governing, '  ', getPresentation().stdout));
     }
-    writeStdout(renderDecisionGroup('Active proposals (not yet binding):', buckets.activeProposals));
-    writeStdout(renderDecisionGroup('Historical records (not binding):', buckets.history));
+    writeStdout(renderDecisionGroup('Active proposals (not yet binding):', buckets.activeProposals, '  ', getPresentation().stdout));
+    writeStdout(renderDecisionGroup('Historical records (not binding):', buckets.history, '  ', getPresentation().stdout));
   }
 
-  writeStdout(renderMarkerScanNote(scan));
+  writeStdout(renderMarkerScanNote(scan, getPresentation().stdout));
 
   if (findings.length > 0) {
-    writeStdout('Findings:\n');
+    writeStdout(`${getPresentation().stdout.heading('Findings:')}\n`);
     for (const finding of findings) {
-      writeStdout(renderFinding(finding));
+      writeStdout(renderFinding(finding, getPresentation().stdout));
     }
   }
 
   return 0;
 }
 
-function renderDecisionGroup(heading: string, decisions: readonly ExplainedDecision[], indent = '  '): string {
+function renderDecisionGroup(
+  heading: string,
+  decisions: readonly ExplainedDecision[],
+  indent = '  ',
+  style = getPresentation().stdout,
+): string {
   if (decisions.length === 0) return '';
-  let output = `${heading}\n`;
+  let output = `${style.heading(heading)}\n`;
   for (const decision of decisions) {
     const successor = decision.supersededBy ? ` (superseded by ${decision.supersededBy})` : '';
-    output += `${indent}${decision.recordId}  [${decision.status}] ${decision.title}${successor}\n`;
+    output += `${indent}${style.label(decision.recordId)}  [${style.status(decision.status)}] ${decision.title}${successor}\n`;
     // "via" is the record reaching out through its own `affects` pattern; "declared by"
     // is the file reaching in with an `@adr` marker. The two are never merged, because
     // which end made the claim is the whole point (ADR-0021).
     for (const matcher of decision.firedMatchers) {
-      output += `${indent}  via ${matcher.type}: ${matcher.pattern}\n`;
+      output += `${indent}  ${style.note('via')} ${matcher.type}: ${style.path(matcher.pattern)}\n`;
     }
     for (const declaration of decision.declaredBy ?? []) {
-      output += `${indent}  declared by ${declaration.path}:${declaration.line} (@adr ${declaration.ref})\n`;
+      output += `${indent}  ${style.note('declared by')} ${style.path(declaration.path)}:${declaration.line} (@adr ${style.label(declaration.ref)})\n`;
     }
   }
   return output;
@@ -733,15 +801,15 @@ function markerScanJson(scan: SourceMarkerScan): {
  * identically to "I never opened this file" or "I stopped reading before the marker"
  * (ADR-0016). Silent when the whole file was scanned, which is the common case.
  */
-function renderMarkerScanNote(scan: SourceMarkerScan): string {
+function renderMarkerScanNote(scan: SourceMarkerScan, style = getPresentation().stdout): string {
   if (scan.state === 'absent') {
-    return `Note: ${scan.path} is not a file in this working tree; no @adr markers were scanned.\n`;
+    return `${style.note('Note:')} ${style.path(scan.path)} is not a file in this working tree; no @adr markers were scanned.\n`;
   }
   if (scan.state === 'unreadable') {
-    return `Note: ${scan.path} could not be read; no @adr markers were scanned.\n`;
+    return `${style.note('Note:')} ${style.path(scan.path)} could not be read; no @adr markers were scanned.\n`;
   }
   if (scan.state === 'out-of-tree') {
-    return `Note: ${scan.path} is not a repo-relative path inside this working tree; no @adr markers were scanned.\n`;
+    return `${style.note('Note:')} ${style.path(scan.path)} is not a repo-relative path inside this working tree; no @adr markers were scanned.\n`;
   }
   // The measured extent, not the window constant: the scan stops at the last complete
   // line inside the window, so the two differ for almost every real file. Only a scanned
@@ -749,7 +817,7 @@ function renderMarkerScanNote(scan: SourceMarkerScan): string {
   // conjunction is how the types say that, not a fallback, which is why there is no
   // window-constant default to reprint if it were ever absent.
   if (scan.truncated && scan.scannedBytes !== undefined && scan.fileBytes !== undefined) {
-    return `Note: only the first ${scan.scannedBytes} of ${scan.fileBytes} bytes of ${scan.path} were scanned for @adr markers.\n`;
+    return `${style.note('Note:')} only the first ${scan.scannedBytes} of ${scan.fileBytes} bytes of ${style.path(scan.path)} were scanned for @adr markers.\n`;
   }
   return '';
 }
@@ -776,23 +844,28 @@ function markerScanExtents(batch: SourceMarkerBatchScan): Map<string, string> {
 function renderHumanCheck(
   outcome: ReturnType<typeof checkChanges>,
   extents: Map<string, string> = new Map(),
+  style = getPresentation().stdout,
 ): string {
   let output = '';
   if (outcome.governedBy.length === 0) {
-    output += 'No decisions govern the changed files.\n';
+    output += `${style.note('No decisions govern the changed files.')}\n`;
   } else {
     if (outcome.governing.length === 0) {
-      output += 'No accepted decisions govern the changed files.\n';
+      output += `${style.note('No accepted decisions govern the changed files.')}\n`;
     } else {
-      output += renderDecisionGroup('Decisions governing this change:', outcome.governing);
+      output += renderDecisionGroup('Decisions governing this change:', outcome.governing, '  ', style);
     }
     output += renderDecisionGroup(
       'Active proposals touching this change (not yet binding):',
       outcome.activeProposals,
+      '  ',
+      style,
     );
     output += renderDecisionGroup(
       'Historical records that once covered this change (not binding):',
       outcome.history,
+      '  ',
+      style,
     );
   }
 
@@ -801,7 +874,7 @@ function renderHumanCheck(
   if (outcome.markerScan && outcome.markerScan.totalCandidates > 0) {
     const counts = outcome.markerScan.counts;
     output +=
-      `marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` +
+      `${style.label('marker scan:')} ${counts.scanned} scanned, ${counts.absent} absent, ` +
       `${counts.unreadable} unreadable, ${counts['out-of-tree']} out-of-tree, ` +
       `${counts.truncated} truncated, ${counts.skipped} skipped\n`;
 
@@ -814,7 +887,7 @@ function renderHumanCheck(
     if (unavailable.length > 0) {
       const shown = unavailable.slice(0, 10);
       const remaining = unavailable.length - shown.length;
-      output += `marker scan unavailable for: ${shown.join(', ')}`;
+      output += `${style.label('marker scan unavailable for:')} ${shown.map((path) => style.path(path)).join(', ')}`;
       if (remaining > 0) output += `, and ${remaining} more (see --json for the complete lists)`;
       output += '\n';
     }
@@ -831,23 +904,23 @@ function renderHumanCheck(
       // constant — reprinting the bound is the error this replaced.
       const labelled = shown.map((path) => {
         const extent = extents.get(path);
-        return extent === undefined ? path : `${path} ${extent}`;
+        return extent === undefined ? style.path(path) : `${style.path(path)} ${extent}`;
       });
-      output += `marker scan truncated (bytes scanned of total): ${labelled.join(', ')}`;
+      output += `${style.label('marker scan truncated (bytes scanned of total):')} ${labelled.join(', ')}`;
       if (remaining > 0) output += `, and ${remaining} more (see --json for the complete list)`;
       output += '\n';
     }
   }
 
   if (outcome.findings.length > 0) {
-    output += 'Findings:\n';
-    output += renderHumanLint(outcome.findings);
+    output += `${style.heading('Findings:')}\n`;
+    output += renderHumanLint(outcome.findings, style);
   }
 
   const changedRecordErrors = outcome.findings.filter(
     (finding) => finding.severity === 'error' && finding.path && outcome.changedRecords.includes(finding.path),
   ).length;
-  output += `checked: ${outcome.governing.length} governing, ${outcome.activeProposals.length} active proposals, ${outcome.history.length} historical, ${outcome.changedRecords.length} changed records, ${changedRecordErrors} changed-record errors\n`;
+  output += `${style.label('checked:')} ${outcome.governing.length} governing, ${outcome.activeProposals.length} active proposals, ${outcome.history.length} historical, ${outcome.changedRecords.length} changed records, ${changedRecordErrors} changed-record errors\n`;
   return output;
 }
 
@@ -929,11 +1002,18 @@ async function runEvaluate(args: string[]): Promise<number> {
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
-  const [command, ...args] = argv;
+  const color = extractColorMode(argv);
+  if ('error' in color) {
+    writeStderr(formatUsageError(color.error, topLevelUsage(getPresentation().stderr), undefined, getPresentation().stderr));
+    return 2;
+  }
+  setPresentation({ colorMode: color.colorMode });
+
+  const [command, ...args] = color.args;
 
   try {
     if (command === undefined) {
-      writeStdout(USAGE);
+      writeStdout(topLevelUsage(getPresentation().stdout));
       return 0;
     }
     if (command === 'help') return runHelp(args);
@@ -948,8 +1028,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     // and `completion` parse `--help` themselves, so they are excluded here to keep
     // one code path for each.
     const commandUsage = command === 'queue' || command === 'completion' ? undefined : commandUsageFor(command);
-    if (commandUsage && args.some(isHelpFlag)) {
-      writeStdout(commandUsage);
+    if (commandUsage && hasHelpFlagBeforeTerminator(args)) {
+      writeStdout(styleUsageBlock(commandUsage, getPresentation().stdout));
       return 0;
     }
 

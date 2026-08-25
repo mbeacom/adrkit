@@ -5,7 +5,8 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { COMMAND_ORDER } from '../src/command-registry.ts';
 import { CLI_VERSION } from '../src/index.ts';
@@ -83,6 +84,7 @@ describe('adr help (#42)', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: adr migrate --from madr');
     expect(result.stdout).toContain('--rename');
+    expect(result.stdout).toContain('--color <auto|always|never>');
   });
 
   test('adr help help documents the help command without suggesting itself', async () => {
@@ -109,6 +111,25 @@ describe('adr help (#42)', () => {
     expect(result.stdout).toContain('proposals/0042-adopt-postgresql.md --dir docs/adr');
   });
 
+  test('command help stays literal after -- and still parses command options before it', async () => {
+    const dir = await mkdtemp(`${tmpdir()}/adr-help-literal-`);
+    try {
+      const dashDash = await runAdr(['new', '--dir', dir, '--', '--help']);
+      const dash = await runAdr(['new', '--dir', dir, '--', '-h']);
+
+      expect(dashDash.exitCode).toBe(0);
+      expect(dashDash.stderr).toBe('');
+      expect(dashDash.stdout).not.toContain('Usage: adr new');
+      expect(dashDash.stdout).toContain(dir);
+
+      expect(dash.exitCode).toBe(2);
+      expect(dash.stdout).toBe('');
+      expect(dash.stderr).toContain('Title must be between 3 and 120 characters');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test('adr new reports supported statuses and focused help for an invalid value', async () => {
     const help = await runAdr(['help', 'new']);
     const invalid = await runAdr(['new', 'Adopt PostgreSQL', '--status', 'active']);
@@ -117,6 +138,14 @@ describe('adr help (#42)', () => {
     expect(invalid.exitCode).toBe(2);
     expect(invalid.stderr).toContain('Error: Invalid status "active"');
     expect(invalid.stderr).toContain("Run 'adr help new' for more information.");
+  });
+
+  test('command-scoped typo recovery suggests the global color option', async () => {
+    const result = await runAdr(['lint', '--colr', 'always']);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('Unknown option "--colr". Did you mean "--color"?');
   });
 
   test('adr help explain states the scan bound as a bound, not as the extent', async () => {
@@ -147,6 +176,7 @@ describe('adr help (#42)', () => {
         continue;
       }
 
+      expect(viaFlag.stdout).toContain('--color <auto|always|never>');
       expect(viaFlag.stdout).toBe(viaHelp.stdout);
     }
   });

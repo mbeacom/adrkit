@@ -1,4 +1,6 @@
 import { isAbsolute, resolve } from 'node:path';
+import type { StreamStyle } from './presentation.ts';
+import { styleUsageBlock } from './presentation.ts';
 
 export type CorpusDirectoryErrorKind = 'not-found' | 'not-readable';
 
@@ -6,12 +8,16 @@ const CORPUS_DIRECTORY_NOT_FOUND_CODES = new Set(['ENOENT', 'ENOTDIR']);
 const CORPUS_DIRECTORY_NOT_READABLE_CODES = new Set(['EACCES', 'EPERM', 'ELOOP', 'ENAMETOOLONG']);
 const CORPUS_DIRECTORY_ROOT_READ_CODES = new Set(['EIO', 'ESTALE']);
 
-export function formatUsageError(message: string, usage: string, command?: string): string {
-  const header = `Error: ${message}\n`;
-  if (!command) return `${header}\n${usage}`;
+export function formatUsageError(message: string, usage: string, command?: string, style?: StreamStyle): string {
+  const error = style?.red ? style.red('Error:') : 'Error:';
+  if (!command) return `${error} ${message}\n\n${style ? styleUsageBlock(usage, style) : usage}`;
 
   const usageLine = usage.split('\n', 1)[0] ?? `Usage: adr ${command} [options]`;
-  return `${header}\n${usageLine}\nRun 'adr help ${command}' for more information.\n`;
+  const styledUsageLine = style?.heading ? style.heading(usageLine) : usageLine;
+  const helpLine = style?.note
+    ? style.note(`Run 'adr help ${command}' for more information.`)
+    : `Run 'adr help ${command}' for more information.`;
+  return `${error} ${message}\n\n${styledUsageLine}\n${helpLine}\n`;
 }
 
 export function corpusDirectoryErrorMessage(dir: string, kind: CorpusDirectoryErrorKind): string {

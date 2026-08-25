@@ -30,6 +30,10 @@ Until `1.0.0`, minor releases may include breaking changes
   activation examples for both `adr` and `adrkit`, including Fish instructions
   that install or symlink both `adr.fish` and `adrkit.fish`.
 
+- **Human-facing CLI output now respects TTY color and `NO_COLOR`.** Plain text
+  output stays ANSI-free when piped or redirected, `--color auto|always|never`
+  controls terminal styling, and JSON/completion output remain unchanged.
+
 ## [0.9.0] - 2026-08-24
 
 ### Added

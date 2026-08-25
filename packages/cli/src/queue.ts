@@ -5,9 +5,10 @@ import {
   lintCorpus,
   resolveAsOf,
 } from '@adrkit/core';
-import { commandOptions, requiredCommandValueChoices } from './command-registry.ts';
+import { commandOptions, renderGlobalColorUsageLine, requiredCommandValueChoices, withGlobalColorOption } from './command-registry.ts';
 import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
 import { closestCandidate } from './recovery.ts';
+import { getPresentation, styleUsageBlock } from './presentation.ts';
 
 const USAGE = `Usage: adr queue [options]
 
@@ -19,6 +20,7 @@ Options:
                             Accepts YYYY-MM-DD or an ISO datetime with an explicit
                             timezone (e.g. 2026-01-08 or 2026-01-08T00:00:00Z).
   --format markdown|json    Output format (default: markdown)
+${renderGlobalColorUsageLine()}
   -h, --help                Show this help and exit
 
 Examples:
@@ -34,7 +36,7 @@ Exit codes: 0 = report, no error findings; 1 = report with corpus error findings
 export const QUEUE_USAGE = USAGE;
 
 function usageError(message: string): number {
-  process.stderr.write(formatUsageError(message, USAGE, 'queue'));
+  process.stderr.write(formatUsageError(message, USAGE, 'queue', getPresentation().stderr));
   return 2;
 }
 
@@ -45,7 +47,7 @@ interface ParsedFlags {
   help: boolean;
 }
 
-const QUEUE_OPTIONS = commandOptions('queue');
+const QUEUE_OPTIONS = withGlobalColorOption(commandOptions('queue'));
 const QUEUE_FORMAT_CHOICES = requiredCommandValueChoices('queue', '--format');
 
 function formatChoiceList(values: readonly string[]): string {
@@ -130,7 +132,7 @@ export async function runQueue(args: string[]): Promise<number> {
 
   const { flags } = parsed;
   if (flags.help) {
-    process.stdout.write(USAGE);
+    process.stdout.write(styleUsageBlock(USAGE, getPresentation().stdout));
     return 0;
   }
 

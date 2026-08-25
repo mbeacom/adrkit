@@ -1,3 +1,5 @@
+import type { StreamStyle } from './presentation.ts';
+
 export const COMMAND_ORDER = ['new', 'lint', 'check', 'explain', 'graph', 'queue', 'evaluate', 'migrate', 'completion', 'help'] as const;
 
 export type CommandName = (typeof COMMAND_ORDER)[number];
@@ -15,8 +17,13 @@ export const COMMAND_SUMMARIES: Record<CommandName, string> = {
   help: 'Show help for a command',
 };
 
-export const TOP_LEVEL_OPTIONS = ['--help', '--version'] as const;
-export const TOP_LEVEL_COMPLETION_OPTIONS = ['-h', '--help', '-V', '--version'] as const;
+export const TOP_LEVEL_OPTIONS = ['--help', '--version', '--color'] as const;
+export const GLOBAL_COLOR_OPTIONS = ['--color'] as const;
+export const GLOBAL_COLOR_VALUES = ['auto', 'always', 'never'] as const;
+export const TOP_LEVEL_COMPLETION_OPTIONS = ['-h', '--help', '-V', '--version', ...GLOBAL_COLOR_OPTIONS] as const;
+export const TOP_LEVEL_COMPLETION_VALUE_CHOICES = {
+  '--color': GLOBAL_COLOR_VALUES,
+} as const satisfies Record<string, readonly string[]>;
 
 export const COMMAND_OPTIONS = {
   new: ['--status', '--dir', '--json', '--help'],
@@ -56,6 +63,14 @@ export const COMMAND_POSITIONAL_CHOICES = {
   completion: ['bash', 'zsh', 'fish'],
 } as const satisfies Partial<Record<CommandName, readonly string[]>>;
 
+export function withGlobalColorOption(options: readonly string[]): readonly string[] {
+  return [...new Set([...options, ...GLOBAL_COLOR_OPTIONS])];
+}
+
+export function renderGlobalColorUsageLine(indent = '  '): string {
+  return `${indent}--color <auto|always|never>  Colorize human-readable output (default: auto; honors NO_COLOR)`;
+}
+
 export function commandOptions(command: CommandName): readonly string[] {
   return COMMAND_OPTIONS[command];
 }
@@ -89,33 +104,42 @@ export function commandPositionalChoices(command: CommandName): readonly string[
   return COMMAND_POSITIONAL_CHOICES[command as keyof typeof COMMAND_POSITIONAL_CHOICES];
 }
 
-export function renderTopLevelUsage(version: string): string {
+export function topLevelValueChoices(option: string): readonly string[] | undefined {
+  return TOP_LEVEL_COMPLETION_VALUE_CHOICES[option as keyof typeof TOP_LEVEL_COMPLETION_VALUE_CHOICES];
+}
+
+export function renderTopLevelUsage(version: string, style?: StreamStyle): string {
+  const heading = style?.heading ?? ((text: string) => text);
+  const commandStyle = style?.command ?? ((text: string) => text);
+  const note = style?.note ?? ((text: string) => text);
+  const label = style?.label ?? ((text: string) => text);
   const width = Math.max(...COMMAND_ORDER.map((command) => command.length));
   const commandLines = COMMAND_ORDER.map(
-    (command) => `  ${command.padEnd(width)}  ${COMMAND_SUMMARIES[command]}`,
+    (command) => `  ${commandStyle(command.padEnd(width))}  ${style?.note?.(COMMAND_SUMMARIES[command]) ?? COMMAND_SUMMARIES[command]}`,
   ).join('\n');
 
-  return `adrkit ${version}
-Decision memory for human- and agent-authored plans.
+  return `${heading(`adrkit ${version}`)}
+${note('Decision memory for human- and agent-authored plans.')}
 
-Usage:
+${heading('Usage:')}
   adr <command> [options]
 
-Commands:
+${heading('Commands:')}
 ${commandLines}
 
-Options:
-  -h, --help       Show help
-  -V, --version    Show version
+${heading('Options:')}
+  ${label('--color')} auto|always|never  Colorize human-readable output (default: auto; honors NO_COLOR)
+  ${label('-h, --help')}                 Show help
+  ${label('-V, --version')}              Show version
 
-Examples:
+${heading('Examples:')}
   adr new "Adopt PostgreSQL"
   adr lint
   adr explain src/auth/session.ts
   adr check src/auth/session.ts package.json
   adr completion bash
 
-Run 'adr help <command>' for command-specific options and examples.
-Documentation: https://adrkit.dev/commands/
+${note("Run 'adr help <command>' for command-specific options and examples.")}
+${note('Documentation: https://adrkit.dev/commands/')}
 `;
 }

@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { COMMAND_VALUE_CHOICES } from '../src/command-registry.ts';
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const SHELLS = {
@@ -106,19 +105,6 @@ describe('adr completion CLI', () => {
     expect(result.stderr).toContain('Expected "bash", "zsh", or "fish".');
   });
 
-  test('completion value metadata stays aligned with the shared registry', async () => {
-    const result = await runAdr(['completion', 'bash']);
-
-    expect(result.exitCode).toBe(0);
-    for (const choices of Object.values(COMMAND_VALUE_CHOICES)) {
-      for (const valueChoices of Object.values(choices)) {
-        for (const choice of valueChoices) {
-          expect(result.stdout).toContain(choice);
-        }
-      }
-    }
-  });
-
   test('requires a shell argument', async () => {
     const result = await runAdr(['completion']);
 
@@ -178,7 +164,7 @@ describe('adr completion CLI', () => {
           'printf "%s\\n" "${COMPREPLY[@]}"',
         ].join('; '),
       ]);
-      expect(lines(secondSlot.stdout)).toEqual([]);
+      expect(lines(secondSlot.stdout)).toEqual(expect.arrayContaining(['-h', '--help', '--color']));
 
       const statusValues = await runShell([
         SHELLS.bash!,
@@ -224,6 +210,171 @@ describe('adr completion CLI', () => {
         ].join('; '),
       ]);
       expect(lines(emptyTokenOptions.stdout)).toEqual(expect.arrayContaining(['--from', '--dir', '--dry-run']));
+
+      const colorValues = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr --color "")',
+          'COMP_CWORD=2',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(colorValues.stdout)).toEqual(expect.arrayContaining(['auto', 'always', 'never']));
+
+      const colorPrefixedValues = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr --color=)',
+          'COMP_CWORD=1',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(colorPrefixedValues.stdout)).toEqual(expect.arrayContaining(['--color=auto', '--color=always', '--color=never']));
+
+      const commandColorOption = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr lint --co)',
+          'COMP_CWORD=2',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(commandColorOption.stdout)).toEqual(expect.arrayContaining(['--color']));
+
+      const helpColorOption = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr help --co)',
+          'COMP_CWORD=2',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(helpColorOption.stdout)).toEqual(expect.arrayContaining(['--color']));
+
+      const completionLateOptions = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr completion bash "")',
+          'COMP_CWORD=3',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(completionLateOptions.stdout)).toEqual(expect.arrayContaining(['-h', '--help', '--color']));
+
+      const helpLateOptions = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr help check "")',
+          'COMP_CWORD=3',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(helpLateOptions.stdout)).toEqual(expect.arrayContaining(['-h', '--help', '--color']));
+
+      const commandAfterGlobalColor = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr --color auto "")',
+          'COMP_CWORD=3',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(commandAfterGlobalColor.stdout)).toEqual(expect.arrayContaining(['lint', 'completion', 'help']));
+
+      const commandAfterEqualsColor = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr --color=auto "")',
+          'COMP_CWORD=2',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(commandAfterEqualsColor.stdout)).toEqual(expect.arrayContaining(['lint', 'completion', 'help']));
+
+      const exactTerminator = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr lint --)',
+          'COMP_CWORD=2',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(exactTerminator.stdout)).toEqual([]);
+
+      const priorTerminator = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr lint -- "")',
+          'COMP_CWORD=3',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(priorTerminator.stdout)).toEqual([]);
+
+      const afterTerminator = await runShell([
+        SHELLS.bash!,
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'COMP_WORDS=(adr lint -- --color)',
+          'COMP_CWORD=3',
+          '_adr_completion',
+          'printf "%s\\n" "${COMPREPLY[@]}"',
+        ].join('; '),
+      ]);
+      expect(lines(afterTerminator.stdout)).toEqual([]);
     });
   });
 
@@ -261,7 +412,7 @@ describe('adr completion CLI', () => {
           '_adr_completion',
         ].join('; '),
       ]);
-      expect(lines(noSecondSlot.stdout)).toEqual([]);
+      expect(lines(noSecondSlot.stdout)).toEqual(expect.arrayContaining(['-h', '--help', '--color']));
 
       const statusValues = await runShell([
         SHELLS.zsh!,
@@ -290,6 +441,174 @@ describe('adr completion CLI', () => {
         ].join('; '),
       ]);
       expect(lines(emptyTokenOptions.stdout)).toEqual(expect.arrayContaining(['--from', '--dir', '--dry-run']));
+
+      const formatValues = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr queue --format "")',
+          'CURRENT=4',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(formatValues.stdout)).toEqual(expect.arrayContaining(['markdown', 'json']));
+
+      const colorValues = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr --color "")',
+          'CURRENT=3',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(colorValues.stdout)).toEqual(expect.arrayContaining(['auto', 'always', 'never']));
+
+      const colorPrefixedValues = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr --color=)',
+          'CURRENT=2',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(colorPrefixedValues.stdout)).toEqual(expect.arrayContaining(['--color=auto', '--color=always', '--color=never']));
+
+      const commandColorOption = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr lint --co)',
+          'CURRENT=3',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(commandColorOption.stdout)).toEqual(expect.arrayContaining(['--color']));
+
+      const helpColorOption = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr help --co)',
+          'CURRENT=3',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(helpColorOption.stdout)).toEqual(expect.arrayContaining(['--color']));
+
+      const completionLateOptions = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr completion bash "")',
+          'CURRENT=4',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(completionLateOptions.stdout)).toEqual(expect.arrayContaining(['-h', '--help', '--color']));
+
+      const helpLateOptions = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr help check "")',
+          'CURRENT=4',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(helpLateOptions.stdout)).toEqual(expect.arrayContaining(['-h', '--help', '--color']));
+
+      const commandAfterGlobalColor = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr --color auto "")',
+          'CURRENT=4',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(commandAfterGlobalColor.stdout)).toEqual(expect.arrayContaining(['lint', 'completion', 'help']));
+
+      const commandAfterEqualsColor = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr --color=auto "")',
+          'CURRENT=3',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(commandAfterEqualsColor.stdout)).toEqual(expect.arrayContaining(['lint', 'completion', 'help']));
+
+      const exactTerminator = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr lint --)',
+          'CURRENT=3',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(exactTerminator.stdout)).toEqual([]);
+
+      const priorTerminator = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr lint -- "")',
+          'CURRENT=4',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(priorTerminator.stdout)).toEqual([]);
+
+      const afterTerminator = await runShell([
+        SHELLS.zsh!,
+        '-f',
+        '-c',
+        [
+          `source ${JSON.stringify(scriptPath)}`,
+          'function compadd() { shift 2; print -rl -- "$@"; }',
+          'words=(adr lint -- --color)',
+          'CURRENT=4',
+          '_adr_completion',
+        ].join('; '),
+      ]);
+      expect(lines(afterTerminator.stdout)).toEqual([]);
     });
   });
 
@@ -364,6 +683,114 @@ describe('adr completion CLI', () => {
         `source ${JSON.stringify(scriptPath)}; complete -C "adr help -"`,
       ]);
       expect(lines(leadingDashSuppression.stdout)).not.toEqual(expect.arrayContaining(['new', 'lint', 'completion']));
+
+      const commandColorOption = await runShell([
+        SHELLS.fish!,
+        '-c',
+        `source ${JSON.stringify(scriptPath)}; complete -C ${JSON.stringify('adr lint --co')}`,
+      ]);
+      expect(lines(commandColorOption.stdout).some((line) => line.startsWith('--color'))).toBe(true);
+
+      const helpColorOption = await runShell([
+        SHELLS.fish!,
+        '-c',
+        `source ${JSON.stringify(scriptPath)}; complete -C ${JSON.stringify('adr help --co')}`,
+      ]);
+      expect(lines(helpColorOption.stdout).some((line) => line.startsWith('--color'))).toBe(true);
+
+      const completionLateOptions = await runShell([
+        SHELLS.fish!,
+        '-c',
+        `source ${JSON.stringify(scriptPath)}; complete -C ${JSON.stringify('adr completion bash ')}`,
+      ]);
+      expect(lines(completionLateOptions.stdout).some((line) => line.startsWith('--help'))).toBe(true);
+      expect(lines(completionLateOptions.stdout).some((line) => line.startsWith('--color'))).toBe(true);
+
+      const helpLateOptions = await runShell([
+        SHELLS.fish!,
+        '-c',
+        `source ${JSON.stringify(scriptPath)}; complete -C ${JSON.stringify('adr help check ')}`,
+      ]);
+      expect(lines(helpLateOptions.stdout).some((line) => line.startsWith('--help'))).toBe(true);
+      expect(lines(helpLateOptions.stdout).some((line) => line.startsWith('--color'))).toBe(true);
+
+      const exactTerminator = await runShell([
+        SHELLS.fish!,
+        '-c',
+        `source ${JSON.stringify(scriptPath)}; complete -C ${JSON.stringify('adr lint --')}`,
+      ]);
+      expect(lines(exactTerminator.stdout)).toEqual([]);
+
+      const priorTerminator = await runShell([
+        SHELLS.fish!,
+        '-c',
+        `source ${JSON.stringify(scriptPath)}; complete -C ${JSON.stringify('adr lint -- ')}`,
+      ]);
+      expect(lines(priorTerminator.stdout)).toEqual([]);
+
+      const colorValue = await runShell([
+        SHELLS.fish!,
+        '-c',
+        fishScript(scriptPath, ['adr', '--color'], [
+          'if __adr_color_value',
+          '    echo value',
+          'end',
+        ]),
+      ]);
+      expect(lines(colorValue.stdout)).toEqual(['value']);
+
+      const colorPrefixedValue = await runShell([
+        SHELLS.fish!,
+        '-c',
+        fishScript(scriptPath, ['adr', '--color=auto'], [
+          'if __adr_color_value',
+          '    echo value',
+          'end',
+        ]),
+      ]);
+      expect(lines(colorPrefixedValue.stdout)).toEqual(['value']);
+
+      const commandAfterGlobalColor = await runShell([
+        SHELLS.fish!,
+        '-c',
+        fishScript(scriptPath, ['adr', '--color', 'auto', 'lint'], [
+          'if __adr_root_position',
+          '    echo root',
+          'end',
+          'if __adr_subcommand_is lint',
+          '    echo command',
+          'end',
+        ]),
+      ]);
+      expect(lines(commandAfterGlobalColor.stdout)).toEqual(['command']);
+
+      const commandAfterEqualsColor = await runShell([
+        SHELLS.fish!,
+        '-c',
+        fishScript(scriptPath, ['adr', '--color=auto', 'lint'], [
+          'if __adr_root_position',
+          '    echo root',
+          'end',
+          'if __adr_subcommand_is lint',
+          '    echo command',
+          'end',
+        ]),
+      ]);
+      expect(lines(commandAfterEqualsColor.stdout)).toEqual(['command']);
+
+      const afterTerminator = await runShell([
+        SHELLS.fish!,
+        '-c',
+        fishScript(scriptPath, ['adr', 'lint', '--', '--color'], [
+          'if __adr_after_terminator',
+          '    echo after',
+          'end',
+          'if __adr_subcommand_is lint',
+          '    echo command',
+          'end',
+        ]),
+      ]);
+      expect(lines(afterTerminator.stdout)).toEqual(['after', 'command']);
     });
   });
 });

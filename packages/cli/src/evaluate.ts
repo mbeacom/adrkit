@@ -28,6 +28,7 @@ import {
   type CorpusDirectoryErrorKind,
 } from './errors.ts';
 import { loadSnapshotBundle, SnapshotContractError, type NormalizedSnapshot } from './evaluate-snapshot.ts';
+import { getPresentation } from './presentation.ts';
 
 /**
  * The trusted deterministic registries, constructed ONLY from composition code —
@@ -117,10 +118,11 @@ function buildInput(
 }
 
 function renderHuman(report: import('@adrkit/evaluator').Pass0Report): string {
-  const lines: string[] = [`Pass 0 evaluation of ${report.proposalPath} — outcome: ${report.outcome}`];
+  const style = getPresentation().stdout;
+  const lines: string[] = [`${style.heading('Pass 0 evaluation of')} ${style.path(report.proposalPath)} — outcome: ${style.status(report.outcome)}`];
   for (const result of report.results) {
-    const severity = result.status === 'fail' && result.severity ? ` (${result.severity})` : '';
-    lines.push(`  ${result.rule}: ${result.status}${severity} — ${result.reason}`);
+    const severity = result.status === 'fail' && result.severity ? ` (${style.severity(result.severity)})` : '';
+    lines.push(`  ${style.label(result.rule)}: ${style.status(result.status)}${severity} — ${result.reason}`);
   }
   const { routing } = report;
   const target =
@@ -128,7 +130,7 @@ function renderHuman(report: import('@adrkit/evaluator').Pass0Report): string {
       ? `${routing.target.human} (via ${routing.target.via})`
       : routing.target.kind;
   lines.push(
-    `  routing: ${routing.escalate ? `escalate [${routing.reasons.join(', ')}]` : 'no escalation'}, target: ${target}`,
+    `  ${style.label('routing')}: ${routing.escalate ? `${style.status('escalate')} [${routing.reasons.join(', ')}]` : style.note('no escalation')}, target: ${target}`,
   );
   return `${lines.join('\n')}\n`;
 }
@@ -141,7 +143,12 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
   const cwd = options.cwd ?? process.cwd();
 
   if (!isValidIsoDate(options.date)) {
-    return { exitCode: 2, stdout: '', stderr: `adr evaluate: --date must be a valid YYYY-MM-DD (got "${options.date}")\n` };
+    const style = getPresentation().stderr;
+    return {
+      exitCode: 2,
+      stdout: '',
+      stderr: `${style.red('adr evaluate:')} --date must be a valid YYYY-MM-DD (got "${options.date}")\n`,
+    };
   }
 
   const dir = options.dir ?? dirname(options.proposalPath);
@@ -155,13 +162,14 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
     const text = await readFile(options.snapshotPath, 'utf8');
     snapshot = loadSnapshotBundle(text);
   } catch (error) {
+    const style = getPresentation().stderr;
     if (error instanceof SnapshotContractError) {
-      return { exitCode: 2, stdout: '', stderr: `adr evaluate: ${error.message}\n` };
+      return { exitCode: 2, stdout: '', stderr: `${style.red('adr evaluate:')} ${error.message}\n` };
     }
     return {
       exitCode: 2,
       stdout: '',
-      stderr: `adr evaluate: could not read snapshot "${options.snapshotPath}": ${error instanceof Error ? error.message : String(error)}\n`,
+      stderr: `${style.red('adr evaluate:')} could not read snapshot "${options.snapshotPath}": ${error instanceof Error ? error.message : String(error)}\n`,
     };
   }
 
@@ -178,10 +186,11 @@ export async function evaluate(options: EvaluateOptions): Promise<EvaluateOutput
   const outcome = evaluatePass0(buildInput(proposalPath, corpus, snapshot, options.date));
 
   if (outcome.kind === 'input-error') {
+    const style = getPresentation().stderr;
     return {
       exitCode: 2,
       stdout: '',
-      stderr: `adr evaluate: ${outcome.error.code} — "${proposalPath}" has status "${outcome.error.actualStatus}", not draft/proposed\n`,
+      stderr: `${style.red('adr evaluate:')} ${outcome.error.code} — "${proposalPath}" has status "${outcome.error.actualStatus}", not draft/proposed\n`,
     };
   }
 

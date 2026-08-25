@@ -44,6 +44,10 @@ registry and would run whatever anyone publishes under it — and in CI, where n
 assumes `--yes` on a non-TTY, it would install and run it without prompting. Use
 `npx @adrkit/cli` for zero-install.
 
+Human-readable CLI output is TTY-aware: it stays ANSI-free when redirected or
+piped, honors `NO_COLOR`, and can be forced with `--color auto|always|never`
+before the command, for example `adr --color always lint`.
+
 ## Shell completions
 
 `adr completion <bash|zsh|fish>` prints a deterministic completion script to
@@ -116,7 +120,7 @@ capped
 at 3,000 normalized paths and 16 concurrent reads; skipped paths warn but never
 fail. The cap matches GitHub's changed-file ceiling, so only a local invocation
 can reach it.
-See [the commands reference](https://adrkit.dev/docs/commands/#inbound-adr-markers).
+See [the commands reference](https://adrkit.dev/commands/#inbound-adr-markers).
 
 The published ESM CLI runs on Node.js 22 or newer; development in the adrkit
 repository uses Bun.
