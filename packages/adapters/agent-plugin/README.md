@@ -118,10 +118,12 @@ it exits during `initialize`, and the only user-visible result is a
 `Failed to start MCP client for adrkit` line in the session log, every session.
 
 A server that cannot start is worse than one that was never configured, so the
-wiring lives where the working directory is correct — your own project config.
-See the [MCP setup guide](https://adrkit.dev/mcp/), and `opencode/opencode.json`
-here for the opencode form, whose schema has an explicit `cwd` that resolves
-from the workspace.
+wiring lives where the working directory can be configured correctly — your own
+project config. See the [MCP setup guide](https://adrkit.dev/mcp/), and
+`opencode/opencode.json` here for the project-level opencode form. APM validated
+that fragment's placement, but the MCP process was not driven end to end under
+opencode; its workspace working directory remains an expectation to verify, not
+measured host behavior.
 
 Two smaller findings from the same measurements, worth keeping if that wiring is
 ever revisited:

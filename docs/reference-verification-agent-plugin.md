@@ -15,13 +15,17 @@ stated here rather than left for a reader to infer:
   [`reference-verification-spec-kit-extension.md`](./reference-verification-spec-kit-extension.md)
   documents for `@adrkit/spec-kit`. There are no immutable refs and no run links
   to cite, because there was no CI run.
-- Nothing here is reproducible by a third party yet. The plugin was installed
-  from a local marketplace pointing at a worktree path, because the branch was
-  not yet public.
+- The runs recorded here are not reproducible from immutable evidence. They
+  installed the plugin from a local marketplace pointing at a worktree path,
+  before [PR #157](https://github.com/mbeacom/adrkit/pull/157) merged and made
+  the plugin public through the repository's live `main` marketplace channel.
+  That later publication does not retroactively add immutable refs or CI run
+  links to these measurements.
 
 Plugin maturity per the [ADR-0014](./adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-vocabulary: **implemented**. It is **not** `reference-verified`, **not**
-`released`, and **not** `externally validated`.
+vocabulary: **implemented** and **released** through the live `main` marketplace
+channel. Release is separate from the evidence ladder: this remains **rung 1**,
+not `reference-verified`, not `landed`, and not `externally validated`.
 
 **Created**: 2026-08-16
 **Decision**: [ADR-0028](./adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)
@@ -146,9 +150,11 @@ Two smaller measurements, recorded because they will otherwise be rediscovered:
   validated statically and APM by integration output; neither had its commands
   or agent executed. opencode was never driven at all — its coverage is APM's
   placement plus the rejection warning it produced.
-- **Installed from a local path.** The marketplace source was a worktree
-  directory, not `mbeacom/adrkit`. The public install flow in the README is
-  therefore **unverified end to end** until the branch is merged.
+- **Installed from a local path.** At the time of these runs, the marketplace
+  source was a worktree directory, not `mbeacom/adrkit`. PR #157 has since
+  merged and the public source is live, but no post-merge rerun has been added
+  to this evidence index. The public install flow in the README therefore
+  remains **unverified end to end**.
 - **Single-run observations.** Each functional row is one run of a
   non-deterministic agent. They demonstrate the components work; they do not
   establish a pass rate.
@@ -185,6 +191,7 @@ a rejected decision instead of reporting nothing, and writing exactly one
 `proposed` record rather than ratifying it. Five defects were found and fixed in
 the process, three of which were invisible from any single host's documentation.
 
-That is **rung 1**. Rung 2 requires a persistent, CI-attached reference
-repository and a run against the public marketplace source; rung 3 requires an
-adopter who is not the maintainer. Both remain open.
+That remains **rung 1** after release. Publishing through `main` changes the
+distribution state, not the evidence state. Rung 2 requires a persistent,
+CI-attached reference repository and a run against the public marketplace
+source; rung 3 requires an adopter who is not the maintainer. Both remain open.
