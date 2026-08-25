@@ -1,5 +1,12 @@
-import { buildQueueReport, formatQueueReportJson, formatQueueReportMarkdown, lintCorpus, resolveAsOf } from '@adrkit/core';
+import {
+  buildQueueReport,
+  formatQueueReportJson,
+  formatQueueReportMarkdown,
+  lintCorpus,
+  resolveAsOf,
+} from '@adrkit/core';
 import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
+import { closestCandidate } from './recovery.ts';
 
 const USAGE = `Usage: adr queue [options]
 
@@ -35,6 +42,26 @@ interface ParsedFlags {
   asOf?: string;
   format: string;
   help: boolean;
+}
+
+const QUEUE_OPTIONS = ['--dir', '--as-of', '--format', '--help'] as const;
+
+function formatChoiceList(values: readonly string[]): string {
+  if (values.length === 1) return `"${values[0]}"`;
+  if (values.length === 2) return `"${values[0]}" or "${values[1]}"`;
+  return `${values.slice(0, -1).map((value) => `"${value}"`).join(', ')}, or "${values[values.length - 1]}"`;
+}
+
+function unknownOptionMessage(option: string): string {
+  const suggestion = closestCandidate(option, QUEUE_OPTIONS);
+  return suggestion ? `Unknown option "${option}". Did you mean "${suggestion}"?` : `Unknown option "${option}".`;
+}
+
+function formatMessage(value: string): string {
+  const suggestion = closestCandidate(value, ['markdown', 'json']);
+  const expected = formatChoiceList(['markdown', 'json']);
+  const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
+  return `Invalid --format value "${value}".${hint} Expected ${expected}.`;
 }
 
 type ParseResult =
@@ -96,7 +123,7 @@ export async function runQueue(args: string[]): Promise<number> {
     if ('positional' in parsed) {
       return usageError(`Positional argument "${parsed.positional}" is not supported. Use --dir <path> to select the ADR corpus.`);
     }
-    return usageError(`Unknown option "${parsed.unknown}".`);
+    return usageError(unknownOptionMessage(parsed.unknown));
   }
 
   const { flags } = parsed;
@@ -106,7 +133,7 @@ export async function runQueue(args: string[]): Promise<number> {
   }
 
   if (flags.format !== 'markdown' && flags.format !== 'json') {
-    return usageError(`Invalid --format value "${flags.format}". Expected "markdown" or "json".`);
+    return usageError(formatMessage(flags.format));
   }
 
   let asOf: string;

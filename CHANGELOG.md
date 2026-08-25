@@ -19,6 +19,11 @@ Until `1.0.0`, minor releases may include breaking changes
   typos receive a suggestion; and invoking `adr` without arguments shows help
   successfully.
 
+- **CLI mistake recovery is now smarter across commands.** Mistyped long options
+  now suggest the intended flag, and the closed value sets for `new --status`,
+  `graph --format`, `migrate --from`, and `queue --format` give near-miss
+  hints without changing the existing exit codes or stdout/stderr split.
+
 ## [0.9.0] - 2026-08-24
 
 ### Added

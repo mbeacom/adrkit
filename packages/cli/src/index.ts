@@ -28,6 +28,7 @@ import {
   type SourceMarkerScan,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
+import { closestCandidate } from './recovery.ts';
 import {
   corpusDirectoryErrorKind,
   corpusDirectoryErrorMessage,
@@ -50,6 +51,16 @@ function writeStdout(text: string): void {
 
 function writeStderr(text: string): void {
   process.stderr.write(text);
+}
+
+function extractUnknownOption(message: string): string | undefined {
+  const match = /^Unknown option ['"`]([^'"`]+)['"`]/.exec(message);
+  return match?.[1];
+}
+
+function unknownOptionMessage(option: string, candidates: readonly string[]): string {
+  const suggestion = closestCandidate(option, candidates);
+  return suggestion ? `Unknown option "${option}". Did you mean "${suggestion}"?` : `Unknown option "${option}".`;
 }
 
 function corpusDirectoryUsageError(dir: string, kind: CorpusDirectoryErrorKind, command: string): number {
@@ -282,6 +293,15 @@ Examples:
 };
 
 const COMMANDS = Object.keys(COMMAND_USAGE);
+const TOP_LEVEL_OPTIONS = ['--help', '--version'] as const;
+const LINT_OPTIONS = ['--json', '--dir', '--help'] as const;
+const MIGRATE_OPTIONS = ['--from', '--dir', '--dry-run', '--rename', '--json', '--help'] as const;
+const NEW_OPTIONS = ['--status', '--dir', '--json', '--help'] as const;
+const GRAPH_OPTIONS = ['--dir', '--format', '--help'] as const;
+const EXPLAIN_OPTIONS = ['--json', '--dir', '--help'] as const;
+const CHECK_OPTIONS = ['--json', '--dir', '--help'] as const;
+const EVALUATE_OPTIONS = ['--snapshot', '--date', '--json', '--dir', '--help'] as const;
+const NEW_ALLOWED_STATUSES = ['draft', 'proposed', 'rejected', 'deprecated'] as const;
 
 /** Own-property lookup: `adr help constructor` must be a usage error, not a crash. */
 function commandUsageFor(command: string): string | undefined {
@@ -301,7 +321,7 @@ function isHelpFlag(arg: string): boolean {
 /** `adr help [command]` — usage on stdout at 0; unknown command is still a usage error. */
 function runHelp(args: string[]): number {
   const unsupportedFlag = args.find((arg) => arg.startsWith('-') && !isHelpFlag(arg));
-  if (unsupportedFlag) return usageError(`Unknown option "${unsupportedFlag}".`);
+  if (unsupportedFlag) return usageError(unknownOptionMessage(unsupportedFlag, ['--help']));
 
   const positionals = args.filter((arg) => !arg.startsWith('-'));
   if (positionals.length > 1) return usageError('adr help accepts at most one command.');
@@ -321,32 +341,24 @@ function runHelp(args: string[]): number {
   return 0;
 }
 
-function editDistance(left: string, right: string): number {
-  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
-  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
-    const current = [leftIndex];
-    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
-      const substitution = previous[rightIndex - 1]! + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1);
-      current[rightIndex] = Math.min(previous[rightIndex]! + 1, current[rightIndex - 1]! + 1, substitution);
-    }
-    previous.splice(0, previous.length, ...current);
-  }
-  return previous[right.length]!;
-}
-
 function unknownCommandMessage(command: string): string {
-  const suggestion = COMMANDS
-    .map((candidate) => ({ candidate, distance: editDistance(command, candidate) }))
-    .sort((left, right) => left.distance - right.distance || left.candidate.localeCompare(right.candidate))[0];
-  const hint = suggestion && suggestion.distance <= 2 ? ` Did you mean "${suggestion.candidate}"?` : '';
-  return `Unknown command "${command}".${hint}`;
+  const suggestion = closestCandidate(command, COMMANDS);
+  return suggestion ? `Unknown command "${command}". Did you mean "${suggestion}"?` : `Unknown command "${command}".`;
 }
 
 function parseCommandArgs(
   args: string[],
   options: ParseArgsConfig['options'],
+  allowedOptions: readonly string[],
 ): ReturnType<typeof parseArgs> {
-  return parseArgs({ args, options, allowPositionals: true, strict: true });
+  try {
+    return parseArgs({ args, options, allowPositionals: true, strict: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const unsupported = extractUnknownOption(message);
+    if (unsupported) throw new Error(unknownOptionMessage(unsupported, allowedOptions));
+    throw error;
+  }
 }
 
 function renderFinding(finding: Finding): string {
@@ -384,7 +396,7 @@ async function runLint(args: string[]): Promise<number> {
     parsed = parseCommandArgs(args, {
       json: { type: 'boolean', default: false },
       dir: { type: 'string', default: 'docs/adr' },
-    });
+    }, LINT_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'lint');
   }
@@ -465,7 +477,7 @@ async function runMigrate(args: string[]): Promise<number> {
       'dry-run': { type: 'boolean', default: false },
       rename: { type: 'boolean', default: false },
       json: { type: 'boolean', default: false },
-    });
+    }, MIGRATE_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'migrate');
   }
@@ -473,9 +485,12 @@ async function runMigrate(args: string[]): Promise<number> {
   if (parsed.positionals.length > 0) return usageError('adr migrate does not accept positional arguments.', 'migrate');
   const from = parsed.values.from;
   if (from !== 'madr') {
+    const suggestion = typeof from === 'string' ? closestCandidate(from, ['madr']) : undefined;
     return usageError(
       from
-        ? `Unsupported --from value "${String(from)}". Only "madr" is available; migration is one-way.`
+        ? suggestion
+          ? `Unsupported --from value "${String(from)}". Did you mean "${suggestion}"? Only "madr" is available; migration is one-way.`
+          : `Unsupported --from value "${String(from)}". Only "madr" is available; migration is one-way.`
         : 'adr migrate requires --from madr.',
       'migrate',
     );
@@ -514,18 +529,26 @@ async function runNew(args: string[]): Promise<number> {
       json: { type: 'boolean', default: false },
       dir: { type: 'string', default: 'docs/adr' },
       status: { type: 'string', default: 'draft' },
-    });
+    }, NEW_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'new');
   }
 
   const title = parsed.positionals.join(' ').trim();
   if (!title) return usageError('adr new requires a title.', 'new');
+  const status = String(parsed.values.status);
+  const suggestion = closestCandidate(status, NEW_ALLOWED_STATUSES);
+  if (suggestion && !NEW_ALLOWED_STATUSES.includes(status as (typeof NEW_ALLOWED_STATUSES)[number])) {
+    return usageError(
+      `Invalid status "${status}". Did you mean "${suggestion}"?`,
+      'new',
+    );
+  }
 
   try {
     const result = await createAdr({
       title,
-      status: String(parsed.values.status),
+      status,
       dir: String(parsed.values.dir),
     });
     if (parsed.values.json) {
@@ -550,7 +573,7 @@ async function runGraph(args: string[]): Promise<number> {
     parsed = parseCommandArgs(args, {
       dir: { type: 'string', default: 'docs/adr' },
       format: { type: 'string', default: 'dot' },
-    });
+    }, GRAPH_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'graph');
   }
@@ -558,7 +581,13 @@ async function runGraph(args: string[]): Promise<number> {
   if (parsed.positionals.length > 0) return usageError('adr graph does not accept positional arguments.', 'graph');
   const format = String(parsed.values.format);
   if (format !== 'dot' && format !== 'json') {
-    return usageError('adr graph --format must be "dot" or "json".', 'graph');
+    const suggestion = closestCandidate(format, ['dot', 'json']);
+    return usageError(
+      suggestion
+        ? `adr graph --format must be "dot" or "json". Did you mean "${suggestion}"?`
+        : 'adr graph --format must be "dot" or "json".',
+      'graph',
+    );
   }
 
   const dir = String(parsed.values.dir);
@@ -581,7 +610,7 @@ async function runExplain(args: string[]): Promise<number> {
     parsed = parseCommandArgs(args, {
       json: { type: 'boolean', default: false },
       dir: { type: 'string', default: 'docs/adr' },
-    });
+    }, EXPLAIN_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'explain');
   }
@@ -846,7 +875,7 @@ async function runCheck(args: string[]): Promise<number> {
     parsed = parseCommandArgs(args, {
       json: { type: 'boolean', default: false },
       dir: { type: 'string', default: 'docs/adr' },
-    });
+    }, CHECK_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'check');
   }
@@ -880,7 +909,7 @@ async function runEvaluate(args: string[]): Promise<number> {
       date: { type: 'string' },
       json: { type: 'boolean', default: false },
       dir: { type: 'string' },
-    });
+    }, EVALUATE_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'evaluate');
   }
@@ -931,6 +960,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       writeStdout(`${CLI_VERSION}\n`);
       return 0;
     }
+    if (command.startsWith('-')) return usageError(unknownOptionMessage(command, TOP_LEVEL_OPTIONS));
 
     // `adr <command> --help` prints that command's usage to stdout at 0. `queue`
     // parses `--help` itself, so it is excluded here to keep one code path for it.
