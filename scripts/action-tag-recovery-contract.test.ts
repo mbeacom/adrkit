@@ -24,6 +24,16 @@ function manualFallbackBlock(): string {
   return RELEASING_DOCS.slice(fenceStart + '```sh\n'.length, fenceEnd);
 }
 
+function assertManualMarkerSequence(block: string): void {
+  const creation = block.indexOf('git -c tag.gpgSign=false tag "$marker" "$moving_commit_sha"');
+  const push = block.indexOf('git push origin "refs/tags/$marker:refs/tags/$marker"');
+  const recovery = block.indexOf('bun run release:action-tag -- --recover "$target"');
+  expect(creation).toBeGreaterThan(-1);
+  expect(push).toBeGreaterThan(creation);
+  expect(recovery).toBeGreaterThan(push);
+  expect(block.slice(creation, recovery)).not.toContain('|| true');
+}
+
 describe('major Action tag recovery contract', () => {
   test('serializes recovery with normal release promotion', () => {
     const concurrency = 'group: release-${{ github.repository }}';
@@ -77,10 +87,17 @@ describe('major Action tag recovery contract', () => {
     expect(RECOVERY_WORKFLOW).toContain('git -c tag.gpgSign=false tag "$marker"');
     const fallback = manualFallbackBlock();
     expect(fallback).toMatch(/^set -euo pipefail\n/);
-    expect(fallback).toContain('git -c tag.gpgSign=false tag "$marker" "$moving_commit_sha"');
-    expect(fallback.indexOf('git -c tag.gpgSign=false tag "$marker"')).toBeLessThan(
-      fallback.indexOf('bun run release:action-tag -- --recover "$target"'),
-    );
+    assertManualMarkerSequence(fallback);
+    expect(() => assertManualMarkerSequence(
+      fallback.replace('git push origin "refs/tags/$marker:refs/tags/$marker"\n', ''),
+    )).toThrow();
+    expect(() => assertManualMarkerSequence(
+      fallback.replace(
+        'git push origin "refs/tags/$marker:refs/tags/$marker"',
+        'bun run release:action-tag -- --recover "$target"\n' +
+          'git push origin "refs/tags/$marker:refs/tags/$marker"',
+      ),
+    )).toThrow();
     expect(RELEASE_WORKFLOW).toContain('cat action-tag-update.log');
     expect(RELEASE_WORKFLOW).toContain('>> "$GITHUB_STEP_SUMMARY"');
   });
