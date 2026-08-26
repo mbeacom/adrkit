@@ -117,9 +117,8 @@ runtime libraries.
 It is installed from git or marketplace metadata, not from npm.
 
 For deeper maintainer test notes and current limitations, see
-[docs/reference-verification-agent-plugin.md](../../../docs/reference-verification-agent-plugin.md).
+[the verification notes](https://github.com/mbeacom/adrkit/blob/main/docs/reference-verification-agent-plugin.md).
 
 ## License
 
-Apache-2.0. See the repository [LICENSE](../../../LICENSE) and
-[NOTICE](../../../NOTICE).
+Apache-2.0. See the packaged [LICENSE](./LICENSE) and [NOTICE](./NOTICE).

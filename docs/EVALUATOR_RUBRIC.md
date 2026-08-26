@@ -4,9 +4,10 @@ The evaluator scores a **proposal** — a `draft` or `proposed` ADR, or an agent
 plan being converted into one. It never approves anything. Its only outputs are
 a scored report and a routing recommendation.
 
-> **Status:** `@adrkit/evaluator` currently implements **Pass 0** only. Passes
-> 1–3, escalation routing, and calibration guidance below describe the intended
-> rubric contract and design targets; they are not shipped behavior yet.
+> **Status:** `@adrkit/evaluator` implements **Pass 0**, including its eight
+> deterministic escalation triggers and named-human routing. Passes 1–3, the
+> three escalation triggers that depend on those passes, and the calibration
+> guidance below are design targets; they are not shipped behavior yet.
 
 Design constraints, in priority order:
 

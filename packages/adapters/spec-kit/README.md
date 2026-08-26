@@ -94,8 +94,8 @@ network — a missing CLI is reported, never fetched.
 
 ## Compatibility and support
 
-The extension is continuously tested against every supported Spec Kit release.
-Report compatibility issues in the
+The extension is tested against Spec Kit 0.13.0, 0.14.4, and 0.15.1. Report
+compatibility issues in the
 [adrkit issue tracker](https://github.com/mbeacom/adrkit/issues). Maintainers can
 find the detailed verification record in
 [`docs/reference-verification-spec-kit-extension.md`](../../../docs/reference-verification-spec-kit-extension.md).

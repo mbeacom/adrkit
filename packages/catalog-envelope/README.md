@@ -11,12 +11,10 @@ This package reads envelopes. It never generates them.
 
 ## An integrity validator, not a correctness oracle
 
-Everything this package can establish is that an envelope is **intact,
-well-formed, self-consistent, current, and about the repository that is
-asking.** None of that establishes that the envelope's contents are **right**.
-
-A green result means "nothing was corrupted, dropped, or stale." It does not
-mean "the recorded ownership is correct."
+Admission establishes that an envelope is **intact, well-formed,
+self-consistent, current, and about the repository that is asking.** A
+populated, digest-verified envelope proves integrity, not correctness; a
+semantically wrong envelope can carry a perfectly valid self-digest.
 
 Two consequences are easy to invert:
 

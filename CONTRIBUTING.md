@@ -125,7 +125,7 @@ the pull request instead of changing unrelated code.
 ## Changing a decision
 
 This project governs itself. If your change contradicts an accepted record in
-`docs/adr/`, the PR should include a superseding ADR with the argument, not
+`docs/adr/`, the PR must include a superseding ADR with the argument, not
 just a status flip.
 
 To add a new decision:
@@ -161,9 +161,9 @@ changes are minor.
 
 ## Changing the evaluator rubric
 
-Rubric changes are decisions, not casual wording tweaks. Update the rubric with
-the same care as an ADR, and keep its stated shipped-vs-design-target boundary
-accurate.
+Rubric changes are ADRs, not casual wording tweaks. Include the decision record
+with the change and, once calibration metrics exist, attach the calibration
+deltas. Keep the stated shipped-vs-design-target boundary accurate.
 
 ## Changing the CI Action (`packages/ci`)
 

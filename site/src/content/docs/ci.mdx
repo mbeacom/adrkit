@@ -100,7 +100,8 @@ jobs:
 
 <Aside type="note" title="Pinning the queue Action">
 	`@v0` is a moving major-version tag. Pin the commit SHA when you need a
-	byte-immutable reference: `git rev-parse v0^{commit}`.
+	byte-immutable reference. Resolve the current commit without an adrkit
+	checkout: `gh api repos/mbeacom/adrkit/commits/v0 --jq .sha`.
 </Aside>
 
 The managed issue's body is the same report you get locally:
