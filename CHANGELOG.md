@@ -53,6 +53,10 @@ Until `1.0.0`, minor releases may include breaking changes
   handoff, retained contradictory fixtures, complete version-surface checks,
   and per-host update guidance.
 
+  PR review hardening adds immediate pre-write reconciliation, literal argv
+  handling for evidence-derived titles, MCP worktree/corpus identity checks, and
+  schema-shaped `affects` matchers in every handoff.
+
 ### Changed
 
 - **Interactive `adr graph` is human-readable without breaking pipes.** The

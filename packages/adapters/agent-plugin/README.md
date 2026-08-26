@@ -148,6 +148,10 @@ future `proposed` records after human selection, never automatically `accepted`
 records. Each selectable candidate includes a structured `backfillHandoff`.
 After a human selects one, run `/adr-draft <candidateKey>` to create exactly one
 evidence-backed record, then review and ratify it through the normal workflow.
+The handoff carries concrete paths, schema-shaped `affects` matchers, and the
+governing/proposal/history snapshot; `/adr-draft` rechecks that snapshot
+immediately before writing and passes the title as literal argv rather than
+shell source.
 
 The same workflow is described in the
 [backfill guide](https://adrkit.dev/backfill/).
@@ -185,6 +189,12 @@ Each of these was measured against the real hosts, not inferred from their docs.
   `apm.yml`, `package.json`, the workspace entry in `bun.lock`, marketplace
   metadata and entry, and every skill's metadata. Claude Code keys its plugin
   cache on `version`; `test/manifest.test.ts` asserts the complete set.
+
+- **MCP identity must match before backfill uses it.** MCP tools cannot accept a
+  corpus directory per call. Backfill uses them only after
+  `ADRKIT_MCP_CWD` matches the target worktree and `ADRKIT_MCP_DIR` matches the
+  resolved `ADR_DIR`; otherwise it uses the trusted CLI or reports
+  reconciliation as unverified.
 
 ### MCP is configured per project, not shipped here
 

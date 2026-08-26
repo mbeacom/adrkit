@@ -70,6 +70,12 @@ repository and installed dependencies are trusted.
 The shell examples below use `npx @adrkit/cli`, which works with a local install
 without relying on `node_modules/.bin` being added to your interactive `PATH`.
 
+If MCP is connected, backfill uses it only after its configured
+`ADRKIT_MCP_CWD` matches the target worktree and `ADRKIT_MCP_DIR` matches the
+resolved corpus. MCP tools cannot take a different corpus directory per call;
+a hidden or mismatched configuration falls back to the trusted CLI or an
+`unverified` reconciliation.
+
 ## Run a backfill audit
 
 ```text
@@ -143,15 +149,17 @@ After a human selects a candidate:
 ```
 
 `BF-001` refers to the structured `backfillHandoff` in the most recent report.
-It carries the corpus directory, title, primary source, citations, known gaps,
-proposed `affects`, alternatives, reconciliation result, and
-`statusTreatment: proposed`. If that block is missing or stale, `/adr-draft`
-stops rather than rebuilding provenance from memory.
+It carries the corpus directory, concrete candidate paths, title, primary
+source, citations, known gaps, schema-shaped `affects` matchers, alternatives,
+the reconciliation result and governing/proposal/history snapshot, and
+`statusTreatment: proposed`. `/adr-draft` reruns that reconciliation immediately
+before writing and stops if the snapshot changed.
 
 The resulting draft is `proposed`, identifies machine assistance with
 `provenance.authoredBy: agent-drafted`, names the primary source in
 `provenance.sourceArtifact`, cites supporting evidence in the body, and binds
-real paths with `affects`.
+real paths with `affects`. The evidence-derived title is passed as a literal argv
+value, never interpolated into shell source.
 
 Then validate and review:
 

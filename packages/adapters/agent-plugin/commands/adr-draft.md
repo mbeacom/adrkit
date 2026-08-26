@@ -24,12 +24,15 @@ complete `backfillHandoff` containing:
 - `candidateKey`
 - `title`
 - `corpusDir`
+- `candidatePaths`
 - `sourceArtifact`
 - `citations`
 - `missingEvidence`
 - `affects`
 - `alternatives`
 - `reconciliation`
+- `reconciliationSnapshot` with `corpusFingerprint`, `governing`,
+  `activeProposals`, and `history`
 - `statusTreatment: proposed`
 
 If the handoff is absent, ambiguous, stale, marked `covered` or `unverified`, or
@@ -48,26 +51,42 @@ confirmation is present, stop before executing it.
 **Check first, then write.** Before scaffolding anything:
 
 1. Outside backfill mode, resolve `ADR_DIR` from `$ADRKIT_DIR`, defaulting to
-   `docs/adr`. Run
-   `/adr-check` over the paths this decision would govern, or
-   `adr check --dir "$ADR_DIR" --json -- <quoted-paths...>` directly. If an
-   existing decision already covers this, do not write a second record — either
-   the work complies, or the right output is a record that **supersedes** the
-   existing one. A duplicate record is worse than none, because it makes the
-   corpus ambiguous.
+   `docs/adr`.
 
-2. Check for an existing rejection, with `search_decisions` and
+2. Run `adr lint --dir "$ADR_DIR"`. Exit `1` is a complete findings report but
+   blocks drafting until the corpus is repaired; exit `2` is a usage or corpus
+   error and also stops.
+
+3. Reconcile immediately before writing:
+   - In backfill mode, run
+     `adr queue --dir "$ADR_DIR" --format json` and compare its
+     `corpusFingerprint`, then run
+     `adr check --dir "$ADR_DIR" --json -- <literal-candidatePaths...>` and
+     compare the current `governing`, `activeProposals`, and `history` ADR ids to
+     `reconciliationSnapshot`. The key must be exactly `history`, not
+     `historical`, and the snapshot must have been built from exactly these
+     candidate paths. Every `candidatePaths` entry must be an existing concrete
+     file, never a glob. Any difference means the handoff is stale: stop and
+     require a fresh `/adr-backfill`. Never scaffold from an obsolete `new`
+     classification.
+   - Outside backfill mode, run `/adr-check` over the paths this decision would
+     govern, or `adr check --dir "$ADR_DIR" --json -- <literal-paths...>`.
+   - If an existing decision or active proposal now covers the choice, do not
+     write a duplicate. Either comply, or draft an explicit supersession.
+
+4. Check for an existing rejection, with `search_decisions` and
    `status: ["rejected"]` (or
    `adr graph --dir "$ADR_DIR" --format json`) — not `list_superseded`, which
    returns only `superseded` records and never a rejected one. If this was
    already rejected, say so and stop. Re-proposing it needs a human reason, not
    a scaffold.
 
-Then create exactly one record:
-
-```bash
-adr new "<title>" --dir "$ADR_DIR"
-```
+Then create exactly one record. `adr new` is the sole writer, but do not render
+the handoff title into shell source. Pass the resolved executable and
+`["new", <literal-title>, "--dir", <literal-ADR_DIR>]` as distinct argv values
+through the host's command API. If the host exposes only an interpolated shell
+string and cannot preserve literal argv, stop and ask the user to run the
+scaffold command manually.
 
 Fill in what the scaffold leaves open:
 

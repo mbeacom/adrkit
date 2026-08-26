@@ -127,9 +127,11 @@ The run:
    `check --dir docs/adr --json -- <paths...>`;
 4. classified PostgreSQL as `covered`, retained RabbitMQ in `history`, and
    classified NATS JetStream as one `new` candidate;
-5. emitted `BF-001` with `corpusDir`, primary source, exact citations, missing
-   evidence, `affects`, alternatives, reconciliation, and
-   `statusTreatment: proposed`; and
+5. emitted `BF-001` with `corpusDir`, one concrete `candidatePaths` file,
+   schema-shaped `affects`, primary source, exact citations, missing evidence,
+   alternatives, reconciliation, and a candidate-specific snapshot containing
+   the full corpus fingerprint, `governing: []`, `activeProposals: []`, and
+   `history: ["0002"]`; and
 6. stated that no record was created or edited.
 
 The before/after observations were identical:
@@ -145,6 +147,11 @@ This establishes one Copilot path through candidate reconciliation and the
 read-only boundary. It does **not** establish Claude Code or APM functional
 behavior, hostile local-executable sandboxing, large-corpus behavior, a
 persistent reference repository, or external validation.
+
+The smoke was rerun after PR review tightened freshness and schema handling. The
+final handoff used `candidatePaths: ["src/jobs/publisher.ts"]` (no glob), an
+`affects` object with `type: path` and `pattern: "src/jobs/**"`, and the exact
+`history` key. The before/after fingerprint and ADR count remained unchanged.
 
 ## Defects found by these runs
 

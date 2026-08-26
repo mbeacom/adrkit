@@ -98,7 +98,12 @@ Audit `$ARGUMENTS` for durable decisions that were made but never recorded.
      adr check --dir "$ADR_DIR" --json -- <quoted-candidate-paths...>
      ```
 
-   - When MCP is connected, use `get_decision_context(files[])` and
+   - Use MCP only after confirming its configured `ADRKIT_MCP_CWD` canonicalizes
+     to this worktree root and its `ADRKIT_MCP_DIR` resolves to this exact
+     `ADR_DIR`. The tools do not accept a corpus directory per call. If either
+     configured value is hidden or differs, do not use MCP for reconciliation;
+     use the trusted CLI or classify the result `unverified`.
+   - With that identity confirmed, use `get_decision_context(files[])` and
      `search_decisions`, including `status: ["rejected"]`.
    - Do **not** use `list_superseded` to search rejected records: it returns only
      records whose status is superseded and never rejected ones.
@@ -130,15 +135,29 @@ Audit `$ARGUMENTS` for durable decisions that were made but never recorded.
        candidateKey: BF-001
        title: <imperative decision title>
        corpusDir: <resolved ADR_DIR>
+       candidatePaths: [<existing concrete repo-relative file; never a glob>]
        sourceArtifact: <primary repo-relative source>
        citations: [<path:line or commit>]
        missingEvidence: [<known gap>]
-       affects: [<repo-relative matcher>]
+       affects:
+         - type: path
+           pattern: <repo-relative glob>
        alternatives: [<observed alternative>]
        reconciliation: new|amendment-or-supersession
+       reconciliationSnapshot:
+         corpusFingerprint: <QueueReport v1 corpusFingerprint>
+         governing: [<accepted ADR id>]
+         activeProposals: [<draft or proposed ADR id>]
+         history: [<rejected, superseded, or deprecated ADR id>]
        statusTreatment: proposed
      ```
 
+     Every `candidatePaths` entry must be a contained, existing file used during
+     reconciliation. Never put an `affects` glob in `candidatePaths`.
+     Build `reconciliationSnapshot` from one final `adr check` over **exactly**
+     those `candidatePaths`; do not include decisions matched only by other
+     candidates or scoped files. The partition key is exactly `history`, never
+     `historical`.
      Do not emit a handoff for `covered` or `unverified` candidates.
 
 Read-only. Do not create or edit records. After a human selects one candidate,

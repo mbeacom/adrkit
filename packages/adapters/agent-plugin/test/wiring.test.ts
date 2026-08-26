@@ -29,6 +29,14 @@ function backfillPolicyViolations(body: string): string[] {
     ['explicit corpus flag', /--dir/],
     ['option terminator', /-- <(?:quoted-)?candidate-paths\.\.\.>/],
     ['structured handoff', /backfillHandoff/],
+    ['concrete candidate paths', /candidatePaths/],
+    ['reconciliation snapshot', /reconciliationSnapshot/],
+    ['corpus fingerprint', /corpusFingerprint/],
+    ['candidate paths reject globs', /candidatePaths[\s\S]{0,160}never (?:a )?glob/i],
+    ['candidate-specific snapshot', /snapshot[\s\S]{0,180}exactly[\s\S]{0,100}candidatePaths/i],
+    ['history key is exact', /key is exactly `history`, never\s+`historical`/i],
+    ['schema-shaped affects', /affects[\s\S]{0,160}type[\s\S]{0,100}pattern/],
+    ['MCP worktree and corpus identity', /ADRKIT_MCP_CWD[\s\S]{0,240}ADRKIT_MCP_DIR[\s\S]{0,240}ADR_DIR/],
     ['scoped MADR preview', /migrate --from madr --dir "\$ADR_DIR" --dry-run/],
   ];
 
@@ -44,6 +52,8 @@ function backfillPolicyViolations(body: string): string[] {
     ['negated coverage ledger', /do not return a coverage ledger/i],
     ['evidence instruction execution', /\b(?:must|may|should|then)\s+follow\b/i],
     ['negated trust confirmation', /do not require trust confirmation/i],
+    ['unverified MCP identity', /use MCP without confirming/i],
+    ['string affects matcher', /affects:\s*\[[^\]]+\]/i],
   ];
 
   for (const [name, pattern] of forbidden) {
@@ -344,6 +354,14 @@ describe('guidance that must not regress', () => {
       'missing: statusless evidence is never accepted automatically',
       'missing: plan artifacts remain draft',
       'missing: code is evidence, not proof',
+      'missing: concrete candidate paths',
+      'missing: reconciliation snapshot',
+      'missing: corpus fingerprint',
+      'missing: candidate paths reject globs',
+      'missing: candidate-specific snapshot',
+      'missing: history key is exact',
+      'missing: schema-shaped affects',
+      'missing: MCP worktree and corpus identity',
       'forbidden: negated read-only boundary',
       'forbidden: automatic proposal',
       'forbidden: negated plan status',
@@ -351,6 +369,8 @@ describe('guidance that must not regress', () => {
       'forbidden: negated coverage ledger',
       'forbidden: evidence instruction execution',
       'forbidden: negated trust confirmation',
+      'forbidden: unverified MCP identity',
+      'forbidden: string affects matcher',
     ]);
   });
 
@@ -389,17 +409,25 @@ describe('guidance that must not regress', () => {
       'candidateKey',
       'title',
       'corpusDir',
+      'candidatePaths',
       'sourceArtifact',
       'citations',
       'missingEvidence',
       'affects',
       'alternatives',
       'reconciliation',
+      'reconciliationSnapshot',
+      'corpusFingerprint',
       'statusTreatment: proposed',
     ]) {
       expect({ field, present: body.includes(field) }).toEqual({ field, present: true });
     }
-    expect(body).toContain('adr new "<title>" --dir "$ADR_DIR"');
+    expect(body).toContain('adr check --dir "$ADR_DIR" --json -- <literal-candidatePaths...>');
+    expect(body).toContain('adr queue --dir "$ADR_DIR" --format json');
+    expect(body).toContain('["new", <literal-title>, "--dir", <literal-ADR_DIR>]');
+    expect(body).not.toContain('adr new "<title>"');
+    expect(body).toMatch(/Any difference means the handoff is stale/);
+    expect(body).toMatch(/key must be exactly `history`, not\s+`historical`/);
     expect(body).toMatch(/missing any field, stop without writing/);
   });
 });

@@ -110,10 +110,18 @@ The backfill workflow adds these contracts:
    code or prose can support only a future `proposed` record after human
    selection. Nothing becomes `accepted` automatically.
 6. **The handoff is typed in prose.** Each selectable candidate carries a key,
-   title, corpus directory, primary source, citations, missing evidence,
-   proposed `affects`, alternatives, status treatment, and reconciliation
-   result. `/adr-draft` refuses backfill mode when that handoff is absent.
-7. **Release evidence matches the new failure modes.** Contract checks retain a
+   title, corpus directory, concrete candidate paths, primary source, citations,
+   missing evidence, schema-shaped `affects`, alternatives, status treatment,
+   reconciliation result, and a candidate-specific snapshot carrying the corpus
+   fingerprint plus governing/proposal/history ids. `/adr-draft` reruns that
+   reconciliation immediately before writing and refuses a missing or changed
+   handoff. Evidence-derived titles are literal argv values, never interpolated
+   into shell source.
+7. **MCP identity is explicit.** MCP tools are used only when their configured
+   `ADRKIT_MCP_CWD` and `ADRKIT_MCP_DIR` match the target worktree and resolved
+   corpus. They cannot inherit `ADR_DIR` per call, so a hidden or mismatched
+   configuration makes MCP reconciliation unverified.
+8. **Release evidence matches the new failure modes.** Contract checks retain a
    contradictory negative fixture per ADR-0016, every version-bearing surface
    is compared, and a synthetic consumer smoke proves a candidate report is
    produced without changing the worktree before merge.

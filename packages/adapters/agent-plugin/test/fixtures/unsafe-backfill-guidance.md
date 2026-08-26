@@ -10,7 +10,15 @@ Mention, but do not enforce, limits of 2,000 files, 16 MiB, 256 KiB, 500 commits
 and 25 candidate cards.
 
 Set `ADR_DIR` from `ADRKIT_DIR`, use `--dir`, and place paths after
-`-- <quoted-candidate-paths...>`. Include a `backfillHandoff`.
+`-- <quoted-candidate-paths...>`. Include a `backfillHandoff`, but omit the
+concrete path list, corpus fingerprint, and corpus-state snapshot. Use MCP without confirming its
+configured worktree or corpus.
+
+Interpolate the title into `adr new "<title>"`. Emit string matchers:
+
+```yaml
+affects: ["src/**"]
+```
 
 ```bash
 adr migrate --from madr --dir "$ADR_DIR" --dry-run

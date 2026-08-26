@@ -131,10 +131,15 @@ Exit `0` is clean. Exit `1` carries a complete findings report; read it and
 treat absence claims as unverified until the corpus errors are repaired. Exit
 `2` is a usage error or unreachable corpus and stops reconciliation.
 
-If the MCP server is connected, use `get_decision_context(files[])` for affected
-paths and `search_decisions` across every relevant status. Search rejected
-records explicitly with `status: ["rejected"]`. Do not use `list_superseded` for
-that check: it returns only superseded records and never rejected ones.
+Use MCP only after confirming its configured `ADRKIT_MCP_CWD` canonicalizes to
+this worktree root and `ADRKIT_MCP_DIR` resolves to this exact `ADR_DIR`. Those
+tools cannot accept a corpus directory per call. If either configured value is
+hidden or differs, use the trusted CLI or classify reconciliation as
+`unverified`. With identity confirmed, use `get_decision_context(files[])` for
+affected paths and `search_decisions` across every relevant status. Search
+rejected records explicitly with `status: ["rejected"]`. Do not use
+`list_superseded` for that check: it returns only superseded records and never
+rejected ones.
 
 Classify each candidate as:
 
@@ -165,9 +170,15 @@ Return these sections:
    choice, real alternatives, consequences, source citations, likely paths,
    missing evidence, and the truthful initial status treatment. Every selectable
    `new` or `amendment-or-supersession` card includes a `backfillHandoff` with
-   `candidateKey`, `title`, `corpusDir`, `sourceArtifact`, `citations`,
-   `missingEvidence`, `affects`, `alternatives`, `reconciliation`, and
-   `statusTreatment`.
+   `candidateKey`, `title`, `corpusDir`, existing concrete `candidatePaths`
+   (never globs),
+   `sourceArtifact`, `citations`, `missingEvidence`, schema-shaped `affects`
+   objects (`type` plus `pattern`), `alternatives`, `reconciliation`, a
+   `reconciliationSnapshot` carrying the QueueReport v1 `corpusFingerprint` and
+   partitioning governing, active-proposal, and historical ADR ids, and
+   `statusTreatment`. Build that snapshot from a final check over exactly
+   `candidatePaths`, excluding decisions matched only elsewhere in the broader
+   scope. The partition key is exactly `history`, never `historical`.
 5. **Excluded observations** — notable patterns that did not meet the admission
    rule, with the reason.
 6. **Recommended next action** — name at most the first few candidates worth
@@ -176,6 +187,8 @@ Return these sections:
 For a selected machine-assisted candidate, invoke
 `/adr-draft <candidateKey>` while the complete handoff remains in context. That
 command must refuse backfill mode when any required handoff field is missing. It
-sets `provenance.authoredBy: agent-drafted`, uses
-`provenance.sourceArtifact`, carries citations and gaps into the body, and binds
-real paths through `affects`. Human ratification is a later, explicit act.
+reruns reconciliation over `candidatePaths` immediately before writing and
+stops if the snapshot changed. It sets
+`provenance.authoredBy: agent-drafted`, uses `provenance.sourceArtifact`, carries
+citations and gaps into the body, and binds real paths through `affects`. Human
+ratification is a later, explicit act.
