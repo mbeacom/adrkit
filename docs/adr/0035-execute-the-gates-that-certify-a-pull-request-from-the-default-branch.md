@@ -21,13 +21,19 @@ affects:
     pattern: "packages/ci/**"
   - type: path
     pattern: "CODEOWNERS"
+  - type: path
+    pattern: ".github/CODEOWNERS"
+  - type: path
+    pattern: "docs/CODEOWNERS"
 assertions:
   - id: gate-change-acknowledged
     description: >-
       A pull request that changes a gate-defining path — any file under
-      .github/workflows/, .github/actions/, scripts/, or packages/ci/, or
-      CODEOWNERS itself — must carry the gate-change-acknowledged label, which
-      requires triage or write access to apply.
+      .github/workflows/, .github/actions/, scripts/, or packages/ci/, or a
+      CODEOWNERS file at any of the three locations GitHub resolves
+      (.github/CODEOWNERS, the repository root, docs/CODEOWNERS) — must carry the
+      gate-change-acknowledged label, which requires triage or write access to
+      apply and is dismissed automatically whenever the head or the base moves.
     engine: custom
     expression: gate-change-acknowledged
     input: source
@@ -132,6 +138,40 @@ later result stand. So moving the gate is necessary and not sufficient: the
 `.github/workflows/` surface itself has to become something a pull request cannot
 change quietly.
 
+### What a protected path list can and cannot reach
+
+This needs saying precisely, because an earlier draft of this record and of the
+workflow claimed more than is true — that *every* route to neutering a gate ran
+through a protected path.
+
+It does not. `ci.yml` reaches most of its checks through `bun run <name>`, so the
+root `package.json` redirects `typecheck`, `build`, `lint`, `release:pack`,
+`check:deps`, `check:freeze-hashes`, `check:doc-pins`, `check:clause8`,
+`check:no-spike-heuristics`, `check:site-grammar` and `adr lint` — eleven
+invocations across three required contexts — without touching a protected path.
+`self-dogfood` runs `adr check` out of `packages/cli`. `bunfig.toml` and
+`tsconfig.json` change how all of it resolves.
+
+The boundary that is real is narrower and worth stating on its own terms:
+
+- **The trusted gates are complete.** They run from the default branch and invoke
+  script *paths* directly rather than `bun run <name>`, so no manifest edit
+  redirects them and no package edit changes what they execute. Both paths they
+  invoke are themselves protected.
+- **The advisory gates in `ci.yml` are not, and no path list can make them so.**
+  They execute the pull request's own code from the pull request's own checkout.
+  The pull request controls the subject *and* the machinery.
+
+The remedy for a gate that must be trustworthy is therefore to move it into
+`trusted-gates.yml`, as the sign-off gate was — not to keep extending the
+protected list. Extending it was considered and rejected: adding `package.json`
+would put the acknowledgment on a weekly Dependabot bump while still not reaching
+the code those gates run, which buys friction and a false impression of
+completeness at once. The specific unprotected routes are enumerated in
+`DOCUMENTED_UNPROTECTED_ROUTES` in `scripts/check-gate-integrity.ts` and pinned by
+a test, so the gap cannot narrow or widen without the documentation moving with
+it.
+
 ## Decision
 
 **We will execute the gates whose verdict must not be editable by the pull
@@ -148,10 +188,12 @@ Concretely, in `.github/workflows/trusted-gates.yml`, on `pull_request_target`:
    is explicitly no longer the authority.
 2. **`gate-integrity`** blocks any pull request that changes
    `.github/workflows/**`, `.github/actions/**`, `scripts/**`, `packages/ci/**`,
-   or `CODEOWNERS` unless the `gate-change-acknowledged` label is present.
-   Applying a label requires triage or write access, so an external contributor
-   cannot self-authorize, and the act is recorded in the timeline against whoever
-   performed it.
+   or a `CODEOWNERS` file at any of the three locations GitHub resolves, unless
+   the `gate-change-acknowledged` label is present. Applying a label requires
+   triage or write access, so an external contributor cannot self-authorize, and
+   the act is recorded in the timeline against whoever performed it. The label is
+   **dismissed whenever the head or the base moves**, so it authorizes the state
+   it was given for and not the next one.
 
 Both jobs import Node builtins only and run with no `bun install`, so a hostile
 or broken dependency graph cannot take them down — the property ADR-0006 action
@@ -193,7 +235,7 @@ rule.
 | Dimension | Assessment |
 |---|---|
 | Closes the mechanism | Yes for the gate's *definition*; the executed workflow and script come from the default branch |
-| Closes name-shadowing | Yes, indirectly — every route runs through `.github/workflows/`, which `gate-integrity` blocks |
+| Closes name-shadowing | Yes — declaring a job needs a workflow file, and `gate-integrity` blocks that path. It does **not** make the advisory gates in `ci.yml` trustworthy; see "What a protected path list can and cannot reach" |
 | Available to a personal namespace | Yes, unlike organization required workflows |
 | Cost | One new workflow, one new script with tests, a label on gate-touching pull requests |
 | New risk introduced | A privileged trigger. Mitigated by never executing pull-request code, read-only permissions, and `actions/checkout` v7's refusal of fork refs |
@@ -290,6 +332,35 @@ no pull-request code is checked out, installed, built, or executed; no `${{ }}`
 appears in any `run:` body; the fetch is genuinely anonymous under
 `persist-credentials: false`; and the `::stop-commands::` token is masked by the
 runner before it is echoed, so it cannot be learned and replayed.
+
+### A second round, and the defect it found in this record
+
+A further adversarial review found two more, and the first was the most serious
+defect in the whole change.
+
+**Retargeting the base was invisible.** Changing a pull request's base fires
+`edited` with `changes.base` — **not** `synchronize`, which only fires when the
+head moves. The workflow did not listen for `edited`. Because the head SHA does
+not change on a retarget, the check runs computed against the *old* base remained
+the latest results for that SHA and kept the required contexts green, while the
+commit range and the changed-file set both belonged to a base nothing had ever
+examined. The acknowledgment carried over to a diff nobody acknowledged. Closed
+by adding `edited`, re-running both gates on it, and dismissing the
+acknowledgment when `changes.base` is present — but *not* on a title or body
+edit, because a control that fires on noise is one that gets waved through on
+signal.
+
+**This record asserted a completeness it did not have.** It claimed every route
+to neutering a gate ran through a protected path. Eleven `bun run <name>`
+invocations across three required contexts say otherwise. That claim has been
+replaced by the section "What a protected path list can and cannot reach", the
+routes are enumerated in code, and a test pins them.
+
+The second finding is the more instructive one. The first review hardened the
+mechanism; this one found that the *description* of the mechanism was wrong
+while the mechanism itself was working as built. A record is a control too, and
+an overstated one fails in the same direction as an overstated check — it gets
+trusted for something it does not do.
 
 ## Trade-offs
 

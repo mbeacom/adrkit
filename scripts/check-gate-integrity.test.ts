@@ -24,6 +24,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   CODEOWNERS_LOCATIONS,
   DEFAULT_ACK_LABEL,
+  DOCUMENTED_UNPROTECTED_ROUTES,
   GATE_SURFACES,
   changedPaths,
   classifyGateChanges,
@@ -197,6 +198,21 @@ describe('the guard refuses to pass over an input it could not read', () => {
     );
   });
 
+  test('an empty expected count fails as missing rather than coercing to zero', () => {
+    // `Number('')` is 0 and `Number.isInteger(0)` is true, so an unset
+    // `changed_files` would otherwise arrive as a confident "changed nothing".
+    for (const empty of ['', '   ']) {
+      expect(() =>
+        parseArgs(['--files', 'f', '--labels', 'l', '--expected-files', empty]),
+      ).toThrow(/the count is missing, not zero/);
+    }
+    // Zero written deliberately is still a value, and still wrong for a pull
+    // request — the empty-list guard is what rejects it, with its own message.
+    expect(
+      parseArgs(['--files', 'f', '--labels', 'l', '--expected-files', '0']).expectedFiles,
+    ).toBe(0);
+  });
+
   test('parseArgs accepts the shape the trusted workflow passes', () => {
     const options = parseArgs([
       '--files',
@@ -345,6 +361,46 @@ describe('printed paths cannot forge workflow commands', () => {
 
   test('a quote or backslash in a path cannot break the rendering', () => {
     expect(displayPath('a"b\\c\nd')).toBe('"a\\"b\\\\c\\u000ad"');
+  });
+});
+
+describe('the unprotected routes are documented, not claimed away', () => {
+  // The first version of this file asserted that every route to neutering a gate
+  // ran through a protected path. That was false — `ci.yml` reaches most of its
+  // checks through `bun run <name>`, so the root manifest redirects them, and the
+  // packages under test are pull-request-controlled too. A false completeness
+  // assertion is worse than a documented gap (ADR-0016), so the gap is pinned
+  // here: this fails if someone protects one of these without moving the
+  // documentation with it, and fails if the list is quietly emptied.
+  test('every documented route really is unprotected', () => {
+    for (const route of DOCUMENTED_UNPROTECTED_ROUTES) {
+      expect(surfaceOf(route.path)).toBeUndefined();
+    }
+  });
+
+  test('the list names the specific routes that exist today', () => {
+    expect(DOCUMENTED_UNPROTECTED_ROUTES.map((route) => route.path)).toEqual([
+      'package.json',
+      'packages/cli/src/index.ts',
+      'packages/core/src/index.ts',
+      'bunfig.toml',
+      'tsconfig.json',
+    ]);
+  });
+
+  test('each route says which gates it reaches', () => {
+    for (const route of DOCUMENTED_UNPROTECTED_ROUTES) {
+      expect(route.reaches.length).toBeGreaterThan(20);
+    }
+  });
+
+  test('the trusted gates are not reachable from any of them', () => {
+    // The property that makes the narrowed claim true rather than an excuse:
+    // trusted-gates.yml invokes script paths directly, and both of those paths
+    // are protected, so no manifest or package edit can redirect them.
+    expect(surfaceOf('scripts/check-dco.ts')).toBeDefined();
+    expect(surfaceOf('scripts/check-gate-integrity.ts')).toBeDefined();
+    expect(surfaceOf('.github/workflows/trusted-gates.yml')).toBeDefined();
   });
 });
 

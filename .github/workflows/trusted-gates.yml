@@ -44,7 +44,15 @@ on:
     # `labeled` and `unlabeled` are load-bearing rather than tidy: the
     # acknowledgment below is a label, so without them applying it would leave the
     # required check red with no way to re-run it except a push.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    #
+    # `edited` is load-bearing for a different reason, and its absence was a real
+    # hole. Retargeting a pull request to a different base fires `edited` with
+    # `changes.base` — **not** `synchronize`. Without it the head SHA never moves,
+    # so the check runs computed against the old base stay the latest results for
+    # that SHA and keep the required contexts green, while the commit range and
+    # the changed-file set both belong to a base nothing ever examined. The
+    # acknowledgment would carry over to a diff nobody acknowledged.
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
 
 permissions:
   contents: read
@@ -110,13 +118,23 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_CHANGE: ${{ toJSON(github.event.changes.base) }}
         run: |
           set -euo pipefail
+          # Say when the base moved, and to what. On a retarget the head SHA does
+          # not move, so this job re-runs over a *different* range while printing
+          # the same head — and a log that did not mention the move would read
+          # identically to the run before it.
+          if [ "${BASE_CHANGE}" != "null" ]; then
+            echo "the base moved; this is not the range the previous run examined:"
+            printf '%s\n' "${BASE_CHANGE}"
+          fi
           for sha in "$BASE_SHA" "$HEAD_SHA"; do
             if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then
               echo "commit ${sha} is not in this clone — the head was probably force-pushed" >&2
-              echo "between the event and this run. Refusing to report a pass over a range" >&2
-              echo "that cannot be read." >&2
+              echo "between the event and this run, or the base was retargeted to a ref this" >&2
+              echo "clone does not carry. Refusing to report a pass over a range that cannot" >&2
+              echo "be read." >&2
               exit 1
             fi
           done
@@ -143,14 +161,23 @@ jobs:
           bun scripts/check-dco.ts "${BASE_SHA}..${HEAD_SHA}"
 
   gate-integrity:
-    # `trusted-dco` closes the "edit the check" half. This closes the other half.
+    # `trusted-dco` closes the "edit the check" half. This closes name-shadowing.
     #
     # A required status check is matched by *name*, so a pull request that cannot
     # edit the trusted job can still declare a job of its own with the same name
-    # and let the later result stand. Every route to that runs through a change
-    # under `.github/workflows/`, and every route to neutering an advisory gate
-    # runs through `.github/workflows/` or `scripts/`. This refuses both unless a
-    # maintainer has said, on the record, that the change is deliberate.
+    # and let the later result stand. Declaring a job requires a workflow file, so
+    # that route does run through `.github/workflows/` and this blocks it.
+    #
+    # **It does not make the advisory gates in `ci.yml` trustworthy, and nothing
+    # here should be read as claiming otherwise.** Those jobs execute the pull
+    # request's own code from the pull request's own checkout, and they reach it
+    # through `bun run <script>`, so the manifest and the packages under test are
+    # both pull-request-controlled. `scripts/check-gate-integrity.ts` names the
+    # specific unprotected routes in `DOCUMENTED_UNPROTECTED_ROUTES`, and a test
+    # pins them so the boundary cannot drift without the documentation moving with
+    # it. The remedy for a gate that must be trustworthy is to move it into this
+    # file, as `trusted-dco` was — not to extend the protected path list, which
+    # cannot reach code the gate itself executes.
     #
     # Dismissal is a *step* here rather than a separate job on purpose. It has to
     # happen before the labels are read, and expressing that across jobs needs a
@@ -178,14 +205,28 @@ jobs:
       # on `committed` dates, which the author sets. `GIT_COMMITTER_DATE` is
       # free, so a stale acknowledgment could be made to look fresh. Removing the
       # label depends on no attacker-controlled value at all.
-      - name: Dismiss the acknowledgment, because the head moved under it
-        if: github.event.action == 'synchronize'
+      - name: Dismiss the acknowledgment when what it acknowledged has moved
+        if: github.event.action == 'synchronize' || github.event.action == 'edited'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          ACTION: ${{ github.event.action }}
+          BASE_CHANGE: ${{ toJSON(github.event.changes.base) }}
         run: |
           set -euo pipefail
+          # `edited` covers title and body edits as well as a retarget, and those
+          # move nothing the acknowledgment was given for. Dismissing on them would
+          # make a typo fix cost a re-acknowledgment, and a control that fires on
+          # noise is one that gets waved through on signal.
+          if [ "$ACTION" = "edited" ] && [ "$BASE_CHANGE" = "null" ]; then
+            echo "an edit that left the base alone (title or body); the acknowledgment stands"
+            exit 0
+          fi
+          if [ "$ACTION" = "edited" ]; then
+            echo "the base moved, so the diff this acknowledged is not the diff that merges:"
+            printf '%s\n' "$BASE_CHANGE"
+          fi
           # A 404 is the ordinary case — most pushes carry no acknowledgment — and
           # any other failure is deliberately swallowed here too, because the
           # verification below is what decides. Trusting the delete's exit status
@@ -193,17 +234,25 @@ jobs:
           gh api -X DELETE \
             "repos/${REPO}/issues/${PR_NUMBER}/labels/gate-change-acknowledged" \
             --silent || true
-          # No pipe into `grep -q`. Under `pipefail` a matching grep closes the
-          # pipe, `gh` dies of SIGPIPE, and the pipeline reports failure — which
-          # would read as "the label is gone" at exactly the moment it is present.
-          remaining=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" \
-            --jq '[.[].name] | index("gate-change-acknowledged") // "absent"')
+          # Paginated, like the changed-file listing. A single unpaginated page
+          # caps at 30 labels, and a check whose pass condition is "the label is
+          # not in this list" must not be reading a partial list.
+          #
+          # No pipe into `grep -q` either: under `pipefail` a matching grep closes
+          # the pipe, `gh` dies of SIGPIPE, and the pipeline reports failure —
+          # which would read as "the label is gone" at exactly the moment it is
+          # present.
+          gh api --paginate --slurp \
+            "repos/${REPO}/issues/${PR_NUMBER}/labels" > "${RUNNER_TEMP}/labels-after.json"
+          remaining=$(jq -r \
+            '[.[][].name] | index("gate-change-acknowledged") // "absent"' \
+            "${RUNNER_TEMP}/labels-after.json")
           if [ "$remaining" != "absent" ]; then
             echo "the acknowledgment is still present after dismissal; refusing to" >&2
-            echo "let a stale acknowledgment authorize a head it never saw." >&2
+            echo "let a stale acknowledgment authorize a state it never saw." >&2
             exit 1
           fi
-          echo "no acknowledgment is in effect for this head"
+          echo "no acknowledgment is in effect for this head and base"
 
       - name: Check out the default branch (never the pull request)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

@@ -118,6 +118,30 @@ decision from adding the check.
 advisory under ADR-0035 but is still a required context; leave it required until
 `trusted-dco` has been observed green on a real pull request (§3.2).
 
+**Pull requests open at the moment you do this will be stuck, and it is not
+obvious why.** A required context is satisfied by a check run against the head
+SHA, and `pull_request_target` only produces one when an event fires. Every pull
+request already open when the contexts are added has a head that no
+`trusted-gates.yml` run has ever seen, so both new contexts sit at "Expected —
+waiting for status" indefinitely. Nothing retroactively creates them, and
+re-running an old workflow run does not either, because the workflow did not
+exist for that run.
+
+Each open pull request needs a **new event** — push a commit, or close and
+reopen it, or edit its base. Check what is open before you start, and expect to
+touch each one:
+
+```bash
+gh api "repos/mbeacom/adrkit/pulls?state=open" --jq '.[] | "#\(.number)  \(.head.ref)"'
+
+# For each, confirm the two contexts actually reported against its current head:
+gh api "repos/mbeacom/adrkit/commits/<head-sha>/check-runs" \
+  --jq '[.check_runs[].name] | map(select(. == "trusted-dco" or . == "gate-integrity"))'
+```
+
+That listing must show both names. An empty result is the stuck state, not a
+pass.
+
 ### 2.2 Fork pull request approval policy — a maintainer decision, not a default
 
 Currently:
@@ -267,6 +291,39 @@ lines the runner would parse as commands: NONE
 `JSON.stringify` was the first attempt and was insufficient — it escapes control
 characters but leaves U+200B ZERO WIDTH SPACE untouched, so an invisible
 character would still have printed invisibly. The test caught it.
+
+A second adversarial review then found the most serious defect in the change, and
+one in the documentation:
+
+- **Retargeting the base was invisible.** Changing a pull request's base fires
+  `edited` with `changes.base`, not `synchronize`. The workflow did not listen
+  for `edited`, and because the head SHA does not move on a retarget, the check
+  runs computed against the *old* base stayed the latest results for that SHA and
+  kept the required contexts green over a range nothing had examined — with the
+  acknowledgment carrying over to a diff nobody acknowledged.
+- **The completeness claim was false.** "Every route to neutering an advisory
+  gate runs through `.github/workflows/` or `scripts/`" is contradicted by eleven
+  `bun run <name>` invocations across three required contexts, all redirectable
+  from the root `package.json`.
+
+Both are closed, and the workflow's own properties are now asserted by
+`scripts/trusted-gates-workflow.test.ts` rather than by comments. Each new
+assertion was observed failing on the exact regression it defends against, by
+mutating the file and re-running:
+
+| Mutation | Assertion that fired |
+|---|---|
+| `edited` removed from `types` | `includes edited, without which a retarget is invisible` (+1 more) |
+| `changes.base` no longer wired to the step | `an edit that left the base alone does not dismiss` |
+| label listing un-paginated | `the label listing is paginated before it is trusted` |
+| `package.json` added to `GATE_SURFACES` | 5 failures incl. `every documented route really is unprotected` |
+
+The last one is deliberate: the documented gap is pinned, so protecting one of
+those routes without moving the documentation fails the suite. And on the CLI,
+`--expected-files ""` now reports `the count is missing, not zero` instead of
+silently becoming `0` — `Number('')` is `0` and `Number.isInteger(0)` is `true`,
+so an unset `changed_files` would otherwise have arrived as a confident claim
+that the pull request changed nothing.
 
 ### 3.2 Not yet observed — say so plainly
 

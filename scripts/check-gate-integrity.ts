@@ -127,6 +127,61 @@ export const GATE_SURFACES: readonly GateSurface[] = [
  */
 export const CODEOWNERS_LOCATIONS = ['.github/CODEOWNERS', 'CODEOWNERS', 'docs/CODEOWNERS'] as const;
 
+/**
+ * Routes to neutering a gate that this guard **does not** protect.
+ *
+ * Written down because the first version of this file claimed the opposite — that
+ * every route to neutering a gate ran through a protected path — and that was
+ * false. A false completeness assertion is worse than a documented gap, which is
+ * ADR-0016's whole subject, so the gap is named here and pinned by a test rather
+ * than left to a comment that can drift.
+ *
+ * The distinction that matters:
+ *
+ * - **The trusted gates are complete.** `trusted-dco` and `gate-integrity` run
+ *   from the default branch and invoke script *paths* directly, never
+ *   `bun run <name>`, so no manifest edit can redirect them and no package edit
+ *   can change what they execute.
+ * - **The advisory gates in `ci.yml` are not, and cannot be made so by any path
+ *   list.** They run the pull request's own code from its own checkout. Every
+ *   entry below is a real way to change what a required context does without
+ *   touching a protected path.
+ *
+ * The remedy for a gate that must be trustworthy is to move it into
+ * `trusted-gates.yml`, as the sign-off gate was. Extending this guard's protected
+ * list would add friction — the root manifest changes on every weekly Dependabot
+ * bump — while still not reaching the code those gates execute.
+ */
+export const DOCUMENTED_UNPROTECTED_ROUTES: ReadonlyArray<{
+  readonly path: string;
+  readonly reaches: string;
+}> = [
+  {
+    path: 'package.json',
+    reaches:
+      'clean-clone-builds runs typecheck, build, lint, release:pack, check:deps, ' +
+      'check:freeze-hashes, check:doc-pins, check:clause8, check:no-spike-heuristics, ' +
+      'check:site-grammar and adr lint through `bun run <name>`; node-smoke and ' +
+      'action-dogfood likewise. Repointing a script redirects all of them.',
+  },
+  {
+    path: 'packages/cli/src/index.ts',
+    reaches: 'self-dogfood runs `bun run adr check`, and clean-clone-builds `adr lint`',
+  },
+  {
+    path: 'packages/core/src/index.ts',
+    reaches: 'the corpus loader every adr subcommand resolves through',
+  },
+  {
+    path: 'bunfig.toml',
+    reaches: 'how every gate in ci.yml is resolved and run',
+  },
+  {
+    path: 'tsconfig.json',
+    reaches: 'what typecheck and lint actually check',
+  },
+];
+
 export interface GateChange {
   readonly path: string;
   readonly surface: GateSurface;
@@ -388,6 +443,14 @@ export function parseArgs(argv: readonly string[]): Options {
         else if (flag === '--labels') options.labels = value;
         else if (flag === '--ack-label') options.ackLabel = value;
         else {
+          // `Number('')` is 0 and `Number.isInteger(0)` is true, so an unset
+          // `changed_files` would arrive here as a confident "the pull request
+          // changed nothing" rather than as the missing input it is. The empty
+          // string is rejected explicitly, because the whole point of this flag is
+          // to notice when the count could not be read.
+          if (value.trim() === '') {
+            throw new Error('--expected-files was empty; the count is missing, not zero');
+          }
           const parsed = Number(value);
           if (!Number.isInteger(parsed) || parsed < 0) {
             throw new Error(`--expected-files needs a non-negative integer, got "${value}"`);

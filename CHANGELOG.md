@@ -21,11 +21,17 @@ Until `1.0.0`, minor releases may include breaking changes
   blocks any change under `.github/workflows/`, `.github/actions/`, `scripts/`,
   `packages/ci/`, or any of the three locations GitHub resolves `CODEOWNERS` from,
   unless a maintainer applies the `gate-change-acknowledged` label — which
-  requires triage or write access, and which is dismissed automatically on every
-  push, so an acknowledgment authorizes the head it was given for and not the one
-  that follows it
+  requires triage or write access, and which is dismissed automatically whenever
+  the head **or the base** moves, so an acknowledgment authorizes the state it was
+  given for and not the one that follows it
   ([#137](https://github.com/mbeacom/adrkit/issues/137),
   [ADR-0035](docs/adr/0035-execute-the-gates-that-certify-a-pull-request-from-the-default-branch.md)).
+  Scope is stated rather than overstated: this closes name-shadowing and protects
+  the trusted gates' definition, but it does **not** make the advisory gates in
+  `ci.yml` tamper-proof — they execute pull-request code and reach it through
+  `bun run <name>`, so the root manifest can redirect them. The specific
+  unprotected routes are enumerated in `DOCUMENTED_UNPROTECTED_ROUTES` and pinned
+  by a test.
 
 - **`scripts/check-gate-integrity.ts`**, backing that second gate. Imports Node
   builtins only, so it runs with no `bun install` and a broken dependency graph
