@@ -368,6 +368,11 @@ bootstrap described below.
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
 
+Note that steps 1–4 land on `main` before step 6 creates the tag, so between the
+merge and the tag the site is deployed claiming a release that does not exist yet.
+The window is short and self-correcting; it is called out here so it is not
+mistaken for a mistake.
+
 ## OCI container image
 
 [ADR-0032](adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md)
@@ -429,10 +434,43 @@ Never rebuild an immutable tag from a different commit. To recover a bad moving
 tag, first fix or identify the correct released commit, then republish through
 the workflow; do not hand-push an unverified local image.
 
-Note that steps 1–4 land on `main` before step 6 creates the tag, so between the
-merge and the tag the site is deployed claiming a release that does not exist yet.
-The window is short and self-correcting; it is called out here so it is not
-mistaken for a mistake.
+## Recovering a bad npm release
+
+npm versions and immutable git tags are never rewritten. If a defect is found
+after a lockstep release reaches `latest`:
+
+1. Confirm the affected version and the last verified lockstep version. Stop any
+   pending MCP registry or moving Action-tag promotion that has not completed.
+2. Deprecate each affected package version with the same concise reason:
+
+   ```sh
+   npm deprecate @adrkit/core@<bad-version> "Use <hotfix-version>; see <issue-url>"
+   npm deprecate @adrkit/evaluator@<bad-version> "Use <hotfix-version>; see <issue-url>"
+   npm deprecate @adrkit/cli@<bad-version> "Use <hotfix-version>; see <issue-url>"
+   npm deprecate @adrkit/mcp@<bad-version> "Use <hotfix-version>; see <issue-url>"
+   ```
+
+3. When immediate containment is safer than leaving `latest` on the bad version,
+   move each package's `latest` dist-tag back to the same last verified version:
+
+   ```sh
+   npm dist-tag add @adrkit/core@<last-good-version> latest
+   npm dist-tag add @adrkit/evaluator@<last-good-version> latest
+   npm dist-tag add @adrkit/cli@<last-good-version> latest
+   npm dist-tag add @adrkit/mcp@<last-good-version> latest
+   ```
+
+   Do not unpublish the bad version and do not move its immutable git tag or
+   GitHub release. Deprecation preserves provenance and tells pinned consumers
+   exactly what happened.
+4. Fix forward on `main`, bump all lockstep versions to a higher patch, update
+   the lockfile and version restatements, and run the full local release
+   simulation. The installed-tarball smoke must exercise graph DOT, JSON,
+   Mermaid, terminal, and filters before the replacement tag is created.
+5. Publish the hotfix through the normal protected workflow, verify every npm
+   integrity, move the major Action tag only after success, and re-publish the
+   MCP registry entry. Remove the temporary `latest` rollback only by publishing
+   or explicitly tagging the verified hotfix.
 
 ## v0.3.0 cutover runbook — **COMPLETE**
 

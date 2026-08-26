@@ -1,3 +1,4 @@
+import type { GraphEdge } from '@adrkit/core';
 import type { StreamStyle } from './presentation.ts';
 
 export const COMMAND_ORDER = ['new', 'lint', 'check', 'explain', 'graph', 'queue', 'evaluate', 'migrate', 'completion', 'help'] as const;
@@ -25,12 +26,25 @@ export const TOP_LEVEL_COMPLETION_VALUE_CHOICES = {
   '--color': GLOBAL_COLOR_VALUES,
 } as const satisfies Record<string, readonly string[]>;
 
+export const GRAPH_FORMAT_VALUES = ['auto', 'terminal', 'dot', 'json', 'mermaid'] as const;
+export const GRAPH_KIND_VALUES = ['supersedes', 'relatesTo', 'conflictsWith'] as const satisfies readonly GraphEdge['kind'][];
+export type GraphFormat = (typeof GRAPH_FORMAT_VALUES)[number];
+export type GraphKind = (typeof GRAPH_KIND_VALUES)[number];
+
+export function isGraphFormat(value: string): value is GraphFormat {
+  return GRAPH_FORMAT_VALUES.includes(value as GraphFormat);
+}
+
+export function isGraphKind(value: string): value is GraphKind {
+  return GRAPH_KIND_VALUES.includes(value as GraphKind);
+}
+
 export const COMMAND_OPTIONS = {
   new: ['--status', '--dir', '--json', '--help'],
   lint: ['--json', '--dir', '--help'],
   check: ['--json', '--dir', '--help'],
   explain: ['--json', '--dir', '--help'],
-  graph: ['--dir', '--format', '--help'],
+  graph: ['--dir', '--format', '--focus', '--kind', '--help'],
   queue: ['--dir', '--as-of', '--format', '--help'],
   evaluate: ['--snapshot', '--date', '--json', '--dir', '--help'],
   migrate: ['--from', '--dir', '--dry-run', '--rename', '--json', '--help'],
@@ -43,7 +57,7 @@ export const COMMAND_COMPLETION_OPTIONS = {
   lint: ['-h', '--help', '--json', '--dir'],
   check: ['-h', '--help', '--json', '--dir'],
   explain: ['-h', '--help', '--json', '--dir'],
-  graph: ['-h', '--help', '--dir', '--format'],
+  graph: ['-h', '--help', '--dir', '--format', '--focus', '--kind'],
   queue: ['-h', '--help', '--dir', '--as-of', '--format'],
   evaluate: ['-h', '--help', '--snapshot', '--date', '--json', '--dir'],
   migrate: ['-h', '--help', '--from', '--dir', '--dry-run', '--rename', '--json'],
@@ -53,7 +67,7 @@ export const COMMAND_COMPLETION_OPTIONS = {
 
 export const COMMAND_VALUE_CHOICES = {
   new: { '--status': ['draft', 'proposed', 'rejected', 'deprecated'] },
-  graph: { '--format': ['dot', 'json'] },
+  graph: { '--format': GRAPH_FORMAT_VALUES, '--kind': GRAPH_KIND_VALUES },
   queue: { '--format': ['markdown', 'json'] },
   migrate: { '--from': ['madr'] },
 } as const satisfies Partial<Record<CommandName, Record<string, readonly string[]>>>;

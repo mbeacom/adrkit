@@ -411,12 +411,29 @@ import * as evaluator from '@adrkit/evaluator';
 import * as mcp from '@adrkit/mcp';
 
 if (typeof core.lintCorpus !== 'function') throw new Error('Installed @adrkit/core is missing lintCorpus');
+if (typeof core.filterAdrGraph !== 'function') throw new Error('Installed @adrkit/core is missing filterAdrGraph');
+if (typeof core.renderMermaidGraph !== 'function') throw new Error('Installed @adrkit/core is missing renderMermaidGraph');
 if (typeof cli.main !== 'function') throw new Error('Installed @adrkit/cli is missing main');
 if (typeof evaluator.evaluatePass0 !== 'function') throw new Error('Installed @adrkit/evaluator is missing evaluatePass0');
 if (typeof mcp.createAdrkitMcpServer !== 'function') throw new Error('Installed @adrkit/mcp is missing createAdrkitMcpServer');
 
 const repoRoot = process.argv[2];
 if (!repoRoot) throw new Error('Expected repository root argument');
+
+const coreGraph = {
+  nodes: [
+    { id: '0001', title: 'Use the original', status: 'superseded' },
+    { id: '0002', title: 'Use the replacement', status: 'accepted' },
+  ],
+  edges: [{ from: '0002', to: '0001', kind: 'supersedes' }],
+};
+const coreFocusedGraph = core.filterAdrGraph(coreGraph, { focus: '0002' });
+if (coreFocusedGraph.nodes.length !== 2 || coreFocusedGraph.edges.length !== 1) {
+  throw new Error('Installed @adrkit/core filterAdrGraph returned the wrong focused graph');
+}
+if (!core.renderMermaidGraph(coreFocusedGraph).startsWith('flowchart LR\\n')) {
+  throw new Error('Installed @adrkit/core renderMermaidGraph did not emit a flowchart');
+}
 
 // The public @adrkit/mcp surface is only the sealed lifecycle handle.
 const handle = mcp.createAdrkitMcpServer({ cwd: repoRoot, dir: 'docs/adr' });
@@ -513,6 +530,56 @@ const lint = spawnSync(bin, ['lint', join(repoRoot, 'docs/adr')], { cwd: repoRoo
 if (lint.stdout) process.stdout.write(lint.stdout);
 if (lint.stderr) process.stderr.write(lint.stderr);
 if (lint.status !== 0) throw new Error(\`Installed adr lint failed with exit \${lint.status}\`);
+
+const graphDir = join(repoRoot, 'docs/adr');
+const graphDefault = spawnSync(bin, ['graph', '--dir', graphDir], { cwd: repoRoot, encoding: 'utf8' });
+if (graphDefault.stderr) process.stderr.write(graphDefault.stderr);
+if (graphDefault.status !== 0 || !graphDefault.stdout.startsWith('digraph adr {\\n')) {
+  throw new Error('Installed adr graph default did not emit DOT');
+}
+
+const graphJson = spawnSync(bin, ['graph', '--dir', graphDir, '--focus', '0014', '--format', 'json'], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+});
+if (graphJson.stderr) process.stderr.write(graphJson.stderr);
+if (graphJson.status !== 0) throw new Error(\`Installed adr graph JSON failed with exit \${graphJson.status}\`);
+const graphPayload = JSON.parse(graphJson.stdout);
+if (!graphPayload.nodes.some((node) => node.id === '0014')) {
+  throw new Error('Installed adr graph JSON omitted the focus node');
+}
+if (!graphPayload.edges.every((edge) => edge.from === '0014' || edge.to === '0014')) {
+  throw new Error('Installed adr graph JSON included an edge outside the focused neighborhood');
+}
+
+const graphKinds = spawnSync(
+  bin,
+  ['graph', '--dir', graphDir, '--kind', 'supersedes', '--format', 'json'],
+  { cwd: repoRoot, encoding: 'utf8' },
+);
+if (graphKinds.stderr) process.stderr.write(graphKinds.stderr);
+if (graphKinds.status !== 0) throw new Error(\`Installed adr graph kind filter failed with exit \${graphKinds.status}\`);
+if (!JSON.parse(graphKinds.stdout).edges.every((edge) => edge.kind === 'supersedes')) {
+  throw new Error('Installed adr graph kind filter emitted another relationship kind');
+}
+
+const graphMermaid = spawnSync(bin, ['graph', '--dir', graphDir, '--format', 'mermaid'], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+});
+if (graphMermaid.stderr) process.stderr.write(graphMermaid.stderr);
+if (graphMermaid.status !== 0 || !graphMermaid.stdout.startsWith('flowchart LR\\n')) {
+  throw new Error('Installed adr graph Mermaid did not emit a flowchart');
+}
+
+const graphTerminal = spawnSync(bin, ['graph', '--dir', graphDir, '--format', 'terminal'], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+});
+if (graphTerminal.stderr) process.stderr.write(graphTerminal.stderr);
+if (graphTerminal.status !== 0 || !graphTerminal.stdout.includes('ADR decision graph')) {
+  throw new Error('Installed adr graph terminal output was missing its heading');
+}
 
 const evaluate = spawnSync(bin, [
   'evaluate',

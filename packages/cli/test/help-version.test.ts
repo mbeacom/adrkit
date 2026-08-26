@@ -233,7 +233,9 @@ describe('top-level invocation behavior', () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('Error: adr graph --format must be "dot" or "json".');
+    expect(result.stderr).toContain(
+      'Error: adr graph --format must be "auto", "terminal", "dot", "json", or "mermaid".',
+    );
     expect(result.stderr).toContain('Usage: adr graph [options]');
     expect(result.stderr).toContain("Run 'adr help graph' for more information.");
     expect(result.stderr).not.toContain('Commands:');

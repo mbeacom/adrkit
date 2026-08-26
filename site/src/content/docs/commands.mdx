@@ -15,7 +15,8 @@ Compact synopsis:
 adr lint [paths...] [--json] [--dir docs/adr]
 adr migrate --from madr [--dir docs/adr] [--dry-run] [--rename] [--json]
 adr new <title> [--status draft] [--dir docs/adr] [--json]
-adr graph [--dir docs/adr] [--format dot|json]
+adr graph [--dir docs/adr] [--format auto|terminal|dot|json|mermaid]
+          [--focus ID] [--kind supersedes|relatesTo|conflictsWith]
 adr explain <path> [--dir docs/adr] [--json]
 adr check <files...> [--dir docs/adr] [--json]
 adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
@@ -84,8 +85,8 @@ Both `--color always` and `--color=always` are recognized anywhere before the
 Stdout and stderr are detected independently, so redirecting one does not
 change the other. Color changes presentation only: exit codes and the
 stdout/stderr split are unchanged. Machine-oriented output remains ANSI-free
-even under `--color always`, including JSON, generated completion scripts, and
-the canonical queue Markdown format.
+even under `--color always`, including JSON, DOT, Mermaid, generated completion
+scripts, and the canonical queue Markdown format.
 
 ## adr lint
 
@@ -142,11 +143,40 @@ corpus.
 | Option | Meaning |
 |---|---|
 | `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
-| `--format dot\|json` | Output format (default: `dot`) |
+| `--format auto\|terminal\|dot\|json\|mermaid` | Output format (default: `auto`) |
+| `--focus <id>` | Keep one ADR, its incident relationships, and their endpoints |
+| `--kind <kind>` | Keep `supersedes`, `relatesTo`, or `conflictsWith`; repeat to include more kinds |
 | `--help` | Show help and exit |
 
-**Exit codes:** `0` rendered · `2` usage error (invalid invocation or
-unreachable corpus directory).
+`auto` selects the compact terminal instrument only when stdout is a TTY. Pipes,
+redirects, captured subprocesses, and CI continue to receive deterministic DOT,
+so existing `adr graph | ...` workflows do not change. Explicit formats always
+win.
+
+The terminal view shows status and relationship counts. Sparse and focused
+graphs include their relationship map; dense corpora show the most connected
+decisions and point to `--focus`/`--kind` instead of drawing an unreadable
+hairball. Large sparse and focused views are bounded as well; select another
+kind or a machine format for the complete edge set.
+
+```sh
+adr graph
+adr graph --focus 0014
+adr graph --kind supersedes
+adr graph --kind supersedes --kind conflictsWith --format json
+adr graph --format mermaid > decisions.mmd
+adr graph --format dot | dot -Tsvg > decisions.svg
+```
+
+DOT, Mermaid, and JSON are deterministic and ANSI-free. The JSON envelope stays
+`{ nodes: [{ id, title, status }], edges: [{ from, to, kind }] }`.
+
+Graph still emits the complete projection of valid records when the corpus also
+contains invalid records. Those error findings go to stderr.
+
+**Exit codes:** `0` rendered without corpus errors · `1` rendered with one or
+more corpus errors · `2` usage error (invalid invocation, unreachable corpus
+directory, unknown focus id, or invalid format/kind).
 
 ## adr explain
 

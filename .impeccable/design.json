@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-19T04:20:00Z",
+  "generatedAt": "2026-08-26T03:51:37Z",
   "title": "Design System: adrkit",
   "extensions": {
     "colorMeta": {
@@ -168,6 +168,46 @@
           "oklch(0.72 0.012 35)",
           "oklch(0.94 0.012 35)"
         ]
+      },
+      "portable-canvas": {
+        "role": "neutral",
+        "displayName": "Portable True Canvas",
+        "canonical": "#FFFFFF"
+      },
+      "portable-surface": {
+        "role": "neutral",
+        "displayName": "Portable Instrument Surface",
+        "canonical": "#F6F6F5"
+      },
+      "portable-ink": {
+        "role": "neutral",
+        "displayName": "Portable Working Ink",
+        "canonical": "#2B2826"
+      },
+      "portable-muted-ink": {
+        "role": "neutral",
+        "displayName": "Portable Measured Ink",
+        "canonical": "#6B6661"
+      },
+      "portable-border": {
+        "role": "neutral",
+        "displayName": "Portable Calibration Rule",
+        "canonical": "#D8D3CE"
+      },
+      "portable-decision-coral": {
+        "role": "primary",
+        "displayName": "Portable Decision Coral",
+        "canonical": "#C45D45"
+      },
+      "portable-decision-coral-deep": {
+        "role": "primary",
+        "displayName": "Portable Decision Coral Deep",
+        "canonical": "#8F3F2F"
+      },
+      "portable-blueprint-ink": {
+        "role": "secondary",
+        "displayName": "Portable Blueprint Ink",
+        "canonical": "#50709B"
       }
     },
     "typographyMeta": {

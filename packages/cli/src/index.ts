@@ -9,6 +9,7 @@ import {
   countFindings,
   createAdr,
   exitCodeForFindings,
+  filterAdrGraph,
   lintCorpus,
   MARKER_HEADER_WINDOW_BYTES,
   mergeSourceDeclarations,
@@ -19,6 +20,7 @@ import {
   resolveSourceMarkers,
   renderDotGraph,
   renderJsonGraph,
+  renderMermaidGraph,
   ScaffoldError,
   sortFindings,
   toGoverningDecisions,
@@ -28,17 +30,21 @@ import {
   type SourceMarkerScan,
 } from '@adrkit/core';
 import { evaluate } from './evaluate.ts';
+import { renderTerminalGraph, resolveGraphFormat } from './graph.ts';
 import { closestCandidate } from './recovery.ts';
 import {
   COMMAND_ORDER,
   GLOBAL_COLOR_VALUES,
   TOP_LEVEL_OPTIONS,
   commandOptions,
+  isGraphFormat,
+  isGraphKind,
   renderGlobalColorUsageLine,
   renderTopLevelUsage,
   requiredCommandValueChoices,
   withGlobalColorOption,
   type CommandName,
+  type GraphKind,
 } from './command-registry.ts';
 import { COMPLETION_USAGE, runCompletion } from './completion.ts';
 import {
@@ -256,15 +262,22 @@ Render supersedes, relatesTo, and conflictsWith relationships for the corpus.
 
 Options:
   --dir <path>          ADR corpus directory (default: docs/adr)
-  --format dot|json     Output format (default: dot)
+  --format <format>     auto|terminal|dot|json|mermaid (default: auto)
+  --focus <id>          Keep one ADR and its directly connected decisions
+  --kind <kind>         Keep one relationship kind; repeat to include more
 ${renderGlobalColorUsageLine()}
   -h, --help            Show this help and exit
 
 Examples:
-  adr graph > decisions.dot
+  adr graph
+  adr graph --focus 0014
+  adr graph --kind supersedes
+  adr graph --format mermaid
+  adr graph --format dot > decisions.dot
   adr graph --format json
 
-Exit codes: 0 = rendered; 2 = usage error (invalid invocation or unreachable corpus directory).
+Exit codes: 0 = rendered without corpus errors; 1 = rendered with corpus errors;
+2 = usage error (invalid invocation or unreachable corpus directory).
 `,
   queue: QUEUE_USAGE,
   evaluate: `Usage: adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [options]
@@ -344,6 +357,7 @@ const CHECK_OPTIONS = withGlobalColorOption(commandOptions('check'));
 const EVALUATE_OPTIONS = withGlobalColorOption(commandOptions('evaluate'));
 const NEW_ALLOWED_STATUSES = requiredCommandValueChoices('new', '--status');
 const GRAPH_FORMAT_CHOICES = requiredCommandValueChoices('graph', '--format');
+const GRAPH_KIND_CHOICES = requiredCommandValueChoices('graph', '--kind');
 const MIGRATE_FROM_CHOICES = requiredCommandValueChoices('migrate', '--from');
 
 /** Own-property lookup: `adr help constructor` must be a usage error, not a crash. */
@@ -431,6 +445,12 @@ function renderHumanLint(findings: readonly Finding[], style = getPresentation()
     }
   }
   return output;
+}
+
+function findingBelongsToRecord(finding: Finding, id: string): boolean {
+  if (finding.id === id) return true;
+  const fileName = finding.path?.replace(/\\/g, '/').split('/').at(-1);
+  return fileName?.startsWith(`${id}-`) === true && fileName.endsWith('.md');
 }
 
 async function runLint(args: string[]): Promise<number> {
@@ -617,7 +637,9 @@ async function runGraph(args: string[]): Promise<number> {
   try {
     parsed = parseCommandArgs(args, {
       dir: { type: 'string', default: 'docs/adr' },
-      format: { type: 'string', default: 'dot' },
+      format: { type: 'string', default: 'auto' },
+      focus: { type: 'string' },
+      kind: { type: 'string', multiple: true },
     }, GRAPH_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'graph');
@@ -625,14 +647,34 @@ async function runGraph(args: string[]): Promise<number> {
 
   if (parsed.positionals.length > 0) return usageError('adr graph does not accept positional arguments.', 'graph');
   const format = String(parsed.values.format);
-  if (!GRAPH_FORMAT_CHOICES.includes(format)) {
+  if (!isGraphFormat(format)) {
     const suggestion = closestCandidate(format, GRAPH_FORMAT_CHOICES);
     return usageError(
       suggestion
-        ? `adr graph --format must be "dot" or "json". Did you mean "${suggestion}"?`
-        : 'adr graph --format must be "dot" or "json".',
+        ? `adr graph --format must be "auto", "terminal", "dot", "json", or "mermaid". Did you mean "${suggestion}"?`
+        : 'adr graph --format must be "auto", "terminal", "dot", "json", or "mermaid".',
       'graph',
     );
+  }
+
+  const kinds: GraphKind[] = [];
+  for (const rawKind of (Array.isArray(parsed.values.kind) ? parsed.values.kind : []).map(String)) {
+    if (isGraphKind(rawKind)) {
+      kinds.push(rawKind);
+      continue;
+    }
+    const suggestion = closestCandidate(rawKind, GRAPH_KIND_CHOICES);
+    return usageError(
+      suggestion
+        ? `adr graph --kind must be "supersedes", "relatesTo", or "conflictsWith". Did you mean "${suggestion}"?`
+        : 'adr graph --kind must be "supersedes", "relatesTo", or "conflictsWith".',
+      'graph',
+    );
+  }
+
+  const focus = parsed.values.focus === undefined ? undefined : String(parsed.values.focus);
+  if (focus === '') {
+    return usageError('adr graph --focus requires a non-empty ADR id.', 'graph');
   }
 
   const dir = String(parsed.values.dir);
@@ -645,7 +687,46 @@ async function runGraph(args: string[]): Promise<number> {
     throw error;
   }
   const graph = buildAdrGraph(result.records);
-  writeStdout(format === 'json' ? renderJsonGraph(graph) : renderDotGraph(graph));
+  const errorFindings = result.findings.filter((finding) => finding.severity === 'error');
+  if (focus !== undefined && !graph.nodes.some((node) => node.id === focus)) {
+    const focusFindings = errorFindings.filter((finding) => findingBelongsToRecord(finding, focus));
+    if (focusFindings.length > 0) {
+      writeStderr(`ADR "${focus}" exists but is invalid:\n`);
+      writeStderr(renderHumanLint(focusFindings, getPresentation().stderr));
+      return 1;
+    }
+    return usageError(`No ADR with id "${focus}" exists in "${dir}".`, 'graph');
+  }
+
+  const filtered = filterAdrGraph(graph, {
+    focus,
+    kinds,
+  });
+  const resolvedFormat = resolveGraphFormat(format, process.stdout.isTTY === true);
+  switch (resolvedFormat) {
+    case 'terminal':
+      writeStdout(
+        renderTerminalGraph(filtered, {
+          columns: process.stdout.columns ?? 100,
+          focus,
+          style: getPresentation().stdout,
+        }),
+      );
+      break;
+    case 'dot':
+      writeStdout(renderDotGraph(filtered));
+      break;
+    case 'json':
+      writeStdout(renderJsonGraph(filtered));
+      break;
+    case 'mermaid':
+      writeStdout(renderMermaidGraph(filtered));
+      break;
+  }
+  if (errorFindings.length > 0) {
+    writeStderr(renderHumanLint(errorFindings, getPresentation().stderr));
+    return 1;
+  }
   return 0;
 }
 

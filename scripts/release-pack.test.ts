@@ -53,6 +53,14 @@ function alignedManifests(lockstepVersion = '0.1.0'): Map<string, PackageManifes
 const resolveTo = (version: string) => () => version;
 
 describe('release package validation', () => {
+  test('the installed-package smoke covers every graph channel and new core export', async () => {
+    const source = await Bun.file(new URL('./release-pack.ts', import.meta.url)).text();
+    expect(source).toContain('Installed @adrkit/core is missing filterAdrGraph');
+    expect(source).toContain('Installed adr graph default did not emit DOT');
+    expect(source).toContain('Installed adr graph Mermaid did not emit a flowchart');
+    expect(source).toContain('Installed adr graph terminal output was missing its heading');
+  });
+
   test('accepts aligned public source manifests and matching tag', () => {
     expect(validateSourceManifests(alignedManifests(), 'v0.1.0')).toBe('0.1.0');
   });

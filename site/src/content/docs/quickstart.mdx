@@ -164,12 +164,18 @@ adr explain package.json --json
 
 ## Render the decision graph — `adr graph`
 
-Emit the decision graph — supersession and relationships — as Graphviz DOT or
-JSON.
+Inspect the decision graph interactively, or emit deterministic DOT, Mermaid, or
+JSON for another tool. Bare `adr graph` shows a compact terminal instrument when
+stdout is a TTY and preserves DOT when piped or redirected.
 
 ```sh
-# Graphviz DOT (pipe into `dot -Tsvg`)
-adr graph --format dot
+# interactive overview, then one readable neighborhood
+adr graph
+adr graph --focus 0014
+# GitHub-compatible Mermaid source
+adr graph --format mermaid > decisions.mmd
+# styled Graphviz DOT rendered to SVG
+adr graph --format dot | dot -Tsvg > decisions.svg
 # structured JSON
 adr graph --format json
 ```

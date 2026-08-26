@@ -45,7 +45,9 @@ describe('CLI mistake recovery', () => {
     const far = await runAdr(['graph', '--format', 'svg']);
     expect(far.exitCode).toBe(2);
     expect(far.stdout).toBe('');
-    expect(far.stderr).toContain('adr graph --format must be "dot" or "json".');
+    expect(far.stderr).toContain(
+      'adr graph --format must be "auto", "terminal", "dot", "json", or "mermaid".',
+    );
     expect(far.stderr).not.toContain('Did you mean');
   });
 

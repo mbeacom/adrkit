@@ -26,6 +26,34 @@ Until `1.0.0`, minor releases may include breaking changes
   manual recovery only for an existing successful GitHub release
   ([ADR-0032](docs/adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md)).
 
+- **`adr graph` now has terminal and Mermaid renderers plus focused views.**
+  `--format terminal` prints a compact status/relationship instrument,
+  `--format mermaid` emits deterministic GitHub-compatible flowchart source,
+  `--focus <id>` keeps one decision and its direct neighborhood, and repeatable
+  `--kind <supersedes|relatesTo|conflictsWith>` filters every format. The pure
+  `filterAdrGraph` and `renderMermaidGraph` functions are also exported from
+  `@adrkit/core`. Terminal rendering is bounded for large sparse and focused
+  corpora and truncates multilingual titles by grapheme-safe display width.
+
+### Changed
+
+- **Interactive `adr graph` is human-readable without breaking pipes.** The
+  default format is now `auto`: a TTY receives the terminal view, while captured,
+  piped, and redirected stdout continues to receive deterministic DOT. Explicit
+  `terminal`, `dot`, `json`, and `mermaid` formats always win. DOT output now
+  carries visible status labels and the portable adrkit palette while preserving
+  node ids, status attributes, relationship directions, and edge labels
+  ([ADR-0033](docs/adr/0033-select-interactive-graph-presentation-at-the-cli-boundary-while-preserving-piped-dot.md)).
+  Graph JSON preserves its historical locale ordering. A graph built from a
+  partially invalid corpus is still emitted completely from valid records, but
+  the error findings are now written to stderr and the command exits `1`.
+
+- **Release simulation now exercises every graph channel from installed
+  tarballs.** Node 22/24 smoke checks cover piped DOT, focused and kind-filtered
+  JSON, Mermaid, explicit terminal output, and the new core exports. The release
+  runbook now includes bad-version deprecation, temporary dist-tag rollback, and
+  forward-only lockstep hotfix steps.
+
 ## [0.10.0] - 2026-08-26
 
 ### Changed

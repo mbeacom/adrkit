@@ -14,6 +14,36 @@ import { lintCorpus } from '@adrkit/core';
 const findings = lintCorpus(records);
 ```
 
+## Building and rendering the decision graph
+
+Graph construction, filtering, and serialization are pure and deterministic.
+The CLI owns TTY detection; core callers always select a concrete renderer.
+
+```ts
+import {
+  buildAdrGraph,
+  filterAdrGraph,
+  renderDotGraph,
+  renderJsonGraph,
+  renderMermaidGraph,
+} from '@adrkit/core';
+
+const graph = buildAdrGraph(records);
+const supersession = filterAdrGraph(graph, {
+  focus: '0014',
+  kinds: ['supersedes'],
+});
+
+const dot = renderDotGraph(supersession);
+const mermaid = renderMermaidGraph(supersession);
+const json = renderJsonGraph(supersession);
+```
+
+`filterAdrGraph` keeps the focus record, matching incident edges, and their
+endpoints. A kind-only filter drops unrelated isolated nodes. The JSON envelope
+remains `{ nodes, edges }`; DOT and Mermaid add presentation without changing
+the graph model.
+
 ## Resolving decisions in both directions
 
 `resolveAffects` is the outbound edge: a record declares patterns, and paths are

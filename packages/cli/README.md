@@ -61,6 +61,33 @@ The binary includes:
 Run `adr --help` for the command list, `adr help <command>` for one command's
 flags, and `adr --version` to print the installed version.
 
+## Decision graph
+
+`adr graph` chooses its default at the stdout boundary: an interactive terminal
+gets a compact status and relationship view, while a pipe, redirect, or captured
+subprocess keeps receiving deterministic Graphviz DOT. Pin a channel whenever
+another tool consumes the output:
+
+```sh
+adr graph                                  # terminal view on a TTY; DOT in a pipe
+adr graph --focus 0014                     # one ADR and its direct neighborhood
+adr graph --kind supersedes                # one relationship kind
+adr graph --format mermaid > decisions.mmd
+adr graph --format dot | dot -Tsvg > decisions.svg
+adr graph --format json > decisions.json
+```
+
+`--kind` is repeatable and accepts `supersedes`, `relatesTo`, and
+`conflictsWith`. Explicit `--format terminal|dot|json|mermaid` always overrides
+TTY selection. DOT, Mermaid, and JSON remain ANSI-free even with forced color.
+Large sparse and focused terminal views are bounded; use another `--kind` or a
+machine format for the complete edge set.
+
+If one or more corpus records are invalid, graph still emits the complete
+projection of every valid record, writes the error findings to stderr, and
+exits `1`. Exit `0` means rendered without corpus errors; exit `2` remains a
+usage or unreachable-directory error.
+
 ## Shell completions
 
 `adr completion <bash|zsh|fish>` prints a deterministic completion script to

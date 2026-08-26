@@ -13,6 +13,14 @@ colors:
   inverse-canvas: "oklch(0.145 0.01 30)"
   inverse-ink: "oklch(0.94 0.008 35)"
   inverse-muted: "oklch(0.72 0.012 35)"
+  portable-canvas: "#FFFFFF"
+  portable-surface: "#F6F6F5"
+  portable-ink: "#2B2826"
+  portable-muted-ink: "#6B6661"
+  portable-border: "#D8D3CE"
+  portable-decision-coral: "#C45D45"
+  portable-decision-coral-deep: "#8F3F2F"
+  portable-blueprint-ink: "#50709B"
 typography:
   display:
     fontFamily: "'Anybody Variable', 'Arial Narrow', sans-serif"

@@ -17,6 +17,32 @@ driven through the official MCP Inspector. The Inspector defaults to the 2025
 era; select the modern one with `"protocolEra": "modern"` (or `"auto"`) in the
 server's entry in the Inspector's `mcp.json` — there is no CLI flag for it.
 
+## Visual `adr graph`
+
+`adr graph` preserves agent/script compatibility while giving interactive users
+a useful view under
+[ADR-0033](./docs/adr/0033-select-interactive-graph-presentation-at-the-cli-boundary-while-preserving-piped-dot.md).
+Its default is `auto`: stdout attached to a TTY receives the terminal
+status/relationship instrument; piped, redirected, and captured stdout still
+receives deterministic DOT. Explicit
+`--format terminal|dot|json|mermaid` always wins. `--focus <id>` keeps one ADR
+and its direct neighborhood; repeatable
+`--kind supersedes|relatesTo|conflictsWith` filters every format.
+
+Three boundaries are load-bearing:
+
+- TTY detection belongs only at the CLI boundary. `buildAdrGraph`,
+  `filterAdrGraph`, and every core renderer stay pure; JSON retains its existing
+  `{ nodes, edges }` contract.
+- Full dense corpora are summarized in the terminal instead of being rendered
+  as an unreadable network. Use `--focus` or `--kind` to expand a useful
+  subgraph. Native SVG/HTML is deliberately deferred; polished DOT remains the
+  dependency-free path to Graphviz SVG.
+- Terminal views have node and relationship budgets, and title truncation uses
+  grapheme-safe display width rather than UTF-16 length. Valid records still
+  produce complete DOT/JSON/Mermaid output when another corpus record is
+  invalid, but graph writes those error findings to stderr and exits `1`.
+
 ## Inbound `@adr` markers (v0.5.0: explain, check, and CI)
 
 A file can declare the decision it lives under by putting `@adr 0012` on a

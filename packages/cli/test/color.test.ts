@@ -74,6 +74,25 @@ describe('CLI color presentation', () => {
     expect(result.stdout).toBe(stripAnsi(result.stdout));
   });
 
+  test('graph machine formats stay ANSI-free while terminal output can be forced', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'docs/adr');
+    await writeText(join(dir, '0001-graph.md'), recordMarkdown('0001', 'Graph').replace('status: draft', 'status: proposed'));
+
+    for (const format of ['dot', 'json', 'mermaid']) {
+      const result = await runAdr(['--color', 'always', 'graph', '--format', format], root);
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).not.toContain('\u001b[');
+    }
+
+    const terminal = await runAdr(['--color', 'always', 'graph', '--format', 'terminal'], root);
+    expect(terminal.exitCode).toBe(0);
+    expect(terminal.stdout).toContain('\u001b[');
+    expect(terminal.stdout).toContain('\u001b[33m\u001b[1mproposed\u001b[0m');
+    expect(stripAnsi(terminal.stdout)).toContain('ADR decision graph');
+  });
+
   test('completion scripts stay ANSI-free even when color is forced', async () => {
     const result = await runAdr(['--color', 'always', 'completion', 'bash']);
 

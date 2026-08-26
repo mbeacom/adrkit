@@ -93,6 +93,8 @@ describe('adr completion CLI', () => {
       expect(first.stdout).toContain('adrkit');
       expect(first.stdout).toContain('help');
       expect(first.stdout).toContain('completion');
+      expect(first.stdout).toContain('mermaid');
+      expect(first.stdout).toContain('conflictsWith');
     });
   }
 
