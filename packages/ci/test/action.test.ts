@@ -156,7 +156,7 @@ describe('runAction (end to end with a fake client)', () => {
     expect(result.outcome?.governing.map((decision) => decision.recordId)).toEqual(['0001']);
   });
 
-  test('keeps dangling markers non-failing and out of the focused PR comment', async () => {
+  test('reports dangling markers without making them failing', async () => {
     const root = await resetTestDir(DIR_NAME);
     await mkdir(join(root, 'docs/adr'), { recursive: true });
     await writeText(join(root, 'src/dangling.ts'), '// @adr 9999\n');
@@ -167,7 +167,8 @@ describe('runAction (end to end with a fake client)', () => {
     expect(result.failed).toBe(false);
     expect(result.outcome?.ok).toBe(true);
     expect(result.outcome?.findings.map((finding) => finding.rule)).toContain('dangling-marker');
-    expect(client.created[0]).not.toContain('dangling-marker');
+    expect(client.created[0]).toContain('#### Marker claims not bound');
+    expect(client.created[0]).toContain('@adr 9999');
   });
 
   test('warns with the exact skipped paths when the marker scan cap is reached', async () => {

@@ -304,8 +304,10 @@ answer where the next decision is actually being made.
   objections) as Markdown or `QueueReport` v1 JSON; also a managed-issue Action.
 - **CI comment** — the `@adrkit/ci` GitHub Action surfaces the governing decisions
   on the PRs that touch or explicitly declare them; pattern matches render as `via`
-  and PR-authored marker claims as `declared by`. It runs with only the default `GITHUB_TOKEN` and
-  degrades (never fails the job) on a read-only fork token.
+  and PR-authored marker claims as `declared by`. The comment also distinguishes
+  marker files it could not inspect from marker claims it read but could not bind.
+  Both are advisory: they never fail the job. It runs with only the default
+  `GITHUB_TOKEN` and degrades (never fails the job) on a read-only fork token.
 - **MCP server** — let agents retrieve prior decisions, including the rejected
   ones, before proposing something already tried.
 

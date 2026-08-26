@@ -43,6 +43,17 @@ The Action updates its existing comment on later pushes, so each pull request
 keeps one current governing-decisions comment. No additional token environment
 variable is required when using the default `GITHUB_TOKEN`.
 
+The comment reports marker results separately from governing decisions. **Marker
+scan health** lists changed files that could not be inspected (`absent`,
+`unreadable`, `out-of-tree`, or skipped at the scan cap), so an empty marker
+result is not mistaken for a healthy scan. **Marker claims not bound** lists
+`@adr` claims that were read successfully but did not resolve in this corpus.
+Both sections are bounded and advisory: they never affect the Action's exit
+status, and changed-record validation errors retain priority if the comment
+reaches GitHub's size limit. Keep the default checkout rooted at
+`GITHUB_WORKSPACE`; if a workflow checks out elsewhere, marker health will
+identify files the Action could not inspect.
+
 `v0` is a moving major tag, and it now resolves to a `v0.11.0` build. Pin the
 immutable `v0.11.0` tag or a commit SHA for maximum reproducibility.
 
