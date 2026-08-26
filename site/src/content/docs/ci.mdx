@@ -43,8 +43,8 @@ The Action updates its existing comment on later pushes, so each pull request
 keeps one current governing-decisions comment. No additional token environment
 variable is required when using the default `GITHUB_TOKEN`.
 
-`v0` is a moving major tag, and it now resolves to a `v0.10.0` build. Pin the
-immutable `v0.10.0` tag or a commit SHA for maximum reproducibility.
+`v0` is a moving major tag, and it now resolves to a `v0.11.0` build. Pin the
+immutable `v0.11.0` tag or a commit SHA for maximum reproducibility.
 
 <Aside type="note" title="Comments from before the upgrade">
 	The Action is comment-only and deletes nothing, so duplicate comments a pull request
@@ -53,14 +53,14 @@ immutable `v0.10.0` tag or a commit SHA for maximum reproducibility.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">
-	The `v*` release tags are **annotated**, so `refs/tags/v0.10.0` resolves to a tag
+	The `v*` release tags are **annotated**, so `refs/tags/v0.11.0` resolves to a tag
 	object rather than a commit, and `uses:` rejects that SHA. Pin the commit the tag
 	points *at*:
 
 	```sh
-	git rev-parse v0.10.0^{commit}
+	git rev-parse v0.11.0^{commit}
 	# or, over the API — this endpoint peels the tag for you:
-	gh api repos/mbeacom/adrkit/commits/v0.10.0 --jq .sha
+	gh api repos/mbeacom/adrkit/commits/v0.11.0 --jq .sha
 	```
 
 	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag

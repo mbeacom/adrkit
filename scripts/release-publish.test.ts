@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   assertPublishTag,
   existingIntegrity,
+  publishArtifacts,
   publishEnvironment,
   shouldPublishArtifact,
 } from './release-publish.ts';
@@ -54,6 +55,28 @@ describe('release registry safety', () => {
     expect(() => shouldPublishArtifact(artifact, 'sha512-other')).toThrow(
       'already exists with different integrity',
     );
+  });
+
+  test('dry runs skip matching artifacts and publish absent ones', async () => {
+    const existing = { ...artifact, name: '@adrkit/spec-kit', version: '0.1.2' };
+    const next = { ...artifact, version: '0.11.0' };
+    const lookups: string[] = [];
+    const published: Array<{ name: string; dryRun: boolean }> = [];
+
+    await publishArtifacts(
+      [existing, next],
+      true,
+      async (candidate) => {
+        lookups.push(candidate.name);
+        return candidate === existing ? candidate.integrity : undefined;
+      },
+      async (candidate, dryRun) => {
+        published.push({ name: candidate.name, dryRun });
+      },
+    );
+
+    expect(lookups).toEqual(['@adrkit/spec-kit', '@adrkit/core']);
+    expect(published).toEqual([{ name: '@adrkit/core', dryRun: true }]);
   });
 
   test('requires the exact tag the manifest names, not one rebuilt from the version', () => {

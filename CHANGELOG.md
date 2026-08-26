@@ -9,6 +9,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-26
+
 ### Added
 
 - **A source-built OCI image for the CLI, MCP server, and both CI entry
@@ -75,6 +77,22 @@ Until `1.0.0`, minor releases may include breaking changes
   JSON, Mermaid, explicit terminal output, and the new core exports. The release
   runbook now includes bad-version deprecation, temporary dist-tag rollback, and
   forward-only lockstep hotfix steps.
+
+### Fixed
+
+- **Release publication dry-runs now verify registry integrity before deciding
+  what to publish.** An unchanged independently versioned adapter riding along
+  with a lockstep release is skipped when its packed bytes match npm, just as it
+  is during real publication, instead of `npm publish --dry-run` rejecting the
+  already-published version.
+
+## [spec-kit-0.1.3] - 2026-08-26
+
+### Changed
+
+- Refreshed the Spec Kit extension README with the community-catalog install
+  path, project-local CLI resolution, a concise plan-loop workflow, and clearer
+  runtime guarantees and support guidance.
 
 ## [0.10.0] - 2026-08-26
 
@@ -1163,7 +1181,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/mbeacom/adrkit/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/mbeacom/adrkit/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/mbeacom/adrkit/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/mbeacom/adrkit/compare/v0.7.0...v0.8.0
@@ -1171,6 +1190,7 @@ against live Spec Kit, rather than reasoning about it:
 [0.6.0]: https://github.com/mbeacom/adrkit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mbeacom/adrkit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mbeacom/adrkit/compare/v0.3.0...v0.4.0
+[spec-kit-0.1.3]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.2...spec-kit-v0.1.3
 [spec-kit-0.1.2]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.1...spec-kit-v0.1.2
 [spec-kit-0.1.1]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.0...spec-kit-v0.1.1
 [spec-kit-0.1.0]: https://github.com/mbeacom/adrkit/releases/tag/spec-kit-v0.1.0

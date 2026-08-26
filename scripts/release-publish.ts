@@ -109,6 +109,25 @@ async function npmPublish(artifact: ReleaseArtifact, dryRun: boolean): Promise<v
   assert(exitCode === 0, `Publishing ${artifact.name}@${artifact.version} failed with exit ${exitCode}`);
 }
 
+type IntegrityLookup = (artifact: ReleaseArtifact) => Promise<string | undefined>;
+type ArtifactPublisher = (artifact: ReleaseArtifact, dryRun: boolean) => Promise<void>;
+
+export async function publishArtifacts(
+  artifacts: readonly ReleaseArtifact[],
+  dryRun: boolean,
+  lookupIntegrity: IntegrityLookup = existingIntegrity,
+  publishArtifact: ArtifactPublisher = npmPublish,
+): Promise<void> {
+  for (const artifact of artifacts) {
+    const integrity = await lookupIntegrity(artifact);
+    if (!shouldPublishArtifact(artifact, integrity)) {
+      console.log(`release-publish: ${artifact.name}@${artifact.version} already matches; skipping`);
+      continue;
+    }
+    await publishArtifact(artifact, dryRun);
+  }
+}
+
 export async function publishRelease(args = Bun.argv.slice(2)): Promise<void> {
   const unknownArgs = args.filter((argument) => argument !== '--dry-run');
   assert(unknownArgs.length === 0, `Unknown release-publish arguments: ${unknownArgs.join(', ')}`);
@@ -124,16 +143,7 @@ export async function publishRelease(args = Bun.argv.slice(2)): Promise<void> {
     assertPublishTag(manifest, Bun.env.GITHUB_REF_NAME);
   }
 
-  for (const artifact of manifest.artifacts) {
-    if (!dryRun) {
-      const integrity = await existingIntegrity(artifact);
-      if (!shouldPublishArtifact(artifact, integrity)) {
-        console.log(`release-publish: ${artifact.name}@${artifact.version} already matches; skipping`);
-        continue;
-      }
-    }
-    await npmPublish(artifact, dryRun);
-  }
+  await publishArtifacts(manifest.artifacts, dryRun);
 }
 
 if (import.meta.main) {

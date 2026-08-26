@@ -14,7 +14,7 @@ import { registerGetDecisionContext } from './tools/get-decision-context.ts';
 import { registerListSuperseded } from './tools/list-superseded.ts';
 import type { ToolConfig } from './tools/shared.ts';
 
-export const SERVER_INFO = { name: '@adrkit/mcp', version: '0.10.0' } as const;
+export const SERVER_INFO = { name: '@adrkit/mcp', version: '0.11.0' } as const;
 
 /**
  * The MCP protocol revision this server serves through `serveStdio`'s modern era.

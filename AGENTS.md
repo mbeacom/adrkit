@@ -2,10 +2,10 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–6 landed and v0.10.0 is public. `@adrkit/core`,
+Status: early — phases 0–6 landed and v0.11.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `queue`, `migrate --from madr`, `evaluate`) are published on npm, as is
-the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.2); the
+the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.3); the
 repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
 The published `@adrkit/mcp` server has exactly four local stdio tools and serves
 **both** MCP protocol eras over one stdio connection — `2026-07-28` (stateless;
@@ -119,7 +119,7 @@ Things that are load-bearing and easy to break:
   [ADR-0007](./docs/adr/0007-adapter-isolation-and-public-surface-build.md) — its
   semver contract is with Spec Kit, not with `@adrkit/core`. It releases on its
   own `spec-kit-v<semver>` tag (see [`docs/RELEASING.md`](./docs/RELEASING.md)),
-  currently **0.1.2**, and does **not** move with the repository version.
+  currently **0.1.3**, and does **not** move with the repository version.
 - **Two version fields must agree**: `package.json` (npm) and `extension.yml`
   (Spec Kit). A test asserts they match — 0.1.1 shipped with them diverged and
   told every user the wrong version.
