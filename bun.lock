@@ -12,7 +12,7 @@
     },
     "packages/adapters/agent-plugin": {
       "name": "@adrkit/agent-plugin",
-      "version": "0.1.0",
+      "version": "0.2.0",
     },
     "packages/adapters/catalog-backstage": {
       "name": "@adrkit/catalog-backstage",

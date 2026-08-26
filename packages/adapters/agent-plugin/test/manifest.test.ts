@@ -7,6 +7,9 @@ import {
   packageJsonPath,
   packageRoot,
   pluginManifestPath,
+  repoRoot,
+  SKILLS,
+  frontmatterOf,
   readFlatYaml,
   readJson,
 } from './harness.ts';
@@ -39,6 +42,44 @@ describe('manifest agreement', () => {
       plugin: version,
       apm: version as string,
       packageJson: version,
+    });
+  });
+
+  test('every version-bearing release surface agrees', () => {
+      const version = plugin['version'] as string;
+      const marketplaceMetadata = marketplace['metadata'] as Record<string, unknown>;
+      const plugins = marketplace['plugins'] as Array<Record<string, unknown>>;
+      const entry = plugins.find((candidate) => candidate['name'] === plugin['name']);
+      const lock = readFileSync(join(repoRoot, 'bun.lock'), 'utf8');
+      const lockVersion =
+        /"packages\/adapters\/agent-plugin":\s*\{[\s\S]*?"version":\s*"([^"]+)"/.exec(
+          lock,
+        )?.[1];
+      const skillVersions = Object.fromEntries(
+        SKILLS.map((skill) => {
+          const frontmatter = frontmatterOf(
+            readFileSync(join(packageRoot, 'skills', skill, 'SKILL.md'), 'utf8'),
+          );
+          return [skill, /^\s+version:\s*"([^"]+)"/m.exec(frontmatter)?.[1]];
+        }),
+      );
+
+      expect({
+        plugin: version,
+        apm: apm['version'],
+        packageJson: pkg['version'],
+        lockfile: lockVersion,
+        marketplace: marketplaceMetadata['version'],
+        marketplaceEntry: entry?.['version'],
+        skills: skillVersions,
+      }).toEqual({
+        plugin: version,
+        apm: version,
+        packageJson: version,
+        lockfile: version,
+        marketplace: version,
+        marketplaceEntry: version,
+        skills: Object.fromEntries(SKILLS.map((skill) => [skill, version])),
     });
   });
 

@@ -10,6 +10,49 @@ import {
   packageRoot,
 } from './harness.ts';
 
+function backfillPolicyViolations(body: string): string[] {
+  const violations: string[] = [];
+  const required: Array<readonly [string, RegExp]> = [
+    ['read-only boundary', /\bread-only\b/i],
+    ['statusless evidence is never accepted automatically', /(?:accepted` automatically|automatically `accepted)/i],
+    ['plan artifacts remain draft', /plan[\s\S]{0,120}(?:remains|stays) `draft`/i],
+    ['code is evidence, not proof', /code[\s\S]{0,160}evidence[\s\S]{0,120}not proof/i],
+    ['coverage ledger', /coverage\s+ledger/i],
+    ['untrusted evidence', /untrusted,\s+non-executable data/i],
+    ['repository-local CLI trust confirmation', /(?:trust confirmation|confirm[\s\S]{0,80}trusted)/i],
+    ['file limit', /2,000 files/i],
+    ['total text limit', /16 MiB/i],
+    ['per-file limit', /256 KiB/i],
+    ['history limit', /500 commits/i],
+    ['candidate limit', /25 candidate cards/i],
+    ['custom corpus environment', /ADRKIT_DIR/],
+    ['explicit corpus flag', /--dir/],
+    ['option terminator', /-- <(?:quoted-)?candidate-paths\.\.\.>/],
+    ['structured handoff', /backfillHandoff/],
+    ['scoped MADR preview', /migrate --from madr --dir "\$ADR_DIR" --dry-run/],
+  ];
+
+  for (const [name, pattern] of required) {
+    if (!pattern.test(body)) violations.push(`missing: ${name}`);
+  }
+
+  const forbidden: Array<readonly [string, RegExp]> = [
+    ['negated read-only boundary', /\bnot read-only\b/i],
+    ['automatic proposal', /automatically `proposed`/i],
+    ['negated plan status', /plan[\s\S]{0,80}must not remain `draft`/i],
+    ['negated code evidence', /code is not evidence/i],
+    ['negated coverage ledger', /do not return a coverage ledger/i],
+    ['evidence instruction execution', /\b(?:must|may|should|then)\s+follow\b/i],
+    ['negated trust confirmation', /do not require trust confirmation/i],
+  ];
+
+  for (const [name, pattern] of forbidden) {
+    if (pattern.test(body)) violations.push(`forbidden: ${name}`);
+  }
+
+  return violations;
+}
+
 /**
  * Discovery wiring. Every host decides whether to surface a component from two
  * frontmatter fields — `name` and `description` — and silently ignores a file
@@ -125,7 +168,7 @@ describe('frontmatter types the hosts will not coerce', () => {
 });
 
 describe('CLI resolution guidance', () => {
-  test('the skill and the agent both name the full resolution order', () => {
+  test('the skills and the agent all name the full resolution order', () => {
     // Measured defect, not a hypothetical. In an isolated consumer repository
     // with @adrkit/cli installed as a dev dependency, the subagent tried a bare
     // `adr`, got "command not found", reported that no CLI was available, and
@@ -135,9 +178,15 @@ describe('CLI resolution guidance', () => {
     // ./node_modules/.bin/adr, is the one that was missing and the one a normal
     // dev-dependency install actually needs.
     const sources = [
-      ['SKILL.md', join(packageRoot, 'skills', 'decision-memory', 'SKILL.md')],
+      ...SKILLS.map(
+        (skill) =>
+          [
+            `${skill}/SKILL.md`,
+            join(packageRoot, 'skills', skill, 'SKILL.md'),
+          ] as const,
+      ),
       ['decision-checker.md', join(packageRoot, 'agents', 'decision-checker.md')],
-    ] as const;
+    ];
 
     for (const [label, path] of sources) {
       const body = readFileSync(path, 'utf8');
@@ -260,6 +309,98 @@ describe('guidance that must not regress', () => {
     // for a change it never looked at.
     const body = readFileSync(join(packageRoot, 'commands', 'adr-check.md'), 'utf8');
     expect(body).toContain('git ls-files --others --exclude-standard');
+  });
+
+  test('backfill guidance satisfies the safety policy', () => {
+    const sources = [
+      [
+        'adr-backfill.md',
+        readFileSync(join(packageRoot, 'commands', 'adr-backfill.md'), 'utf8'),
+      ],
+      [
+        'decision-backfill/SKILL.md',
+        readFileSync(join(packageRoot, 'skills', 'decision-backfill', 'SKILL.md'), 'utf8'),
+      ],
+    ] as const;
+
+    for (const [label, body] of sources) {
+      expect({ label, violations: backfillPolicyViolations(body) }).toEqual({
+        label,
+        violations: [],
+      });
+    }
+
+    const command = sources[0][1];
+    expect(command).not.toMatch(/\badr new\b/);
+  });
+
+  test('retained contradictory backfill guidance is rejected', () => {
+    const fixture = readFileSync(
+      join(packageRoot, 'test', 'fixtures', 'unsafe-backfill-guidance.md'),
+      'utf8',
+    );
+
+    expect(backfillPolicyViolations(fixture)).toEqual([
+      'missing: statusless evidence is never accepted automatically',
+      'missing: plan artifacts remain draft',
+      'missing: code is evidence, not proof',
+      'forbidden: negated read-only boundary',
+      'forbidden: automatic proposal',
+      'forbidden: negated plan status',
+      'forbidden: negated code evidence',
+      'forbidden: negated coverage ledger',
+      'forbidden: evidence instruction execution',
+      'forbidden: negated trust confirmation',
+    ]);
+  });
+
+  test('backfill routes every CLI operation through the resolved corpus', () => {
+    for (const [label, body] of [
+      [
+        'adr-backfill.md',
+        readFileSync(join(packageRoot, 'commands', 'adr-backfill.md'), 'utf8'),
+      ],
+      [
+        'decision-backfill/SKILL.md',
+        readFileSync(join(packageRoot, 'skills', 'decision-backfill', 'SKILL.md'), 'utf8'),
+      ],
+    ] as const) {
+      for (const command of ['lint', 'graph', 'check', 'queue']) {
+        expect({
+          label,
+          command,
+          scoped: new RegExp(`adr ${command}[^\\n]*--dir "\\$ADR_DIR"`).test(body),
+        }).toEqual({ label, command, scoped: true });
+      }
+      expect({ label, migration: /adr migrate --from madr --dir "\$ADR_DIR" --dry-run/.test(body) }).toEqual({
+        label,
+        migration: true,
+      });
+      expect({ label, terminator: /adr check[^\\n]*--json -- <(?:quoted-)?candidate-paths\.\.\.>/.test(body) }).toEqual({
+        label,
+        terminator: true,
+      });
+    }
+  });
+
+  test('draft consumes a complete backfill handoff without adding a writer', () => {
+    const body = readFileSync(join(packageRoot, 'commands', 'adr-draft.md'), 'utf8');
+    for (const field of [
+      'candidateKey',
+      'title',
+      'corpusDir',
+      'sourceArtifact',
+      'citations',
+      'missingEvidence',
+      'affects',
+      'alternatives',
+      'reconciliation',
+      'statusTreatment: proposed',
+    ]) {
+      expect({ field, present: body.includes(field) }).toEqual({ field, present: true });
+    }
+    expect(body).toContain('adr new "<title>" --dir "$ADR_DIR"');
+    expect(body).toMatch(/missing any field, stop without writing/);
   });
 });
 

@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Decision memory for human- and agent-authored plans.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "adrkit",
       "source": "./packages/adapters/agent-plugin",
-      "description": "Load the architecture decisions that already govern a change before planning it, check a produced plan against them, and record a new one. Ships a decision-memory skill, a read-only decision-checker agent, and four slash commands, all driven by the adr CLI. Ships no MCP server: adrkit's MCP server is configured per project, and the skill uses its tools when they are connected.",
-      "version": "0.1.0",
+      "description": "Load the architecture decisions that govern a change, check work against them, and audit code, documentation, and history for decisions that were never recorded. Ships decision-memory and decision-backfill skills, a read-only decision-checker agent, and five slash commands, all driven by the adr CLI. Ships no MCP server: adrkit's MCP server is configured per project, and the skills use its tools when they are connected.",
+      "version": "0.2.0",
       "author": {
         "name": "Mark Beacom",
         "url": "https://github.com/mbeacom"
@@ -26,6 +26,7 @@
         "adr",
         "architecture-decision-records",
         "decision-memory",
+        "decision-backfill",
         "governance",
         "mcp"
       ]

@@ -667,6 +667,12 @@ copilot plugin marketplace add mbeacom/adrkit && copilot plugin install adrkit@a
 apm install mbeacom/adrkit/packages/adapters/agent-plugin --target opencode
 ```
 
+The current plugin adds a read-only `/adr-backfill` command and
+`decision-backfill` skill for auditing code, documentation, and history. They
+produce evidence-backed candidates and a coverage ledger; selected candidates
+move through the existing one-record `/adr-draft` path rather than being
+bulk-written or automatically accepted.
+
 ### F1 — catalog location is an intersection, not a preference
 
 Copilot CLI resolves `marketplace.json`, `.plugin/marketplace.json`,
@@ -686,6 +692,15 @@ Against the installed hosts, not their documentation:
 | Copilot CLI 1.0.80 | `plugin marketplace add` + `plugin install adrkit@adrkit` | skill, agent, and all four commands present in a fresh session; no MCP error in the session log |
 | Claude Code | `claude plugin validate` (plugin **and** marketplace) | passed, after three real errors it caught |
 | APM 0.28.0 | `apm install --target {claude,copilot,opencode}` | 1 agent, 4 commands, 1 skill integrated per target, no warnings |
+
+These observed component counts are the v0.1.0 baseline. The v0.2.0 backfill
+addition changes the catalog to 1 agent, 5 commands, and 2 skills. Its contracts,
+Claude plugin and marketplace manifests, Copilot `--plugin-dir` discovery, and
+isolated APM deployment to all three targets pass. A fresh Copilot 1.0.80
+synthetic-consumer run produced the expected covered/history/new
+classification, emitted a complete backfill handoff, and preserved the exact
+worktree fingerprint and ADR count. This remains rung 1: no persistent
+reference-repository, Claude/APM functional run, or external signal is claimed.
 
 What this is **not**: there has been no isolated reference-repository run
 (rung 2) and no external/community signal (rung 3). Both are open, and the

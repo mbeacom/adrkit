@@ -207,21 +207,38 @@ components resolve it from `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then
 | Component | Purpose | Writes |
 |---|---|---|
 | `decision-memory` skill | Teaches the context → check → draft loop, the exit-code contract, and the rules that keep the record honest | no |
+| `decision-backfill` skill | Audits code, documentation, plans, and history for evidence-backed ADR candidates without treating implementation as ratification | no |
 | `decision-checker` agent | Reconciles a plan or diff against the corpus, one verdict per decision | no |
 | `/adr-context [paths...]` | Load the decisions governing the paths you are about to change | no |
 | `/adr-check [paths...]` | Check the change, or a plan, against them | no |
-| `/adr-draft <title>` | Draft one ADR from the decision the work actually makes | one new record |
+| `/adr-draft <title-or-candidate-key>` | Draft one ADR from a current decision or selected backfill handoff | one new record |
 | `/adr-queue` | The review queue — the questions still open | no |
+| `/adr-backfill [paths...]` | Produce a coverage ledger and deduplicated candidate ADR report from an inherited codebase or documentation corpus | no |
 
 It deliberately ships **no MCP configuration**: Copilot CLI spawns a plugin's
 MCP servers outside the workspace, and outside any Git repository, so the adrkit
 server exits during `initialize`. MCP is wired per project instead — see the
 [plugin README](packages/adapters/agent-plugin/README.md#mcp-is-configured-per-project-not-shipped-here)
-for the host-specific setup.
+for the host-specific setup and
+[ADR-0028](docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
+The backfill expansion is authorized by
+[ADR-0034](docs/adr/0034-extend-the-portable-agent-plugin-with-decision-backfill.md).
 
 Status: installable today from this repository and versioned independently from
-the npm packages. It is the smallest surface that makes the context -> check ->
-draft loop available inside current coding-agent hosts.
+the npm packages. It makes the context -> check -> backfill -> draft loop
+available inside current coding-agent hosts.
+
+The backfill workflow is read-only until a human selects a candidate. See the
+[guide](https://adrkit.dev/backfill/) for source routing, evidence thresholds,
+status treatment, and the `/adr-backfill` → `/adr-draft` handoff.
+
+Independently versioned per ADR-0007. The original context/check/draft/queue
+workflow is at **rung 1** of ADR-0014 — unit and contract coverage plus
+maintainer verification against the installed hosts. The v0.2.0 backfill
+addition is contract- and static-host-validated and has a fresh functional
+Copilot synthetic-consumer run proving candidate reconciliation and no writes.
+No persistent reference-repository run or external validation exists for the
+plugin.
 
 ## The problem
 

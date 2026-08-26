@@ -15,13 +15,13 @@
 # `description` is deliberately the shorter, CLI-listing variant of the
 # plugin.json description. That is the one intended difference between them.
 name: adrkit
-version: 0.1.0
-description: Load the decisions governing a change before planning it, check the plan against them, and record new ones.
+version: 0.2.0
+description: Load governing decisions, check plans, and audit code or documentation for missing ADR candidates.
 author: Mark Beacom
 license: Apache-2.0
 homepage: https://adrkit.dev
 repository: https://github.com/mbeacom/adrkit
-keywords: [adr, architecture-decision-records, decision-memory, governance, mcp]
+keywords: [adr, architecture-decision-records, decision-memory, decision-backfill, governance, mcp]
 
 # No `dependencies:` block. This plugin depends on the `adr` CLI and the
 # `@adrkit/mcp` server, both of which are npm artifacts rather than APM

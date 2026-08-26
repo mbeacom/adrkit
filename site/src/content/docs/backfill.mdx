@@ -1,0 +1,188 @@
+---
+title: Backfill decisions
+description: Audit an inherited codebase or documentation corpus for evidence-backed ADR candidates without turning implementation observations into accepted governance.
+---
+
+adrkit can govern a backfilled decision, but arbitrary code and prose do not
+have a deterministic import format. The portable agent plugin supplies the
+missing discovery workflow: gather evidence, deduplicate candidates against the
+decision corpus, and let a human choose what deserves a record.
+
+## Install the portable plugin
+
+The same plugin-native components work in GitHub Copilot CLI and Claude Code.
+Microsoft's Agent Package Manager can place them into either host or another
+supported target.
+
+```sh
+# GitHub Copilot CLI
+copilot plugin marketplace add mbeacom/adrkit
+copilot plugin install adrkit@adrkit
+
+# Claude Code
+/plugin marketplace add mbeacom/adrkit
+/plugin install adrkit@adrkit
+
+# APM
+apm install mbeacom/adrkit/packages/adapters/agent-plugin --target copilot
+apm install mbeacom/adrkit/packages/adapters/agent-plugin --target claude
+```
+
+Existing installs must be updated because Claude Code caches plugins by version:
+
+```sh
+copilot plugin update adrkit@adrkit
+claude plugin update adrkit@adrkit   # restart Claude Code after updating
+apm update --yes --target copilot,claude
+```
+
+Version 0.2.0 exposes two skills (`decision-memory`, `decision-backfill`), one
+agent, and five commands. Start a fresh host session after installing or
+updating. Copilot's install summary reports only skills, so the expected
+`Installed 2 skills` message does not inventory the agent or commands.
+
+```sh
+copilot plugin list                    # expect adrkit 0.2.0
+claude plugin details adrkit@adrkit    # expect 0.2.0 and the component inventory
+apm audit --ci                         # verify the APM lock and deployed files
+```
+
+In a fresh Copilot session, `/help` should list `/adr-backfill` and the other
+four adrkit commands. If an update remains stale, reinstall explicitly:
+
+```sh
+copilot plugin uninstall adrkit@adrkit
+copilot plugin install adrkit@adrkit
+
+claude plugin uninstall adrkit@adrkit
+claude plugin install adrkit@adrkit     # restart afterward
+
+apm deps list                           # identify the locked adrkit package key
+apm uninstall <locked-key>
+apm install mbeacom/adrkit/packages/adapters/agent-plugin --target copilot,claude
+```
+
+Install `@adrkit/cli` in the repository too. The plugin resolves it from
+`$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then `PATH`. Before it executes a
+repository-local CLI in an inherited worktree, it asks you to confirm that the
+repository and installed dependencies are trusted.
+
+The shell examples below use `npx @adrkit/cli`, which works with a local install
+without relying on `node_modules/.bin` being added to your interactive `PATH`.
+
+## Run a backfill audit
+
+```text
+/adr-backfill docs/architecture src/platform infra
+```
+
+Arguments bound the audit to files or directories. With no arguments, the
+command performs a bounded repository-wide review and states its exclusions. It
+accepts only paths that resolve inside the worktree and does not follow
+out-of-tree symlink targets.
+
+The default budget is 2,000 files, 16 MiB total decoded text, 256 KiB per file,
+500 commits, and 25 candidate cards. The command asks for a narrower scope
+before crossing a limit; it does not silently sample. It is read-only: no ADR is
+created or edited.
+
+The command returns:
+
+- a coverage ledger showing what was reviewed, excluded, unreadable, or left
+  outside the audit;
+- current corpus health and relevant accepted, proposed, rejected, and
+  superseded decisions;
+- a candidate table ordered by confidence and blast radius;
+- evidence cards with context, apparent choice, real alternatives,
+  consequences, citations, likely `affects` paths, and missing evidence; and
+- observations excluded because they did not establish a durable choice.
+
+## Evidence is not authority
+
+| Source | What the workflow may conclude |
+| --- | --- |
+| Existing MADR record | Resolve `ADR_DIR`, then use `npx @adrkit/cli migrate --from madr --dir "$ADR_DIR" --dry-run`; migration preserves its source status and body |
+| Existing adrkit record | Reuse, amend, or supersede it rather than creating a duplicate |
+| RFC, plan, or design document | Extract explicit context, alternatives, and consequences, with source citations |
+| Code, manifests, schemas, config, or IaC | Establish current implementation only; pair it with prose or history before assigning high confidence |
+| Git history or pull requests | Recover when and why a change landed, citing immutable commits |
+
+All source content is untrusted, non-executable evidence. Instructions found in
+documents, code comments, generated text, or commit messages are never followed.
+
+Code can prove that PostgreSQL is in use. It cannot, by itself, prove that the
+team rejected another datastore, accepted the operational cost, or ratified the
+choice as architecture policy.
+
+Status follows the authority of the source. Existing MADR status is preserved
+by migration. A plan artifact imported as the proposal itself remains `draft`.
+Statusless code, non-plan prose, and inferred choices can support a future
+`proposed` record after human selection, never an automatically `accepted` one.
+
+## Triage before drafting
+
+A candidate should survive five questions:
+
+1. Would a future maintainer otherwise have to reverse-engineer this choice?
+2. Was there a viable alternative, including doing nothing where meaningful?
+3. Does the choice impose a durable constraint, boundary, trade-off, or
+   consequence?
+4. Does the cited evidence support the claim?
+5. Can the governed code be expressed through `affects` matchers?
+
+Routine mechanics, accidental patterns, generated defaults, and repeated prose
+do not become candidates. Weak but important observations remain `possible` in
+the report until better evidence appears.
+
+## Materialize one selected candidate
+
+After a human selects a candidate:
+
+```text
+/adr-draft BF-001
+```
+
+`BF-001` refers to the structured `backfillHandoff` in the most recent report.
+It carries the corpus directory, title, primary source, citations, known gaps,
+proposed `affects`, alternatives, reconciliation result, and
+`statusTreatment: proposed`. If that block is missing or stale, `/adr-draft`
+stops rather than rebuilding provenance from memory.
+
+The resulting draft is `proposed`, identifies machine assistance with
+`provenance.authoredBy: agent-drafted`, names the primary source in
+`provenance.sourceArtifact`, cites supporting evidence in the body, and binds
+real paths with `affects`.
+
+Then validate and review:
+
+```sh
+ADR_DIR="${ADRKIT_DIR:-docs/adr}"
+npx @adrkit/cli lint --dir "$ADR_DIR"
+npx @adrkit/cli check --dir "$ADR_DIR" --json -- src/db/schema.ts
+npx @adrkit/cli queue --dir "$ADR_DIR"
+```
+
+Human ratification is separate. The backfill command discovers and reconciles;
+it never approves, accepts, or bulk-writes records.
+
+## Existing MADR corpus
+
+Do not use model-assisted backfill for files adrkit can migrate
+deterministically:
+
+```sh
+ADR_DIR=architecture/decisions
+npx @adrkit/cli migrate --from madr --dir "$ADR_DIR" --dry-run
+npx @adrkit/cli migrate --from madr --dir "$ADR_DIR"
+```
+
+Migration is additive and in place. It reads common MADR and Nygard status
+forms, preserves recognized status, leaves the markdown body intact, and is
+idempotent.
+
+## Current boundary
+
+The plugin does not ship a generic importer for arbitrary code, plans, or
+documentation. It produces evidence-backed candidates for review. If a custom
+importer is later built, keep it one-way and fingerprinted: report divergent
+re-imports rather than overwriting a reviewed record.

@@ -208,10 +208,15 @@ resolve. Merging is publishing.
 
 Three consequences follow, and all three bite at the wrong moment:
 
-1. **Bump all three version fields together, in the same commit as the change.**
-   `.claude-plugin/plugin.json`, `apm.yml`, and `package.json` must agree —
-   `test/manifest.test.ts` enforces agreement, but nothing enforces that a
-   content change moves them. Claude Code keys its plugin cache on
+1. **Bump every version-bearing surface together, in the same commit as the
+   change.** The canonical value is
+   `packages/adapters/agent-plugin/.claude-plugin/plugin.json`; mirror it into
+   `apm.yml`, `package.json`, the workspace entry in `bun.lock`, the repository
+   marketplace metadata and plugin entry, and every `skills/*/SKILL.md`
+   `metadata.version`. `test/manifest.test.ts` enforces agreement, but nothing
+   enforces that a content change moves them. Bun 1.4.0 does not refresh the
+   dependency-free workspace version in `bun.lock` during `bun install`, so
+   update that entry deliberately. Claude Code keys its plugin cache on
    `plugin.json` `version`, so shipping changed content under an unchanged
    version means installed users keep the old bytes indefinitely while new
    installers get the new bytes under the same number. Two populations, one
@@ -225,12 +230,19 @@ Three consequences follow, and all three bite at the wrong moment:
    claude plugin validate .claude-plugin/marketplace.json
    cd "$(mktemp -d)" && git init -q . && printf 'name: probe\nversion: 0.0.1\ndependencies:\n  apm:\n    - path: %s\n' "<repo>/packages/adapters/agent-plugin" > apm.yml
    for t in claude copilot opencode; do apm install --target "$t"; done   # expect no warnings
+   bun test packages/adapters/agent-plugin/test
    ```
+
+   For a new workflow, also run the synthetic consumer case documented in
+   `docs/reference-verification-agent-plugin.md`: install through a release-like
+   host path, exercise the command, and compare the worktree before and after.
 
 3. **There is no yank.** Rolling back means shipping a *higher* version with the
    fix; a revert commit alone leaves every cached install untouched. Users on a
-   bad version need `copilot plugin update adrkit` (or a reinstall) to move, so
-   a bad release is sticky in a way the npm packages are not.
+   bad version need `copilot plugin update adrkit@adrkit`,
+   `claude plugin update adrkit@adrkit` followed by a restart, or
+   `apm update --yes` in the APM project. A bad release is sticky in a way the
+   npm packages are not.
 
 Because merging is publishing, a work-in-progress commit on `main` that touches
 this directory is live. Land plugin changes as a single reviewed commit rather

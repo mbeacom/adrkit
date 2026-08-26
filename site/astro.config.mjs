@@ -82,6 +82,7 @@ export default defineConfig({
 						{ label: 'Badges', slug: 'badges' },
 						{ label: 'MCP setup', slug: 'mcp' },
 						{ label: 'Spec Kit extension', slug: 'spec-kit' },
+						{ label: 'Backfill decisions', slug: 'backfill' },
 					],
 				},
 				{

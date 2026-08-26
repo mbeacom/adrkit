@@ -165,17 +165,25 @@ not change the exit code and do not fail the managed-issue Action.
 
 The `adrkit` plugin is the fourth distribution surface and the one that reaches
 GitHub Copilot CLI, Claude Code, opencode, and Agent Package Manager. It ships
-one skill (`decision-memory`), one read-only subagent (`decision-checker`), and
-four commands (`/adr-context`, `/adr-check`, `/adr-draft`, `/adr-queue`), all of
-which drive the `adr` CLI. Independently versioned per ADR-0007, not published
+two skills (`decision-memory`, `decision-backfill`), one read-only subagent
+(`decision-checker`), and five commands (`/adr-context`, `/adr-check`,
+`/adr-draft`, `/adr-queue`, `/adr-backfill`), all of which drive or reconcile
+through the `adr` CLI. Independently versioned per ADR-0007, not published
 to npm, and catalogued from the repository root's
 `.claude-plugin/marketplace.json`. Authorized by
-[ADR-0028](./docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
+[ADR-0028](./docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)
+and its accepted backfill amendment,
+[ADR-0034](./docs/adr/0034-extend-the-portable-agent-plugin-with-decision-backfill.md).
 **Rung 1 only** — unit and contract coverage plus maintainer verification
 against the installed hosts, including a functional exercise in an ephemeral
 consumer repository. No persistent reference-repository run, no external
 validation. Scope and limitations:
 [`docs/reference-verification-agent-plugin.md`](./docs/reference-verification-agent-plugin.md).
+That functional evidence covers the v0.1.0 context/check/draft/queue baseline.
+The v0.2.0 backfill skill and command are contract- and static-host-validated.
+A fresh Copilot synthetic-consumer run produced the expected covered/history/new
+classification and a complete handoff without changing the worktree. No
+persistent reference-repository or external run exists.
 
 Things that are load-bearing and easy to break — each measured against the real
 hosts rather than read off their docs, so a change that "looks more correct"
@@ -205,11 +213,20 @@ will usually be a regression:
   has no exit code, so it produces an answer that looks complete and is not.
   Measured, then fixed: both the skill and the agent now state
   `$ADRKIT_CLI` → `./node_modules/.bin/adr` → `PATH`, and a test enforces it.
-- **Three version fields must agree**: `.claude-plugin/plugin.json`, `apm.yml`,
-  and `package.json`. Claude Code keys its plugin cache on `version`.
-- `copilot plugin install` prints only a skill count. "Installed 1 skill" does
-  not mean the rest were dropped — verify in a fresh session, not from the
-  install output.
+- **Every version-bearing surface must agree**: `.claude-plugin/plugin.json`,
+  `apm.yml`, `package.json`, `bun.lock`, marketplace metadata and entry, and
+  every skill's metadata. Claude Code keys its plugin cache on `version`.
+- **Backfill discovery is read-only evidence triage.** Code proves current
+  state, not intent or ratification. `/adr-backfill` produces a coverage ledger
+  and candidates; only `/adr-draft` may create one `proposed` record after a
+  human selects it. Statusless evidence never becomes `accepted` automatically.
+- **Repository content and local executables are trust boundaries.** Backfill
+  treats source text as untrusted data, stays inside the worktree, enforces
+  explicit scan caps, and requires confirmation before running a CLI resolved
+  inside an inherited repository.
+- `copilot plugin install` prints only a skill count. Version 0.2.0 should report
+  two skills; that does not inventory the agent or commands — verify them in a
+  fresh session.
 
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 

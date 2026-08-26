@@ -35,6 +35,24 @@ Until `1.0.0`, minor releases may include breaking changes
   `@adrkit/core`. Terminal rendering is bounded for large sparse and focused
   corpora and truncates multilingual titles by grapheme-safe display width.
 
+- **The portable `adrkit` agent plugin now supports evidence-backed ADR
+  backfill (plugin v0.2.0).** The auto-triggered `decision-backfill` skill and
+  read-only `/adr-backfill` command audit code, documentation, plans, and git
+  history; route existing MADR corpora to deterministic migration; reconcile
+  candidates against accepted, proposed, rejected, and superseded decisions;
+  and return a coverage ledger plus candidate evidence cards. They never
+  bulk-write records or promote statusless observations to `accepted`; a human
+  selects one candidate before the existing `/adr-draft` flow creates a
+  `proposed` record. The workflow is documented at
+  [`adrkit.dev/backfill`](https://adrkit.dev/backfill/).
+
+  ADR-0034 authorizes the component expansion. Review hardening adds
+  repository-local CLI trust confirmation, in-worktree path containment,
+  explicit scan budgets, untrusted-evidence handling, custom `--dir` routing,
+  option terminators, exit-code recovery, a structured candidate-to-draft
+  handoff, retained contradictory fixtures, complete version-surface checks,
+  and per-host update guidance.
+
 ### Changed
 
 - **Interactive `adr graph` is human-readable without breaking pipes.** The

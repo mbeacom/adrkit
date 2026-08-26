@@ -87,6 +87,65 @@ Each run is a fresh non-interactive session in the consumer repository.
 | 3 | `/adr-draft "Use Redis as a non-authoritative cache…"` | Exactly one new record, `status: proposed`, with an `affects` matcher; corpus still lints | Matched. Corpus 3 → 4 records. New record carried `status: proposed`, `affects: src/payments/**`, `provenance.authoredBy: agent`, `relatesTo: ["0001","0003"]`. It declined to supersede `0003`, arguing the cache case is materially different from the rejected authoritative-store case. `adr lint` → 4 records, 0 errors. A follow-up `adr check src/payments/api.ts` then reported the new record as an active proposal, closing the loop. |
 | 4 | `decision-checker` agent on "rewrite `src/db/pool.ts` to use MySQL" | Per-decision verdicts from the CLI, not from hand-read frontmatter | **Failed on first run** — see defects. Passed after the fix: resolved `./node_modules/.bin/adr` (v0.8.0) after `command -v adr` failed, ran `adr check --json`, `adr queue --format json`, and `adr graph --format json`, returned `departs` on `0001` and `unreconciled` on `0002`, and raised an unprompted caveat that `adr check` evaluates the file as it exists rather than the planned diff. |
 
+## v0.2.0 backfill run (2026-08-26)
+
+This is a new rung-1 functional observation for `/adr-backfill`, not a rewrite
+of the v0.1.0 runs above.
+
+### Static host and placement validation
+
+| Host | Command | Observed |
+|---|---|---|
+| Claude Code | `claude plugin validate packages/adapters/agent-plugin` | PASS |
+| Claude Code | `claude plugin validate .claude-plugin/marketplace.json` | PASS |
+| Copilot CLI 1.0.80 | `copilot --plugin-dir packages/adapters/agent-plugin plugin list` | external plugin `adrkit` loaded |
+| APM | isolated install to `claude,copilot,opencode` | 5 Copilot prompts, 1 agent per target, 5 commands in each command-based target, and 2 skills integrated; no component warning |
+
+These were rerun after trust, path, budget, handoff, version, and retained
+negative-fixture remediation. They establish schema/discovery/placement, not
+functional behavior; the Copilot run below is the functional observation.
+
+### Functional Copilot run
+
+| Component | Value |
+|---|---|
+| Copilot CLI | 1.0.80, non-interactive, local plugin via `--plugin-dir` |
+| Plugin | `adrkit` 0.2.0 working tree |
+| CLI | trusted `$ADRKIT_CLI` wrapper outside the consumer worktree, reporting 0.10.0 |
+| Consumer | fresh local git repository under the session artifact directory |
+| Scope | 4 files, 944 bytes, 1 commit |
+| Corpus | accepted PostgreSQL ADR for `src/db/**`; rejected RabbitMQ ADR for `src/jobs/**` |
+
+The synthetic architecture corpus repeated the accepted PostgreSQL choice and
+introduced an unrecorded affirmative NATS JetStream choice for `src/jobs/**`.
+The run:
+
+1. resolved the trusted CLI outside the target worktree and reported
+   `ADR_DIR=docs/adr`;
+2. preflighted the scope below every configured cap;
+3. ran `lint`, `graph`, `queue`, and
+   `check --dir docs/adr --json -- <paths...>`;
+4. classified PostgreSQL as `covered`, retained RabbitMQ in `history`, and
+   classified NATS JetStream as one `new` candidate;
+5. emitted `BF-001` with `corpusDir`, primary source, exact citations, missing
+   evidence, `affects`, alternatives, reconciliation, and
+   `statusTreatment: proposed`; and
+6. stated that no record was created or edited.
+
+The before/after observations were identical:
+
+```text
+git status --porcelain: <empty>
+tracked-file fingerprint:
+b50e4f4624582064c1804f34ac3f4433f4c1c7fab3f741abb979c836b5b4f23b
+ADR markdown count: 2
+```
+
+This establishes one Copilot path through candidate reconciliation and the
+read-only boundary. It does **not** establish Claude Code or APM functional
+behavior, hostile local-executable sandboxing, large-corpus behavior, a
+persistent reference repository, or external validation.
+
 ## Defects found by these runs
 
 Every one of these was found by running a host, not by reading its

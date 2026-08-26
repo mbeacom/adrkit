@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "adrkit",
   "displayName": "adrkit — decision memory",
-  "version": "0.1.0",
-  "description": "Load the architecture decisions that already govern a change before planning it, check a produced plan against them, and record a new one — driven by the adr CLI.",
+  "version": "0.2.0",
+  "description": "Load the architecture decisions governing a change, check plans against them, audit existing code and documentation for missing decisions, and draft new records deliberately — driven by the adr CLI.",
   "author": {
     "name": "Mark Beacom",
     "url": "https://github.com/mbeacom"
@@ -15,6 +15,8 @@
     "adr",
     "architecture-decision-records",
     "decision-memory",
+    "decision-backfill",
+    "architecture",
     "governance",
     "claude-code",
     "github-copilot"

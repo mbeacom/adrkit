@@ -68,7 +68,9 @@ describe('packaging', () => {
       'commands/adr-check.md',
       'commands/adr-draft.md',
       'commands/adr-queue.md',
+      'commands/adr-backfill.md',
       'skills/decision-memory/SKILL.md',
+      'skills/decision-backfill/SKILL.md',
       'opencode/opencode.json',
       'README.md',
       'LICENSE',
@@ -79,6 +81,12 @@ describe('packaging', () => {
         present: true,
       });
     }
+  });
+
+  test('retains the negative backfill contract fixture', () => {
+    expect(
+      existsSync(join(packageRoot, 'test', 'fixtures', 'unsafe-backfill-guidance.md')),
+    ).toBe(true);
   });
 
   test('keeps .claude-plugin reserved for the manifest', () => {

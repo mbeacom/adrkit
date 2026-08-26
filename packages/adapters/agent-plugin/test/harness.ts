@@ -17,9 +17,15 @@ export const marketplacePath = join(repoRoot, '.claude-plugin', 'marketplace.jso
  * The components the plugin ships, by host-discovered convention. Named here
  * once so every test that asserts on them fails with the same vocabulary.
  */
-export const COMMANDS = ['adr-context', 'adr-check', 'adr-draft', 'adr-queue'] as const;
+export const COMMANDS = [
+  'adr-context',
+  'adr-check',
+  'adr-draft',
+  'adr-queue',
+  'adr-backfill',
+] as const;
 export const AGENTS = ['decision-checker'] as const;
-export const SKILLS = ['decision-memory'] as const;
+export const SKILLS = ['decision-memory', 'decision-backfill'] as const;
 
 export function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;

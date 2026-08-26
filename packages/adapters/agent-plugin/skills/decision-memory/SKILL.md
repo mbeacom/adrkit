@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Requires the `adr` CLI (@adrkit/cli), resolved from $ADRKIT_CLI, then ./node_modules/.bin/adr, then PATH. The adrkit MCP server is optional and is NOT bundled with this plugin — when a project has connected it separately, its tools provide the same retrieval; otherwise the CLI is the only path, and the only one that can write."
 metadata:
   author: Mark Beacom
-  version: "0.1.0"
+  version: "0.2.0"
   homepage: https://adrkit.dev
 ---
 
