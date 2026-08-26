@@ -90,9 +90,27 @@ export function describeStatusCounts(nodes: readonly GraphNode[]): string {
     .join(', ');
 }
 
-/** Markdown table cells cannot carry a raw `|`, and titles are free text. */
+/**
+ * Escape a table-cell value, in `@adrkit/core`'s queue-formatter order
+ * (`packages/core/src/queue/format.ts` `escapeCell`): CRLF→LF, CR→space,
+ * LF→`<br>`, then `\`, `|`, and a backtick.
+ *
+ * The line-break half is not cosmetic. `title` is `z.string().min(3).max(120)`,
+ * which a YAML block scalar can satisfy with an embedded newline, and a raw
+ * newline in a cell splits one table row into two lines of markdown. That is
+ * how a record could otherwise emit a line that *is* a marker, poisoning the
+ * block it lives inside. Backslash is escaped before the characters whose
+ * escapes introduce one, so a literal `\` can never combine with an introduced
+ * escape.
+ */
 function tableCell(value: string): string {
-  return value.replaceAll('\\', '\\\\').replaceAll('|', '\\|');
+  return value
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', ' ')
+    .replaceAll('\n', '<br>')
+    .replaceAll('\\', '\\\\')
+    .replaceAll('|', '\\|')
+    .replaceAll('`', '\\`');
 }
 
 /**
@@ -145,28 +163,48 @@ export function renderInventoryBlock(nodes: readonly GraphNode[]): string {
 /**
  * Replace the marked block in `text`.
  *
+ * A marker counts **only as a standalone line**. Counting the substring
+ * anywhere was a real defect, not a hypothetical one: `title` is free text
+ * (`z.string().min(3).max(120)`), so a record could carry
+ * `<!-- END GENERATED: adr-inventory -->` in its title, that title would be
+ * rendered into a table row *inside* the block, and every subsequent run would
+ * then throw `found 1 and 2` — a corpus record permanently disabling the
+ * generator that has to render it. Line-anchoring is what makes the marker a
+ * structural delimiter rather than a string the content can forge;
+ * {@link tableCell}'s newline handling is the other half, since without it a
+ * multiline title could put a marker on a line of its own.
+ *
  * Every degenerate marker state throws: a silent no-op here would leave the
  * `git diff --exit-code` gate green while generating nothing.
  */
 export function replaceGeneratedBlock(text: string, block: string): string {
-  const begins = [...text.matchAll(new RegExp(escapeRegExp(MARKER_BEGIN), 'gu'))];
-  const ends = [...text.matchAll(new RegExp(escapeRegExp(MARKER_END), 'gu'))];
+  const begins = [...text.matchAll(standaloneMarkerPattern(MARKER_BEGIN))];
+  const ends = [...text.matchAll(standaloneMarkerPattern(MARKER_END))];
 
   if (begins.length !== 1 || ends.length !== 1) {
     throw new Error(
       `MANIFEST.md must contain exactly one ${MARKER_BEGIN} and one ${MARKER_END} ` +
-        `(found ${begins.length} and ${ends.length}). Without them nothing is generated and the ` +
-        'no-diff gate would pass while checking nothing.',
+        `on lines of their own (found ${begins.length} and ${ends.length}). Without them nothing is ` +
+        'generated and the no-diff gate would pass while checking nothing.',
     );
   }
 
   const start = begins[0]!.index;
-  const end = ends[0]!.index + MARKER_END.length;
+  const end = ends[0]!.index + ends[0]![0].length;
   if (start >= end) {
     throw new Error(`${MARKER_END} appears before ${MARKER_BEGIN} in MANIFEST.md.`);
   }
 
   return `${text.slice(0, start)}${block}${text.slice(end)}`;
+}
+
+/**
+ * A marker occupying a whole line, tolerating indentation, trailing whitespace,
+ * and a CRLF line ending — but never matching one embedded in prose or in a
+ * table cell.
+ */
+function standaloneMarkerPattern(marker: string): RegExp {
+  return new RegExp(String.raw`^[ \t]*${escapeRegExp(marker)}[ \t]*(?=\r?\n|$)`, 'gmu');
 }
 
 function escapeRegExp(value: string): string {

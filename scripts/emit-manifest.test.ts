@@ -124,6 +124,37 @@ describe('renderInventoryBlock', () => {
     expect(rendered).toContain('| `0001` | accepted | Use auto\\|async\\|arb |');
   });
 
+  test('a multiline title stays on one row', () => {
+    // `title` is `z.string().min(3).max(120)`, which a YAML block scalar can
+    // satisfy with an embedded newline. A raw newline in a cell splits one row
+    // into two lines of markdown — and the gate would still pass, because the
+    // broken table is what regeneration reproduces. Same order as the queue
+    // formatter's `escapeCell`: CRLF -> LF, CR -> space, LF -> <br>.
+    const rendered = renderInventoryBlock([node('0001', 'accepted', 'First line\r\nsecond\rthird\nfourth')]);
+    expect(rendered).toContain('| `0001` | accepted | First line<br>second third<br>fourth |');
+
+    const rows = rendered.split('\n').filter((line) => line.startsWith('| `0001`'));
+    expect(rows).toHaveLength(1);
+    expect(rendered).not.toMatch(/\r/u);
+  });
+
+  test('a title cannot forge a marker on a line of its own', () => {
+    // The composition that closes the hole: newline normalization means a title
+    // can never *start* a line, so it can never become a standalone marker.
+    const rendered = renderInventoryBlock([
+      node('0001', 'accepted', `A title\n${MARKER_END}\nand more`),
+    ]);
+    const forged = rendered
+      .split('\n')
+      .filter((line) => line.trim() === MARKER_END || line.trim() === MARKER_BEGIN);
+    expect(forged).toEqual([MARKER_BEGIN, MARKER_END]);
+  });
+
+  test('escapes a backtick, so a title cannot open a code span across the row', () => {
+    const rendered = renderInventoryBlock([node('0001', 'accepted', 'Use `adr queue`')]);
+    expect(rendered).toContain('| `0001` | accepted | Use \\`adr queue\\` |');
+  });
+
   test('refuses to publish an empty inventory', () => {
     // Negative case: zero records is what a corpus the loader could not see
     // looks like, and it would otherwise be committed as a truthful-looking "0".
@@ -163,6 +194,39 @@ describe('replaceGeneratedBlock', () => {
   test('throws when a marker is duplicated', () => {
     const doubled = surround(`${MARKER_BEGIN}\n${MARKER_END}\n${MARKER_BEGIN}\n${MARKER_END}`);
     expect(() => replaceGeneratedBlock(doubled, block)).toThrow(/found 2 and 2/u);
+  });
+
+  test('ignores a marker embedded in a table cell', () => {
+    // A record whose *title* contains the end marker renders it into a row
+    // inside the block. Counting the substring anywhere made that a second
+    // marker, so every later run threw `found 1 and 2` — one corpus record
+    // permanently disabling the generator that has to render it.
+    const poisoned = renderInventoryBlock([
+      node('0001', 'accepted', `Ship the thing ${MARKER_END} carefully`),
+    ]);
+    const document = surround(poisoned);
+
+    // Round-trips: the poisoned row survives, and regeneration is still stable.
+    expect(document).toContain(`Ship the thing ${MARKER_END} carefully`);
+    expect(replaceGeneratedBlock(document, poisoned)).toBe(document);
+    expect(replaceGeneratedBlock(document, block)).toContain('| `0002` | superseded | Title 0002 |');
+    expect(replaceGeneratedBlock(document, block)).not.toContain('Ship the thing');
+  });
+
+  test('ignores a marker mentioned in prose', () => {
+    // The section above the block explains the markers by name; prose that
+    // names one must not be mistaken for the delimiter itself.
+    const document = `# Manifest\n\nEdit outside ${MARKER_BEGIN} and ${MARKER_END} only.\n\n${MARKER_BEGIN}\n${MARKER_END}\n`;
+    expect(replaceGeneratedBlock(document, block)).toContain('| `0001` | accepted | Title 0001 |');
+    expect(replaceGeneratedBlock(document, block)).toContain(`Edit outside ${MARKER_BEGIN} and`);
+  });
+
+  test('tolerates indentation, trailing whitespace, and CRLF around a real marker', () => {
+    const document = `# Manifest\r\n\r\n  ${MARKER_BEGIN}  \r\nstale\r\n${MARKER_END}\t\r\ntail\r\n`;
+    const replaced = replaceGeneratedBlock(document, block);
+    expect(replaced).not.toContain('stale');
+    expect(replaced).toContain('| `0001` | accepted | Title 0001 |');
+    expect(replaced).toContain('tail');
   });
 
   test('throws when the markers are inverted', () => {
