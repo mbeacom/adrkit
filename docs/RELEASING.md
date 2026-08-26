@@ -466,8 +466,8 @@ test "$(jq -r .isDraft <<<"$release")" = false
 test "$(jq -r .isPrerelease <<<"$release")" = false
 runs=$(gh api \
   "repos/mbeacom/adrkit/actions/workflows/release.yml/runs?event=push&head_sha=$target_commit&per_page=100")
-test "$(jq -r --arg sha "$target_commit" \
-  '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | length' \
+test "$(jq -r --arg sha "$target_commit" --arg tag "$target" \
+  '[.workflow_runs[] | select(.head_sha == $sha and .head_branch == $tag and .conclusion == "success")] | length' \
   <<<"$runs")" -gt 0
 
 moving_refs=$(git ls-remote --tags origin refs/tags/v0 refs/tags/v0^{} || true)

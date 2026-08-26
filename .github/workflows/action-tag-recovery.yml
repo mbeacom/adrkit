@@ -91,8 +91,8 @@ jobs:
 
           runs=$(gh api \
             "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&head_sha=$revision&per_page=100")
-          successful_run=$(jq -r --arg revision "$revision" \
-            '[.workflow_runs[] | select(.head_sha == $revision and .conclusion == "success")][0].id // empty' \
+          successful_run=$(jq -r --arg revision "$revision" --arg tag "$RELEASE_TAG" \
+            '[.workflow_runs[] | select(.head_sha == $revision and .head_branch == $tag and .conclusion == "success")][0].id // empty' \
             <<<"$runs")
           test -n "$successful_run"
           echo "revision=$revision" >> "$GITHUB_OUTPUT"

@@ -72,9 +72,21 @@ jobs:
           set -euo pipefail
           marker="refs/tags/action-recovery-block/$GITHUB_SHA"
           if git ls-remote --exit-code --refs origin "$marker" >/dev/null; then
+            marker_status=0
+          else
+            marker_status=$?
+          fi
+          case "$marker_status" in
+            0)
             echo "Lockstep release commit $GITHUB_SHA was withdrawn from the moving Action tag." >&2
             exit 1
-          fi
+              ;;
+            2) ;;
+            *)
+              echo "Unable to check withdrawal marker $marker (git ls-remote exit $marker_status)." >&2
+              exit "$marker_status"
+              ;;
+          esac
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
