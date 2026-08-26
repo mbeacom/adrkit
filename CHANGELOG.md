@@ -19,8 +19,11 @@ Until `1.0.0`, minor releases may include breaking changes
   git objects that are never checked out or executed; the `dco` job in `ci.yml`
   is retained as a faster advisory report that can only fail open. `gate-integrity`
   blocks any change under `.github/workflows/`, `.github/actions/`, `scripts/`,
-  `packages/ci/`, or `CODEOWNERS` unless a maintainer applies the
-  `gate-change-acknowledged` label, which requires triage or write access
+  `packages/ci/`, or any of the three locations GitHub resolves `CODEOWNERS` from,
+  unless a maintainer applies the `gate-change-acknowledged` label — which
+  requires triage or write access, and which is dismissed automatically on every
+  push, so an acknowledgment authorizes the head it was given for and not the one
+  that follows it
   ([#137](https://github.com/mbeacom/adrkit/issues/137),
   [ADR-0035](docs/adr/0035-execute-the-gates-that-certify-a-pull-request-from-the-default-branch.md)).
 

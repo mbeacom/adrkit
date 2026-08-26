@@ -247,6 +247,50 @@ difference, now that a trusted execution path is known to exist. What it gets
 right — that the residual must be stated rather than hidden — is kept: the
 sections above say exactly what remains open.
 
+## What independent security review changed
+
+The implementation was reviewed against a fork-author threat model before it was
+proposed, and the review found three things worth recording, because two of them
+were bypasses rather than polish. They are named here rather than quietly fixed,
+since a record claiming a boundary is more trustworthy when it says where the
+boundary leaked during construction.
+
+**A stale acknowledgment authorized later pushes.** The label was read from the
+event payload and never bound to a commit, so the sequence *open a small,
+plausible `scripts/` change → get it acknowledged → push a workflow edit* left
+the `synchronize` run seeing the same label and reporting success over gate paths
+nobody had looked at. This was reachable by a fork author with no write access,
+and no other mechanism invalidated it: the `main` ruleset has no `pull_request`
+rule, so there is not even a stale-review dismissal to inherit from.
+
+Closed by a `dismiss-stale-acknowledgment` job that removes the label on every
+`synchronize`, and by reading labels from the API rather than the payload — the
+payload is a snapshot taken before that job runs. The obvious alternative,
+comparing the label's timestamp against the newest commit, was rejected: commit
+dates are author-controlled, so `GIT_COMMITTER_DATE` would make a stale
+acknowledgment look fresh. Dismissal depends on no attacker-controlled value.
+
+**`.github/CODEOWNERS` was unprotected.** Only the root file was, but GitHub
+resolves `.github/CODEOWNERS` *first*. A pull request that added one would
+supersede the protected file without touching it. All three locations GitHub
+honors are now covered. The coverage assertion in the test suite could not have
+caught this — it iterates the surface list, so it cannot see a surface that was
+never added, which is a small instance of ADR-0016's own subject.
+
+**Attacker-chosen paths could forge workflow commands.** Git permits a newline in
+a filename, and the runner trims leading whitespace before testing for the `::`
+prefix, so indenting the output was not protection. The `::stop-commands::`
+hardening now wraps both steps, and printed paths escape every control and format
+character. `JSON.stringify` was tried first and is insufficient: it escapes
+control characters but leaves U+200B ZERO WIDTH SPACE exactly as invisible as it
+found it, which the test observed.
+
+The review also confirmed, with evidence, the properties the decision rests on:
+no pull-request code is checked out, installed, built, or executed; no `${{ }}`
+appears in any `run:` body; the fetch is genuinely anonymous under
+`persist-credentials: false`; and the `::stop-commands::` token is masked by the
+runner before it is echoed, so it cannot be learned and replayed.
+
 ## Trade-offs
 
 Every pull request that touches a workflow, a script, `packages/ci/`, or

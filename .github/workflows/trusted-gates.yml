@@ -142,6 +142,55 @@ jobs:
           echo "::stop-commands::${token}"
           bun scripts/check-dco.ts "${BASE_SHA}..${HEAD_SHA}"
 
+  dismiss-stale-acknowledgment:
+    # An acknowledgment authorizes a *state*, not a pull request. Without this
+    # job the label survives every subsequent push, so the sequence is: open a
+    # small, plausible change under `scripts/`; get it acknowledged; then push a
+    # workflow edit. The `synchronize` run still sees the label and reports
+    # success over gate paths nobody looked at. That is a real bypass available
+    # to a fork author with no write access, and it is the reason
+    # `dismiss_stale_reviews_on_push` exists for reviews.
+    #
+    # Dismissal rather than a timestamp comparison, deliberately. The obvious
+    # alternative — compare the label event against the newest commit — rests on
+    # `committed` dates, which the author sets. `GIT_COMMITTER_DATE` is free, so
+    # a stale acknowledgment could be made to look fresh. Removing the label
+    # depends on no attacker-controlled value at all.
+    #
+    # This is the one job here that writes. It touches a label and nothing else,
+    # checks nothing out, and runs no repository code.
+    name: dismiss-stale-acknowledgment
+    if: github.event.action == 'synchronize'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove the acknowledgment, because the head moved under it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # A 404 is the ordinary case — most pushes carry no acknowledgment — and
+          # any other failure is deliberately swallowed here too, because the
+          # verification below is what decides. Trusting the delete's exit status
+          # and skipping the read would leave a 403 looking like a success.
+          gh api -X DELETE \
+            "repos/${REPO}/issues/${PR_NUMBER}/labels/gate-change-acknowledged" \
+            --silent || true
+          # No pipe into `grep -q`. Under `pipefail` a matching grep closes the
+          # pipe, `gh` dies of SIGPIPE, and the pipeline reports failure — which
+          # would read as "the label is gone" at exactly the moment it is present.
+          remaining=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" \
+            --jq '[.[].name] | index("gate-change-acknowledged") // "absent"')
+          if [ "$remaining" != "absent" ]; then
+            echo "the acknowledgment is still present after dismissal; refusing to" >&2
+            echo "let a stale acknowledgment authorize a head it never saw." >&2
+            exit 1
+          fi
+          echo "no acknowledgment is in effect for this head"
+
   gate-integrity:
     # `trusted-dco` closes the "edit the check" half. This closes the other half.
     #
@@ -152,6 +201,11 @@ jobs:
     # runs through `.github/workflows/` or `scripts/`. This refuses both unless a
     # maintainer has said, on the record, that the change is deliberate.
     name: gate-integrity
+    # `always()` because the dismissal job is skipped on every event that is not a
+    # push, and a plain `needs` would skip this with it. The result is still
+    # ordered after dismissal, which is what closes the race described below.
+    needs: [dismiss-stale-acknowledgment]
+    if: always() && needs.dismiss-stale-acknowledgment.result != 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -171,26 +225,40 @@ jobs:
       # into a document that is not JSON. Written to a file rather than piped
       # through a shell variable so that a path containing a newline — which git
       # permits — cannot reframe the list.
-      - name: List the pull request's changed paths and labels
+      #
+      # Labels come from the API, **not** from `github.event.pull_request.labels`.
+      # The payload is a snapshot taken before `dismiss-stale-acknowledgment` ran,
+      # so on a push it would still show the label this run has just removed —
+      # reintroducing the bypass the dismissal exists to close.
+      - name: List the pull request's changed paths and its labels as they are now
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels) }}
         run: |
           set -euo pipefail
           gh api --paginate --slurp \
             "repos/${REPO}/pulls/${PR_NUMBER}/files" > "${RUNNER_TEMP}/pr-files.json"
-          printf '%s' "$PR_LABELS" > "${RUNNER_TEMP}/pr-labels.json"
+          gh api --paginate --slurp \
+            "repos/${REPO}/issues/${PR_NUMBER}/labels" > "${RUNNER_TEMP}/pr-labels.json"
 
       # `--expected-files` is the fail-quiet guard. The files endpoint caps at 3000
       # entries and truncates rather than erroring, and a gate path past the cap
       # would be invisible to a check whose pass condition is "no gate path here".
+      #
+      # Wrapped in `::stop-commands::` for the same reason the DCO step is: the
+      # paths printed here are attacker-chosen, git permits a newline in a
+      # filename, and the runner trims leading whitespace before looking for the
+      # `::` prefix — so indentation is not protection. The script escapes control
+      # characters as well; neither measure is trusted alone.
       - name: Verify no gate-defining path changed without an acknowledgment
         env:
           CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
         run: |
           set -euo pipefail
+          token="adrkit-$(openssl rand -hex 16)"
+          trap 'echo "::${token}::"' EXIT
+          echo "::stop-commands::${token}"
           bun scripts/check-gate-integrity.ts \
             --files "${RUNNER_TEMP}/pr-files.json" \
             --labels "${RUNNER_TEMP}/pr-labels.json" \

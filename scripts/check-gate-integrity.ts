@@ -94,12 +94,38 @@ export const GATE_SURFACES: readonly GateSurface[] = [
     kind: 'prefix',
     why: 'the published governing-decisions and queue Actions, which are gates',
   },
+  // All three locations GitHub honors, in its resolution order. Protecting only
+  // the root file left the gap that matters: GitHub resolves `.github/CODEOWNERS`
+  // *first*, so a pull request that adds one supersedes the protected root file
+  // entirely without ever touching it. Found in security review, not by the
+  // coverage assertion below — which iterates this list and therefore cannot
+  // detect a surface that was never added.
+  {
+    pattern: '.github/CODEOWNERS',
+    kind: 'exact',
+    why: 'GitHub resolves this before the root file, so adding it supersedes CODEOWNERS',
+  },
   {
     pattern: 'CODEOWNERS',
     kind: 'exact',
     why: 'decides who is asked to review a change to any of the above',
   },
+  {
+    pattern: 'docs/CODEOWNERS',
+    kind: 'exact',
+    why: 'the third location GitHub honors, after .github/ and the root',
+  },
 ];
+
+/**
+ * The locations GitHub resolves CODEOWNERS from, in its own precedence order.
+ *
+ * Named separately from {@link GATE_SURFACES} so a test can assert the list is
+ * complete against a specific stated set rather than against the surface list
+ * itself. A coverage check that reads the thing it is checking cannot see an
+ * omission, which is how `.github/CODEOWNERS` was missing in the first place.
+ */
+export const CODEOWNERS_LOCATIONS = ['.github/CODEOWNERS', 'CODEOWNERS', 'docs/CODEOWNERS'] as const;
 
 export interface GateChange {
   readonly path: string;
@@ -173,6 +199,38 @@ export function classifyGateChanges(
 }
 
 /**
+ * Pure: a path rendered safe to print in a GitHub Actions log.
+ *
+ * Git permits a newline in a filename and the files endpoint carries it through,
+ * so an attacker-chosen path can place `::` at the start of a physical log line
+ * inside a privileged job. The runner trims leading whitespace before testing for
+ * the workflow-command prefix, so indenting the output is not protection: it
+ * would parse `::add-mask::` or `::error::` and let a pull request forge
+ * annotations and suppress this guard's own output.
+ *
+ * `JSON.stringify` escapes every control character and is reversible, so the
+ * reader still sees exactly which path tripped the guard. Applied to *every*
+ * printed path rather than only suspicious ones, because a rule that decides
+ * which paths are dangerous is one more thing that can be wrong.
+ */
+export function displayPath(path: string): string {
+  if (!/[\p{Cc}\p{Cf}]/u.test(path)) return path;
+  // Not `JSON.stringify` alone. It escapes control characters below U+0020 but
+  // leaves format characters such as U+200B ZERO WIDTH SPACE exactly as they are,
+  // so a path carrying one would still print as though it did not — which is the
+  // whole failure this function exists to prevent. Escaping every Cc and Cf
+  // explicitly makes the invisible visible; the surrounding quotes mark the path
+  // as rendered rather than literal.
+  const escaped = path
+    .replace(/[\\"]/g, (character) => `\\${character}`)
+    .replace(
+      /[\p{Cc}\p{Cf}]/gu,
+      (character) => `\\u${character.codePointAt(0)!.toString(16).padStart(4, '0')}`,
+    );
+  return `"${escaped}"`;
+}
+
+/**
  * Pure: the report as text.
  *
  * States the examined count in every branch, including the clean one. ADR-0016's
@@ -184,7 +242,9 @@ export function formatReport(report: GateIntegrityReport): string {
   const lines = [`check-gate-integrity: examined ${report.examined} changed path(s)`];
 
   for (const change of report.changes) {
-    lines.push(`  gate    ${change.path}  — ${change.surface.pattern}: ${change.surface.why}`);
+    lines.push(
+      `  gate    ${displayPath(change.path)}  — ${change.surface.pattern}: ${change.surface.why}`,
+    );
   }
 
   if (report.verdict === 'clean') {
@@ -207,7 +267,10 @@ export function formatBlock(report: GateIntegrityReport): string {
   // file *is*, which is the difference between acting on the block and labelling
   // past it.
   const listed = report.changes
-    .map((change) => `  ${change.path}\n    ${change.surface.pattern} — ${change.surface.why}`)
+    .map(
+      (change) =>
+        `  ${displayPath(change.path)}\n    ${change.surface.pattern} — ${change.surface.why}`,
+    )
     .join('\n');
   return (
     `${report.changes.length} of ${report.examined} changed path(s) alter the surface that ` +

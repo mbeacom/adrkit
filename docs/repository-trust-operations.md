@@ -242,6 +242,32 @@ Note the two counts in that output. `--expected-files` is compared against the
 ends. Comparing the wrong one would have made every renaming pull request fail as
 "truncated" — a false block, which is the merge-stopping direction.
 
+Two further bypasses were found by independent security review against a
+fork-author threat model, and both are closed with permanent negative cases:
+
+- **A stale acknowledgment authorized later pushes.** Acknowledge a small
+  `scripts/` change, then push a workflow edit; the `synchronize` run saw the
+  same label and reported success. Closed by `dismiss-stale-acknowledgment`,
+  which removes the label on every push, and by reading labels from the API
+  rather than from the pre-dismissal event payload.
+- **`.github/CODEOWNERS` was unprotected** while the root file was, and GitHub
+  resolves `.github/` first. All three locations are covered now.
+
+And one hardening gap: attacker-chosen paths were printed unescaped into a
+privileged job's log. Observed end-to-end after the fix, on a path carrying a
+forged annotation:
+
+```console
+$ bun run scripts/check-gate-integrity.ts --files forged.json --labels none.json \
+    --expected-files 2
+exit: 1
+lines the runner would parse as commands: NONE
+```
+
+`JSON.stringify` was the first attempt and was insufficient — it escapes control
+characters but leaves U+200B ZERO WIDTH SPACE untouched, so an invisible
+character would still have printed invisibly. The test caught it.
+
 ### 3.2 Not yet observed — say so plainly
 
 **The deployed workflow has never run.** It cannot, before merge: GitHub takes

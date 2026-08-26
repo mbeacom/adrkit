@@ -22,10 +22,12 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
+  CODEOWNERS_LOCATIONS,
   DEFAULT_ACK_LABEL,
   GATE_SURFACES,
   changedPaths,
   classifyGateChanges,
+  displayPath,
   flattenPages,
   formatBlock,
   formatReport,
@@ -43,6 +45,8 @@ const BLOCKING_CASES: ReadonlyArray<{ path: string; pattern: string }> = [
   { path: 'scripts/check-dco.ts', pattern: 'scripts/' },
   { path: 'packages/ci/dist/index.js', pattern: 'packages/ci/' },
   { path: 'CODEOWNERS', pattern: 'CODEOWNERS' },
+  { path: '.github/CODEOWNERS', pattern: '.github/CODEOWNERS' },
+  { path: 'docs/CODEOWNERS', pattern: 'docs/CODEOWNERS' },
 ];
 
 /** Paths an ordinary change touches. None of these may block. */
@@ -270,6 +274,77 @@ describe('a rename cannot carry a gate path out of sight', () => {
     expect(() => changedPaths([{ filename: 'a.ts', previous_filename: 42 }])).toThrow(
       /non-string "previous_filename"/,
     );
+  });
+});
+
+describe('CODEOWNERS is protected at every location GitHub honors', () => {
+  // Found in security review, not by the coverage assertion below — which reads
+  // GATE_SURFACES and therefore cannot see a surface that was never added. GitHub
+  // resolves `.github/CODEOWNERS` *before* the root file, so a pull request that
+  // adds one supersedes the protected root file without ever touching it. Asserted
+  // against a stated list rather than against the surface list itself.
+  for (const location of CODEOWNERS_LOCATIONS) {
+    test(`${location} blocks without the acknowledgment`, () => {
+      expect(classifyGateChanges([location], []).verdict).toBe('blocked');
+    });
+  }
+
+  test('the three locations are the ones GitHub honors, in precedence order', () => {
+    expect([...CODEOWNERS_LOCATIONS]).toEqual([
+      '.github/CODEOWNERS',
+      'CODEOWNERS',
+      'docs/CODEOWNERS',
+    ]);
+  });
+
+  test('every stated location is actually in the surface list', () => {
+    const declared = new Set(GATE_SURFACES.map((surface) => surface.pattern));
+    expect(CODEOWNERS_LOCATIONS.filter((location) => !declared.has(location))).toEqual([]);
+  });
+
+  test('a file merely named like CODEOWNERS elsewhere does not block', () => {
+    expect(surfaceOf('packages/core/CODEOWNERS')).toBeUndefined();
+    expect(surfaceOf('CODEOWNERS.md')).toBeUndefined();
+  });
+});
+
+describe('printed paths cannot forge workflow commands', () => {
+  // Git permits a newline in a filename and the files endpoint carries it
+  // through, so an attacker-chosen path can put `::` at the start of a physical
+  // log line inside a privileged job. The runner trims leading whitespace before
+  // testing for the prefix, so the output's indentation is not protection.
+  const forged = '.github/workflows/a.yml\n::error title=Gate::forged';
+
+  test('a path carrying a newline is escaped, not printed raw', () => {
+    const report = classifyGateChanges([forged], []);
+    for (const text of [formatReport(report), formatBlock(report)]) {
+      const parsed = text.split('\n').filter((line) => line.trimStart().startsWith('::'));
+      expect(parsed).toEqual([]);
+      // Escaped rather than dropped: the reader still learns the exact path.
+      expect(text).toContain('\\u000a::error title=Gate::forged');
+    }
+  });
+
+  test('the escaped path still blocks, and names its surface', () => {
+    const report = classifyGateChanges([forged], []);
+    expect(report.verdict).toBe('blocked');
+    expect(report.changes[0]?.surface.pattern).toBe('.github/workflows/');
+  });
+
+  test('an ordinary path is printed unchanged', () => {
+    expect(displayPath('scripts/check-dco.ts')).toBe('scripts/check-dco.ts');
+  });
+
+  test('carriage returns and zero-width characters are escaped too', () => {
+    expect(displayPath('a\rb')).toBe('"a\\u000db"');
+    // The case JSON.stringify gets wrong: U+200B is a format character, not a
+    // control character, so JSON leaves it exactly as invisible as it found it.
+    expect(displayPath('scripts/\u200bx.ts')).toBe('"scripts/\\u200bx.ts"');
+    expect(JSON.stringify('scripts/\u200bx.ts')).not.toContain('\\u200b');
+  });
+
+  test('a quote or backslash in a path cannot break the rendering', () => {
+    expect(displayPath('a"b\\c\nd')).toBe('"a\\"b\\\\c\\u000ad"');
   });
 });
 
