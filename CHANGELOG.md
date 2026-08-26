@@ -9,6 +9,51 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **Trusted CI gates that the pull request cannot edit.** A new
+  `.github/workflows/trusted-gates.yml` runs on `pull_request_target`, which
+  GitHub executes from the repository's default branch — workflow file,
+  referenced actions, and `actions/checkout` commit alike. `trusted-dco` is now
+  the authoritative sign-off gate, reading the pull request's commits as fetched
+  git objects that are never checked out or executed; the `dco` job in `ci.yml`
+  is retained as a faster advisory report that can only fail open. `gate-integrity`
+  blocks any change under `.github/workflows/`, `.github/actions/`, `scripts/`,
+  `packages/ci/`, or `CODEOWNERS` unless a maintainer applies the
+  `gate-change-acknowledged` label, which requires triage or write access
+  ([#137](https://github.com/mbeacom/adrkit/issues/137),
+  [ADR-0035](docs/adr/0035-execute-the-gates-that-certify-a-pull-request-from-the-default-branch.md)).
+
+- **`scripts/check-gate-integrity.ts`**, backing that second gate. Imports Node
+  builtins only, so it runs with no `bun install` and a broken dependency graph
+  cannot take it down. Its pass condition is an absence, so it refuses to report
+  a pass over an empty changed-file list, over a list the GitHub API truncated,
+  or over a payload it could not parse — each of those observed firing before the
+  check counted as coverage
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
+
+- **[`docs/repository-trust-operations.md`](docs/repository-trust-operations.md)**,
+  separating the controls that are active from the ones that cannot be applied
+  until this lands, with the exact verified commands and the evidence for each.
+
+### Changed
+
+- **Actions must now be pinned to a full-length commit SHA** at the repository
+  level (`sha_pinning_required`, `false` → `true`). Every action here was already
+  SHA-pinned, so no workflow changed; the setting removes the ability to
+  introduce a mutable tag later.
+
+- **`CODEOWNERS` names the gate-defining paths explicitly**, with both caveats
+  stated in the file: the default `*` line already covered them, and with no
+  `pull_request` rule on the `main` ruleset these lines request a review rather
+  than requiring one. ADR-0035 records why required review is not available to
+  this repository as a real control rather than shipping a rule that only looks
+  like one.
+
+- **`scripts/check-dco.ts` no longer carries a "known limitation" note.** It now
+  states which invocation is the authority and which is advisory, because the
+  limitation stopped being true for the one that gates the merge.
+
 ## [0.11.0] - 2026-08-26
 
 ### Added
