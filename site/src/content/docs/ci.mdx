@@ -43,7 +43,7 @@ The Action finds the comment it posted on an earlier push and edits it in place,
 pull request carries one governing-decisions comment however many times you push
 ([ADR-0026](/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows/)). Releases **through `v0.6.0` could not do this on their own** and
 needed an `env: GITHUB_TOKEN: ${{ github.token }}` block
-([#107](https://github.com/mbeacom/adrkit/issues/107)). `@v0` now resolves to `v0.9.0`,
+([#107](https://github.com/mbeacom/adrkit/issues/107)). `@v0` now resolves to `v0.10.0`,
 so that block is no longer required — and costs nothing if you still have it, because
 the Action never reads the variable to identify its token.
 
@@ -55,8 +55,8 @@ updated in place. The runner log confirms the variable was genuinely absent rath
 merely deleted from a file. The observation covers the **default `GITHUB_TOKEN`**; a
 custom GitHub App token takes the same code path but has not been observed separately.
 
-`v0` is a moving major tag, and it now resolves to a `v0.9.0` build. Pin the
-immutable `v0.9.0` tag or a commit SHA for maximum reproducibility.
+`v0` is a moving major tag, and it now resolves to a `v0.10.0` build. Pin the
+immutable `v0.10.0` tag or a commit SHA for maximum reproducibility.
 
 Every same-repository, non-Dependabot pull request in the adrkit repository runs this
 Action against itself and asserts the result. Fork and Dependabot pull requests are
@@ -73,14 +73,14 @@ open for both.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">
-	The `v*` release tags are **annotated**, so `refs/tags/v0.9.0` resolves to a tag
+	The `v*` release tags are **annotated**, so `refs/tags/v0.10.0` resolves to a tag
 	object rather than a commit, and `uses:` rejects that SHA. Pin the commit the tag
 	points *at*:
 
 	```sh
-	git rev-parse v0.9.0^{commit}
+	git rev-parse v0.10.0^{commit}
 	# or, over the API — this endpoint peels the tag for you:
-	gh api repos/mbeacom/adrkit/commits/v0.9.0 --jq .sha
+	gh api repos/mbeacom/adrkit/commits/v0.10.0 --jq .sha
 	```
 
 	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag

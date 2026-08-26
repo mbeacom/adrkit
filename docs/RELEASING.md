@@ -9,12 +9,12 @@ Action:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`, `adrkit`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.9.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (latest immutable release `v0.10.0`, moving `v0`) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
 
-The coordinated lockstep surface is published; the current release is `v0.9.0`. `@adrkit/core`,
+The coordinated lockstep surface is published; the current release is `v0.10.0`. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
 `@adrkit/mcp` was created with the isolated one-time bootstrap path below; its
 Trusted Publisher and token-restriction cleanup must be completed before the

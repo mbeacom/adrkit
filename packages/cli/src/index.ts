@@ -56,7 +56,7 @@ import { getPresentation, setPresentation, styleUsageBlock, type ColorMode, type
  * (mirroring `@adrkit/mcp`'s `SERVER_INFO`) so the bundled `dist/index.js` never has
  * to locate `package.json` at runtime. `version.test.ts` asserts the two agree.
  */
-export const CLI_VERSION = '0.9.0';
+export const CLI_VERSION = '0.10.0';
 
 function topLevelUsage(style?: StreamStyle): string {
   return renderTopLevelUsage(CLI_VERSION, style);

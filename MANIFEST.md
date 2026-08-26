@@ -67,7 +67,11 @@ adrkit/
         ├── 0024  report the measured scan extent            accepted
         ├── 0025  badges as recipes over existing output     accepted
         ├── 0026  identify the CI comment by token evidence  accepted
-        └── 0027  ratify the deterministic evaluator         accepted
+        ├── 0027  ratify the deterministic evaluator         accepted
+        ├── 0028  ship decision memory as an agent plugin    accepted
+        ├── 0029  scope Backstage as a downstream consumer   accepted
+        ├── 0030  keep dependency-bearing extensions external accepted
+        └── 0031  publish a narrow consumer SDK contract     accepted
 ```
 
 ## Known-open, deliberately
@@ -102,8 +106,8 @@ independent of the GitHub namespace and unaffected either way.
 
 ## Verification
 
-28 files under `docs/adr/` — the template plus 27 records, ids 0001–0027, no
-gaps. All at schema 0.1.0: 25 accepted, 0 proposed, 2 superseded, and the
+32 files under `docs/adr/` — the template plus 31 records, ids 0001–0031, no
+gaps. All at schema 0.1.0: 29 accepted, 0 proposed, 2 superseded, and the
 template at `draft`.
 No dangling `relatesTo`. No one-way door on the auto tier. No accepted record
 without a decider or an import provenance. JSON Schema and Zod agree on property
