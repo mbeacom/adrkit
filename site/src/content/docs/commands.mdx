@@ -6,8 +6,10 @@ description: Every adrkit CLI command, its options, and its documented exit code
 import { Aside } from '@astrojs/starlight/components';
 
 The `adr` binary (published as `@adrkit/cli`) is a small set of deterministic
-commands. Run any of them with `--help`, or `adr help <command>`, to print the
-same text shown here. Global synopsis:
+commands. Run `adr` with no arguments or `adr --help` for task-oriented command
+discovery and common workflows. Run any command with `--help`, or
+`adr help <command>`, for its arguments, options, examples, and exit codes.
+Compact synopsis:
 
 ```text
 adr lint [paths...] [--json] [--dir docs/adr]
@@ -18,9 +20,11 @@ adr explain <path> [--dir docs/adr] [--json]
 adr check <files...> [--dir docs/adr] [--json]
 adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
 adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
+adr completion <bash|zsh|fish>
 
 adr help [command]        Show help, or help for one command
 adr --version             Print the @adrkit/cli version
+adr --color <mode> <command> [options]  Colorize human-readable output
 ```
 
 <Aside type="caution" title="Invoking these commands">
@@ -34,6 +38,54 @@ adr --version             Print the @adrkit/cli version
 	binary is not linked locally, and runs that other tool rather than failing.
 	See the [quickstart](/quickstart/#install).
 </Aside>
+
+## Find commands and recover from mistakes
+
+Running `adr` with no arguments prints the top-level help to stdout and exits
+`0`. The help groups commands by the task they perform, includes common
+workflows, and points to this reference. `adr help <command>` and
+`adr <command> --help` print the same focused command help.
+
+Usage errors stay on stderr and exit `2`. Instead of appending the full global
+help, a command error prints that command's usage and points to
+`adr help <command>`. Near-miss command names and long options suggest the
+closest documented spelling. The closed value sets for `new --status`,
+`graph --format`, `migrate --from`, `queue --format`, and
+`completion <shell>` do the same:
+
+```text
+Error: Unknown option "--jsn". Did you mean "--json"?
+
+Usage: adr lint [paths...] [options]
+Run 'adr help lint' for more information.
+```
+
+Suggestions are conservative: an unrelated command, option, or value is
+rejected without guessing.
+
+## Global color and stable machine output
+
+`--color auto|always|never` is a global option. Put it before the command for
+the clearest invocation:
+
+```sh
+adr --color always lint
+```
+
+Both `--color always` and `--color=always` are recognized anywhere before the
+`--` argument terminator. After `--`, `--color` is an ordinary positional value.
+
+| Mode | Meaning |
+|---|---|
+| `auto` | Default. Color each human-readable output stream only when that stream is a TTY and `NO_COLOR` is unset. |
+| `always` | Force color for human-readable output, including redirects and pipes; this explicit choice overrides `NO_COLOR`. |
+| `never` | Disable color. |
+
+Stdout and stderr are detected independently, so redirecting one does not
+change the other. Color changes presentation only: exit codes and the
+stdout/stderr split are unchanged. Machine-oriented output remains ANSI-free
+even under `--color always`, including JSON, generated completion scripts, and
+the canonical queue Markdown format.
 
 ## adr lint
 
@@ -281,6 +333,77 @@ managed-issue Action.
 **Exit codes:** `0` report, no error findings · `1` report emitted with
 error-severity corpus findings · `2` usage error (invalid flag/value or
 unreachable corpus directory).
+
+## adr completion
+
+Write a deterministic completion script for Bash, Zsh, or Fish to stdout:
+
+```sh
+adr completion <bash|zsh|fish>
+```
+
+The generated definitions cover top-level commands, each command's documented
+options, and closed value sets such as `--format` and `--status`. They register
+both `adr` and the `adrkit` binary alias where the shell format permits.
+
+| Argument or option | Meaning |
+|---|---|
+| `<shell>` | Required; one of `bash`, `zsh`, or `fish` |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` script emitted · `2` usage error (missing or unsupported
+shell).
+
+Shells commonly lazy-load completion definitions by filename. Install the same
+generated script under both the `adr` and `adrkit` names so completion works
+regardless of which binary you type first.
+
+### Bash
+
+```sh
+mkdir -p ~/.local/share/bash-completion/completions
+adr completion bash > ~/.local/share/bash-completion/completions/adr
+cp ~/.local/share/bash-completion/completions/adr \
+  ~/.local/share/bash-completion/completions/adrkit
+```
+
+This location is loaded by
+[bash-completion](https://github.com/scop/bash-completion). Reload the shell
+after installing the files. For only the current shell, source the generated
+script directly:
+
+```sh
+source <(adr completion bash)
+```
+
+### Zsh
+
+```sh
+mkdir -p ~/.zsh/completions
+adr completion zsh > ~/.zsh/completions/_adr
+cp ~/.zsh/completions/_adr ~/.zsh/completions/_adrkit
+```
+
+Add the directory to `fpath` before your existing `compinit` setup, then reload
+the shell:
+
+```sh
+fpath=(~/.zsh/completions $fpath)
+autoload -Uz compinit
+compinit
+```
+
+### Fish
+
+```sh
+mkdir -p ~/.config/fish/completions
+adr completion fish > ~/.config/fish/completions/adr.fish
+ln -sf ~/.config/fish/completions/adr.fish \
+  ~/.config/fish/completions/adrkit.fish
+```
+
+Copying `adr.fish` to `adrkit.fish` works too. Fish discovers either file
+automatically; no shell restart is required.
 
 ## adr help · adr --version
 
