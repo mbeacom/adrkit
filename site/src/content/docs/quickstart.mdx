@@ -12,9 +12,7 @@ evaluator.
 
 <Aside type="tip" title="Published on npm (v0.10.0)">
 	`@adrkit/cli` is live. Consumers install it with your Node package manager and
-	run the `adr` binary — no clone required. Published artifacts are Node-targeted
-	([ADR-0010](/adr/0010-bun-toolchain/)); Bun is used for developing adrkit
-	itself.
+	run the `adr` binary — no clone required.
 </Aside>
 
 ## Install
@@ -22,19 +20,9 @@ evaluator.
 Add the CLI to a project, or run it one-off. It exposes the `adr` binary.
 
 <Aside type="caution" title="Always name the package: @adrkit/cli">
-	adrkit's binary is `adr`, but the bare name `adr` on npm belongs to an
-	**unrelated package**. It has no `lint`, `explain`, `graph`, or `migrate` —
-	but does ship its own `new`, so it can look like it works before failing on
-	everything else.
-
-	**Avoid bare `npx adr …` / `bunx adr …` entirely.** It only reaches adrkit if
-	the binary happens to be linked into `node_modules/.bin`, and when it is not
-	— which is common in workspaces and monorepos — it does not fail. It
-	silently downloads and runs the other tool instead.
-
-	Name the package (`npx @adrkit/cli lint`), or install `@adrkit/cli` and drive
-	it from an npm script — a script resolves `node_modules/.bin` directly and
-	fails loudly with `command not found` rather than reaching the registry.
+	The bare npm package name `adr` belongs to an unrelated tool. For one-off use,
+	run `npx @adrkit/cli …` or `bunx @adrkit/cli …`. After installation, use the
+	`adr` or `adrkit` binary.
 </Aside>
 
 <Tabs>
@@ -77,59 +65,13 @@ adr lint
 
 <Aside type="tip" title="`adrkit` — the unambiguous installed alias">
 	Every install above also provides a second binary, `adrkit`, identical to
-	`adr`. Nothing else on npm claims that binary name, so once installed it is
-	unambiguous: `adrkit lint` works wherever `adr lint` does, without competing
-	for the `.bin` entry that `adr` shares with the unrelated package.
-
-	Prefer it in anything shared or long-lived — CI, `Makefile`s, READMEs, and
-	agent instructions — where a silent wrong-tool substitution is hardest to
-	notice.
-
-	This applies to the **installed** binary only. Do not reach for
-	`npx adrkit` / `bunx adrkit`: there is no unscoped `adrkit` *package*, and
-	there never will be — npm refuses the name as too similar to `pdfkit`. That
-	form therefore resolves against the registry and would run whatever someone
-	else publishes there. `npx --no` declines to install a missing package, but
-	it still runs one already in the npx cache, so it is not a durable guard
-	either. For zero-install, name the scoped package — `npx @adrkit/cli lint`.
-</Aside>
-
-The pure library surfaces are independently installable when you only need the
-resolver or the evaluator:
-
-```sh
-npm install @adrkit/core @adrkit/evaluator
-```
-
-<Aside type="note" title="Contributing to adrkit itself?">
-	To hack on adrkit rather than consume it, clone the repo and use Bun — the
-	project's development toolchain ([ADR-0010](/adr/0010-bun-toolchain/)):
-
-	```sh
-	git clone https://github.com/mbeacom/adrkit.git
-	cd adrkit
-	bun install
-	bun run adr lint   # run the CLI from source
-	```
+	`adr`. Prefer `adrkit` in shared scripts and agent instructions. For one-off
+	use, continue to name the package: `npx @adrkit/cli lint`.
 </Aside>
 
 The examples below are written as bare `adr …` for readability. A local install
-does **not** put `adr` on your shell `PATH` — it lands in `node_modules/.bin/`
-— so translate them to whichever way you installed:
-
-| How you installed | Run the examples as |
-|---|---|
-| Nothing installed (one-off) | `npx @adrkit/cli lint` / `bunx @adrkit/cli lint` |
-| Project dev dependency | an npm script — `npm run adr -- lint` |
-| Global (`npm i -g @adrkit/cli`) | `adr lint` — bare, as written |
-| Source checkout | `bun run adr lint` |
-
-Only the global install makes the bare form work in a normal shell. Note that
-`npx adr lint` is absent from that table deliberately: it reaches adrkit only
-when the binary is linked into `node_modules/.bin`, and otherwise silently runs
-the unrelated registry package instead of failing. An npm script has no such
-ambiguity — it resolves `node_modules/.bin` and stops with `command not found`
-if the dependency is missing.
+does not put `adr` on your shell `PATH`; run it through your package script, such
+as `npm run adr -- lint`.
 
 ## Create your first record — `adr new`
 

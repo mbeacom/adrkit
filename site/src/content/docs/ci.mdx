@@ -7,7 +7,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 adrkit ships two GitHub Actions from this repository. Both run with only the
 default `GITHUB_TOKEN`, hold no database, and never approve anything — they read
-the corpus and write a comment or an issue ([ADR-0004](/adr/0004-git-is-source-of-truth-database-is-an-index/)).
+the corpus and write a comment or an issue.
 
 ## Comment governing decisions on a PR
 
@@ -39,32 +39,12 @@ jobs:
         #   token: ${{ github.token }}
 ```
 
-The Action finds the comment it posted on an earlier push and edits it in place, so a
-pull request carries one governing-decisions comment however many times you push
-([ADR-0026](/adr/0026-identify-the-ci-comment-by-the-strongest-author-evidence-the-token-allows/)). Releases **through `v0.6.0` could not do this on their own** and
-needed an `env: GITHUB_TOKEN: ${{ github.token }}` block
-([#107](https://github.com/mbeacom/adrkit/issues/107)). `@v0` now resolves to `v0.10.0`,
-so that block is no longer required — and costs nothing if you still have it, because
-the Action never reads the variable to identify its token.
-
-That was measured, not just read from the source. On a reference repository the block was
-removed entirely (at **job** level, which is where a copied snippet often puts it, and
-which takes the variable out of the Action's environment for every step), and two
-dispatches on one pull request left a single comment with the **same id** — created, then
-updated in place. The runner log confirms the variable was genuinely absent rather than
-merely deleted from a file. The observation covers the **default `GITHUB_TOKEN`**; a
-custom GitHub App token takes the same code path but has not been observed separately.
+The Action updates its existing comment on later pushes, so each pull request
+keeps one current governing-decisions comment. No additional token environment
+variable is required when using the default `GITHUB_TOKEN`.
 
 `v0` is a moving major tag, and it now resolves to a `v0.10.0` build. Pin the
 immutable `v0.10.0` tag or a commit SHA for maximum reproducibility.
-
-Every same-repository, non-Dependabot pull request in the adrkit repository runs this
-Action against itself and asserts the result. Fork and Dependabot pull requests are
-excluded, because their `GITHUB_TOKEN` is read-only whatever `permissions:` declares.
-The comment path is **landed / reference-verified** on
-[ADR-0014](/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder/)
-rungs 1–2, the same rung as the queue Action below; rung-3 external validation remains
-open for both.
 
 <Aside type="note" title="Comments from before the upgrade">
 	The Action is comment-only and deletes nothing, so duplicate comments a pull request
@@ -119,13 +99,9 @@ jobs:
 ```
 
 <Aside type="note" title="Pinning the queue Action">
-	`queue@v0` resolves because the `v0` tag points at a commit containing
-	`packages/ci/queue/action.yml` — first true of the v0.2.1 release, and the tag
-	has moved forward with each release since. `@v0` is a moving tag; pin the full
-	commit SHA instead if you need a byte-immutable reference, and read that SHA from
-	the tag rather than from this page — `git rev-parse v0^{commit}` — so it cannot go
-	stale here. Phase 6 is landed and maintainer reference-verified; external
-	validation ([ADR-0014](/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder/) rung 3) remains open.
+	`@v0` is a moving major-version tag. Pin the commit SHA when you need a
+	byte-immutable reference. Resolve the current commit without an adrkit
+	checkout: `gh api repos/mbeacom/adrkit/commits/v0 --jq .sha`.
 </Aside>
 
 The managed issue's body is the same report you get locally:

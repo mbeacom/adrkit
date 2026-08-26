@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const runtime = process.env.CONTAINER_RUNTIME || 'docker';
 const image = process.argv[2] || 'adrkit-mcp:ci';
+const imageArgs = process.argv.slice(3);
 const repoRoot = fileURLToPath(new URL('../', import.meta.url));
 const expectedTools = ['get_decision', 'get_decision_context', 'list_superseded', 'search_decisions'];
 
@@ -48,6 +49,7 @@ async function smokeEra(era) {
       '-v',
       `${repoRoot}:/workspace:ro`,
       image,
+      ...imageArgs,
     ],
     { stdio: ['pipe', 'pipe', 'inherit'] },
   );
@@ -117,4 +119,4 @@ async function smokeEra(era) {
 
 await smokeEra('legacy');
 await smokeEra('modern');
-console.log(`container-smoke: ${image} served both MCP protocol eras`);
+console.log(`container-smoke: ${[image, ...imageArgs].join(' ')} served both MCP protocol eras`);

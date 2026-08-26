@@ -4,12 +4,17 @@ The evaluator scores a **proposal** — a `draft` or `proposed` ADR, or an agent
 plan being converted into one. It never approves anything. Its only outputs are
 a scored report and a routing recommendation.
 
+> **Status:** `@adrkit/evaluator` implements **Pass 0**, including its eight
+> deterministic escalation triggers and named-human routing. Passes 1–3, the
+> three escalation triggers that depend on those passes, and the calibration
+> guidance below are design targets; they are not shipped behavior yet.
+
 Design constraints, in priority order:
 
 1. **Deterministic before probabilistic.** Anything checkable without a model is
    checked without a model, first, and reported separately.
 2. **Per-dimension scores with citations.** No gestalt verdict. A single number
-   is unfalsifiable and gets ignored within two sprints.
+   is too coarse to audit on its own.
 3. **Separation of grading and attacking.** The adversarial pass is a distinct
    call with a distinct context. A model asked to both defend and critique does
    neither well.
@@ -39,9 +44,9 @@ without spending tokens on the later passes.
 | `decider-resolvable` | warn | Identities resolve in the org directory |
 | `expiry-sane` | info | `reviewBy` is in the future |
 
-Deterministic findings land in `evaluation.deterministicFindings`. In practice
-this pass catches a large share of what a reviewer would have caught, at
-effectively zero cost — build it fully before writing a single prompt.
+Deterministic findings land in `evaluation.deterministicFindings`. This pass is
+designed to catch routine structural and policy issues before later passes spend
+tokens.
 
 ---
 
@@ -56,8 +61,8 @@ Assemble the context the later passes reason over. Not scored.
 - Any ADR at broader `scope` in the same `domain`.
 - The diff or spec artifact the proposal derives from, if present.
 
-Retrieval quality dominates evaluation quality. Instrument recall here before
-tuning anything downstream.
+Retrieval quality constrains evaluation quality. Measure recall here before
+tuning downstream passes.
 
 ---
 
@@ -77,21 +82,20 @@ why this came up *now*? Distinguishes a real constraint from a preference.
 *Score 2 cap if the problem statement is a restatement of the chosen solution.*
 
 ### D2 — Alternatives considered
-Are there ≥2 genuine alternatives, including "do nothing"? Straw men are the
-dominant failure mode: an alternative that no competent engineer would pick is
-worth 0, not 2.
+Are there ≥2 genuine alternatives, including "do nothing"? Weak alternatives do
+not carry review value: an option that no competent engineer would pick is worth
+0, not 2.
 *Score 1 cap if every alternative shares the chosen option's core assumption.*
 
 ### D3 — Trade-off honesty
 Are the **costs** of the chosen option stated as plainly as its benefits? A
-proposal whose chosen option has no listed downsides is not a decision, it's an
-advertisement.
+proposal whose chosen option has no listed downsides is incomplete.
 *Score 0 if the consequences section contains no negative consequence.*
 
 ### D4 — Reversibility & blast radius accuracy
 Does the stated `reversibility` / `blastRadius` match the substance? Systematic
-under-declaration is the failure that makes the fast path dangerous — this
-dimension is the fast path's safety interlock.
+under-declaration makes the fast path unsafe, so this dimension is its safety
+interlock.
 *Any downward correction here forces re-routing.*
 
 ### D5 — Prior-decision coherence
@@ -102,13 +106,13 @@ scores 4.
 
 ### D6 — Falsifiability
 How would we know this was wrong? Names a metric, a threshold, a review date,
-or an exit condition. This is the dimension that most separates ADRs that stay
-alive from ADRs that rot.
+or an exit condition. This is the dimension that most clearly separates durable
+ADRs from ones that cannot later be checked.
 
 ### D7 — Operational consequences
 Who carries this after merge? Runbook impact, on-call surface, migration path,
-rollback, cost trajectory. Chronically weakest dimension in practice; weight it
-accordingly for infra decisions.
+rollback, cost trajectory. This is often the thinnest dimension in
+infrastructure proposals, so larger-scope changes may weight it more heavily.
 
 ### D8 — Enforcement specificity
 Are `affects` and (where appropriate) `assertions` populated well enough that
@@ -157,8 +161,8 @@ model-discretionary.
 | `human-requested` | Anyone asks. Always available, never overridden. |
 
 Escalation routes to a **named human**, resolved from `deciders`, CODEOWNERS of
-the affected paths, or the IDP catalog owner — in that order. "Escalated to the
-ARB" with no name attached is how proposals die quietly.
+the affected paths, or the IDP catalog owner — in that order. A routed review
+needs an explicit owner, not an anonymous destination.
 
 ### What escalation does *not* mean
 
@@ -170,8 +174,8 @@ does not empty it.
 
 ## Calibration
 
-The rubric is worthless uncalibrated, and calibration is what makes this
-defensible in a regulated environment.
+The rubric needs calibration to remain trustworthy, especially in regulated
+environments.
 
 - Maintain a labeled set of historical proposals with known outcomes (shipped
   clean / shipped and reverted / caused an incident / rejected in review).
@@ -187,5 +191,5 @@ defensible in a regulated environment.
   recommendation, by tier and by dimension. Persistent overrides in one
   direction mean the rubric is miscalibrated, not that the humans are wrong.
 
-Publishing the false-negative rate is uncomfortable and is exactly what stops
-this from becoming evaluator theater.
+Publishing the false-negative rate keeps the system auditable and makes missed
+escalations visible.

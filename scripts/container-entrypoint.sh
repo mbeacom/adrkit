@@ -14,7 +14,9 @@ selectors:
   queue-action | adrkit-queue-action
                                   Run the managed ARB queue GitHub Action
 
-Any first argument not listed above is passed to the adr CLI.
+Container help is reserved for no arguments, `-h`, `--help`,
+`container-help`, and `--container-help`.
+Every other first argument is passed to the adr CLI, including `help <command>`.
 Run `adrkit-container cli --help` for CLI command help.
 EOF
 }
@@ -27,7 +29,7 @@ fi
 command="$1"
 
 case "$command" in
-  help | -h | --help | container-help | --container-help)
+  -h | --help | container-help | --container-help)
     show_help
     ;;
   cli | adr | adrkit)

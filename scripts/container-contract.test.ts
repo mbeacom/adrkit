@@ -8,6 +8,7 @@ const ENTRYPOINT_PATH = join(ROOT, 'scripts', 'container-entrypoint.sh');
 const ENTRYPOINT = readFileSync(ENTRYPOINT_PATH, 'utf8');
 const DOCKERIGNORE = readFileSync(join(ROOT, '.dockerignore'), 'utf8');
 const README = readFileSync(join(ROOT, 'README.md'), 'utf8');
+const CI_WORKFLOW = readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
 const PACKAGE = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
   packageManager: string;
 };
@@ -89,6 +90,15 @@ describe('container contract', () => {
     expect(help.exitCode).toBe(0);
     expect(help.stdout.toString()).toContain('selectors:');
     expect(help.stdout.toString()).toContain('cli --help');
+    expect(help.stdout.toString()).toContain('help <command>');
+    expect(ENTRYPOINT).not.toContain('help | -h');
+  });
+
+  test('smokes every published selector through the all-in-one image', () => {
+    expect(CI_WORKFLOW).toContain('adrkit:ci cli --version');
+    expect(CI_WORKFLOW).toContain('scripts/smoke-container.mjs adrkit:ci mcp');
+    expect(CI_WORKFLOW).toContain('adrkit:ci ci 2>&1');
+    expect(CI_WORKFLOW).toContain('adrkit:ci queue-action 2>&1');
   });
 
   test('admits only runtime source and the committed Action bundles', () => {

@@ -182,10 +182,16 @@ jobs:
           set -euo pipefail
           test "$(docker image inspect --format '{{.Config.User}}' adrkit:ci)" = node
           test "$(docker run --rm --read-only --network none adrkit-cli:ci --version)" = "$(jq -r .version package.json)"
+          test "$(docker run --rm --read-only --network none adrkit:ci cli --version)" = "$(jq -r .version package.json)"
+          docker run --rm --read-only --network none adrkit:ci --help | grep -F 'selectors:'
           docker run --rm --read-only --network none \
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
             adrkit-cli:ci lint --dir docs/adr
+          docker run --rm --read-only --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            adrkit:ci lint --dir docs/adr
           node scripts/smoke-container.mjs adrkit-mcp:ci
+          node scripts/smoke-container.mjs adrkit:ci mcp
       - name: Exercise the governing-decisions Action event boundary
         run: |
           set -euo pipefail
@@ -209,7 +215,7 @@ jobs:
             -e INPUT_TOKEN=container-smoke-token \
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
             -v "$event:/tmp/event.json:ro" \
-            adrkit-action:ci 2>&1)
+            adrkit:ci ci 2>&1)
           status=$?
           set -e
           printf '%s\n' "$output"
@@ -228,7 +234,7 @@ jobs:
             -e INPUT_DIR=missing \
             -e INPUT_TOKEN=container-smoke-token \
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
-            adrkit-queue-action:ci 2>&1)
+            adrkit:ci queue-action 2>&1)
           status=$?
           set -e
           printf '%s\n' "$output"

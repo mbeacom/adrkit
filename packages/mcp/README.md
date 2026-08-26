@@ -18,18 +18,15 @@ Part of [adrkit](https://adrkit.dev). The corpus lives in git as one Markdown fi
 per decision with typed YAML frontmatter (`@adrkit/core`); this server only reads
 it. Listed in the [official MCP registry](https://registry.modelcontextprotocol.io)
 as **`dev.adrkit/mcp`** (this is the Node/npm `@adrkit/mcp` package — unrelated to
-the `adr-kit` Python package on PyPI). A registry listing is distribution, not
-adoption; see Maturity below.
+the `adr-kit` Python package on PyPI).
 
-## Maturity
+## Status
 
-adrkit is **early**. Phases 0–6 are *landed / reference-verified* against
-[ADR-0014](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-rungs 1–2 (unit/contract/conformance plus maintainer-owned isolated
-reference-repository validation). It has **no external adopters or production users
-yet**, and rung-3 external/community validation is openly tracked as not-yet-met.
-The 4-tool surface is locked by a
-[surface test](https://github.com/mbeacom/adrkit/blob/main/packages/mcp/test/surface.test.ts).
+Published on npm for Node 22+ with a deliberately small, read-only stdio
+surface: four tools and no write path.
+
+adrkit is still pre-1.0. If you need repeatable client installs, pin an
+explicit `@adrkit/mcp` version in your MCP config instead of floating `latest`.
 
 ## Quick start
 
@@ -39,32 +36,8 @@ The published binary is **`adrkit-mcp`**. Run it with `npx` (no install):
 npx -y @adrkit/mcp --cwd /path/to/your/repo --dir docs/adr
 ```
 
-It speaks JSON-RPC over stdio, so you normally point an MCP client at it rather than
-running it by hand. Copy-pasteable client configs follow.
-
-### Protocol revisions
-
-The server speaks **both** MCP protocol eras on the same stdio connection, and the
-client picks. The opening exchange selects the era and pins it for the connection's
-lifetime:
-
-| Client opens with                                     | Server serves                                     |
-| ----------------------------------------------------- | ------------------------------------------------- |
-| `server/discover`, or any request carrying a 2026 `_meta` envelope | **`2026-07-28`** — stateless, no handshake |
-| `initialize` / `notifications/initialized`            | the 2025-era revision it negotiates               |
-
-On `2026-07-28` there is no `initialize` handshake and no session id: every request
-carries its own protocol version and client capabilities in `_meta`, and every result
-is self-describing (`resultType`, plus server identity in `_meta`). `tools/list` and
-`server/discover` are cacheable (SEP-2549) and are served with `ttlMs: 300000,
-cacheScope: "public"` — the four-tool surface is immutable for the life of the process
-and carries no corpus content, so a client may reuse it instead of re-listing. Corpus
-reads are never cacheable: every `tools/call` loads a fresh projection.
-
-Nothing else about the tools changes between eras — same names, same schemas, same
-annotations, same structured results. The server uses none of the features the
-`2026-07-28` revision deprecated (roots, sampling, logging) or removed (sessions,
-`ping`, `resources/subscribe`).
+It speaks JSON-RPC over stdio, so you normally point an MCP client at it rather
+than running it by hand. Copy-pasteable client configs follow.
 
 ### Claude Desktop
 
@@ -156,6 +129,30 @@ Flags win over environment variables, which win over the defaults. An unusable
 configuration exits non-zero with a diagnostic on **stderr** (`2` for an
 unparseable flag, `1` for an invalid root/directory) and never starts a transport.
 **stdout is reserved for JSON-RPC protocol frames only.**
+
+### Protocol revisions
+
+The server speaks **both** MCP protocol eras on the same stdio connection, and
+the client picks. The opening exchange selects the era and pins it for the
+connection's lifetime:
+
+| Client opens with | Server serves |
+| ----------------------------------------------------- | ------------------------------------------------- |
+| `server/discover`, or any request carrying a 2026 `_meta` envelope | **`2026-07-28`** — stateless, no handshake |
+| `initialize` / `notifications/initialized` | the 2025-era revision it negotiates |
+
+On `2026-07-28` there is no `initialize` handshake and no session id: every
+request carries its own protocol version and client capabilities in `_meta`,
+and every result is self-describing (`resultType`, plus server identity in
+`_meta`). `tools/list` and `server/discover` are cacheable (SEP-2549) and are
+served with `ttlMs: 300000, cacheScope: "public"` because the 4-tool surface is
+fixed for the life of the process and carries no corpus content. Corpus reads
+are never cacheable: every `tools/call` loads a fresh projection.
+
+Nothing else about the tools changes between eras — same names, same schemas,
+same annotations, same structured results. The server uses none of the features
+the `2026-07-28` revision deprecated (roots, sampling, logging) or removed
+(sessions, `ping`, `resources/subscribe`).
 
 ## The four tools
 
