@@ -9,6 +9,23 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **A source-built OCI image for the CLI, MCP server, and both CI entry
+  points.** The final image runs as a non-root user on Node 24, while Bun
+  remains the pinned build tool. Dedicated local build targets contain only
+  their own executable surface; the all-in-one target dispatches
+  `cli`/`adr`/`adrkit`, `mcp`/`adrkit-mcp`, `ci`/`adrkit-ci`, and
+  `queue-action`/`adrkit-queue-action`. MCP examples use a read-only root and
+  repository mount.
+
+- **Lockstep GitHub Container Registry publication.** A successful lockstep
+  Release workflow now triggers a multi-architecture
+  `ghcr.io/mbeacom/adrkit` build with immutable `vX.Y.Z`, moving `vX`, and
+  `latest` tags plus a registry provenance attestation. The workflow supports
+  manual recovery only for an existing successful GitHub release
+  ([ADR-0032](docs/adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md)).
+
 ## [0.10.0] - 2026-08-26
 
 ### Changed

@@ -71,7 +71,8 @@ adrkit/
         ├── 0028  ship decision memory as an agent plugin    accepted
         ├── 0029  scope Backstage as a downstream consumer   accepted
         ├── 0030  keep dependency-bearing extensions external accepted
-        └── 0031  publish a narrow consumer SDK contract     accepted
+        ├── 0031  publish a narrow consumer SDK contract     accepted
+        └── 0032  publish one lockstep OCI image              accepted
 ```
 
 ## Known-open, deliberately
@@ -106,8 +107,8 @@ independent of the GitHub namespace and unaffected either way.
 
 ## Verification
 
-32 files under `docs/adr/` — the template plus 31 records, ids 0001–0031, no
-gaps. All at schema 0.1.0: 29 accepted, 0 proposed, 2 superseded, and the
+33 files under `docs/adr/` — the template plus 32 records, ids 0001–0032, no
+gaps. All at schema 0.1.0: 30 accepted, 0 proposed, 2 superseded, and the
 template at `draft`.
 No dangling `relatesTo`. No one-way door on the auto tier. No accepted record
 without a decider or an import provenance. JSON Schema and Zod agree on property

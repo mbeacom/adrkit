@@ -148,6 +148,93 @@ jobs:
       - name: Smoke test installed npm tarballs
         run: node .release/smoke/smoke.mjs "$GITHUB_WORKSPACE"
 
+  container-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the all-in-one image
+        run: docker build -f Containerfile --target adrkit -t adrkit:ci .
+      - name: Build the dedicated CLI target
+        run: docker build -f Containerfile --target cli -t adrkit-cli:ci .
+      - name: Build the dedicated MCP target
+        run: docker build -f Containerfile --target mcp -t adrkit-mcp:ci .
+      - name: Build the dedicated governing-decisions Action target
+        run: docker build -f Containerfile --target ci -t adrkit-action:ci .
+      - name: Build the dedicated queue Action target
+        run: docker build -f Containerfile --target queue-action -t adrkit-queue-action:ci .
+      - name: Assert dedicated target isolation
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint sh adrkit-cli:ci -c \
+            'test -f /opt/adrkit/adr.js && test ! -e /opt/adrkit/adrkit-mcp.js && test ! -e /opt/adrkit/ci.js'
+          docker run --rm --entrypoint sh adrkit-mcp:ci -c \
+            'test -f /opt/adrkit/adrkit-mcp.js && test ! -e /opt/adrkit/adr.js && test ! -e /opt/adrkit/ci.js'
+          docker run --rm --entrypoint sh adrkit-action:ci -c \
+            'test -f /opt/adrkit/ci.js && test ! -e /opt/adrkit/adr.js && test ! -e /opt/adrkit/queue-action.js'
+          docker run --rm --entrypoint sh adrkit-queue-action:ci -c \
+            'test -f /opt/adrkit/queue-action.js && test ! -e /opt/adrkit/adr.js && test ! -e /opt/adrkit/ci.js'
+      - name: Smoke test CLI and both MCP protocol eras without runtime network access
+        run: |
+          set -euo pipefail
+          test "$(docker image inspect --format '{{.Config.User}}' adrkit:ci)" = node
+          test "$(docker run --rm --read-only --network none adrkit-cli:ci --version)" = "$(jq -r .version package.json)"
+          docker run --rm --read-only --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            adrkit-cli:ci lint --dir docs/adr
+          node scripts/smoke-container.mjs adrkit-mcp:ci
+      - name: Exercise the governing-decisions Action event boundary
+        run: |
+          set -euo pipefail
+          event="$RUNNER_TEMP/container-pr-event.json"
+          jq -n '{
+            number: 1,
+            repository: {name: "adrkit", full_name: "mbeacom/adrkit"},
+            pull_request: {
+              number: 1,
+              base: {sha: "0000000000000000000000000000000000000000"},
+              head: {sha: "1111111111111111111111111111111111111111"}
+            }
+          }' > "$event"
+          set +e
+          output=$(docker run --rm --network none \
+            -e GITHUB_EVENT_NAME=pull_request \
+            -e GITHUB_EVENT_PATH=/tmp/event.json \
+            -e GITHUB_REPOSITORY=mbeacom/adrkit \
+            -e GITHUB_WORKSPACE=/workspace \
+            -e INPUT_DIR=docs/adr \
+            -e INPUT_TOKEN=container-smoke-token \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -v "$event:/tmp/event.json:ro" \
+            adrkit-action:ci 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -ne 0
+          if grep -F 'not a pull_request event' <<<"$output"; then
+            echo "The containerized Action ignored the supplied pull_request event." >&2
+            exit 1
+          fi
+      - name: Exercise the queue Action corpus boundary
+        run: |
+          set -euo pipefail
+          set +e
+          output=$(docker run --rm --network none \
+            -e GITHUB_REPOSITORY=mbeacom/adrkit \
+            -e GITHUB_WORKSPACE=/workspace \
+            -e INPUT_DIR=missing \
+            -e INPUT_TOKEN=container-smoke-token \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            adrkit-queue-action:ci 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -ne 0
+          grep -F "could not load the ADR corpus at 'missing'" <<<"$output"
+
   audit:
     # Fail the build on high/critical advisories in this checkout's resolved
     # workspace dependency tree as installed by `bun install --frozen-lockfile`.

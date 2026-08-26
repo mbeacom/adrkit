@@ -185,6 +185,43 @@ will usually be a regression:
   not mean the rest were dropped — verify in a fresh session, not from the
   install output.
 
+## The OCI container (`ghcr.io/mbeacom/adrkit`)
+
+The OCI image is the fifth distribution surface, authorized by
+[ADR-0032](./docs/adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md).
+It is versioned with the lockstep release, not independently. A successful
+`Release` workflow triggers `.github/workflows/container-release.yml`, which
+publishes one multi-architecture all-in-one image under immutable `vX.Y.Z`,
+moving `vX`, and `latest` tags with a registry provenance attestation. A failed
+or adapter-only Release run publishes nothing. Manual recovery accepts only an
+existing successful stable GitHub release.
+
+Things that are load-bearing:
+
+- **Only the all-in-one `adrkit` target is published.** The `cli`, `mcp`, `ci`,
+  and `queue-action` targets exist for local isolation, SBOM, and policy checks;
+  each final stage contains only its own executable. Publishing five packages
+  would multiply visibility, retention, and rollback operations without adding
+  behavior.
+- **Bun builds; Node runs.** The build stage uses the repository-pinned Bun
+  version and bundles CLI/MCP source for Node. Final stages use Node 24, matching
+  the Action runtime, and both base image indexes are pinned by digest.
+- **MCP stays read-only and networkless.** Run it with `--read-only`,
+  `--network none`, and a `:ro` repository mount. The CI smoke speaks both MCP
+  protocol eras through the dedicated image rather than treating clean EOF as a
+  protocol test.
+- **A container publish follows the coordinated release.** It does not race the
+  npm publication workflow and does not run for the independently versioned
+  Spec Kit adapter. Container failure is recoverable by manually dispatching
+  the workflow for the already-created release tag. All promotions are
+  serialized; recovery may restore an immutable historical tag but moves `vX`
+  or `latest` only when that release is still newest, and never changes an
+  immutable tag to a different digest.
+
+This surface is at **rung 1** of ADR-0014: contract tests, local Docker/Podman
+build and runtime smoke, and CI construction. No reference-repository or
+external/community validation has been recorded.
+
 ## Toolchain
 
 This project uses **Bun** as its runtime, package manager, test runner, and

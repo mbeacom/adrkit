@@ -1,7 +1,7 @@
 # Releasing adrkit
 
-adrkit distributes four public npm packages and one repository-backed GitHub
-Action:
+adrkit distributes four public npm packages, one repository-backed GitHub
+Action, and one lockstep OCI image:
 
 | Artifact | Distribution |
 |---|---|
@@ -10,6 +10,7 @@ Action:
 | `@adrkit/cli` (`adr`, `adrkit`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
 | `packages/ci/action.yml` | Git tag (latest immutable release `v0.10.0`, moving `v0`) |
+| `ghcr.io/mbeacom/adrkit` | GitHub Container Registry (`vX.Y.Z`, moving `vX`, `latest`; begins with the first release containing ADR-0032) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
@@ -41,6 +42,10 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
   exactly matches the local tarball.
 - The GitHub release and moving major Action tag are created only after every
   npm package succeeds.
+- The multi-architecture OCI image publishes only after the successful
+  lockstep `Release` workflow completes. It carries the same version, an
+  immutable `vX.Y.Z` tag, moving `vX` and `latest` tags, and a registry
+  provenance attestation. Adapter releases do not publish it.
 
 ## SemVer and export-surface policy
 
@@ -55,6 +60,7 @@ The public surface is:
 - the runtime named exports of each public entrypoint, pinned by the package
   surface tests;
 - documented CLI commands, flags, exit codes, and JSON output envelopes.
+- the published image's selector names and immutable `vX.Y.Z` tag behavior.
 
 Patch releases must be backward compatible: no removals, renames, exit-code
 reclassification, or incompatible output/type-shape changes. Minor releases may
@@ -84,6 +90,9 @@ node .release/smoke/smoke.mjs "$PWD"
 # Switch the same shell to Node 24, then run:
 node .release/smoke/smoke.mjs "$PWD"
 bun run release:publish -- --dry-run
+podman build -f Containerfile --target adrkit -t adrkit:release-candidate .
+podman build -f Containerfile --target mcp -t adrkit-mcp:release-candidate .
+CONTAINER_RUNTIME=podman node scripts/smoke-container.mjs adrkit-mcp:release-candidate
 ```
 
 The generated tarballs and manifest live under `.release/npm/` and are ignored
@@ -147,6 +156,7 @@ everything that matters.
 | Packages | core, evaluator, CLI, MCP (+ any adapter riding along) | exactly one adapter |
 | Installed-tarball smoke | runs | skipped — the smoke project imports the lockstep surface, and an adapter that ships no JavaScript has nothing for it to import |
 | `packages/ci/queue@v0` Action tag | updated | untouched |
+| `ghcr.io/mbeacom/adrkit` | published after Release succeeds | untouched |
 | GitHub release | created | created |
 
 The tag form is `<slug>-v<semver>`, where the slug is the package name after the
@@ -344,14 +354,80 @@ bootstrap described below.
 6. Create and push the matching annotated tag, such as `v0.3.0`.
 7. Approve the protected `npm` environment deployment.
 8. Confirm the workflow published all packages, created the immutable GitHub
-   release, and moved `v0` to the released commit.
-9. Re-publish the MCP registry entry — `cd packages/mcp && mcp-publisher publish`
+   release, moved the Action's `v0` tag, and triggered the `Publish container`
+   workflow.
+9. Confirm `ghcr.io/mbeacom/adrkit:v<version>` and the moving `v0`/`latest`
+   tags resolve to the attested multi-architecture image. If the downstream
+   workflow failed, manually dispatch `container-release.yml` with the existing
+   successful release tag.
+10. Re-publish the MCP registry entry — `cd packages/mcp && mcp-publisher publish`
    (`docs/DISTRIBUTION.md` §A). **No workflow does this**, so `dev.adrkit/mcp` stays
    at the previous version until a human runs it, and `docs/DISTRIBUTION.md` should
    not claim the new version before then.
 
 Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
 the moving major Action tag (`v0`, later `v1`, and so on).
+
+## OCI container image
+
+[ADR-0032](adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md)
+defines one image, `ghcr.io/mbeacom/adrkit`, as part of the lockstep release.
+`.github/workflows/container-release.yml` listens for successful completion of
+the `Release` workflow rather than the tag directly. That ordering is
+load-bearing: npm packages and the GitHub release exist before a container tag
+can claim the same version. The independently versioned Spec Kit tag never
+matches the container job.
+
+The workflow publishes:
+
+| Tag | Contract |
+|---|---|
+| `vX.Y.Z` | Immutable release tag; use this in automation |
+| `vX` | Newest successful container release in that major |
+| `latest` | Newest successful lockstep container release across majors |
+
+The image is built for `linux/amd64` and `linux/arm64`. Docker Buildx pushes one
+manifest-list digest, and `actions/attest` attaches registry provenance to that
+digest. Only the all-in-one `adrkit` target is published. Dedicated `cli`,
+`mcp`, `ci`, and `queue-action` targets remain local build surfaces whose
+isolation is asserted in CI.
+
+### One-time GHCR setup and first publish
+
+1. Merge the workflow and container files.
+2. Cut the next lockstep release. Do **not** try to backfill `v0.10.0`: that
+   tagged tree predates the Containerfile, and the recovery workflow builds the
+   released tree rather than borrowing container code from a newer revision.
+3. In the package settings, connect the resulting `adrkit` container package to
+   this repository and set its visibility to **public**. GHCR creates a personal
+   package as private by default; the workflow cannot make that governance
+   decision implicitly.
+4. Pull the immutable tag without authentication and inspect its architectures:
+
+   ```sh
+   docker pull ghcr.io/mbeacom/adrkit:vX.Y.Z
+   docker buildx imagetools inspect ghcr.io/mbeacom/adrkit:vX.Y.Z
+   ```
+
+### Failure and recovery
+
+Container publication runs after npm and the GitHub release, so its failure
+cannot roll those artifacts back. Diagnose the named QEMU, Buildx, login,
+build, attestation, or promotion step, then manually dispatch the workflow with
+the same immutable release tag. The workflow verifies that the GitHub release
+is stable, the exact tag/SHA has a successful `Release` workflow run, the tag
+commit is on `main`, and the root version matches before it can push.
+
+Buildx first pushes an untagged, content-addressed digest. The workflow attests
+that digest and only then promotes it to `vX.Y.Z`, `vX`, and `latest`. An
+attestation failure therefore leaves no public release tag pointing at the new
+image. Promotion is globally serialized. A recovery run refuses to change an
+existing immutable tag to another digest, and a historical recovery does not
+rewind `vX` or `latest`; it restores only its own immutable tag.
+
+Never rebuild an immutable tag from a different commit. To recover a bad moving
+tag, first fix or identify the correct released commit, then republish through
+the workflow; do not hand-push an unverified local image.
 
 Note that steps 1–4 land on `main` before step 6 creates the tag, so between the
 merge and the tag the site is deployed claiming a release that does not exist yet.

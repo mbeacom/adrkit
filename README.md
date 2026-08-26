@@ -39,6 +39,58 @@ The pure library surfaces install independently:
 See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 [command reference](https://adrkit.dev/commands/).
 
+## Container usage
+
+Beginning with the first lockstep release containing
+[ADR-0032](docs/adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md),
+releases are published as a multi-architecture OCI image at
+`ghcr.io/mbeacom/adrkit`. Pin an immutable `vX.Y.Z` tag in automation; `vX`
+and `latest` move only after that lockstep release has completed:
+
+```sh
+docker run --rm --read-only --network none \
+  -v "$PWD:/workspace:ro" \
+  ghcr.io/mbeacom/adrkit:vX.Y.Z lint
+
+docker run --rm --read-only --network none -i \
+  -v "$PWD:/workspace:ro" \
+  ghcr.io/mbeacom/adrkit:vX.Y.Z mcp
+```
+
+The MCP command keeps stdin open because MCP uses stdio. Its repository mount is
+read-only, matching the server contract; use an absolute host path in MCP client
+configuration. For CLI commands that intentionally write (`new`, or
+`migrate` without `--dry-run`), omit `--read-only` and the mount's `:ro`
+suffix. The image runs as the non-root `node` user; on a host with a different
+UID/GID, add `--user "$(id -u):$(id -g)"`. On SELinux hosts, add the
+appropriate bind-mount label (for example, `:Z`).
+
+The default image treats an unrecognized selector as an `adr` subcommand.
+Explicit selectors are `cli`/`adr`/`adrkit`, `mcp`/`adrkit-mcp`,
+`ci`/`adrkit-ci`, and `queue-action`/`adrkit-queue-action`. The default
+`--help` describes these selectors; `cli --help` opens the CLI command
+reference.
+
+Build the same source locally with Docker or Podman. Purpose-specific `cli`,
+`mcp`, `ci`, and `queue-action` targets are isolated for local policy and SBOM
+inspection; the registry publishes only the all-in-one `adrkit` target:
+
+```sh
+docker build -f Containerfile -t adrkit:local .
+docker build -f Containerfile --target mcp -t adrkit-mcp:local .
+docker run --rm --read-only --network none -i \
+  -v "$PWD:/workspace:ro" \
+  adrkit-mcp:local
+```
+
+The two CI entry points preserve the existing GitHub Actions runtime contract:
+they expect `GITHUB_WORKSPACE`, the event payload and repository environment,
+`INPUT_*` values, and a token. For hosted GitHub Actions, the repository-backed
+Actions remain the simpler interface:
+`mbeacom/adrkit/packages/ci@v0` and
+`mbeacom/adrkit/packages/ci/queue@v0`. Container publication and recovery are
+documented in [`docs/RELEASING.md`](docs/RELEASING.md#oci-container-image).
+
 ## What it looks like
 
 `adr queue` emits the review backlog as a deterministic, read-only projection of
