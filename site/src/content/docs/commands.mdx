@@ -238,24 +238,10 @@ longer than the header window, so a marker below it was never seen — and
 `truncated: false` is what makes `declared: []` mean "nothing declares this path"
 rather than "we stopped reading first".
 
-`scannedBytes` and `fileBytes` say **how much** was read, which `truncated` does
-not: `fileBytes - scannedBytes` is the size of the unscanned remainder, so a policy
-for a truncated file is yours to set rather than inherited. They cannot tell you
-whether a marker sits past the window — nothing can, short of reading further — but
-they do tell you how much further that would be. `scannedBytes` is also not
-`min(fileBytes, windowBytes)`: the scan stops at the last complete line inside the
-window, which across this repository's own sources lands 1–77 bytes short of it, and
-much further short when one long line spans the boundary. Both fields are omitted
-for a state that never opened the file.
-
-Two details matter if you difference them. `scannedBytes` is the prefix handed to the
-scanner, not the byte count pulled from the handle — the reader also fetches a
-truncation probe byte, and discards any partial trailing line. And the two numbers are
-separate observations: `fileBytes` is taken by `fstat` before the read loop, so a file
-appended to mid-scan can report `scannedBytes` greater than `fileBytes`, and one
-truncated mid-scan can look partial when it was read whole. They are left unreconciled
-on purpose, because agreeing them would hide a file that changed underneath the scan —
-so clamp `fileBytes - scannedBytes` at `0` rather than assuming it is non-negative.
+`scannedBytes` and `fileBytes` report the observed scan extent. When
+`truncated` is `true`, use `Math.max(0, fileBytes - scannedBytes)` to estimate
+the unscanned remainder; the values are measured separately and may differ if
+the file changes during the scan.
 
 In `governedBy`, a pattern match carries `firedMatchers` and a file declaration
 carries `declaredBy`; `declaredBy` is omitted entirely when nothing declared the

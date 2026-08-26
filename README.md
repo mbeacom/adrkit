@@ -19,8 +19,7 @@ answer where the next decision is being made.
 ## Quickstart
 
 The CLI is published as [`@adrkit/cli`](https://www.npmjs.com/package/@adrkit/cli)
-and exposes the `adr` binary. Published artifacts target **Node 22+**
-([ADR-0010](docs/adr/0010-bun-toolchain.md)):
+and exposes the `adr` binary. Published artifacts target **Node 22+**:
 
 ```sh
 npx @adrkit/cli lint                 # validate the corpus in docs/adr
@@ -38,6 +37,18 @@ The pure library surfaces install independently:
 
 See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 [command reference](https://adrkit.dev/commands/).
+
+## Choose a starting point
+
+| If you want to... | Start here | Notes |
+|---|---|---|
+| Validate or inspect an ADR corpus | [`@adrkit/cli`](packages/cli/README.md) | `npx @adrkit/cli ...` on Node 22+ |
+| Build your own tooling | [`@adrkit/core`](packages/core/README.md) | Pure parser, validator, matcher, and queue APIs |
+| Run the deterministic proposal checks | [`@adrkit/evaluator`](packages/evaluator/README.md) | Pass 0 is the shipped evaluator surface today |
+| Feed prior decisions to coding agents | [`@adrkit/mcp`](packages/mcp/README.md) | Local, read-only stdio MCP server |
+| Comment governing decisions on pull requests | [Use in CI](https://adrkit.dev/ci/) | GitHub Action from this repository |
+| Add decision memory to Spec Kit | [`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) | Published separately for Spec Kit `>=0.13.0,<0.16.0` |
+| Add decision memory to Copilot, Claude Code, or opencode | [`adrkit` agent plugin](packages/adapters/agent-plugin/README.md) | Install from this repository or marketplace |
 
 ## What it looks like
 
@@ -112,13 +123,9 @@ construction, and hooks can only reach commands that do not write — `draft` is
 deliberately unreachable from any hook, because a plan-phase hook creating
 records unprompted would manufacture decision memory rather than record it.
 
-Pinned to Spec Kit `>=0.13.0,<0.16.0`, continuously re-verified against 0.13.0,
-0.14.4, and 0.15.1 in an isolated reference repository. **Landed /
-reference-verified** on
-[ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-rungs 1–2 — see the
-[evidence index](docs/reference-verification-spec-kit-extension.md). Not
-externally validated (rung 3 open).
+Pinned to Spec Kit `>=0.13.0,<0.16.0` and tested against 0.13.0, 0.14.4, and
+0.15.1. It is available from the Spec Kit community catalog; see the package
+README for setup.
 
 ## For any coding agent: the plugin
 
@@ -155,11 +162,11 @@ It deliberately ships **no MCP configuration**: Copilot CLI spawns a plugin's
 MCP servers outside the workspace, and outside any Git repository, so the adrkit
 server exits during `initialize`. MCP is wired per project instead — see the
 [plugin README](packages/adapters/agent-plugin/README.md#mcp-is-configured-per-project-not-shipped-here)
-and [ADR-0028](docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md).
+for the host-specific setup.
 
-Independently versioned per ADR-0007. At **rung 1** of ADR-0014 — unit and
-contract coverage plus maintainer verification against the installed hosts. No
-reference-repository run, no external validation.
+Status: installable today from this repository and versioned independently from
+the npm packages. It is the smallest surface that makes the context -> check ->
+draft loop available inside current coding-agent hosts.
 
 ## The problem
 
@@ -266,48 +273,18 @@ different artifact from a heading convention. That is the whole thesis.
 
 ## Project status
 
-Early, under active development, and deliberately honest about what is proven.
+adrkit is still pre-1.0, but several surfaces are ready to use today. This
+table is the short version:
 
-- **Published — v0.10.0 on npm.** The schema, `@adrkit/core`, `@adrkit/cli`,
-  the deterministic Pass 0 `@adrkit/evaluator`, and the read-only `@adrkit/mcp`
-  server are all implemented and released. The MCP server speaks both protocol
-  eras and passed real-session dogfood against the published artifact on each,
-  driven through the official MCP Inspector
-  ([ADR-0018](docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md)).
-- **Expanded in v0.5.0, and at rung 1 only.** A file can declare the decision it
-  lives under with an `@adr <id>` marker on a dedicated comment line. v0.4.0
-  resolved that inbound edge in `adr explain`
-  ([ADR-0021](docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md));
-  v0.5.0 extended it to `adr check` and the governing-decisions Action, so a
-  marker-declared record appears alongside the `affects` patterns that already
-  matched the path
-  ([ADR-0022](docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md),
-  superseding ADR-0021).
-  A marker is read only where the file's own format hides it — never inside a
-  fenced block, and in markdown only from `<!--` or `{/*`
-  ([ADR-0023](docs/adr/0023-read-a-marker-only-where-the-format-hides-it-fences-and-markdown-prose.md)).
-  Markers add governance context and findings, but never exit-code authority: no
-  marker a pull request writes can fail a check. A changed ADR record that fails
-  validation still does — that is what the check is for.
-  Evidence is unit, contract, and purity coverage plus maintainer verification —
-  **rung 1** of the ADR-0014 ladder, not the rungs 1–2 the surfaces below carry.
-  Contributed by [@aballiet](https://github.com/aballiet) in
-  [#97](https://github.com/mbeacom/adrkit/pull/97) — the first community feature
-  this project has shipped — and
-  [#106](https://github.com/mbeacom/adrkit/pull/106), and by
-  [@davesheffer](https://github.com/davesheffer) in
-  [#109](https://github.com/mbeacom/adrkit/pull/109).
-- **Landed, maintainer reference-verified — not yet externally validated.** The
-  Phase 6 ARB queue (`adr queue` plus the managed-issue Action) is verified on
-  rungs 1–2 of the
-  [ADR-0014](docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-  evidence ladder via a maintainer-owned isolated reference repository. The rung-3
-  external/community signal is tracked honestly as **open**.
-- **Not built yet.** The later probabilistic evaluator passes (Passes 1–3) and
-  pluggable catalog binding. See [`plan.md`](./plan.md) and
-  [CHANGELOG.md](./CHANGELOG.md).
-
-No release is cut by governance or docs changes alone.
+| State | Surface | What that means |
+|---|---|---|
+| Available now | `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, `@adrkit/mcp` | Published on npm for Node 22+ |
+| Available now | `@adrkit/spec-kit` | Published separately for current Spec Kit releases |
+| Available now | `adr queue` and the governing-decisions GitHub Action | Queue reporting and PR comments are part of the shipped workflow |
+| Available now | `adrkit` agent plugin | Install from this repository or marketplace; shells out to `adr` |
+| In development | Later evaluator passes | Passes 1–3 and calibration remain design targets; Pass 0 is the implemented evaluator surface |
+| In development | Catalog packages | `@adrkit/catalog-envelope` and `@adrkit/catalog-backstage` exist in the workspace at `0.0.0` and are not released |
+| Planned | Additional downstream integrations | Future integrations will build on the current typed corpus and read-only retrieval model |
 
 ## Design commitments
 
@@ -328,12 +305,9 @@ These are enforced, not aspirational. Each links to the record that decided it.
 
 Every decision in this project is governed by this project. The repository's
 first commit is its own decision corpus — see [`docs/adr/`](docs/adr/). The
-evaluator rubric is itself an ADR, and changes to it ship as ADRs. No
-probabilistic evaluator pass has shipped, so no escalation precision/recall
-figures exist yet; per
-[ADR-0027](docs/adr/0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md)
-that absence is stated rather than assumed, and the first such pass may not ship
-without a holdout frozen before it produced a score.
+evaluator rubric is itself versioned here too. The published evaluator currently
+implements the deterministic Pass 0 only; later passes remain documented design
+targets rather than released behavior.
 
 ## License
 

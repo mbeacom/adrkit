@@ -28,7 +28,7 @@ recipe over JSON adrkit already emits, rendered by shields.io and served from
 How many decisions are on record. This is the adoption signal with evidence
 behind it: a reader can click through and count them.
 
-Publish `adr lint --json` (see [Publish the reports](#1-publish-the-reports)
+Publish `adr lint --json` (see [Publish the reports](#publish-the-reports)
 below — the same workflow emits both files), then:
 
 ```md
@@ -56,7 +56,15 @@ property to look for in any status badge, including the one below.
 How many decisions are awaiting review. This is the number no other tool can
 produce for you, and it comes straight from `adr queue`.
 
-### 1. Publish the reports
+The workflow below publishes the JSON read by this badge:
+
+```md
+[![ARB queue](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FOWNER%2FREPO%2Fmain%2F.adrkit%2Fqueue.json&query=%24.totalItems&label=ARB%20queue&suffix=%20pending&color=cb492d)](./docs/adr)
+```
+
+Replace `OWNER/REPO`, plus the branch and path if you changed them.
+
+### Publish the reports
 
 Add a workflow that regenerates both reports whenever the corpus changes.
 Each file is the command's verbatim JSON — adrkit defines no badge format:
@@ -180,13 +188,7 @@ jobs:
   in [this repository](https://github.com/mbeacom/adrkit) for a working example.
 </Aside>
 
-### 2. Point a badge at it
-
-```md
-[![ARB queue](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FOWNER%2FREPO%2Fmain%2F.adrkit%2Fqueue.json&query=%24.totalItems&label=ARB%20queue&suffix=%20pending&color=cb492d)](./docs/adr)
-```
-
-Replace `OWNER/REPO`, plus the branch and path if you changed them. A wrong URL
+After the workflow runs, a wrong URL
 renders `resource not found` and a wrong query renders `no result`, so a mistake
 is visible rather than silently wrong — but note that a *correct* URL renders
 `resource not found` too when the workflow has not published the file yet. Check
@@ -218,23 +220,13 @@ If you want deadline pressure surfaced, use the
 [queue Action](/ci/#publish-the-arb-operations-queue) instead — it maintains a
 GitHub issue that people actually receive notifications about.
 
-<Aside type="caution" title="A badge cannot detect its own staleness">
-  If the workflow above is deleted, disabled, or starts failing its push,
-  `.adrkit/queue.json` keeps its last value and the badge keeps rendering it.
-  Nothing written at generation time can know it has gone stale — only a reader
-  can.
-
-  The [corpus status badge](#corpus-status-badge) does **not** cover this: it
-  reports the workflow that runs `adr check`, which never touches the queue
-  report and stays green while the queue badge rots. The signal that actually
-  covers regeneration is a status badge for the badge workflow *itself*:
+<Aside type="caution" title="Monitor report freshness">
+  If report generation stops, the badge keeps showing its last published value.
+  Add a status badge for the report workflow so failures remain visible:
 
   ```md
   [![ARB queue badge](https://github.com/OWNER/REPO/actions/workflows/adr-queue-badge.yml/badge.svg?branch=main)](https://github.com/OWNER/REPO/actions/workflows/adr-queue-badge.yml)
   ```
-
-  Even that reports only runs that started — a workflow GitHub disabled for
-  inactivity reports nothing at all.
 </Aside>
 
 ## What adrkit will not do

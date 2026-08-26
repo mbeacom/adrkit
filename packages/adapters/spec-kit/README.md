@@ -23,17 +23,16 @@ Plus one hook: `after_plan` offers to run `/speckit.adrkit.check`. It is
 
 ## Requirements
 
-- Spec Kit `>=0.13.0,<0.16.0`. Verified by installing and rendering against
-  0.13.0, 0.14.4, and 0.15.1; widening past 0.16 means re-verifying first, not
-  bumping. See
-  [ADR-0019](../../../docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md).
-- The `adr` CLI (`npm install -g @adrkit/cli`), or `ADRKIT_CLI` pointing at its
-  entry point.
+- Spec Kit `>=0.13.0,<0.16.0`. Compatibility is tested against 0.13.0, 0.14.4,
+  and 0.15.1.
+- The `adr` CLI (`npm install -g @adrkit/cli`), a project-local installation,
+  or `ADRKIT_CLI` pointing at its entry point.
 - An ADR corpus. Defaults to `docs/adr`.
 
 ## Install
 
-From the Spec Kit catalog, once the entry lands:
+From the
+[Spec Kit community catalog](https://github.com/github/spec-kit/blob/main/extensions/catalog.community.json):
 
 ```sh
 specify extension add adrkit
@@ -48,14 +47,21 @@ specify extension add --dev path/to/packages/adapters/spec-kit
 Then `/speckit.adrkit.context` is available in your agent, and `/speckit.plan`
 will offer the `after_plan` hook.
 
-The package is also published on npm as `@adrkit/spec-kit`, versioned
-independently of the rest of the scope: its semver contract is with Spec Kit,
-not with `@adrkit/core` (ADR-0007).
+The package is also published on npm as `@adrkit/spec-kit` for programmatic or
+pinned installs.
+
+## Use it in the plan loop
+
+1. Run `/speckit.adrkit.context` before planning.
+2. Run `/speckit.plan`, then accept the optional check or run
+   `/speckit.adrkit.check` directly.
+3. Run `/speckit.adrkit.draft` when the plan introduces a decision worth
+   recording.
 
 ## Configuration
 
-Every knob is an environment variable, because an extension that needs its own
-config file is an extension nobody installs.
+The extension works without additional configuration. Override its defaults
+with environment variables when needed.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -69,11 +75,7 @@ The CLI is resolved in a fixed order: `ADRKIT_CLI`, then
 `./node_modules/.bin/adr`, then `adr` on `PATH`. No branch of that reaches the
 network — a missing CLI is reported, never fetched.
 
-## Design constraints
-
-These are enforced by tests, not by convention, and each was observed failing
-under a deliberately introduced defect before it was trusted
-([ADR-0016](../../../docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
+## Runtime guarantees
 
 - **Hooks never write.** `draft` is the only command that writes, and it is
   unreachable from any hook. A plan-phase hook creating records unprompted would
@@ -83,35 +85,20 @@ under a deliberately introduced defect before it was trusted
 - **Failures name what is missing.** No command exits 0 having found nothing
   because it was looking in the wrong place. "0 decisions govern this" and "I
   could not see the corpus" must never render as the same string.
-- **`check` mutates nothing**, verified by byte-comparing the whole project tree
-  before and after.
+- **`check` mutates nothing.**
 - **Nothing development-only reaches your repo.** `specify extension add --dev`
   copies this directory verbatim, so `.extensionignore` keeps the test suite,
   `tsconfig.json`, and `package.json` out of your `.specify/extensions/`. The
   package declares no dependencies at all, so there is never a `node_modules/`
   to copy — a workspace symlink in one aborts the install partway through.
 
-## Provenance
+## Compatibility and support
 
-The hook mechanism was verified end-to-end against live Spec Kit v0.13.0 by
-[spike 008](../../../specs/008-spec-kit-hook-viability/), under a
-kernel-enforced network namespace, with an independent evidence audit. That
-spike's recorded verdict is `no-go`, driven by a measurement artifact it
-disclosed itself; [ADR-0019](../../../docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md)
-records why that verdict does not block this package, and what still binds.
-
-Per [ADR-0014](../../../docs/adr/0014-stage-phase-landing-evidence-across-a-three-rung-validation-ladder.md)
-this package is **landed / reference-verified** on rungs 1–2. Rung 2 is a
-maintainer-owned isolated reference repository,
-[`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood), which
-re-installs this extension from a pinned adrkit commit into a real Spec Kit
-project on every push and weekly, across all three declared upstream versions —
-41 self-verifying, fail-closed assertions each. The gate was observed failing on
-a deliberate divergence before being trusted. Evidence index:
+The extension is continuously tested against every supported Spec Kit release.
+Report compatibility issues in the
+[adrkit issue tracker](https://github.com/mbeacom/adrkit/issues). Maintainers can
+find the detailed verification record in
 [`docs/reference-verification-spec-kit-extension.md`](../../../docs/reference-verification-spec-kit-extension.md).
-
-It is **not** externally validated (rung 3): nobody but the maintainer has run
-this in their own repository yet.
 
 ## License
 

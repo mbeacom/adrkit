@@ -2,211 +2,178 @@
 
 ## Toolchain
 
-Bun 1.3.14 (see [ADR-0010](docs/adr/0010-bun-toolchain.md)). Install it, then
-run `bun install --frozen-lockfile`. Bun is a **development** dependency only —
-nothing published by this project requires it, and every published artifact is
-smoke-tested under Node.
+Install Bun 1.3.14, then run:
 
-`bunfig.toml` sets `linker = "isolated"`. Do not change it: the hoisted linker
-permits phantom dependencies, which would let the core import an adapter while
-CI's dependency check still passed.
+```bash
+bun install --frozen-lockfile
+```
 
-## Your first PR
+Bun is a **development** dependency only. Published artifacts are smoke-tested
+under Node and do not require Bun at runtime.
 
-Welcome. The rest of this document is the full rigor — but you do not have to
-start at the hardest surface. Two areas have the steepest on-ramp and are worth
-avoiding for a first contribution:
+`bunfig.toml` sets `linker = "isolated"`. Do not change it. The hoisted linker
+permits phantom dependencies, which would let core surfaces import adapters
+without the dependency boundary catching it.
+
+## Good first contributions
+
+You do not need to start with the hardest surface.
+
+Two areas have the steepest on-ramp:
 
 - **The CI Action bundle** (`packages/ci/dist`) must be rebuilt under
-  linux/amd64, or the byte-for-byte diff gate fails on a Mac-built bundle (see
-  "Changing the CI Action" below).
-- **The schema emit-parity gate** requires the Zod source
-  (`packages/core/src/schema/adr.schema.ts` — the single source of truth) and the
-  generated `schema/adr.schema.json` to stay in lockstep. The root
-  `schema/adr.schema.ts` is only a one-line compatibility re-export and is not
-  where you make the change (see "Changing the schema").
+  `linux/amd64`, or the byte-for-byte diff gate fails on a Mac-built bundle.
+- **The schema parity gate** requires the Zod source
+  (`packages/core/src/schema/adr.schema.ts`) and the generated
+  `schema/adr.schema.json` to stay in lockstep.
 
-Good first PRs steer clear of both and still matter a great deal:
+Good first PRs usually start here instead:
 
-- **Docs** — fix or extend anything under `site/` or the package READMEs. If a
-  documented command behaves differently than described, that is a real bug.
-- **Fixtures** — add a corpus fixture that exercises a case the current tests
-  miss (a supersession cycle, an odd MADR variant, an `affects` edge case).
-- **Tests** — cover an untested branch. Per
-  [ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md),
-  watch each new test **fail first** against unfixed code, then pass — a check
-  that never failed is not coverage.
+- **Docs** - package READMEs, root docs, and site content.
+- **Fixtures** - add corpus fixtures for edge cases the current tests miss.
+- **Tests** - cover an untested branch and prove the new check really fires.
 
-Everything runs from a clean clone with `bun install --frozen-lockfile` and no
-credentials ([ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md)).
 Open an [issue](https://github.com/mbeacom/adrkit/issues/new/choose) or a
-[Discussion](https://github.com/mbeacom/adrkit/discussions) if you would like a
-pointer to a good starting spot.
+[Discussion](https://github.com/mbeacom/adrkit/discussions) if you want help
+finding a starting point.
 
 ## Sign-off is required
 
-All commits require a [DCO](https://developercertificate.org/) sign-off. There is
-no CLA — see [ADR-0006](docs/adr/0006-license-apache-2-and-single-monorepo.md) for
-why.
+All commits require a [DCO](https://developercertificate.org/) sign-off. There
+is no CLA.
 
-```
+```bash
 git commit -s -m "your message"
 ```
 
-**This is enforced.** The `dco` job checks every commit your pull request adds and
-is a required status check, so an unsigned commit cannot merge. If you forgot, sign
-the whole branch at once and force-push:
+The `dco` job checks every commit in the pull request. If you forgot to sign
+off earlier commits, re-sign the branch and force-push:
 
-```
+```bash
 git rebase --signoff origin/main
 git push --force-with-lease
 ```
 
-The trailer must name you: `Signed-off-by: Your Name <your@email>`, matching the
-commit's author or committer exactly. Merge commits are exempt — the commits they
-merge carry the certification. Bot accounts are exempt from the address half only,
-because they sign from a service address; their trailer must still name them.
+The trailer must name you exactly:
+`Signed-off-by: Your Name <your@email>`.
 
-**Editing in the browser?** A commit made through the GitHub web editor carries no
-sign-off, and you cannot add one from the browser. Clone the branch, run the rebase
-above, and force-push — or make the change locally with `git commit -s` to begin
-with. This catches docs-only contributions in particular, so it is worth knowing
-before you start rather than after the check goes red.
+GitHub's web editor does not add a sign-off. For browser edits, clone the
+branch locally, run the rebase above, and force-push.
 
-## Two hard rules
+## Quality bar
 
-These are enforced in CI. A PR that violates either will fail, and the fix is to
-change the code, not the check.
+These rules are enforced in CI. If a pull request violates them, fix the code,
+not the check.
 
-**1. A clean clone has one narrow network exception for dependency install.**
+### 1. A clean clone gets one narrow network exception
 
-```
+```bash
 git clone <repo> && cd adrkit
 bun install --frozen-lockfile
 bun run typecheck && bun run build && bun test && bun run lint
 ```
 
-The frozen install is the only step that may use the network, and it may contact
-only the unauthenticated public package registry. It must use Bun 1.3.14, the
-committed `bun.lock`, and the repository's `bunfig.toml` settings, including the
-isolated linker and `minimumReleaseAge`.
+The frozen install is the only step that may use the network, and it may
+contact only the unauthenticated public package registry. It must use the
+committed `bun.lock` and repository `bunfig.toml`, including the isolated
+linker and `minimumReleaseAge`.
 
 After installation, build, typecheck, test, lint, packaging, smoke tests, and
 runtime behavior must require no credentials, no services, and no network
-access. Contributions may not use private or authenticated registries, registry
-tokens or other credentials, authenticated APIs, non-public dependency surfaces,
-network-dependent tests or runtime behavior, or anything requiring a managed
-device. See
-[ADR-0007](docs/adr/0007-adapter-isolation-and-public-surface-build.md).
+access. Do not add private registries, authenticated APIs, network-dependent
+tests, or anything that requires a managed device.
 
-**2. The core depends on no adapter.**
+### 2. Core surfaces do not depend on adapters
 
-`packages/core`, `packages/cli`, and `schema/` import nothing from
-`packages/adapters/*`. Integrations are optional, separately versioned, and
-allowed to break on upstream churn. The core is not.
+`packages/core`, `packages/cli`, and `schema/` must not import from
+`packages/adapters/*`.
 
-**3. A check does not count as coverage until you have watched it fail.**
+Integrations are optional and separately versioned. The core and CLI are not.
 
-When you add or tighten an assertion, lint rule, or CI gate, build an input it is
-supposed to reject and confirm it actually fails on that input. "The suite still
-passes" only establishes that your assertion does not crash. Keep the failing
-input as a permanent negative case — the artifact that proves a check works is
-the case that makes it fail.
+### 3. A new check should fail before you trust it
 
-Prefer asserting a specific observed value over a count or an absence. `0`, `[]`,
-and "no X found" render identically whether the tool looked and found nothing or
-could not look at all, which is why a green check can mean "I am blind" and be
-trusted anyway. Where a count or absence really is the right assertion, the
-negative case is mandatory rather than advisory.
+When you add or tighten an assertion, lint rule, or CI gate, build an input it
+is supposed to reject and confirm it actually fails on that input. "The suite
+still passes" only proves the check does not crash.
 
-This extends past assertions to any claim of the form "X is not there." One
-negative observation of a default configuration is not evidence a capability is
-missing — check whether you looked in the only place it could be.
+Keep the failing input as a permanent negative case. That is the artifact that
+shows the check works.
 
-If you defer the work, hand over the failing case, not the instruction. "Please
-verify this fires" transfers the whole cost of constructing the input and leaves
-the recipient unable to tell whether you ever built one.
+Prefer asserting a specific observed value over a count or an absence. `0`,
+`[]`, and "no X found" can mean either "looked and found nothing" or "never
+looked at all." Where a count or absence really is the right assertion, the
+negative case is mandatory.
 
-Aimed at checks guarding a corpus or an input the tool must not silently skip;
-applying it to every trivial equality assertion is cargo cult. See
-[ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md).
+This applies beyond tests. If you are claiming "X is not there," make sure you
+checked the only place it could be.
 
-## The `action-dogfood` check
+## What to expect from CI on your PR
 
-This repository runs its own governing-decisions Action against its own pull requests.
-The `action-dogfood` job dispatches it twice and asserts that the pull request ends up
-carrying exactly one `<!-- adrkit:ci -->` comment, and that the second dispatch updated
-it rather than posting another. That gap is how
-[#107](https://github.com/mbeacom/adrkit/issues/107) shipped duplicate comments to every
-adopter for two releases while every test stayed green.
+This repository runs its own governing-decisions Action against pull requests.
 
-Two things you will notice:
+- **Your pull request gets a bot comment** listing the decisions that govern the
+  changed files. It is updated in place on each push; it should not re-post as a
+  second comment.
+- **Fork pull requests skip that job.** A fork's `GITHUB_TOKEN` is read-only, so
+  the Action correctly declines to comment. Dependabot pull requests skip it for
+  the same reason.
 
-- **Your pull request gets a bot comment** listing the decisions that govern your
-  changed files. That is the product working; it is updated in place on every push, not
-  re-posted.
-- **On a fork pull request the job is skipped.** A fork's `GITHUB_TOKEN` is read-only
-  whatever the workflow asks for, so the Action correctly declines to comment and there
-  is nothing to assert. A skipped job reports success and will not block your merge.
-  Dependabot pull requests skip it for the same reason.
-
-If it goes red and you did not touch `packages/ci`, `scripts/check-ci-comment.ts`, or
-`.github/workflows/ci.yml`, it is almost certainly not your branch — say so on the pull
-request rather than changing your code. The one failure a contributor cannot clear
-alone is a **duplicate** comment: the Action never deletes, so a surplus comment
-outlives whatever created it and a maintainer has to delete it (hiding it as off-topic
-does not work — the API still returns it).
+If `action-dogfood` fails and you did not touch `packages/ci`,
+`scripts/check-ci-comment.ts`, or `.github/workflows/ci.yml`, call that out on
+the pull request instead of changing unrelated code.
 
 ## Changing a decision
 
 This project governs itself. If your change contradicts an accepted record in
-`docs/adr/`, the PR must include a record that supersedes it — with the argument,
-not just the status flip. Silently contradicting an accepted decision is the one
-review comment guaranteed to block a merge.
+`docs/adr/`, the PR should include a superseding ADR with the argument, not
+just a status flip.
 
-Adding a decision:
+To add a new decision:
 
-```
+```bash
 adr new "Use X for Y"
 ```
 
-**First check whether it should be a new record at all.** Run `adr explain` on the
-paths you would put in `affects`. If an accepted record already governs them, a
-completed action item on *that* record is usually the right artifact — that is how
-the DCO gate landed (a new CI job and a new `scripts/check-dco.ts`, recorded as
-action item 2 on [ADR-0006](docs/adr/0006-license-apache-2-and-single-monorepo.md),
-adding no record). A new record earns its place when it makes a commitment no
-existing record made. The rubric scores how good a record is, never whether it
-needed to exist, so nothing downstream will catch this for you.
+Before you create a new record, run `adr explain` on the paths you would place
+in `affects`. If an accepted record already governs them, extending that record
+or completing work it already called for may be the better fit.
 
-Fill in the alternatives honestly. An alternative no competent engineer would
-choose is a straw man and scores zero — see
-[the rubric](docs/EVALUATOR_RUBRIC.md).
+When you do write a new record, describe the alternatives honestly. See
+[docs/EVALUATOR_RUBRIC.md](docs/EVALUATOR_RUBRIC.md) for the scoring rubric the
+project uses when reviewing proposals.
 
 ## Changing the schema
 
-`schema/adr.schema.ts` is the source of truth; `schema/adr.schema.json` is
-generated. Run `bun run schema:emit` and commit both. CI fails if they diverge.
+The Zod source of truth lives at `packages/core/src/schema/adr.schema.ts`.
+`schema/adr.schema.ts` is a compatibility re-export, and
+`schema/adr.schema.json` is generated.
 
-Breaking schema changes require a major version and a migration. Additive
-changes are minor. See
-[ADR-0002](docs/adr/0002-typed-frontmatter-as-madr-superset.md).
+Run:
+
+```bash
+bun run schema:emit
+```
+
+Then commit the source change and the generated JSON. CI fails if they diverge.
+
+Breaking schema changes require a major version and a migration path. Additive
+changes are minor.
 
 ## Changing the evaluator rubric
 
-Rubric changes are decisions, not tweaks. They ship as an ADR with calibration
-deltas attached — see [ADR-0005](docs/adr/0005-deterministic-first-evaluator-with-declarative-escalation.md).
+Rubric changes are decisions, not casual wording tweaks. Update the rubric with
+the same care as an ADR, and keep its stated shipped-vs-design-target boundary
+accurate.
 
 ## Changing the CI Action (`packages/ci`)
 
 The `@adrkit/ci` Action ships a committed, self-contained bundle at
-`packages/ci/dist/index.js`, and CI enforces it matches source with a
-`git diff --exit-code packages/ci/dist` gate (mirroring `schema-emit-matches`).
+`packages/ci/dist/index.js`, and CI enforces that it matches source with a
+`git diff --exit-code packages/ci/dist` gate.
 
-**Rebuild the bundle under `linux/amd64` bun 1.3.14** (the CI toolchain) — not on a
-Mac. bun's CJS-interop codegen differs between the macOS-arm64 and linux-x64 builds
-of the same bun version, so a Mac-built bundle drifts and fails the gate. Use the
-pinned container:
+**Rebuild the bundle under `linux/amd64` Bun 1.3.14**, not on a Mac. Bun's
+CommonJS interop output differs across host targets, so a Mac-built bundle
+drifts and fails the gate. Use the pinned container:
 
 ```bash
 docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work oven/bun:1.3.14 \
@@ -214,5 +181,12 @@ docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work oven/bun:1.3.14 
 bun install --frozen-lockfile   # restore your local (host) install afterward
 ```
 
-Then commit `packages/ci/dist`. Any change to `packages/ci/src` **or** `@adrkit/core`
-(which is bundled in) requires regenerating it.
+Then commit `packages/ci/dist`. Any change to `packages/ci/src` **or**
+`@adrkit/core` (which is bundled in) requires regenerating it.
+
+## Architecture and governance links
+
+- [README.md](README.md) - product overview and installation paths
+- [docs/adr/](docs/adr/) - governing decisions
+- [docs/EVALUATOR_RUBRIC.md](docs/EVALUATOR_RUBRIC.md) - proposal review rubric
+- [docs/RELEASING.md](docs/RELEASING.md) - release procedures

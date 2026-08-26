@@ -40,33 +40,6 @@ root. `--dir` (env `ADRKIT_MCP_DIR`, default `docs/adr`) is resolved and
 contained within it. Flags win over environment variables. stdout carries only
 JSON-RPC frames; all diagnostics go to stderr.
 
-## Protocol revisions
-
-The server speaks **both** MCP protocol eras on the same stdio connection, and
-the client picks. The opening exchange selects the era and pins it for the
-connection's lifetime:
-
-- A `server/discover` call — or any request carrying a `2026-07-28` `_meta`
-  envelope — gets the **`2026-07-28`** revision: no `initialize` handshake, no
-  session id, every request self-describing and every result carrying a
-  `resultType`.
-- An `initialize` handshake is served as the 2025-era revision it negotiates,
-  unchanged from 0.2.1 apart from `tools/list` now listing the four tools in
-  lexicographic order.
-
-Tool names, schemas, annotations, and structured results are identical on both.
-`tools/list` and `server/discover` carry SEP-2549 cache hints
-(`ttlMs: 300000`, `cacheScope: "public"`) on the 2026 revision — the four-tool
-surface is immutable for the life of the process and holds no corpus content, so
-a client can reuse it instead of re-listing. Corpus reads are never cacheable:
-every `tools/call` re-reads the corpus.
-
-<Aside type="note">
-adrkit uses none of the features `2026-07-28` deprecated (roots, sampling,
-logging) or removed (sessions, `ping`, `resources/subscribe`). Upgrading a client
-to the new revision changes how it talks to the server, not what it gets back.
-</Aside>
-
 ## Client configuration
 
 <Tabs>
@@ -126,6 +99,19 @@ Confirm it registered with `/mcp show`.
 
 </TabItem>
 </Tabs>
+
+## Protocol revisions
+
+The server supports both MCP protocol eras on the same stdio connection, and
+the client's opening exchange selects one for the connection:
+
+- `server/discover`, or a request with a `2026-07-28` `_meta` envelope, selects
+  the stateless `2026-07-28` revision.
+- `initialize` selects the negotiated 2025-era revision.
+
+Both eras expose the same four tools, schemas, annotations, and structured
+results. The modern discovery response may be cached for five minutes; tool
+calls always re-read the corpus.
 
 ## The four tools
 
