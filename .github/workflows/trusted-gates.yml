@@ -142,30 +142,44 @@ jobs:
           echo "::stop-commands::${token}"
           bun scripts/check-dco.ts "${BASE_SHA}..${HEAD_SHA}"
 
-  dismiss-stale-acknowledgment:
-    # An acknowledgment authorizes a *state*, not a pull request. Without this
-    # job the label survives every subsequent push, so the sequence is: open a
-    # small, plausible change under `scripts/`; get it acknowledged; then push a
-    # workflow edit. The `synchronize` run still sees the label and reports
-    # success over gate paths nobody looked at. That is a real bypass available
-    # to a fork author with no write access, and it is the reason
-    # `dismiss_stale_reviews_on_push` exists for reviews.
+  gate-integrity:
+    # `trusted-dco` closes the "edit the check" half. This closes the other half.
     #
-    # Dismissal rather than a timestamp comparison, deliberately. The obvious
-    # alternative — compare the label event against the newest commit — rests on
-    # `committed` dates, which the author sets. `GIT_COMMITTER_DATE` is free, so
-    # a stale acknowledgment could be made to look fresh. Removing the label
-    # depends on no attacker-controlled value at all.
+    # A required status check is matched by *name*, so a pull request that cannot
+    # edit the trusted job can still declare a job of its own with the same name
+    # and let the later result stand. Every route to that runs through a change
+    # under `.github/workflows/`, and every route to neutering an advisory gate
+    # runs through `.github/workflows/` or `scripts/`. This refuses both unless a
+    # maintainer has said, on the record, that the change is deliberate.
     #
-    # This is the one job here that writes. It touches a label and nothing else,
-    # checks nothing out, and runs no repository code.
-    name: dismiss-stale-acknowledgment
-    if: github.event.action == 'synchronize'
+    # Dismissal is a *step* here rather than a separate job on purpose. It has to
+    # happen before the labels are read, and expressing that across jobs needs a
+    # `needs` edge plus an `always()` guard to survive the skip on non-push
+    # events — machinery whose only job is to reproduce the ordering that step
+    # order already gives for free. The cost is that this job carries
+    # `pull-requests: write`; it is contained, because the job executes no
+    # repository code and nothing from the pull request.
+    name: gate-integrity
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
-      - name: Remove the acknowledgment, because the head moved under it
+      # An acknowledgment authorizes a *state*, not a pull request. Without this
+      # the label survives every subsequent push, so the sequence is: open a
+      # small, plausible change under `scripts/`; get it acknowledged; then push
+      # a workflow edit. The `synchronize` run still sees the label and reports
+      # success over gate paths nobody looked at. That is a real bypass available
+      # to a fork author with no write access, and it is the reason
+      # `dismiss_stale_reviews_on_push` exists for reviews.
+      #
+      # Dismissal rather than a timestamp comparison, deliberately. The obvious
+      # alternative — compare the label event against the newest commit — rests
+      # on `committed` dates, which the author sets. `GIT_COMMITTER_DATE` is
+      # free, so a stale acknowledgment could be made to look fresh. Removing the
+      # label depends on no attacker-controlled value at all.
+      - name: Dismiss the acknowledgment, because the head moved under it
+        if: github.event.action == 'synchronize'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -191,26 +205,6 @@ jobs:
           fi
           echo "no acknowledgment is in effect for this head"
 
-  gate-integrity:
-    # `trusted-dco` closes the "edit the check" half. This closes the other half.
-    #
-    # A required status check is matched by *name*, so a pull request that cannot
-    # edit the trusted job can still declare a job of its own with the same name
-    # and let the later result stand. Every route to that runs through a change
-    # under `.github/workflows/`, and every route to neutering an advisory gate
-    # runs through `.github/workflows/` or `scripts/`. This refuses both unless a
-    # maintainer has said, on the record, that the change is deliberate.
-    name: gate-integrity
-    # `always()` because the dismissal job is skipped on every event that is not a
-    # push, and a plain `needs` would skip this with it. The result is still
-    # ordered after dismissal, which is what closes the race described below.
-    needs: [dismiss-stale-acknowledgment]
-    if: always() && needs.dismiss-stale-acknowledgment.result != 'failure'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
       - name: Check out the default branch (never the pull request)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
