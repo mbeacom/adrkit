@@ -22,6 +22,7 @@ const WORKFLOW = Bun.YAML.parse(SOURCE) as {
   on?: Record<string, { types?: string[] }>;
   true?: Record<string, { types?: string[] }>;
   permissions?: Record<string, string>;
+  concurrency?: Record<string, unknown>;
   jobs: Record<
     string,
     {
@@ -47,6 +48,23 @@ function stepNamed(fragment: string) {
   const found = ALL_STEPS.find((step) => step.name?.includes(fragment));
   if (!found) throw new Error(`no step whose name contains "${fragment}"`);
   return found;
+}
+
+/**
+ * Minimal evaluator for the two condition shapes this workflow has used: an
+ * exclusion list (`x != 'a' && x != 'b'`) and the enumeration it replaced
+ * (`x == 'a' || x == 'b'`).
+ *
+ * Worth the ten lines because a substring assertion cannot tell them apart in
+ * the direction that matters. "The condition does not mention `reopened`" is
+ * true of the exclusion list *and* of the enumeration that omitted it — which is
+ * exactly the bypass, and exactly the assertion that would have missed it.
+ */
+function dismissesOn(condition: string, action: string): boolean {
+  const included = [...condition.matchAll(/==\s*'([^']+)'/g)].map((match) => match[1]);
+  if (included.length > 0) return included.includes(action);
+  const excluded = [...condition.matchAll(/!=\s*'([^']+)'/g)].map((match) => match[1]);
+  return !excluded.includes(action);
 }
 
 describe('the trigger', () => {
@@ -78,11 +96,54 @@ describe('the trigger', () => {
 
 describe('the acknowledgment is bound to what it acknowledged', () => {
   const dismissal = () => stepNamed('Dismiss the acknowledgment');
+  // The only two activity types that cannot change the commit range.
+  const CANNOT_MOVE_THE_DIFF = ['labeled', 'unlabeled'];
 
-  test('dismissal runs on both a push and an edit', () => {
+  test('dismissal is an exclusion list, not an enumeration', () => {
+    // Enumerating the actions that dismiss produced two separate holes. `edited`
+    // was missing, so a retarget carried the acknowledgment onto a different
+    // base. `reopened` was missing, which is worse: a pull request can be closed
+    // by its own author, pushed to while closed — GitHub delivers no event for
+    // that — and reopened, arriving with a new head SHA and the old label intact.
+    // An exclusion list makes any future activity type dismiss by default.
     const condition = dismissal().if ?? '';
-    expect(condition).toContain("github.event.action == 'synchronize'");
-    expect(condition).toContain("github.event.action == 'edited'");
+    expect(condition).not.toContain('==');
+    for (const action of CANNOT_MOVE_THE_DIFF) {
+      expect(condition).toContain(`!= '${action}'`);
+    }
+  });
+
+  test('every activity type that can move the diff dismisses', () => {
+    const condition = dismissal().if ?? '';
+    const types = TRIGGERS.pull_request_target?.types ?? [];
+    // Derived from the trigger list rather than hard-coded, so adding a type
+    // without considering dismissal fails here instead of shipping a bypass.
+    const notDismissed = types.filter((type) => condition.includes(`!= '${type}'`));
+    expect(notDismissed.sort()).toEqual([...CANNOT_MOVE_THE_DIFF].sort());
+  });
+
+  test('reopened dismisses, closing the close-push-reopen route', () => {
+    // Evaluated, not pattern-matched. The earlier version of this assertion
+    // passed against the very inclusion list that left the route open, because
+    // an enumeration that omits `reopened` also contains no `!= 'reopened'`.
+    expect(dismissesOn(dismissal().if ?? '', 'reopened')).toBe(true);
+    expect(TRIGGERS.pull_request_target?.types).toContain('reopened');
+  });
+
+  test('labeled does not dismiss, or applying the acknowledgment would undo it', () => {
+    expect(dismissesOn(dismissal().if ?? '', 'labeled')).toBe(false);
+    expect(dismissesOn(dismissal().if ?? '', 'unlabeled')).toBe(false);
+  });
+
+  test('every other declared activity type dismisses', () => {
+    const condition = dismissal().if ?? '';
+    for (const type of TRIGGERS.pull_request_target?.types ?? []) {
+      if (CANNOT_MOVE_THE_DIFF.includes(type)) continue;
+      expect({ type, dismisses: dismissesOn(condition, type) }).toEqual({
+        type,
+        dismisses: true,
+      });
+    }
   });
 
   test('an edit that left the base alone does not dismiss', () => {
@@ -94,12 +155,29 @@ describe('the acknowledgment is bound to what it acknowledged', () => {
     expect(dismissal().env?.BASE_CHANGE).toBe('${{ toJSON(github.event.changes.base) }}');
   });
 
+  test('the run that dismisses cannot be cancelled by the pusher', () => {
+    // With cancel-in-progress, the author could push (queueing the dismissing
+    // run) then immediately edit the title — an event they can fire at will that
+    // shares the group and takes the early exit — cancelling the dismissal before
+    // its DELETE ran. The label survived and the later run reported green.
+    const concurrency = (WORKFLOW as { concurrency?: Record<string, unknown> }).concurrency;
+    expect(concurrency?.['cancel-in-progress']).toBe(false);
+  });
+
   test('the label listing is paginated before it is trusted', () => {
     // An unpaginated page caps at 30 labels, and this check's pass condition is
     // "the label is not in this list".
     const run = dismissal().run ?? '';
     expect(run).toContain('--paginate --slurp');
     expect(run).toContain('index("gate-change-acknowledged")');
+  });
+
+  test('the verification folds case, like the gate script it backs', () => {
+    // classifyGateChanges matches the label case-insensitively. A verification
+    // that did not would report "absent" for a label named
+    // `Gate-Change-Acknowledged` while the gate still honoured it — two halves of
+    // one control disagreeing about what the control is.
+    expect(dismissal().run ?? '').toContain('ascii_downcase');
   });
 
   test('dismissal failure is not swallowed', () => {

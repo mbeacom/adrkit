@@ -59,7 +59,18 @@ permissions:
 
 concurrency:
   group: trusted-gates-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # **Not** `cancel-in-progress: true`, which was a bypass rather than a saving.
+  # The dismissal below is the first step of `gate-integrity`, but a job still
+  # needs a runner before step one executes. With cancellation on, the author
+  # could push (queueing the run that would dismiss their acknowledgment) and then
+  # immediately edit the pull request title — an `edited` event they can fire at
+  # will, which shares this group and takes the in-shell early exit without ever
+  # dismissing. The title edit cancelled the push's run before its `DELETE` ran,
+  # the label survived, and the later run reported green over a head nobody
+  # acknowledged. A control whose job is to fire on a push must not be abortable
+  # by the pusher. Both jobs are short and install nothing, so queueing instead of
+  # cancelling costs almost nothing.
+  cancel-in-progress: false
 
 jobs:
   trusted-dco:
@@ -206,7 +217,20 @@ jobs:
       # free, so a stale acknowledgment could be made to look fresh. Removing the
       # label depends on no attacker-controlled value at all.
       - name: Dismiss the acknowledgment when what it acknowledged has moved
-        if: github.event.action == 'synchronize' || github.event.action == 'edited'
+        # An **exclusion** list, deliberately, not an inclusion list. Enumerating
+        # the actions that dismiss is what produced two separate holes: `edited`
+        # was missing, so a retarget carried the acknowledgment onto a different
+        # base; and `reopened` was missing, which is worse, because a pull request
+        # can be closed by its own author, pushed to while closed — GitHub
+        # delivers no event for that — and reopened, arriving with a new head SHA
+        # and the old label intact. That route restored the full name-shadowing
+        # capability this gate exists to block.
+        #
+        # `labeled` and `unlabeled` are the only two activity types that cannot
+        # move the commit range, so they are the only two named here. Anything
+        # added to `types:` later dismisses by default, which is the fail-closed
+        # direction; a test asserts this stays an exclusion list.
+        if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -245,7 +269,7 @@ jobs:
           gh api --paginate --slurp \
             "repos/${REPO}/issues/${PR_NUMBER}/labels" > "${RUNNER_TEMP}/labels-after.json"
           remaining=$(jq -r \
-            '[.[][].name] | index("gate-change-acknowledged") // "absent"' \
+            '[.[][].name | ascii_downcase] | index("gate-change-acknowledged") // "absent"' \
             "${RUNNER_TEMP}/labels-after.json")
           if [ "$remaining" != "absent" ]; then
             echo "the acknowledgment is still present after dismissal; refusing to" >&2

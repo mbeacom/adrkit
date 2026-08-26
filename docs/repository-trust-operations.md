@@ -128,8 +128,12 @@ re-running an old workflow run does not either, because the workflow did not
 exist for that run.
 
 Each open pull request needs a **new event** — push a commit, or close and
-reopen it, or edit its base. Check what is open before you start, and expect to
-touch each one:
+reopen it, or edit its base. Note that all three of those now *dismiss* the
+`gate-change-acknowledged` label, which is intended: each one moves the head or
+the base, so an acknowledgment given before it no longer describes what would
+merge. Re-apply the label afterwards if the pull request needs one.
+
+Check what is open before you start, and expect to touch each one:
 
 ```bash
 gh api "repos/mbeacom/adrkit/pulls?state=open" --jq '.[] | "#\(.number)  \(.head.ref)"'
@@ -324,6 +328,29 @@ those routes without moving the documentation fails the suite. And on the CLI,
 silently becoming `0` — `Number('')` is `0` and `Number.isInteger(0)` is `true`,
 so an unset `changed_files` would otherwise have arrived as a confident claim
 that the pull request changed nothing.
+
+A third review round then found two more ways for an acknowledgment to reach a
+head it was never granted for, both closed:
+
+| Route | Why it worked | Fix |
+|---|---|---|
+| Close → push → reopen | GitHub delivers no event for a push to a *closed* pull request, and `reopened` was not in the dismissal condition | dismissal is now an **exclusion** list |
+| Push, then edit the title within seconds | `cancel-in-progress: true` let the `edited` run cancel the `synchronize` run before its `DELETE` executed, and `edited`-without-base takes the early exit | `cancel-in-progress: false` |
+
+Both observed failing by mutation, along with a case-folding inconsistency
+between the two halves of one control:
+
+| Mutation | Assertion that fired |
+|---|---|
+| dismissal condition back to an enumeration | 4, incl. `reopened dismisses, closing the close-push-reopen route` |
+| `cancel-in-progress` back to `true` | `the run that dismisses cannot be cancelled by the pusher` |
+| `ascii_downcase` removed from the verification | `the verification folds case, like the gate script it backs` |
+
+The first row is worth a note of its own. An earlier version of the `reopened`
+assertion checked that the condition *did not mention* `reopened` — which is true
+of the correct exclusion list **and** of the enumeration that omitted it, so it
+passed against the bug it existed to catch. It now evaluates the condition rather
+than pattern-matching it, and the mutation above is what exposed the difference.
 
 ### 3.2 Not yet observed — say so plainly
 

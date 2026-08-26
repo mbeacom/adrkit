@@ -21,8 +21,9 @@ Until `1.0.0`, minor releases may include breaking changes
   blocks any change under `.github/workflows/`, `.github/actions/`, `scripts/`,
   `packages/ci/`, or any of the three locations GitHub resolves `CODEOWNERS` from,
   unless a maintainer applies the `gate-change-acknowledged` label — which
-  requires triage or write access, and which is dismissed automatically whenever
-  the head **or the base** moves, so an acknowledgment authorizes the state it was
+  requires triage or write access, and which is dismissed automatically on every
+  event that can move the head or the base (an exclusion list: only `labeled` and
+  `unlabeled` do not dismiss), so an acknowledgment authorizes the state it was
   given for and not the one that follows it
   ([#137](https://github.com/mbeacom/adrkit/issues/137),
   [ADR-0035](docs/adr/0035-execute-the-gates-that-certify-a-pull-request-from-the-default-branch.md)).

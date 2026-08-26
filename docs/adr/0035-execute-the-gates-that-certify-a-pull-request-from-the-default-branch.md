@@ -362,6 +362,49 @@ while the mechanism itself was working as built. A record is a control too, and
 an overstated one fails in the same direction as an overstated check — it gets
 trusted for something it does not do.
 
+### A third round: the acknowledgment escaped twice more
+
+Re-reviewing the remediation found two further routes, both HIGH, and both
+carrying an acknowledgment onto a head it was never granted for.
+
+**Close, push, reopen.** Dismissal listed the actions that trigger it, and
+`reopened` was not among them. GitHub delivers no `pull_request_target` event for
+a push to a *closed* pull request, and an author can close their own. So: get a
+small change acknowledged, close, push the workflow edit, reopen. The `reopened`
+event arrives with the new head SHA, the dismissal step is skipped because its
+condition did not name that action, the label is still there, and the gate
+reports green over a change nobody saw. That restored the full name-shadowing
+capability. The repository's own operations document had been describing this
+route as a *feature* — it tells operators to close and reopen a pull request to
+produce a fresh event — which is how a live bypass sat in plain sight.
+
+**Cancel the run that would dismiss.** `concurrency` used
+`cancel-in-progress: true`. The dismissal is the first step of `gate-integrity`,
+but a job still needs a runner before step one executes. An author could push —
+queueing the run that would delete their label — and then immediately edit the
+pull request title, an event they can fire at will, which shares the concurrency
+group and takes the in-shell early exit without dismissing. The title edit
+cancelled the push's run before its `DELETE` executed, and the later run reported
+green. A control whose job is to fire on a push must not be abortable by the
+pusher.
+
+Both are closed: dismissal is now an **exclusion** list naming only `labeled` and
+`unlabeled` — the two activity types that cannot move the commit range — so
+anything added to `types:` later dismisses by default, and `cancel-in-progress`
+is `false`.
+
+The generalizable lesson is about the shape of the rule rather than either bug.
+Enumerating the cases that trigger a safety control produced *three* holes across
+three reviews — `edited`, then `reopened`, and a near miss on `opened` — because
+every enumeration is a claim of completeness over a set someone else controls.
+The exclusion list makes the failure direction fail-closed, and a test derives
+the expected set from the trigger list rather than restating it.
+
+One assertion was also strengthened after it was observed passing against the
+bug it was supposed to catch: "the condition does not mention `reopened`" is true
+of the exclusion list *and* of the enumeration that omitted it. The test now
+evaluates the condition instead of pattern-matching it.
+
 ## Trade-offs
 
 Every pull request that touches a workflow, a script, `packages/ci/`, or
