@@ -134,7 +134,7 @@ have queue-specific incompleteness or data inconsistencies.
 
 | Code | Severity | Generation Condition |
 |------|----------|----------------------|
-| `item.tier-absent` | info | `review.tier` is absent (not set in frontmatter); routing tier cannot be determined |
+| `item.tier-absent` | info | `review.tier` is absent (not set in frontmatter) AND the record has entered review — `review` is present, or top-level `reviewBy` is present; routing tier cannot be determined. A `proposed` record with neither is `not-queued` and stays silent (#111) |
 | `item.review-by-before-queued` | warn | `reviewBy` is present AND `review.queuedAt` is present AND the UTC calendar date of `reviewBy` is strictly before the UTC calendar date of `review.queuedAt` |
 | `item.deciders-empty` | info | `deciders` array is empty AND `review.queuedAt` is present (record is in the queue with no routing targets) |
 

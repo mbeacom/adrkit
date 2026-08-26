@@ -98,6 +98,13 @@ jobs:
         run: bun scripts/run-network-denied.ts -- sh -c 'bun run schema:emit && git diff --exit-code schema/adr.schema.json'
       - name: Verify committed Action bundle matches source (network denied)
         run: bun scripts/run-network-denied.ts -- git diff --exit-code packages/ci/dist
+      # MANIFEST.md's record inventory is a pure function of docs/adr/, and it drifted
+      # six records before anyone noticed (#131). A guard that merely reported the
+      # divergence would still leave a human to hand-edit the table — which is how it
+      # drifted — so the block is regenerated and the tree asserted unchanged, exactly
+      # like the schema emit above. Both halves wrapped, for the reason recorded there.
+      - name: Verify MANIFEST inventory matches the corpus (network denied)
+        run: bun scripts/run-network-denied.ts -- sh -c 'bun run emit:manifest && git diff --exit-code MANIFEST.md'
       - name: Verify dependency boundaries (adapters + toolkit confinement)
         run: bun scripts/run-network-denied.ts -- bun run check:deps
       - name: Verify frozen oracle hashes match (feature 010 Barrier B, R5 mechanism 2)

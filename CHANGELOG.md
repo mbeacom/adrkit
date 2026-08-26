@@ -9,6 +9,32 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **`MANIFEST.md`'s decision-corpus inventory is generated, not hand-written.**
+  `bun run emit:manifest` renders the record table and the status counts from
+  `adr graph --format json` between stable markers, and `clean-clone-builds`
+  regenerates it and asserts the tree is unchanged — the same shape as the
+  schema emit and the committed Action bundle. The inventory had drifted six
+  records before it was noticed
+  ([#131](https://github.com/mbeacom/adrkit/issues/131)). No public CLI surface
+  was added: the CLI stays read-only and the writing lives in a repo-local
+  script ([#132](https://github.com/mbeacom/adrkit/issues/132)). Judgment prose
+  outside the markers stays hand-maintained.
+
+### Fixed
+
+- **`adr queue` no longer stays silent when a proposed record has a review
+  deadline but no routing tier.** `item.tier-absent` now fires whenever the tier
+  cannot be determined on a record that has entered review — a `review` block,
+  or a top-level `reviewBy`. The carve-out the spec actually states is
+  two-conditioned (both absent), but only the first condition was implemented,
+  so a `cross-team` record with `reviewBy` and no `review` block was listed with
+  `tier=None` and no finding at all
+  ([#111](https://github.com/mbeacom/adrkit/issues/111)). A `proposed` record
+  with neither remains `not-queued` and silent. Severity stays `info`, so no
+  exit code changes.
+
 ## [0.11.0] - 2026-08-26
 
 ### Added

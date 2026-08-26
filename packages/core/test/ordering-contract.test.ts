@@ -92,16 +92,39 @@ describe('sortFindings orders every tuple field by code unit', () => {
   });
 });
 
-describe('no scanned module on the check --json path reaches for localeCompare', () => {
+describe('no scanned module on a serialized-output path reaches for localeCompare', () => {
   // The same source-scan shape as the adapter's
   // `test/glob-order.test.ts` guard, widened to every core module that feeds
   // `CheckOutcome`: `check/`, `load/`, `markers/`, `ordering/`, and `validate/`.
+  // `queue/` is scanned for the same reason on its own contract rather than on
+  // `CheckOutcome`'s: QueueReport v1 promises byte-for-byte identical output for
+  // identical inputs (007-arb-queue SC-001), which a locale-dependent sort would
+  // break as a difference between machines.
+  //
+  // `graph/` is deliberately NOT scanned, for the same shape of reason as
+  // `affects/` and with the same honesty about what a clean run therefore means.
+  // `buildAdrGraph` still orders nodes and edges with `localeCompare`, and
+  // ADR-0033 clause 8 pins that: "The graph JSON shape remains exactly
+  // `{ nodes, edges }`, with existing node and edge fields, **historical locale
+  // ordering**, and missing-target omission unchanged." Migrating it is a change
+  // to an accepted decision, not a defect fix, so it is recorded on #115 rather
+  // than made here. `scripts/emit-manifest.ts` does not depend on that order: it
+  // re-sorts the nodes it reads with `compareCodeUnits` before rendering, so the
+  // `MANIFEST.md` no-diff gate is locale-independent regardless of how this
+  // resolves.
   // These are scanned as whole directories rather than as a file allowlist, so a
   // new module added to any of them is covered the day it lands — an allowlist
   // silently exempts new files, which is how `validate/index.ts` stayed unscanned
   // while `validate/findings.ts` was named individually. See the header for why
   // `affects/` is excluded.
-  const SCANNED_DIRS = ['src/check', 'src/load', 'src/markers', 'src/ordering', 'src/validate'];
+  const SCANNED_DIRS = [
+    'src/check',
+    'src/load',
+    'src/markers',
+    'src/ordering',
+    'src/queue',
+    'src/validate',
+  ];
 
   function tsFilesUnder(relativeDir: string): string[] {
     const root = join(import.meta.dir, '..', relativeDir);
@@ -126,6 +149,7 @@ describe('no scanned module on the check --json path reaches for localeCompare',
     expect(scanned).toContain('src/check/index.ts');
     expect(scanned).toContain('src/load/corpus.ts');
     expect(scanned).toContain('src/markers/resolve.ts');
+    expect(scanned).toContain('src/queue/kernel.ts');
     expect(scanned).toContain('src/validate/findings.ts');
     // `lintCorpus` lives here and produces the `records` `checkChanges` reads, so
     // its absence from the scan was the gap the directory walk closes.
