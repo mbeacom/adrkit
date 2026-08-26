@@ -295,11 +295,13 @@ eliminated by the constraints listed under the decision.
        [`docs/repository-trust-operations.md`](../repository-trust-operations.md).
 3. [ ] **Observe both trusted jobs on a real pull request after merge**, per
        ADR-0016. The kernel of `gate-integrity` has been observed blocking on this
-       change's own real changed-path list and passing once the label is applied,
-       and its three fail-quiet guards — empty list, truncated list, unreadable
-       payload — have each been observed firing. The *deployed workflow* has not
-       run, and cannot until it is on the default branch. Both halves are recorded
-       in `docs/repository-trust-operations.md` rather than asserted here.
+       change's own real changed-path list and passing once the label is applied;
+       its three fail-quiet guards — empty list, truncated list, unreadable
+       payload — have each been observed firing; and a rename that carried a gate
+       path out of the protected prefix has been observed blocking after that
+       bypass was found and closed. The *deployed workflow* has not run, and
+       cannot until it is on the default branch. All of it is recorded in
+       `docs/repository-trust-operations.md` rather than asserted here.
 4. [ ] **Decide on the fork-PR approval policy.** Currently
        `first_time_contributors`. Tightening to `all_external_contributors` means
        no fork's workflows run without a maintainer's explicit action, at the cost

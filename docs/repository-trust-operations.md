@@ -218,6 +218,30 @@ One defect was found this way rather than by review: `formatBlock` listed the
 offending paths without the reason each was protected, which the test asserting
 the block text caught. The code was changed, not the test.
 
+A second, and the more serious of the two, was found by reading what GitHub's
+files endpoint actually returns rather than assuming it. A **rename** reports
+`filename` as the *new* path only, with the old one in `previous_filename`. So a
+pull request that moved `.github/workflows/trusted-gates.yml` to
+`.github/wf/trusted-gates.yml` presented this check with a path matching nothing,
+passed clean, and would have deleted the trusted gate on merge. A *deletion* is
+not affected — `filename` is the deleted path — which is exactly what made the
+gap easy to miss. Both paths are now read; observed end-to-end through the CLI:
+
+```console
+$ bun run scripts/check-gate-integrity.ts --files rename.json --labels none.json \
+    --expected-files 2
+check-gate-integrity: examined 3 changed path(s)
+  gate    .github/workflows/trusted-gates.yml  — .github/workflows/: defines which
+          checks run, what they invoke, and what they are named
+check-gate-integrity: 1 of 3 changed path(s) alter the surface ...
+exit=1
+```
+
+Note the two counts in that output. `--expected-files` is compared against the
+*entry* count, which is 2; the path count is 3, because a rename contributes both
+ends. Comparing the wrong one would have made every renaming pull request fail as
+"truncated" — a false block, which is the merge-stopping direction.
+
 ### 3.2 Not yet observed — say so plainly
 
 **The deployed workflow has never run.** It cannot, before merge: GitHub takes

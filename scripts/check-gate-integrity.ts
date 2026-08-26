@@ -255,6 +255,37 @@ export function pluck(entries: readonly unknown[], field: string): string[] {
   });
 }
 
+/**
+ * Pure: every path a changed-file entry touches — its current path and, for a
+ * rename, the path it came from.
+ *
+ * The second half is load-bearing and was the guard's one real bypass. GitHub's
+ * files endpoint reports a rename as `filename: <new>` with the old path only in
+ * `previous_filename`, so a pull request that moved
+ * `.github/workflows/trusted-gates.yml` to `.github/wf/trusted-gates.yml` would
+ * present this check with a path matching nothing, pass clean, and delete the
+ * trusted gate on merge. A deletion is not affected — `filename` is the deleted
+ * path — which is exactly why the gap was easy to miss.
+ *
+ * Reading both is the fail-closed direction: it can only ever add a path.
+ */
+export function changedPaths(entries: readonly unknown[]): string[] {
+  const paths: string[] = [];
+  for (const path of pluck(entries, 'filename')) paths.push(path);
+  for (const [index, entry] of entries.entries()) {
+    const previous = (entry as Record<string, unknown> | null)?.previous_filename;
+    if (previous === undefined || previous === null) continue;
+    if (typeof previous !== 'string') {
+      throw new Error(
+        `entry ${index} has a non-string "previous_filename"; refusing to check a ` +
+          `partially-parsed list`,
+      );
+    }
+    paths.push(previous);
+  }
+  return paths;
+}
+
 function readJson(path: string): unknown {
   let raw: string;
   try {
@@ -314,7 +345,13 @@ export function parseArgs(argv: readonly string[]): Options {
 function main(argv: readonly string[]): void {
   const options = parseArgs(argv);
 
-  const paths = pluck(flattenPages(readJson(options.files)), 'filename');
+  const entries = flattenPages(readJson(options.files));
+  // Two different counts, deliberately kept apart. `entries` is what the pull
+  // request changed and is what `changed_files` counts; `paths` can be longer,
+  // because a rename contributes both the path it went to and the one it came
+  // from. Comparing the wrong one against `--expected-files` would make every
+  // renaming pull request fail as "truncated".
+  const paths = changedPaths(entries);
   const labels = pluck(flattenPages(readJson(options.labels)), 'name');
 
   // A pull request always changes at least one file, so an empty list means the
@@ -322,7 +359,7 @@ function main(argv: readonly string[]): void {
   // here renders identically to a clean run — the exact fail-quiet shape ADR-0016
   // exists to prevent, and the one that would make this guard useless in the only
   // case it is for.
-  if (paths.length === 0) {
+  if (entries.length === 0) {
     throw new Error(
       'the pull request listed no changed files, which cannot happen. ' +
         'Refusing to report a pass over an empty list.',
@@ -332,9 +369,9 @@ function main(argv: readonly string[]): void {
   // The files endpoint caps at 3000 entries and says so by truncating, not by
   // erroring. A gate path past the cap would be invisible, so the count the pull
   // request itself reports is compared against the count actually read.
-  if (options.expectedFiles !== undefined && options.expectedFiles !== paths.length) {
+  if (options.expectedFiles !== undefined && options.expectedFiles !== entries.length) {
     throw new Error(
-      `the pull request reports ${options.expectedFiles} changed file(s) but ${paths.length} ` +
+      `the pull request reports ${options.expectedFiles} changed file(s) but ${entries.length} ` +
         `were read; the listing is truncated or stale. Refusing to report a pass over a ` +
         `partial list.`,
     );

@@ -24,6 +24,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   DEFAULT_ACK_LABEL,
   GATE_SURFACES,
+  changedPaths,
   classifyGateChanges,
   flattenPages,
   formatBlock,
@@ -207,6 +208,68 @@ describe('the guard refuses to pass over an input it could not read', () => {
       expectedFiles: 12,
       ackLabel: DEFAULT_ACK_LABEL,
     });
+  });
+});
+
+describe('a rename cannot carry a gate path out of sight', () => {
+  // The guard's one real bypass, found by reading what the GitHub files endpoint
+  // actually returns rather than by assuming. A rename reports `filename` as the
+  // *new* path only; the old one lives in `previous_filename`. Moving the trusted
+  // workflow out of `.github/workflows/` therefore presented a path matching
+  // nothing, passed clean, and deleted the gate on merge.
+  const renameAway = [
+    {
+      filename: '.github/wf/trusted-gates.yml',
+      previous_filename: '.github/workflows/trusted-gates.yml',
+      status: 'renamed',
+    },
+  ];
+
+  test('the new path alone would have evaded the matcher', () => {
+    // Stated explicitly so the case documents what it is defending, and fails
+    // loudly if `.github/wf/` ever becomes a protected prefix for other reasons.
+    expect(surfaceOf('.github/wf/trusted-gates.yml')).toBeUndefined();
+  });
+
+  test('the old path is read too, so the rename blocks', () => {
+    const report = classifyGateChanges(changedPaths(renameAway), []);
+    expect(report.verdict).toBe('blocked');
+    expect(report.changes.map((change) => change.path)).toEqual([
+      '.github/workflows/trusted-gates.yml',
+    ]);
+  });
+
+  test('a rename *into* a gate path blocks on the new path', () => {
+    const renameInto = [
+      { filename: 'scripts/check-dco.ts', previous_filename: 'tmp/x.ts', status: 'renamed' },
+    ];
+    expect(classifyGateChanges(changedPaths(renameInto), []).verdict).toBe('blocked');
+  });
+
+  test('a deletion was never affected — filename is the deleted path', () => {
+    const deletion = [{ filename: '.github/workflows/ci.yml', status: 'removed' }];
+    expect(classifyGateChanges(changedPaths(deletion), []).verdict).toBe('blocked');
+  });
+
+  test('an ordinary rename outside the gate surface stays clean', () => {
+    const ordinary = [
+      { filename: 'packages/core/src/b.ts', previous_filename: 'packages/core/src/a.ts' },
+    ];
+    expect(classifyGateChanges(changedPaths(ordinary), []).verdict).toBe('clean');
+  });
+
+  test('an entry with no previous_filename contributes exactly one path', () => {
+    // The count matters: `--expected-files` is compared against the *entry* count,
+    // and a normalizer that invented a path per entry would make every ordinary
+    // pull request report as truncated.
+    expect(changedPaths([{ filename: 'a.ts' }, { filename: 'b.ts' }])).toEqual(['a.ts', 'b.ts']);
+    expect(changedPaths([{ filename: 'a.ts', previous_filename: null }])).toEqual(['a.ts']);
+  });
+
+  test('a non-string previous_filename throws rather than being ignored', () => {
+    expect(() => changedPaths([{ filename: 'a.ts', previous_filename: 42 }])).toThrow(
+      /non-string "previous_filename"/,
+    );
   });
 });
 

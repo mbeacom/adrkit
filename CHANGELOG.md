@@ -31,6 +31,9 @@ Until `1.0.0`, minor releases may include breaking changes
   or over a payload it could not parse — each of those observed firing before the
   check counted as coverage
   ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)).
+  It reads a rename's `previous_filename` as well as its `filename`, because the
+  files endpoint reports only the new path and a rename out of a protected prefix
+  would otherwise have passed clean and deleted the gate on merge.
 
 - **[`docs/repository-trust-operations.md`](docs/repository-trust-operations.md)**,
   separating the controls that are active from the ones that cannot be applied
