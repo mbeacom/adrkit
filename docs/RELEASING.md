@@ -454,26 +454,45 @@ target=v0.10.0
 git fetch --no-tags origin main "refs/tags/$target:refs/tags/$target"
 test "$(git cat-file -t "refs/tags/$target")" = tag
 target_commit=$(git rev-parse "$target^{commit}")
+test "$(git show "$target_commit:package.json" | jq -r .version)" = "${target#v}"
+git cat-file -e "$target_commit:packages/ci/action.yml"
+git cat-file -e "$target_commit:packages/ci/dist/index.js"
+git cat-file -e "$target_commit:packages/ci/queue/action.yml"
+git cat-file -e "$target_commit:packages/ci/dist/queue-action.js"
 git merge-base --is-ancestor "$target_commit" origin/main
 
 release=$(gh release view "$target" --json isDraft,isPrerelease)
 test "$(jq -r .isDraft <<<"$release")" = false
 test "$(jq -r .isPrerelease <<<"$release")" = false
-runs=$(gh run list --workflow release.yml --branch "$target" --event push \
-  --limit 20 --json conclusion,headSha)
+runs=$(gh api \
+  "repos/mbeacom/adrkit/actions/workflows/release.yml/runs?event=push&head_sha=$target_commit&per_page=100")
 test "$(jq -r --arg sha "$target_commit" \
-  '[.[] | select(.headSha == $sha and .conclusion == "success")] | length' \
+  '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | length' \
   <<<"$runs")" -gt 0
 
-bun run release:action-tag -- --recover "$target"
+moving_refs=$(git ls-remote --tags origin refs/tags/v0 refs/tags/v0^{} || true)
+moving_ref_sha=$(awk '$2 == "refs/tags/v0" { print $1 }' <<<"$moving_refs")
+moving_commit_sha=$(awk '$2 == "refs/tags/v0^{}" { print $1 }' <<<"$moving_refs")
+moving_commit_sha=${moving_commit_sha:-$moving_ref_sha}
+if [ -n "$moving_commit_sha" ] && [ "$moving_commit_sha" != "$target_commit" ]; then
+  marker="action-recovery-block/$moving_commit_sha"
+  if ! git show-ref --verify --quiet "refs/tags/$marker"; then
+    git tag "$marker" "$moving_commit_sha"
+  fi
+  git push origin "refs/tags/$marker:refs/tags/$marker"
+fi
+
+bun run release:action-tag -- --recover "$target" \
+  --expected-remote-ref-sha "$moving_ref_sha"
 ```
 
-The script independently requires an existing remote annotated release tag,
-requires the current moving tag to resolve to another immutable stable release,
-peels the target to a commit, and uses a remote-SHA lease. Normal
-`release:action-tag` calls remain monotonic; only the explicit `--recover` mode
-can move backward. A later successful higher release moves the major tag forward
-again through the normal release workflow.
+This fallback performs the same package-version, four-bundle, annotated-tag,
+main-ancestry, stable-release, and exact successful-run checks as the workflow.
+It also records a durable withdrawal marker for the commit being removed from
+`v0`; the normal release workflow refuses any later rerun of that withdrawn
+commit before npm publication. The script allows recovery from an arbitrary
+current `v0` target, but normal `release:action-tag` calls remain monotonic and
+cannot bypass the marker gate.
 
 This recovery is intentionally separate from npm rollback. npm versions and
 immutable `vX.Y.Z` git tags never move; deprecate a bad npm version, optionally

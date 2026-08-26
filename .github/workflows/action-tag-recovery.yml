@@ -15,7 +15,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-context:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require the canonical repository and main branch
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "mbeacom/adrkit"
+          test "$GITHUB_REF" = "refs/heads/main"
+
   recover:
+    needs: validate-context
     if: >-
       github.repository == 'mbeacom/adrkit' &&
       github.ref == 'refs/heads/main'
@@ -77,18 +89,20 @@ jobs:
           test "$(jq -r .isDraft <<<"$release")" = false
           test "$(jq -r .isPrerelease <<<"$release")" = false
 
-          runs=$(gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow release.yml \
-            --branch "$RELEASE_TAG" \
-            --event push \
-            --limit 20 \
-            --json conclusion,databaseId,headSha)
+          runs=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&head_sha=$revision&per_page=100")
           successful_run=$(jq -r --arg revision "$revision" \
-            '[.[] | select(.headSha == $revision and .conclusion == "success")][0].databaseId // empty' \
+            '[.workflow_runs[] | select(.head_sha == $revision and .conclusion == "success")][0].id // empty' \
             <<<"$runs")
           test -n "$successful_run"
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
+
+          moving_refs=$(git ls-remote --tags origin refs/tags/v0 refs/tags/v0^{} || true)
+          moving_ref_sha=$(awk '$2 == "refs/tags/v0" { print $1 }' <<<"$moving_refs")
+          moving_commit_sha=$(awk '$2 == "refs/tags/v0^{}" { print $1 }' <<<"$moving_refs")
+          moving_commit_sha=${moving_commit_sha:-$moving_ref_sha}
+          echo "moving_ref_sha=$moving_ref_sha" >> "$GITHUB_OUTPUT"
+          echo "moving_commit_sha=$moving_commit_sha" >> "$GITHUB_OUTPUT"
 
       - name: Restore the moving major Action tag
         env:
@@ -104,7 +118,17 @@ jobs:
           }
           trap cleanup EXIT
           git config --local 'http.https://github.com/.extraheader' "$header"
-          bun run release:action-tag -- --recover "$RELEASE_TAG" | tee action-tag-recovery.log
+          if [ -n "${{ steps.source.outputs.moving_commit_sha }}" ] &&
+             [ "${{ steps.source.outputs.moving_commit_sha }}" != "${{ steps.source.outputs.revision }}" ]; then
+            marker="action-recovery-block/${{ steps.source.outputs.moving_commit_sha }}"
+            if ! git show-ref --verify --quiet "refs/tags/$marker"; then
+              git tag "$marker" "${{ steps.source.outputs.moving_commit_sha }}"
+            fi
+            git push origin "refs/tags/$marker:refs/tags/$marker"
+          fi
+          bun run release:action-tag -- --recover "$RELEASE_TAG" \
+            --expected-remote-ref-sha "${{ steps.source.outputs.moving_ref_sha }}" |
+            tee action-tag-recovery.log
           {
             echo "### Major Action tag recovery"
             echo

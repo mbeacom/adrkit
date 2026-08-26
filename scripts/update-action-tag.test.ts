@@ -119,6 +119,46 @@ describe('moving Action tag version guard', () => {
     );
   });
 
+  test('recovers when the moving tag points at an arbitrary commit', async () => {
+    const root = await resetTestDir(`${DIR_NAME}-arbitrary-current`);
+    const remote = join(root, 'remote.git');
+    const work = join(root, 'work');
+    await git(root, 'init', '--bare', '--initial-branch=main', remote);
+    await git(root, 'init', '--initial-branch=main', work);
+    await git(work, 'config', 'user.name', 'adrkit test');
+    await git(work, 'config', 'user.email', 'test@adrkit.dev');
+    await git(work, 'config', 'commit.gpgSign', 'false');
+    await git(work, 'config', 'tag.gpgSign', 'false');
+    await git(work, 'remote', 'add', 'origin', remote);
+
+    await writeText(join(work, 'release.txt'), 'v0.1.0\n');
+    await git(work, 'add', 'release.txt');
+    await git(work, 'commit', '-m', 'v0.1.0');
+    await git(work, 'tag', '-a', 'v0.1.0', '-m', 'v0.1.0');
+    await writeText(join(work, 'release.txt'), 'unreleased\n');
+    await git(work, 'commit', '-am', 'unreleased');
+    const arbitrarySha = await git(work, 'rev-parse', 'HEAD');
+    await git(work, 'tag', 'v0', arbitrarySha);
+    await git(work, 'push', 'origin', '--tags');
+
+    await expect(updateActionTag('v0.1.0', { repositoryRoot: work })).rejects.toThrow(
+      'immutable v0.x.y release tag',
+    );
+    const movingRefSha = await remoteTagCommit(work, 'v0');
+    await expect(
+      recoverActionTag('v0.1.0', {
+        repositoryRoot: work,
+        remoteRefSha: '0'.repeat(40),
+      }),
+    ).rejects.toThrow('does not match the captured ref');
+    expect(await recoverActionTag('v0.1.0', {
+      repositoryRoot: work,
+      remoteRefSha: movingRefSha,
+    })).toBe(true);
+    const targetSha = await git(work, 'rev-list', '-n', '1', 'v0.1.0');
+    expect(await remoteTagCommit(work, 'v0')).toBe(targetSha);
+  });
+
   /**
    * Regression: the test above sets `tag.gpgSign false`, which is exactly the
    * condition that hid this. With `tag.gpgSign = true` — a common global default

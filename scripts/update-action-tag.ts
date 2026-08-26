@@ -90,6 +90,7 @@ async function moveActionTag(
     repositoryRoot?: string;
     remote?: string;
     recovery: boolean;
+    remoteRefSha?: string;
   },
 ): Promise<ActionTagUpdate> {
   const repositoryRoot = options.repositoryRoot ?? REPOSITORY_ROOT;
@@ -126,6 +127,13 @@ async function moveActionTag(
   )).get(majorTag);
   const remoteRefSha = movingRemote?.objectSha;
   const remoteSha = movingRemote?.peeledSha ?? movingRemote?.objectSha;
+  if (options.remoteRefSha !== undefined) {
+    assert(
+      options.remoteRefSha === remoteRefSha,
+      `Observed remote ${majorTag} ref ${remoteRefSha ?? '(absent)'} does not match the captured ref ${options.remoteRefSha}`,
+    );
+  }
+  const leaseRefSha = options.remoteRefSha ?? remoteRefSha;
   let current: { tag: string; sha: string; version: StableVersion } | undefined;
 
   if (remoteSha) {
@@ -144,24 +152,26 @@ async function moveActionTag(
       .filter(({ sha, version }) => sha === remoteSha && version.major === releaseVersion.major)
       .sort((left, right) => compareStableVersions(right.version, left.version));
     current = currentVersions[0];
-    assert(current, `Remote ${majorTag} does not point at an immutable ${majorTag}.x.y release tag`);
-    if (releaseSha === remoteSha) {
-      console.log(`release-action-tag: ${majorTag} remains at ${current.tag} (${remoteSha})`);
-      return {
-        changed: false,
-        majorTag,
-        previousReleaseTag: current.tag,
-        previousSha: remoteSha,
-        targetReleaseTag: releaseTag,
-        targetSha: releaseSha,
-      };
+    if (!options.recovery) {
+      assert(current, `Remote ${majorTag} does not point at an immutable ${majorTag}.x.y release tag`);
+      if (releaseSha !== remoteSha && compareStableVersions(releaseVersion, current.version) <= 0) {
+        console.log(`release-action-tag: ${majorTag} remains at ${current.tag}; ${releaseTag} is not newer`);
+        return {
+          changed: false,
+          majorTag,
+          previousReleaseTag: current.tag,
+          previousSha: remoteSha,
+          targetReleaseTag: releaseTag,
+          targetSha: releaseSha,
+        };
+      }
     }
-    if (!options.recovery && compareStableVersions(releaseVersion, current.version) <= 0) {
-      console.log(`release-action-tag: ${majorTag} remains at ${current.tag}; ${releaseTag} is not newer`);
+    if (releaseSha === remoteSha) {
+      console.log(`release-action-tag: ${majorTag} remains at ${current?.tag ?? releaseTag} (${remoteSha})`);
       return {
         changed: false,
         majorTag,
-        previousReleaseTag: current.tag,
+        previousReleaseTag: current?.tag,
         previousSha: remoteSha,
         targetReleaseTag: releaseTag,
         targetSha: releaseSha,
@@ -182,7 +192,7 @@ async function moveActionTag(
     [
       'git',
       'push',
-      `--force-with-lease=refs/tags/${majorTag}:${remoteRefSha ?? ''}`,
+      `--force-with-lease=refs/tags/${majorTag}:${leaseRefSha ?? ''}`,
       remoteName,
       `refs/tags/${majorTag}`,
     ],
@@ -211,7 +221,7 @@ export async function updateActionTag(
 
 export async function recoverActionTag(
   releaseTag: string,
-  options: { repositoryRoot?: string; remote?: string } = {},
+  options: { repositoryRoot?: string; remote?: string; remoteRefSha?: string } = {},
 ): Promise<boolean> {
   return (await moveActionTag(releaseTag, { ...options, recovery: true })).changed;
 }
@@ -219,11 +229,21 @@ export async function recoverActionTag(
 if (import.meta.main) {
   const args = Bun.argv.slice(2);
   const recovery = args[0] === '--recover';
-  const [releaseTag, ...extra] = recovery ? args.slice(1) : args;
+  const candidateArgs = recovery ? args.slice(1) : args;
+  const leaseFlag = '--expected-remote-ref-sha';
+  const leaseIndex = candidateArgs.indexOf(leaseFlag);
+  const rawRemoteRefSha = leaseIndex >= 0 ? candidateArgs[leaseIndex + 1] : undefined;
+  const remoteRefSha = rawRemoteRefSha || undefined;
+  const releaseArgs = leaseIndex >= 0
+    ? candidateArgs.filter((_, index) => index !== leaseIndex && index !== leaseIndex + 1)
+    : candidateArgs;
+  const [releaseTag, ...extra] = releaseArgs;
   assert(
-    releaseTag && extra.length === 0,
-    'Usage: bun scripts/update-action-tag.ts [--recover] vMAJOR.MINOR.PATCH',
+    releaseTag && extra.length === 0 &&
+      (leaseIndex < 0 || !!rawRemoteRefSha && /^[0-9a-f]{40}$/.test(rawRemoteRefSha)),
+    'Usage: bun scripts/update-action-tag.ts [--recover] vMAJOR.MINOR.PATCH ' +
+      '[--expected-remote-ref-sha SHA]',
   );
-  if (recovery) await recoverActionTag(releaseTag);
+  if (recovery) await recoverActionTag(releaseTag, { remoteRefSha });
   else await updateActionTag(releaseTag);
 }
