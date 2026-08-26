@@ -301,6 +301,35 @@ irrelevant to the merge.
 Until both have been seen red and then green on a real pull request, ADR-0035
 action item 3 stays open and the workflow counts as implemented, not as verified.
 
+### 3.3 An instance, recorded rather than tidied away
+
+While building this, its author read an absence as a fact — the exact failure
+ADR-0016 exists to name — and committed the wrong conclusion before catching it.
+
+Two pushes appeared to produce no workflow runs. Checking further seemed to
+confirm it: for the same head SHA, other apps' check suites existed and
+`github-actions`' did not, which is what a rejected workflow file looks like. The
+cause was then attributed to a hyphenated job id in a `needs.<id>.result`
+dereference, and that attribution was written into a commit message as though it
+had been established.
+
+All of it was wrong. The runs were **queued, not refused**. The commit reports
+three runs once they arrived, roughly five minutes after the check; the other
+commit has none only because the next push superseded it. Nothing was ever
+blocked, and the expression was never the problem.
+
+What produced the error is worth naming precisely, because it is not
+carelessness: every individual observation was accurate. The check suites really
+were missing *at the moment they were read*. The defect was treating a read of a
+system with latency as a final state — "I could not see any runs" rendered as "no
+runs were created", which is ADR-0016's sentence almost verbatim, committed by an
+author who had spent the session reading that record.
+
+The refactor it motivated was kept, because it is simpler on its own merits. The
+commit message was amended to say plainly that it fixed nothing. That amendment
+is the point: a false diagnosis left in a commit message is permanent here, since
+the repository's squash-merge body carries commit messages into `main`.
+
 ---
 
 ## 4. What none of this closes
