@@ -159,6 +159,36 @@ describe('moving Action tag version guard', () => {
     expect(await remoteTagCommit(work, 'v0')).toBe(targetSha);
   });
 
+  test('creates an absent moving tag with an empty lease and rejects a competing ref', async () => {
+    const root = await resetTestDir(`${DIR_NAME}-absent-current`);
+    const remote = join(root, 'remote.git');
+    const work = join(root, 'work');
+    await git(root, 'init', '--bare', '--initial-branch=main', remote);
+    await git(root, 'init', '--initial-branch=main', work);
+    await git(work, 'config', 'user.name', 'adrkit test');
+    await git(work, 'config', 'user.email', 'test@adrkit.dev');
+    await git(work, 'config', 'commit.gpgSign', 'false');
+    await git(work, 'config', 'tag.gpgSign', 'false');
+    await git(work, 'remote', 'add', 'origin', remote);
+
+    await writeText(join(work, 'release.txt'), 'v0.1.0\n');
+    await git(work, 'add', 'release.txt');
+    await git(work, 'commit', '-m', 'v0.1.0');
+    await git(work, 'tag', '-a', 'v0.1.0', '-m', 'v0.1.0');
+    await git(work, 'push', 'origin', 'refs/tags/v0.1.0');
+
+    expect(await recoverActionTag('v0.1.0', {
+      repositoryRoot: work,
+      remoteRefSha: '',
+    })).toBe(true);
+    const targetSha = await git(work, 'rev-list', '-n', '1', 'v0.1.0');
+    expect(await remoteTagCommit(work, 'v0')).toBe(targetSha);
+    await expect(recoverActionTag('v0.1.0', {
+      repositoryRoot: work,
+      remoteRefSha: '',
+    })).rejects.toThrow('does not match the captured ref');
+  });
+
   /**
    * Regression: the test above sets `tag.gpgSign false`, which is exactly the
    * condition that hid this. With `tag.gpgSign = true` — a common global default

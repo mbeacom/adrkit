@@ -407,6 +407,7 @@ Choose the last verified lockstep release, then dispatch the recovery workflow
 from `main`:
 
 ```sh
+set -euo pipefail
 target=v0.10.0
 gh workflow run action-tag-recovery.yml --ref main -f tag="$target"
 gh run list --workflow action-tag-recovery.yml --limit 1
@@ -477,7 +478,7 @@ moving_commit_sha=${moving_commit_sha:-$moving_ref_sha}
 if [ -n "$moving_commit_sha" ] && [ "$moving_commit_sha" != "$target_commit" ]; then
   marker="action-recovery-block/$moving_commit_sha"
   if ! git show-ref --verify --quiet "refs/tags/$marker"; then
-    git tag "$marker" "$moving_commit_sha"
+    git -c tag.gpgSign=false tag "$marker" "$moving_commit_sha"
   fi
   git push origin "refs/tags/$marker:refs/tags/$marker"
 fi

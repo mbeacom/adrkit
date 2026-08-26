@@ -122,7 +122,7 @@ jobs:
              [ "${{ steps.source.outputs.moving_commit_sha }}" != "${{ steps.source.outputs.revision }}" ]; then
             marker="action-recovery-block/${{ steps.source.outputs.moving_commit_sha }}"
             if ! git show-ref --verify --quiet "refs/tags/$marker"; then
-              git tag "$marker" "${{ steps.source.outputs.moving_commit_sha }}"
+              git -c tag.gpgSign=false tag "$marker" "${{ steps.source.outputs.moving_commit_sha }}"
             fi
             git push origin "refs/tags/$marker:refs/tags/$marker"
           fi

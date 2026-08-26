@@ -63,6 +63,11 @@ describe('major Action tag recovery contract', () => {
     expect(RECOVERY_WORKFLOW).toContain('head_sha=$revision');
     expect(UPDATE_SCRIPT).toContain('--expected-remote-ref-sha');
     expect(RECOVERY_WORKFLOW).toContain('moving_ref_sha');
+    expect(RECOVERY_WORKFLOW).toContain('git -c tag.gpgSign=false tag "$marker"');
+    expect(readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8')).toContain(
+      'git -c tag.gpgSign=false tag "$marker" "$moving_commit_sha"',
+    );
+    expect(readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8')).toContain('set -euo pipefail');
     expect(RELEASE_WORKFLOW).toContain('cat action-tag-update.log');
     expect(RELEASE_WORKFLOW).toContain('>> "$GITHUB_STEP_SUMMARY"');
   });
@@ -89,5 +94,6 @@ describe('major Action tag recovery contract', () => {
     expect(readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8')).toContain(
       '.head_branch == $tag and .conclusion == "success"',
     );
+    expect(UPDATE_SCRIPT).toContain("rawRemoteRefSha === ''");
   });
 });

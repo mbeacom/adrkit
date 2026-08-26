@@ -128,8 +128,9 @@ async function moveActionTag(
   const remoteRefSha = movingRemote?.objectSha;
   const remoteSha = movingRemote?.peeledSha ?? movingRemote?.objectSha;
   if (options.remoteRefSha !== undefined) {
+    const capturedRemoteRefSha = options.remoteRefSha || undefined;
     assert(
-      options.remoteRefSha === remoteRefSha,
+      capturedRemoteRefSha === remoteRefSha,
       `Observed remote ${majorTag} ref ${remoteRefSha ?? '(absent)'} does not match the captured ref ${options.remoteRefSha}`,
     );
   }
@@ -233,14 +234,16 @@ if (import.meta.main) {
   const leaseFlag = '--expected-remote-ref-sha';
   const leaseIndex = candidateArgs.indexOf(leaseFlag);
   const rawRemoteRefSha = leaseIndex >= 0 ? candidateArgs[leaseIndex + 1] : undefined;
-  const remoteRefSha = rawRemoteRefSha || undefined;
+  const remoteRefSha = leaseIndex >= 0 ? rawRemoteRefSha : undefined;
   const releaseArgs = leaseIndex >= 0
     ? candidateArgs.filter((_, index) => index !== leaseIndex && index !== leaseIndex + 1)
     : candidateArgs;
   const [releaseTag, ...extra] = releaseArgs;
   assert(
     releaseTag && extra.length === 0 &&
-      (leaseIndex < 0 || !!rawRemoteRefSha && /^[0-9a-f]{40}$/.test(rawRemoteRefSha)),
+      (leaseIndex < 0 || recovery) &&
+      (leaseIndex < 0 || rawRemoteRefSha !== undefined &&
+        (rawRemoteRefSha === '' || /^[0-9a-f]{40}$/.test(rawRemoteRefSha))),
     'Usage: bun scripts/update-action-tag.ts [--recover] vMAJOR.MINOR.PATCH ' +
       '[--expected-remote-ref-sha SHA]',
   );
