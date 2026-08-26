@@ -67,6 +67,37 @@ function dismissesOn(condition: string, action: string): boolean {
   return !excluded.includes(action);
 }
 
+function hasTopLevelConcurrencyBlock(source: string): boolean {
+  return /^\s*concurrency\s*:/m.test(source);
+}
+
+type ModeledRun = 'occupying-run' | 'synchronize-dismissal' | 'title-edit-noop';
+
+interface ModeledConcurrencyGroup {
+  running?: ModeledRun;
+  pending?: ModeledRun;
+  cancelled: ModeledRun[];
+}
+
+/**
+ * GitHub permits at most one running and one pending run in a concurrency
+ * group. A newly queued run always replaces an existing pending run;
+ * `cancel-in-progress` controls only whether the running run is also cancelled.
+ */
+function enqueueInConcurrencyGroup(
+  group: ModeledConcurrencyGroup,
+  incoming: ModeledRun,
+  cancelInProgress: boolean,
+): ModeledConcurrencyGroup {
+  const cancelled = [...group.cancelled];
+  if (group.pending) cancelled.push(group.pending);
+  if (cancelInProgress && group.running) {
+    cancelled.push(group.running);
+    return { running: incoming, cancelled };
+  }
+  return { running: group.running, pending: incoming, cancelled };
+}
+
 describe('the trigger', () => {
   test('is pull_request_target, which runs from the default branch', () => {
     expect(Object.keys(TRIGGERS)).toEqual(['pull_request_target']);
@@ -155,13 +186,30 @@ describe('the acknowledgment is bound to what it acknowledged', () => {
     expect(dismissal().env?.BASE_CHANGE).toBe('${{ toJSON(github.event.changes.base) }}');
   });
 
-  test('the run that dismisses cannot be cancelled by the pusher', () => {
-    // With cancel-in-progress, the author could push (queueing the dismissing
-    // run) then immediately edit the title — an event they can fire at will that
-    // shares the group and takes the early exit — cancelling the dismissal before
-    // its DELETE ran. The label survived and the later run reported green.
-    const concurrency = (WORKFLOW as { concurrency?: Record<string, unknown> }).concurrency;
-    expect(concurrency?.['cancel-in-progress']).toBe(false);
+  test('cancel-in-progress false still lets a title edit replace a pending dismissal', () => {
+    // The dismissal step intentionally no-ops on `edited` without `changes.base`.
+    // If another run occupies the group, a synchronize run is pending. GitHub
+    // replaces that pending run when the title-edit run arrives regardless of
+    // `cancel-in-progress`, so the setting cannot make the safety run uncancellable.
+    const condition = dismissal().if ?? '';
+    expect(dismissesOn(condition, 'edited')).toBe(true);
+    expect(dismissal().run ?? '').toContain('"$BASE_CHANGE" = "null"');
+
+    const afterPush = enqueueInConcurrencyGroup(
+      { running: 'occupying-run', cancelled: [] },
+      'synchronize-dismissal',
+      false,
+    );
+    const afterTitleEdit = enqueueInConcurrencyGroup(afterPush, 'title-edit-noop', false);
+
+    expect(afterTitleEdit.running).toBe('occupying-run');
+    expect(afterTitleEdit.pending).toBe('title-edit-noop');
+    expect(afterTitleEdit.cancelled).toContain('synchronize-dismissal');
+  });
+
+  test('the workflow has no concurrency group that can replace a safety run', () => {
+    expect(hasTopLevelConcurrencyBlock(SOURCE)).toBe(false);
+    expect((WORKFLOW as { concurrency?: Record<string, unknown> }).concurrency).toBeUndefined();
   });
 
   test('the label listing is paginated before it is trusted', () => {

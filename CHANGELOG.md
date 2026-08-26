@@ -27,6 +27,13 @@ Until `1.0.0`, minor releases may include breaking changes
   given for and not the one that follows it
   ([#137](https://github.com/mbeacom/adrkit/issues/137),
   [ADR-0035](docs/adr/0035-execute-the-gates-that-certify-a-pull-request-from-the-default-branch.md)).
+  The workflow deliberately has no workflow-level concurrency group: GitHub
+  replaces an existing pending run when a newer run enters the group even when
+  `cancel-in-progress` is `false`, which let a title edit replace the pending
+  run that had to dismiss a stale acknowledgment. Overlapping runs remain
+  fail-closed because check runs bind to their event head SHA, while live API
+  reads, dismissal verification, and changed-file completeness checks abort or
+  block on inconsistent state.
   Scope is stated rather than overstated: this closes name-shadowing and protects
   the trusted gates' definition, but it does **not** make the advisory gates in
   `ci.yml` tamper-proof — they execute pull-request code and reach it through

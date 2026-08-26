@@ -57,20 +57,15 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: trusted-gates-${{ github.event.pull_request.number }}
-  # **Not** `cancel-in-progress: true`, which was a bypass rather than a saving.
-  # The dismissal below is the first step of `gate-integrity`, but a job still
-  # needs a runner before step one executes. With cancellation on, the author
-  # could push (queueing the run that would dismiss their acknowledgment) and then
-  # immediately edit the pull request title — an `edited` event they can fire at
-  # will, which shares this group and takes the in-shell early exit without ever
-  # dismissing. The title edit cancelled the push's run before its `DELETE` ran,
-  # the label survived, and the later run reported green over a head nobody
-  # acknowledged. A control whose job is to fire on a push must not be abortable
-  # by the pusher. Both jobs are short and install nothing, so queueing instead of
-  # cancelling costs almost nothing.
-  cancel-in-progress: false
+# Deliberately no workflow-level `concurrency`. GitHub allows only one pending
+# run per concurrency group and replaces that pending run when another arrives,
+# even when `cancel-in-progress` is false. An author could otherwise leave a
+# runner occupied, push the head-changing event that must dismiss their
+# acknowledgment, then replace that pending run with a title edit that exits
+# before dismissal. Ungrouped runs may overlap, which is safe in the other
+# direction: each check run belongs to its event head SHA, while dismissal and
+# changed-path/label reads use the live API and abort or block on incomplete or
+# inconsistent state.
 
 jobs:
   trusted-dco:

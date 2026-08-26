@@ -36,4 +36,6 @@
 /.github/actions/       @mbeacom
 /scripts/               @mbeacom
 /packages/ci/           @mbeacom
+/.github/CODEOWNERS     @mbeacom
 /CODEOWNERS             @mbeacom
+/docs/CODEOWNERS        @mbeacom

@@ -66,6 +66,14 @@ In the tree, effective on merge. Read the caveats in the file: with a single
 owner and no `pull_request` rule on the `main` ruleset, these lines *request* a
 review rather than requiring one.
 
+The file names all three locations GitHub searches explicitly:
+`/.github/CODEOWNERS`, `/CODEOWNERS`, and `/docs/CODEOWNERS`. The `.github` and
+`docs` candidate files do not currently exist. Their entries are still
+intentional:
+the root `*` already owns every path today, while explicit entries survive a
+future narrowing of that default and keep a newly introduced higher-precedence
+file from becoming an unowned gate surface.
+
 ---
 
 ## 2. Must wait until merge
@@ -335,7 +343,7 @@ head it was never granted for, both closed:
 | Route | Why it worked | Fix |
 |---|---|---|
 | Close → push → reopen | GitHub delivers no event for a push to a *closed* pull request, and `reopened` was not in the dismissal condition | dismissal is now an **exclusion** list |
-| Push, then edit the title within seconds | `cancel-in-progress: true` let the `edited` run cancel the `synchronize` run before its `DELETE` executed, and `edited`-without-base takes the early exit | `cancel-in-progress: false` |
+| Push, then edit the title while another run occupies the group | GitHub replaces an existing pending run when another run enters the concurrency group even with `cancel-in-progress: false`; the `edited` run replaced the pending `synchronize` dismissal and then took the title-only early exit | remove workflow-level concurrency entirely |
 
 Both observed failing by mutation, along with a case-folding inconsistency
 between the two halves of one control:
@@ -343,7 +351,7 @@ between the two halves of one control:
 | Mutation | Assertion that fired |
 |---|---|
 | dismissal condition back to an enumeration | 4, incl. `reopened dismisses, closing the close-push-reopen route` |
-| `cancel-in-progress` back to `true` | `the run that dismisses cannot be cancelled by the pusher` |
+| the old workflow-level concurrency block restored | `the workflow has no concurrency group that can replace a safety run` |
 | `ascii_downcase` removed from the verification | `the verification folds case, like the gate script it backs` |
 
 The first row is worth a note of its own. An earlier version of the `reopened`
@@ -351,6 +359,22 @@ assertion checked that the condition *did not mention* `reopened` — which is t
 of the correct exclusion list **and** of the enumeration that omitted it, so it
 passed against the bug it existed to catch. It now evaluates the condition rather
 than pattern-matching it, and the mutation above is what exposed the difference.
+
+The concurrency case is modeled rather than reduced to a setting assertion. The
+test starts with an occupied group, queues the `synchronize` dismissal, then
+queues a title-only `edited` run. It observes the dismissal move to the cancelled
+set while the original run remains active under `cancel-in-progress: false`.
+Against the prior workflow, the separate source assertion failed because the
+top-level concurrency block was present.
+
+Removing the group means runs can overlap. That does not let an old run certify a
+new head: GitHub binds each check run to the event head SHA, and required checks
+are evaluated for the current head. The steps that deliberately read mutable
+state do so from the live API. A failed read aborts; a stale label that survives
+deletion is found by the paginated verification and blocks; and a mismatch
+between the event's changed-file count and the live file listing blocks. An older
+run can delete a newer acknowledgment and cause a conservative re-acknowledgment,
+but it cannot turn an unseen current head green.
 
 ### 3.2 Not yet observed — say so plainly
 

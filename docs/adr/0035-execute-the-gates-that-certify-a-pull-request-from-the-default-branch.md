@@ -378,20 +378,35 @@ capability. The repository's own operations document had been describing this
 route as a *feature* — it tells operators to close and reopen a pull request to
 produce a fresh event — which is how a live bypass sat in plain sight.
 
-**Cancel the run that would dismiss.** `concurrency` used
+**Replace the run that would dismiss.** The workflow initially used
 `cancel-in-progress: true`. The dismissal is the first step of `gate-integrity`,
 but a job still needs a runner before step one executes. An author could push —
 queueing the run that would delete their label — and then immediately edit the
 pull request title, an event they can fire at will, which shares the concurrency
-group and takes the in-shell early exit without dismissing. The title edit
-cancelled the push's run before its `DELETE` executed, and the later run reported
-green. A control whose job is to fire on a push must not be abortable by the
-pusher.
+group and takes the in-shell early exit without dismissing.
+
+Changing the setting to `cancel-in-progress: false` closed only the running-run
+case, not the pending-run case. GitHub retains at most one pending run in a
+concurrency group and replaces it when another run arrives regardless of that
+setting. If an earlier run still occupies the group, the head-changing
+`synchronize` run is pending and the later title edit replaces it before its
+`DELETE` can run. A control whose job is to fire on a push must not be replaceable
+by the pusher either.
 
 Both are closed: dismissal is now an **exclusion** list naming only `labeled` and
 `unlabeled` — the two activity types that cannot move the commit range — so
-anything added to `types:` later dismisses by default, and `cancel-in-progress`
-is `false`.
+anything added to `types:` later dismisses by default, and the workflow has no
+workflow-level concurrency group at all.
+
+That permits overlapping runs, deliberately. A check run is attached to the
+head SHA in the event that created it, so an older run cannot satisfy the
+required context for a newer head. The mutable reads are conservative: label
+dismissal is verified with a paginated live API read; changed paths and labels
+are read live; an API failure aborts the step; and an event/live changed-file
+count mismatch blocks rather than certifies. An older run may remove a newly
+applied acknowledgment and force it to be applied again, but that is a
+false-negative in the fail-closed direction, not authorization of an unseen
+head.
 
 The generalizable lesson is about the shape of the rule rather than either bug.
 Enumerating the cases that trigger a safety control produced *three* holes across
