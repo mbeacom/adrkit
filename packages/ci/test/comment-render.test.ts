@@ -330,6 +330,7 @@ describe('renderComment status awareness (#39)', () => {
       expect(body).toContain('frontmatter-parse');
       expect(body.match(/ — `dangling-marker`:/g)).toHaveLength(10);
       expect(body).toContain('…and 990 more unresolved marker findings');
+      expect(renderComment(outcome)).toBe(body);
     });
 
     test('an oversized finding message cannot crowd out its blocking path and rule', async () => {
