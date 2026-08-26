@@ -43,6 +43,27 @@ The Action updates its existing comment on later pushes, so each pull request
 keeps one current governing-decisions comment. No additional token environment
 variable is required when using the default `GITHUB_TOKEN`.
 
+The comment distinguishes two advisory marker states:
+
+- **Inbound marker scan incomplete** means the Action could not inspect one or
+  more changed files because they were absent, unreadable, outside the worktree,
+  or beyond the scan cap. Marker-derived governance may therefore be incomplete.
+- **Unresolved inbound markers** means the Action successfully inspected a file
+  and found an `@adr` claim that does not bind in this decision log. It shows at
+  most 10 safely escaped examples and reports how many more were omitted.
+
+Neither state changes the Action verdict. Changed-record validation errors keep
+priority if the comment reaches GitHub's size limit.
+
+<Aside type="caution" title="Checkout the pull request head at the workspace root">
+	The marker reader opens changed files beneath `GITHUB_WORKSPACE`. Keep the normal
+	`actions/checkout` defaults shown above. Overriding `ref` (for example, to `main`),
+	checking out beneath `path:`, or using a sparse checkout can leave changed files
+	unavailable. Corpus-authored `affects` matching can still work in that state, but
+	the comment reports that marker scanning was incomplete rather than presenting
+	the missing marker context as a clean result.
+</Aside>
+
 `v0` is a moving major tag, and it now resolves to a `v0.11.0` build. Pin the
 immutable `v0.11.0` tag or a commit SHA for maximum reproducibility.
 

@@ -304,8 +304,11 @@ answer where the next decision is actually being made.
   objections) as Markdown or `QueueReport` v1 JSON; also a managed-issue Action.
 - **CI comment** — the `@adrkit/ci` GitHub Action surfaces the governing decisions
   on the PRs that touch or explicitly declare them; pattern matches render as `via`
-  and PR-authored marker claims as `declared by`. It runs with only the default `GITHUB_TOKEN` and
-  degrades (never fails the job) on a read-only fork token.
+  and PR-authored marker claims as `declared by`. The comment separately reports
+  files it could not inspect for markers and markers it inspected but could not
+  resolve. Both reports are advisory, deterministically capped, and never influence
+  the Action's verdict. It runs with only the default `GITHUB_TOKEN` and degrades
+  (never fails the job) on a read-only fork token.
 - **MCP server** — let agents retrieve prior decisions, including the rejected
   ones, before proposing something already tried.
 
@@ -322,6 +325,11 @@ steps:
   - uses: actions/checkout@v4
   - uses: mbeacom/adrkit/packages/ci@v0
 ```
+
+Keep the pull request head checkout at `GITHUB_WORKSPACE`. If `actions/checkout`
+uses a different `ref` or a nested `path`, the Action can still resolve
+corpus-authored `affects` matchers, but it cannot reliably inspect the changed
+files for inbound `@adr` markers and says so in its comment.
 
 ## Why not plain MADR — or "Structured MADR"?
 

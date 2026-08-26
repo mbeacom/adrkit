@@ -121,6 +121,10 @@ describe('runAction (end to end with a fake client)', () => {
     expect(result.failed).toBe(false);
     expect(client.created[0]).toContain('**0001** — Guard marker-owned code');
     expect(client.created[0]).toContain('declared by `src/owned.ts:1` (`@adr 0001`)');
+    expect(client.created[0]).toContain('#### Inbound marker scan incomplete');
+    expect(client.created[0]).toContain(
+      'Could not inspect 1 changed file for inbound `@adr` markers: 1 absent.',
+    );
     expect(logger.info.join('\n')).toContain(
       'marker scan: 1 scanned, 1 absent, 0 unreadable, 0 out-of-tree, 1 truncated, 0 skipped',
     );
@@ -156,7 +160,7 @@ describe('runAction (end to end with a fake client)', () => {
     expect(result.outcome?.governing.map((decision) => decision.recordId)).toEqual(['0001']);
   });
 
-  test('keeps dangling markers non-failing and out of the focused PR comment', async () => {
+  test('keeps dangling markers non-failing and reports them in the PR comment', async () => {
     const root = await resetTestDir(DIR_NAME);
     await mkdir(join(root, 'docs/adr'), { recursive: true });
     await writeText(join(root, 'src/dangling.ts'), '// @adr 9999\n');
@@ -167,7 +171,8 @@ describe('runAction (end to end with a fake client)', () => {
     expect(result.failed).toBe(false);
     expect(result.outcome?.ok).toBe(true);
     expect(result.outcome?.findings.map((finding) => finding.rule)).toContain('dangling-marker');
-    expect(client.created[0]).not.toContain('dangling-marker');
+    expect(client.created[0]).toContain('#### Unresolved inbound markers');
+    expect(client.created[0]).toContain('dangling-marker');
   });
 
   test('warns with the exact skipped paths when the marker scan cap is reached', async () => {

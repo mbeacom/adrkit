@@ -48620,15 +48620,22 @@ var PROPOSALS_HEADING = "#### Active proposals touching this change";
 var PROPOSALS_NOTE = "These are not yet ratified and do not bind this change:";
 var HISTORY_HEADING = "#### Historical records that once covered this change";
 var HISTORY_NOTE = "These no longer bind this change, and are listed for context only:";
+var MARKER_SCAN_HEADING = "#### Inbound marker scan incomplete";
+var UNRESOLVED_MARKERS_HEADING = "#### Unresolved inbound markers";
 var MAX_GOVERNING = 50;
 var MAX_DECLARATIONS = 10;
+var MAX_MARKER_FINDINGS = 10;
 var MAX_COMMENT_CHARS = 65536;
 var TRUNCATION_NOTICE = "- …output truncated to fit GitHub’s comment size limit; run `adr check` locally for the complete result.";
 var MAX_FINDING_FIELD_CHARS = 256;
 var MAX_FINDING_MESSAGE_CHARS = 1024;
+var MAX_MARKER_MESSAGE_CHARS = 512;
 function changedRecordFindings(outcome) {
   const changed = new Set(outcome.changedRecords);
   return outcome.findings.filter((finding) => finding.field !== "marker" && finding.path !== undefined && changed.has(finding.path));
+}
+function unresolvedMarkerFindings(outcome) {
+  return outcome.findings.filter((finding) => finding.rule === "dangling-marker" || finding.rule === "marker-unresolvable");
 }
 function code(value) {
   const safe = value.replace(/[\u0000-\u001f\u007f]/g, (char) => `\\x${char.charCodeAt(0).toString(16).padStart(2, "0")}`);
@@ -48650,6 +48657,56 @@ function renderFindingLine(finding) {
   const field = finding.field ? ` (${code(boundedDetail(finding.field, MAX_FINDING_FIELD_CHARS, "field"))})` : "";
   const message = boundedDetail(finding.message, MAX_FINDING_MESSAGE_CHARS, "message");
   return `- ${where} — ${code(finding.rule)}${field}: ${message}`;
+}
+function renderMarkerFindingLine(finding) {
+  const where = finding.path ? code(finding.path) : "(unknown path)";
+  const message = boundedDetail(finding.message, MAX_MARKER_MESSAGE_CHARS, "message");
+  return `- ${where} — ${code(finding.rule)}: ${code(message)}`;
+}
+function countLabel(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+function renderMarkerScanHealth(outcome) {
+  const report = outcome.markerScan;
+  if (!report)
+    return [];
+  const unavailable = report.counts.absent + report.counts.unreadable + report.counts["out-of-tree"] + report.counts.skipped;
+  if (unavailable === 0)
+    return [];
+  const reasons = [];
+  if (report.counts.absent > 0) {
+    reasons.push(countLabel(report.counts.absent, "absent", "absent"));
+  }
+  if (report.counts.unreadable > 0) {
+    reasons.push(countLabel(report.counts.unreadable, "unreadable", "unreadable"));
+  }
+  if (report.counts["out-of-tree"] > 0) {
+    reasons.push(countLabel(report.counts["out-of-tree"], "outside the worktree", "outside the worktree"));
+  }
+  if (report.counts.skipped > 0) {
+    reasons.push(`${countLabel(report.counts.skipped, "skipped", "skipped")} by the ${report.limit}-file scan cap`);
+  }
+  return [
+    MARKER_SCAN_HEADING,
+    "",
+    `Could not inspect ${countLabel(unavailable, "changed file")} for inbound \`@adr\` markers: ${reasons.join(", ")}.`,
+    "Marker-derived governance may be incomplete."
+  ];
+}
+function renderUnresolvedMarkers(findings2) {
+  if (findings2.length === 0)
+    return [];
+  const lines = [
+    UNRESOLVED_MARKERS_HEADING,
+    "",
+    `${countLabel(findings2.length, "marker claim")} could not be resolved against this decision log:`,
+    ...findings2.slice(0, MAX_MARKER_FINDINGS).map(renderMarkerFindingLine)
+  ];
+  const remaining = findings2.length - Math.min(findings2.length, MAX_MARKER_FINDINGS);
+  if (remaining > 0) {
+    lines.push(`- …and ${countLabel(remaining, "more unresolved marker finding")}; run \`adr check\` locally for the complete result.`);
+  }
+  return lines;
 }
 function renderDecisionLines(decision, withStatus) {
   const status = withStatus ? ` _(${decision.status})_` : "";
@@ -48701,12 +48758,20 @@ function renderComment(outcome) {
   const findings2 = changedRecordFindings(outcome);
   const errors4 = findings2.filter((finding) => finding.severity === "error");
   const warnings = findings2.filter((finding) => finding.severity === "warn");
+  const markerScanHealth = renderMarkerScanHealth(outcome);
+  const markerFindings = renderUnresolvedMarkers(unresolvedMarkerFindings(outcome));
   if (errors4.length > 0) {
     lines.push("#### ⚠️ Validation errors on changed records", "");
     lines.push("These changed records fail validation and must be fixed:");
     for (const finding of errors4)
       lines.push(renderFindingLine(finding));
     lines.push("");
+  }
+  if (markerScanHealth.length > 0) {
+    lines.push(...markerScanHealth, "");
+  }
+  if (markerFindings.length > 0) {
+    lines.push(...markerFindings, "");
   }
   if (outcome.governedBy.length === 0) {
     lines.push(EMPTY_STATE);

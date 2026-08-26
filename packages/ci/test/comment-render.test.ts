@@ -79,22 +79,89 @@ describe('renderComment', () => {
     expect(body).not.toContain('**0002**');
   });
 
-  test('keeps marker reference warnings out of the focused PR comment', async () => {
+  test('reports a dangling marker after a healthy scan (#126)', async () => {
     const root = await seed();
-    const outcome = await outcomeFor(root, ['docs/adr/0001-api.md']);
-    outcome.findings.push({
-      rule: 'dangling-marker',
-      severity: 'warn',
-      message: 'Source marker does not resolve',
-      path: 'docs/adr/0001-api.md',
-      field: 'marker',
-      pattern: '9999',
+    const file = 'src/dangling.ts';
+    await writeText(join(root, file), '// @adr 9999\n');
+    const lint = await lintCorpus({ cwd: root, dir: 'docs/adr' });
+    const markerScans = await readSourceMarkersBatch([file], root);
+    const outcome = checkChanges({
+      lint,
+      changedFiles: [file],
+      dir: 'docs/adr',
+      markerScans,
     });
 
     const body = renderComment(outcome);
 
-    expect(body).not.toContain('dangling-marker');
-    expect(body).not.toContain('Source marker does not resolve');
+    expect(outcome.markerScan?.counts).toEqual({
+      scanned: 1,
+      absent: 0,
+      unreadable: 0,
+      'out-of-tree': 0,
+      truncated: 0,
+      skipped: 0,
+    });
+    expect(body).toContain('#### Unresolved inbound markers');
+    expect(body).toContain('`src/dangling.ts`');
+    expect(body).toContain('`dangling-marker`');
+    expect(body).toContain('@adr 9999');
+    expect(body).not.toContain('Inbound marker scan incomplete');
+  });
+
+  test('reports could-not-look scan health separately from unresolved markers (#112)', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['src/absent.ts', 'src/unreadable.ts', '../outside.ts']);
+    outcome.markerScan = {
+      totalCandidates: 5,
+      limit: 4,
+      counts: {
+        scanned: 1,
+        absent: 1,
+        unreadable: 1,
+        'out-of-tree': 1,
+        truncated: 0,
+        skipped: 1,
+      },
+      absentPaths: ['src/absent.ts'],
+      unreadablePaths: ['src/unreadable.ts'],
+      outOfTreePaths: ['../outside.ts'],
+      truncatedPaths: [],
+      skippedPaths: ['src/skipped.ts'],
+    };
+
+    const body = renderComment(outcome);
+
+    expect(body).toContain('#### Inbound marker scan incomplete');
+    expect(body).toContain(
+      'Could not inspect 4 changed files for inbound `@adr` markers: 1 absent, 1 unreadable, 1 outside the worktree, 1 skipped by the 4-file scan cap.',
+    );
+    expect(body).toContain('Marker-derived governance may be incomplete.');
+    expect(body).not.toContain('#### Unresolved inbound markers');
+  });
+
+  test('does not call a deliberately bounded header read incomplete', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['src/large.ts']);
+    outcome.markerScan = {
+      totalCandidates: 1,
+      limit: 3000,
+      counts: {
+        scanned: 1,
+        absent: 0,
+        unreadable: 0,
+        'out-of-tree': 0,
+        truncated: 1,
+        skipped: 0,
+      },
+      absentPaths: [],
+      unreadablePaths: [],
+      outOfTreePaths: [],
+      truncatedPaths: ['src/large.ts'],
+      skippedPaths: [],
+    };
+
+    expect(renderComment(outcome)).not.toContain('Inbound marker scan incomplete');
   });
 });
 
@@ -233,6 +300,38 @@ describe('renderComment status awareness (#39)', () => {
       expect(body).toContain('frontmatter-parse');
     });
 
+    test('bounded marker findings cannot crowd out changed-record validation errors', async () => {
+      const root = await seed();
+      const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+      outcome.changedRecords = ['docs/adr/9999-broken.md'];
+      outcome.findings = [
+        {
+          rule: 'frontmatter-parse',
+          severity: 'error',
+          message: 'Unterminated frontmatter',
+          path: 'docs/adr/9999-broken.md',
+        },
+        ...Array.from({ length: 1000 }, (_, index) => ({
+          rule: 'dangling-marker',
+          severity: 'warn' as const,
+          message: `Source marker "@adr ${String(index).padStart(4, '0')}" in src/${'x'.repeat(100)}/${index}.ts:1 does not resolve to a record in the corpus`,
+          path: `src/${'x'.repeat(100)}/${index}.ts`,
+          field: 'marker',
+          pattern: String(index).padStart(4, '0'),
+        })),
+      ];
+      outcome.ok = false;
+
+      const body = renderComment(outcome);
+
+      expect(body.length).toBeLessThanOrEqual(65536);
+      expect(body).toContain('Validation errors on changed records');
+      expect(body).toContain('docs/adr/9999-broken.md');
+      expect(body).toContain('frontmatter-parse');
+      expect(body.match(/ — `dangling-marker`:/g)).toHaveLength(10);
+      expect(body).toContain('…and 990 more unresolved marker findings');
+    });
+
     test('an oversized finding message cannot crowd out its blocking path and rule', async () => {
       const root = await seed();
       const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
@@ -348,6 +447,30 @@ describe('renderComment status awareness (#39)', () => {
       ];
 
       expect(renderComment(outcome)).toContain('- ``docs/adr/0001-`bad`.md``');
+    });
+
+    test('marker paths and messages cannot escape their code spans', async () => {
+      const root = await seed();
+      const outcome = await outcomeFor(root, ['src/a.ts']);
+      const hostile = 'src/x`[Approved](https://evil.example)`y\n.ts';
+      outcome.findings = [
+        {
+          rule: 'dangling-marker',
+          severity: 'warn',
+          message: `Source marker "@adr 9999" in ${hostile}:1 does not resolve`,
+          path: hostile,
+          field: 'marker',
+          pattern: '9999',
+        },
+      ];
+
+      const body = renderComment(outcome);
+
+      expect(body).toContain('``src/x`[Approved](https://evil.example)`y\\x0a.ts``');
+      expect(body).toContain(
+        '``Source marker "@adr 9999" in src/x`[Approved](https://evil.example)`y\\x0a.ts:1 does not resolve``',
+      );
+      expect(body).not.toContain('\ny\n.ts');
     });
   });
 

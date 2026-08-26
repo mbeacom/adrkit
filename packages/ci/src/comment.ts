@@ -23,6 +23,8 @@ const PROPOSALS_HEADING = '#### Active proposals touching this change';
 const PROPOSALS_NOTE = 'These are not yet ratified and do not bind this change:';
 const HISTORY_HEADING = '#### Historical records that once covered this change';
 const HISTORY_NOTE = 'These no longer bind this change, and are listed for context only:';
+const MARKER_SCAN_HEADING = '#### Inbound marker scan incomplete';
+const UNRESOLVED_MARKERS_HEADING = '#### Unresolved inbound markers';
 
 // Display cap for a pathological governing list. The underlying set is never
 // trimmed semantically (R6) — this only shortens what is rendered.
@@ -33,6 +35,11 @@ const MAX_GOVERNING = 50;
 // window holds ~630 `// @adr 0021` lines, and the path in each is the author's too.
 // Bounding what is rendered is what keeps that content out of the body budget below.
 const MAX_DECLARATIONS = 10;
+
+// Marker findings are authored by the pull request and can outnumber the useful
+// governance detail. Show enough examples to make the problem actionable, then
+// collapse the rest into one deterministic count.
+const MAX_MARKER_FINDINGS = 10;
 
 /**
  * GitHub rejects a comment body over 65,536 characters with a 422. That is not a
@@ -48,12 +55,20 @@ const TRUNCATION_NOTICE =
 // detail must not make that whole line too large for the body limiter to retain.
 const MAX_FINDING_FIELD_CHARS = 256;
 const MAX_FINDING_MESSAGE_CHARS = 1024;
+const MAX_MARKER_MESSAGE_CHARS = 512;
 
 function changedRecordFindings(outcome: CheckOutcome): Finding[] {
   const changed = new Set(outcome.changedRecords);
   return outcome.findings.filter(
     (finding) =>
       finding.field !== 'marker' && finding.path !== undefined && changed.has(finding.path),
+  );
+}
+
+function unresolvedMarkerFindings(outcome: CheckOutcome): Finding[] {
+  return outcome.findings.filter(
+    (finding) =>
+      finding.rule === 'dangling-marker' || finding.rule === 'marker-unresolvable',
   );
 }
 
@@ -95,6 +110,79 @@ function renderFindingLine(finding: Finding): string {
     : '';
   const message = boundedDetail(finding.message, MAX_FINDING_MESSAGE_CHARS, 'message');
   return `- ${where} — ${code(finding.rule)}${field}: ${message}`;
+}
+
+function renderMarkerFindingLine(finding: Finding): string {
+  const where = finding.path ? code(finding.path) : '(unknown path)';
+  const message = boundedDetail(
+    finding.message,
+    MAX_MARKER_MESSAGE_CHARS,
+    'message',
+  );
+  return `- ${where} — ${code(finding.rule)}: ${code(message)}`;
+}
+
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function renderMarkerScanHealth(outcome: CheckOutcome): string[] {
+  const report = outcome.markerScan;
+  if (!report) return [];
+
+  const unavailable =
+    report.counts.absent +
+    report.counts.unreadable +
+    report.counts['out-of-tree'] +
+    report.counts.skipped;
+  if (unavailable === 0) return [];
+
+  const reasons: string[] = [];
+  if (report.counts.absent > 0) {
+    reasons.push(countLabel(report.counts.absent, 'absent', 'absent'));
+  }
+  if (report.counts.unreadable > 0) {
+    reasons.push(countLabel(report.counts.unreadable, 'unreadable', 'unreadable'));
+  }
+  if (report.counts['out-of-tree'] > 0) {
+    reasons.push(
+      countLabel(
+        report.counts['out-of-tree'],
+        'outside the worktree',
+        'outside the worktree',
+      ),
+    );
+  }
+  if (report.counts.skipped > 0) {
+    reasons.push(
+      `${countLabel(report.counts.skipped, 'skipped', 'skipped')} by the ${report.limit}-file scan cap`,
+    );
+  }
+
+  return [
+    MARKER_SCAN_HEADING,
+    '',
+    `Could not inspect ${countLabel(unavailable, 'changed file')} for inbound \`@adr\` markers: ${reasons.join(', ')}.`,
+    'Marker-derived governance may be incomplete.',
+  ];
+}
+
+function renderUnresolvedMarkers(findings: readonly Finding[]): string[] {
+  if (findings.length === 0) return [];
+
+  const lines = [
+    UNRESOLVED_MARKERS_HEADING,
+    '',
+    `${countLabel(findings.length, 'marker claim')} could not be resolved against this decision log:`,
+    ...findings.slice(0, MAX_MARKER_FINDINGS).map(renderMarkerFindingLine),
+  ];
+  const remaining = findings.length - Math.min(findings.length, MAX_MARKER_FINDINGS);
+  if (remaining > 0) {
+    lines.push(
+      `- …and ${countLabel(remaining, 'more unresolved marker finding')}; run \`adr check\` locally for the complete result.`,
+    );
+  }
+  return lines;
 }
 
 /**
@@ -169,6 +257,8 @@ export function renderComment(outcome: CheckOutcome): string {
   const findings = changedRecordFindings(outcome);
   const errors = findings.filter((finding) => finding.severity === 'error');
   const warnings = findings.filter((finding) => finding.severity === 'warn');
+  const markerScanHealth = renderMarkerScanHealth(outcome);
+  const markerFindings = renderUnresolvedMarkers(unresolvedMarkerFindings(outcome));
 
   // Validation is the blocking result of this Action, so keep it ahead of the
   // potentially large governance detail. If the body must be truncated, a reviewer
@@ -178,6 +268,15 @@ export function renderComment(outcome: CheckOutcome): string {
     lines.push('These changed records fail validation and must be fixed:');
     for (const finding of errors) lines.push(renderFindingLine(finding));
     lines.push('');
+  }
+
+  // These advisory sections are bounded and follow blocking validation so
+  // pull-request-authored marker content cannot displace changed-record errors.
+  if (markerScanHealth.length > 0) {
+    lines.push(...markerScanHealth, '');
+  }
+  if (markerFindings.length > 0) {
+    lines.push(...markerFindings, '');
   }
 
   if (outcome.governedBy.length === 0) {
