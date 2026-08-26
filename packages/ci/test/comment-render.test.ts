@@ -79,6 +79,27 @@ describe('renderComment', () => {
     expect(body).not.toContain('**0002**');
   });
 
+  test('separates marker scan health from the empty governing state', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['src/a.ts']);
+    outcome.markerScan = {
+      totalCandidates: 1,
+      limit: 3000,
+      counts: { scanned: 0, absent: 1, unreadable: 0, 'out-of-tree': 0, truncated: 0, skipped: 0 },
+      absentPaths: ['src/a.ts'],
+      unreadablePaths: [],
+      outOfTreePaths: [],
+      truncatedPaths: [],
+      skippedPaths: [],
+    };
+
+    const body = renderComment(outcome);
+
+    expect(body).toContain(
+      'no marker is present.\n\nNo governing decisions for the changed files.',
+    );
+  });
+
   test('reports a dangling marker after a healthy scan without making it blocking', async () => {
     const root = await seed();
     const outcome = await outcomeFor(root, ['src/owned.ts']);
@@ -193,7 +214,26 @@ describe('renderComment status awareness (#39)', () => {
 
   test('only accepted records appear under the governing heading', async () => {
     const root = await seedMixed();
-    const body = renderComment(await outcomeFor(root, ['src/api/thing.ts']));
+    const outcome = await outcomeFor(root, ['src/api/thing.ts']);
+    outcome.markerScan = {
+      totalCandidates: 1,
+      limit: 3000,
+      counts: { scanned: 1, absent: 0, unreadable: 0, 'out-of-tree': 0, truncated: 0, skipped: 0 },
+      absentPaths: [],
+      unreadablePaths: [],
+      outOfTreePaths: [],
+      truncatedPaths: [],
+      skippedPaths: [],
+    };
+    outcome.findings.push({
+      rule: 'dangling-marker',
+      severity: 'warn',
+      message: 'Source marker "@adr 9999" in src/api/thing.ts:1 does not resolve',
+      path: 'src/api/thing.ts',
+      field: 'marker',
+      pattern: '9999',
+    });
+    const body = renderComment(outcome);
 
     const governingSection = body.slice(
       body.indexOf('### Decisions governing this change'),
@@ -202,6 +242,9 @@ describe('renderComment status awareness (#39)', () => {
     expect(governingSection).toContain('**0001** — Accepted record');
     expect(governingSection).not.toContain('0002');
     expect(governingSection).not.toContain('0003');
+    expect(body).toContain(
+      '- `src/api/thing.ts` — `Source marker "@adr 9999" in src/api/thing.ts:1 does not resolve`\n\n- **0001** — Accepted record',
+    );
   });
 
   test('proposals and history are labelled with their status under their own headings', async () => {

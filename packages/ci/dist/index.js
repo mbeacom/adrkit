@@ -48756,8 +48756,12 @@ function renderComment(outcome) {
     lines.push("");
   }
   if (outcome.markerScan) {
-    lines.push(...markerScanHealthLines(outcome.markerScan));
-    lines.push(...markerClaimLines(outcome));
+    const markerAdvisories = [
+      ...markerScanHealthLines(outcome.markerScan),
+      ...markerClaimLines(outcome)
+    ];
+    if (markerAdvisories.length > 0)
+      lines.push(...markerAdvisories, "");
   }
   if (outcome.governedBy.length === 0) {
     lines.push(EMPTY_STATE);
