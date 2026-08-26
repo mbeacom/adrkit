@@ -12,6 +12,17 @@ const RELEASE_WORKFLOW = readFileSync(
   'utf8',
 );
 const UPDATE_SCRIPT = readFileSync(join(ROOT, 'scripts', 'update-action-tag.ts'), 'utf8');
+const RELEASING_DOCS = readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8');
+
+function manualFallbackBlock(): string {
+  const sectionStart = RELEASING_DOCS.indexOf('### Manual fallback when GitHub Actions is unavailable');
+  const fenceStart = RELEASING_DOCS.indexOf('```sh', sectionStart);
+  const fenceEnd = RELEASING_DOCS.indexOf('```', fenceStart + 5);
+  expect(sectionStart).toBeGreaterThan(-1);
+  expect(fenceStart).toBeGreaterThan(sectionStart);
+  expect(fenceEnd).toBeGreaterThan(fenceStart);
+  return RELEASING_DOCS.slice(fenceStart + '```sh\n'.length, fenceEnd);
+}
 
 describe('major Action tag recovery contract', () => {
   test('serializes recovery with normal release promotion', () => {
@@ -64,10 +75,12 @@ describe('major Action tag recovery contract', () => {
     expect(UPDATE_SCRIPT).toContain('--expected-remote-ref-sha');
     expect(RECOVERY_WORKFLOW).toContain('moving_ref_sha');
     expect(RECOVERY_WORKFLOW).toContain('git -c tag.gpgSign=false tag "$marker"');
-    expect(readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8')).toContain(
-      'git -c tag.gpgSign=false tag "$marker" "$moving_commit_sha"',
+    const fallback = manualFallbackBlock();
+    expect(fallback).toMatch(/^set -euo pipefail\n/);
+    expect(fallback).toContain('git -c tag.gpgSign=false tag "$marker" "$moving_commit_sha"');
+    expect(fallback.indexOf('git -c tag.gpgSign=false tag "$marker"')).toBeLessThan(
+      fallback.indexOf('bun run release:action-tag -- --recover "$target"'),
     );
-    expect(readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8')).toContain('set -euo pipefail');
     expect(RELEASE_WORKFLOW).toContain('cat action-tag-update.log');
     expect(RELEASE_WORKFLOW).toContain('>> "$GITHUB_STEP_SUMMARY"');
   });
@@ -91,7 +104,7 @@ describe('major Action tag recovery contract', () => {
     );
     expect(successfulLockstepRuns).toHaveLength(0);
     expect(RECOVERY_WORKFLOW).toContain('.head_branch == $tag');
-    expect(readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8')).toContain(
+    expect(RELEASING_DOCS).toContain(
       '.head_branch == $tag and .conclusion == "success"',
     );
     expect(UPDATE_SCRIPT).toContain("rawRemoteRefSha === ''");

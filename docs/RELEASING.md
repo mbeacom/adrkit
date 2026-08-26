@@ -407,7 +407,6 @@ Choose the last verified lockstep release, then dispatch the recovery workflow
 from `main`:
 
 ```sh
-set -euo pipefail
 target=v0.10.0
 gh workflow run action-tag-recovery.yml --ref main -f tag="$target"
 gh run list --workflow action-tag-recovery.yml --limit 1
@@ -451,6 +450,7 @@ plain `git tag -f` / `git push --force` sequence: it omits the release guards an
 can overwrite a concurrent promotion.
 
 ```sh
+set -euo pipefail
 target=v0.10.0
 git fetch --no-tags origin main "refs/tags/$target:refs/tags/$target"
 test "$(git cat-file -t "refs/tags/$target")" = tag
