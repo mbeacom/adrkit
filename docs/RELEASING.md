@@ -385,6 +385,101 @@ merge and the tag the site is deployed claiming a release that does not exist ye
 The window is short and self-correcting; it is called out here so it is not
 mistaken for a mistake.
 
+## Recovering the moving major Action tag
+
+The repository-backed Actions are consumed through a moving lightweight tag,
+currently `mbeacom/adrkit/packages/ci@v0` and
+`mbeacom/adrkit/packages/ci/queue@v0`. A bad move has a broad but bounded blast
+radius: new jobs using `@v0` can resolve the bad release, but the Action cannot
+delete repository content or approve a change.
+
+Moving `v0` back **stops future jobs from resolving the bad release; it does not
+undo work a completed job already performed**. In particular, it does not restore
+an already-edited PR comment. Restore that content from GitHub's comment edit
+history, or rerun the known-good Action after recovery so it replaces its managed
+comment. Cancel still-running release or consumer jobs when immediate containment
+matters: a job that already resolved or checked out the old SHA can continue using
+it even after the tag moves.
+
+### Preferred guarded recovery
+
+Choose the last verified lockstep release, then dispatch the recovery workflow
+from `main`:
+
+```sh
+target=v0.10.0
+gh workflow run action-tag-recovery.yml --ref main -f tag="$target"
+gh run list --workflow action-tag-recovery.yml --limit 1
+```
+
+The workflow refuses a prerelease, draft, lightweight tag, tag whose commit is
+not on `main`, release without a successful `Release` run for the exact peeled
+commit, root-version mismatch, or tree without both committed Action bundles.
+Stable release tags are annotated objects, so the workflow resolves the commit
+with `git rev-parse "$target^{commit}"`; the annotated tag object's own SHA is
+not a runnable Action revision.
+
+Recovery uses only `actions: read` and `contents: write`, checks out with
+credentials disabled, and exposes the write credential only during the final
+push. It shares `release-${{ github.repository }}` concurrency with the normal
+release workflow, so rollback and forward promotion cannot overlap. The push is
+guarded by `--force-with-lease` against the exact remote tag object observed
+during validation. If another actor moves the tag despite serialization, recovery
+fails rather than overwriting that change.
+
+Both forward promotion and recovery record the prior release tag/commit and the
+new release tag/commit in the run summary. Verify the result independently:
+
+```sh
+target_commit=$(git rev-parse "$target^{commit}")
+test "$(git ls-remote --tags origin refs/tags/v0 | awk '{print $1}')" = "$target_commit"
+gh api repos/mbeacom/adrkit/git/ref/tags/v0 \
+  --jq '{type: .object.type, sha: .object.sha}'
+```
+
+The API should report a lightweight tag (`type: commit`) at `target_commit`.
+Consumers do not need to change their workflow files. New runs resolve the moved
+tag; rerun any job that had already resolved the bad SHA. Consumers needing an
+immediate immutable containment pin can temporarily use `@<target_commit>`.
+
+### Manual fallback when GitHub Actions is unavailable
+
+Use a clean checkout of current `main` and a credential limited to this
+repository with **Actions: read** and **Contents: write**. Do not hand-write a
+plain `git tag -f` / `git push --force` sequence: it omits the release guards and
+can overwrite a concurrent promotion.
+
+```sh
+target=v0.10.0
+git fetch --no-tags origin main "refs/tags/$target:refs/tags/$target"
+test "$(git cat-file -t "refs/tags/$target")" = tag
+target_commit=$(git rev-parse "$target^{commit}")
+git merge-base --is-ancestor "$target_commit" origin/main
+
+release=$(gh release view "$target" --json isDraft,isPrerelease)
+test "$(jq -r .isDraft <<<"$release")" = false
+test "$(jq -r .isPrerelease <<<"$release")" = false
+runs=$(gh run list --workflow release.yml --branch "$target" --event push \
+  --limit 20 --json conclusion,headSha)
+test "$(jq -r --arg sha "$target_commit" \
+  '[.[] | select(.headSha == $sha and .conclusion == "success")] | length' \
+  <<<"$runs")" -gt 0
+
+bun run release:action-tag -- --recover "$target"
+```
+
+The script independently requires an existing remote annotated release tag,
+requires the current moving tag to resolve to another immutable stable release,
+peels the target to a commit, and uses a remote-SHA lease. Normal
+`release:action-tag` calls remain monotonic; only the explicit `--recover` mode
+can move backward. A later successful higher release moves the major tag forward
+again through the normal release workflow.
+
+This recovery is intentionally separate from npm rollback. npm versions and
+immutable `vX.Y.Z` git tags never move; deprecate a bad npm version, optionally
+move npm's `latest` dist-tag for containment, and publish a higher hotfix as
+described in [Recovering a bad npm release](#recovering-a-bad-npm-release).
+
 ## OCI container image
 
 [ADR-0032](adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md)

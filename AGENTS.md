@@ -161,6 +161,22 @@ are reported as `corpus.file-skipped` corpus findings at **`warn`** severity, so
 `proposed` record never disappears from the queue silently. Being `warn`, they do
 not change the exit code and do not fail the managed-issue Action.
 
+## Moving Action tag recovery
+
+Normal lockstep releases move the lightweight major Action tag (`v0`) forward
+only after npm publication and GitHub release creation succeed.
+`.github/workflows/action-tag-recovery.yml` is the explicit backward path. Run it
+from `main` with an existing stable `vX.Y.Z` release tag. It requires an annotated
+tag that peels to a commit on `main`, an exact successful `Release` run, matching
+root version, and both committed Action bundles. It shares the release concurrency
+group, holds only `actions: read` and `contents: write`, and pushes with a lease
+against the observed remote tag object.
+
+Moving `v0` stops future jobs from resolving a bad release; it does not undo an
+already-edited PR comment or change a job that already resolved the old SHA.
+Restore comment content from GitHub's edit history or rerun the known-good Action.
+The full preferred and manual fallback runbook is in `docs/RELEASING.md`.
+
 ## The agent plugin (`packages/adapters/agent-plugin`)
 
 The `adrkit` plugin is the fourth distribution surface and the one that reaches

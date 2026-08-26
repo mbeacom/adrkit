@@ -177,4 +177,11 @@ jobs:
           }
           trap cleanup EXIT
           git config --local 'http.https://github.com/.extraheader' "$header"
-          bun run release:action-tag -- "$GITHUB_REF_NAME"
+          bun run release:action-tag -- "$GITHUB_REF_NAME" | tee action-tag-update.log
+          {
+            echo "### Moving major Action tag"
+            echo
+            echo '```text'
+            cat action-tag-update.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

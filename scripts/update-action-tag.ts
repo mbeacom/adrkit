@@ -8,6 +8,20 @@ export interface StableVersion {
   patch: number;
 }
 
+export interface ActionTagUpdate {
+  changed: boolean;
+  majorTag: string;
+  previousReleaseTag?: string;
+  previousSha?: string;
+  targetReleaseTag: string;
+  targetSha: string;
+}
+
+interface RemoteTag {
+  objectSha?: string;
+  peeledSha?: string;
+}
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
@@ -42,63 +56,119 @@ async function run(command: string[], repositoryRoot: string, allowEmpty = false
   return output;
 }
 
-export async function updateActionTag(
+function parseRemoteTags(output: string): Map<string, RemoteTag> {
+  const tags = new Map<string, RemoteTag>();
+  for (const line of output.split('\n').filter(Boolean)) {
+    const [sha, ref] = line.split(/\s+/);
+    if (!sha || !ref?.startsWith('refs/tags/')) continue;
+    const peeled = ref.endsWith('^{}');
+    const tag = ref.slice('refs/tags/'.length, peeled ? -3 : undefined);
+    const current = tags.get(tag) ?? {};
+    if (peeled) current.peeledSha = sha;
+    else current.objectSha = sha;
+    tags.set(tag, current);
+  }
+  return tags;
+}
+
+async function remoteTags(
+  remoteName: string,
+  patterns: string[],
+  repositoryRoot: string,
+): Promise<Map<string, RemoteTag>> {
+  const output = await run(
+    ['git', 'ls-remote', '--tags', remoteName, ...patterns],
+    repositoryRoot,
+    true,
+  );
+  return parseRemoteTags(output);
+}
+
+async function moveActionTag(
   releaseTag: string,
-  options: { repositoryRoot?: string; remote?: string } = {},
-): Promise<boolean> {
+  options: {
+    repositoryRoot?: string;
+    remote?: string;
+    recovery: boolean;
+  },
+): Promise<ActionTagUpdate> {
   const repositoryRoot = options.repositoryRoot ?? REPOSITORY_ROOT;
   const remoteName = options.remote ?? 'origin';
   const releaseVersion = parseStableVersionTag(releaseTag);
   const majorTag = `v${releaseVersion.major}`;
-  const remote = await run(
-    [
-      'git',
-      'ls-remote',
-      '--tags',
-      remoteName,
-      `refs/tags/${majorTag}`,
-      `refs/tags/${majorTag}^{}`,
-    ],
+  const targetRemote = (await remoteTags(
+    remoteName,
+    [`refs/tags/${releaseTag}`, `refs/tags/${releaseTag}^{}`],
     repositoryRoot,
-    true,
+  )).get(releaseTag);
+  assert(
+    targetRemote?.objectSha && targetRemote.peeledSha,
+    `Remote release ${releaseTag} must be an existing annotated tag`,
+  );
+  const localTagType = await run(
+    ['git', 'cat-file', '-t', `refs/tags/${releaseTag}`],
+    repositoryRoot,
+  );
+  assert(localTagType === 'tag', `Local release ${releaseTag} must be an annotated tag`);
+  const releaseSha = await run(
+    ['git', 'rev-parse', `${releaseTag}^{commit}`],
+    repositoryRoot,
+  );
+  assert(
+    targetRemote.peeledSha === releaseSha,
+    `Local ${releaseTag} resolves to ${releaseSha}, but ${remoteName} resolves to ${targetRemote.peeledSha}`,
   );
 
-  if (remote) {
-    const remoteLines = remote.split('\n').filter(Boolean);
-    const remoteLine = remoteLines.find((line) => line.endsWith(`refs/tags/${majorTag}^{}`))
-      ?? remoteLines.find((line) => line.endsWith(`refs/tags/${majorTag}`));
-    const remoteSha = remoteLine?.split(/\s+/)[0];
-    assert(remoteSha, `Could not parse remote ${majorTag} ref`);
-    const releaseTags = await run(
-      [
-        'git',
-        'for-each-ref',
-        '--format=%(refname:strip=2)%09%(objectname)%09%(*objectname)',
-        `refs/tags/${majorTag}.*.*`,
-      ],
+  const movingRemote = (await remoteTags(
+    remoteName,
+    [`refs/tags/${majorTag}`, `refs/tags/${majorTag}^{}`],
+    repositoryRoot,
+  )).get(majorTag);
+  const remoteRefSha = movingRemote?.objectSha;
+  const remoteSha = movingRemote?.peeledSha ?? movingRemote?.objectSha;
+  let current: { tag: string; sha: string; version: StableVersion } | undefined;
+
+  if (remoteSha) {
+    const releaseTags = await remoteTags(
+      remoteName,
+      [`refs/tags/${majorTag}.*.*`, `refs/tags/${majorTag}.*.*^{}`],
       repositoryRoot,
-      true,
     );
-    const currentVersions = releaseTags
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => {
-        const [tag, objectSha, peeledSha] = line.split('\t');
-        if (!tag || !objectSha || !/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag)) return undefined;
-        return { tag, sha: peeledSha || objectSha, version: parseStableVersionTag(tag) };
+    const currentVersions = [...releaseTags.entries()]
+      .map(([tag, remoteTag]) => {
+        if (!remoteTag.objectSha || !remoteTag.peeledSha) return undefined;
+        if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag)) return undefined;
+        return { tag, sha: remoteTag.peeledSha, version: parseStableVersionTag(tag) };
       })
       .filter((candidate) => candidate !== undefined)
       .filter(({ sha, version }) => sha === remoteSha && version.major === releaseVersion.major)
       .sort((left, right) => compareStableVersions(right.version, left.version));
-    const current = currentVersions[0];
+    current = currentVersions[0];
     assert(current, `Remote ${majorTag} does not point at an immutable ${majorTag}.x.y release tag`);
-    if (compareStableVersions(releaseVersion, current.version) <= 0) {
+    if (releaseSha === remoteSha) {
+      console.log(`release-action-tag: ${majorTag} remains at ${current.tag} (${remoteSha})`);
+      return {
+        changed: false,
+        majorTag,
+        previousReleaseTag: current.tag,
+        previousSha: remoteSha,
+        targetReleaseTag: releaseTag,
+        targetSha: releaseSha,
+      };
+    }
+    if (!options.recovery && compareStableVersions(releaseVersion, current.version) <= 0) {
       console.log(`release-action-tag: ${majorTag} remains at ${current.tag}; ${releaseTag} is not newer`);
-      return false;
+      return {
+        changed: false,
+        majorTag,
+        previousReleaseTag: current.tag,
+        previousSha: remoteSha,
+        targetReleaseTag: releaseTag,
+        targetSha: releaseSha,
+      };
     }
   }
 
-  const releaseSha = await run(['git', 'rev-list', '-n', '1', releaseTag], repositoryRoot);
   // `-c tag.gpgSign=false` rather than a bare `git tag`: the moving major tag is
   // a pointer, not a release artifact, and it is created unannotated so it peels
   // to the commit directly. A developer with `tag.gpgSign = true` in their global
@@ -109,16 +179,51 @@ export async function updateActionTag(
   // rather than misconfigured.
   await run(['git', '-c', 'tag.gpgSign=false', 'tag', '--force', majorTag, releaseSha], repositoryRoot, true);
   await run(
-    ['git', 'push', '--force', remoteName, `refs/tags/${majorTag}`],
+    [
+      'git',
+      'push',
+      `--force-with-lease=refs/tags/${majorTag}:${remoteRefSha ?? ''}`,
+      remoteName,
+      `refs/tags/${majorTag}`,
+    ],
     repositoryRoot,
     true,
   );
-  console.log(`release-action-tag: moved ${majorTag} to ${releaseTag} (${releaseSha})`);
-  return true;
+  const previous = current && remoteSha ? ` from ${current.tag} (${remoteSha})` : '';
+  const mode = options.recovery ? 'recovered' : 'moved';
+  console.log(`release-action-tag: ${mode} ${majorTag}${previous} to ${releaseTag} (${releaseSha})`);
+  return {
+    changed: true,
+    majorTag,
+    previousReleaseTag: current?.tag,
+    previousSha: remoteSha,
+    targetReleaseTag: releaseTag,
+    targetSha: releaseSha,
+  };
+}
+
+export async function updateActionTag(
+  releaseTag: string,
+  options: { repositoryRoot?: string; remote?: string } = {},
+): Promise<boolean> {
+  return (await moveActionTag(releaseTag, { ...options, recovery: false })).changed;
+}
+
+export async function recoverActionTag(
+  releaseTag: string,
+  options: { repositoryRoot?: string; remote?: string } = {},
+): Promise<boolean> {
+  return (await moveActionTag(releaseTag, { ...options, recovery: true })).changed;
 }
 
 if (import.meta.main) {
-  const [releaseTag, ...extra] = Bun.argv.slice(2);
-  assert(releaseTag && extra.length === 0, 'Usage: bun scripts/update-action-tag.ts vMAJOR.MINOR.PATCH');
-  await updateActionTag(releaseTag);
+  const args = Bun.argv.slice(2);
+  const recovery = args[0] === '--recover';
+  const [releaseTag, ...extra] = recovery ? args.slice(1) : args;
+  assert(
+    releaseTag && extra.length === 0,
+    'Usage: bun scripts/update-action-tag.ts [--recover] vMAJOR.MINOR.PATCH',
+  );
+  if (recovery) await recoverActionTag(releaseTag);
+  else await updateActionTag(releaseTag);
 }

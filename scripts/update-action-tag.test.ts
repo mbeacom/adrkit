@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { cleanupTestDir, resetTestDir, writeText } from '../packages/core/test/helpers.ts';
-import { compareStableVersions, parseStableVersionTag, updateActionTag } from './update-action-tag.ts';
+import {
+  compareStableVersions,
+  parseStableVersionTag,
+  recoverActionTag,
+  updateActionTag,
+} from './update-action-tag.ts';
 
 const DIR_NAME = 'update-action-tag';
 
@@ -50,7 +55,7 @@ describe('moving Action tag version guard', () => {
     expect(compareStableVersions(parseStableVersionTag('v0.1.0'), parseStableVersionTag('v0.1.0'))).toBe(0);
   });
 
-  test('never rolls a moving major tag backward and advances it for a newer release', async () => {
+  test('requires explicit recovery to move backward and advances normally afterward', async () => {
     const root = await resetTestDir(DIR_NAME);
     const remote = join(root, 'remote.git');
     const work = join(root, 'work');
@@ -77,6 +82,10 @@ describe('moving Action tag version guard', () => {
     const v02Sha = await git(work, 'rev-list', '-n', '1', 'v0.2.0');
     expect(await remoteTagCommit(work, 'v0')).toBe(v02Sha);
 
+    expect(await recoverActionTag('v0.1.0', { repositoryRoot: work })).toBe(true);
+    const v01Sha = await git(work, 'rev-list', '-n', '1', 'v0.1.0');
+    expect(await remoteTagCommit(work, 'v0')).toBe(v01Sha);
+
     await writeText(join(work, 'release.txt'), 'v0.3.0\n');
     await git(work, 'commit', '-am', 'v0.3.0');
     await git(work, 'tag', '-a', 'v0.3.0', '-m', 'v0.3.0');
@@ -85,6 +94,29 @@ describe('moving Action tag version guard', () => {
     expect(await updateActionTag('v0.3.0', { repositoryRoot: work })).toBe(true);
     const v03Sha = await git(work, 'rev-list', '-n', '1', 'v0.3.0');
     expect(await remoteTagCommit(work, 'v0')).toBe(v03Sha);
+  });
+
+  test('rejects a lightweight tag as a recovery target', async () => {
+    const root = await resetTestDir(`${DIR_NAME}-lightweight`);
+    const remote = join(root, 'remote.git');
+    const work = join(root, 'work');
+    await git(root, 'init', '--bare', '--initial-branch=main', remote);
+    await git(root, 'init', '--initial-branch=main', work);
+    await git(work, 'config', 'user.name', 'adrkit test');
+    await git(work, 'config', 'user.email', 'test@adrkit.dev');
+    await git(work, 'config', 'commit.gpgSign', 'false');
+    await git(work, 'config', 'tag.gpgSign', 'false');
+    await git(work, 'remote', 'add', 'origin', remote);
+
+    await writeText(join(work, 'release.txt'), 'v0.1.0\n');
+    await git(work, 'add', 'release.txt');
+    await git(work, 'commit', '-m', 'v0.1.0');
+    await git(work, 'tag', 'v0.1.0');
+    await git(work, 'push', 'origin', 'refs/tags/v0.1.0');
+
+    await expect(recoverActionTag('v0.1.0', { repositoryRoot: work })).rejects.toThrow(
+      'must be an existing annotated tag',
+    );
   });
 
   /**
