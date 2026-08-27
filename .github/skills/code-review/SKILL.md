@@ -30,8 +30,8 @@ Use the repository-configured `adrkit` MCP server when it is available:
 
 1. Call `get_decision_context(files: [...])` with all changed paths. Batch calls
    only when the tool's input limit requires it.
-2. Read the returned governing decisions, active proposals, history, marker
-   declarations, and corpus findings.
+2. Read the returned governing decisions, active proposals, history, and corpus
+   findings.
 3. Call `get_decision` when the complete record is needed to verify a
    requirement or consequence.
 4. Call `search_decisions` for relevant concepts or alternatives that the
@@ -41,9 +41,22 @@ Use the repository-configured `adrkit` MCP server when it is available:
 5. Use `list_superseded` only for records whose status is `superseded`; it does
    not return rejected records.
 
+For every paginated MCP response, walk both channels independently. Follow the
+primary `result.cursor` with the `cursor` input until it is `null`, and follow
+`result.findings.cursor` with the `findingsCursor` input until it is `null`.
+Preserve the original non-cursor arguments across pages, then aggregate and
+deduplicate the complete results before drawing conclusions. Never treat the
+default first page as a complete corpus result.
+
 Treat accepted decisions as binding. Treat proposed decisions as non-binding
 context and rejected or superseded decisions as history. A changed path with no
 governing decision is not itself a finding.
+
+`get_decision_context` compares logical paths with `affects` matchers; it never
+opens the changed files and therefore cannot discover inbound `@adr` markers.
+Do not claim that no decision governs a path solely from this MCP result.
+Disclose marker-only governance as unverified unless a trusted, marker-aware
+boundary also checked the files.
 
 If the MCP server is unavailable, do not hand-parse ADR frontmatter as a
 substitute. Hand parsing cannot reliably expand `affects` matchers, account for
