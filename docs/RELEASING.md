@@ -48,14 +48,14 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
   1.3.14 does not implement npm's OIDC exchange.
 - A rerun skips an already-published package only when its registry integrity
   exactly matches the local tarball.
-- The GitHub release and moving major Action tag are created only after every
-  npm package succeeds.
-- A lockstep release cannot publish or move the major Action tag unless its tree
-  contains the root Marketplace entry point.
-- The multi-architecture OCI image publishes only after the successful
-  lockstep `Release` workflow completes. It carries the same version, an
-  immutable `vX.Y.Z` tag, moving `vX` and `latest` tags, and a registry
-  provenance attestation. Adapter releases do not publish it.
+- A lockstep GitHub release draft is created only after every npm package
+  succeeds. Adapter releases remain immediately published.
+- A lockstep release cannot be published to Marketplace unless its tree contains
+  the root entry point.
+- Publishing the stable lockstep draft triggers a finalization job that moves the
+  major Action tag, then a separate job publishes the multi-architecture OCI
+  image with immutable `vX.Y.Z`, moving `vX` and `latest` tags, and a registry
+  provenance attestation. Adapter releases do not enter this path.
 
 ## SemVer and export-surface policy
 
@@ -165,9 +165,9 @@ everything that matters.
 | Tag | `v0.3.0` | `spec-kit-v0.1.0` |
 | Packages | core, evaluator, CLI, MCP (+ any adapter riding along) | exactly one adapter |
 | Installed-tarball smoke | runs | skipped — the smoke project imports the lockstep surface, and an adapter that ships no JavaScript has nothing for it to import |
-| `packages/ci/queue@v0` Action tag | updated | untouched |
-| `ghcr.io/mbeacom/adrkit` | published after Release succeeds | untouched |
-| GitHub release | created | created |
+| `packages/ci/queue@v0` Action tag | updated after the draft is published | untouched |
+| `ghcr.io/mbeacom/adrkit` | published after the draft is published | untouched |
+| GitHub release | draft after npm; published manually with Marketplace | published immediately |
 
 The tag form is `<slug>-v<semver>`, where the slug is the package name after the
 scope. `@adrkit/spec-kit` → `spec-kit-v0.1.0`. The workflow derives the release
@@ -376,29 +376,35 @@ bootstrap described below.
 5. Merge the version change only after CI passes.
 6. Create and push the matching annotated tag, such as `v0.3.0`.
 7. Approve the protected `npm` environment deployment.
-8. Confirm the workflow published all packages, created the immutable GitHub
-   release, moved the Action's `v0` tag, and triggered the `Publish container`
-   workflow.
-9. Edit the lockstep GitHub release, select **Publish this Action to the GitHub
-   Marketplace**, choose **Code review** as the primary category and **Code
-   quality** as the secondary category, then update the release with 2FA. Do not
-   perform this step for an adapter-only release. Confirm the Marketplace install
-   snippet uses the repository root and the immutable release tag. Add
-   `Marketplace: published and verified — <listing URL>; immutable Action ref:
-   mbeacom/adrkit@<tag>` to the GitHub release notes as the durable completion
-   record. The release is not distribution-complete until that note and the live
-   listing agree.
-10. Confirm `ghcr.io/mbeacom/adrkit:v<version>` and the moving `v0`/`latest`
-   tags resolve to the attested multi-architecture image. If the downstream
-   workflow failed, manually dispatch `container-release.yml` with the existing
-   successful release tag.
-11. Re-publish the MCP registry entry — `cd packages/mcp && mcp-publisher publish`
+8. Confirm the workflow published all packages and created a **draft** lockstep
+   GitHub release. It must not move the Action's `v0` tag or start `Publish
+   container` yet.
+9. Open that draft, select **Publish this Action to the GitHub Marketplace**,
+   choose **Code review** as the primary category and **Code quality** as the
+   secondary category, then publish the release with 2FA. Do not perform this
+   step for an adapter-only release.
+10. Confirm the `Publish container` workflow finalized the moving Action tag and
+    published the attested multi-architecture image. Verify the Marketplace
+    install snippet uses the repository root and immutable release tag, then make
+    an ordinary release-notes edit adding `Marketplace: published and verified —
+    <listing URL>; immutable Action ref: mbeacom/adrkit@<tag>` as the durable
+    completion record. This edit records completion; Marketplace enrollment
+    itself happened while publishing the draft. If the downstream workflow
+    failed, manually dispatch `container-release.yml` from `main` with the
+    existing successful public release tag:
+
+    ```sh
+    gh workflow run container-release.yml --ref main -f tag=vX.Y.Z
+    ```
+11. Confirm `ghcr.io/mbeacom/adrkit:v<version>` and the moving `v0`/`latest`
+    tags resolve to the attested multi-architecture image.
+12. Re-publish the MCP registry entry — `cd packages/mcp && mcp-publisher publish`
    (`docs/DISTRIBUTION.md` §A). **No workflow does this**, so `dev.adrkit/mcp` stays
    at the previous version until a human runs it, and `docs/DISTRIBUTION.md` should
    not claim the new version before then.
 
-Never move an immutable `vX.Y.Z` tag. The release workflow may force-update only
-the moving major Action tag (`v0`, later `v1`, and so on).
+Never move an immutable `vX.Y.Z` tag. The release-finalization workflow may
+force-update only the moving major Action tag (`v0`, later `v1`, and so on).
 
 Note that steps 1–4 land on `main` before step 6 creates the tag, so between the
 merge and the tag the site is deployed claiming a release that does not exist yet.
@@ -556,11 +562,13 @@ described in [Recovering a bad npm release](#recovering-a-bad-npm-release).
 
 [ADR-0032](adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md)
 defines one image, `ghcr.io/mbeacom/adrkit`, as part of the lockstep release.
-`.github/workflows/container-release.yml` listens for successful completion of
-the `Release` workflow rather than the tag directly. That ordering is
-load-bearing: npm packages and the GitHub release exist before a container tag
-can claim the same version. The independently versioned Spec Kit tag never
-matches the container job.
+`.github/workflows/container-release.yml` listens for publication of a stable
+GitHub release rather than the tag or Release-workflow completion directly. Its
+finalization job verifies the exact tag/SHA has a successful `Release` run,
+moves the major Action tag, and only then allows the lower-privilege container
+job to publish. That ordering is load-bearing: npm packages and the public
+GitHub release exist before an Action or container tag can claim the same
+version. The independently versioned Spec Kit release does not enter this path.
 
 The workflow publishes:
 
@@ -595,12 +603,19 @@ isolation is asserted in CI.
 
 ### Failure and recovery
 
-Container publication runs after npm and the GitHub release, so its failure
-cannot roll those artifacts back. Diagnose the named QEMU, Buildx, login,
-build, attestation, or promotion step, then manually dispatch the workflow with
-the same immutable release tag. The workflow verifies that the GitHub release
-is stable, the exact tag/SHA has a successful `Release` workflow run, the tag
-commit is on `main`, and the root version matches before it can push.
+Container publication runs after npm and the public GitHub release, so its
+failure cannot roll those artifacts back. Diagnose whether the finalization,
+QEMU, Buildx, login, build, attestation, or promotion job failed, then manually
+dispatch the workflow from `main` with the same immutable release tag:
+
+```sh
+gh workflow run container-release.yml --ref main -f tag=vX.Y.Z
+```
+
+The workflow fails dispatches from another ref before any write-capable job can
+start. It verifies that the GitHub release is stable, the exact tag/SHA has a
+successful `Release` workflow run, the tag commit is on `main`, and the root
+version matches before it can move the Action tag or push the image.
 
 Buildx first pushes an untagged, content-addressed digest. The workflow attests
 that digest and only then promotes it to `vX.Y.Z`, `vX`, and `latest`. An

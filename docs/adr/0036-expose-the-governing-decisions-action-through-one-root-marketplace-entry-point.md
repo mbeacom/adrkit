@@ -9,7 +9,7 @@ tags: [ci, distribution, github-actions, marketplace]
 scope: component
 reversibility: two-way-door
 blastRadius: cross-team
-relatesTo: ["0007", "0014", "0016", "0035"]
+relatesTo: ["0007", "0014", "0016", "0032", "0035"]
 affects:
   - type: path
     pattern: "action.yml"
@@ -21,6 +21,8 @@ affects:
     pattern: ".github/workflows/release.yml"
   - type: path
     pattern: ".github/workflows/action-tag-recovery.yml"
+  - type: path
+    pattern: ".github/workflows/container-release.yml"
   - type: path
     pattern: "scripts/marketplace-action-contract.test.ts"
   - type: path
@@ -39,6 +41,15 @@ assertions:
     description: >-
       Moving-major-tag recovery keeps releases from before the root Marketplace
       entry point eligible for established nested Action consumers.
+    engine: custom
+    expression: action-tag-recovery-contract
+    input: source
+    severity: error
+  - id: marketplace-publication-order
+    description: >-
+      Lockstep publication leaves a draft GitHub release after npm succeeds;
+      publishing that draft with the Marketplace selection finalizes the moving
+      Action tag and container release.
     engine: custom
     expression: action-tag-recovery-contract
     input: source
@@ -84,17 +95,30 @@ The established `mbeacom/adrkit/packages/ci@<ref>` reference remains supported.
 The queue Action remains nested and unlisted.
 
 The first Marketplace release must contain the root entry point before
-publication. The release workflow enforces that forward boundary. Moving-major
-tag recovery will continue to accept older releases that carry both nested
-Actions, because those established `@v0` consumers need a known-good rollback
-target if the first compatible release is bad.
+publication. After npm publication succeeds, the Release workflow will create a
+draft GitHub release for a lockstep tag. A human publishes that draft with the
+Marketplace selection and categories. The resulting `release: published` event
+will run the container-release workflow, whose narrow finalization job validates
+the successful Release run and withdrawal marker before moving the major Action
+tag. Its separate container job retains only read access to repository contents.
+Adapter releases remain immediately published and do not enter this
+finalization path.
+
+This ordering amends ADR-0032 clause 2: public stable release publication, not
+Release-workflow completion alone, now triggers the container and moving Action
+tag finalization. npm still has to succeed first.
+
+Moving-major-tag recovery will continue to accept older releases that carry
+both nested Actions, because those established `@v0` consumers need a known-good
+rollback target if the first compatible release is bad.
 
 Marketplace documentation will use immutable root release tags and will not
 advertise `mbeacom/adrkit@v0`. Withdrawing a bad Marketplace release and
 publishing a higher hotfix are separate from moving-tag recovery.
 
 Marketplace publication remains a deliberate release step after the automated
-lockstep release succeeds. Adapter-only releases do not publish the Action.
+lockstep release succeeds and before the lockstep release is considered public
+and distribution-complete. Adapter-only releases do not publish the Action.
 
 ## Options considered
 
@@ -117,9 +141,10 @@ adrkit's documentation and direct links.
 
 ## Trade-offs
 
-The chosen option duplicates Action metadata at two paths and adds a manual
-Marketplace release step. The parity test limits drift, but GitHub still presents
-only one of the two Actions in Marketplace.
+The chosen option duplicates Action metadata at two paths and makes public
+lockstep release completion wait on a manual Marketplace step. The parity test
+limits drift, but GitHub still presents only one of the two Actions in
+Marketplace.
 
 The root and nested forms therefore have different containment paths. Moving
 `v0` can restore established nested consumers to a pre-alias release, while an
@@ -133,7 +158,7 @@ higher release. The root moving-tag form is intentionally unsupported.
 - Easier: existing consumers, bundles, permissions, and runtime behavior remain
   unchanged.
 - Harder: every lockstep release must update the Marketplace listing after the
-  automated release succeeds.
+  automated npm release succeeds; an unattended release remains a draft.
 - Harder: Marketplace incidents require listing withdrawal, consumer
   notification, and a higher hotfix; moving `v0` is not sufficient.
 - **How we would know this was wrong:** the listing produces no independent
@@ -148,5 +173,7 @@ higher release. The root moving-tag form is intentionally unsupported.
 2. [x] Protect the root entry point as a gate-defining surface.
 3. [x] Require the root entry point during forward release while preserving
    pre-Marketplace recovery for nested consumers.
-4. [ ] Publish the first compatible lockstep release to GitHub Marketplace.
-5. [ ] Review independent usage and support cost after 90 days.
+4. [x] Finalize the moving Action tag and container only after the Marketplace
+   draft is published.
+5. [ ] Publish the first compatible lockstep release to GitHub Marketplace.
+6. [ ] Review independent usage and support cost after 90 days.

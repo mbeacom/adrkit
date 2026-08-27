@@ -18,7 +18,10 @@ Until `1.0.0`, minor releases may include breaking changes
   trees without the root entry point, and recovery keeps pre-Marketplace releases
   eligible for existing nested consumers. The queue Action remains nested rather
   than creating a second distribution repository; immutable Marketplace failures
-  use an explicit unpublish-and-hotfix runbook
+  use an explicit unpublish-and-hotfix runbook. Lockstep npm publication now
+  leaves a draft GitHub release so Marketplace selection happens on the supported
+  publication path; publishing that draft finalizes the moving Action tag and
+  container
   ([ADR-0036](docs/adr/0036-expose-the-governing-decisions-action-through-one-root-marketplace-entry-point.md)).
 
 ### Fixed

@@ -11,6 +11,10 @@ const RELEASE_WORKFLOW = readFileSync(
   join(ROOT, '.github', 'workflows', 'release.yml'),
   'utf8',
 );
+const CONTAINER_WORKFLOW = readFileSync(
+  join(ROOT, '.github', 'workflows', 'container-release.yml'),
+  'utf8',
+);
 const UPDATE_SCRIPT = readFileSync(join(ROOT, 'scripts', 'update-action-tag.ts'), 'utf8');
 const RELEASING_DOCS = readFileSync(join(ROOT, 'docs', 'RELEASING.md'), 'utf8');
 
@@ -39,7 +43,9 @@ describe('major Action tag recovery contract', () => {
     const concurrency = 'group: release-${{ github.repository }}';
     expect(RELEASE_WORKFLOW).toContain(concurrency);
     expect(RECOVERY_WORKFLOW).toContain(concurrency);
+    expect(CONTAINER_WORKFLOW).toContain(concurrency);
     expect(RECOVERY_WORKFLOW).toContain('cancel-in-progress: false');
+    expect(CONTAINER_WORKFLOW).toContain('cancel-in-progress: false');
   });
 
   test('runs only from main with the minimum repository permissions', () => {
@@ -81,6 +87,9 @@ describe('major Action tag recovery contract', () => {
     expect(RELEASE_WORKFLOW).toContain('marker_status=$?');
     expect(RELEASE_WORKFLOW).toContain('2) ;;');
     expect(RELEASE_WORKFLOW).toContain('Unable to check withdrawal marker');
+    expect(CONTAINER_WORKFLOW).toContain('Refuse a withdrawn lockstep release');
+    expect(CONTAINER_WORKFLOW).toContain('marker_status=$?');
+    expect(CONTAINER_WORKFLOW).toContain('2) ;;');
     expect(RECOVERY_WORKFLOW).toContain('head_sha=$revision');
     expect(UPDATE_SCRIPT).toContain('--expected-remote-ref-sha');
     expect(RECOVERY_WORKFLOW).toContain('moving_ref_sha');
@@ -98,8 +107,41 @@ describe('major Action tag recovery contract', () => {
           'git push origin "refs/tags/$marker:refs/tags/$marker"',
       ),
     )).toThrow();
-    expect(RELEASE_WORKFLOW).toContain('cat action-tag-update.log');
-    expect(RELEASE_WORKFLOW).toContain('>> "$GITHUB_STEP_SUMMARY"');
+    expect(CONTAINER_WORKFLOW).toContain('cat action-tag-update.log');
+    expect(CONTAINER_WORKFLOW).toContain('>> "$GITHUB_STEP_SUMMARY"');
+  });
+
+  test('publishes a lockstep draft before Marketplace finalization', () => {
+    expect(RELEASE_WORKFLOW).toContain(
+      'gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes',
+    );
+    expect(RELEASE_WORKFLOW).toContain(
+      'gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes "${assets[@]}"',
+    );
+    expect(RELEASE_WORKFLOW).not.toContain('name: Update the major Action tag');
+    expect(CONTAINER_WORKFLOW).toContain('release:\n    types: [published]');
+    expect(CONTAINER_WORKFLOW).not.toContain('workflow_run:');
+    expect(CONTAINER_WORKFLOW).toContain('UPSTREAM_TAG: ${{ github.event.release.tag_name }}');
+    expect(CONTAINER_WORKFLOW).toContain('name: Promote the moving major Action tag');
+    expect(CONTAINER_WORKFLOW).toContain('bun run release:action-tag -- "$RELEASE_TAG"');
+    expect(CONTAINER_WORKFLOW).toContain('needs: finalize');
+  });
+
+  test('keeps the contents-write token away from container build actions', () => {
+    const finalize = CONTAINER_WORKFLOW.split('  finalize:\n')[1]?.split('\n  publish:\n')[0] ?? '';
+    const publish = CONTAINER_WORKFLOW.split('\n  publish:\n')[1] ?? '';
+    expect(finalize).toContain('contents: write');
+    expect(finalize).toContain('name: Promote the moving major Action tag');
+    expect(publish).toContain('contents: read');
+    expect(publish).not.toContain('contents: write');
+    expect(publish).not.toContain('release:action-tag');
+  });
+
+  test('fails manual container recovery outside the trusted main ref', () => {
+    expect(CONTAINER_WORKFLOW).toContain('validate-context:');
+    expect(CONTAINER_WORKFLOW).toContain('test "$GITHUB_REF" = "refs/heads/main"');
+    expect(CONTAINER_WORKFLOW).toContain("github.ref == 'refs/heads/main'");
+    expect(CONTAINER_WORKFLOW).toContain('needs: validate-context');
   });
 
   test('checks the annotated lockstep tag before publishing', () => {

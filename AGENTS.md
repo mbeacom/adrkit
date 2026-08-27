@@ -174,8 +174,10 @@ not change the exit code and do not fail the managed-issue Action.
 
 ## Moving Action tag recovery
 
-Normal lockstep releases move the lightweight major Action tag (`v0`) forward
-only after npm publication and GitHub release creation succeed.
+Normal lockstep releases publish npm and create a draft GitHub release. A human
+publishes that draft with the Marketplace selection; only the resulting
+`release: published` finalization moves the lightweight major Action tag (`v0`)
+and starts container publication.
 `.github/workflows/action-tag-recovery.yml` is the explicit backward path. Run it
 from `main` with an existing stable `vX.Y.Z` release tag. It requires an annotated
 tag that peels to a commit on `main`, an exact successful `Release` run, matching
@@ -268,11 +270,14 @@ will usually be a regression:
 The OCI image is the fifth distribution surface, authorized by
 [ADR-0032](./docs/adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md).
 It is versioned with the lockstep release, not independently. A successful
-`Release` workflow triggers `.github/workflows/container-release.yml`, which
-publishes one multi-architecture all-in-one image under immutable `vX.Y.Z`,
-moving `vX`, and `latest` tags with a registry provenance attestation. A failed
-or adapter-only Release run publishes nothing. Manual recovery accepts only an
-existing successful stable GitHub release.
+`Release` workflow creates the lockstep draft only after npm succeeds. Publishing
+that stable draft triggers `.github/workflows/container-release.yml`, whose
+narrow write-capable job moves the Action's `v0` tag before a separate
+lower-privilege job publishes one multi-architecture all-in-one image under
+immutable `vX.Y.Z`, moving `vX`, and `latest` tags with a registry provenance
+attestation. A failed or adapter-only Release run publishes no container. Manual
+recovery runs only from `main` and accepts only an existing successful stable
+GitHub release.
 
 Things that are load-bearing:
 

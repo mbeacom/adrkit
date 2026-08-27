@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     permissions:
-      contents: write # gh release create + force-push the major Action tag
+      contents: write # gh release create (draft for lockstep, published for adapter)
       id-token: write # npm Trusted Publishing (OIDC provenance)
     steps:
       - name: Resolve release scope from the tag
@@ -166,6 +166,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ADAPTER: ${{ steps.scope.outputs.adapter }}
+          LOCKSTEP: ${{ steps.scope.outputs.lockstep }}
         run: |
           set -euo pipefail
           assets=()
@@ -183,32 +184,9 @@ jobs:
               gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
             fi
           else
-            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes "${assets[@]}"
+            if [ "$LOCKSTEP" = "true" ]; then
+              gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes
+            else
+              gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes "${assets[@]}"
+            fi
           fi
-
-      - name: Update the major Action tag
-        # `packages/ci/queue@v0` tracks the lockstep surface. An adapter release
-        # neither builds nor changes it, and moving it would misreport which
-        # commit the Action points at.
-        if: steps.scope.outputs.lockstep == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # The checkout does not persist credentials, so this is the only point
-          # in the job where a push-capable credential exists in Git config. It is
-          # removed on exit, including when the push fails.
-          set -euo pipefail
-          header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
-          cleanup() {
-            git config --local --unset-all 'http.https://github.com/.extraheader' || true
-          }
-          trap cleanup EXIT
-          git config --local 'http.https://github.com/.extraheader' "$header"
-          bun run release:action-tag -- "$GITHUB_REF_NAME" | tee action-tag-update.log
-          {
-            echo "### Moving major Action tag"
-            echo
-            echo '```text'
-            cat action-tag-update.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"

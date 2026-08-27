@@ -40,6 +40,10 @@ reviewBy: 2027-02-26
 
 > **Status: accepted.** Agent-drafted and ratified by `@mbeacom` through the
 > explicit request to add GitHub Container Registry publication.
+>
+> **Publication-order amendment:** ADR-0036 changes clause 2's trigger from
+> successful Release-workflow completion to publication of the stable GitHub
+> release, after that workflow has published npm and created the draft.
 
 ## Context
 
@@ -65,8 +69,9 @@ lockstep release, only after the coordinated Release workflow succeeds.**
 
 1. The image version is the lockstep package version. It does not have an
    independent manifest or release tag.
-2. A successful stable `vX.Y.Z` Release workflow completion triggers container
-   publication. Adapter releases and failed Release runs publish nothing.
+2. A successful stable `vX.Y.Z` Release workflow creates a draft after npm
+   publication. Publishing that stable GitHub release triggers container
+   publication. Adapter releases and failed Release runs publish no container.
 3. Registry tags are immutable `vX.Y.Z`, moving `vX`, and `latest`. Promotions
    are serialized. A release moves `vX` only when it is newest in that major and
    moves `latest` only when it is newest overall; historical recovery cannot
@@ -121,9 +126,9 @@ maintainer-built digest, and local builds lack registry provenance.
 
 ## Trade-offs
 
-- Container publication is downstream of an already-public npm/GitHub release.
-  If it fails, the coordinated release cannot be rolled back; the image is
-  recovered by rerunning publication for the existing tag.
+- Container publication is downstream of already-public npm packages and the
+  newly published GitHub release. If it fails, those artifacts cannot be rolled
+  back; the image is recovered by rerunning publication for the existing tag.
 - Digest-pinned bases are reproducible but require reviewed maintenance updates
   for Node, Alpine, and Bun patches.
 - The all-in-one image is larger than a dedicated target and exposes selectors
