@@ -545,6 +545,14 @@ jobs:
     # inside the surface ADR-0007 keeps mechanical and self-contained. It imports
     # only Node builtins and therefore runs with no `bun install`: a broken
     # dependency graph cannot take the sign-off gate down with it.
+    #
+    # **Advisory since ADR-0035.** This job runs from the pull request's own
+    # checkout, so the pull request can edit both this step and the script it
+    # calls (#137, measured on #98). It is kept because it is faster and reports
+    # first, and because it can only ever fail *open* while the authoritative
+    # `trusted-dco` job in `trusted-gates.yml` — executed from the default branch,
+    # outside the pull request's control — also has to pass. Do not treat a green
+    # result here as the sign-off gate.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
