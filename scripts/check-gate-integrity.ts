@@ -94,6 +94,11 @@ export const GATE_SURFACES: readonly GateSurface[] = [
     kind: 'prefix',
     why: 'the published governing-decisions and queue Actions, which are gates',
   },
+  {
+    pattern: 'action.yml',
+    kind: 'exact',
+    why: 'the Marketplace entry point executes the published governing-decisions Action',
+  },
   // All three locations GitHub honors, in its resolution order. Protecting only
   // the root file left the gap that matters: GitHub resolves `.github/CODEOWNERS`
   // *first*, so a pull request that adds one supersedes the protected root file

@@ -9,6 +9,18 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **A GitHub Actions Marketplace entry point for governing decisions.** The
+  repository-root `action.yml` runs the existing committed Action bundle while
+  preserving `mbeacom/adrkit/packages/ci@<ref>` for compatibility. A contract
+  keeps both metadata files and bundle targets aligned, forward release rejects
+  trees without the root entry point, and recovery keeps pre-Marketplace releases
+  eligible for existing nested consumers. The queue Action remains nested rather
+  than creating a second distribution repository; immutable Marketplace failures
+  use an explicit unpublish-and-hotfix runbook
+  ([ADR-0036](docs/adr/0036-expose-the-governing-decisions-action-through-one-root-marketplace-entry-point.md)).
+
 ### Fixed
 
 - **Completed locale-independent ordering for `check --json` and the

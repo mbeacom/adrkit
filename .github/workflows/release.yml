@@ -64,6 +64,7 @@ jobs:
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           if [ "${{ steps.scope.outputs.lockstep }}" = "true" ]; then
             test "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag
+            git cat-file -e "$GITHUB_SHA:action.yml"
           fi
 
       - name: Refuse a withdrawn lockstep release

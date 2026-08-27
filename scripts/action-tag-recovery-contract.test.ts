@@ -104,9 +104,27 @@ describe('major Action tag recovery contract', () => {
 
   test('checks the annotated lockstep tag before publishing', () => {
     const gate = RELEASE_WORKFLOW.indexOf('test "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag');
+    const marketplaceEntry = RELEASE_WORKFLOW.indexOf('git cat-file -e "$GITHUB_SHA:action.yml"');
     const publish = RELEASE_WORKFLOW.indexOf('name: Publish npm packages with provenance');
     expect(gate).toBeGreaterThan(-1);
+    expect(marketplaceEntry).toBeGreaterThan(gate);
+    expect(marketplaceEntry).toBeLessThan(publish);
     expect(gate).toBeLessThan(publish);
+  });
+
+  test('keeps pre-Marketplace releases eligible for nested Action recovery', () => {
+    expect(RECOVERY_WORKFLOW).not.toContain('git cat-file -e "$revision:action.yml"');
+    expect(RELEASING_DOCS).not.toContain('git cat-file -e "$target_commit:action.yml"');
+    expect(RECOVERY_WORKFLOW).toContain('git cat-file -e "$revision:packages/ci/action.yml"');
+    expect(RECOVERY_WORKFLOW).toContain('git cat-file -e "$revision:packages/ci/queue/action.yml"');
+  });
+
+  test('documents containment for immutable Marketplace releases', () => {
+    expect(RELEASING_DOCS).toContain('### Containing a bad Marketplace release');
+    expect(RELEASING_DOCS).toContain('clear **Publish this Action to the GitHub');
+    expect(RELEASING_DOCS).toContain('WITHDRAWN FOR ACTION USE');
+    expect(RELEASING_DOCS).toContain('Marketplace: published and verified');
+    expect(RELEASING_DOCS).toContain('consumers pinned to `mbeacom/adrkit@<bad-tag>`');
   });
 
   test('does not accept a successful adapter run for a lockstep release', () => {

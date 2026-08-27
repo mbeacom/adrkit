@@ -1,8 +1,8 @@
 # Distribution & discoverability playbook
 
-This document is a **prepared-submissions playbook** for giving `@adrkit/mcp` and
-the `@adrkit/*` CLI presence in the MCP and ADR-tooling ecosystems. It contains
-ready-to-paste content and exact procedures.
+This document is a **prepared-submissions playbook** for giving `@adrkit/mcp`,
+the `@adrkit/*` CLI, and adrkit's repository-backed Actions presence in their
+respective ecosystems. It contains ready-to-paste content and exact procedures.
 
 > **Submission status.** The official MCP registry entry (§A) **has been published**
 > — `dev.adrkit/mcp` at `0.6.0`, status `active` (first published 2026-07-28 at
@@ -728,3 +728,41 @@ MCP distribution stays per-project, which is what §A already documents.
 1. Merge the branch, so `mbeacom/adrkit` resolves as a marketplace for everyone.
 2. Optional: submit to a third-party catalog. Nothing in the repository blocks
    it, and the entry would be a pointer rather than a fork.
+
+---
+
+## G. GitHub Actions Marketplace — **PREPARED, NOT PUBLISHED**
+
+[ADR-0036](adr/0036-expose-the-governing-decisions-action-through-one-root-marketplace-entry-point.md)
+selects one listing for the governing-decisions Action. GitHub Marketplace reads
+only the repository-root Action metadata, so `action.yml` aliases the existing
+`packages/ci/action.yml` contract and runs the same committed
+`packages/ci/dist/index.js` bundle. The ARB queue remains usable at
+`mbeacom/adrkit/packages/ci/queue@<ref>` but does not receive a separate listing.
+
+The listing is not live merely because `action.yml` exists on `main`. The first
+compatible lockstep release must contain that file, the release workflow must
+succeed, and a human must publish the release to Marketplace:
+
+1. Complete the lockstep release procedure in `docs/RELEASING.md`.
+2. Edit that immutable GitHub release.
+3. Select **Publish this Action to the GitHub Marketplace**.
+4. Choose **Code review** as the primary category and **Code quality** as the
+   secondary category.
+5. Update the release with 2FA and confirm the install snippet references
+   `mbeacom/adrkit@<immutable-release-tag>`.
+
+The existing `mbeacom/adrkit/packages/ci@<ref>` path remains supported. Do not
+advertise the moving root form, `mbeacom/adrkit@v0`: guarded recovery may move
+that shared tag to a release from before the root metadata. Marketplace guidance
+uses the immutable release tag.
+
+If that immutable release is bad, moving `v0` is insufficient. Follow
+`docs/RELEASING.md` to remove the bad release from Marketplace, warn immutable
+pins, verify the live listing, and publish a higher hotfix.
+
+Publication improves discoverability; it does not advance ADR-0014's evidence
+ladder. On 2026-11-25, review public independent workflow references, repository
+traffic attributable to the listing, actionable issues or discussions, and the
+release/support time the listing consumed. Keep the listing only if that signal
+justifies the ongoing manual release step.

@@ -7,6 +7,12 @@ Status: early — phases 0–6 landed and v0.12.0 is public. `@adrkit/core`,
 `check`, `queue`, `migrate --from madr`, `evaluate`) are published on npm, as is
 the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.3); the
 repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
+The governing-decisions Action also has a root `action.yml` alias for GitHub
+Marketplace beginning with the first compatible release after v0.12.0. Root
+Marketplace guidance uses immutable release tags; never advertise
+`mbeacom/adrkit@v0`, because recovery may move that shared tag to a pre-alias
+release. The queue Action remains nested because GitHub lists only root Action
+metadata.
 The published `@adrkit/mcp` server has exactly four local stdio tools and serves
 **both** MCP protocol eras over one stdio connection — `2026-07-28` (stateless;
 opened by `server/discover` or a 2026 `_meta` envelope) and the 2025 era (opened
@@ -173,9 +179,11 @@ only after npm publication and GitHub release creation succeed.
 `.github/workflows/action-tag-recovery.yml` is the explicit backward path. Run it
 from `main` with an existing stable `vX.Y.Z` release tag. It requires an annotated
 tag that peels to a commit on `main`, an exact successful `Release` run, matching
-root version, and both committed Action bundles. It shares the release concurrency
-group, holds only `actions: read` and `contents: write`, and pushes with a lease
-against the observed remote tag object.
+root version, and both committed nested Action bundles. It deliberately permits
+pre-Marketplace releases so the first compatible release does not remove the
+last known-good target for nested `@v0` consumers. It shares the release
+concurrency group, holds only `actions: read` and `contents: write`, and pushes
+with a lease against the observed remote tag object.
 Recovery also records a durable `action-recovery-block/<commit>` tag for the
 commit removed from `v0`; the normal release workflow rejects a rerun of that
 commit before npm publication. A context-validation job fails dispatches from
@@ -185,6 +193,8 @@ Moving `v0` stops future jobs from resolving a bad release; it does not undo an
 already-edited PR comment or change a job that already resolved the old SHA.
 Restore comment content from GitHub's edit history or rerun the known-good Action.
 The full preferred and manual fallback runbook is in `docs/RELEASING.md`.
+It also does not contain an immutable root ref copied from Marketplace: unpublish
+the bad listing, warn pinned consumers, and publish a higher hotfix.
 
 ## The agent plugin (`packages/adapters/agent-plugin`)
 

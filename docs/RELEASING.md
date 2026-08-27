@@ -1,7 +1,7 @@
 # Releasing adrkit
 
-adrkit distributes four public npm packages, one repository-backed GitHub
-Action, and one lockstep OCI image:
+adrkit distributes four public npm packages, two repository-backed GitHub
+Actions, one Marketplace entry point, and one lockstep OCI image:
 
 | Artifact | Distribution |
 |---|---|
@@ -9,11 +9,19 @@ Action, and one lockstep OCI image:
 | `@adrkit/evaluator` | npm |
 | `@adrkit/cli` (`adr`, `adrkit`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
-| `packages/ci/action.yml` | Git tag (latest immutable release `v0.12.0`, moving `v0`) |
+| `action.yml` | GitHub Actions Marketplace and Git tag (governing-decisions alias; begins with the first compatible release after `v0.12.0`) |
+| `packages/ci/action.yml` | Git tag (existing governing-decisions subpath, latest immutable release `v0.12.0`, moving `v0`) |
+| `packages/ci/queue/action.yml` | Git tag (nested queue Action, latest immutable release `v0.12.0`, moving `v0`) |
 | `ghcr.io/mbeacom/adrkit` | GitHub Container Registry (`vX.Y.Z`, moving `vX`, `latest`; begins with the first release containing ADR-0032) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
 directly from the referenced repository ref.
+
+The root `action.yml` is the Marketplace alias for
+`packages/ci/action.yml`. GitHub lists only root Action metadata, so the queue
+Action intentionally remains nested. `scripts/marketplace-action-contract.test.ts`
+keeps the two governing-decisions metadata contracts identical except for their
+different bundle paths.
 
 The coordinated lockstep surface is published; the current release is `v0.12.0`. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
@@ -42,6 +50,8 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
   exactly matches the local tarball.
 - The GitHub release and moving major Action tag are created only after every
   npm package succeeds.
+- A lockstep release cannot publish or move the major Action tag unless its tree
+  contains the root Marketplace entry point.
 - The multi-architecture OCI image publishes only after the successful
   lockstep `Release` workflow completes. It carries the same version, an
   immutable `vX.Y.Z` tag, moving `vX` and `latest` tags, and a registry
@@ -369,11 +379,20 @@ bootstrap described below.
 8. Confirm the workflow published all packages, created the immutable GitHub
    release, moved the Action's `v0` tag, and triggered the `Publish container`
    workflow.
-9. Confirm `ghcr.io/mbeacom/adrkit:v<version>` and the moving `v0`/`latest`
+9. Edit the lockstep GitHub release, select **Publish this Action to the GitHub
+   Marketplace**, choose **Code review** as the primary category and **Code
+   quality** as the secondary category, then update the release with 2FA. Do not
+   perform this step for an adapter-only release. Confirm the Marketplace install
+   snippet uses the repository root and the immutable release tag. Add
+   `Marketplace: published and verified — <listing URL>; immutable Action ref:
+   mbeacom/adrkit@<tag>` to the GitHub release notes as the durable completion
+   record. The release is not distribution-complete until that note and the live
+   listing agree.
+10. Confirm `ghcr.io/mbeacom/adrkit:v<version>` and the moving `v0`/`latest`
    tags resolve to the attested multi-architecture image. If the downstream
    workflow failed, manually dispatch `container-release.yml` with the existing
    successful release tag.
-10. Re-publish the MCP registry entry — `cd packages/mcp && mcp-publisher publish`
+11. Re-publish the MCP registry entry — `cd packages/mcp && mcp-publisher publish`
    (`docs/DISTRIBUTION.md` §A). **No workflow does this**, so `dev.adrkit/mcp` stays
    at the previous version until a human runs it, and `docs/DISTRIBUTION.md` should
    not claim the new version before then.
@@ -388,11 +407,14 @@ mistaken for a mistake.
 
 ## Recovering the moving major Action tag
 
-The repository-backed Actions are consumed through a moving lightweight tag,
-currently `mbeacom/adrkit/packages/ci@v0` and
-`mbeacom/adrkit/packages/ci/queue@v0`. A bad move has a broad but bounded blast
-radius: new jobs using `@v0` can resolve the bad release, but the Action cannot
-delete repository content or approve a change.
+The repository-backed Actions are consumed through a moving lightweight tag at
+`mbeacom/adrkit/packages/ci@v0` and
+`mbeacom/adrkit/packages/ci/queue@v0`. Marketplace documentation uses an
+immutable root release tag, not `mbeacom/adrkit@v0`: recovery may restore `v0`
+to a release from before the root alias existed. A bad move has a broad but
+bounded blast radius for nested consumers: new jobs using `@v0` can resolve the
+bad release, but the Action cannot delete repository content or approve a
+change.
 
 Moving `v0` back **stops future jobs from resolving the bad release; it does not
 undo work a completed job already performed**. In particular, it does not restore
@@ -408,7 +430,7 @@ Choose the last verified lockstep release, then dispatch the recovery workflow
 from `main`:
 
 ```sh
-target=v0.10.0
+target="${TARGET_RELEASE:?set TARGET_RELEASE to a compatible vX.Y.Z tag}"
 gh workflow run action-tag-recovery.yml --ref main -f tag="$target"
 gh run list --workflow action-tag-recovery.yml --limit 1
 ```
@@ -416,6 +438,9 @@ gh run list --workflow action-tag-recovery.yml --limit 1
 The workflow refuses a prerelease, draft, lightweight tag, tag whose commit is
 not on `main`, release without a successful `Release` run for the exact peeled
 commit, root-version mismatch, or tree without both committed Action bundles.
+The root Marketplace entry point is deliberately not required here, so a bad
+first Marketplace-compatible release does not remove the last known-good
+recovery target for established nested consumers.
 Stable release tags are annotated objects, so the workflow resolves the commit
 with `git rev-parse "$target^{commit}"`; the annotated tag object's own SHA is
 not a runnable Action revision.
@@ -442,6 +467,8 @@ The API should report a lightweight tag (`type: commit`) at `target_commit`.
 Consumers do not need to change their workflow files. New runs resolve the moved
 tag; rerun any job that had already resolved the bad SHA. Consumers needing an
 immediate immutable containment pin can temporarily use `@<target_commit>`.
+This contains the two documented nested `@v0` references only. It does not alter
+an immutable root Action tag or the Marketplace listing.
 
 ### Manual fallback when GitHub Actions is unavailable
 
@@ -452,7 +479,7 @@ can overwrite a concurrent promotion.
 
 ```sh
 set -euo pipefail
-target=v0.10.0
+target="${TARGET_RELEASE:?set TARGET_RELEASE to a compatible vX.Y.Z tag}"
 git fetch --no-tags origin main "refs/tags/$target:refs/tags/$target"
 test "$(git cat-file -t "refs/tags/$target")" = tag
 target_commit=$(git rev-parse "$target^{commit}")
@@ -488,13 +515,37 @@ bun run release:action-tag -- --recover "$target" \
   --expected-remote-ref-sha "$moving_ref_sha"
 ```
 
-This fallback performs the same package-version, four-bundle, annotated-tag,
-main-ancestry, stable-release, and exact successful-run checks as the workflow.
+This fallback performs the same package-version, four nested Action artifact
+checks, annotated-tag, main-ancestry, stable-release, and exact successful-run
+checks as the workflow.
 It also records a durable withdrawal marker for the commit being removed from
 `v0`; the normal release workflow refuses any later rerun of that withdrawn
 commit before npm publication. The script allows recovery from an arbitrary
 current `v0` target, but normal `release:action-tag` calls remain monotonic and
 cannot bypass the marker gate.
+
+### Containing a bad Marketplace release
+
+Moving `v0` does not contain an immutable root reference copied from Marketplace.
+If a Marketplace-published Action release is defective or compromised:
+
+1. Edit the affected GitHub release, clear **Publish this Action to the GitHub
+   Marketplace**, and update it. GitHub documents this as the removal path; do
+   not delete or move the immutable git tag.
+2. Mark the release notes **WITHDRAWN FOR ACTION USE**, describe the impact, and
+   tell consumers pinned to `mbeacom/adrkit@<bad-tag>` that they must update.
+3. If the same release also affected nested `@v0` consumers, run the guarded
+   recovery above. Record clearly that this step contains only the moving nested
+   references.
+4. Verify the live Marketplace page no longer recommends the bad tag. The
+   recovery is incomplete until the page and release notes agree.
+5. Publish a higher verified hotfix, then publish that release to Marketplace
+   and record its listing URL and immutable Action ref in the release notes.
+
+See GitHub's
+[Marketplace removal procedure](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace#removing-an-action-from-github-marketplace).
+Already-started jobs and immutable pins do not change when a listing or moving
+tag changes.
 
 This recovery is intentionally separate from npm rollback. npm versions and
 immutable `vX.Y.Z` git tags never move; deprecate a bad npm version, optionally

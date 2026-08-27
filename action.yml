@@ -1,3 +1,4 @@
+# @adr 0036
 name: adrkit governing-decisions
 description: Comment the architecture decisions governing a pull request and validate changed ADR records.
 author: adrkit
@@ -20,4 +21,4 @@ inputs:
 
 runs:
   using: node24
-  main: dist/index.js
+  main: packages/ci/dist/index.js

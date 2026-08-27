@@ -45,6 +45,7 @@ const BLOCKING_CASES: ReadonlyArray<{ path: string; pattern: string }> = [
   { path: '.github/actions/setup/action.yml', pattern: '.github/actions/' },
   { path: 'scripts/check-dco.ts', pattern: 'scripts/' },
   { path: 'packages/ci/dist/index.js', pattern: 'packages/ci/' },
+  { path: 'action.yml', pattern: 'action.yml' },
   { path: 'CODEOWNERS', pattern: 'CODEOWNERS' },
   { path: '.github/CODEOWNERS', pattern: '.github/CODEOWNERS' },
   { path: 'docs/CODEOWNERS', pattern: 'docs/CODEOWNERS' },
@@ -426,6 +427,7 @@ describe('the surface list carries its own coverage', () => {
       '.github/workflows/ci.yml',
       'scripts/check-gate-integrity.ts',
       'packages/ci/action.yml',
+      'action.yml',
       'CODEOWNERS',
     ];
     for (const path of real) expect(surfaceOf(path)).toBeDefined();

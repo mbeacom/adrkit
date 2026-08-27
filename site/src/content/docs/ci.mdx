@@ -9,6 +9,15 @@ adrkit ships two GitHub Actions from this repository. Both run with only the
 default `GITHUB_TOKEN`, hold no database, and never approve anything — they read
 the corpus and write a comment or an issue.
 
+<Aside type="note" title="GitHub Marketplace">
+	The governing-decisions Action has a repository-root Marketplace entry point
+	planned for v0.13.0. The established
+	`mbeacom/adrkit/packages/ci@&lt;ref&gt;` form remains supported, including
+	through its moving `v0` tag. Root Marketplace examples use immutable release
+	tags because recovery may move `v0` to a release from before the root alias.
+	GitHub lists only root Action metadata, so the queue Action remains nested.
+</Aside>
+
 ## Comment governing decisions on a PR
 
 The `packages/ci` Action reads a pull request's changed files, resolves which
@@ -33,11 +42,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mbeacom/adrkit/packages/ci@v0
+      - uses: mbeacom/adrkit@v0.13.0
         # with:
         #   dir: docs/adr          # ADR corpus directory (default: docs/adr)
         #   token: ${{ github.token }}
 ```
+
+Until `v0.13.0` is published, use
+`mbeacom/adrkit/packages/ci@v0`. That nested form remains supported afterward.
 
 The Action updates its existing comment on later pushes, so each pull request
 keeps one current governing-decisions comment. No additional token environment
@@ -55,8 +67,9 @@ the comment reaches GitHub's size limit. Keep the default checkout rooted at
 `GITHUB_WORKSPACE`; if a workflow checks out elsewhere, marker health will
 identify files the Action could not inspect.
 
-`v0` is a moving major tag, and it now resolves to a `v0.12.0` build. Pin the
-immutable `v0.12.0` tag or a commit SHA for maximum reproducibility.
+The Marketplace form will be pinned to the immutable `v0.13.0` release. For
+the nested compatibility form, `v0` is a moving major tag; pin an immutable
+release tag or commit SHA when maximum reproducibility matters.
 
 <Aside type="note" title="Comments from before the upgrade">
 	The Action is comment-only and deletes nothing, so duplicate comments a pull request

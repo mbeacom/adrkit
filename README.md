@@ -105,6 +105,12 @@ Actions remain the simpler interface:
 `mbeacom/adrkit/packages/ci/queue@v0`. Container publication and recovery are
 documented in [`docs/RELEASING.md`](docs/RELEASING.md#oci-container-image).
 
+The governing-decisions Action also has a repository-root entry point for its
+GitHub Marketplace listing. That root form begins with the first compatible
+release after `v0.12.0`; the existing `packages/ci` form remains supported.
+GitHub lists only root Action metadata, so the queue Action stays at its nested
+path.
+
 ## What it looks like
 
 `adr queue` emits the review backlog as a deterministic, read-only projection of
@@ -315,17 +321,31 @@ answer where the next decision is actually being made.
 
 It never approves anything. It routes, and humans decide.
 
-Use both CI Actions from their moving major tag (see [Use in CI](https://adrkit.dev/ci/)):
+The first Marketplace release is planned as `v0.13.0`. Its immutable root
+reference gives a new adopter the complete governing-decisions workflow (see
+[Use in CI](https://adrkit.dev/ci/)):
 
 ```yaml
+name: ADR governing decisions
+
+on:
+  pull_request:
+
 permissions:
   contents: read
   pull-requests: write
 
-steps:
-  - uses: actions/checkout@v4
-  - uses: mbeacom/adrkit/packages/ci@v0
+jobs:
+  governing-decisions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mbeacom/adrkit@v0.13.0
 ```
+
+Until that release exists, and for existing consumers after it does, use
+`mbeacom/adrkit/packages/ci@v0`. The queue Action remains available at
+`mbeacom/adrkit/packages/ci/queue@v0`.
 
 ## Why not plain MADR — or "Structured MADR"?
 
