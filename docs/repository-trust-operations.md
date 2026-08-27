@@ -134,7 +134,7 @@ drops every omitted gate.
 
 ### 2.2 Fork pull request approval policy — a maintainer decision, not a default
 
-Currently:
+Re-read on 2026-08-27, the policy remains:
 
 ```console
 $ gh api repos/mbeacom/adrkit/actions/permissions/fork-pr-contributor-approval
@@ -373,9 +373,8 @@ The run creation times bracket each label event: the red runs began at
 00:59:56Z, and 01:02:53Z. This is deployed evidence of both directions, not a
 fixture or a local invocation.
 
-`trusted-dco` has now been observed green in the deployed workflow. Its
-deliberate red-to-green exercise remains open, so ADR-0035 action item 3 is not
-yet complete.
+`trusted-dco` was green throughout these gate-integrity observations. Its
+separate deliberate red-to-green exercise is recorded in §3.3.
 
 ### 3.3 Deployed `trusted-dco` observed failing
 
@@ -398,6 +397,24 @@ deployed negative observation required by ADR-0016, not a local simulation.
 The sole commit was then amended to add `Signed-off-by` and this observation,
 and force-pushed only with an explicit lease against the recorded remote tip
 `91a1184376b00bf394712377933e1c07a0558f00`.
+
+The amended head,
+[`4cda89cf299799ba1758cf2475ca6f384ecc7667`](https://github.com/mbeacom/adrkit/commit/4cda89cf299799ba1758cf2475ca6f384ecc7667),
+then passed the deployed workflow's
+[run `33030491642`](https://github.com/mbeacom/adrkit/actions/runs/33030491642)
+and
+[`trusted-dco` job](https://github.com/mbeacom/adrkit/actions/runs/33030491642/job/98381634309).
+The job examined exactly one commit in
+`e9169e7e6d6a8519ebafff06f5217a98a632c21f..4cda89cf299799ba1758cf2475ca6f384ecc7667`
+and reported `1 signed, 0 exempt, 0 unsigned`. `gate-integrity` also
+[passed](https://github.com/mbeacom/adrkit/actions/runs/33030491642/job/98381634493)
+without an acknowledgment label because the pull request changes only
+governance documentation. All 10 required contexts were green on that head.
+
+Together, the two runs observe the deployed `trusted-dco` gate rejecting the
+missing sign-off and accepting the corrected commit. This evidence is local to
+the repository's own real pull request: it satisfies ADR-0016 and remains rung 1
+under ADR-0014, not reference-repository or external/community validation.
 
 ### 3.4 An instance, recorded rather than tidied away
 

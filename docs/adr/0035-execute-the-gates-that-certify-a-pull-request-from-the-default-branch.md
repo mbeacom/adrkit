@@ -459,27 +459,34 @@ eliminated by the constraints listed under the decision.
 ## Action items
 
 1. [x] **Ratify or reject.** Ratified by `@mbeacom` on 2026-08-26.
-2. [ ] **Add the trusted contexts to the `main` ruleset — after merge.** This
-       cannot be done before merge and must not be faked: `pull_request_target`
-       executes the workflow from the default branch, so `trusted-dco` and
-       `gate-integrity` do not exist until this lands, and adding a required
-       context that never reports would block every pull request including this
-       one. The exact operation, and the verification that it took, are in
+2. [x] **Add the trusted contexts to the `main` ruleset — after merge.** Done
+       2026-08-27, after the workflow landed in
+       [PR #179](https://github.com/mbeacom/adrkit/pull/179). The live ruleset
+       now carries 10 required contexts, including `trusted-dco` and
+       `gate-integrity`; the old pull-request-controlled `dco` context was
+       retired only after `trusted-dco` reported green on real pull requests.
+       The read-back and exact evidence are in
        [`docs/repository-trust-operations.md`](../repository-trust-operations.md).
-3. [ ] **Observe both trusted jobs on a real pull request after merge**, per
-       ADR-0016. The kernel of `gate-integrity` has been observed blocking on this
-       change's own real changed-path list and passing once the label is applied;
-       its three fail-quiet guards — empty list, truncated list, unreadable
-       payload — have each been observed firing; and a rename that carried a gate
-       path out of the protected prefix has been observed blocking after that
-       bypass was found and closed. The *deployed workflow* has not run, and
-       cannot until it is on the default branch. All of it is recorded in
-       `docs/repository-trust-operations.md` rather than asserted here.
+3. [x] **Observe both trusted jobs on a real pull request after merge**, per
+       ADR-0016. `gate-integrity` failed without acknowledgment and passed after
+       labeling on PRs
+       [#175](https://github.com/mbeacom/adrkit/pull/175),
+       [#177](https://github.com/mbeacom/adrkit/pull/177), and
+       [#178](https://github.com/mbeacom/adrkit/pull/178). `trusted-dco` was
+       then deliberately observed rejecting an unsigned commit and accepting
+       its signed-off amendment on
+       [PR #180](https://github.com/mbeacom/adrkit/pull/180). This is real
+       deployed-workflow evidence on the repository's own pull requests and
+       remains **rung 1** under ADR-0014; no reference-repository or
+       external/community validation is claimed. Exact run and job URLs are
+       recorded in `docs/repository-trust-operations.md`.
 4. [ ] **Decide on the fork-PR approval policy.** Currently
-       `first_time_contributors`. Tightening to `all_external_contributors` means
-       no fork's workflows run without a maintainer's explicit action, at the cost
-       of friction for repeat contributors. Left as a maintainer judgment rather
-       than changed silently; the command is in the operations document.
+       `first_time_contributors`, re-read unchanged on 2026-08-27. Tightening to
+       `all_external_contributors` means no fork's workflows run without a
+       maintainer's explicit action, at the cost of friction for repeat
+       contributors. It remains a separate open maintainer decision rather than
+       being changed as part of this evidence exercise; the command is in the
+       operations document.
 5. [x] **Enable required SHA pinning for actions.** Done 2026-08-26 —
        `sha_pinning_required` moved `false` → `true`, verified by re-reading
        `/repos/mbeacom/adrkit/actions/permissions`.
