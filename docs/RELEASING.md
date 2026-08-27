@@ -523,7 +523,10 @@ The image is built for `linux/amd64` and `linux/arm64`. Docker Buildx pushes one
 manifest-list digest, and `actions/attest` attaches registry provenance to that
 digest. Only the all-in-one `adrkit` target is published. Dedicated `cli`,
 `mcp`, `ci`, and `queue-action` targets remain local build surfaces whose
-isolation is asserted in CI.
+isolation is asserted in CI. A QEMU-backed CI matrix builds and runs the
+all-in-one image for both architectures. During publication, the workflow also
+reads the pushed manifest by digest and requires both platform entries before
+attestation and public tag promotion.
 
 ### One-time GHCR setup and first publish
 

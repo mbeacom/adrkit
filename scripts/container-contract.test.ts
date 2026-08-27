@@ -6,9 +6,14 @@ const ROOT = resolve(import.meta.dir, '..');
 const CONTAINERFILE = readFileSync(join(ROOT, 'Containerfile'), 'utf8');
 const ENTRYPOINT_PATH = join(ROOT, 'scripts', 'container-entrypoint.sh');
 const ENTRYPOINT = readFileSync(ENTRYPOINT_PATH, 'utf8');
+const CONTAINER_SMOKE = readFileSync(join(ROOT, 'scripts', 'smoke-container.mjs'), 'utf8');
 const DOCKERIGNORE = readFileSync(join(ROOT, '.dockerignore'), 'utf8');
 const README = readFileSync(join(ROOT, 'README.md'), 'utf8');
 const CI_WORKFLOW = readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
+const RELEASE_WORKFLOW = readFileSync(
+  join(ROOT, '.github', 'workflows', 'container-release.yml'),
+  'utf8',
+);
 const PACKAGE = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
   packageManager: string;
 };
@@ -99,6 +104,22 @@ describe('container contract', () => {
     expect(CI_WORKFLOW).toContain('scripts/smoke-container.mjs adrkit:ci mcp');
     expect(CI_WORKFLOW).toContain('adrkit:ci ci 2>&1');
     expect(CI_WORKFLOW).toContain('adrkit:ci queue-action 2>&1');
+  });
+
+  test('builds, runs, publishes, and verifies amd64 and arm64 images', () => {
+    for (const platform of ['linux/amd64', 'linux/arm64']) {
+      expect(CI_WORKFLOW).toContain(`platform: ${platform}`);
+      expect(README).toContain(`\`${platform}\``);
+    }
+
+    expect(CI_WORKFLOW).toContain('platforms: ${{ matrix.platform }}');
+    expect(CI_WORKFLOW).toContain('CONTAINER_PLATFORM: ${{ matrix.platform }}');
+    expect(CONTAINER_SMOKE).toContain('process.env.CONTAINER_PLATFORM');
+    expect(CONTAINER_SMOKE).toContain("...(platform ? ['--platform', platform] : [])");
+    expect(RELEASE_WORKFLOW).toContain('PLATFORMS: linux/amd64,linux/arm64');
+    expect(RELEASE_WORKFLOW).toContain('platforms: ${{ env.PLATFORMS }}');
+    expect(RELEASE_WORKFLOW).toContain('Verify the published architecture manifest');
+    expect(RELEASE_WORKFLOW).toContain('Expected container platforms');
   });
 
   test('admits only runtime source and the committed Action bundles', () => {

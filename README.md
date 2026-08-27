@@ -69,6 +69,11 @@ docker run --rm --read-only --network none -i \
   ghcr.io/mbeacom/adrkit:vX.Y.Z mcp
 ```
 
+Each release manifest includes `linux/amd64` and `linux/arm64`. Docker and
+Podman select the host architecture automatically; use `--platform linux/amd64`
+or `--platform linux/arm64` only when running through cross-architecture
+emulation.
+
 The MCP command keeps stdin open because MCP uses stdio. Its repository mount is
 read-only, matching the server contract; use an absolute host path in MCP client
 configuration. For CLI commands that intentionally write (`new`, or
@@ -91,6 +96,10 @@ inspection; the registry publishes only the all-in-one `adrkit` target:
 
 ```sh
 docker build -f Containerfile -t adrkit:local .
+docker buildx build --platform linux/amd64 --load \
+  -f Containerfile -t adrkit:local-amd64 .
+docker buildx build --platform linux/arm64 --load \
+  -f Containerfile -t adrkit:local-arm64 .
 docker build -f Containerfile --target mcp -t adrkit-mcp:local .
 docker run --rm --read-only --network none -i \
   -v "$PWD:/workspace:ro" \

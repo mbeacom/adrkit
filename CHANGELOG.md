@@ -11,6 +11,13 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **End-to-end AMD64 and ARM64 container verification.** CI now builds and
+  executes the all-in-one image for both `linux/amd64` and `linux/arm64`, and
+  container publication verifies that the pushed digest contains exactly those
+  two platform manifests before attestation and tag promotion. Consumer
+  documentation now names the supported platforms and the cross-architecture
+  `--platform` override.
+
 - **`MANIFEST.md`'s decision-corpus inventory is generated, not hand-written.**
   `bun run emit:manifest` renders the record table and the status counts from
   `adr graph --format json` between stable markers, and `clean-clone-builds`

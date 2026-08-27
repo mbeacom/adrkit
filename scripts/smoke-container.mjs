@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const runtime = process.env.CONTAINER_RUNTIME || 'docker';
+const platform = process.env.CONTAINER_PLATFORM;
 const image = process.argv[2] || 'adrkit-mcp:ci';
 const imageArgs = process.argv.slice(3);
 const repoRoot = fileURLToPath(new URL('../', import.meta.url));
@@ -42,6 +43,7 @@ async function smokeEra(era) {
     [
       'run',
       '--rm',
+      ...(platform ? ['--platform', platform] : []),
       '--read-only',
       '--network',
       'none',
