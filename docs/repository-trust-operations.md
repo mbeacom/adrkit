@@ -10,8 +10,10 @@ subject is checks that report success without having looked; a settings change
 that is described but never applied has the same shape, and reads identically to
 one that was.
 
-Everything below was read from the live repository on **2026-08-26** with `gh`.
-Re-read rather than trusted: each claim carries the command that produced it.
+The initial configuration was read from the live repository on **2026-08-26**
+with `gh`. The deployed state and evidence were re-read on **2026-08-27**.
+Re-read rather than trusted: each claim carries either the command that produced
+it or a link to the exact run.
 
 ---
 
@@ -76,83 +78,59 @@ file from becoming an unowned gate surface.
 
 ---
 
-## 2. Must wait until merge
+## 2. Deployed state and remaining decisions
 
-### 2.1 Add `trusted-dco` and `gate-integrity` as required status checks
+### 2.1 `trusted-dco` and `gate-integrity` are required status checks
 
-**This cannot be done before merge, and doing it early would be actively
-harmful.** `pull_request_target` executes the workflow from the repository's
-default branch, so neither job exists until this change lands on `main`. A
-required context that never reports leaves every pull request — including the one
-introducing it — permanently "Expected — waiting for status".
+The trusted workflow landed on `main` in
+[PR #179](https://github.com/mbeacom/adrkit/pull/179), merge commit
+[`4d70b8add63070f4ca1722e76634aabdb473555c`](https://github.com/mbeacom/adrkit/commit/4d70b8add63070f4ca1722e76634aabdb473555c).
+Only after that merge were `trusted-dco` and `gate-integrity` added to the
+required contexts. This ordering matters: `pull_request_target` executes the
+workflow from the repository's default branch, so adding either context before
+the workflow reached `main` would have left every pull request waiting for a
+status that could not report.
 
-The payload below was constructed and validated against the live ruleset on
-2026-08-26 and deliberately **not** sent. Re-run the first command after merge and
-confirm the two new contexts appear before sending anything.
+After `trusted-dco` reported green on real pull requests (§3.2), the old
+pull-request-controlled `dco` context was removed from the required set. Its job
+remains in `ci.yml` as a faster advisory report; it is not an authority for
+merge. The
+[live ruleset API response](https://api.github.com/repos/mbeacom/adrkit/rulesets/19149458)
+was re-read after that change:
+
+```console
+$ gh api repos/mbeacom/adrkit/rulesets/19149458 \
+    --jq '.rules[] | select(.type=="required_status_checks")
+          | .parameters.required_status_checks[].context'
+clean-clone-builds
+node-smoke-built-artifacts (22.x)
+node-smoke-built-artifacts (24.x)
+audit
+self-dogfood
+Analyze (actions)
+Analyze (javascript-typescript)
+action-dogfood
+trusted-dco
+gate-integrity
+```
+
+That is **10** contexts. The response reports
+`updated_at: 2026-08-26T21:07:04.618-04:00`; it contains both trusted contexts
+and no `dco` entry. The two trusted entries intentionally carry no
+`integration_id`, matching `action-dogfood`; pinning an integration is a
+separate decision from requiring the check.
+
+Read the contexts back rather than trusting a successful settings mutation:
 
 ```bash
-# 1. Build the payload from the ruleset as it stands, appending the two contexts.
-gh api repos/mbeacom/adrkit/rulesets/19149458 --jq '
-  {rules: (.rules | map(
-    if .type == "required_status_checks"
-    then .parameters.required_status_checks += [
-      {context: "trusted-dco"},
-      {context: "gate-integrity"}
-    ]
-    else . end))}' > /tmp/ruleset-payload.json
-
-# 2. Read it before sending it. The existing nine contexts must still be present.
-python3 -m json.tool < /tmp/ruleset-payload.json
-
-# 3. Apply.
-gh api -X PUT repos/mbeacom/adrkit/rulesets/19149458 --input /tmp/ruleset-payload.json
-
-# 4. Verify it took, by reading back rather than by trusting the response.
 gh api repos/mbeacom/adrkit/rulesets/19149458 \
   --jq '.rules[] | select(.type=="required_status_checks")
         | .parameters.required_status_checks[].context'
 ```
 
-Step 4 must list eleven contexts, ending with `trusted-dco` and `gate-integrity`.
-Note that step 1 appends rather than replaces: a payload that omits the existing
-nine would silently drop every current gate, and the response to a successful
-`PUT` looks the same either way.
-
-Do not add `integration_id` to the two new entries. The existing `dco` and
-`action-dogfood` contexts carry none, and pinning the integration is a separate
-decision from adding the check.
-
-**Sequencing.** Add the contexts *before* removing anything. `dco` in `ci.yml` is
-advisory under ADR-0035 but is still a required context; leave it required until
-`trusted-dco` has been observed green on a real pull request (§3.2).
-
-**Pull requests open at the moment you do this will be stuck, and it is not
-obvious why.** A required context is satisfied by a check run against the head
-SHA, and `pull_request_target` only produces one when an event fires. Every pull
-request already open when the contexts are added has a head that no
-`trusted-gates.yml` run has ever seen, so both new contexts sit at "Expected —
-waiting for status" indefinitely. Nothing retroactively creates them, and
-re-running an old workflow run does not either, because the workflow did not
-exist for that run.
-
-Each open pull request needs a **new event** — push a commit, or close and
-reopen it, or edit its base. Note that all three of those now *dismiss* the
-`gate-change-acknowledged` label, which is intended: each one moves the head or
-the base, so an acknowledgment given before it no longer describes what would
-merge. Re-apply the label afterwards if the pull request needs one.
-
-Check what is open before you start, and expect to touch each one:
-
-```bash
-gh api "repos/mbeacom/adrkit/pulls?state=open" --jq '.[] | "#\(.number)  \(.head.ref)"'
-
-# For each, confirm the two contexts actually reported against its current head:
-gh api "repos/mbeacom/adrkit/commits/<head-sha>/check-runs" \
-  --jq '[.check_runs[].name] | map(select(. == "trusted-dco" or . == "gate-integrity"))'
-```
-
-That listing must show both names. An empty result is the stuck state, not a
-pass.
+**Rollback:** add `dco` back before removing `trusted-dco`, then re-read the
+complete list. A payload that names only the context being changed silently
+drops every omitted gate.
 
 ### 2.2 Fork pull request approval policy — a maintainer decision, not a default
 
@@ -376,40 +354,52 @@ between the event's changed-file count and the live file listing blocks. An olde
 run can delete a newer acknowledgment and cause a conservative re-acknowledgment,
 but it cannot turn an unseen current head green.
 
-### 3.2 Not yet observed — say so plainly
+### 3.2 Deployed `gate-integrity` evidence on real pull requests
 
-**The deployed workflow has never run.** It cannot, before merge: GitHub takes
-`pull_request_target` workflows from the default branch, so `trusted-gates.yml`
-is inert until it is on `main`. Nothing in this repository should be read as
-claiming otherwise.
+The deployed `pull_request_target` workflow ran from `main` on three ordinary
+pull requests that changed gate-defining paths. In each case `gate-integrity`
+failed before the acknowledgment existed, `@mbeacom` applied
+`gate-change-acknowledged`, and a new run for the same head passed. `trusted-dco`
+reported green on the pre-label run in every case:
 
-After merge, the first pull request that touches a gate path exercises both
-halves. To observe it deliberately rather than waiting:
+| Pull request | Red before acknowledgment | Label applied | Green after acknowledgment | `trusted-dco` |
+|---|---|---|---|---|
+| [#175](https://github.com/mbeacom/adrkit/pull/175) | [run `33028271780`](https://github.com/mbeacom/adrkit/actions/runs/33028271780), [`gate-integrity` job](https://github.com/mbeacom/adrkit/actions/runs/33028271780/job/98374610838) | 2026-08-27 00:52:57Z | [run `33028295112`](https://github.com/mbeacom/adrkit/actions/runs/33028295112), [`gate-integrity` job](https://github.com/mbeacom/adrkit/actions/runs/33028295112/job/98374685670) | [green job](https://github.com/mbeacom/adrkit/actions/runs/33028271780/job/98374611131) |
+| [#177](https://github.com/mbeacom/adrkit/pull/177) | [run `33028638073`](https://github.com/mbeacom/adrkit/actions/runs/33028638073), [`gate-integrity` job](https://github.com/mbeacom/adrkit/actions/runs/33028638073/job/98375753726) | 2026-08-27 00:59:54Z | [run `33028662626`](https://github.com/mbeacom/adrkit/actions/runs/33028662626), [`gate-integrity` job](https://github.com/mbeacom/adrkit/actions/runs/33028662626/job/98375832157) | [green job](https://github.com/mbeacom/adrkit/actions/runs/33028638073/job/98375753950) |
+| [#178](https://github.com/mbeacom/adrkit/pull/178) | [run `33028809634`](https://github.com/mbeacom/adrkit/actions/runs/33028809634), [`gate-integrity` job](https://github.com/mbeacom/adrkit/actions/runs/33028809634/job/98376291916) | 2026-08-27 01:02:51Z | [run `33028831801`](https://github.com/mbeacom/adrkit/actions/runs/33028831801), [`gate-integrity` job](https://github.com/mbeacom/adrkit/actions/runs/33028831801/job/98376362040) | [green job](https://github.com/mbeacom/adrkit/actions/runs/33028809634/job/98376291846) |
 
-```bash
-# On a scratch branch, touch a gate path and open a pull request.
-printf '\n' >> scripts/check-gate-integrity.ts
-git commit -sam 'chore: observe gate-integrity blocking' && git push -u origin HEAD
-gh pr create --fill
+The run creation times bracket each label event: the red runs began at
+00:52:32Z, 00:59:26Z, and 01:02:29Z; the green runs began at 00:52:59Z,
+00:59:56Z, and 01:02:53Z. This is deployed evidence of both directions, not a
+fixture or a local invocation.
 
-# Expect gate-integrity RED. Then acknowledge, and expect it to turn GREEN.
-gh pr edit <number> --add-label gate-change-acknowledged
+`trusted-dco` has now been observed green in the deployed workflow. Its
+deliberate red-to-green exercise remains open, so ADR-0035 action item 3 is not
+yet complete.
 
-# Read the conclusions back rather than reading the checks tab.
-gh api "repos/mbeacom/adrkit/commits/$(git rev-parse HEAD)/check-runs" \
-  --jq '.check_runs[] | select(.name|test("^(trusted-dco|gate-integrity)$"))
-        | {name, status, conclusion}'
-```
+### 3.3 Deployed `trusted-dco` observed failing
 
-`trusted-dco` should be green throughout — the commit above is signed off. To
-observe *it* failing, add a commit with `--no-signoff` on the same branch and
-confirm `trusted-dco` goes red while the advisory `dco` job's verdict is
-irrelevant to the merge.
+The negative half was exercised deliberately on
+[PR #180](https://github.com/mbeacom/adrkit/pull/180). Its initial sole
+documentation commit,
+[`91a1184376b00bf394712377933e1c07a0558f00`](https://github.com/mbeacom/adrkit/commit/91a1184376b00bf394712377933e1c07a0558f00),
+retained the required `Co-authored-by` trailer but intentionally omitted
+`Signed-off-by`.
 
-Until both have been seen red and then green on a real pull request, ADR-0035
-action item 3 stays open and the workflow counts as implemented, not as verified.
+The deployed workflow's
+[run `33030349682`](https://github.com/mbeacom/adrkit/actions/runs/33030349682)
+failed in the
+[`trusted-dco` job](https://github.com/mbeacom/adrkit/actions/runs/33030349682/job/98381187821).
+The job reported that it examined exactly one commit in
+`e9169e7e6d6a8519ebafff06f5217a98a632c21f..91a1184376b00bf394712377933e1c07a0558f00`
+and rejected that one commit because `the sign-off is missing`. This is the
+deployed negative observation required by ADR-0016, not a local simulation.
 
-### 3.3 An instance, recorded rather than tidied away
+The sole commit was then amended to add `Signed-off-by` and this observation,
+and force-pushed only with an explicit lease against the recorded remote tip
+`91a1184376b00bf394712377933e1c07a0558f00`.
+
+### 3.4 An instance, recorded rather than tidied away
 
 While building this, its author read an absence as a fact — the exact failure
 ADR-0016 exists to name — and committed the wrong conclusion before catching it.
