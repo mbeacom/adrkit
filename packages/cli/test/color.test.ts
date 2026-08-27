@@ -33,7 +33,7 @@ describe('CLI color presentation', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('\u001b[');
-    expect(result.stdout).toContain('adrkit 0.11.0');
+    expect(result.stdout).toContain('adrkit 0.12.0');
   });
 
   test('forced color keeps lint stdout and stderr separated', async () => {

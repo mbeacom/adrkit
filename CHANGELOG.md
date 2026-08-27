@@ -9,6 +9,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-27
+
 ### Added
 
 - **A guarded recovery path for the moving `v0` Action tag.** Manual recovery
@@ -40,27 +42,6 @@ Until `1.0.0`, minor releases may include breaking changes
   was added: the CLI stays read-only and the writing lives in a repo-local
   script ([#132](https://github.com/mbeacom/adrkit/issues/132)). Judgment prose
   outside the markers stays hand-maintained.
-
-### Fixed
-
-- **Inbound marker amplification is bounded before resolution.** One file now
-  retains at most the first 64 parsed declarations, and one batch at most the
-  first 10,000 in deterministic code-unit path plus source order. Exact overflow
-  collapses into one advisory `marker-declarations-capped` finding and
-  `markerScan.declarations` metadata; `explain`, `check`, and the Action report
-  it without giving PR-authored markers exit-code authority
-  ([#113](https://github.com/mbeacom/adrkit/issues/113)).
-
-- **`adr queue` no longer stays silent when a proposed record has a review
-  deadline but no routing tier.** `item.tier-absent` now fires whenever the tier
-  cannot be determined on a record that has entered review — a `review` block,
-  or a top-level `reviewBy`. The carve-out the spec actually states is
-  two-conditioned (both absent), but only the first condition was implemented,
-  so a `cross-team` record with `reviewBy` and no `review` block was listed with
-  `tier=None` and no finding at all
-  ([#111](https://github.com/mbeacom/adrkit/issues/111)). A `proposed` record
-  with neither remains `not-queued` and silent. Severity stays `info`, so no
-  exit code changes.
 
 - **Trusted CI gates that the pull request cannot edit.** A new
   `.github/workflows/trusted-gates.yml` runs on `pull_request_target`, which
@@ -104,8 +85,18 @@ Until `1.0.0`, minor releases may include breaking changes
   would otherwise have passed clean and deleted the gate on merge.
 
 - **[`docs/repository-trust-operations.md`](docs/repository-trust-operations.md)**,
-  separating the controls that are active from the ones that cannot be applied
-  until this lands, with the exact verified commands and the evidence for each.
+  separating the controls that are active from the ones that could not be applied
+  until the trusted workflow reached `main`, with the exact verified commands and
+  the evidence for each. Both gates are now deployed and required: the live `main`
+  ruleset lists `trusted-dco` and `gate-integrity` among its ten required
+  contexts, and the pull-request-controlled `dco` context was removed from that
+  set only after the trusted one reported green on real pull requests. Both were
+  observed failing before being relied on
+  ([ADR-0016](docs/adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md)):
+  `gate-integrity` went red before an acknowledgment and green after it on three
+  ordinary pull requests, and `trusted-dco` went red on a commit that deliberately
+  omitted `Signed-off-by` and green once it was signed. That is deployed evidence
+  in both directions, not a fixture or a local invocation.
 
 ### Changed
 
@@ -124,6 +115,27 @@ Until `1.0.0`, minor releases may include breaking changes
 - **`scripts/check-dco.ts` no longer carries a "known limitation" note.** It now
   states which invocation is the authority and which is advisory, because the
   limitation stopped being true for the one that gates the merge.
+
+### Fixed
+
+- **Inbound marker amplification is bounded before resolution.** One file now
+  retains at most the first 64 parsed declarations, and one batch at most the
+  first 10,000 in deterministic code-unit path plus source order. Exact overflow
+  collapses into one advisory `marker-declarations-capped` finding and
+  `markerScan.declarations` metadata; `explain`, `check`, and the Action report
+  it without giving PR-authored markers exit-code authority
+  ([#113](https://github.com/mbeacom/adrkit/issues/113)).
+
+- **`adr queue` no longer stays silent when a proposed record has a review
+  deadline but no routing tier.** `item.tier-absent` now fires whenever the tier
+  cannot be determined on a record that has entered review — a `review` block,
+  or a top-level `reviewBy`. The carve-out the spec actually states is
+  two-conditioned (both absent), but only the first condition was implemented,
+  so a `cross-team` record with `reviewBy` and no `review` block was listed with
+  `tier=None` and no finding at all
+  ([#111](https://github.com/mbeacom/adrkit/issues/111)). A `proposed` record
+  with neither remains `not-queued` and silent. Severity stays `info`, so no
+  exit code changes.
 
 ## [0.11.0] - 2026-08-26
 
@@ -1297,7 +1309,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/mbeacom/adrkit/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/mbeacom/adrkit/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/mbeacom/adrkit/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/mbeacom/adrkit/compare/v0.8.0...v0.9.0
