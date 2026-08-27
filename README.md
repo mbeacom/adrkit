@@ -313,7 +313,8 @@ answer where the next decision is actually being made.
   on the PRs that touch or explicitly declare them; pattern matches render as `via`
   and PR-authored marker claims as `declared by`. The comment also distinguishes
   marker files it could not inspect, marker declarations omitted at a safety cap,
-  and claims it read but could not bind. All are advisory: they never fail the job.
+  claims it read but could not bind, and stale claims naming historical records.
+  All are advisory: they never fail the job.
   It runs with only the default
   `GITHUB_TOKEN` and degrades (never fails the job) on a read-only fork token.
 - **MCP server** — let agents retrieve prior decisions, including the rejected

@@ -249,7 +249,11 @@ export function syncOnce() { … }
 
 A marker naming a record the corpus does not have is a `dangling-marker`
 finding at `warn`. A log-qualified marker is `marker-unresolvable` at `info` —
-inert against this corpus, not broken. Neither changes the exit code.
+inert against this corpus, not broken. A marker naming a `superseded`,
+`rejected`, or `deprecated` record is a `stale-marker` warning. It still binds
+to that historical record, and a superseded chain names its terminal live
+successor when one can be resolved; adrkit never silently substitutes the
+successor. None of these marker findings changes the exit code.
 
 The `--json` output reports what was actually scanned, so an empty result never
 has to be guessed at:

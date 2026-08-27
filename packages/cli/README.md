@@ -140,6 +140,12 @@ Marker scanning is intentionally narrow:
 
 Nothing is written back to the record.
 
+A marker that names a superseded, rejected, or deprecated record still resolves
+to that historical record and emits an advisory `stale-marker` warning. For a
+superseded chain, the warning names the terminal live successor when one can be
+resolved; adrkit never silently substitutes it. The warning does not affect the
+exit code.
+
 In `--json`, pattern matches appear in `firedMatchers` and file declarations in
 `declaredBy`. `explain --json` includes a single-file `markers` block plus
 `scannedBytes`, `fileBytes`, and exact retained/omitted declaration counts.

@@ -167,7 +167,7 @@ describe('runAction (end to end with a fake client)', () => {
     expect(result.failed).toBe(false);
     expect(result.outcome?.ok).toBe(true);
     expect(result.outcome?.findings.map((finding) => finding.rule)).toContain('dangling-marker');
-    expect(client.created[0]).toContain('#### Marker claims not bound');
+    expect(client.created[0]).toContain('#### Marker claims needing attention');
     expect(client.created[0]).toContain('@adr 9999');
   });
 

@@ -76,6 +76,11 @@ Two properties are load-bearing and easy to break:
   first 10,000 in code-unit path then source order after concurrent reads finish.
   Exact overflow is collapsed into one advisory report/finding, never one object
   per dropped declaration, and never gains exit-code authority.
+- **A marker naming history stays historical and gets an advisory warning.**
+  `superseded`, `rejected`, and `deprecated` declarations emit `stale-marker`;
+  a resolvable supersession chain names its terminal live successor, but the
+  resolver never silently substitutes that record. The original declaration
+  remains under `history`, and the warning never changes an exit code.
 - **A marker must not be able to lie.** The scanner requires the comment
   introducer to begin the physical line with `@adr` as the comment's first
   content, so prose discussing a decision, a string literal containing one, and

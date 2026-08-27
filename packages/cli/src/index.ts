@@ -237,7 +237,9 @@ that matches it ("via path: src/**"), or the file itself declares the record in 
 comment ("declared by src/sync.ts:3 (@adr 0012)"). If <path> exists, at most its first
 8192 bytes are scanned for dedicated "@adr <id>" comment lines -- the scan stops at the
 last complete line inside that bound, and --json reports the extent it reached. A marker
-naming a record the corpus does not have is reported as a dangling-marker warning.
+naming a record the corpus does not have is reported as a dangling-marker warning. A
+marker naming a superseded, rejected, or deprecated record is reported as a stale-marker
+warning; a resolvable supersession chain names its terminal live successor.
 
 Arguments:
   <path>          Repo-relative path to explain

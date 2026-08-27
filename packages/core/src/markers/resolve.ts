@@ -64,13 +64,71 @@ function unresolvableFinding(marker: SourceMarker): Finding {
   };
 }
 
+function terminalLiveSuccessor(
+  record: Adr,
+  byId: ReadonlyMap<string, Adr>,
+): string | undefined {
+  let next = record.frontmatter.supersededBy;
+  const seen = new Set([record.frontmatter.id]);
+
+  while (next) {
+    if (seen.has(next)) return undefined;
+    seen.add(next);
+
+    const successor = byId.get(next);
+    if (!successor) return undefined;
+    if (successor.frontmatter.status === 'accepted') return successor.frontmatter.id;
+    if (
+      successor.frontmatter.status === 'draft' ||
+      successor.frontmatter.status === 'proposed'
+    ) {
+      return successor.frontmatter.id;
+    }
+    if (successor.frontmatter.status !== 'superseded') return undefined;
+    next = successor.frontmatter.supersededBy;
+  }
+
+  return undefined;
+}
+
+/**
+ * A source declaration naming history is a stronger stale claim than ordinary prose.
+ * It still binds to that historical record — no successor is silently substituted —
+ * but the warning gives the author an exact line and, when the chain resolves, the
+ * terminal live successor to consider. Advisory marker findings never affect an exit
+ * code (ADR-0022).
+ */
+function staleFinding(
+  marker: SourceMarker,
+  record: Adr,
+  byId: ReadonlyMap<string, Adr>,
+): Finding | undefined {
+  const status = record.frontmatter.status;
+  if (status !== 'superseded' && status !== 'rejected' && status !== 'deprecated') {
+    return undefined;
+  }
+
+  const successor = status === 'superseded' ? terminalLiveSuccessor(record, byId) : undefined;
+  const action = successor
+    ? `update it to "@adr ${successor}" or re-affirm ${marker.id}`
+    : `update the marker or re-affirm ${marker.id}`;
+  return {
+    rule: 'stale-marker',
+    severity: 'warn',
+    message: `Source marker "@adr ${marker.ref}" in ${marker.path}:${marker.line} names ${status} ADR ${marker.id}; ${action}`,
+    path: marker.path,
+    field: 'marker',
+    pattern: marker.ref,
+  };
+}
+
 function compareDeclarations(a: MarkerDeclaration, b: MarkerDeclaration): number {
   return compareCodeUnits(a.path, b.path) || a.line - b.line || compareCodeUnits(a.ref, b.ref);
 }
 
 /** Bind markers to the records they name, and report the ones that bind to nothing. */
 export function resolveSourceMarkers(input: ResolveSourceMarkersInput): ResolveSourceMarkersResult {
-  const ids = new Set(input.records.map((record) => record.frontmatter.id));
+  const byId = new Map(input.records.map((record) => [record.frontmatter.id, record]));
   const byRecord = new Map<string, MarkerDeclaration[]>();
   const findings: Finding[] = [];
   const seen = new Set<string>();
@@ -84,10 +142,14 @@ export function resolveSourceMarkers(input: ResolveSourceMarkersInput): ResolveS
       findings.push(unresolvableFinding(marker));
       continue;
     }
-    if (!ids.has(marker.id)) {
+    const record = byId.get(marker.id);
+    if (!record) {
       findings.push(danglingFinding(marker));
       continue;
     }
+
+    const stale = staleFinding(marker, record, byId);
+    if (stale) findings.push(stale);
 
     const declarations = byRecord.get(marker.id) ?? [];
     declarations.push({ path: marker.path, line: marker.line, ref: marker.ref });

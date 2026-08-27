@@ -48429,11 +48429,48 @@ function unresolvableFinding(marker) {
     pattern: marker.ref
   };
 }
+function terminalLiveSuccessor(record2, byId) {
+  let next = record2.frontmatter.supersededBy;
+  const seen = new Set([record2.frontmatter.id]);
+  while (next) {
+    if (seen.has(next))
+      return;
+    seen.add(next);
+    const successor = byId.get(next);
+    if (!successor)
+      return;
+    if (successor.frontmatter.status === "accepted")
+      return successor.frontmatter.id;
+    if (successor.frontmatter.status === "draft" || successor.frontmatter.status === "proposed") {
+      return successor.frontmatter.id;
+    }
+    if (successor.frontmatter.status !== "superseded")
+      return;
+    next = successor.frontmatter.supersededBy;
+  }
+  return;
+}
+function staleFinding(marker, record2, byId) {
+  const status = record2.frontmatter.status;
+  if (status !== "superseded" && status !== "rejected" && status !== "deprecated") {
+    return;
+  }
+  const successor = status === "superseded" ? terminalLiveSuccessor(record2, byId) : undefined;
+  const action = successor ? `update it to "@adr ${successor}" or re-affirm ${marker.id}` : `update the marker or re-affirm ${marker.id}`;
+  return {
+    rule: "stale-marker",
+    severity: "warn",
+    message: `Source marker "@adr ${marker.ref}" in ${marker.path}:${marker.line} names ${status} ADR ${marker.id}; ${action}`,
+    path: marker.path,
+    field: "marker",
+    pattern: marker.ref
+  };
+}
 function compareDeclarations(a, b) {
   return compareCodeUnits(a.path, b.path) || a.line - b.line || compareCodeUnits(a.ref, b.ref);
 }
 function resolveSourceMarkers(input) {
-  const ids = new Set(input.records.map((record2) => record2.frontmatter.id));
+  const byId = new Map(input.records.map((record2) => [record2.frontmatter.id, record2]));
   const byRecord = new Map;
   const findings = [];
   const seen = new Set;
@@ -48446,10 +48483,14 @@ function resolveSourceMarkers(input) {
       findings.push(unresolvableFinding(marker));
       continue;
     }
-    if (!ids.has(marker.id)) {
+    const record2 = byId.get(marker.id);
+    if (!record2) {
       findings.push(danglingFinding(marker));
       continue;
     }
+    const stale = staleFinding(marker, record2, byId);
+    if (stale)
+      findings.push(stale);
     const declarations = byRecord.get(marker.id) ?? [];
     declarations.push({ path: marker.path, line: marker.line, ref: marker.ref });
     byRecord.set(marker.id, declarations);
@@ -48751,9 +48792,9 @@ function markerClaimLines(outcome) {
     return [];
   const shown = claims.slice(0, MAX_MARKER_CLAIMS);
   const lines = [
-    "#### Marker claims not bound",
+    "#### Marker claims needing attention",
     "",
-    "Marker scanning was healthy for these changed files, but the claims did not bind to a record in this corpus:"
+    "Marker scanning was healthy for these changed files, but these claims need attention:"
   ];
   for (const finding of shown) {
     lines.push(`- ${code(finding.path ?? "(unknown)")} — ${code(boundedDetail(finding.message, MAX_FINDING_MESSAGE_CHARS, "message"))}`);

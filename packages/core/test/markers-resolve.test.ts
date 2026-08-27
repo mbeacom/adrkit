@@ -7,7 +7,11 @@ import {
 } from '../src/markers/index.ts';
 import { toGoverningDecisions } from '../src/check/index.ts';
 
-function record(id: string, status: Adr['frontmatter']['status'] = 'accepted'): Adr {
+function record(
+  id: string,
+  status: Adr['frontmatter']['status'] = 'accepted',
+  supersededBy?: string,
+): Adr {
   return {
     frontmatter: {
       schemaVersion: '0.1.0',
@@ -23,6 +27,7 @@ function record(id: string, status: Adr['frontmatter']['status'] = 'accepted'): 
       reversibility: 'unknown',
       blastRadius: 'component',
       supersedes: [],
+      ...(supersededBy ? { supersededBy } : {}),
       relatesTo: [],
       conflictsWith: [],
       affects: [],
@@ -83,6 +88,65 @@ describe('resolveSourceMarkers', () => {
     expect(result.findings.map((finding) => [finding.rule, finding.severity])).toEqual([
       ['marker-unresolvable', 'info'],
     ]);
+  });
+
+  test('historical markers warn without losing their matches, following supersession to the terminal successor', () => {
+    const result = resolveSourceMarkers({
+      records: [
+        record('0001', 'superseded', '0002'),
+        record('0002', 'superseded', '0003'),
+        record('0003'),
+        record('0004', 'rejected'),
+        record('0005', 'deprecated'),
+      ],
+      markers: [
+        marker('0005', 'src/deprecated.ts', 5),
+        marker('0001', 'src/superseded.ts', 3),
+        marker('0004', 'src/rejected.ts', 4),
+        marker('0001', 'src/superseded.ts', 3),
+      ],
+    });
+
+    expect(result.matches.map((match) => match.recordId)).toEqual(['0001', '0004', '0005']);
+    expect(result.findings).toEqual([
+      {
+        rule: 'stale-marker',
+        severity: 'warn',
+        message:
+          'Source marker "@adr 0001" in src/superseded.ts:3 names superseded ADR 0001; update it to "@adr 0003" or re-affirm 0001',
+        path: 'src/superseded.ts',
+        field: 'marker',
+        pattern: '0001',
+      },
+      {
+        rule: 'stale-marker',
+        severity: 'warn',
+        message:
+          'Source marker "@adr 0004" in src/rejected.ts:4 names rejected ADR 0004; update the marker or re-affirm 0004',
+        path: 'src/rejected.ts',
+        field: 'marker',
+        pattern: '0004',
+      },
+      {
+        rule: 'stale-marker',
+        severity: 'warn',
+        message:
+          'Source marker "@adr 0005" in src/deprecated.ts:5 names deprecated ADR 0005; update the marker or re-affirm 0005',
+        path: 'src/deprecated.ts',
+        field: 'marker',
+        pattern: '0005',
+      },
+    ]);
+  });
+
+  test('accepted and active-proposal markers do not warn', () => {
+    const result = resolveSourceMarkers({
+      records: [record('0001'), record('0002', 'draft'), record('0003', 'proposed')],
+      markers: [marker('0001'), marker('0002'), marker('0003')],
+    });
+
+    expect(result.matches.map((match) => match.recordId)).toEqual(['0001', '0002', '0003']);
+    expect(result.findings).toEqual([]);
   });
 
   test('groups every declaring file under one record, sorted and deduplicated', () => {

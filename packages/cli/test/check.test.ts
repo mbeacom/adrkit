@@ -143,6 +143,29 @@ describe('adr check CLI', () => {
     expect(result.stdout).toContain('marker scan: 1 scanned, 0 absent');
   });
 
+  test('a stale marker stays advisory in human and JSON output', async () => {
+    const root = await seedCorpus();
+    const dir = join(root, 'docs/adr');
+    await writeText(
+      join(dir, '0002-cli.md'),
+      supersededRecordMarkdown('0002', '0003', 'Use the old CLI paths'),
+    );
+    await writeText(join(dir, '0003-current.md'), acceptedRecordMarkdown('0003', 'Use current CLI paths'));
+    await writeText(join(root, 'src/owned.ts'), '// @adr 0002\n');
+
+    const human = await runAdr(['check', 'src/owned.ts', '--dir', 'docs/adr'], root);
+    const json = await runAdr(['check', 'src/owned.ts', '--dir', 'docs/adr', '--json'], root);
+    const outcome = JSON.parse(json.stdout);
+
+    expect(human.exitCode).toBe(0);
+    expect(json.exitCode).toBe(0);
+    expect(human.stdout).toContain('warn stale-marker');
+    expect(human.stdout).toContain('update it to "@adr 0003" or re-affirm 0002');
+    expect(outcome.history.map((decision: { recordId: string }) => decision.recordId)).toEqual(['0002']);
+    expect(outcome.findings.map((finding: { rule: string }) => finding.rule)).toContain('stale-marker');
+    expect(outcome.ok).toBe(true);
+  });
+
   test('--json distinguishes an absent changed path from a scanned file with no markers', async () => {
     const root = await seedCorpus();
 

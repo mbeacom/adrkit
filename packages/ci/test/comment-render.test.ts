@@ -126,7 +126,7 @@ describe('renderComment', () => {
 
     const body = renderComment(outcome);
 
-    expect(body).toContain('#### Marker claims not bound');
+    expect(body).toContain('#### Marker claims needing attention');
     expect(body).toContain('src/owned.ts');
     expect(body).toContain('@adr 9999');
     expect(body).not.toContain('#### Marker scan health');
@@ -259,6 +259,23 @@ describe('renderComment status awareness (#39)', () => {
     expect(body).toContain('#### Active proposals touching this change');
     expect(body).toContain('**0002** — Draft record _(draft)_');
     expect(body).toContain('#### Historical records that once covered this change');
+    expect(body).toContain('**0003** — Superseded record _(superseded)_ — superseded by **0001**');
+  });
+
+  test('a bound stale marker is reported as needing attention, not as unbound', async () => {
+    const root = await seedMixed();
+    const file = 'src/stale.ts';
+    await writeText(join(root, file), '// @adr 0003\n');
+    const lint = await lintCorpus({ cwd: root, dir: 'docs/adr' });
+    const markerScans = await readSourceMarkersBatch([file], root);
+    const outcome = checkChanges({ lint, changedFiles: [file], dir: 'docs/adr', markerScans });
+
+    const body = renderComment(outcome);
+
+    expect(outcome.ok).toBe(true);
+    expect(body).toContain('#### Marker claims needing attention');
+    expect(body).not.toContain('Marker claims not bound');
+    expect(body).toContain('names superseded ADR 0003; update it to "@adr 0001" or re-affirm 0003');
     expect(body).toContain('**0003** — Superseded record _(superseded)_ — superseded by **0001**');
   });
 

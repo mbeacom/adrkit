@@ -24,6 +24,14 @@ Until `1.0.0`, minor releases may include breaking changes
   container
   ([ADR-0036](docs/adr/0036-expose-the-governing-decisions-action-through-one-root-marketplace-entry-point.md)).
 
+- **Advisory stale-marker diagnostics.** An inbound `@adr` declaration that
+  names a superseded, rejected, or deprecated record now emits a
+  `stale-marker` warning in `adr explain`, `adr check`, and the
+  governing-decisions Action. Superseded chains resolve to their terminal live
+  successor when one exists, but adrkit never substitutes that successor or
+  changes marker-derived exit-code behavior. The warning remains advisory under
+  ADR-0022 ([#116](https://github.com/mbeacom/adrkit/issues/116)).
+
 ### Fixed
 
 - **Completed locale-independent ordering for `check --json` and the

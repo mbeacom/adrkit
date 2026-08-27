@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
-import { acceptedRecordMarkdown, cleanupTestDir, resetTestDir, writeText } from '../../core/test/helpers.ts';
+import {
+  acceptedRecordMarkdown,
+  cleanupTestDir,
+  resetTestDir,
+  supersededRecordMarkdown,
+  writeText,
+} from '../../core/test/helpers.ts';
 
 const CLI_PATH = resolve(process.cwd(), 'packages/cli/src/index.ts');
 const DIR_NAME = 'cli-explain-markers';
@@ -119,6 +125,33 @@ describe('adr explain — inbound @adr markers', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('warn dangling-marker');
     expect(result.stdout).toContain('Source marker "@adr 0099" in src/sync/retry.ts:1');
+  });
+
+  test('a superseded marker reports its terminal successor without becoming blocking', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'docs/adr');
+    await writeText(
+      join(dir, '0001-old.md'),
+      supersededRecordMarkdown('0001', '0002', 'Use the old protocol'),
+    );
+    await writeText(
+      join(dir, '0002-middle.md'),
+      supersededRecordMarkdown('0002', '0003', 'Use the middle protocol'),
+    );
+    await writeText(
+      join(dir, '0003-current.md'),
+      acceptedRecordMarkdown('0003', 'Use the current protocol'),
+    );
+    await writeText(join(root, 'src/sync/retry.ts'), '// @adr 0001\n');
+
+    const result = await runAdr(['explain', 'src/sync/retry.ts', '--dir', 'docs/adr'], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('0001  [superseded] Use the old protocol (superseded by 0002)');
+    expect(result.stdout).toContain('warn stale-marker');
+    expect(result.stdout).toContain(
+      'names superseded ADR 0001; update it to "@adr 0003" or re-affirm 0001',
+    );
   });
 
   test('reports exact per-file declaration overflow without resolving omitted claims', async () => {

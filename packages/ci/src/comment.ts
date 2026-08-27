@@ -153,9 +153,9 @@ function markerClaimLines(outcome: CheckOutcome): string[] {
 
   const shown = claims.slice(0, MAX_MARKER_CLAIMS);
   const lines = [
-    '#### Marker claims not bound',
+    '#### Marker claims needing attention',
     '',
-    'Marker scanning was healthy for these changed files, but the claims did not bind to a record in this corpus:',
+    'Marker scanning was healthy for these changed files, but these claims need attention:',
   ];
   for (const finding of shown) {
     lines.push(`- ${code(finding.path ?? '(unknown)')} — ${code(boundedDetail(finding.message, MAX_FINDING_MESSAGE_CHARS, 'message'))}`);
