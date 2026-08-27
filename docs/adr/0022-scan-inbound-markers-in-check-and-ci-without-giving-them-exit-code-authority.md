@@ -166,6 +166,21 @@ runaway glob.
 `@adrkit/core` cannot import the provider constant — the dependency runs the
 other way.
 
+### Declaration caps bound authored amplification
+
+The file and byte caps do not bound the number of declarations parsed from the
+bytes they admit: one 8,098-byte comma-packed line can contain 1,618 valid
+references. Effective with v0.12.0, one file retains at most the first **64**
+declarations in physical/source order, and one batch retains at most the first
+**10,000** in code-unit path then source order after concurrent reads complete.
+
+Both limits preserve exact overflow counts without allocating one marker or
+finding per omitted declaration. `check` emits one
+`marker-declarations-capped` warning and reports the aggregate counts in
+`markerScan.declarations`; `explain` reports the single-file count. These remain
+advisory and cannot affect the exit code. This amendment closes
+[#113](https://github.com/mbeacom/adrkit/issues/113).
+
 ## Options considered
 
 ### Option A: Scan in `check` and the Action, advisory only — chosen

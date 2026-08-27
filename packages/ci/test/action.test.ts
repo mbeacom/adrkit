@@ -171,6 +171,31 @@ describe('runAction (end to end with a fake client)', () => {
     expect(client.created[0]).toContain('@adr 9999');
   });
 
+  test('reports declaration overflow in logs and the comment without failing the Action', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-core.md'),
+      acceptedRecordMarkdown('0001', 'Guard marker-owned code'),
+    );
+    await writeText(
+      join(root, 'src/amplified.ts'),
+      Array.from({ length: 65 }, () => '// @adr 0001\n').join(''),
+    );
+    const client = makeFakeClient();
+    const logger = makeLogger();
+    const actionDeps = deps(client, root, ['src/amplified.ts']);
+    actionDeps.log = logger.log;
+
+    const result = await runAction(actionDeps);
+
+    expect(result.failed).toBe(false);
+    expect(result.outcome?.ok).toBe(true);
+    expect(logger.info.join('\n')).toContain('marker declarations: 64/65 retained, 1 omitted');
+    expect(logger.warning.join('\n')).toContain('omitted 1 declaration(s)');
+    expect(client.created[0]).toContain('Marker declaration limits retained 64 of 65');
+    expect(client.created[0]).toContain('1 at the 64-per-file limit');
+  });
+
   test('warns with the exact skipped paths when the marker scan cap is reached', async () => {
     const root = await resetTestDir(DIR_NAME);
     await mkdir(join(root, 'docs/adr'), { recursive: true });

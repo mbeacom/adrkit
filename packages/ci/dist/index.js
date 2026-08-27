@@ -48112,6 +48112,7 @@ function resolveAffects(input) {
 }
 // ../core/src/markers/scan.ts
 var MARKER_HEADER_WINDOW_BYTES = 8192;
+var MARKER_DECLARATION_FILE_CAP = 64;
 var MARKER_TOKEN = "@adr";
 var COMMENT_INTRODUCERS = [
   "//",
@@ -48192,6 +48193,7 @@ function readRefs(rest) {
 }
 function scanWindow(window, path) {
   const markers = [];
+  let omittedMarkers = 0;
   const introducers = isMarkdownPath(path) ? MARKDOWN_COMMENT_INTRODUCERS : COMMENT_INTRODUCERS;
   let fence = null;
   const lines = window.text.split(/\r\n|[\r\n]/);
@@ -48216,11 +48218,15 @@ function scanWindow(window, path) {
     if (markerStart === undefined)
       continue;
     for (const ref of readRefs(content.slice(markerStart + MARKER_TOKEN.length))) {
-      const { id, log } = parseAdrRef(ref);
-      markers.push({ path, ref, id, ...log ? { log } : {}, line: index + 1 });
+      if (markers.length < MARKER_DECLARATION_FILE_CAP) {
+        const { id, log } = parseAdrRef(ref);
+        markers.push({ path, ref, id, ...log ? { log } : {}, line: index + 1 });
+      } else {
+        omittedMarkers += 1;
+      }
     }
   }
-  return { markers, truncated: window.truncated };
+  return { markers, omittedMarkers, truncated: window.truncated };
 }
 function scanBoundedSourceMarkerWindow(source, path, truncated) {
   return scanWindow({ text: truncated ? completeLinePrefix(source) : source, truncated }, path);
@@ -48248,6 +48254,7 @@ async function mapConcurrent(items, concurrency, task) {
 // ../core/src/markers/read.ts
 var MARKER_SCAN_FILE_CAP = 3000;
 var MARKER_SCAN_CONCURRENCY = 16;
+var MARKER_DECLARATION_BATCH_CAP = 1e4;
 function scanStateForError(error52) {
   const code = typeof error52 === "object" && error52 !== null && "code" in error52 ? String(error52.code) : "";
   return code === "ENOENT" || code === "ENOTDIR" ? "absent" : "unreadable";
@@ -48327,6 +48334,7 @@ async function readWithPreparedRoot(path, prepared) {
       path: normalizedPath,
       state: "scanned",
       markers: scan.markers,
+      ...scan.omittedMarkers > 0 ? { omittedMarkers: scan.omittedMarkers } : {},
       truncated: scan.truncated,
       scannedBytes,
       fileBytes: opened.size
@@ -48342,12 +48350,39 @@ async function readSourceMarkersBatch(paths, cwd = process.cwd()) {
   const selected = candidates.slice(0, MARKER_SCAN_FILE_CAP);
   const skippedPaths = candidates.slice(MARKER_SCAN_FILE_CAP);
   const prepared = selected.length > 0 ? await prepareRoot(cwd) : undefined;
-  const scans = prepared ? await mapConcurrent(selected, MARKER_SCAN_CONCURRENCY, (path) => readWithPreparedRoot(path, prepared)) : [];
+  const scans = [];
+  let remaining = MARKER_DECLARATION_BATCH_CAP;
+  let perFileOmitted = 0;
+  let batchOmitted = 0;
+  if (prepared) {
+    for (let offset = 0;offset < selected.length; offset += MARKER_SCAN_CONCURRENCY) {
+      const paths2 = selected.slice(offset, offset + MARKER_SCAN_CONCURRENCY);
+      const chunk = await mapConcurrent(paths2, MARKER_SCAN_CONCURRENCY, (path) => readWithPreparedRoot(path, prepared));
+      for (const scan of chunk) {
+        perFileOmitted += scan.omittedMarkers ?? 0;
+        const retained2 = scan.markers.slice(0, remaining);
+        remaining -= retained2.length;
+        batchOmitted += scan.markers.length - retained2.length;
+        scans.push(retained2.length === scan.markers.length ? scan : { ...scan, markers: retained2 });
+      }
+    }
+  }
+  const retained = MARKER_DECLARATION_BATCH_CAP - remaining;
+  const omitted = perFileOmitted + batchOmitted;
   return {
     scans,
     skippedPaths,
     limit: MARKER_SCAN_FILE_CAP,
-    totalCandidates: candidates.length
+    totalCandidates: candidates.length,
+    declarations: {
+      total: retained + omitted,
+      retained,
+      omitted,
+      perFileOmitted,
+      batchOmitted,
+      perFileLimit: MARKER_DECLARATION_FILE_CAP,
+      batchLimit: MARKER_DECLARATION_BATCH_CAP
+    }
   };
 }
 // ../core/src/check/decisions.ts
@@ -48469,6 +48504,17 @@ function markerScanReport(batch) {
   const outOfTreePaths = [];
   const truncatedPaths = [];
   let scanned = 0;
+  const retained = batch.scans.reduce((total, scan) => total + scan.markers.length, 0);
+  const perFileOmitted = batch.scans.reduce((total, scan) => total + (scan.omittedMarkers ?? 0), 0);
+  const declarations = batch.declarations ?? {
+    total: retained + perFileOmitted,
+    retained,
+    omitted: perFileOmitted,
+    perFileOmitted,
+    batchOmitted: 0,
+    perFileLimit: MARKER_DECLARATION_FILE_CAP,
+    batchLimit: MARKER_DECLARATION_BATCH_CAP
+  };
   for (const scan of batch.scans) {
     if (scan.state === "scanned")
       scanned += 1;
@@ -48496,7 +48542,8 @@ function markerScanReport(batch) {
     unreadablePaths: unreadablePaths.sort(compareCodeUnits),
     outOfTreePaths: outOfTreePaths.sort(compareCodeUnits),
     truncatedPaths: truncatedPaths.sort(compareCodeUnits),
-    skippedPaths: [...batch.skippedPaths].sort(compareCodeUnits)
+    skippedPaths: [...batch.skippedPaths].sort(compareCodeUnits),
+    declarations
   };
 }
 function cappedScanFinding(report) {
@@ -48509,6 +48556,17 @@ function cappedScanFinding(report) {
     rule: "marker-scan-capped",
     severity: "warn",
     message: `Marker scan reached the ${report.limit}-file cap and skipped ${shown.join(", ")}${suffix}`,
+    field: "marker"
+  };
+}
+function cappedDeclarationsFinding(report) {
+  const declarations = report.declarations;
+  if (declarations.omitted === 0)
+    return;
+  return {
+    rule: "marker-declarations-capped",
+    severity: "warn",
+    message: `Marker scan retained ${declarations.retained} of ${declarations.total} declarations; ` + `omitted ${declarations.perFileOmitted} at the ${declarations.perFileLimit}-per-file cap ` + `and ${declarations.batchOmitted} at the ${declarations.batchLimit}-per-batch cap ` + "(see markerScan.declarations)",
     field: "marker"
   };
 }
@@ -48532,10 +48590,12 @@ function checkChanges(input) {
   const changedRecordFindings = input.lint.findings.filter((finding) => finding.path !== undefined && changedRecordSet.has(finding.path));
   const markerScan = input.markerScans ? markerScanReport(input.markerScans) : undefined;
   const capped = markerScan ? cappedScanFinding(markerScan) : undefined;
+  const cappedDeclarations = markerScan ? cappedDeclarationsFinding(markerScan) : undefined;
   const findings = sortFindings([
     ...resolution.findings,
     ...markerResolution.findings,
     ...capped ? [capped] : [],
+    ...cappedDeclarations ? [cappedDeclarations] : [],
     ...changedRecordFindings
   ]);
   const ok = !changedRecordFindings.some((finding) => finding.severity === "error");
@@ -48661,21 +48721,27 @@ function markerScanHealthLines(report) {
     ["skipped at the scan cap", report.skippedPaths]
   ];
   const unavailable = states.reduce((total, [, paths]) => total + paths.length, 0);
-  if (unavailable === 0)
+  const omitted = report.declarations.omitted;
+  if (unavailable === 0 && omitted === 0)
     return [];
-  const lines = [
-    "#### Marker scan health",
-    "",
-    `Marker scanning could not inspect ${unavailable} changed file${unavailable === 1 ? "" : "s"}:`
-  ];
-  for (const [label, paths] of states) {
-    if (paths.length === 0)
-      continue;
-    const shown = paths.slice(0, MAX_MARKER_PATHS_PER_STATE).map(code).join(", ");
-    const remaining = paths.length - Math.min(paths.length, MAX_MARKER_PATHS_PER_STATE);
-    lines.push(`- ${paths.length} ${label}: ${shown}${remaining > 0 ? `, and ${remaining} more` : ""}`);
+  const lines = ["#### Marker scan health", ""];
+  if (unavailable > 0) {
+    lines.push(`Marker scanning could not inspect ${unavailable} changed file${unavailable === 1 ? "" : "s"}:`);
+    for (const [label, paths] of states) {
+      if (paths.length === 0)
+        continue;
+      const shown = paths.slice(0, MAX_MARKER_PATHS_PER_STATE).map(code).join(", ");
+      const remaining = paths.length - Math.min(paths.length, MAX_MARKER_PATHS_PER_STATE);
+      lines.push(`- ${paths.length} ${label}: ${shown}${remaining > 0 ? `, and ${remaining} more` : ""}`);
+    }
+    lines.push("", "These files could not be inspected for `@adr` markers; an empty result does not prove that no marker is present.");
   }
-  lines.push("", "These files could not be inspected for `@adr` markers; an empty result does not prove that no marker is present.");
+  if (omitted > 0) {
+    const declarations = report.declarations;
+    if (unavailable > 0)
+      lines.push("");
+    lines.push(`Marker declaration limits retained ${declarations.retained} of ${declarations.total} declarations and omitted ${declarations.omitted}:`, `- ${declarations.perFileOmitted} at the ${declarations.perFileLimit}-per-file limit`, `- ${declarations.batchOmitted} at the ${declarations.batchLimit}-per-batch limit`);
+  }
   return lines;
 }
 function markerClaimLines(outcome) {
@@ -48966,6 +49032,10 @@ async function runAction(deps) {
   if (report) {
     const counts = report.counts;
     deps.log.info(`adrkit: marker scan: ${counts.scanned} scanned, ${counts.absent} absent, ` + `${counts.unreadable} unreadable, ${counts["out-of-tree"]} out-of-tree, ` + `${counts.truncated} truncated, ${counts.skipped} skipped.`);
+    deps.log.info(`adrkit: marker declarations: ${report.declarations.retained}/${report.declarations.total} retained, ` + `${report.declarations.omitted} omitted (${report.declarations.perFileOmitted} per-file, ` + `${report.declarations.batchOmitted} per-batch).`);
+    if (report.declarations.omitted > 0) {
+      deps.log.warning(`adrkit: marker declaration limits omitted ${report.declarations.omitted} declaration(s); ` + `see markerScan.declarations for exact counts.`);
+    }
     if (report.skippedPaths.length > 0) {
       deps.log.warning(`adrkit: marker scan reached the ${report.limit}-file cap; skipped: ${report.skippedPaths.join(", ")}`);
     }

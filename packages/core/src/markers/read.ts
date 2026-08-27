@@ -16,6 +16,7 @@ import { constants, lstat, open, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { compareCodeUnits } from '../ordering/index.ts';
 import {
+  MARKER_DECLARATION_FILE_CAP,
   MARKER_HEADER_WINDOW_BYTES,
   completeLineByteExtent,
   scanBoundedSourceMarkerWindow,
@@ -43,6 +44,8 @@ export interface SourceMarkerScan {
   path: string;
   state: MarkerScanState;
   markers: SourceMarker[];
+  /** Valid declarations omitted at the per-file cap. Produced by adrkit readers. */
+  omittedMarkers?: number;
   /** Whether the header window stopped short of the end of the file. */
   truncated: boolean;
   /**
@@ -94,12 +97,28 @@ export const MARKER_SCAN_FILE_CAP = 3000;
 /** Maximum number of marker file reads in flight at once. */
 export const MARKER_SCAN_CONCURRENCY = 16;
 
+/** Maximum declarations retained across one deterministic batch scan. */
+export const MARKER_DECLARATION_BATCH_CAP = 10_000;
+
+/** Exact declaration accounting for a batch after both marker caps are applied. */
+export interface MarkerDeclarationScanReport {
+  total: number;
+  retained: number;
+  omitted: number;
+  perFileOmitted: number;
+  batchOmitted: number;
+  perFileLimit: number;
+  batchLimit: number;
+}
+
 /** Pre-scanned marker input passed across the pure `checkChanges` boundary. */
 export interface SourceMarkerBatchScan {
   scans: SourceMarkerScan[];
   skippedPaths: string[];
   limit: number;
   totalCandidates: number;
+  /** Present on batches produced by `readSourceMarkersBatch`; optional for older callers. */
+  declarations?: MarkerDeclarationScanReport;
 }
 
 function scanStateForError(error: unknown): MarkerScanState {
@@ -257,6 +276,7 @@ async function readWithPreparedRoot(path: string, prepared: PreparedRoot): Promi
       path: normalizedPath,
       state: 'scanned',
       markers: scan.markers,
+      ...(scan.omittedMarkers > 0 ? { omittedMarkers: scan.omittedMarkers } : {}),
       truncated: scan.truncated,
       scannedBytes,
       fileBytes: opened.size,
@@ -278,7 +298,11 @@ export async function readSourceMarkers(path: string, cwd = process.cwd()): Prom
  * Paths are normalized, deduplicated, and sorted before the first
  * {@link MARKER_SCAN_FILE_CAP} are chosen.
  * Anything beyond the cap is returned verbatim in `skippedPaths`, never silently
- * discarded. The working-tree real path is resolved once for the entire batch.
+ * discarded. After concurrent reads finish in that path order, the first
+ * {@link MARKER_DECLARATION_BATCH_CAP} retained declarations survive in path then
+ * source order. Exact per-file and batch overflow counts are returned without
+ * allocating marker objects for omitted declarations. The working-tree real path is
+ * resolved once for the entire batch.
  */
 export async function readSourceMarkersBatch(
   paths: readonly string[],
@@ -288,16 +312,45 @@ export async function readSourceMarkersBatch(
   const selected = candidates.slice(0, MARKER_SCAN_FILE_CAP);
   const skippedPaths = candidates.slice(MARKER_SCAN_FILE_CAP);
   const prepared = selected.length > 0 ? await prepareRoot(cwd) : undefined;
-  const scans = prepared
-    ? await mapConcurrent(selected, MARKER_SCAN_CONCURRENCY, (path) =>
+  const scans: SourceMarkerScan[] = [];
+  let remaining = MARKER_DECLARATION_BATCH_CAP;
+  let perFileOmitted = 0;
+  let batchOmitted = 0;
+  if (prepared) {
+    // Commit one ordered concurrency window at a time. `mapConcurrent` preserves the
+    // chunk's path order even when reads complete out of order, while the chunk barrier
+    // prevents all 3,000 per-file marker arrays from being live before the batch cap is
+    // applied (at most one 16 × 64 window plus the 10,000 retained output).
+    for (let offset = 0; offset < selected.length; offset += MARKER_SCAN_CONCURRENCY) {
+      const paths = selected.slice(offset, offset + MARKER_SCAN_CONCURRENCY);
+      const chunk = await mapConcurrent(paths, MARKER_SCAN_CONCURRENCY, (path) =>
         readWithPreparedRoot(path, prepared),
-      )
-    : [];
+      );
+      for (const scan of chunk) {
+        perFileOmitted += scan.omittedMarkers ?? 0;
+        const retained = scan.markers.slice(0, remaining);
+        remaining -= retained.length;
+        batchOmitted += scan.markers.length - retained.length;
+        scans.push(retained.length === scan.markers.length ? scan : { ...scan, markers: retained });
+      }
+    }
+  }
+  const retained = MARKER_DECLARATION_BATCH_CAP - remaining;
+  const omitted = perFileOmitted + batchOmitted;
 
   return {
     scans,
     skippedPaths,
     limit: MARKER_SCAN_FILE_CAP,
     totalCandidates: candidates.length,
+    declarations: {
+      total: retained + omitted,
+      retained,
+      omitted,
+      perFileOmitted,
+      batchOmitted,
+      perFileLimit: MARKER_DECLARATION_FILE_CAP,
+      batchLimit: MARKER_DECLARATION_BATCH_CAP,
+    },
   };
 }

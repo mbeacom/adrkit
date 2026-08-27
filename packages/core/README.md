@@ -80,7 +80,10 @@ the path" from "this file opted into the record."
 
 `scanSourceMarkers(source, path)` is the pure half: text in, markers out, no
 filesystem. It scans only the first `MARKER_HEADER_WINDOW_BYTES` (**8192**) of
-the source and stops at the last complete line inside that window.
+the source, stops at the last complete line inside that window, and retains the
+first `MARKER_DECLARATION_FILE_CAP` (**64**) valid declarations in physical/source
+order. `omittedMarkers` reports the exact number beyond that cap without
+allocating a marker object for each one.
 
 Markers must be the first content on a dedicated comment line. That keeps prose,
 string literals, and trailing inline comments from becoming declarations. Lines
@@ -111,11 +114,15 @@ observations rather than strict arithmetic.
 `readSourceMarkersBatch(paths, cwd)` is the impure boundary used by
 `checkChanges`. It normalizes, deduplicates, and sorts the input paths; scans
 the first **3,000** normalized paths with at most **16** reads in flight; and
-returns every skipped path.
+returns every skipped path. After the concurrent reads finish, it retains the
+first `MARKER_DECLARATION_BATCH_CAP` (**10,000**) declarations in code-unit path
+then physical/source order. The batch's `declarations` report gives exact
+`total`, `retained`, `omitted`, `perFileOmitted`, and `batchOmitted` counts.
 
 Pass that `SourceMarkerBatchScan` through `markerScans` to get marker-aware
 decisions and a deterministic `markerScan` report without adding filesystem
-access to `checkChanges`.
+access to `checkChanges`. Declaration overflow produces one advisory
+`marker-declarations-capped` finding and never changes `CheckOutcome.ok`.
 
 The published ESM artifacts run on Node.js 22 or newer. Development in the
 adrkit repository uses Bun.

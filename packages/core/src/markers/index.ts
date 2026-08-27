@@ -6,13 +6,20 @@
  * matcher type or a new frontmatter field.
  */
 
-export { MARKER_HEADER_WINDOW_BYTES, scanSourceMarkers, type ScanSourceMarkersResult } from './scan.ts';
 export {
+  MARKER_DECLARATION_FILE_CAP,
+  MARKER_HEADER_WINDOW_BYTES,
+  scanSourceMarkers,
+  type ScanSourceMarkersResult,
+} from './scan.ts';
+export {
+  MARKER_DECLARATION_BATCH_CAP,
   MARKER_SCAN_CONCURRENCY,
   MARKER_SCAN_FILE_CAP,
   readSourceMarkers,
   readSourceMarkersBatch,
   type MarkerScanState,
+  type MarkerDeclarationScanReport,
   type SourceMarkerBatchScan,
   type SourceMarkerScan,
 } from './read.ts';

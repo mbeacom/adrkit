@@ -7,7 +7,12 @@ import { sep } from 'node:path';
 import type { Adr } from '../schema/adr.schema.ts';
 import { resolveAffects, type ResolutionSnapshots } from '../affects/index.ts';
 import { mergeSourceDeclarations, resolveSourceMarkers } from '../markers/resolve.ts';
-import type { SourceMarkerBatchScan } from '../markers/read.ts';
+import {
+  MARKER_DECLARATION_BATCH_CAP,
+  type MarkerDeclarationScanReport,
+  type SourceMarkerBatchScan,
+} from '../markers/read.ts';
+import { MARKER_DECLARATION_FILE_CAP } from '../markers/scan.ts';
 import { compareCodeUnits } from '../ordering/index.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 import {
@@ -49,6 +54,8 @@ export interface MarkerScanReport {
   outOfTreePaths: string[];
   truncatedPaths: string[];
   skippedPaths: string[];
+  /** Exact declaration counts after the per-file and per-batch caps. */
+  declarations: MarkerDeclarationScanReport;
 }
 
 /**
@@ -144,6 +151,20 @@ function markerScanReport(batch: SourceMarkerBatchScan): MarkerScanReport {
   const outOfTreePaths: string[] = [];
   const truncatedPaths: string[] = [];
   let scanned = 0;
+  const retained = batch.scans.reduce((total, scan) => total + scan.markers.length, 0);
+  const perFileOmitted = batch.scans.reduce(
+    (total, scan) => total + (scan.omittedMarkers ?? 0),
+    0,
+  );
+  const declarations = batch.declarations ?? {
+    total: retained + perFileOmitted,
+    retained,
+    omitted: perFileOmitted,
+    perFileOmitted,
+    batchOmitted: 0,
+    perFileLimit: MARKER_DECLARATION_FILE_CAP,
+    batchLimit: MARKER_DECLARATION_BATCH_CAP,
+  };
 
   for (const scan of batch.scans) {
     if (scan.state === 'scanned') scanned += 1;
@@ -169,6 +190,7 @@ function markerScanReport(batch: SourceMarkerBatchScan): MarkerScanReport {
     outOfTreePaths: outOfTreePaths.sort(compareCodeUnits),
     truncatedPaths: truncatedPaths.sort(compareCodeUnits),
     skippedPaths: [...batch.skippedPaths].sort(compareCodeUnits),
+    declarations,
   };
 }
 
@@ -181,6 +203,21 @@ function cappedScanFinding(report: MarkerScanReport): Finding | undefined {
     rule: 'marker-scan-capped',
     severity: 'warn',
     message: `Marker scan reached the ${report.limit}-file cap and skipped ${shown.join(', ')}${suffix}`,
+    field: 'marker',
+  };
+}
+
+function cappedDeclarationsFinding(report: MarkerScanReport): Finding | undefined {
+  const declarations = report.declarations;
+  if (declarations.omitted === 0) return undefined;
+  return {
+    rule: 'marker-declarations-capped',
+    severity: 'warn',
+    message:
+      `Marker scan retained ${declarations.retained} of ${declarations.total} declarations; ` +
+      `omitted ${declarations.perFileOmitted} at the ${declarations.perFileLimit}-per-file cap ` +
+      `and ${declarations.batchOmitted} at the ${declarations.batchLimit}-per-batch cap ` +
+      '(see markerScan.declarations)',
     field: 'marker',
   };
 }
@@ -225,10 +262,12 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
   );
   const markerScan = input.markerScans ? markerScanReport(input.markerScans) : undefined;
   const capped = markerScan ? cappedScanFinding(markerScan) : undefined;
+  const cappedDeclarations = markerScan ? cappedDeclarationsFinding(markerScan) : undefined;
   const findings = sortFindings([
     ...resolution.findings,
     ...markerResolution.findings,
     ...(capped ? [capped] : []),
+    ...(cappedDeclarations ? [cappedDeclarations] : []),
     ...changedRecordFindings,
   ]);
   const ok = !changedRecordFindings.some((finding) => finding.severity === 'error');

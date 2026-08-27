@@ -11,6 +11,25 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **A guarded recovery path for the moving `v0` Action tag.** Manual recovery
+  accepts only an existing stable release whose annotated tag peels to a commit
+  on `main`, whose exact `Release` run succeeded, whose root version matches,
+  and whose committed Action bundles exist. Tag movement uses a lease and leaves
+  a durable withdrawal marker that prevents the removed commit from being
+  republished on a rerun
+  ([#175](https://github.com/mbeacom/adrkit/pull/175),
+  [#136](https://github.com/mbeacom/adrkit/issues/136),
+  [#122](https://github.com/mbeacom/adrkit/issues/122)).
+
+- **Marker scan health and unbound claims in the governing-decisions Action
+  comment.** Changed files that were absent, unreadable, out of tree, or skipped
+  are reported separately from `@adr` claims that were read but did not bind to
+  this corpus. Both sections are bounded, escaped, advisory, and ordered behind
+  changed-record errors
+  ([#178](https://github.com/mbeacom/adrkit/pull/178),
+  [#112](https://github.com/mbeacom/adrkit/issues/112),
+  [#126](https://github.com/mbeacom/adrkit/issues/126)).
+
 - **`MANIFEST.md`'s decision-corpus inventory is generated, not hand-written.**
   `bun run emit:manifest` renders the record table and the status counts from
   `adr graph --format json` between stable markers, and `clean-clone-builds`
@@ -23,6 +42,14 @@ Until `1.0.0`, minor releases may include breaking changes
   outside the markers stays hand-maintained.
 
 ### Fixed
+
+- **Inbound marker amplification is bounded before resolution.** One file now
+  retains at most the first 64 parsed declarations, and one batch at most the
+  first 10,000 in deterministic code-unit path plus source order. Exact overflow
+  collapses into one advisory `marker-declarations-capped` finding and
+  `markerScan.declarations` metadata; `explain`, `check`, and the Action report
+  it without giving PR-authored markers exit-code authority
+  ([#113](https://github.com/mbeacom/adrkit/issues/113)).
 
 - **`adr queue` no longer stays silent when a proposed record has a review
   deadline but no routing tier.** `item.tier-absent` now fires whenever the tier

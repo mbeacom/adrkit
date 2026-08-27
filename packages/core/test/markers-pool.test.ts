@@ -19,4 +19,15 @@ describe('marker scan worker pool', () => {
     expect(maximum).toBe(MARKER_SCAN_CONCURRENCY);
     expect(results).toEqual(items.map((item) => `item-${item}`));
   });
+
+  test('preserves input order when each concurrency window finishes in reverse order', async () => {
+    const items = Array.from({ length: MARKER_SCAN_CONCURRENCY * 2 }, (_, index) => index);
+
+    const results = await mapConcurrent(items, MARKER_SCAN_CONCURRENCY, async (item) => {
+      await Bun.sleep(MARKER_SCAN_CONCURRENCY - (item % MARKER_SCAN_CONCURRENCY));
+      return `result-${item}`;
+    });
+
+    expect(results).toEqual(items.map((item) => `result-${item}`));
+  });
 });

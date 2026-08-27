@@ -229,4 +229,34 @@ describe('adr check CLI', () => {
     expect(result.stdout).toContain('marker-scan-capped');
     expect(result.stdout).toContain(name(MARKER_SCAN_FILE_CAP));
   });
+
+  test('reports declaration overflow in human and JSON output without changing the exit code', async () => {
+    const root = await seedCorpus();
+    await writeText(
+      join(root, 'src/amplified.ts'),
+      Array.from({ length: 65 }, () => '// @adr 0001\n').join(''),
+    );
+
+    const human = await runAdr(['check', 'src/amplified.ts', '--dir', 'docs/adr'], root);
+    const json = await runAdr(['check', 'src/amplified.ts', '--dir', 'docs/adr', '--json'], root);
+    const outcome = JSON.parse(json.stdout);
+
+    expect(human.exitCode).toBe(0);
+    expect(json.exitCode).toBe(0);
+    expect(human.stdout).toContain('marker declarations: 64/65 retained, 1 omitted (1 per-file, 0 per-batch)');
+    expect(human.stdout.match(/marker-declarations-capped/g)).toHaveLength(1);
+    expect(outcome.markerScan.declarations).toEqual({
+      total: 65,
+      retained: 64,
+      omitted: 1,
+      perFileOmitted: 1,
+      batchOmitted: 0,
+      perFileLimit: 64,
+      batchLimit: 10_000,
+    });
+    expect(
+      outcome.findings.filter((finding: { rule: string }) => finding.rule === 'marker-declarations-capped'),
+    ).toHaveLength(1);
+    expect(outcome.ok).toBe(true);
+  });
 });

@@ -225,6 +225,45 @@ describe('checkChanges (core)', () => {
     expect(outcome.ok).toBe(true);
   });
 
+  test('collapsed declaration overflow is one bounded warning with exact report metadata', () => {
+    const outcome = checkChanges({
+      lint: emptyLint(),
+      changedFiles: ['src/a.ts'],
+      markerScans: {
+        scans: [{ path: 'src/a.ts', state: 'scanned', truncated: false, markers: [], omittedMarkers: 1_554 }],
+        skippedPaths: [],
+        limit: 3000,
+        totalCandidates: 1,
+        declarations: {
+          total: 1_618,
+          retained: 64,
+          omitted: 1_554,
+          perFileOmitted: 1_554,
+          batchOmitted: 0,
+          perFileLimit: 64,
+          batchLimit: 10_000,
+        },
+      },
+    });
+
+    const markerCapFindings = outcome.findings.filter(
+      (finding) => finding.rule === 'marker-declarations-capped',
+    );
+    expect(markerCapFindings).toHaveLength(1);
+    expect(markerCapFindings[0]?.severity).toBe('warn');
+    expect(markerCapFindings[0]?.message.length).toBeLessThan(256);
+    expect(outcome.markerScan?.declarations).toEqual({
+      total: 1_618,
+      retained: 64,
+      omitted: 1_554,
+      perFileOmitted: 1_554,
+      batchOmitted: 0,
+      perFileLimit: 64,
+      batchLimit: 10_000,
+    });
+    expect(outcome.ok).toBe(true);
+  });
+
   test('marker scan report paths use deterministic code-unit order', () => {
     const states = ['absent', 'unreadable', 'out-of-tree'] as const;
     const scans: SourceMarkerScan[] = states.flatMap((state) => [

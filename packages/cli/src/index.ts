@@ -11,6 +11,7 @@ import {
   exitCodeForFindings,
   filterAdrGraph,
   lintCorpus,
+  MARKER_DECLARATION_FILE_CAP,
   MARKER_HEADER_WINDOW_BYTES,
   mergeSourceDeclarations,
   migrateMadr,
@@ -865,14 +866,21 @@ function markerScanJson(scan: SourceMarkerScan): {
   scannedBytes?: number;
   fileBytes?: number;
   truncated: boolean;
+  declarationLimit: number;
+  totalDeclarations: number;
+  omittedDeclarations: number;
   declared: Array<{ ref: string; line: number }>;
 } {
+  const omittedDeclarations = scan.omittedMarkers ?? 0;
   return {
     state: scan.state,
     windowBytes: MARKER_HEADER_WINDOW_BYTES,
     ...(scan.scannedBytes === undefined ? {} : { scannedBytes: scan.scannedBytes }),
     ...(scan.fileBytes === undefined ? {} : { fileBytes: scan.fileBytes }),
     truncated: scan.truncated,
+    declarationLimit: MARKER_DECLARATION_FILE_CAP,
+    totalDeclarations: scan.markers.length + omittedDeclarations,
+    omittedDeclarations,
     declared: scan.markers.map((marker) => ({ ref: marker.ref, line: marker.line })),
   };
 }
@@ -892,15 +900,19 @@ function renderMarkerScanNote(scan: SourceMarkerScan, style = getPresentation().
   if (scan.state === 'out-of-tree') {
     return `${style.note('Note:')} ${style.path(scan.path)} is not a repo-relative path inside this working tree; no @adr markers were scanned.\n`;
   }
+  let output = '';
+  if ((scan.omittedMarkers ?? 0) > 0) {
+    output += `${style.note('Note:')} retained the first ${MARKER_DECLARATION_FILE_CAP} @adr declarations in ${style.path(scan.path)} and omitted ${scan.omittedMarkers} more.\n`;
+  }
   // The measured extent, not the window constant: the scan stops at the last complete
   // line inside the window, so the two differ for almost every real file. Only a scanned
   // state can be truncated, so the extent is present whenever this branch is — the
   // conjunction is how the types say that, not a fallback, which is why there is no
   // window-constant default to reprint if it were ever absent.
   if (scan.truncated && scan.scannedBytes !== undefined && scan.fileBytes !== undefined) {
-    return `${style.note('Note:')} only the first ${scan.scannedBytes} of ${scan.fileBytes} bytes of ${style.path(scan.path)} were scanned for @adr markers.\n`;
+    output += `${style.note('Note:')} only the first ${scan.scannedBytes} of ${scan.fileBytes} bytes of ${style.path(scan.path)} were scanned for @adr markers.\n`;
   }
-  return '';
+  return output;
 }
 
 /**
@@ -958,6 +970,10 @@ function renderHumanCheck(
       `${style.label('marker scan:')} ${counts.scanned} scanned, ${counts.absent} absent, ` +
       `${counts.unreadable} unreadable, ${counts['out-of-tree']} out-of-tree, ` +
       `${counts.truncated} truncated, ${counts.skipped} skipped\n`;
+    const declarations = outcome.markerScan.declarations;
+    output +=
+      `${style.label('marker declarations:')} ${declarations.retained}/${declarations.total} retained, ` +
+      `${declarations.omitted} omitted (${declarations.perFileOmitted} per-file, ${declarations.batchOmitted} per-batch)\n`;
 
     const unavailable = [
       ...outcome.markerScan.absentPaths,

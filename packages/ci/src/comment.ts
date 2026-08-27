@@ -107,25 +107,36 @@ function markerScanHealthLines(report: NonNullable<CheckOutcome['markerScan']>):
     ['skipped at the scan cap', report.skippedPaths],
   ];
   const unavailable = states.reduce((total, [, paths]) => total + paths.length, 0);
-  if (unavailable === 0) return [];
+  const omitted = report.declarations.omitted;
+  if (unavailable === 0 && omitted === 0) return [];
 
-  const lines = [
-    '#### Marker scan health',
-    '',
-    `Marker scanning could not inspect ${unavailable} changed file${unavailable === 1 ? '' : 's'}:`,
-  ];
-  for (const [label, paths] of states) {
-    if (paths.length === 0) continue;
-    const shown = paths.slice(0, MAX_MARKER_PATHS_PER_STATE).map(code).join(', ');
-    const remaining = paths.length - Math.min(paths.length, MAX_MARKER_PATHS_PER_STATE);
+  const lines = ['#### Marker scan health', ''];
+  if (unavailable > 0) {
     lines.push(
-      `- ${paths.length} ${label}: ${shown}${remaining > 0 ? `, and ${remaining} more` : ''}`,
+      `Marker scanning could not inspect ${unavailable} changed file${unavailable === 1 ? '' : 's'}:`,
+    );
+    for (const [label, paths] of states) {
+      if (paths.length === 0) continue;
+      const shown = paths.slice(0, MAX_MARKER_PATHS_PER_STATE).map(code).join(', ');
+      const remaining = paths.length - Math.min(paths.length, MAX_MARKER_PATHS_PER_STATE);
+      lines.push(
+        `- ${paths.length} ${label}: ${shown}${remaining > 0 ? `, and ${remaining} more` : ''}`,
+      );
+    }
+    lines.push(
+      '',
+      'These files could not be inspected for `@adr` markers; an empty result does not prove that no marker is present.',
     );
   }
-  lines.push(
-    '',
-    'These files could not be inspected for `@adr` markers; an empty result does not prove that no marker is present.',
-  );
+  if (omitted > 0) {
+    const declarations = report.declarations;
+    if (unavailable > 0) lines.push('');
+    lines.push(
+      `Marker declaration limits retained ${declarations.retained} of ${declarations.total} declarations and omitted ${declarations.omitted}:`,
+      `- ${declarations.perFileOmitted} at the ${declarations.perFileLimit}-per-file limit`,
+      `- ${declarations.batchOmitted} at the ${declarations.batchLimit}-per-batch limit`,
+    );
+  }
   return lines;
 }
 

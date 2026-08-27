@@ -19,6 +19,8 @@ const QUEUE_BUNDLE = 'packages/ci/dist/queue-action.js';
  */
 const MARKER_ONLY_FRAGMENTS = [
   'markers/read.ts',
+  'MARKER_DECLARATION_BATCH_CAP',
+  'MARKER_DECLARATION_FILE_CAP',
   'MARKER_HEADER_WINDOW_BYTES',
   'scanBoundedSourceMarkerWindow',
   'readSourceMarkers',

@@ -46,11 +46,12 @@ variable is required when using the default `GITHUB_TOKEN`.
 The comment reports marker results separately from governing decisions. **Marker
 scan health** lists changed files that could not be inspected (`absent`,
 `unreadable`, `out-of-tree`, or skipped at the scan cap), so an empty marker
-result is not mistaken for a healthy scan. **Marker claims not bound** lists
-`@adr` claims that were read successfully but did not resolve in this corpus.
-Both sections are bounded and advisory: they never affect the Action's exit
-status, and changed-record validation errors retain priority if the comment
-reaches GitHub's size limit. Keep the default checkout rooted at
+result is not mistaken for a healthy scan. It also reports declaration overflow
+after the 64-per-file or 10,000-per-batch safety limits. **Marker claims not
+bound** lists `@adr` claims that were read successfully but did not resolve in
+this corpus. Both sections are bounded and advisory: they never affect the
+Action's exit status, and changed-record validation errors retain priority if
+the comment reaches GitHub's size limit. Keep the default checkout rooted at
 `GITHUB_WORKSPACE`; if a workflow checks out elsewhere, marker health will
 identify files the Action could not inspect.
 

@@ -20,6 +20,9 @@ import type { SourceMarker } from './types.ts';
  */
 export const MARKER_HEADER_WINDOW_BYTES = 8192;
 
+/** Maximum parsed declarations retained from one file's header window. */
+export const MARKER_DECLARATION_FILE_CAP = 64;
+
 /** The marker token. Deliberately not `@adrkit`, which is the npm scope. */
 const MARKER_TOKEN = '@adr';
 
@@ -215,12 +218,15 @@ function readRefs(rest: string): string[] {
 
 export interface ScanSourceMarkersResult {
   markers: SourceMarker[];
+  /** Valid declarations parsed but not retained after the per-file cap. */
+  omittedMarkers: number;
   /** Whether the header window stopped short of the end of the file. */
   truncated: boolean;
 }
 
 function scanWindow(window: HeaderWindow, path: string): ScanSourceMarkersResult {
   const markers: SourceMarker[] = [];
+  let omittedMarkers = 0;
   const introducers = isMarkdownPath(path) ? MARKDOWN_COMMENT_INTRODUCERS : COMMENT_INTRODUCERS;
 
   let fence: OpenFence | null = null;
@@ -250,12 +256,16 @@ function scanWindow(window: HeaderWindow, path: string): ScanSourceMarkersResult
     if (markerStart === undefined) continue;
 
     for (const ref of readRefs(content.slice(markerStart + MARKER_TOKEN.length))) {
-      const { id, log } = parseAdrRef(ref);
-      markers.push({ path, ref, id, ...(log ? { log } : {}), line: index + 1 });
+      if (markers.length < MARKER_DECLARATION_FILE_CAP) {
+        const { id, log } = parseAdrRef(ref);
+        markers.push({ path, ref, id, ...(log ? { log } : {}), line: index + 1 });
+      } else {
+        omittedMarkers += 1;
+      }
     }
   }
 
-  return { markers, truncated: window.truncated };
+  return { markers, omittedMarkers, truncated: window.truncated };
 }
 
 /**
@@ -274,7 +284,9 @@ export function scanBoundedSourceMarkerWindow(
 }
 
 /**
- * Every `@adr <ref>` marker in a source's header window, in the order they appear.
+ * The first {@link MARKER_DECLARATION_FILE_CAP} `@adr <ref>` declarations in a
+ * source's header window, in physical/source order. `omittedMarkers` reports the
+ * exact number of additional valid declarations without allocating an object for each.
  *
  * `path` is echoed onto each marker verbatim — the caller owns the repo-relative,
  * forward-slash form, because it is the string the user will read back. Its extension

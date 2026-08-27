@@ -290,8 +290,9 @@ answer where the next decision is actually being made.
   listed separately.
 - **`adr check <files...>`** — validate the changed records and list the decisions
   governing a changed-file set, including inbound `@adr` declarations. Marker reads
-  are bounded to 3,000 files / 16 concurrent reads and reported in `--json`; marker
-  claims and scan warnings never influence the exit code.
+  are bounded to 3,000 files / 16 concurrent reads, 64 declarations per file, and
+  10,000 declarations per batch, all reported in `--json`; marker claims and scan
+  warnings never influence the exit code.
 - **`adr evaluate <proposal> --snapshot <bundle.json> --date YYYY-MM-DD`** — run the
   **deterministic, model-free Pass 0** over a proposal ADR plus an immutable offline
   snapshot bundle. It applies the eleven rubric rules, escalates on **proven**
@@ -305,8 +306,9 @@ answer where the next decision is actually being made.
 - **CI comment** — the `@adrkit/ci` GitHub Action surfaces the governing decisions
   on the PRs that touch or explicitly declare them; pattern matches render as `via`
   and PR-authored marker claims as `declared by`. The comment also distinguishes
-  marker files it could not inspect from marker claims it read but could not bind.
-  Both are advisory: they never fail the job. It runs with only the default
+  marker files it could not inspect, marker declarations omitted at a safety cap,
+  and claims it read but could not bind. All are advisory: they never fail the job.
+  It runs with only the default
   `GITHUB_TOKEN` and degrades (never fails the job) on a read-only fork token.
 - **MCP server** — let agents retrieve prior decisions, including the rejected
   ones, before proposing something already tried.

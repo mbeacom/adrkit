@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 import {
+  MARKER_DECLARATION_BATCH_CAP,
+  MARKER_DECLARATION_FILE_CAP,
   MARKER_HEADER_WINDOW_BYTES,
   MARKER_SCAN_FILE_CAP,
   readSourceMarkers,
@@ -87,6 +89,34 @@ describe('scanSourceMarkers — comment handling', () => {
     expect(scanSourceMarkers('// @adr payments:0012', 'src/sync.ts').markers).toEqual([
       { path: 'src/sync.ts', ref: 'payments:0012', id: '0012', log: 'payments', line: 1 },
     ]);
+  });
+});
+
+describe('scanSourceMarkers — declaration caps', () => {
+  test('retains the first 64 declarations in source order and records exact amplification overflow', () => {
+    const refs = Array.from({ length: 1_618 }, (_, index) => String(index + 1_000));
+    const source = `// @adr ${refs.join(',')}\n`;
+    expect(new TextEncoder().encode(source)).toHaveLength(8_098);
+
+    const scan = scanSourceMarkers(source, 'src/amplified.ts');
+
+    expect(MARKER_DECLARATION_FILE_CAP).toBe(64);
+    expect(scan.markers).toHaveLength(MARKER_DECLARATION_FILE_CAP);
+    expect(scan.markers.map((marker) => marker.ref)).toEqual(refs.slice(0, 64));
+    expect(scan.omittedMarkers).toBe(1_554);
+  });
+
+  test('reports no overflow at the exact per-file boundary and one immediately above it', () => {
+    const source = (count: number): string =>
+      Array.from({ length: count }, (_, index) => `// @adr ${String(index + 1_000)}\n`).join('');
+
+    const exact = scanSourceMarkers(source(MARKER_DECLARATION_FILE_CAP), 'src/exact.ts');
+    const overflow = scanSourceMarkers(source(MARKER_DECLARATION_FILE_CAP + 1), 'src/overflow.ts');
+
+    expect(exact.markers).toHaveLength(MARKER_DECLARATION_FILE_CAP);
+    expect(exact.omittedMarkers).toBe(0);
+    expect(overflow.markers).toHaveLength(MARKER_DECLARATION_FILE_CAP);
+    expect(overflow.omittedMarkers).toBe(1);
   });
 });
 
@@ -834,6 +864,69 @@ describe('readSourceMarkersBatch', () => {
     expect(batch.scans.map((scan) => scan.path)).toEqual(selectedNames);
     expect(batch.skippedPaths).toEqual(['src/z-last.ts', 'src/ä-last.ts']);
     expect(batch.totalCandidates).toBe(MARKER_SCAN_FILE_CAP + 2);
+  });
+
+  test('retains at most 10,000 declarations in path then source order regardless of input order', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const declarationsPerFile = MARKER_DECLARATION_FILE_CAP;
+    const fileCount = Math.ceil((MARKER_DECLARATION_BATCH_CAP + 1) / declarationsPerFile);
+    const paths = Array.from(
+      { length: fileCount },
+      (_, index) => `src/batch-${String(index).padStart(3, '0')}.ts`,
+    );
+    const source = Array.from(
+      { length: declarationsPerFile },
+      (_, index) => `// @adr ${String(index + 1_000)}\n`,
+    ).join('');
+    await Promise.all(paths.map((path) => writeText(join(root, path), source)));
+
+    const forward = await readSourceMarkersBatch(paths, root);
+    const reverse = await readSourceMarkersBatch([...paths].reverse(), root);
+    const retained = (batch: typeof forward) =>
+      batch.scans.flatMap((scan) => scan.markers.map((marker) => `${marker.path}:${marker.line}`));
+
+    expect(MARKER_DECLARATION_BATCH_CAP).toBe(10_000);
+    expect(retained(forward)).toHaveLength(MARKER_DECLARATION_BATCH_CAP);
+    expect(retained(reverse)).toEqual(retained(forward));
+    expect(forward.declarations).toEqual({
+      total: fileCount * declarationsPerFile,
+      retained: MARKER_DECLARATION_BATCH_CAP,
+      omitted: fileCount * declarationsPerFile - MARKER_DECLARATION_BATCH_CAP,
+      perFileOmitted: 0,
+      batchOmitted: fileCount * declarationsPerFile - MARKER_DECLARATION_BATCH_CAP,
+      perFileLimit: MARKER_DECLARATION_FILE_CAP,
+      batchLimit: MARKER_DECLARATION_BATCH_CAP,
+    });
+    expect(forward.scans.reduce((total, scan) => total + scan.markers.length, 0)).toBe(
+      MARKER_DECLARATION_BATCH_CAP,
+    );
+  });
+
+  test('reports no overflow at the exact batch boundary', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const fullFiles = Math.floor(MARKER_DECLARATION_BATCH_CAP / MARKER_DECLARATION_FILE_CAP);
+    const remainder = MARKER_DECLARATION_BATCH_CAP % MARKER_DECLARATION_FILE_CAP;
+    const paths = Array.from(
+      { length: fullFiles + (remainder === 0 ? 0 : 1) },
+      (_, index) => `src/exact-${String(index).padStart(3, '0')}.ts`,
+    );
+    await Promise.all(
+      paths.map((path, fileIndex) => {
+        const count = fileIndex < fullFiles ? MARKER_DECLARATION_FILE_CAP : remainder;
+        const source = Array.from(
+          { length: count },
+          (_, index) => `// @adr ${String(index + 1_000)}\n`,
+        ).join('');
+        return writeText(join(root, path), source);
+      }),
+    );
+
+    const batch = await readSourceMarkersBatch(paths, root);
+
+    if (!batch.declarations) throw new Error('expected declaration accounting');
+    expect(batch.declarations.retained).toBe(MARKER_DECLARATION_BATCH_CAP);
+    expect(batch.declarations.omitted).toBe(0);
+    expect(batch.declarations.batchOmitted).toBe(0);
   });
 });
 

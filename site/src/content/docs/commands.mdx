@@ -240,6 +240,9 @@ export function syncOnce() { … }
   last complete line inside that bound — `--json` reports the extent it reached. A
   marker is a claim that the file lives under a decision; a mention far down the
   file is prose about that decision.
+- **At most 64 declarations per file** are retained in physical/source order.
+  `--json` reports the exact total and omitted count, and human output says when
+  declarations were omitted.
 - **Nothing enters the record.** The edge is discovered when you run `explain` or `check`.
   There is no schema change and no new `affects` matcher type
   ([ADR-0021](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
@@ -258,6 +261,9 @@ has to be guessed at:
   "scannedBytes": 1582,
   "fileBytes": 1582,
   "truncated": false,
+  "declarationLimit": 64,
+  "totalDeclarations": 1,
+  "omittedDeclarations": 0,
   "declared": [{ "ref": "0012", "line": 3 }]
 }
 ```
@@ -289,6 +295,12 @@ paths; scan the first 3,000 with at most 16 reads in flight; and expose exact
 absent and skipped paths through `markerScan`. Paths beyond the cap still take
 part in `affects` matching, but their markers are not read. A non-blocking
 `marker-scan-capped` warning makes that loss explicit.
+
+After reads complete, the batch retains at most 10,000 declarations in
+code-unit path then physical/source order. `markerScan.declarations` reports
+exact total, retained, per-file-omitted, and batch-omitted counts. Any overflow
+collapses into one `marker-declarations-capped` warning rather than one finding
+per dropped declaration.
 
 The cap is GitHub's own changed-file ceiling. The Action refuses to evaluate a
 pull request whose file list hit that ceiling, so every diff it does answer is

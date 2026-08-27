@@ -133,6 +133,7 @@ Marker scanning is intentionally narrow:
 
 - only the first **8192 bytes** of a file are considered
 - the scan stops at the last complete line inside that window
+- at most the first **64 declarations per file** are retained
 - the marker must be the first content on a dedicated comment line
 - lines inside fenced code blocks are ignored
 - markdown files (`.md`, `.mdx`, `.markdown`) accept only `<!--` and `{/*`
@@ -141,12 +142,14 @@ Nothing is written back to the record.
 
 In `--json`, pattern matches appear in `firedMatchers` and file declarations in
 `declaredBy`. `explain --json` includes a single-file `markers` block plus
-`scannedBytes` and `fileBytes`. `check --json` includes a `markerScan` report
-with state counts and exact unavailable, truncated, and skipped paths.
+`scannedBytes`, `fileBytes`, and exact retained/omitted declaration counts.
+`check --json` includes a `markerScan` report with state counts; exact
+unavailable, truncated, and skipped paths; and aggregate declaration counts.
 
 Multi-file scans are capped at **3,000 normalized paths** with **16 concurrent
-reads**. Skipped paths warn but never fail, and marker claims never change the
-exit code.
+reads**, and retain at most the first **10,000 declarations** in code-unit path
+then source order. Skipped paths and declaration overflow each collapse to one
+bounded warning; neither they nor marker claims can change the exit code.
 
 See [the commands reference](https://adrkit.dev/commands/#inbound-adr-markers).
 

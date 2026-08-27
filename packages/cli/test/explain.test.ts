@@ -177,7 +177,15 @@ describe('adr explain CLI', () => {
       history: [],
       // Both records were reached by pattern only, so neither carries `declaredBy`, and
       // the scan reports honestly that this path is not a file it could read.
-      markers: { state: 'absent', windowBytes: 8192, truncated: false, declared: [] },
+      markers: {
+        state: 'absent',
+        windowBytes: 8192,
+        truncated: false,
+        declarationLimit: 64,
+        totalDeclarations: 0,
+        omittedDeclarations: 0,
+        declared: [],
+      },
       findings: [],
     });
   });

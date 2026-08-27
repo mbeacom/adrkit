@@ -91,6 +91,7 @@ describe('renderComment', () => {
       outOfTreePaths: [],
       truncatedPaths: [],
       skippedPaths: [],
+      declarations: { total: 0, retained: 0, omitted: 0, perFileOmitted: 0, batchOmitted: 0, perFileLimit: 64, batchLimit: 10_000 },
     };
 
     const body = renderComment(outcome);
@@ -120,6 +121,7 @@ describe('renderComment', () => {
       outOfTreePaths: [],
       truncatedPaths: [],
       skippedPaths: [],
+      declarations: { total: 1, retained: 1, omitted: 0, perFileOmitted: 0, batchOmitted: 0, perFileLimit: 64, batchLimit: 10_000 },
     };
 
     const body = renderComment(outcome);
@@ -144,6 +146,7 @@ describe('renderComment', () => {
       outOfTreePaths: [],
       truncatedPaths: [],
       skippedPaths: [],
+      declarations: { total: 0, retained: 0, omitted: 0, perFileOmitted: 0, batchOmitted: 0, perFileLimit: 64, batchLimit: 10_000 },
     };
 
     const body = renderComment(outcome);
@@ -174,6 +177,7 @@ describe('renderComment', () => {
       outOfTreePaths: [],
       truncatedPaths: [],
       skippedPaths: [],
+      declarations: { total: 0, retained: 0, omitted: 0, perFileOmitted: 0, batchOmitted: 0, perFileLimit: 64, batchLimit: 10_000 },
     };
     outcome.findings.push(...Array.from({ length: 4000 }, (_, index) => ({
       rule: 'dangling-marker',
@@ -224,6 +228,7 @@ describe('renderComment status awareness (#39)', () => {
       outOfTreePaths: [],
       truncatedPaths: [],
       skippedPaths: [],
+      declarations: { total: 1, retained: 1, omitted: 0, perFileOmitted: 0, batchOmitted: 0, perFileLimit: 64, batchLimit: 10_000 },
     };
     outcome.findings.push({
       rule: 'dangling-marker',
@@ -294,8 +299,9 @@ describe('renderComment status awareness (#39)', () => {
       const markerScans = await readSourceMarkersBatch([file], root);
       const outcome = checkChanges({ lint, changedFiles: [file], dir: 'docs/adr', markerScans });
 
-      // The scan really did find the pathological input; only the rendering is bounded.
-      expect(outcome.governing[0]?.declaredBy?.length).toBeGreaterThan(600);
+      expect(outcome.governing[0]?.declaredBy).toHaveLength(64);
+      expect(outcome.markerScan?.declarations.omitted).toBeGreaterThan(500);
+      expect(renderComment(outcome)).toContain('Marker declaration limits retained 64 of');
       expect(renderComment(outcome).length).toBeLessThanOrEqual(65536);
     });
 

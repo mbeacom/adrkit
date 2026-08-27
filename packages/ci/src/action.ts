@@ -92,6 +92,17 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
         `${counts.unreadable} unreadable, ${counts['out-of-tree']} out-of-tree, ` +
         `${counts.truncated} truncated, ${counts.skipped} skipped.`,
     );
+    deps.log.info(
+      `adrkit: marker declarations: ${report.declarations.retained}/${report.declarations.total} retained, ` +
+        `${report.declarations.omitted} omitted (${report.declarations.perFileOmitted} per-file, ` +
+        `${report.declarations.batchOmitted} per-batch).`,
+    );
+    if (report.declarations.omitted > 0) {
+      deps.log.warning(
+        `adrkit: marker declaration limits omitted ${report.declarations.omitted} declaration(s); ` +
+          `see markerScan.declarations for exact counts.`,
+      );
+    }
     if (report.skippedPaths.length > 0) {
       deps.log.warning(
         `adrkit: marker scan reached the ${report.limit}-file cap; skipped: ${report.skippedPaths.join(', ')}`,

@@ -65,6 +65,11 @@ Two properties are load-bearing and easy to break:
   exit-code authority. `packages/adapters/spec-kit/scripts/context.sh` delegates
   path-aware context to `adr check`, so it inherits that marker scan without
   implementing a separate reader.
+- **PR-authored declarations are capped before resolution.** A file retains the
+  first 64 parsed declarations in physical/source order; a batch retains the
+  first 10,000 in code-unit path then source order after concurrent reads finish.
+  Exact overflow is collapsed into one advisory report/finding, never one object
+  per dropped declaration, and never gains exit-code authority.
 - **A marker must not be able to lie.** The scanner requires the comment
   introducer to begin the physical line with `@adr` as the comment's first
   content, so prose discussing a decision, a string literal containing one, and

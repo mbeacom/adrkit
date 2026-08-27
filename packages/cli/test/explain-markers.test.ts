@@ -102,6 +102,9 @@ describe('adr explain — inbound @adr markers', () => {
       scannedBytes: bytes,
       fileBytes: bytes,
       truncated: false,
+      declarationLimit: 64,
+      totalDeclarations: 1,
+      omittedDeclarations: 0,
       declared: [{ ref: '0002', line: 1 }],
     });
   });
@@ -118,6 +121,28 @@ describe('adr explain — inbound @adr markers', () => {
     expect(result.stdout).toContain('Source marker "@adr 0099" in src/sync/retry.ts:1');
   });
 
+  test('reports exact per-file declaration overflow without resolving omitted claims', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await corpus(root);
+    const source = Array.from({ length: 65 }, () => '// @adr 0002\n').join('');
+    await writeText(join(root, 'src/sync/retry.ts'), source);
+
+    const human = await runAdr(['explain', 'src/sync/retry.ts', '--dir', 'docs/adr'], root);
+    const json = await runAdr(['explain', 'src/sync/retry.ts', '--dir', 'docs/adr', '--json'], root);
+    const parsed = JSON.parse(json.stdout);
+
+    expect(human.exitCode).toBe(0);
+    expect(human.stdout).toContain('retained the first 64 @adr declarations');
+    expect(human.stdout).toContain('omitted 1 more');
+    expect(parsed.governedBy[0].declaredBy).toHaveLength(64);
+    expect(parsed.markers).toMatchObject({
+      declarationLimit: 64,
+      totalDeclarations: 65,
+      omittedDeclarations: 1,
+    });
+    expect(parsed.markers.declared).toHaveLength(64);
+  });
+
   test('says so when the path is not a file it could scan', async () => {
     const root = await resetTestDir(DIR_NAME);
     await corpus(root);
@@ -132,6 +157,9 @@ describe('adr explain — inbound @adr markers', () => {
       state: 'absent',
       windowBytes: 8192,
       truncated: false,
+      declarationLimit: 64,
+      totalDeclarations: 0,
+      omittedDeclarations: 0,
       declared: [],
     });
   });
@@ -174,6 +202,9 @@ describe('adr explain — inbound @adr markers', () => {
       state: 'out-of-tree',
       windowBytes: 8192,
       truncated: false,
+      declarationLimit: 64,
+      totalDeclarations: 0,
+      omittedDeclarations: 0,
       declared: [],
     });
   });
@@ -240,6 +271,9 @@ describe('adr explain — inbound @adr markers', () => {
       'state',
       'windowBytes',
       'truncated',
+      'declarationLimit',
+      'totalDeclarations',
+      'omittedDeclarations',
       'declared',
     ]);
     expect(Object.keys(JSON.parse(scanned.stdout).markers)).toEqual([
@@ -248,6 +282,9 @@ describe('adr explain — inbound @adr markers', () => {
       'scannedBytes',
       'fileBytes',
       'truncated',
+      'declarationLimit',
+      'totalDeclarations',
+      'omittedDeclarations',
       'declared',
     ]);
   });
