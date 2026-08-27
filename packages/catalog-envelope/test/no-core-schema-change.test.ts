@@ -17,10 +17,12 @@
  * `ownershipState` field, which is a different route to the same forbidden
  * outcome.
  *
- * So this pins a **specific observed value** per file — the SHA-256 of its bytes
- * at `99ba8d2500eaf37625ea164f66b4a17870e40dad`, the commit Phase C branched
+ * So this pins a **specific observed value** per file — initially the SHA-256 of
+ * its bytes at `99ba8d2500eaf37625ea164f66b4a17870e40dad`, the commit Phase C branched
  * from — plus the exact file list under `affects/`, so that adding or removing a
- * file is caught too.
+ * file is caught too. The separately authorized #115 comparator migration
+ * re-pinned only `affects/index.ts` and `affects/matchers/package.ts`; neither
+ * matcher semantics nor the protected type and schema shapes changed.
  *
  * ## Why the pin table lives in a JSON sidecar
  *
@@ -47,7 +49,8 @@
  * A failure means a protected surface changed. Under this feature that is a
  * **violation**, not a stale pin — FR-004 is unconditional, and updating the pin
  * to match would be amending the expectation to fit the output. A legitimate
- * change to these files belongs to separately-authorized later work.
+ * change to these files belongs to separately-authorized later work, which must
+ * explain and narrowly re-baseline the affected pins as #115 does.
  *
  * Observed failing before being relied on, in two ways:
  * `specs/010-catalog-backstage/evidence/negative-cases/consumer-core-surface-pin/`.

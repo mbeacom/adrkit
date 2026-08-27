@@ -1,4 +1,5 @@
 import semver from 'semver';
+import { compareCodeUnits } from '../../ordering/index.ts';
 
 export interface ChangedDependency {
   name: string;
@@ -98,5 +99,7 @@ export function deriveChangedDependenciesFromBunLockDiff(diff: string): ChangedD
       const versions = new Set([...(added.get(name) ?? []), ...(removed.get(name) ?? [])]);
       return [...versions].map((version) => ({ name, version }));
     })
-    .sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+    .sort(
+      (a, b) => compareCodeUnits(a.name, b.name) || compareCodeUnits(a.version, b.version),
+    );
 }

@@ -9,6 +9,18 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Fixed
+
+- **Completed locale-independent ordering for `check --json` and the
+  governing-decisions Action.** The final three `affects/**` sorts now compare
+  record ids, fired matcher `(type, pattern)` tuples, and changed dependency
+  `(name, version)` tuples by UTF-16 code unit. Identical inputs therefore
+  produce the same serialized order across ICU locales. Consumers golden-diffing
+  output may see one intentional reordering for mixed-case ULIDs or
+  case-sensitive matcher and dependency values. The committed Action bundle was
+  rebuilt with the same behavior
+  ([#115](https://github.com/mbeacom/adrkit/issues/115)).
+
 ## [0.12.0] - 2026-08-27
 
 ### Added

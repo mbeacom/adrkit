@@ -1,4 +1,5 @@
 import type { Adr } from '../schema/adr.schema.ts';
+import { compareCodeUnits } from '../ordering/index.ts';
 import { sortFindings, type Finding, type FindingSeverity } from '../validate/findings.ts';
 import type { CatalogSnapshot } from './catalog.ts';
 import { isAlwaysInertType, matchEntityPattern } from './inert.ts';
@@ -59,7 +60,7 @@ interface MatcherEvaluation {
 }
 
 function compareFiredMatcher(a: FiredMatcher, b: FiredMatcher): number {
-  return a.type.localeCompare(b.type) || a.pattern.localeCompare(b.pattern);
+  return compareCodeUnits(a.type, b.type) || compareCodeUnits(a.pattern, b.pattern);
 }
 
 function uniqueSortedFiredMatchers(matchers: readonly FiredMatcher[]): FiredMatcher[] {
@@ -234,7 +235,7 @@ export function resolveAffects(input: ResolveAffectsInput): ResolveAffectsResult
   }
 
   return {
-    matches: matches.sort((a, b) => a.recordId.localeCompare(b.recordId)),
+    matches: matches.sort((a, b) => compareCodeUnits(a.recordId, b.recordId)),
     findings: sortFindings(findings),
   };
 }

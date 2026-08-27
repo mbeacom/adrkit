@@ -47962,7 +47962,7 @@ function deriveChangedDependenciesFromBunLockDiff(diff) {
   return [...changedNames].flatMap((name) => {
     const versions2 = new Set([...added.get(name) ?? [], ...removed.get(name) ?? []]);
     return [...versions2].map((version2) => ({ name, version: version2 }));
-  }).sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+  }).sort((a, b) => compareCodeUnits(a.name, b.name) || compareCodeUnits(a.version, b.version));
 }
 
 // ../core/src/affects/matchers/path.ts
@@ -47996,7 +47996,7 @@ function matchPathPattern(pattern, changedFiles) {
 
 // ../core/src/affects/index.ts
 function compareFiredMatcher(a, b) {
-  return a.type.localeCompare(b.type) || a.pattern.localeCompare(b.pattern);
+  return compareCodeUnits(a.type, b.type) || compareCodeUnits(a.pattern, b.pattern);
 }
 function uniqueSortedFiredMatchers(matchers) {
   const byKey = new Map;
@@ -48106,7 +48106,7 @@ function resolveAffects(input) {
     }
   }
   return {
-    matches: matches.sort((a, b) => a.recordId.localeCompare(b.recordId)),
+    matches: matches.sort((a, b) => compareCodeUnits(a.recordId, b.recordId)),
     findings: sortFindings(findings)
   };
 }

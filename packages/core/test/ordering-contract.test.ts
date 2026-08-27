@@ -8,30 +8,13 @@
  *
  * The expected orderings below are derived from the comparator's definition —
  * `a < b ? -1 : a > b ? 1 : 0` over UTF-16 code units.
- *
- * ## What this file deliberately does not scan
- *
- * `packages/core/src/affects/**` still contains three `localeCompare` sorts
- * that reach `CheckOutcome` (`compareFiredMatcher`, the match `recordId` sort,
- * and the changed-dependency sort in `matchers/package.ts`). That tree is
- * pinned byte-identical by feature 010's FR-004 guard
- * (`packages/catalog-envelope/test/no-core-schema-change.test.ts`), which names
- * any change there a violation and routes legitimate changes to
- * separately-authorized later work. Those sites stay recorded on #115 until the
- * freeze lifts; scanning them here would only force one guard to break another.
- *
- * That exclusion is load-bearing for how this suite's name should be read:
- * `affects/index.ts`'s `matches.sort((a, b) => a.recordId.localeCompare(...))`
- * is a *total* re-sort of the resolver's output, so for distinct record ids it
- * is the frozen sort — not any scanned module — that fixes `governedBy` order.
- * A clean run of this file therefore means "no scanned module reaches for
- * `localeCompare`", not "`check --json` is locale-independent end to end".
- * The second claim is only true once #115's `affects/**` remainder lands.
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import * as ts from 'typescript';
+import { deriveChangedDependenciesFromBunLockDiff } from '../src/affects/index.ts';
 import { checkChanges, type CheckLintResult } from '../src/check/index.ts';
 import {
   discoverAdrFiles,
@@ -39,6 +22,7 @@ import {
   expandRecordInputs,
 } from '../src/load/corpus.ts';
 import { compareCodeUnits } from '../src/ordering/index.ts';
+import { AdrFrontmatter, type Adr } from '../src/schema/adr.schema.ts';
 import { lintCorpus } from '../src/validate/index.ts';
 import { sortFindings, type Finding } from '../src/validate/findings.ts';
 import { cleanupTestDir, recordMarkdown, resetTestDir, writeText } from './helpers.ts';
@@ -48,6 +32,29 @@ const emptyLint = (findings: Finding[] = []): CheckLintResult => ({ records: [],
 /** The #115 repro set: names a locale-aware comparison interleaves differently. */
 const HOSTILE_FILES = ['src/a_b.ts', 'src/a-b.ts', 'src/a.ts', 'src/A.ts', 'src/ab.ts', 'src/aB.ts'];
 const CODE_UNIT_ORDER = ['src/A.ts', 'src/a-b.ts', 'src/a.ts', 'src/aB.ts', 'src/a_b.ts', 'src/ab.ts'];
+const UPPER_ULID = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+const LOWER_ULID = '01arz3ndektsv4rrffq69g5fav';
+
+function affectsRecord(id: string, affects: Record<string, unknown>[]): Adr {
+  return {
+    frontmatter: AdrFrontmatter.parse({
+      schemaVersion: '0.1.0',
+      id,
+      title: `Ordering record ${id}`,
+      status: 'draft',
+      date: '2026-08-27',
+      deciders: [],
+      tags: [],
+      scope: 'component',
+      reversibility: 'unknown',
+      blastRadius: 'component',
+      affects,
+      provenance: { authoredBy: 'human' },
+    }),
+    body: '',
+    path: `docs/adr/${id}-ordering.md`,
+  };
+}
 
 describe('checkChanges orders changedFiles by code unit, not by locale', () => {
   test('the #115 repro set comes back in code-unit order', () => {
@@ -72,6 +79,68 @@ describe('checkChanges orders changedFiles by code unit, not by locale', () => {
   });
 });
 
+describe('affects output orders every serialized tuple by code unit', () => {
+  const HOSTILE_AFFECTS = [
+    { type: 'path', pattern: 'src/**' },
+    { type: 'package', pattern: 'a' },
+    { type: 'package', pattern: 'B' },
+  ];
+  const SNAPSHOTS = {
+    changedDependencies: [
+      { name: 'a', version: '1.0.0' },
+      { name: 'B', version: '1.0.0' },
+    ],
+  };
+
+  test('checkChanges is byte-identical across record input orders', () => {
+    const upper = affectsRecord(UPPER_ULID, HOSTILE_AFFECTS);
+    const lower = affectsRecord(LOWER_ULID, HOSTILE_AFFECTS);
+    const outcomes = [
+      checkChanges({
+        lint: { records: [lower, upper], findings: [], checked: 2 },
+        changedFiles: ['src/app.ts', 'bun.lock'],
+        snapshots: SNAPSHOTS,
+      }),
+      checkChanges({
+        lint: { records: [upper, lower], findings: [], checked: 2 },
+        changedFiles: ['bun.lock', 'src/app.ts'],
+        snapshots: SNAPSHOTS,
+      }),
+    ];
+
+    expect(JSON.stringify(outcomes[0])).toBe(JSON.stringify(outcomes[1]));
+    expect(outcomes[0]?.governedBy.map((decision) => decision.recordId)).toEqual([
+      UPPER_ULID,
+      LOWER_ULID,
+    ]);
+    for (const decision of outcomes[0]?.governedBy ?? []) {
+      expect(decision.firedMatchers).toEqual([
+        { type: 'package', pattern: 'B' },
+        { type: 'package', pattern: 'a' },
+        { type: 'path', pattern: 'src/**' },
+      ]);
+    }
+  });
+
+  test('lockfile dependencies order names and versions by code unit', () => {
+    const diff = [
+      'diff --git a/bun.lock b/bun.lock',
+      '@@',
+      '+    "a": ["a@1.0.0", "", {}, "sha512-a"],',
+      '+    "B": ["B@1.0.0", "", {}, "sha512-b"],',
+      '-    "pkg": ["pkg@1.0.0-a", "", {}, "sha512-old"],',
+      '+    "pkg": ["pkg@1.0.0-B", "", {}, "sha512-new"],',
+    ].join('\n');
+
+    expect(deriveChangedDependenciesFromBunLockDiff(diff)).toEqual([
+      { name: 'B', version: '1.0.0' },
+      { name: 'a', version: '1.0.0' },
+      { name: 'pkg', version: '1.0.0-B' },
+      { name: 'pkg', version: '1.0.0-a' },
+    ]);
+  });
+});
+
 describe('sortFindings orders every tuple field by code unit', () => {
   const finding = (rule: string, message = 'm'): Finding => ({ rule, severity: 'warn', message });
 
@@ -93,16 +162,14 @@ describe('sortFindings orders every tuple field by code unit', () => {
 });
 
 describe('no scanned module on a serialized-output path reaches for localeCompare', () => {
-  // The same source-scan shape as the adapter's
-  // `test/glob-order.test.ts` guard, widened to every core module that feeds
-  // `CheckOutcome`: `check/`, `load/`, `markers/`, `ordering/`, and `validate/`.
+  // The same source-scan shape as the adapter's `test/glob-order.test.ts` guard,
+  // widened to every core module that feeds `CheckOutcome`.
   // `queue/` is scanned for the same reason on its own contract rather than on
   // `CheckOutcome`'s: QueueReport v1 promises byte-for-byte identical output for
   // identical inputs (007-arb-queue SC-001), which a locale-dependent sort would
   // break as a difference between machines.
   //
-  // `graph/` is deliberately NOT scanned, for the same shape of reason as
-  // `affects/` and with the same honesty about what a clean run therefore means.
+  // `graph/` is deliberately NOT scanned.
   // `buildAdrGraph` still orders nodes and edges with `localeCompare`, and
   // ADR-0033 clause 8 pins that: "The graph JSON shape remains exactly
   // `{ nodes, edges }`, with existing node and edge fields, **historical locale
@@ -115,9 +182,9 @@ describe('no scanned module on a serialized-output path reaches for localeCompar
   // These are scanned as whole directories rather than as a file allowlist, so a
   // new module added to any of them is covered the day it lands — an allowlist
   // silently exempts new files, which is how `validate/index.ts` stayed unscanned
-  // while `validate/findings.ts` was named individually. See the header for why
-  // `affects/` is excluded.
+  // while `validate/findings.ts` was named individually.
   const SCANNED_DIRS = [
+    'src/affects',
     'src/check',
     'src/load',
     'src/markers',
@@ -142,10 +209,31 @@ describe('no scanned module on a serialized-output path reaches for localeCompar
 
   const scanned = SCANNED_DIRS.flatMap(tsFilesUnder);
 
+  function executableLocaleCompareUses(source: string, file: string): string[] {
+    const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const uses: string[] = [];
+    const visit = (node: ts.Node): void => {
+      const isIdentifier = ts.isIdentifier(node) && node.text === 'localeCompare';
+      const isComputedProperty =
+        ts.isElementAccessExpression(node) &&
+        ts.isStringLiteralLike(node.argumentExpression) &&
+        node.argumentExpression.text === 'localeCompare';
+      if (isIdentifier || isComputedProperty) {
+        const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+        uses.push(`${file}:${line + 1}:${character + 1}`);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    return uses;
+  }
+
   test('the scan examined a non-trivial module list', () => {
     // Report what was examined, not only what was concluded (ADR-0016 clause 3):
     // an empty walk would make the per-file assertions below vacuous.
     expect(scanned.length).toBeGreaterThanOrEqual(8);
+    expect(scanned).toContain('src/affects/index.ts');
+    expect(scanned).toContain('src/affects/matchers/package.ts');
     expect(scanned).toContain('src/check/index.ts');
     expect(scanned).toContain('src/load/corpus.ts');
     expect(scanned).toContain('src/markers/resolve.ts');
@@ -156,11 +244,22 @@ describe('no scanned module on a serialized-output path reaches for localeCompar
     expect(scanned).toContain('src/validate/index.ts');
   });
 
+  test('the scan ignores comments and strings but catches code after comment-like literals', () => {
+    const source = [
+      '// localeCompare in documentation is not executable',
+      'const prose = "localeCompare";',
+      'const url = "https://example"; values.sort((a, b) => a.localeCompare(b));',
+    ].join('\n');
+
+    const uses = executableLocaleCompareUses(source, 'fixture.ts');
+    expect(uses).toHaveLength(1);
+    expect(uses[0]).toMatch(/^fixture\.ts:3:\d+$/);
+  });
+
   for (const file of scanned) {
     test(`${file} sorts with compareCodeUnits only`, () => {
       const source = readFileSync(join(import.meta.dir, '..', file), 'utf8');
-      const code = source.replace(/\/\*[\s\S]*?\*\//gu, '').replace(/\/\/[^\n]*/gu, '');
-      expect(code).not.toContain('localeCompare');
+      expect(executableLocaleCompareUses(source, file)).toEqual([]);
     });
   }
 });

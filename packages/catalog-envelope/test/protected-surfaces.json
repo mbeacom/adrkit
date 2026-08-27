@@ -1,5 +1,5 @@
 {
-  "//": "Pin table for `test/no-core-schema-change.test.ts` (T026, spec.md FR-004/FR-005). Digests read at 99ba8d2500eaf37625ea164f66b4a17870e40dad in this worktree. See that file's header for why these live in data rather than in the test source.",
+  "//": "Pin table for `test/no-core-schema-change.test.ts` (T026, spec.md FR-004/FR-005). Initial digests were read at 99ba8d2500eaf37625ea164f66b4a17870e40dad; #115 re-pinned only the two comparator-migration files. See that file's header for why these live in data rather than in the test source.",
   "protectedFiles": [
     {
       "path": "packages/core/src/affects/catalog.ts",
@@ -8,7 +8,7 @@
     },
     {
       "path": "packages/core/src/affects/index.ts",
-      "sha256": "bc347e49280412413a005c5f96aec1943f838213c1fc9c7df6b86bdfadc7b66c",
+      "sha256": "dec53795d47490d67451f5bff8130f613c7944e9bf3f96a41e0e2d62eeefe0c1",
       "why": "the affects resolution entry point — FR-004's matcher semantics"
     },
     {
@@ -18,7 +18,7 @@
     },
     {
       "path": "packages/core/src/affects/matchers/package.ts",
-      "sha256": "262dee9be89be0d13b843a61d48d6bc5b028cef0adb9d1ac65ba69ba38f0753a",
+      "sha256": "299f29d535f4052262c740785ebc64421ee605596efe82dd6168015c8bde7fde",
       "why": "package matcher — FR-004's matcher semantics"
     },
     {
