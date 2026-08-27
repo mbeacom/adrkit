@@ -1,0 +1,327 @@
+name: Trusted gates
+
+# The gates whose verdict must not be editable by the pull request they judge.
+#
+# Every job in `ci.yml` runs from the pull request's own checkout, so a pull
+# request can edit both a check and the step that invokes it and still produce a
+# green required status. That is not a hypothesis: #98's `clean-clone-builds`
+# executed three steps named "(network denied)" that exist only on that branch,
+# while `main`'s `ci.yml` contained no such step. Recorded as #137 and decided in
+# ADR-0035.
+#
+# `pull_request_target` is the one trigger available to a personal-namespace
+# repository that runs outside the pull request's control. Since 2025-12-08 GitHub
+# takes the workflow file, every referenced action, and the `actions/checkout`
+# commit for this event from the repository's **default branch** — not from the
+# pull request, and not even from its base branch. A pull request therefore cannot
+# edit what runs here, only what it is run against.
+#
+# ## The rule that keeps this safe
+#
+# `pull_request_target` runs with the base repository's token and secrets. Nothing
+# below may check out, install, build, or execute pull-request code. Concretely:
+#
+#   * `actions/checkout` is used with no `ref:`, so it takes the default branch.
+#     v7 additionally refuses fork pull request refs here by design.
+#   * The pull request's commits are fetched as *objects* and read with `git log`.
+#     They are never checked out into the worktree and never run.
+#   * There is no `bun install`. Both checks import Node builtins only, so a
+#     hostile lockfile has nothing to hook.
+#   * Untrusted values reach steps through `env:`, never through `${{ }}` inside a
+#     `run:` body.
+#   * `permissions:` is read-only, and `persist-credentials: false` keeps the token
+#     out of the git config that the fetch below uses.
+#
+# ## What this does not claim
+#
+# Whoever can merge can still change these gates and label the change. Merge access
+# remains the boundary it always was. What is closed is the narrower and more
+# dangerous property: that the change certifying a pull request could be authored
+# by that same pull request.
+
+on:
+  pull_request_target:
+    # `labeled` and `unlabeled` are load-bearing rather than tidy: the
+    # acknowledgment below is a label, so without them applying it would leave the
+    # required check red with no way to re-run it except a push.
+    #
+    # `edited` is load-bearing for a different reason, and its absence was a real
+    # hole. Retargeting a pull request to a different base fires `edited` with
+    # `changes.base` — **not** `synchronize`. Without it the head SHA never moves,
+    # so the check runs computed against the old base stay the latest results for
+    # that SHA and keep the required contexts green, while the commit range and
+    # the changed-file set both belong to a base nothing ever examined. The
+    # acknowledgment would carry over to a diff nobody acknowledged.
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
+
+permissions:
+  contents: read
+
+# Deliberately no workflow-level `concurrency`. GitHub allows only one pending
+# run per concurrency group and replaces that pending run when another arrives,
+# even when `cancel-in-progress` is false. An author could otherwise leave a
+# runner occupied, push the head-changing event that must dismiss their
+# acknowledgment, then replace that pending run with a title edit that exits
+# before dismissal. Ungrouped runs may overlap, which is safe in the other
+# direction: each check run belongs to its event head SHA, while dismissal and
+# changed-path/label reads use the live API and abort or block on incomplete or
+# inconsistent state.
+
+jobs:
+  trusted-dco:
+    # ADR-0006 calls licensing "the most irreversible decision in the project" and
+    # chose a DCO over a CLA. A neutered dependency check yields a bad edge that a
+    # follow-up fixes; a neutered sign-off check yields unsigned commits in the
+    # permanent history of an Apache-2.0 project. Same mechanism, asymmetric blast
+    # radius — which is why this one is the first to move.
+    #
+    # `ci.yml` keeps a `dco` job. It is faster and reports first, but it is
+    # advisory: it runs from the pull request and can only fail open. This job is
+    # the authority.
+    name: trusted-dco
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # No `ref:`. For `pull_request_target` this resolves to the default branch,
+      # which is the entire point — `scripts/check-dco.ts` below is `main`'s copy.
+      # `fetch-depth: 0` because the range's base commit is an ancestor of the
+      # default branch and a shallow clone would not contain it.
+      - name: Check out the default branch (never the pull request)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      # Objects, not a checkout. `git fetch` moves commit and tree data into the
+      # object store; nothing is written to the worktree and nothing is executed.
+      # Anonymous over https, because `persist-credentials: false` left no token in
+      # the git config and this repository is public.
+      - name: Fetch the pull request's commit objects
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --no-recurse-submodules origin \
+            "+refs/pull/${PR_NUMBER}/head:refs/adrkit/pr-head" \
+            "+refs/heads/${BASE_REF}:refs/adrkit/pr-base"
+
+      # Explicit SHAs from the event payload, not refs. A ref resolves to whatever
+      # it points at now, so a branch that moved mid-run silently changes which
+      # commits were checked — the stale-read failure ADR-0016 records under
+      # "report what was examined".
+      #
+      # Asserting the objects exist *before* running the check is the difference
+      # between "these commits are signed" and "these commits could not be read".
+      # A force-push between the event and this step lands here, and lands red.
+      - name: Verify both endpoints of the range are present
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_CHANGE: ${{ toJSON(github.event.changes.base) }}
+        run: |
+          set -euo pipefail
+          # Say when the base moved, and to what. On a retarget the head SHA does
+          # not move, so this job re-runs over a *different* range while printing
+          # the same head — and a log that did not mention the move would read
+          # identically to the run before it.
+          if [ "${BASE_CHANGE}" != "null" ]; then
+            echo "the base moved; this is not the range the previous run examined:"
+            printf '%s\n' "${BASE_CHANGE}"
+          fi
+          for sha in "$BASE_SHA" "$HEAD_SHA"; do
+            if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then
+              echo "commit ${sha} is not in this clone — the head was probably force-pushed" >&2
+              echo "between the event and this run, or the base was retargeted to a ref this" >&2
+              echo "clone does not carry. Refusing to report a pass over a range that cannot" >&2
+              echo "be read." >&2
+              exit 1
+            fi
+          done
+          echo "both endpoints present: ${BASE_SHA}..${HEAD_SHA}"
+
+      # The script path directly, not `bun run check:dco`. The manifest is trusted
+      # here too, but one less indirection is one less thing to reason about — and
+      # it makes the invocation independent of a `package.json` script rename.
+      #
+      # Commit subjects are untrusted text and are echoed. `::stop-commands::`
+      # neutralizes the workflow-command syntax for the duration, so a commit
+      # message reading `::error::` cannot forge annotations in a privileged run.
+      # The trap restores it on failure as well as success, without disturbing the
+      # exit status the gate depends on.
+      - name: Verify every commit carries a DCO sign-off
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          token="adrkit-$(openssl rand -hex 16)"
+          trap 'echo "::${token}::"' EXIT
+          echo "::stop-commands::${token}"
+          bun scripts/check-dco.ts "${BASE_SHA}..${HEAD_SHA}"
+
+  gate-integrity:
+    # `trusted-dco` closes the "edit the check" half. This closes name-shadowing.
+    #
+    # A required status check is matched by *name*, so a pull request that cannot
+    # edit the trusted job can still declare a job of its own with the same name
+    # and let the later result stand. Declaring a job requires a workflow file, so
+    # that route does run through `.github/workflows/` and this blocks it.
+    #
+    # **It does not make the advisory gates in `ci.yml` trustworthy, and nothing
+    # here should be read as claiming otherwise.** Those jobs execute the pull
+    # request's own code from the pull request's own checkout, and they reach it
+    # through `bun run <script>`, so the manifest and the packages under test are
+    # both pull-request-controlled. `scripts/check-gate-integrity.ts` names the
+    # specific unprotected routes in `DOCUMENTED_UNPROTECTED_ROUTES`, and a test
+    # pins them so the boundary cannot drift without the documentation moving with
+    # it. The remedy for a gate that must be trustworthy is to move it into this
+    # file, as `trusted-dco` was — not to extend the protected path list, which
+    # cannot reach code the gate itself executes.
+    #
+    # Dismissal is a *step* here rather than a separate job on purpose. It has to
+    # happen before the labels are read, and expressing that across jobs needs a
+    # `needs` edge plus an `always()` guard to survive the skip on non-push
+    # events — machinery whose only job is to reproduce the ordering that step
+    # order already gives for free. The cost is that this job carries
+    # `pull-requests: write`; it is contained, because the job executes no
+    # repository code and nothing from the pull request.
+    name: gate-integrity
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # An acknowledgment authorizes a *state*, not a pull request. Without this
+      # the label survives every subsequent push, so the sequence is: open a
+      # small, plausible change under `scripts/`; get it acknowledged; then push
+      # a workflow edit. The `synchronize` run still sees the label and reports
+      # success over gate paths nobody looked at. That is a real bypass available
+      # to a fork author with no write access, and it is the reason
+      # `dismiss_stale_reviews_on_push` exists for reviews.
+      #
+      # Dismissal rather than a timestamp comparison, deliberately. The obvious
+      # alternative — compare the label event against the newest commit — rests
+      # on `committed` dates, which the author sets. `GIT_COMMITTER_DATE` is
+      # free, so a stale acknowledgment could be made to look fresh. Removing the
+      # label depends on no attacker-controlled value at all.
+      - name: Dismiss the acknowledgment when what it acknowledged has moved
+        # An **exclusion** list, deliberately, not an inclusion list. Enumerating
+        # the actions that dismiss is what produced two separate holes: `edited`
+        # was missing, so a retarget carried the acknowledgment onto a different
+        # base; and `reopened` was missing, which is worse, because a pull request
+        # can be closed by its own author, pushed to while closed — GitHub
+        # delivers no event for that — and reopened, arriving with a new head SHA
+        # and the old label intact. That route restored the full name-shadowing
+        # capability this gate exists to block.
+        #
+        # `labeled` and `unlabeled` are the only two activity types that cannot
+        # move the commit range, so they are the only two named here. Anything
+        # added to `types:` later dismisses by default, which is the fail-closed
+        # direction; a test asserts this stays an exclusion list.
+        if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          ACTION: ${{ github.event.action }}
+          BASE_CHANGE: ${{ toJSON(github.event.changes.base) }}
+        run: |
+          set -euo pipefail
+          # `edited` covers title and body edits as well as a retarget, and those
+          # move nothing the acknowledgment was given for. Dismissing on them would
+          # make a typo fix cost a re-acknowledgment, and a control that fires on
+          # noise is one that gets waved through on signal.
+          if [ "$ACTION" = "edited" ] && [ "$BASE_CHANGE" = "null" ]; then
+            echo "an edit that left the base alone (title or body); the acknowledgment stands"
+            exit 0
+          fi
+          if [ "$ACTION" = "edited" ]; then
+            echo "the base moved, so the diff this acknowledged is not the diff that merges:"
+            printf '%s\n' "$BASE_CHANGE"
+          fi
+          # A 404 is the ordinary case — most pushes carry no acknowledgment — and
+          # any other failure is deliberately swallowed here too, because the
+          # verification below is what decides. Trusting the delete's exit status
+          # and skipping the read would leave a 403 looking like a success.
+          gh api -X DELETE \
+            "repos/${REPO}/issues/${PR_NUMBER}/labels/gate-change-acknowledged" \
+            --silent || true
+          # Paginated, like the changed-file listing. A single unpaginated page
+          # caps at 30 labels, and a check whose pass condition is "the label is
+          # not in this list" must not be reading a partial list.
+          #
+          # No pipe into `grep -q` either: under `pipefail` a matching grep closes
+          # the pipe, `gh` dies of SIGPIPE, and the pipeline reports failure —
+          # which would read as "the label is gone" at exactly the moment it is
+          # present.
+          gh api --paginate --slurp \
+            "repos/${REPO}/issues/${PR_NUMBER}/labels" > "${RUNNER_TEMP}/labels-after.json"
+          remaining=$(jq -r \
+            '[.[][].name | ascii_downcase] | index("gate-change-acknowledged") // "absent"' \
+            "${RUNNER_TEMP}/labels-after.json")
+          if [ "$remaining" != "absent" ]; then
+            echo "the acknowledgment is still present after dismissal; refusing to" >&2
+            echo "let a stale acknowledgment authorize a state it never saw." >&2
+            exit 1
+          fi
+          echo "no acknowledgment is in effect for this head and base"
+
+      - name: Check out the default branch (never the pull request)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      # `--slurp` because `--paginate` alone concatenates one JSON array per page
+      # into a document that is not JSON. Written to a file rather than piped
+      # through a shell variable so that a path containing a newline — which git
+      # permits — cannot reframe the list.
+      #
+      # Labels come from the API, **not** from `github.event.pull_request.labels`.
+      # The payload is a snapshot taken before `dismiss-stale-acknowledgment` ran,
+      # so on a push it would still show the label this run has just removed —
+      # reintroducing the bypass the dismissal exists to close.
+      - name: List the pull request's changed paths and its labels as they are now
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp \
+            "repos/${REPO}/pulls/${PR_NUMBER}/files" > "${RUNNER_TEMP}/pr-files.json"
+          gh api --paginate --slurp \
+            "repos/${REPO}/issues/${PR_NUMBER}/labels" > "${RUNNER_TEMP}/pr-labels.json"
+
+      # `--expected-files` is the fail-quiet guard. The files endpoint caps at 3000
+      # entries and truncates rather than erroring, and a gate path past the cap
+      # would be invisible to a check whose pass condition is "no gate path here".
+      #
+      # Wrapped in `::stop-commands::` for the same reason the DCO step is: the
+      # paths printed here are attacker-chosen, git permits a newline in a
+      # filename, and the runner trims leading whitespace before looking for the
+      # `::` prefix — so indentation is not protection. The script escapes control
+      # characters as well; neither measure is trusted alone.
+      - name: Verify no gate-defining path changed without an acknowledgment
+        env:
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: |
+          set -euo pipefail
+          token="adrkit-$(openssl rand -hex 16)"
+          trap 'echo "::${token}::"' EXIT
+          echo "::stop-commands::${token}"
+          bun scripts/check-gate-integrity.ts \
+            --files "${RUNNER_TEMP}/pr-files.json" \
+            --labels "${RUNNER_TEMP}/pr-labels.json" \
+            --expected-files "${CHANGED_FILES}"

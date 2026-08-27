@@ -159,6 +159,55 @@ describe('buildQueueReport — item findings', () => {
     });
   });
 
+  /**
+   * #111 — the real regression, reconstructed.
+   *
+   * ADR-0022 sat in the queue as `proposed`, `blastRadius: cross-team`, with
+   * `reviewBy: 2027-02-08` and no `review` block: `tier=None`, `findings=[]`. It
+   * was ratified without a routing tier because the queue said nothing. The
+   * spec's carve-out requires `review` **and** `reviewBy` to *both* be absent
+   * ("not yet entered into the review workflow"); a record carrying an explicit
+   * deadline has entered it, and the spec's very next sentence gives that exact
+   * combination SLA treatment.
+   */
+  test('item.tier-absent when reviewBy is present with no review block (the ADR-0022 shape)', () => {
+    const report = buildQueueReport({
+      corpus: single({ deciders: ['@mbeacom'], reviewBy: '2027-02-08' }),
+      asOf: '2026-01-08',
+    });
+    expect(report.items[0]?.tier).toBeNull();
+    expect(report.items[0]?.deadlineDate).toBe('2027-02-08');
+    expect(report.items[0]?.slaState).toBe('within-sla');
+    expect(report.items[0]?.itemFindings).toContainEqual({
+      code: 'item.tier-absent',
+      severity: 'info',
+      message: TIER_ABSENT_MESSAGE,
+    });
+  });
+
+  test('the finding is info, so it never changes the queue exit code', () => {
+    // Completeness signal, not a blocker: `adr queue` exits non-zero only on
+    // error-severity corpus findings, and this is neither.
+    const report = buildQueueReport({
+      corpus: single({ deciders: ['@mbeacom'], reviewBy: '2027-02-08' }),
+      asOf: '2026-01-08',
+    });
+    expect(report.items[0]?.itemFindings.every((f) => f.severity === 'info')).toBe(true);
+    expect(report.corpusFindings.filter((f) => f.severity === 'error')).toEqual([]);
+  });
+
+  test('the carve-out survives: neither review nor reviewBy stays silent', () => {
+    // The genuine "proposed but not yet entered into the review workflow" state.
+    // Widening the finding to every tierless record would fire here, which the
+    // spec explicitly forbids.
+    const report = buildQueueReport({
+      corpus: single({ deciders: ['@mbeacom'] }),
+      asOf: '2026-01-08',
+    });
+    expect(report.items[0]?.slaState).toBe('not-queued');
+    expect(report.items[0]?.itemFindings).toEqual([]);
+  });
+
   test('item.deciders-empty when queuedAt present and deciders empty', () => {
     const report = buildQueueReport({
       corpus: single({ deciders: [], review: { tier: 'arb', queuedAt: '2026-01-01T00:00:00Z', slaDays: 14 } }),

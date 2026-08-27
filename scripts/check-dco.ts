@@ -18,15 +18,28 @@
  * `range` is any two-dot git revision range and defaults to
  * `origin/main..HEAD`. CI passes the pull request's own range explicitly.
  *
- * **Known limitation (#137).** This runs from the pull request's own merge
- * checkout, so a change that edits this file — or the workflow step invoking it —
- * can produce a green `dco` status over unsigned commits. That is a property of
- * every gate in this repository, not of this one: `pull_request` workflows
- * execute the *pull request's* `ci.yml`, measured directly on #98. Moving this
- * script to a trusted base revision would not close it, because the step calling
- * it is equally under the pull request's control, and a control that looks like a
- * control and is not one is worse than a documented gap (ADR-0016). Tracked
- * repository-wide in #137 rather than papered over here.
+ * **Where this runs, and why it matters (#137, ADR-0035).** There are two
+ * invocations of this script, and only one of them is the gate.
+ *
+ * The authority is the `trusted-dco` job in `.github/workflows/trusted-gates.yml`.
+ * It is triggered by `pull_request_target`, which GitHub executes from the
+ * repository's **default branch** — workflow file, referenced actions, and
+ * `actions/checkout` commit alike — so neither this script nor the step invoking
+ * it is under the pull request's control. It reads the pull request's commits as
+ * fetched objects and never checks them out.
+ *
+ * The `dco` job in `ci.yml` is the same check run from the pull request's own
+ * checkout. It is faster and reports first, and it can be neutered by the pull
+ * request it judges — so it is advisory, and can only ever fail open. Keeping it
+ * costs nothing because the trusted job must also pass; removing the trusted job
+ * is what would matter, and that is a change under `.github/workflows/`, which
+ * `gate-integrity` blocks without an explicit maintainer acknowledgment.
+ *
+ * What remains open is stated plainly rather than papered over: whoever can merge
+ * can change a gate and acknowledge the change. Merge access is the boundary it
+ * always was. What is closed is the narrower property that made #137 worth
+ * filing — that the check certifying a pull request could be authored by that
+ * same pull request.
  */
 
 import { execFileSync } from 'node:child_process';

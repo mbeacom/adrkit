@@ -615,6 +615,14 @@ current target (see `docs/RELEASING.md`, "Subsequent releases").
    contains `packages/ci/queue/action.yml`, and adopters can switch the pin from the
    commit SHA to `@v0`.
 
+Forward promotion is monotonic. If a verified release must be restored instead,
+dispatch `.github/workflows/action-tag-recovery.yml` from `main`; it validates
+the stable GitHub release and successful release run, peels the annotated version
+tag to its commit, shares promotion concurrency with `release.yml`, and moves the
+lightweight major tag with a remote-SHA lease. The full containment and comment
+restoration runbook is in `docs/RELEASING.md`, "Recovering the moving major
+Action tag."
+
 **Done.** v0.2.1 executed exactly this: `v0` and `v0.2.1^{}` both peel to
 `31bed03a179b6bfa4a62f7e69008c7441c62598f`, and
 `GET /repos/mbeacom/adrkit/contents/packages/ci/queue/action.yml?ref=v0` returns the

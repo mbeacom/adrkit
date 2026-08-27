@@ -191,7 +191,14 @@ Three findings are generated in Step 4, checked independently for each item:
 
 ### `item.tier-absent`
 
-**Condition**: `record.frontmatter.review?.tier` is absent (undefined or null).
+**Condition**:
+- `record.frontmatter.review?.tier` is absent (undefined or null), AND
+- the record has entered review: `record.frontmatter.review` is present, OR
+  `record.frontmatter.reviewBy` is present
+
+A `proposed` record with neither a `review` block nor a `reviewBy` is `not-queued` and
+generates no finding — the spec's two-conditioned carve-out. A record carrying an
+explicit deadline is *not* covered by it (#111).
 
 ```typescript
 {

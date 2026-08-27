@@ -446,8 +446,12 @@ and not as a `QueueItem`.
 - **`review` block and top-level `reviewBy` both absent on a `proposed` record**:
   treated as `not-queued`. This is a valid, expected state for records that have been
   proposed but not yet entered into the review workflow. No item finding is generated
-  for absence of `review` alone. If `reviewBy` is present without a `review` block, its
-  explicit deadline still produces `within-sla`, `due`, or `overdue` under FR-005.
+  when `review` **and** `reviewBy` are both absent — including no `item.tier-absent`.
+  Both conditions are required: a record carrying an explicit `reviewBy` deadline has
+  entered the review workflow, so it is outside this carve-out and `item.tier-absent`
+  fires if its routing tier cannot be determined (#111). If `reviewBy` is present
+  without a `review` block, its explicit deadline still produces `within-sla`, `due`,
+  or `overdue` under FR-005.
 
 - **Corpus with no `proposed` records**: the queue produces an empty ordered `QueueItem`
   list with no item findings; the `corpusFindings` list may still be non-empty if

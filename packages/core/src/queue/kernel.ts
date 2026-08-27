@@ -106,9 +106,24 @@ function computeItemFindings(frontmatter: AdrFrontmatter): ItemFinding[] {
   const review = frontmatter.review;
   const queuedAt = review?.queuedAt;
 
-  // No item finding is generated for the absence of `review` alone (spec §Edge cases):
-  // tier-absent fires only when a `review` block is present but omits `tier`.
-  if (review !== undefined && review.tier == null) {
+  // `item.tier-absent` fires whenever the routing tier cannot be determined on a
+  // record that has *entered* review — `review` present, or a top-level `reviewBy`
+  // deadline (#111).
+  //
+  // The spec's carve-out is two-conditioned and its justification is "not yet
+  // entered into the review workflow" (spec.md §Edge cases): `review` block **and**
+  // top-level `reviewBy` both absent. This previously tested only the first
+  // condition, so ADR-0022 — `blastRadius: cross-team`, `reviewBy: 2027-02-08`, no
+  // `review` block — sat in the queue with `tier=None` and no finding at all, and
+  // was ratified without a routing tier. That is the ADR-0016 shape: "could not
+  // determine" rendering identically to "nothing to report". The contract's own
+  // condition (contracts/kernel.md `item.tier-absent`) is simply "`review?.tier` is
+  // absent"; the carve-out is the only narrowing, and it does not reach a record
+  // carrying an explicit deadline.
+  //
+  // A `proposed` record with neither stays silent, exactly as the spec intends.
+  const enteredReview = review !== undefined || frontmatter.reviewBy != null;
+  if (enteredReview && review?.tier == null) {
     findings.push({ code: 'item.tier-absent', severity: 'info', message: ITEM_MESSAGES.tierAbsent });
   }
 

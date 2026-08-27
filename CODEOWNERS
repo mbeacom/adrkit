@@ -10,3 +10,32 @@
 /LICENSE                @mbeacom
 /NOTICE                 @mbeacom
 /CONTRIBUTING.md        @mbeacom
+
+# Gate-defining surfaces — changes here alter what every other check certifies
+#
+# Listed for #137 / ADR-0035. Two honest caveats, so nobody reads more into these
+# lines than they carry:
+#
+#   1. `*` above already makes @mbeacom the owner of every path, so these entries
+#      add no *coverage* today. They add explicitness, and they survive a future
+#      narrowing of the default line — which is exactly when a gap here would be
+#      easiest to introduce and hardest to notice.
+#   2. The `main` ruleset carries no `pull_request` rule, so CODEOWNERS currently
+#      *requests* a review rather than requiring one. Required review is not
+#      available to this repository as a real control: GitHub does not let an
+#      author approve their own pull request, and with a sole maintainer that
+#      deadlocks every self-authored change or is waived by the admin bypass that
+#      is already `always`. ADR-0035 records that reasoning rather than shipping a
+#      rule that only looks like one.
+#
+# The control that does bite on these paths is the `gate-integrity` job in
+# `.github/workflows/trusted-gates.yml`, which runs from the default branch and
+# blocks until a maintainer applies `gate-change-acknowledged`.
+
+/.github/workflows/     @mbeacom
+/.github/actions/       @mbeacom
+/scripts/               @mbeacom
+/packages/ci/           @mbeacom
+/.github/CODEOWNERS     @mbeacom
+/CODEOWNERS             @mbeacom
+/docs/CODEOWNERS        @mbeacom

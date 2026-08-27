@@ -46367,7 +46367,8 @@ function computeItemFindings(frontmatter) {
   const findings = [];
   const review = frontmatter.review;
   const queuedAt = review?.queuedAt;
-  if (review !== undefined && review.tier == null) {
+  const enteredReview = review !== undefined || frontmatter.reviewBy != null;
+  if (enteredReview && review?.tier == null) {
     findings.push({ code: "item.tier-absent", severity: "info", message: ITEM_MESSAGES.tierAbsent });
   }
   if (frontmatter.reviewBy != null && queuedAt != null) {
