@@ -56,7 +56,7 @@ adrkit/
 
 - The ADR corpus lives in [docs/adr/](docs/adr/), with `0000-template.md` plus
   numbered records.
-- There are 35 files: the template plus 34 records, ids `0001`-`0034`, with 32
+- There are 36 files: the template plus 35 records, ids `0001`-`0035`, with 33
   accepted and 2 superseded records.
 - The schema source of truth lives in
   `packages/core/src/schema/adr.schema.ts`.

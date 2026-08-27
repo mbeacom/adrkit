@@ -38,6 +38,7 @@
     "check:doc-pins": "bun run scripts/check-doc-cli-versions.ts",
     "check:site-grammar": "bun run scripts/check-site-corpus-grammar.ts",
     "check:dco": "bun run scripts/check-dco.ts",
+    "check:gate-integrity": "bun run scripts/check-gate-integrity.ts",
     "check:ci-comment": "bun run scripts/check-ci-comment.ts",
     "audit:gate": "bun run scripts/audit-gate.ts",
     "adr": "bun packages/cli/src/index.ts",
