@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0035"
 title: Execute the gates that certify a pull request from the default branch
-status: proposed
+status: accepted
 date: 2026-08-26
 deciders: ["@mbeacom"]
 tags: [ci, governance, security, supply-chain, provenance]
@@ -40,6 +40,7 @@ assertions:
     severity: error
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -54,9 +55,9 @@ reviewBy: 2027-02-26
 
 # ADR-0035: Execute the gates that certify a pull request from the default branch
 
-> **Status: proposed.** Agent-drafted. It binds nothing until a human accepts it
-> (ADR-0016 action item 1 shape). It does not supersede any record; it closes the
-> gap #137 opened against ADR-0006's provenance claim.
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-08-26. It
+> does not supersede any record; it closes the gap #137 opened against ADR-0006's
+> provenance claim.
 
 ## Context
 
@@ -457,8 +458,7 @@ eliminated by the constraints listed under the decision.
 
 ## Action items
 
-1. [ ] **Ratify or reject.** This record is `proposed` and agent-drafted; it binds
-       nothing until a human accepts it.
+1. [x] **Ratify or reject.** Ratified by `@mbeacom` on 2026-08-26.
 2. [ ] **Add the trusted contexts to the `main` ruleset — after merge.** This
        cannot be done before merge and must not be faked: `pull_request_target`
        executes the workflow from the default branch, so `trusted-dco` and
