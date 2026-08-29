@@ -21,8 +21,8 @@
     "@astrojs/starlight": "^0.41.7",
     "@fontsource-variable/anybody": "^5.3.0",
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
-    "astro": "^7.2.4",
-    "sharp": "^0.35.0"
+    "astro": "^7.2.7",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "playwright-core": "^1.62.1",
