@@ -37,13 +37,13 @@ review:
 externalRefs:
   - type: doc
     url: "https://www.langchain.com/blog/self-correcting-memory-openwiki"
-    label: "OpenWiki grounded Claims and self-correcting memory"
+    label: "OpenWiki grounded Claims and self-correcting memory (accessed 2026-08-29; live page)"
   - type: doc
     url: "https://github.com/langchain-ai/openwiki/tree/c666f4262e4340e5675fa9804bb342b87bf87f1a"
     label: "OpenWiki repository at the revision reviewed for this record"
   - type: doc
-    url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md"
-    label: "Open Knowledge Format v0.2"
+    url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/62432a095456147ee71e70ac6e4dc0d2dea3ac30/okf/SPEC.md"
+    label: "Open Knowledge Format v0.2 at the revision reviewed for this record"
 reviewBy: 2027-02-28
 ---
 
@@ -62,7 +62,7 @@ what no longer governs is part of decision memory.
 
 Generated knowledge systems solve a related but different problem. They inspect
 source material, synthesize documentation, and update that documentation as the
-system changes. OpenWiki 0.4 is a concrete example: its grounded Claims associate
+system changes. OpenWiki 0.4.3 is a concrete example: its grounded Claims associate
 factual statements with versioned repository evidence, while OKF v0.2 exposes
 page-level provenance and verification metadata.
 

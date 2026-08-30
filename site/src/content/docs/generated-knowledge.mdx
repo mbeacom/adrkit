@@ -29,7 +29,7 @@ giving generated content authority over human decisions.
 	The statements below were checked against
 	[OpenWiki 0.4.3 source](https://github.com/langchain-ai/openwiki/tree/c666f4262e4340e5675fa9804bb342b87bf87f1a)
 	and
-	[Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+	[Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/62432a095456147ee71e70ac6e4dc0d2dea3ac30/okf/SPEC.md)
 	on 2026-08-29. That was a documentation-level review, not operational
 	validation of this recipe. Recheck the upstream lifecycle and verification
 	semantics before applying it to a later major format or integration.
@@ -88,28 +88,168 @@ adrkit's deterministic pull-request context.
 
 Preserve the explicit `add-paths` allowlist from OpenWiki's
 [reference GitHub workflow](https://github.com/langchain-ai/openwiki/blob/c666f4262e4340e5675fa9804bb342b87bf87f1a/examples/openwiki-update.yml).
-For scheduled updates, narrow that allowlist to `openwiki/**` after the
-human-reviewed setup pull request has established `openwiki/INSTRUCTIONS.md`,
-`AGENTS.md`, `CLAUDE.md`, and the workflow itself. Do not add `docs/adr/**` to
-the list, and do not let the update job revise its own instructions or workflow
-definition. Add a guard after OpenWiki runs and before the pull-request step:
+Do not copy its credential persistence unchanged for this boundary. GitHub
+permissions apply to a whole job, not one step, so run generation and
+publication in separate jobs. The generator receives a read-only token and no
+persisted git credential. A fresh publisher job receives the write credential
+only after the protected-path guard succeeds.
+
+Save the workflow as `.github/workflows/openwiki-update.yml`. Before enabling
+it, configure:
+
+- repository variable `OPENWIKI_MODEL_ID`;
+- repository secret `OPENAI_API_KEY` for the OpenAI example below, or the
+  provider-specific credential documented by OpenWiki; and
+- repository secret `OPENWIKI_PR_TOKEN`, containing a fine-grained token with
+  `contents:write` and `pull-requests:write`.
 
 ```yaml
-- name: Protect human-reviewed integration controls
-  run: >-
-    git diff --exit-code --
-    openwiki/INSTRUCTIONS.md
-    AGENTS.md
-    CLAUDE.md
-    .github/workflows/openwiki-update.yml
+name: OpenWiki update
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'
+
+# The ambient token is read-only. OPENWIKI_PR_TOKEN is a fine-grained token with
+# contents:write and pull-requests:write, stored as a repository secret and
+# passed only to the final action.
+permissions:
+  contents: read
+
+concurrency:
+  group: openwiki-update-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out without generator write credentials
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Install OpenWiki
+        run: npm install --global openwiki@0.4.3
+
+      # This example uses OpenAI. Substitute the provider-specific environment
+      # documented by OpenWiki when you use another provider.
+      - name: Run OpenWiki
+        run: |
+          : "${OPENWIKI_MODEL_ID:?Set repository variable OPENWIKI_MODEL_ID}"
+          : "${OPENAI_API_KEY:?Set repository secret OPENAI_API_KEY}"
+          openwiki code --update --print
+        env:
+          OPENWIKI_PROVIDER: openai
+          OPENWIKI_MODEL_ID: ${{ vars.OPENWIKI_MODEL_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Remove transient run state
+        run: rm -f -- openwiki/.run.json
+
+      # Comparing with GITHUB_SHA catches staged, unstaged, and locally committed
+      # changes. The second check catches new untracked protected files.
+      - name: Protect human-reviewed integration controls
+        shell: bash
+        run: |
+          protected=(
+            docs/adr
+            openwiki/INSTRUCTIONS.md
+            AGENTS.md
+            CLAUDE.md
+            .github/CODEOWNERS
+            .github/workflows/openwiki-update.yml
+          )
+          if ! git diff --exit-code "$GITHUB_SHA" -- "${protected[@]}"; then
+            echo 'OpenWiki modified tracked protected paths; refusing publication.' >&2
+            exit 1
+          fi
+          untracked="$(git ls-files --others -- "${protected[@]}")"
+          if [[ -n "$untracked" ]]; then
+            printf 'OpenWiki created protected paths:\n%s\n' "$untracked" >&2
+            exit 1
+          fi
+
+      # Archive only generated output. The user-authored brief was already
+      # proven unchanged and is excluded from the handoff.
+      - name: Package generated output
+        shell: bash
+        run: |
+          if [[ ! -d openwiki || -L openwiki ]]; then
+            echo 'OpenWiki output root must be a real directory.' >&2
+            exit 1
+          fi
+          non_regular="$(find openwiki -mindepth 1 ! -type f ! -type d -print)"
+          if [[ -n "$non_regular" ]]; then
+            printf 'OpenWiki created non-regular output:\n%s\n' "$non_regular" >&2
+            exit 1
+          fi
+          tar \
+            --exclude='openwiki/INSTRUCTIONS.md' \
+            --exclude='openwiki/.run.json' \
+            -czf "$RUNNER_TEMP/openwiki-output.tgz" \
+            openwiki
+
+      - name: Upload generated output
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: openwiki-${{ github.run_id }}
+          path: ${{ runner.temp }}/openwiki-output.tgz
+          if-no-files-found: error
+
+  publish:
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out a fresh publishing workspace
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Download generated output
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: openwiki-${{ github.run_id }}
+          path: ${{ runner.temp }}/openwiki-artifact
+
+      - name: Replace generated files while preserving the brief
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/openwiki-candidate"
+          tar -xzf "$RUNNER_TEMP/openwiki-artifact/openwiki-output.tgz" \
+            -C "$RUNNER_TEMP/openwiki-candidate"
+          rsync -a --no-links --delete --exclude '/INSTRUCTIONS.md' \
+            "$RUNNER_TEMP/openwiki-candidate/openwiki/" openwiki/
+
+      - name: Create OpenWiki update pull request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          token: ${{ secrets.OPENWIKI_PR_TOKEN }}
+          add-paths: |
+            openwiki
+          branch: openwiki/update
+          commit-message: 'docs: update OpenWiki'
+          title: 'docs: update OpenWiki'
+          signoff: true
 ```
 
-The reference workflow propagates a failed OpenWiki run after preserving
-completed documentation work. At minimum, enable GitHub Actions failure
-notifications and compare the workflow's last successful run with its expected
-schedule. A green adrkit check means the decision corpus and
-governing-decision resolution succeeded—it does not mean the generated wiki is
-current.
+Unlike the upstream reference workflow, this stricter adaptation does not
+publish partial output: a failed OpenWiki run stops before artifact handoff and
+PR creation. At minimum, enable GitHub Actions failure notifications and compare
+the workflow's last successful run with its expected schedule. A green adrkit
+check means the decision corpus and governing-decision resolution succeeded—it
+does not mean the generated wiki is current.
+
+Treat `openwiki/update` as automation-owned. Do not push reviewer fixup commits
+to it; change the source, brief, or workflow on the default branch and rerun the
+update instead.
 
 ## Give OpenWiki a read-only decision brief
 
@@ -152,9 +292,9 @@ cannot reinterpret:
    ruleset to require that review. CODEOWNERS alone requests review but does not
    make it mandatory. In a sole-maintainer repository, requiring the sole code
    owner to approve their own change deadlocks the normal path or leaves an
-   administrator bypass as the routine escape; rely on the committed-path
-   allowlist as the hard automation boundary instead of claiming independent
-   approval.
+   administrator bypass as the routine escape; rely on credential isolation,
+   the base-commit guard, and the committed-path allowlist as the hard
+   automation boundary instead of claiming independent approval.
 4. Keep OpenWiki's managed blocks in `AGENTS.md` and `CLAUDE.md` limited to
    pointers that help agents find the wiki. Review any change outside the
    documented markers as an ordinary source change.
@@ -211,14 +351,15 @@ If a generated-documentation change reaches a protected path:
 1. Disable the update workflow before its next scheduled run.
 2. Open a human-reviewed revert pull request that restores `docs/adr/**`,
    `openwiki/INSTRUCTIONS.md`, `AGENTS.md`, `CLAUDE.md`, and the workflow to
-   their last reviewed state. Do not hide the event by rewriting shared
-   history.
+   their last reviewed state, and verify `.github/CODEOWNERS` was not weakened.
+   Do not hide the event by rewriting shared history.
 3. Run `adr lint` and `adr check` against the restored corpus and affected
    source paths.
 4. Review generated-documentation pull requests since the last known-good run
    for the same boundary crossing.
-5. Narrow the committed-path allowlist and review controls before re-enabling
-   automation.
+5. Narrow the committed-path allowlist and confirm the branch-protection or
+   ruleset configuration still enforces its intended review policy before
+   re-enabling automation.
 
 The same boundary applies to other generated knowledge systems: consume and
 project the decision corpus, but leave decision authority in its reviewed git
