@@ -21,6 +21,16 @@ constraints from silently drifting. The website should make that difference
 immediately legible, establish technical credibility, and move qualified users
 into the quickstart or the decision corpus.
 
+## Proposed Product Boundary
+
+Pending ratification of ADR-0037, adrkit's proposed boundary is to govern
+human-reviewed decisions rather than generate a general-purpose architecture
+wiki. Generated knowledge systems may consume and present the decision corpus
+as a downstream read model, but generated content would not change decision
+lifecycle, ratification, typed relationships, or what a decision affects. This
+boundary would let adrkit integrate with documentation ecosystems without
+adding model providers, connectors, or another source of truth.
+
 ## Brand Personality
 
 Exacting, consequential, trustworthy. The voice is direct and technically

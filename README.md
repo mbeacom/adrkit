@@ -16,6 +16,27 @@ record as **typed data with a markdown body** and adds one field â€” `affects` â
 so a tool can answer *"which decisions govern this pull request?"* and put the
 answer where the next decision is being made.
 
+## Decision governance, not generated documentation
+
+**Proposed interoperability direction:** [ADR-0037](docs/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities.md)
+is under review and has not been ratified.
+
+Generated knowledge systems answer *"how does the system work now?"* adrkit
+answers *"what did people decide, what alternatives were rejected, and which
+decisions govern this change?"*
+
+Tools such as [OpenWiki](https://github.com/langchain-ai/openwiki) can consume
+ADRs as evidence and turn them into browsable current-state documentation. That
+is complementary to adrkit: the generated wiki is a downstream read model, while
+the reviewed records in git retain authority over decision lifecycle and typed
+relationships. Machine verification of generated content is not human
+ratification of a decision.
+
+See the provisional
+[generated-knowledge guide](https://adrkit.dev/generated-knowledge/) for the
+OpenWiki setup being evaluated and the proposed ownership boundary between the
+two tools.
+
 ## Quickstart
 
 The CLI is published as [`@adrkit/cli`](https://www.npmjs.com/package/@adrkit/cli)
@@ -48,6 +69,7 @@ See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 | Feed prior decisions to coding agents | [`@adrkit/mcp`](packages/mcp/README.md) | Local, read-only stdio MCP server |
 | Run adrkit from an OCI image | [Container usage](#container-usage) | Lockstep multi-architecture image, beginning with the first release containing ADR-0032 |
 | Comment governing decisions on pull requests | [Use in CI](https://adrkit.dev/ci/) | GitHub Action from this repository |
+| Evaluate decision governance with a generated wiki | [Generated knowledge guide](https://adrkit.dev/generated-knowledge/) | Provisional OpenWiki recipe; no runtime coupling |
 | Add decision memory to Spec Kit | [`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) | Published separately for Spec Kit `>=0.13.0,<0.16.0` |
 | Add decision memory to Copilot, Claude Code, or opencode | [`adrkit` agent plugin](packages/adapters/agent-plugin/README.md) | Install from this repository or marketplace |
 

@@ -79,6 +79,7 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Use in CI', slug: 'ci' },
+						{ label: 'Generated knowledge (proposed)', slug: 'generated-knowledge' },
 						{ label: 'Badges', slug: 'badges' },
 						{ label: 'MCP setup', slug: 'mcp' },
 						{ label: 'Spec Kit extension', slug: 'spec-kit' },

@@ -1,0 +1,232 @@
+---
+title: Use with generated knowledge systems
+description: Combine adrkit decision governance with generated documentation such as OpenWiki without creating two sources of truth.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Provisional guidance">
+	[ADR-0037](/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities/)
+	is proposed and has not been ratified. This recipe has been checked against
+	public documentation and source, but it has not yet completed a public
+	end-to-end reference-repository exercise.
+</Aside>
+
+adrkit and generated knowledge systems solve adjacent problems:
+
+- **adrkit records why and governs change.** Human-reviewed ADRs carry lifecycle
+  state, typed relationships, and `affects` matchers that let CI and agents find
+  the decisions governing a path.
+- **Generated knowledge describes the system as it exists now.** Tools such as
+  [OpenWiki](https://github.com/langchain-ai/openwiki) can synthesize browsable
+  architecture documentation and reconnect factual claims to source evidence as
+  the implementation changes.
+
+Use both layers when you want generated current-state documentation without
+giving generated content authority over human decisions.
+
+<Aside type="note" title="Documentation review boundary">
+	The statements below were checked against
+	[OpenWiki 0.4.3 source](https://github.com/langchain-ai/openwiki/tree/c666f4262e4340e5675fa9804bb342b87bf87f1a)
+	and
+	[Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+	on 2026-08-29. That was a documentation-level review, not operational
+	validation of this recipe. Recheck the upstream lifecycle and verification
+	semantics before applying it to a later major format or integration.
+</Aside>
+
+## Keep ownership explicit
+
+| Artifact | Owns | Written by |
+|---|---|---|
+| `docs/adr/**` | Ratified intent, alternatives, lifecycle, typed relationships, and what a decision affects | People and agents through the repository's normal pull-request review |
+| Source and tests | Current implementation and executable behavior | The product development workflow |
+| `openwiki/**` | Generated explanations and current-state architecture projections | OpenWiki through its own update workflow |
+| OpenWiki-managed blocks in `AGENTS.md` and `CLAUDE.md` | Pointers that help coding agents discover the generated wiki | OpenWiki within its documented marker boundaries |
+
+An OpenWiki page may cite an ADR and explain it. It must not accept, reject,
+deprecate, supersede, or rewrite that ADR. When implementation and an accepted
+record disagree, preserve both facts and route the discrepancy to people.
+
+## Configure the two workflows separately
+
+<Aside type="caution" title="Apply containment before enabling updates">
+	Complete [the write-boundary controls](#enforce-the-write-boundary-outside-the-prompt)
+	before enabling a scheduled OpenWiki update. The instructions file is not a
+	permission boundary.
+</Aside>
+
+Run the adrkit governing-decisions Action on source pull requests. It resolves
+the accepted records that govern changed files and comments on the pull request
+where the change is being reviewed:
+
+```yaml
+name: ADR governing decisions
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  governing-decisions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mbeacom/adrkit/packages/ci@v0
+```
+
+Configure OpenWiki updates independently, using its
+[current automation guide](https://docs.langchain.com/oss/openwiki/automate-updates).
+Keep generated documentation under `openwiki/**`, allow only OpenWiki's managed
+blocks in `AGENTS.md` and `CLAUDE.md`, and keep model credentials and update
+failures out of the adrkit job. An OpenWiki update may open a documentation pull
+request after source changes land; it should not become a prerequisite for
+adrkit's deterministic pull-request context.
+
+Preserve the explicit `add-paths` allowlist from OpenWiki's
+[reference GitHub workflow](https://github.com/langchain-ai/openwiki/blob/c666f4262e4340e5675fa9804bb342b87bf87f1a/examples/openwiki-update.yml).
+For scheduled updates, narrow that allowlist to `openwiki/**` after the
+human-reviewed setup pull request has established `openwiki/INSTRUCTIONS.md`,
+`AGENTS.md`, `CLAUDE.md`, and the workflow itself. Do not add `docs/adr/**` to
+the list, and do not let the update job revise its own instructions or workflow
+definition. Add a guard after OpenWiki runs and before the pull-request step:
+
+```yaml
+- name: Protect human-reviewed integration controls
+  run: >-
+    git diff --exit-code --
+    openwiki/INSTRUCTIONS.md
+    AGENTS.md
+    CLAUDE.md
+    .github/workflows/openwiki-update.yml
+```
+
+The reference workflow propagates a failed OpenWiki run after preserving
+completed documentation work. At minimum, enable GitHub Actions failure
+notifications and compare the workflow's last successful run with its expected
+schedule. A green adrkit check means the decision corpus and
+governing-decision resolution succeeded—it does not mean the generated wiki is
+current.
+
+## Give OpenWiki a read-only decision brief
+
+Add guidance like the following to the repository's
+`openwiki/INSTRUCTIONS.md`:
+
+```md
+# Decision records
+
+Treat `docs/adr/**` as read-only normative decision evidence.
+
+- Never create, edit, delete, accept, reject, deprecate, or supersede an ADR.
+- Preserve each record's id and link to the original file.
+- Present `accepted` records as governing decisions.
+- Present `draft` and `proposed` records as under review, not as current policy.
+- Keep `rejected`, `superseded`, and `deprecated` records in decision history.
+- Label `supersedes`, `relatesTo`, and `conflictsWith` relationships explicitly.
+- When code differs from an accepted ADR, report the mismatch for human review.
+  Do not revise the ADR or infer a new decision from implementation alone.
+- Treat machine verification of generated content as documentation provenance,
+  not as human ratification of a decision.
+```
+
+This brief lets OpenWiki use the corpus as evidence while preserving the
+distinctions that make the corpus useful to review and retrieval.
+
+## Enforce the write boundary outside the prompt
+
+`openwiki/INSTRUCTIONS.md` is guidance to the documentation agent, not a
+repository permission boundary. Pair it with controls the generated workflow
+cannot reinterpret:
+
+1. Keep scheduled update commits limited to generated files under
+   `openwiki/**`, and fail the run if `openwiki/INSTRUCTIONS.md` changes.
+   Establish changes to that brief, `AGENTS.md`, `CLAUDE.md`, and the workflow
+   in a separate human-reviewed pull request.
+2. Add `docs/adr/**`, `openwiki/INSTRUCTIONS.md`, `AGENTS.md`, `CLAUDE.md`, and
+   the OpenWiki workflow to `CODEOWNERS`.
+3. Where a distinct reviewer is available, configure branch protection or a
+   ruleset to require that review. CODEOWNERS alone requests review but does not
+   make it mandatory. In a sole-maintainer repository, requiring the sole code
+   owner to approve their own change deadlocks the normal path or leaves an
+   administrator bypass as the routine escape; rely on the committed-path
+   allowlist as the hard automation boundary instead of claiming independent
+   approval.
+4. Keep OpenWiki's managed blocks in `AGENTS.md` and `CLAUDE.md` limited to
+   pointers that help agents find the wiki. Review any change outside the
+   documented markers as an ordinary source change.
+5. Do not enable automatic merging for a generated-documentation pull request
+   that also changes a decision record, an agent-instruction file, or the update
+   workflow.
+
+For example:
+
+```text
+# .github/CODEOWNERS
+/docs/adr/ @your-architecture-reviewers
+/openwiki/INSTRUCTIONS.md @your-architecture-reviewers
+/AGENTS.md @your-architecture-reviewers
+/CLAUDE.md @your-architecture-reviewers
+/.github/workflows/openwiki-update.yml @your-architecture-reviewers
+```
+
+These controls keep an instruction-following failure from becoming a decision
+lifecycle change.
+
+## Do not translate unlike lifecycle states
+
+OKF v0.2 defines document lifecycle states such as `draft`, `stable`, and
+`deprecated`, plus machine- and human-verification events. These describe the
+knowledge document. adrkit's `accepted`, `rejected`, and `superseded` states
+describe the outcome and history of a decision.
+
+Do not map:
+
+- adrkit `accepted` to OKF `stable` as proof that a decision was ratified;
+- OpenWiki machine `verified` to adrkit `provenance.ratifiedBy`; or
+- a stale generated Claim to a violated or superseded ADR.
+
+A source change means evidence needs another look. It proves a violation only
+when an applicable deterministic assertion actually evaluates and fails.
+
+## Expected change flow
+
+1. A source pull request changes files.
+2. adrkit reports the accepted decisions governing those files on that pull
+   request.
+3. People review the source change against those decisions.
+4. After merge, OpenWiki refreshes the generated description and its source
+   evidence in a separate update.
+5. If the implementation and decision no longer agree, people either correct
+   the implementation or propose a new ADR that explicitly supersedes the old
+   decision.
+
+## Recover from a write-boundary breach
+
+If a generated-documentation change reaches a protected path:
+
+1. Disable the update workflow before its next scheduled run.
+2. Open a human-reviewed revert pull request that restores `docs/adr/**`,
+   `openwiki/INSTRUCTIONS.md`, `AGENTS.md`, `CLAUDE.md`, and the workflow to
+   their last reviewed state. Do not hide the event by rewriting shared
+   history.
+3. Run `adr lint` and `adr check` against the restored corpus and affected
+   source paths.
+4. Review generated-documentation pull requests since the last known-good run
+   for the same boundary crossing.
+5. Narrow the committed-path allowlist and review controls before re-enabling
+   automation.
+
+The same boundary applies to other generated knowledge systems: consume and
+project the decision corpus, but leave decision authority in its reviewed git
+history.
+
+## Related decisions
+
+- [ADR-0001: Record architecture decisions as versioned markdown in git](/adr/0001-record-architecture-decisions-in-git/)
+- [ADR-0004: Treat git as the source of truth and the database as a derived index](/adr/0004-git-is-source-of-truth-database-is-an-index/)
+- [ADR-0007: Isolate integrations as optional adapters](/adr/0007-adapter-isolation-and-public-surface-build/)
+- [ADR-0037: Treat generated knowledge systems as downstream read models, not decision authorities](/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities/)
