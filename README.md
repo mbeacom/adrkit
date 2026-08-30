@@ -128,8 +128,8 @@ Actions remain the simpler interface:
 documented in [`docs/RELEASING.md`](docs/RELEASING.md#oci-container-image).
 
 The governing-decisions Action also has a repository-root entry point for its
-GitHub Marketplace listing. That root form begins with the first compatible
-release after `v0.12.0`; the existing `packages/ci` form remains supported.
+GitHub Marketplace listing. That root form is available beginning with
+`v0.13.0`; the existing `packages/ci` form remains supported.
 GitHub lists only root Action metadata, so the queue Action stays at its nested
 path.
 

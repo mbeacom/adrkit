@@ -11,7 +11,7 @@ the corpus and write a comment or an issue.
 
 <Aside type="note" title="GitHub Marketplace">
 	The governing-decisions Action has a repository-root Marketplace entry point
-	planned for v0.13.0. The established
+	available beginning with v0.13.0. The established
 	`mbeacom/adrkit/packages/ci@&lt;ref&gt;` form remains supported, including
 	through its moving `v0` tag. Root Marketplace examples use immutable release
 	tags because recovery may move `v0` to a release from before the root alias.
@@ -48,8 +48,7 @@ jobs:
         #   token: ${{ github.token }}
 ```
 
-Until `v0.13.0` is published, use
-`mbeacom/adrkit/packages/ci@v0`. That nested form remains supported afterward.
+The established `mbeacom/adrkit/packages/ci@v0` nested form remains supported.
 
 The Action updates its existing comment on later pushes, so each pull request
 keeps one current governing-decisions comment. No additional token environment
@@ -68,7 +67,7 @@ the comment reaches GitHub's size limit. Keep the default checkout rooted at
 `GITHUB_WORKSPACE`; if a workflow checks out elsewhere, marker health will
 identify files the Action could not inspect.
 
-The Marketplace form will be pinned to the immutable `v0.13.0` release. For
+The Marketplace form is pinned to the immutable `v0.13.0` release. For
 the nested compatibility form, `v0` is a moving major tag; pin an immutable
 release tag or commit SHA when maximum reproducibility matters.
 
@@ -79,14 +78,14 @@ release tag or commit SHA when maximum reproducibility matters.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">
-	The `v*` release tags are **annotated**, so `refs/tags/v0.12.0` resolves to a tag
+	The `v*` release tags are **annotated**, so `refs/tags/v0.13.0` resolves to a tag
 	object rather than a commit, and `uses:` rejects that SHA. Pin the commit the tag
 	points *at*:
 
 	```sh
-	git rev-parse v0.12.0^{commit}
+	git rev-parse v0.13.0^{commit}
 	# or, over the API — this endpoint peels the tag for you:
-	gh api repos/mbeacom/adrkit/commits/v0.12.0 --jq .sha
+	gh api repos/mbeacom/adrkit/commits/v0.13.0 --jq .sha
 	```
 
 	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag

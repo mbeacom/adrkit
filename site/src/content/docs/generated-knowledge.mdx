@@ -41,7 +41,8 @@ giving generated content authority over human decisions.
 |---|---|---|
 | `docs/adr/**` | Ratified intent, alternatives, lifecycle, typed relationships, and what a decision affects | People and agents through the repository's normal pull-request review |
 | Source and tests | Current implementation and executable behavior | The product development workflow |
-| `openwiki/**` | Generated explanations and current-state architecture projections | OpenWiki through its own update workflow |
+| `openwiki/INSTRUCTIONS.md` | Human-reviewed instructions that constrain the generated projection | People and agents through a separate pull request |
+| Other Markdown plus OpenWiki claims and manifest JSON under `openwiki/**` | Generated explanations, claims, and current-state architecture projections | OpenWiki through its own update workflow |
 | OpenWiki-managed blocks in `AGENTS.md` and `CLAUDE.md` | Pointers that help coding agents discover the generated wiki | OpenWiki within its documented marker boundaries |
 
 An OpenWiki page may cite an ADR and explain it. It must not accept, reject,
@@ -136,8 +137,20 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install OpenWiki
-        run: npm install --global openwiki@0.4.3
+      - name: Build the reviewed OpenWiki source revision
+        shell: bash
+        run: |
+          source_dir="$RUNNER_TEMP/openwiki-source"
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin https://github.com/langchain-ai/openwiki.git
+          git -C "$source_dir" fetch --depth=1 origin c666f4262e4340e5675fa9804bb342b87bf87f1a
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+          corepack enable
+          (
+            cd "$source_dir"
+            pnpm install --frozen-lockfile
+            pnpm run build
+          )
 
       # This example uses OpenAI. Substitute the provider-specific environment
       # documented by OpenWiki when you use another provider.
@@ -145,7 +158,7 @@ jobs:
         run: |
           : "${OPENWIKI_MODEL_ID:?Set repository variable OPENWIKI_MODEL_ID}"
           : "${OPENAI_API_KEY:?Set repository secret OPENAI_API_KEY}"
-          openwiki code --update --print
+          node "$RUNNER_TEMP/openwiki-source/dist/cli/cli.js" code --update --print
         env:
           OPENWIKI_PROVIDER: openai
           OPENWIKI_MODEL_ID: ${{ vars.OPENWIKI_MODEL_ID }}
@@ -186,9 +199,23 @@ jobs:
             echo 'OpenWiki output root must be a real directory.' >&2
             exit 1
           fi
-          non_regular="$(find openwiki -mindepth 1 ! -type f ! -type d -print)"
-          if [[ -n "$non_regular" ]]; then
-            printf 'OpenWiki created non-regular output:\n%s\n' "$non_regular" >&2
+          invalid=()
+          while IFS= read -r -d '' path; do
+            invalid+=("$path")
+          done < <(find openwiki -mindepth 1 ! -type f ! -type d -print0)
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              openwiki/INSTRUCTIONS.md | openwiki/*.md) ;;
+              openwiki/.claims/*.json | openwiki/.last-update.json | openwiki/.page-manifest.json) ;;
+              *) invalid+=("$path") ;;
+            esac
+          done < <(find openwiki -type f -print0)
+          while IFS= read -r -d '' path; do
+            invalid+=("$path")
+          done < <(find openwiki -type f -perm /111 -print0)
+          if (( ${#invalid[@]} )); then
+            printf 'OpenWiki created unsupported or executable output:\n' >&2
+            printf '  %q\n' "${invalid[@]}" >&2
             exit 1
           fi
           tar \
@@ -237,6 +264,13 @@ jobs:
           branch: openwiki/update
           commit-message: 'docs: update OpenWiki'
           title: 'docs: update OpenWiki'
+          body: |
+            Automated OpenWiki documentation update.
+
+            Keep this pull request in draft until a reviewer confirms that ADR
+            lifecycle states, applicability, relationships, and source links
+            agree with the cited decision records.
+          draft: always-true
           signoff: true
 ```
 
@@ -263,10 +297,16 @@ Treat `docs/adr/**` as read-only normative decision evidence.
 
 - Never create, edit, delete, accept, reject, deprecate, or supersede an ADR.
 - Preserve each record's id and link to the original file.
-- Present `accepted` records as governing decisions.
+- Present `accepted` records as ratified decisions. Call one governing for a
+  target only when `adr check` or `adr explain` reports it through a matching
+  `affects` declaration or inbound `@adr` marker; do not reimplement resolution.
 - Present `draft` and `proposed` records as under review, not as current policy.
 - Keep `rejected`, `superseded`, and `deprecated` records in decision history.
-- Label `supersedes`, `relatesTo`, and `conflictsWith` relationships explicitly.
+- Preserve `scope`, `affects`, and marker provenance where the consuming
+  contract exposes them. Label `supersedes`, `supersededBy`, `relatesTo`, and
+  `conflictsWith` relationships explicitly.
+- Label every ADR-derived page as a non-authoritative generated projection and
+  record the source ADR-corpus git revision.
 - When code differs from an accepted ADR, report the mismatch for human review.
   Do not revise the ADR or infer a new decision from implementation alone.
 - Treat machine verification of generated content as documentation provenance,
@@ -282,10 +322,11 @@ distinctions that make the corpus useful to review and retrieval.
 repository permission boundary. Pair it with controls the generated workflow
 cannot reinterpret:
 
-1. Keep scheduled update commits limited to generated files under
-   `openwiki/**`, and fail the run if `openwiki/INSTRUCTIONS.md` changes.
-   Establish changes to that brief, `AGENTS.md`, `CLAUDE.md`, and the workflow
-   in a separate human-reviewed pull request.
+1. Keep scheduled update commits limited to non-executable Markdown, JSON below
+   `openwiki/.claims/`, and OpenWiki's two root JSON manifests. Fail the run if
+   `openwiki/INSTRUCTIONS.md` changes. Establish changes to that brief,
+   `AGENTS.md`, `CLAUDE.md`, and the workflow in a separate human-reviewed pull
+   request.
 2. Add `docs/adr/**`, `openwiki/INSTRUCTIONS.md`, `AGENTS.md`, `CLAUDE.md`, and
    the OpenWiki workflow to `CODEOWNERS`.
 3. Where a distinct reviewer is available, configure branch protection or a
@@ -298,9 +339,9 @@ cannot reinterpret:
 4. Keep OpenWiki's managed blocks in `AGENTS.md` and `CLAUDE.md` limited to
    pointers that help agents find the wiki. Review any change outside the
    documented markers as an ordinary source change.
-5. Do not enable automatic merging for a generated-documentation pull request
-   that also changes a decision record, an agent-instruction file, or the update
-   workflow.
+5. Open every generated-documentation pull request as a draft. Do not enable
+   automatic merging; a reviewer must first compare ADR lifecycle,
+   applicability, relationship, and source-link claims with the cited records.
 
 For example:
 
@@ -344,20 +385,22 @@ when an applicable deterministic assertion actually evaluates and fails.
    the implementation or propose a new ADR that explicitly supersedes the old
    decision.
 
-## Recover from a write-boundary breach
+## Recover from a generated-output breach
 
-If a generated-documentation change reaches a protected path:
+If a generated-documentation change reaches a protected path or misrepresents
+an ADR's lifecycle, applicability, relationship, or source:
 
 1. Disable the update workflow before its next scheduled run.
-2. Open a human-reviewed revert pull request that restores `docs/adr/**`,
-   `openwiki/INSTRUCTIONS.md`, `AGENTS.md`, `CLAUDE.md`, and the workflow to
-   their last reviewed state, and verify `.github/CODEOWNERS` was not weakened.
-   Do not hide the event by rewriting shared history.
+2. Open a human-reviewed revert pull request that restores any protected paths
+   and generated claims to their last reviewed state, and verify
+   `.github/CODEOWNERS` was not weakened. Do not hide the event by rewriting
+   shared history.
 3. Run `adr lint` and `adr check` against the restored corpus and affected
    source paths.
 4. Review generated-documentation pull requests since the last known-good run
    for the same boundary crossing.
-5. Narrow the committed-path allowlist and confirm the branch-protection or
+5. Correct the brief or output grammar that admitted the breach, regenerate
+   from the last reviewed source revision, and confirm the branch-protection or
    ruleset configuration still enforces its intended review policy before
    re-enabling automation.
 
