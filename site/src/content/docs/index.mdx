@@ -39,6 +39,26 @@ hero:
 		</div>
 	</section>
 
+	<section class="adr-home__section" aria-labelledby="knowledge-boundary">
+		<header class="adr-section-heading">
+			<h2 id="knowledge-boundary">Govern decisions. Let generated docs explain the current system.</h2>
+			<p><span class="adr-status adr-status--planned">Proposed</span><br /><a href="/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities/">ADR-0037</a> is under review and has not been ratified. It proposes that generated knowledge tools such as OpenWiki answer how a system works now, while adrkit records what people decided, keeps rejected and superseded choices available, and resolves which accepted decisions govern a change.</p>
+		</header>
+
+		<ul class="adr-capabilities" role="list">
+			<li class="adr-capability">
+				<h3>Decision authority</h3>
+				<p>Reviewed records in git own ratification, lifecycle, typed relationships, and <code>affects</code>. adrkit surfaces those constraints on the pull request where the next change is made.</p>
+			</li>
+			<li class="adr-capability">
+				<h3>Generated read model</h3>
+				<p>A generated wiki may cite and present those records alongside current architecture. Its machine verification describes the generated content; it does not ratify or rewrite a decision.</p>
+			</li>
+		</ul>
+
+		<p><a href="/generated-knowledge/">Review the provisional coexistence guide →</a></p>
+	</section>
+
 	<section class="adr-home__section" aria-labelledby="works-today">
 		<header class="adr-section-heading">
 			<h2 id="works-today">Proof in the repository, not the pitch.</h2>
