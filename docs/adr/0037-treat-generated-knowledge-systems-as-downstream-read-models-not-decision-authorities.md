@@ -101,17 +101,22 @@ human-reviewed decision corpus, not as decision authorities.
    connect decisions to its description of the current architecture. Its output
    is a projection and must link back to the source record when authority
    matters.
-3. **Lifecycle meanings remain distinct.** Integrations must preserve the
-   difference between governing (`accepted`), under-review (`draft` and
+3. **Lifecycle meanings remain distinct.** Projections must preserve the
+   difference between ratified (`accepted`), under-review (`draft` and
    `proposed`), and historical (`rejected`, `superseded`, and `deprecated`)
-   decisions. They must not map adrkit acceptance to a documentation format's
-   "stable" state, or machine verification to `provenance.ratifiedBy`, as though
-   those concepts were equivalent.
+   decisions. Acceptance alone does not make a record govern every target: a
+   record governs a path only when adrkit resolution reports it through a
+   matching `affects` declaration or an inbound `@adr` marker on that path. A
+   projection must preserve `scope`, `affects`, and marker provenance where the
+   consuming contract exposes them, and must not describe a record as governing
+   a target without that resolution. It also must not map adrkit acceptance to a
+   documentation format's "stable" state, or machine verification to
+   `provenance.ratifiedBy`, as though those concepts were equivalent.
 4. **Typed relationships must remain legible.** A projection may render ordinary
-   links, but it must label `supersedes`, `relatesTo`, and `conflictsWith` rather
-   than flattening them into one relationship. When a target format cannot
-   preserve a type structurally, the projection must disclose that loss and link
-   to the original record.
+   links, but it must label `supersedes`, its inverse `supersededBy`,
+   `relatesTo`, and `conflictsWith` rather than flattening them into one
+   relationship. When a target format cannot preserve a type structurally, the
+   projection must disclose that loss and link to the original record.
 5. **Evidence drift is advisory until evaluated.** A changed or missing source
    means the affected description or decision evidence needs review. It does not
    by itself prove that an accepted decision was violated or should change.
@@ -126,13 +131,15 @@ human-reviewed decision corpus, not as decision authorities.
    dependency, model credential, network call, or update failure may become a
    prerequisite for `@adrkit/core`, the CLI's deterministic commands, the MCP
    read path, or the governing-decisions Action.
-8. **Start with a public recipe, not a runtime adapter.** The first integration
-   is documentation showing how to run adrkit and OpenWiki side by side and how
-   to instruct OpenWiki to treat the ADR corpus as read-only normative evidence.
-   A documentation agent may read the source records directly under this
-   version-bounded guidance; that is evidence consumption, not a programmatic
-   parsing contract. Programmatic consumers remain bound to documented adrkit
-   CLI or SDK contracts.
+8. **Start with a public recipe, not a runtime adapter.** The first
+   interoperability step is documentation showing how to run adrkit and
+   OpenWiki side by side and how to instruct OpenWiki to treat the ADR corpus as
+   read-only normative evidence. This coexistence recipe is guidance, not an
+   adrkit integration package under ADR-0007. A documentation agent may read the
+   source records directly under this version-bounded guidance; that is evidence
+   consumption, not a programmatic parsing contract. Any programmatic
+   integration remains an optional, separately published adapter under ADR-0007
+   and must use documented adrkit CLI or SDK contracts.
    A package, bidirectional synchronization protocol, persistent claims mirror,
    or evaluator input requires a separate decision supported by observed
    consumer need.
@@ -216,8 +223,8 @@ when those capabilities could improve adrkit's presentation.
        qualifier until this record is ratified.
 2. [~] Draft a provisional generated-knowledge coexistence guide with an
        OpenWiki `INSTRUCTIONS.md` example.
-3. [~] Keep the first integration documentation-only and dependency-free;
-       reference validation remains open.
+3. [~] Keep the first interoperability step documentation-only and
+       dependency-free; reference validation remains open.
 4. [ ] Exercise the recipe in a public reference repository using active,
        proposed, rejected, and superseded decisions.
 5. [ ] Propose the verified recipe to OpenWiki's public documentation or examples.

@@ -9,7 +9,27 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-30
+
 ### Added
+
+- **A repository-native, ADR-aware Copilot code-review skill.** The read-only
+  reviewer retrieves governing decisions through adrkit's MCP server, walks both
+  result and finding pagination channels, treats proposals as non-binding
+  context, and declines to hand-parse frontmatter when MCP is unavailable. It
+  reports only demonstrable, actionable defects and decision conflicts
+  ([#184](https://github.com/mbeacom/adrkit/pull/184)).
+
+- **A provisional authority boundary and coexistence recipe for generated
+  knowledge systems.** Proposed ADR-0037 keeps human-reviewed ADRs authoritative
+  while allowing generated documentation to consume them as read-only evidence.
+  The OpenWiki example builds the reviewed source revision from its frozen
+  dependency lock, confines generated output to non-executable Markdown and JSON,
+  and opens draft pull requests for lifecycle and relationship review. The
+  decision remains proposed until explicit human ratification and a public
+  end-to-end reference exercise
+  ([ADR-0037](docs/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities.md),
+  [#192](https://github.com/mbeacom/adrkit/pull/192)).
 
 - **A GitHub Actions Marketplace entry point for governing decisions.** The
   repository-root `action.yml` runs the existing committed Action bundle while
@@ -1344,7 +1364,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/mbeacom/adrkit/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/mbeacom/adrkit/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/mbeacom/adrkit/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/mbeacom/adrkit/compare/v0.9.0...v0.10.0
