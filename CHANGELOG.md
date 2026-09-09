@@ -23,8 +23,11 @@ Until `1.0.0`, minor releases may include breaking changes
   to record decisions: `supersedes` is reserved for a prior *tooling* record,
   a MADR corpus is migrated rather than superseded, and the governing process
   record is detected through `adr check`'s `governing` bucket rather than by
-  hand-parsing frontmatter. Contract- and static-host-validated only; no
-  functional run
+  hand-parsing frontmatter — reading `adr check`'s **exit code before its
+  `governing` bucket**, because an unmigrated MADR corpus returns an empty
+  bucket at exit `1` when nothing parses, and offering the process decision
+  there would duplicate a record the repository already has. Detection is
+  measured against synthetic corpora; host surfacing behavior is unverified
   ([ADR-0038](docs/adr/0038-offer-the-bootstrap-decision-record-as-an-offer-rather-than-a-backfill-candidate.md)).
 
 

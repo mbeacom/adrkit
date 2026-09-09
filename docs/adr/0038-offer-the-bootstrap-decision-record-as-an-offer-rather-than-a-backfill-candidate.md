@@ -15,6 +15,7 @@ reversibility: two-way-door
 blastRadius: component
 relatesTo:
   - "0001"
+  - "0008"
   - "0016"
   - "0028"
   - "0034"

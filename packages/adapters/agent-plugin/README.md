@@ -242,16 +242,18 @@ validation (rung 3). The full scope, including what these runs do *not*
 establish, is in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
 
-The v0.3.0 bootstrap-record offer is contract- and static-host-validated only,
-with no functional run. The v0.2.0 backfill addition has contract coverage,
-passes Claude Code's plugin and marketplace validators, loads through Copilot
-CLI's `--plugin-dir`, and was deployed by APM into isolated `claude`, `copilot`,
-and `opencode` targets with five commands and two skills discovered. A fresh
-Copilot 1.0.80 synthetic consumer run resolved one accepted decision, retained
-one rejected decision as history, emitted one evidence-backed `backfillHandoff`,
-and left the worktree fingerprint and ADR count unchanged. It remains rung 1:
-there is no persistent reference repository, no Claude/APM functional run, and
-no external validation.
+The v0.3.0 bootstrap-record offer is contract- and static-host-validated.
+Detection is measured against synthetic corpora (missing, empty, source-only,
+process-record-present, and unmigrated MADR); host surfacing behavior is
+unverified — no functional run in any host. The v0.2.0 backfill addition has
+contract coverage, passes Claude Code's plugin and marketplace validators, loads
+through Copilot CLI's `--plugin-dir`, and was deployed by APM into isolated
+`claude`, `copilot`, and `opencode` targets with five commands and two skills
+discovered. A fresh Copilot 1.0.80 synthetic consumer run resolved one accepted
+decision, retained one rejected decision as history, emitted one evidence-backed
+`backfillHandoff`, and left the worktree fingerprint and ADR count unchanged. It
+remains rung 1: there is no persistent reference repository, no Claude/APM
+functional run, and no external validation.
 
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)

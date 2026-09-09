@@ -179,8 +179,9 @@ depends on the process choice and cannot replace it.
 | A process record governs the corpus directory | The tooling decision only | `relatesTo` that record |
 | A prior tooling record governs it (`adr-tools`, `log4brains`, a bespoke MADR script) | The tooling decision | `supersedes` that prior tooling record |
 
-With no corpus there is nothing to detect: the offer is both decisions, and
-`adr check` against a corpus directory that does not exist exits `2`. Once at
+With no corpus there is nothing to detect: the offer is both decisions. A
+corpus directory that does not exist exits `2`; one that exists but holds no
+record exits `0` with an empty bucket. Both mean the same thing here. Once at
 least one record exists, detect the governing process record through the CLI,
 never by reading frontmatter. Run `adr check` over one record already inside
 the corpus and read its `governing` bucket: a meta record binds itself with an `affects` matcher

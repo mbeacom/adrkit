@@ -224,10 +224,11 @@ validation. Scope and limitations:
 That functional evidence covers the v0.1.0 context/check/draft/queue baseline.
 The v0.2.0 backfill skill and command are contract- and static-host-validated.
 A fresh Copilot synthetic-consumer run produced the expected covered/history/new
-classification and a complete handoff without changing the worktree. The v0.3.0
-bootstrap-record offer is contract- and static-host-validated only, with no
-functional run of any kind. No persistent reference-repository or external run
-exists.
+classification and a complete handoff without changing the worktree. For the
+v0.3.0 bootstrap-record offer, detection is measured against synthetic corpora
+(missing, empty, source-only, process-record-present, and unmigrated MADR);
+host surfacing behavior is unverified. No persistent reference-repository or
+external run exists.
 
 Things that are load-bearing and easy to break — each measured against the real
 hosts rather than read off their docs, so a change that "looks more correct"

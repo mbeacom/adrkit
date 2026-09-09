@@ -414,6 +414,24 @@ describe('guidance that must not regress', () => {
     // is what keeps the handoff contract intact.
     const body = readFileSync(join(packageRoot, 'skills', 'decision-backfill', 'SKILL.md'), 'utf8');
 
+    // Both surfaces, because `/adr-backfill` loads the COMMAND. The skill can
+    // carry perfect guidance the entry point never reaches: an earlier revision
+    // of this change edited only the skill, and the offer was unreachable from
+    // the command users actually invoke. Trimming the command file must fail
+    // here rather than silently drop the feature.
+    const command = readFileSync(join(packageRoot, 'commands', 'adr-backfill.md'), 'utf8');
+    for (const [label, text] of [['SKILL.md', body], ['adr-backfill.md', command]] as const) {
+      expect({ label, offers: /bootstrap record/i.test(text) }).toEqual({ label, offers: true });
+      expect({
+        label,
+        notACandidate: /not\s+a\s+candidate|offer,\s+not\s+a\s+candidate/i.test(text),
+      }).toEqual({ label, notACandidate: true });
+      expect({
+        label,
+        neverSupersedes: /never\s+a\s+supersession\s+of\s+the\s+decision\s+to\s+record\s+decisions/i.test(text),
+      }).toEqual({ label, neverSupersedes: true });
+    }
+
     expect({ offered: /bootstrap record/i.test(body) }).toEqual({ offered: true });
     expect({
       excluded: /out\s+of\s+the\s+candidates\s+table\s+and\s+out\s+of\s+every\s+`backfillHandoff`/i.test(body),

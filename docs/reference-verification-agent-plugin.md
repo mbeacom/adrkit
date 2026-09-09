@@ -277,14 +277,17 @@ adopting adrkit carries a `relatesTo` edge to a process record while reserving
 ### Detection measured against synthetic corpora
 
 The `governing`-bucket detection was exercised directly against throwaway
-repositories rather than reasoned about, using the built CLI at 0.13.0:
+repositories rather than reasoned about, using a CLI built from this worktree
+and reporting `0.13.0` (an earlier pass used a stale `0.5.0` dist and was
+re-run):
 
-| Corpus | `adr check` over a record inside it | Exit | Reading |
-|---|---|---|---|
-| No `docs/adr/` at all | `Corpus directory not found` | `2` | Nothing to detect; offer both decisions |
-| Records governing `src/**` only | `governing = []` | `0` | Correct — no process record exists |
-| Plus a record binding `docs/adr/**` | `governing = 0002` via `docs/adr/**` | `0` | Correct — detected by matcher, not by id or title |
-| Unmigrated MADR (no frontmatter fence) | `governing = []` **and** `frontmatter-fence` error | `1` | **Trap** — the empty bucket is a parse failure, not an absence |
+| Corpus | `adr check --json` over a path | Exit | `governing` | Reading |
+|---|---|---|---|---|
+| `docs/adr/` absent | any changed file | `2` | — (usage error) | Nothing to detect; offer both decisions |
+| `docs/adr/` present but empty | any changed file | `0` | `[]` | No process record; offer both decisions |
+| Records binding `src/**` only | a record inside the corpus | `0` | `[]` | No process record; offer both decisions |
+| Plus a record binding `docs/adr/**` | a record inside the corpus | `0` | `["0002"]` | Detected by matcher, not by id or title |
+| Unmigrated MADR (no frontmatter fence) | a record inside the corpus | `1` | `[]` + `rule: frontmatter-fence` | **Trap** — a parse failure, not an absence |
 
 The last row changed the guidance. An unmigrated MADR corpus returns exactly the
 same empty `governing` bucket as a corpus with no process record, because none of
