@@ -124,7 +124,8 @@ second distribution surface
 namespaced commands to a [Spec Kit](https://github.com/github/spec-kit) project
 — `/speckit.adrkit.context`, `/speckit.adrkit.check`, `/speckit.adrkit.draft` —
 plus one **optional** `after_plan` hook that offers to run the check. Pinned to
-Spec Kit `>=0.13.0,<0.16.0`, verified against 0.13.0, 0.14.4, and 0.15.1.
+Spec Kit `>=0.13.0,<1.1.0`, verified against 0.13.0, 0.14.4, 0.15.1, 0.16.5,
+1.0.0, and 1.0.4.
 Authorized by
 [ADR-0019](./docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md).
 **Landed / reference-verified** on ADR-0014 rungs 1–2; rung 3 open.
@@ -135,7 +136,7 @@ Things that are load-bearing and easy to break:
   [ADR-0007](./docs/adr/0007-adapter-isolation-and-public-surface-build.md) — its
   semver contract is with Spec Kit, not with `@adrkit/core`. It releases on its
   own `spec-kit-v<semver>` tag (see [`docs/RELEASING.md`](./docs/RELEASING.md)),
-  currently **0.1.3**, and does **not** move with the repository version.
+  currently **0.1.4**, and does **not** move with the repository version.
 - **Two version fields must agree**: `package.json` (npm) and `extension.yml`
   (Spec Kit). A test asserts they match — 0.1.1 shipped with them diverged and
   told every user the wrong version.

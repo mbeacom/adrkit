@@ -9,6 +9,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Changed
+
+- **`@adrkit/spec-kit` 0.1.4: the Spec Kit pin is widened to `>=0.13.0,<1.1.0`.**
+  Re-verified, not bumped on inference: the upstream extension API reference
+  changed only additively from 0.13.0 through 1.0.4 (byte-identical from 0.16.5
+  through 1.0.4), the loader removed nothing the extension uses, and the
+  extension was installed and rendered on 0.16.5, 1.0.0, and 1.0.4 with the
+  `after_plan` hook registering `optional: true` and no development files
+  deposited. The previous pin provably rejects 1.0.4 with a compatibility
+  error — the intended fail-loud behavior on an unverified minor
+  ([ADR-0019](docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md),
+  2026-09-09 addendum).
+
 ## [0.13.0] - 2026-08-30
 
 ### Added

@@ -23,8 +23,8 @@ Plus one hook: `after_plan` offers to run `/speckit.adrkit.check`. It is
 
 ## Requirements
 
-- Spec Kit `>=0.13.0,<0.16.0`. Compatibility is tested against 0.13.0, 0.14.4,
-  and 0.15.1.
+- Spec Kit `>=0.13.0,<1.1.0`. Compatibility is tested against 0.13.0, 0.14.4,
+  0.15.1, 0.16.5, 1.0.0, and 1.0.4.
 - The `adr` CLI (`npm install -g @adrkit/cli`), a project-local installation,
   or `ADRKIT_CLI` pointing at its entry point.
 - An ADR corpus. Defaults to `docs/adr`.
@@ -94,7 +94,8 @@ network — a missing CLI is reported, never fetched.
 
 ## Compatibility and support
 
-The extension is tested against Spec Kit 0.13.0, 0.14.4, and 0.15.1. Report
+The extension is tested against Spec Kit 0.13.0, 0.14.4, 0.15.1, 0.16.5, 1.0.0,
+and 1.0.4. Report
 compatibility issues in the
 [adrkit issue tracker](https://github.com/mbeacom/adrkit/issues). Maintainers can
 find the detailed verification record in

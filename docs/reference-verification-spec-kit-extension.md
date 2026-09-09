@@ -157,3 +157,29 @@ string, so a count-based assertion would pass in exactly the case worth catching
   organization's real accumulated decisions.
 - This evidence says nothing about Phase 6's status, which is governed
   independently and unchanged.
+
+## 2026-09-09: pin-widening re-verification (`>=0.13.0,<1.1.0`)
+
+The runs above are untouched. This section records the maintainer-session
+re-verification that widened the manifest pin across the `0.16` and `1.0`
+upstream lines (ADR-0019, addendum dated 2026-09-09). It is deliberately
+**not** claimed as a rung-2 matrix extension: these were real installs against
+real upstream releases, executed by the maintainer, with no tracked
+reference-repository workflow leg yet.
+
+| Evidence | Result |
+|---|---|
+| `EXTENSION-API-REFERENCE.md` at frozen `9a30db48` (0.13.0) vs `v0.16.5` vs `v1.0.4` | additive only; `v0.16.5` vs `v1.0.4` byte-identical (896 lines, empty diff) |
+| Loader `src/specify_cli/extensions/__init__.py` across `v0.15.1` → `v0.16.5` → `v1.0.4` | additive or refactor; `.extensionignore` handling and `SpecifierSet` version parsing unchanged |
+| `specify extension add --dev` on `0.16.5` (PyPI), `1.0.0` (git tag), `1.0.4` (PyPI), Python 3.12 | exit 0 on all three; `after_plan` hook registered `optional: true`; installed tree carries only `LICENSE`, `NOTICE`, `README.md`, `commands/`, `extension.yml`, `scripts/` |
+| Negative control: previous pin `<0.16.0` on `1.0.4` | compatibility error naming both specifiers, exit 1 |
+
+Recorded rendering change: on 1.0.x with the Copilot integration, extension
+commands render as agent skills under `.github/skills/speckit-adrkit-*` — the
+same surface upstream's own commands use — rather than `.github/agents/` and
+`.github/prompts/` files. Registration and hook semantics are unchanged.
+
+**Limitation**: the dogfood workflow's three legs still exercise
+`0.13.0`/`0.14.4`/`0.15.1`. Extending the matrix to `0.16.5`/`1.0.0`/`1.0.4`
+is the follow-up that brings the widened range under the weekly self-verifying
+gate.

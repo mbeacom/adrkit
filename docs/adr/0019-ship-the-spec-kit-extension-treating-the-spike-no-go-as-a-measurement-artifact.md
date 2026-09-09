@@ -276,3 +276,34 @@ Publishing was already idempotent per artifact, so an unchanged adapter is
 skipped rather than republished on the next core release. A first publish of a
 new npm name cannot use Trusted Publishing, which requires the name to exist, so
 `@adrkit/spec-kit` is temporarily in `BOOTSTRAP_PACKAGES` (action item 6).
+
+### Addendum, 2026-09-09: pin re-verification across the 0.16 and 1.0 lines
+
+Spec Kit released `0.16.0`–`0.16.5` and its first majors `1.0.0`–`1.0.5` after
+the 2026-08-01 widening; the `<0.16.0` bound fails loud on current upstream
+exactly as designed. Re-verified rather than widened on inference, against the
+same standard as the first widening:
+
+| Evidence | Result |
+|---|---|
+| `extensions/EXTENSION-API-REFERENCE.md`: frozen `9a30db48` (0.13.0) → `v0.16.5` → `v1.0.4` | additive only; `v0.16.5` vs `v1.0.4` byte-identical (896 lines, empty diff). The additions are `provides.templates`/`provides.scripts` and a relaxed "at least one of commands/templates/scripts/hooks/events" rule that a manifest providing commands and hooks already satisfies. |
+| `src/specify_cli/extensions/__init__.py`: `v0.15.1` → `v0.16.5` → `v1.0.4` | additive or refactor; the only removed lines relocate an error string and harden registry/config reads. `.extensionignore` (gitignore semantics) and `SpecifierSet` version parsing are unchanged. |
+| Install + render on `0.16.5` (PyPI), `1.0.0` (git tag `v1.0.0`), `1.0.4` (PyPI) | clean on all three; `after_plan` registered `optional: true`; the installed tree carries only `LICENSE`, `NOTICE`, `README.md`, `commands/`, `extension.yml`, `scripts/` — `.extensionignore` still excludes the test suite and `tsconfig.json` |
+| Negative control: previous pin `<0.16.0` on `1.0.4` | rejected with a compatibility error naming both specifiers, exit 1 — the fail-loud contract observed working |
+
+One rendering change is recorded, not repaired: on 1.0.x with the Copilot
+integration, extension commands render as agent skills under
+`.github/skills/speckit-adrkit-*` (the same surface upstream's own commands
+use) rather than as `.github/agents/` and `.github/prompts/` files. All three
+commands register; invocation follows upstream's skills-mode convention.
+
+The bound is widened to `>=0.13.0,<1.1.0`, verified at 0.13.0, 0.14.4, 0.15.1
+(the standing dogfood matrix), 0.16.5, 1.0.0, and 1.0.4 (this addendum's
+install runs). Past 1.0 remains a re-verification, not a bump.
+
+Limitations, stated honestly: this re-verification ran as a maintainer session
+(install, render, structural checks) rather than as tracked legs of the dogfood
+reference workflow, whose matrix still exercises `0.13.0`/`0.14.4`/`0.15.1`.
+Adding `0.16.5`/`1.0.0`/`1.0.4` legs there is the follow-up that restores
+weekly self-verifying coverage across the widened range. The `@adrkit/spec-kit`
+version moves to 0.1.4 with this widening.

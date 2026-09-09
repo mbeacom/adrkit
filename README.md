@@ -70,7 +70,7 @@ See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 | Run adrkit from an OCI image | [Container usage](#container-usage) | Lockstep multi-architecture image, beginning with the first release containing ADR-0032 |
 | Comment governing decisions on pull requests | [Use in CI](https://adrkit.dev/ci/) | GitHub Action from this repository |
 | Evaluate decision governance with a generated wiki | [Generated knowledge guide](https://adrkit.dev/generated-knowledge/) | Provisional OpenWiki recipe; no runtime coupling |
-| Add decision memory to Spec Kit | [`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) | Published separately for Spec Kit `>=0.13.0,<0.16.0` |
+| Add decision memory to Spec Kit | [`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) | Published separately for Spec Kit `>=0.13.0,<1.1.0` |
 | Add decision memory to Copilot, Claude Code, or opencode | [`adrkit` agent plugin](packages/adapters/agent-plugin/README.md) | Install from this repository or marketplace |
 
 ## Container usage
@@ -206,9 +206,9 @@ construction, and hooks can only reach commands that do not write — `draft` is
 deliberately unreachable from any hook, because a plan-phase hook creating
 records unprompted would manufacture decision memory rather than record it.
 
-Pinned to Spec Kit `>=0.13.0,<0.16.0` and tested against 0.13.0, 0.14.4, and
-0.15.1. It is available from the Spec Kit community catalog; see the package
-README for setup.
+Pinned to Spec Kit `>=0.13.0,<1.1.0` and tested against 0.13.0, 0.14.4, 0.15.1,
+0.16.5, 1.0.0, and 1.0.4. It is available from the Spec Kit community catalog;
+see the package README for setup.
 
 ## For any coding agent: the plugin
 
