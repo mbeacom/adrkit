@@ -403,6 +403,44 @@ describe('guidance that must not regress', () => {
     }
   });
 
+  test('backfill offers the bootstrap record outside the candidate handoff', () => {
+    // A repository with no corpus is missing two decisions at once: to record
+    // decisions at all, and to enforce them with adrkit. Neither is archaeology
+    // — no source span proves a human ratified either, so both fail this
+    // skill's own admission rule and cannot become evidence-backed candidates.
+    // They also cannot travel through a `backfillHandoff`: the governed path is
+    // the corpus directory, a glob that may not exist yet, so there are no
+    // concrete `candidatePaths` to snapshot. Routing them to plain `/adr-draft`
+    // is what keeps the handoff contract intact.
+    const body = readFileSync(join(packageRoot, 'skills', 'decision-backfill', 'SKILL.md'), 'utf8');
+
+    expect({ offered: /bootstrap record/i.test(body) }).toEqual({ offered: true });
+    expect({
+      excluded: /out\s+of\s+the\s+candidates\s+table\s+and\s+out\s+of\s+every\s+`backfillHandoff`/i.test(body),
+    }).toEqual({ excluded: true });
+    expect({ routed: /name\s+plain\s+`\/adr-draft`/i.test(body) }).toEqual({ routed: true });
+
+    // The edge is the part that is easy to get backwards. Adopting the tool
+    // depends on the decision to keep records; it can never replace it. The
+    // only legitimate supersession target is a *prior tooling* record.
+    expect({
+      neverSupersedesProcess: /never\s+a\s+supersession\s+of\s+the\s+decision\s+to\s+record\s+decisions/i.test(body),
+    }).toEqual({ neverSupersedesProcess: true });
+    expect({
+      supersedesPriorTooling: /prior tooling record[\s\S]{0,200}`supersedes`/i.test(body),
+    }).toEqual({ supersedesPriorTooling: true });
+
+    // Detection has to come from the CLI: this skill forbids hand-parsing
+    // frontmatter, and an invalid record drops out of the parsed corpus, so a
+    // grep for a meta tag can be confidently wrong.
+    expect({ detects: /`governing`\s+bucket/i.test(body) }).toEqual({ detects: true });
+
+    // A MADR corpus is migrated, not superseded.
+    expect({ madrKept: /migrate --from madr[\s\S]{0,200}reverses nothing/i.test(body) }).toEqual({
+      madrKept: true,
+    });
+  });
+
   test('draft consumes a complete backfill handoff without adding a writer', () => {
     const body = readFileSync(join(packageRoot, 'commands', 'adr-draft.md'), 'utf8');
     for (const field of [

@@ -48,8 +48,9 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.2.0 adds the second skill and fifth command. Existing installations
-must refresh and start a new host session:
+Version 0.3.0 adds the bootstrap-record offer to backfill; 0.2.0 added the
+second skill and fifth command. Existing installations must refresh and start a
+new host session:
 
 ```bash
 copilot plugin update adrkit@adrkit
@@ -181,7 +182,7 @@ Each of these was measured against the real hosts, not inferred from their docs.
   stated in the agent body instead. `apm install --target opencode` reports this
   class of error, which is how it was found.
 
-- **`copilot plugin install` prints only a skill count.** Version 0.2.0 should
+- **`copilot plugin install` prints only a skill count.** Version 0.3.0 should
   report two skills; that still does not inventory the agent or five commands.
   Verify those in a fresh session, not from the install output.
 
@@ -241,14 +242,16 @@ validation (rung 3). The full scope, including what these runs do *not*
 establish, is in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
 
-The v0.2.0 backfill addition has contract coverage, passes Claude Code's plugin
-and marketplace validators, loads through Copilot CLI's `--plugin-dir`, and was
-deployed by APM into isolated `claude`, `copilot`, and `opencode` targets with
-five commands and two skills discovered. A fresh Copilot 1.0.80 synthetic
-consumer run resolved one accepted decision, retained one rejected decision as
-history, emitted one evidence-backed `backfillHandoff`, and left the worktree
-fingerprint and ADR count unchanged. It remains rung 1: there is no persistent
-reference repository, no Claude/APM functional run, and no external validation.
+The v0.3.0 bootstrap-record offer is contract- and static-host-validated only,
+with no functional run. The v0.2.0 backfill addition has contract coverage,
+passes Claude Code's plugin and marketplace validators, loads through Copilot
+CLI's `--plugin-dir`, and was deployed by APM into isolated `claude`, `copilot`,
+and `opencode` targets with five commands and two skills discovered. A fresh
+Copilot 1.0.80 synthetic consumer run resolved one accepted decision, retained
+one rejected decision as history, emitted one evidence-backed `backfillHandoff`,
+and left the worktree fingerprint and ADR count unchanged. It remains rung 1:
+there is no persistent reference repository, no Claude/APM functional run, and
+no external validation.
 
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)

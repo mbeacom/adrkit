@@ -36,14 +36,14 @@ claude plugin update adrkit@adrkit   # restart Claude Code after updating
 apm update --yes --target copilot,claude
 ```
 
-Version 0.2.0 exposes two skills (`decision-memory`, `decision-backfill`), one
+Version 0.3.0 exposes two skills (`decision-memory`, `decision-backfill`), one
 agent, and five commands. Start a fresh host session after installing or
 updating. Copilot's install summary reports only skills, so the expected
 `Installed 2 skills` message does not inventory the agent or commands.
 
 ```sh
-copilot plugin list                    # expect adrkit 0.2.0
-claude plugin details adrkit@adrkit    # expect 0.2.0 and the component inventory
+copilot plugin list                    # expect adrkit 0.3.0
+claude plugin details adrkit@adrkit    # expect 0.3.0 and the component inventory
 apm audit --ci                         # verify the APM lock and deployed files
 ```
 
@@ -172,6 +172,37 @@ npx @adrkit/cli queue --dir "$ADR_DIR"
 
 Human ratification is separate. The backfill command discovers and reconciles;
 it never approves, accepts, or bulk-writes records.
+
+## No corpus yet — the bootstrap record
+
+Run against a repository with no `docs/adr/`, backfill reports the empty corpus
+and offers the record that repository is missing: the **process** decision to
+keep architecture decisions in git, and the **tooling** decision to enforce them
+with adrkit.
+
+That offer is deliberately not a candidate. Every other candidate is admitted on
+evidence — a source span, a commit, a plan — and nothing in a repository proves
+a human chose to keep ADRs, because at that moment nobody has. So it carries no
+`backfillHandoff`, stays out of the candidate table, and is written through plain
+`/adr-draft`, where you supply the authority the evidence cannot.
+
+The relationship matters when a corpus already exists:
+
+| Corpus state | Offered | Edge |
+| --- | --- | --- |
+| No corpus | Process and tooling decision | `relatesTo` between them when split |
+| Records exist, none govern the corpus directory | Process and tooling decision | `relatesTo` between them when split |
+| A process record governs the corpus directory | Tooling decision only | `relatesTo` that record |
+| A prior tooling record governs it | Tooling decision | `supersedes` that prior tooling record |
+
+**Adopting adrkit never supersedes the decision to record decisions.** The
+tooling choice depends on the process choice and cannot replace it. `supersedes`
+is reserved for a prior *tooling* record — `adr-tools`, `log4brains`, a bespoke
+MADR script. An existing MADR corpus is migrated, not superseded; see below.
+
+The record is worth writing only if you can name a real alternative you rejected.
+An ADR that says "we decided to use ADRs" and nothing else is ceremony that
+`adr lint` will nag about forever.
 
 ## Existing MADR corpus
 

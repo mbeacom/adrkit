@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "adrkit",
   "displayName": "adrkit — decision memory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Load the architecture decisions governing a change, check plans against them, audit existing code and documentation for missing decisions, and draft new records deliberately — driven by the adr CLI.",
   "author": {
     "name": "Mark Beacom",

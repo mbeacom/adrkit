@@ -80,6 +80,17 @@ writes the first record, so it is the bootstrap step as well as the everyday one
 Running `adr lint` first on a repository with no corpus exits `2` with
 `Corpus directory not found: 'docs/adr'`.
 
+<Aside type="tip" title="Which record should be first?">
+	The decision worth recording first is usually the one you just made by reading
+	this page: keep architecture decisions in git, and enforce them with adrkit.
+	It governs `docs/adr/**`, so it is the record that explains the directory to
+	everyone who finds it later. Write it with `adr new "Record architecture
+	decisions as versioned markdown in git"` — it then takes `0001`, and the
+	worked example below becomes `0002`. The
+	[agent plugin](/backfill/) offers this record when `/adr-backfill` runs
+	against a repository with no corpus.
+</Aside>
+
 <Aside type="tip" title="Already have MADR records?">
 	Go to [Adopt an existing MADR corpus](#adopt-an-existing-madr-corpus--adr-migrate)
 	first. What `adr lint` reports depends on your filenames. Records already named

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Requires repository read access and git for history-backed evidence. Existing ADR reconciliation uses the `adr` CLI (@adrkit/cli), resolved from $ADRKIT_CLI, then ./node_modules/.bin/adr, then PATH. The optional adrkit MCP server may replace read-only corpus retrieval, but is not bundled."
 metadata:
   author: Mark Beacom
-  version: "0.2.0"
+  version: "0.3.0"
   homepage: https://adrkit.dev/backfill/
 ---
 
@@ -153,6 +153,50 @@ Never hand-parse frontmatter as a substitute for `adr lint` or `adr check`.
 Invalid records drop out of the parsed corpus, so a hand-read "nothing governs
 this" answer can be confidently wrong.
 
+### The bootstrap record is an offer, not a candidate
+
+Two repositories are missing the same record: one with no corpus at all, and one
+whose corpus never recorded why it keeps decisions. That record is really two
+decisions — the process decision to keep architecture decisions in git, and the
+tooling decision to enforce them with adrkit.
+
+Offer it; do not mine it. No source span proves a human ratified either choice,
+because the caller is making it now. It is a current decision rather than
+archaeology, so it fails the admission rule above on evidence alone. Keep it out
+of the candidates table and out of every `backfillHandoff`: the path it governs
+is the corpus directory, which is a glob and may not exist yet, so it can never
+supply the concrete `candidatePaths` a handoff requires. Report it under
+existing corpus state and name plain `/adr-draft`, the non-backfill path, where
+the caller supplies the authority the evidence cannot.
+
+Read the edge off the corpus instead of assuming one. Adopting adrkit is
+never a supersession of the decision to record decisions — the tooling choice
+depends on the process choice and cannot replace it.
+
+| Corpus state | Offer | Edge |
+| --- | --- | --- |
+| No corpus | Both the process and the tooling decision | `relatesTo` between the two when they are split into separate records |
+| Records exist, none govern the corpus directory | Both the process and the tooling decision | `relatesTo` between the two when they are split into separate records |
+| A process record governs the corpus directory | The tooling decision only | `relatesTo` that record |
+| A prior tooling record governs it (`adr-tools`, `log4brains`, a bespoke MADR script) | The tooling decision | `supersedes` that prior tooling record |
+
+Detect the governing process record through the CLI, never by reading
+frontmatter. Run `adr check` over one record already inside the corpus and read
+its `governing` bucket: a meta record binds itself with an `affects` matcher
+whose `type` is `path` and whose `pattern` covers the corpus directory, so it
+resolves there like any other governing decision.
+
+```bash
+adr check --dir "$ADR_DIR" --json -- "$ADR_DIR/<one-existing-record>.md"
+```
+
+An empty `governing` bucket for a path inside the corpus means no process record
+exists yet. An exit of `1` means corpus findings are outstanding; treat that
+absence as unverified until they are repaired.
+
+An existing MADR corpus needs no supersession here. `adr migrate --from madr`
+preserves those records deterministically, so adopting adrkit reverses nothing.
+
 ## Candidate report contract
 
 Return these sections:
@@ -160,7 +204,8 @@ Return these sections:
 1. **Scope and coverage** — sources reviewed, exclusions, history window, and
    blind spots.
 2. **Existing corpus state** — whether adrkit or MADR exists, lint status, open
-   proposals, and rejected/superseded records relevant to the scope.
+   proposals, and rejected/superseded records relevant to the scope. Say here
+   whether the bootstrap record is missing, and which edge it would carry.
 3. **Candidates** — ordered by confidence and blast radius.
 
    | Key | Candidate decision | Confidence | Evidence | Likely `affects` | Reconciliation |
@@ -182,7 +227,8 @@ Return these sections:
 5. **Excluded observations** — notable patterns that did not meet the admission
    rule, with the reason.
 6. **Recommended next action** — name at most the first few candidates worth
-   human review. Do not write them.
+   human review. Do not write them. Name a missing bootstrap record here too,
+   marked as an offer rather than a candidate.
 
 For a selected machine-assisted candidate, invoke
 `/adr-draft <candidateKey>` while the complete handoff remains in context. That

@@ -249,6 +249,36 @@ because they are release-policy decisions rather than defects:
   state. Pinning to a cut ref, or protecting the directory behind a single
   reviewed release commit, are both real options with different costs.
 
+## v0.3.0 bootstrap-record guidance (2026-09-08)
+
+`decision-backfill` gained one section: a repository with no corpus, or one
+whose corpus never recorded why it keeps decisions, is offered the process and
+tooling decisions as an **offer rather than a candidate**, routed to plain
+`/adr-draft` and excluded from every `backfillHandoff`. `decision-memory` gained
+a matching clause on its no-corpus branch.
+
+**This addition is contract- and static-host-validated only.** It has no
+functional run of any kind — no Copilot synthetic-consumer exercise, no
+reference repository, no external adopter.
+
+| Check | Command | Observed |
+|---|---|---|
+| Contract | `bun test packages/adapters/agent-plugin/` | 40 pass, 0 fail |
+| Claude Code | `claude plugin validate packages/adapters/agent-plugin` | PASS |
+| Claude Code | `claude plugin validate .claude-plugin/marketplace.json` | PASS |
+
+The new wiring test was observed failing before the guidance was written, per
+[ADR-0016](./adr/0016-require-every-check-to-be-observed-failing-before-it-counts-as-coverage.md).
+It asserts the two properties that are easy to regress: the bootstrap record
+stays out of the candidates table and out of every `backfillHandoff`, and
+adopting adrkit carries a `relatesTo` edge to a process record while reserving
+`supersedes` for a *prior tooling* record.
+
+What is therefore unverified: whether a host actually surfaces the offer on an
+empty corpus, and whether the `governing`-bucket detection reads correctly
+against a real third-party MADR or `adr-tools` corpus. Both need a functional
+run before this section moves past a contract claim.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

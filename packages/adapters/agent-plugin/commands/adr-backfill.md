@@ -121,13 +121,21 @@ Audit `$ARGUMENTS` for durable decisions that were made but never recorded.
 
 7. **Return the report.**
    - Scope and coverage ledger.
-   - Existing corpus state and relevant history.
+   - Existing corpus state and relevant history. When no corpus exists, or
+     when no record governs the corpus directory, say so and offer the
+     bootstrap record — the process decision to keep decisions in git and
+     the tooling decision to enforce them with adrkit. It is an offer, not
+     a candidate: keep it out of the candidate table and out of every
+     `backfillHandoff`, and name plain `/adr-draft`. Adopting adrkit is
+     never a supersession of the decision to record decisions; reserve
+     `supersedes` for a prior tooling record.
    - Candidate table: key, decision, confidence, evidence, likely `affects`,
      blast radius, and reconciliation.
    - One evidence card per candidate: context, apparent choice, alternatives,
      consequences, citations, gaps, and status treatment.
    - Excluded observations and why they failed admission.
-   - A short prioritized review list.
+   - A short prioritized review list, naming a missing bootstrap record as an
+     offer rather than a candidate.
    - For each selectable candidate, include this copy-ready block:
 
      ```yaml

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Requires the `adr` CLI (@adrkit/cli), resolved from $ADRKIT_CLI, then ./node_modules/.bin/adr, then PATH. The adrkit MCP server is optional and is NOT bundled with this plugin — when a project has connected it separately, its tools provide the same retrieval; otherwise the CLI is the only path, and the only one that can write."
 metadata:
   author: Mark Beacom
-  version: "0.2.0"
+  version: "0.3.0"
   homepage: https://adrkit.dev
 ---
 
@@ -91,6 +91,12 @@ Read three things out of the result, and carry all three forward:
 
 If no corpus exists, say so rather than reporting "nothing governs this." Those
 are different answers and only one of them is true.
+
+A repository with no corpus is also missing the decision to keep one. That
+record — keep decisions in git, enforce them with adrkit — is an offer, not a
+finding: `/adr-backfill` reports it under existing corpus state, and only
+`/adr-draft` writes it. Adopting the tool never supersedes the decision to
+record decisions; it depends on it.
 
 ## After you plan, before you implement
 
