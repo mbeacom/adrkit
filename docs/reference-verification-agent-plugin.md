@@ -274,10 +274,31 @@ stays out of the candidates table and out of every `backfillHandoff`, and
 adopting adrkit carries a `relatesTo` edge to a process record while reserving
 `supersedes` for a *prior tooling* record.
 
-What is therefore unverified: whether a host actually surfaces the offer on an
-empty corpus, and whether the `governing`-bucket detection reads correctly
-against a real third-party MADR or `adr-tools` corpus. Both need a functional
-run before this section moves past a contract claim.
+### Detection measured against synthetic corpora
+
+The `governing`-bucket detection was exercised directly against throwaway
+repositories rather than reasoned about, using the built CLI at 0.13.0:
+
+| Corpus | `adr check` over a record inside it | Exit | Reading |
+|---|---|---|---|
+| No `docs/adr/` at all | `Corpus directory not found` | `2` | Nothing to detect; offer both decisions |
+| Records governing `src/**` only | `governing = []` | `0` | Correct — no process record exists |
+| Plus a record binding `docs/adr/**` | `governing = 0002` via `docs/adr/**` | `0` | Correct — detected by matcher, not by id or title |
+| Unmigrated MADR (no frontmatter fence) | `governing = []` **and** `frontmatter-fence` error | `1` | **Trap** — the empty bucket is a parse failure, not an absence |
+
+The last row changed the guidance. An unmigrated MADR corpus returns exactly the
+same empty `governing` bucket as a corpus with no process record, because none of
+its records parse — including, in the fixture, the process record itself. Reading
+the bucket without reading the exit code first would offer a duplicate of a record
+the repository already has, which is the failure ADR-0038 names as proof the
+design is wrong. The skill now reads the exit code first and names the MADR case;
+a wiring test covers both sentences, and was confirmed failing against the
+pre-fix text.
+
+Detection is therefore measured. What remains unverified is **host behavior**:
+whether Claude Code, Copilot CLI, or opencode actually surface the offer when
+backfill runs against an empty corpus. That needs a functional run in a real
+host session and is tracked as an open action item on ADR-0038.
 
 ## Verdict
 

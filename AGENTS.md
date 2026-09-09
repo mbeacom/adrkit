@@ -275,7 +275,11 @@ will usually be a regression:
   it governs the corpus directory, a glob, and could never supply concrete
   `candidatePaths` — and routes to plain `/adr-draft`. Adopting adrkit is never
   a supersession of the decision to record decisions; `supersedes` is reserved
-  for a prior *tooling* record, and a MADR corpus is migrated, not superseded
+  for a prior *tooling* record, and a MADR corpus is migrated, not superseded.
+  Detection reads `adr check`'s exit code **before** its `governing` bucket: an
+  unmigrated MADR corpus returns an empty bucket at exit `1` because nothing
+  parses, so reading the bucket alone offers a duplicate of a process record the
+  repository already has
   ([ADR-0038](./docs/adr/0038-offer-the-bootstrap-decision-record-as-an-offer-rather-than-a-backfill-candidate.md)).
 - `copilot plugin install` prints only a skill count. Version 0.3.0 should report
   two skills; that does not inventory the agent or commands — verify them in a

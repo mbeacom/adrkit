@@ -82,8 +82,7 @@ The edge is read off the corpus rather than assumed:
 
 | Corpus state | Offer | Edge |
 | --- | --- | --- |
-| No corpus | Process and tooling decision | `relatesTo` between them when split |
-| Records exist, none govern the corpus directory | Process and tooling decision | `relatesTo` between them when split |
+| No corpus, or records exist but none govern the corpus directory | Process and tooling decision | `relatesTo` between them when split |
 | A process record governs the corpus directory | Tooling decision only | `relatesTo` that record |
 | A prior tooling record governs it | Tooling decision | `supersedes` that prior tooling record |
 
@@ -96,6 +95,14 @@ Detection runs through the CLI — `adr check` over one record already inside th
 corpus, reading the `governing` bucket — because this skill forbids hand-parsing
 frontmatter, and an invalid record drops out of the parsed corpus, so a grep for
 a meta tag can be confidently wrong.
+
+The exit code is read before the bucket, and that ordering is load-bearing rather
+than stylistic. Measured against a synthetic unmigrated MADR corpus, `adr check`
+returns an empty `governing` bucket *and* `frontmatter-fence` errors at exit `1`,
+because no record parses — including the one that is the process decision. The
+empty bucket is a parse failure wearing the costume of an absence. Only on exit
+`0` does it mean no process record exists; on exit `1` the offer is unverified
+until the corpus is migrated or repaired.
 
 ## Options considered
 
@@ -154,9 +161,11 @@ the guidance offers a decision to make rather than a template to accept.
 - Harder: the backfill report has one more conditional section, and the edge
   table has to stay correct as adrkit's own relationship vocabulary evolves.
 - **How we would know this was wrong:** a consumer's bootstrap record lands with
-  no rejected alternative and no `affects` matcher, or an agent proposes
-  superseding a consumer's existing process ADR. Either means the offer is
-  producing ceremony or reversing decisions, and the guidance is wrong.
+  no rejected alternative and no `affects` matcher, an agent proposes superseding
+  a consumer's existing process ADR, or the offer is made to a repository that
+  already has a process record it could not parse. The third was found during
+  implementation against a MADR fixture and is now defended by the exit-code
+  precondition; the first two remain live risks.
 - Revisit if: a CLI-level affordance is requested by someone not using the
   plugin, or a functional run shows hosts do not surface the offer on an empty
   corpus.
@@ -167,6 +176,9 @@ the guidance offers a decision to make rather than a template to accept.
    CLI-based detection.
 2. [x] Add the matching no-corpus clause to `decision-memory`.
 3. [x] Add a wiring test, observed failing first per ADR-0016.
-4. [ ] Exercise the offer in a functional Copilot run against an empty-corpus
-   consumer, and record the result in
+4. [x] Measure the detection mechanic against synthetic corpora — empty, source-only,
+   process-record-present, and unmigrated MADR — and record the results in
    `docs/reference-verification-agent-plugin.md`.
+5. [ ] Exercise the offer in a functional host run against an empty-corpus
+   consumer. Detection is measured; whether a host surfaces the offer at all is
+   not.

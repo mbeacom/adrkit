@@ -439,6 +439,18 @@ describe('guidance that must not regress', () => {
     expect({ madrKept: /migrate --from madr[\s\S]{0,200}reverses nothing/i.test(body) }).toEqual({
       madrKept: true,
     });
+
+    // Measured, not reasoned about: against an unmigrated MADR corpus every
+    // record fails the frontmatter fence, so NOTHING parses, `governing` comes
+    // back empty, and `adr check` exits 1 with `frontmatter-fence` errors — even
+    // when one of those unparsed records is the process decision itself. An
+    // agent that reads the empty bucket without reading the exit code first
+    // offers a duplicate of a record the repository already has, which is the
+    // precise failure ADR-0038 names as proof the design is wrong.
+    expect({
+      exitBeforeBucket: /Only\s+on\s+exit\s+`0`\s+does\s+an\s+empty/i.test(body),
+    }).toEqual({ exitBeforeBucket: true });
+    expect({ madrTrap: /unmigrated\s+MADR\s+corpus/i.test(body) }).toEqual({ madrTrap: true });
   });
 
   test('draft consumes a complete backfill handoff without adding a writer', () => {

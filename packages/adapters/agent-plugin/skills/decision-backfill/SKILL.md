@@ -175,14 +175,15 @@ depends on the process choice and cannot replace it.
 
 | Corpus state | Offer | Edge |
 | --- | --- | --- |
-| No corpus | Both the process and the tooling decision | `relatesTo` between the two when they are split into separate records |
-| Records exist, none govern the corpus directory | Both the process and the tooling decision | `relatesTo` between the two when they are split into separate records |
+| No corpus, or records exist but none govern the corpus directory | Both the process and the tooling decision | `relatesTo` between the two when they are split into separate records |
 | A process record governs the corpus directory | The tooling decision only | `relatesTo` that record |
 | A prior tooling record governs it (`adr-tools`, `log4brains`, a bespoke MADR script) | The tooling decision | `supersedes` that prior tooling record |
 
-Detect the governing process record through the CLI, never by reading
-frontmatter. Run `adr check` over one record already inside the corpus and read
-its `governing` bucket: a meta record binds itself with an `affects` matcher
+With no corpus there is nothing to detect: the offer is both decisions, and
+`adr check` against a corpus directory that does not exist exits `2`. Once at
+least one record exists, detect the governing process record through the CLI,
+never by reading frontmatter. Run `adr check` over one record already inside
+the corpus and read its `governing` bucket: a meta record binds itself with an `affects` matcher
 whose `type` is `path` and whose `pattern` covers the corpus directory, so it
 resolves there like any other governing decision.
 
@@ -190,9 +191,17 @@ resolves there like any other governing decision.
 adr check --dir "$ADR_DIR" --json -- "$ADR_DIR/<one-existing-record>.md"
 ```
 
-An empty `governing` bucket for a path inside the corpus means no process record
-exists yet. An exit of `1` means corpus findings are outstanding; treat that
-absence as unverified until they are repaired.
+Read the exit code before the bucket. Only on exit `0` does an empty
+`governing` bucket mean no process record exists. On exit `1` the corpus did
+not fully parse, so the absence proves nothing and the offer is unverified
+until the findings are repaired.
+
+An unmigrated MADR corpus is the case that punishes skipping that step. Its
+records carry no frontmatter fence, so none of them parse, `governing` comes
+back empty, and the corpus reports `frontmatter-fence` errors at exit `1` —
+even when one of those unparsed records *is* the process decision. Offering
+the process decision there would propose a duplicate of a record the
+repository already has. Migrate first, then detect.
 
 An existing MADR corpus needs no supersession here. `adr migrate --from madr`
 preserves those records deterministically, so adopting adrkit reverses nothing.
