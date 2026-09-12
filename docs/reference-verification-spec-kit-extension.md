@@ -49,7 +49,7 @@ the Phase 6 rung-2 evidence. It is **not** this monorepo.
 | `.extensionignore` at that ref | SHA-256 `f1a39b110fcc888ed32c9cfcdea50971caf4caef292350e0dfddf29482f26c0c` |
 | Validation script | `scripts/validate-spec-kit-extension.sh`, SHA-256 `c0bde9297f3fc7b535974b1c489f3be1ad4a985dc2b4d4c27883bd771b56082f` |
 | Validation workflow | `.github/workflows/spec-kit-extension.yml`, SHA-256 `5c2af3fc5d0e139d3445962f3a1bb98a232cac0750ff1a3edab3f9587a487a2a` |
-| Spec Kit versions exercised | `0.13.0`, `0.14.4`, `0.15.1` — the endpoints and midpoint of the manifest's declared `>=0.13.0,<0.16.0` |
+| Spec Kit versions exercised | `0.13.0`, `0.14.4`, `0.15.1` — the endpoints and midpoint of the range the manifest declared *at the time of this run*, `>=0.13.0,<0.16.0`. The manifest has since widened to `>=0.13.0,<1.1.0`; this workflow leg has not, and the gap is recorded in the addenda below. |
 | `adr` CLI under test | published `@adrkit/cli@0.3.0` from npm — the surface a real consumer installs, not a workspace build |
 | Runner / runtimes | `ubuntu-latest`; Node 22; Python 3.12 |
 | Workflow permissions | `contents: read` only. No PAT, no repository secret, no write scope. |
@@ -183,3 +183,50 @@ same surface upstream's own commands use — rather than `.github/agents/` and
 `0.13.0`/`0.14.4`/`0.15.1`. Extending the matrix to `0.16.5`/`1.0.0`/`1.0.4`
 is the follow-up that brings the widened range under the weekly self-verifying
 gate.
+
+## 2026-09-12: closing the `1.0` line's upper edge (`1.0.5`, `1.0.6`)
+
+The sections above are untouched. When the pin widened to `<1.1.0` on
+2026-09-09, upstream's newest release was `1.0.5` and the evidence reached only
+`1.0.4` — so the bound admitted a released, unverified patch. `1.0.6` shipped
+after that. This section records the maintainer-session re-verification that
+closes the gap, on the same terms as the addendum above: real installs against
+real upstream releases, **not** a rung-2 matrix extension.
+
+| Evidence | Result |
+|---|---|
+| `extensions/EXTENSION-API-REFERENCE.md` at `v1.0.4` vs `v1.0.5` vs `v1.0.6` | **byte-identical across all three** — 896 lines, SHA-256 `cb037d69fe62c7d8…` at every tag. The extension-facing contract did not move inside the `1.0` line. |
+| Loader `src/specify_cli/extensions/__init__.py`, `v1.0.4` → `v1.0.5` | one hunk: the `__SPECKIT_COMMAND_*__` placeholder pattern widens from `[A-Z][A-Z0-9_]*` to `[A-Z][A-Z0-9_-]*`. Strictly more permissive — it admits hyphenated placeholders and rejects nothing that previously matched. |
+| Loader `v1.0.5` → `v1.0.6` | three call sites additionally pass `author=manifest.data["extension"].get("author")` into skill generation. Read via `.get()`, so a manifest without an author is unaffected; adrkit declares one. |
+| `.extensionignore` handling and `SpecifierSet` version parsing, `v1.0.4` → `v1.0.6` | unchanged — neither diff touches either path. |
+| `specify extension add --dev` on `1.0.5` (PyPI) and `1.0.6` (PyPI), Python 3.12, `--integration copilot` | exit 0 on both; all three commands registered; three agent skills auto-registered; `extension list` and `extension info adrkit` exit 0 and report `v0.1.4` |
+| `after_plan` hook registration on both | `.specify/extensions.yml` records `optional: true` alongside `enabled: true` — the consent-preserving rendering, not the seizing one |
+| Installed tree on both | `LICENSE`, `NOTICE`, `README.md`, `commands/`, `extension.yml`, `scripts/`, plus the loader's own `.specify-dev/extension-skills/` staging directory. **No** `test/`, `tsconfig.json`, `package.json`, or `node_modules/` — `.extensionignore` still honored. |
+
+Two observations worth recording precisely, because both are easy to misread:
+
+- **`.specify-dev/` is not a leak, and it is not new.** A `--dev` install has
+  generated it since at least `1.0.4`, where the 2026-09-09 addendum's
+  "carries only …" phrasing did not mention it. It holds the skill sources the
+  loader stages for registration — upstream's own output, not development files
+  escaping `.extensionignore`. The exclusion list is doing its job; the earlier
+  row was simply less complete than it sounded.
+- **`1.0.6` changes generated skill attribution.** On `1.0.4` the rendered
+  `.github/skills/speckit-adrkit-*/SKILL.md` carried
+  `metadata.author: github-spec-kit`; on `1.0.6` it carries
+  `metadata.author: Mark Beacom (@mbeacom)`, read from `extension.author`. This
+  is the observable effect of the loader hunk above, it credits the extension
+  author rather than the host, and no adrkit change was needed to obtain it.
+
+**Sampling doctrine** (so the next upstream patch does not reopen this): the
+bound is declared and verified at **minor** granularity — endpoints and samples
+of each admitted line, not every patch. `<1.1.0` asserts "verified through the
+`1.0` line". A new `1.0.x` patch does not invalidate it; `1.1.0` is where the
+fail-loud gate fires and the evidence list must be extended again.
+
+**Limitation (unchanged)**: the dogfood workflow's three legs still exercise
+`0.13.0`/`0.14.4`/`0.15.1`. Bringing `0.16.5`, `1.0.0`, and `1.0.4`–`1.0.6`
+under the weekly self-verifying gate remains the open follow-up; these runs are
+maintainer-session evidence, and the SSL trust store on the session host also
+prevented the catalog lookup inside `extension info` from resolving, which that
+command degraded past with exit 0.

@@ -9,18 +9,28 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [spec-kit-0.1.4] - 2026-09-12
+
 ### Changed
 
-- **`@adrkit/spec-kit` 0.1.4: the Spec Kit pin is widened to `>=0.13.0,<1.1.0`.**
+- **The Spec Kit pin is widened to `>=0.13.0,<1.1.0`.**
   Re-verified, not bumped on inference: the upstream extension API reference
-  changed only additively from 0.13.0 through 1.0.4 (byte-identical from 0.16.5
-  through 1.0.4), the loader removed nothing the extension uses, and the
-  extension was installed and rendered on 0.16.5, 1.0.0, and 1.0.4 with the
-  `after_plan` hook registering `optional: true` and no development files
+  changed only additively from 0.13.0 through 1.0.6 (byte-identical from 0.16.5
+  through 1.0.6), the loader removed nothing the extension uses, and the
+  extension was installed and rendered on 0.16.5, 1.0.0, and 1.0.4–1.0.6 with
+  the `after_plan` hook registering `optional: true` and no development files
   deposited. The previous pin provably rejects 1.0.4 with a compatibility
   error — the intended fail-loud behavior on an unverified minor
   ([ADR-0019](docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md),
-  2026-09-09 addendum).
+  2026-09-09 and 2026-09-12 addenda).
+
+  The upper bound is a **minor-granularity** verification boundary: it is
+  verified at the endpoints and samples of each admitted line, not at every
+  upstream patch. `<1.1.0` asserts "verified through the `1.0` line"; 1.1.0 is
+  where the extension fails loud and re-verification is owed. Spec Kit 1.0.6
+  additionally credits `extension.author` in generated skill metadata, where
+  1.0.4 emitted the host's name — an upstream improvement that needed no change
+  here.
 
 ## [0.13.0] - 2026-08-30
 
@@ -1388,6 +1398,7 @@ against live Spec Kit, rather than reasoning about it:
 [0.6.0]: https://github.com/mbeacom/adrkit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mbeacom/adrkit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mbeacom/adrkit/compare/v0.3.0...v0.4.0
+[spec-kit-0.1.4]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.3...spec-kit-v0.1.4
 [spec-kit-0.1.3]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.2...spec-kit-v0.1.3
 [spec-kit-0.1.2]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.1...spec-kit-v0.1.2
 [spec-kit-0.1.1]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.0...spec-kit-v0.1.1

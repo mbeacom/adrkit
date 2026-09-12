@@ -186,7 +186,11 @@ git switch main && git pull
 bun run release:pack -- --only @adrkit/spec-kit --tag spec-kit-v0.1.0
 
 # 3. Tag and push. The Release workflow does the rest.
-git tag spec-kit-v0.1.0
+#    Annotate it: the workflow only *enforces* an annotated tag for lockstep
+#    releases, but every adapter tag pushed so far is annotated, and the
+#    lockstep recipe below uses `-a`. A lightweight adapter tag would work and
+#    then read as an anomaly in `git cat-file -t` forever.
+git tag -a spec-kit-v0.1.0 -m "@adrkit/spec-kit 0.1.0"
 git push origin spec-kit-v0.1.0
 ```
 

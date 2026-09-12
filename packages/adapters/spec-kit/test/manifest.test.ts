@@ -65,7 +65,7 @@ describe('extension manifest', () => {
   test('speckit_version is a bounded specifier, not a bare version', () => {
     // Bounded on both ends on purpose, and the upper bound is a verification
     // boundary rather than a guess: installed and rendered against 0.13.0
-    // (spike 008), 0.14.4, 0.15.1, 0.16.5, 1.0.0, and 1.0.4. The upstream API
+    // (spike 008), 0.14.4, 0.15.1, 0.16.5, 1.0.0, and 1.0.4–1.0.6. The upstream API
     // reference changed only additively across that span and the loader never
     // removed behavior this extension uses. Raising it means re-verifying
     // against the new minor first — breaking loudly on an unverified one is

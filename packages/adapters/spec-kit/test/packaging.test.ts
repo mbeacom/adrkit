@@ -116,7 +116,7 @@ describe('packaging', () => {
 
   test('excludes development-only files from what a consumer receives', () => {
     // `.extensionignore` is upstream's gitignore-semantics exclusion list,
-    // supported across the whole pinned range (present in 0.13.0, 0.15.1, and 1.0.4).
+    // supported across the whole pinned range (present in 0.13.0, 0.15.1, and 1.0.4–1.0.6).
     // Without it the install deposits our test suite and tsconfig in someone
     // else's repository.
     const ignoreFile = join(packageRoot, '.extensionignore');

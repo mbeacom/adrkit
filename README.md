@@ -207,7 +207,7 @@ deliberately unreachable from any hook, because a plan-phase hook creating
 records unprompted would manufacture decision memory rather than record it.
 
 Pinned to Spec Kit `>=0.13.0,<1.1.0` and tested against 0.13.0, 0.14.4, 0.15.1,
-0.16.5, 1.0.0, and 1.0.4. It is available from the Spec Kit community catalog;
+0.16.5, 1.0.0, and 1.0.4–1.0.6. It is available from the Spec Kit community catalog;
 see the package README for setup.
 
 ## For any coding agent: the plugin

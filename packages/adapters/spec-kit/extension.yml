@@ -2,12 +2,20 @@
 #
 # The upper bound is a verification boundary, not a guess. The extension has been
 # installed and rendered against Spec Kit 0.13.0 (spike 008), 0.14.4, 0.15.1,
-# 0.16.5, 1.0.0, and 1.0.4. `extensions/EXTENSION-API-REFERENCE.md` changed only
-# additively across that span (byte-identical from 0.16.5 through 1.0.4), and the
-# loader's changes over it are additive or refactor. Widening past 1.0 is a
-# re-verification, not a version bump — per ADR-0007 an adapter's semver contract
-# is with its upstream, so breaking loudly on an unverified minor is the intended
-# behavior, not a defect.
+# 0.16.5, 1.0.0, and 1.0.4–1.0.6. `extensions/EXTENSION-API-REFERENCE.md` changed
+# only additively across that span (byte-identical from 0.16.5 through 1.0.6), and
+# the loader's changes over it are additive, refactor, or strictly more permissive.
+# Widening past 1.0 is a re-verification, not a version bump — per ADR-0007 an
+# adapter's semver contract is with its upstream, so breaking loudly on an
+# unverified minor is the intended behavior, not a defect.
+#
+# The boundary is declared at minor granularity, and that is deliberate. It is
+# verified at the endpoints and samples of each admitted line — not at every
+# patch — because upstream patches inside an already-verified minor are the case
+# semver exists to describe, and a bound that chased them would have to move on
+# a release adrkit has no say over. `<1.1.0` therefore asserts "verified through
+# the 1.0 line", and 1.1.0 is where the fail-loud gate fires and this comment's
+# evidence list must be extended again.
 schema_version: "1.0"
 
 extension:

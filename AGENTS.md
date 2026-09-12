@@ -125,7 +125,7 @@ namespaced commands to a [Spec Kit](https://github.com/github/spec-kit) project
 — `/speckit.adrkit.context`, `/speckit.adrkit.check`, `/speckit.adrkit.draft` —
 plus one **optional** `after_plan` hook that offers to run the check. Pinned to
 Spec Kit `>=0.13.0,<1.1.0`, verified against 0.13.0, 0.14.4, 0.15.1, 0.16.5,
-1.0.0, and 1.0.4.
+1.0.0, and 1.0.4–1.0.6.
 Authorized by
 [ADR-0019](./docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md).
 **Landed / reference-verified** on ADR-0014 rungs 1–2; rung 3 open.

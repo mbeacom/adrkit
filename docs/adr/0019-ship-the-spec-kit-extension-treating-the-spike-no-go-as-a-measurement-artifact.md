@@ -218,11 +218,14 @@ strength of that spike's own disclosure. It does not establish that verdicts are
 advisory, and it is not authority to set aside a finding that is merely
 inconvenient.
 
-The pin to a single upstream minor means the extension breaks on the next Spec Kit
-minor rather than degrading quietly. Under ADR-0007 that is the intended
-behavior for an adapter — an adapter's semver contract is with its upstream — but
-it does mean real maintenance rather than a floating range that appears to work
-until it does not.
+The pin means the extension breaks on the first **unverified** upstream minor
+rather than degrading quietly. (As accepted, that bound was a single upstream
+minor; it has since been re-verified and widened twice, and now spans `0.13`
+through the `1.0` line — see the addenda. The mechanism is what this paragraph
+is about, and it is unchanged: the bound moves only behind evidence.) Under
+ADR-0007 that is the intended behavior for an adapter — an adapter's semver
+contract is with its upstream — but it does mean real maintenance rather than a
+floating range that appears to work until it does not.
 
 ## Consequences
 
@@ -240,7 +243,7 @@ until it does not.
 
 1. [x] Build the extension at `packages/adapters/spec-kit/` under the constraints above
 2. [x] Enforce the read-only hook boundary with a test observed failing first
-3. [x] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it — done 2026-08-01, see the addendum above; widened to `<0.16.0`, verified at 0.13.0, 0.14.4, 0.15.1
+3. [x] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it — done 2026-08-01, see the addendum above; widened to `<0.16.0`, verified at 0.13.0, 0.14.4, 0.15.1. **Superseded twice since, and this item records the practice rather than a one-time task:** re-verified 2026-09-09 and widened to `<1.1.0`, then extended 2026-09-12 to close the `1.0` line's upper edge. The current bound and its evidence live in the two addenda below, not on this line.
 4. [x] Decide whether to publish `@adrkit/spec-kit` to npm, or install it from the repository — **both channels**, see the addendum below
 5. [x] Submit the catalog entry to `github/spec-kit` once a release asset exists — landed 2026-08-25 via [github/spec-kit#3947](https://github.com/github/spec-kit/pull/3947); adrkit is listed in the community catalog
 6. [x] Remove `@adrkit/spec-kit` from `BOOTSTRAP_PACKAGES` after its first publish, once Trusted Publishing is configured for the name — done 2026-08-03; the set is now empty, which is its correct steady state. The `NPM_BOOTSTRAP_TOKEN` secret can be deleted.
@@ -307,3 +310,49 @@ reference workflow, whose matrix still exercises `0.13.0`/`0.14.4`/`0.15.1`.
 Adding `0.16.5`/`1.0.0`/`1.0.4` legs there is the follow-up that restores
 weekly self-verifying coverage across the widened range. The `@adrkit/spec-kit`
 version moves to 0.1.4 with this widening.
+
+### Addendum, 2026-09-12: closing the `1.0` line's upper edge, and the sampling rule
+
+The 2026-09-09 widening to `<1.1.0` was correct in mechanism but left a real
+hole in its evidence: upstream's newest release at the time was `1.0.5`, and the
+install runs reached only `1.0.4`. A bound whose whole justification is "this is
+a verification boundary, not a guess" was therefore admitting a released,
+unverified patch. `1.0.6` shipped shortly after. That gap is now closed, on the
+same maintainer-session terms as the addendum above.
+
+| Evidence | Result |
+|---|---|
+| `extensions/EXTENSION-API-REFERENCE.md`: `v1.0.4` vs `v1.0.5` vs `v1.0.6` | byte-identical at all three tags (896 lines, SHA-256 `cb037d69fe62c7d8…`). The extension-facing contract does not move inside the `1.0` line. |
+| `src/specify_cli/extensions/__init__.py`: `v1.0.4` → `v1.0.5` | a single hunk widening the `__SPECKIT_COMMAND_*__` placeholder pattern from `[A-Z][A-Z0-9_]*` to `[A-Z][A-Z0-9_-]*` — strictly more permissive; nothing that matched before stops matching. |
+| `src/specify_cli/extensions/__init__.py`: `v1.0.5` → `v1.0.6` | three call sites pass `author=manifest.data["extension"].get("author")` into skill generation. `.get()`, so a manifest without an author is unaffected. `.extensionignore` handling and `SpecifierSet` parsing are untouched by both diffs. |
+| Install + render on `1.0.5` (PyPI) and `1.0.6` (PyPI), Python 3.12 | exit 0 on both; three commands and three agent skills registered; `after_plan` recorded `optional: true`; installed tree still excludes `test/`, `tsconfig.json`, `package.json`, and `node_modules/` |
+
+Two clarifications the earlier addendum's phrasing invites, both recorded rather
+than repaired:
+
+- Its "the installed tree carries only …" list omitted `.specify-dev/`, which a
+  `--dev` install has generated since at least `1.0.4`. It is the loader's own
+  staging directory for the skills it registers — upstream output, not
+  development files defeating `.extensionignore`.
+- On `1.0.6`, generated skill metadata credits `author: Mark Beacom (@mbeacom)`
+  from `extension.author`, where `1.0.4` emitted `author: github-spec-kit`. This
+  is the observable effect of the loader change above. It is an improvement, it
+  required no adrkit change, and it is noted so a future reader does not mistake
+  it for drift.
+
+**The sampling rule this decision now commits to**, because leaving it implicit
+is what produced the hole: the bound is declared and verified at **minor**
+granularity — the endpoints and samples of each admitted line, not every patch.
+`<1.1.0` asserts "verified through the `1.0` line". A subsequent `1.0.x` patch
+does not invalidate that claim and does not require a new addendum; `1.1.0` is
+where the fail-loud gate fires and re-verification is owed. Upstream patch
+releases are the case semver exists to describe, and a boundary that chased them
+would have to move on a release adrkit has no say over.
+
+Limitations: unchanged from the addendum above. These are maintainer-session
+installs, not tracked dogfood legs; the reference workflow's matrix still
+exercises `0.13.0`/`0.14.4`/`0.15.1`, and bringing `0.16.5`, `1.0.0`, and
+`1.0.4`–`1.0.6` under the weekly self-verifying gate remains the open follow-up.
+No manifest change accompanies this addendum — the pin already reads
+`>=0.13.0,<1.1.0`; only its evidence moved. `@adrkit/spec-kit` 0.1.4 is the
+release that carries it.
