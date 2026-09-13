@@ -211,26 +211,36 @@ catalog users installing the *previous* artifact with the *previous*
 `>=0.13.0,<0.16.0`, which by then refused to install on any current Spec Kit.
 The npm publish looked like the whole release and was not.
 
-The mechanism is an **issue, not a pull request**. Upstream's
+The mechanism is an **issue, not a pull request** — and it always was. Upstream's
 [publishing guide](https://github.com/github/spec-kit/blob/main/extensions/EXTENSION-PUBLISHING-GUIDE.md)
 is explicit — "Do **not** open a pull request directly to edit
 `extensions/catalog.community.json`" — and its "Updating an Existing Extension"
 section routes version bumps through the same
 [Extension Submission](https://github.com/github/spec-kit/issues/new?template=extension_submission.yml)
-template as a first listing, noting in the issue that it is an update. (The
-original 0.1.0 listing did land as a PR, [#3947](https://github.com/github/spec-kit/pull/3947);
-that path has since been closed, so do not copy it.) Wait until the release
-asset actually resolves — maintainers verify the `download_url` — then file it:
+template as a first listing, noting in the issue that it is an update. adrkit's
+own initial listing (at 0.1.2) followed exactly that path: issue
+[#3942](https://github.com/github/spec-kit/issues/3942), which a maintainer then
+applied in [#3947](https://github.com/github/spec-kit/pull/3947). That pull
+request is the maintainer's step, not ours — do not read it as a precedent for
+opening one. Wait until the release asset actually resolves, because maintainers
+verify the `download_url`, then file it:
 
 ```sh
 # The asset must return 200 before the entry is worth submitting.
+tag=spec-kit-v0.1.4   # the tag being released — not a copied constant
 curl -sIL -o /dev/null -w '%{http_code}\n' \
-  https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
+  "https://github.com/mbeacom/adrkit/releases/download/$tag/adrkit.zip"
 ```
 
-Change only `version`, `download_url`, `requires.speckit_version`, and
-`updated_at`; `created_at`, `verified`, `downloads`, and `stars` are
-maintainer-managed and must be preserved as listed.
+For a release that only moves the version and the pin, `version`,
+`download_url`, `requires.speckit_version`, and `updated_at` are the fields that
+change. That list is the common case, not a cap: upstream asks for "any other
+changed fields", so a release that alters the description, `category`, `effect`,
+the command or hook counts, or the `requires.tools` entries must carry those
+too, or the catalog goes stale in a way the version number does not reveal.
+Compare the proposed entry against `extension.yml` rather than against the
+previous entry. Only `created_at`, `verified`, `downloads`, and `stars` are
+maintainer-managed and preserved as listed.
 
 `release-pack` validates **every** package's manifest regardless of scope — an
 adapter release is still a good moment to notice the lockstep surface drifted —
