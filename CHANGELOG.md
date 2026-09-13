@@ -9,7 +9,7 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
-## [spec-kit-0.1.4] - 2026-09-12
+## [spec-kit-0.1.4] - 2026-09-13
 
 ### Changed
 

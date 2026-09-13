@@ -202,6 +202,36 @@ where Spec Kit looks first. That zip is what a
 [`catalog.community.json`](https://github.com/github/spec-kit/blob/main/extensions/catalog.community.json)
 entry's `download_url` points at.
 
+**Refresh that catalog entry as part of the release, not "later".** Nothing in
+the pipeline does it for you: the entry is data in someone else's repository,
+pinned to a specific release asset, and a release that skips this step leaves
+catalog users installing the *previous* artifact with the *previous*
+`speckit_version` bound. This is not hypothetical — the `adrkit` entry sat at
+0.1.2 through both the 0.1.3 and 0.1.4 releases, still advertising
+`>=0.13.0,<0.16.0`, which by then refused to install on any current Spec Kit.
+The npm publish looked like the whole release and was not.
+
+The mechanism is an **issue, not a pull request**. Upstream's
+[publishing guide](https://github.com/github/spec-kit/blob/main/extensions/EXTENSION-PUBLISHING-GUIDE.md)
+is explicit — "Do **not** open a pull request directly to edit
+`extensions/catalog.community.json`" — and its "Updating an Existing Extension"
+section routes version bumps through the same
+[Extension Submission](https://github.com/github/spec-kit/issues/new?template=extension_submission.yml)
+template as a first listing, noting in the issue that it is an update. (The
+original 0.1.0 listing did land as a PR, [#3947](https://github.com/github/spec-kit/pull/3947);
+that path has since been closed, so do not copy it.) Wait until the release
+asset actually resolves — maintainers verify the `download_url` — then file it:
+
+```sh
+# The asset must return 200 before the entry is worth submitting.
+curl -sIL -o /dev/null -w '%{http_code}\n' \
+  https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
+```
+
+Change only `version`, `download_url`, `requires.speckit_version`, and
+`updated_at`; `created_at`, `verified`, `downloads`, and `stars` are
+maintainer-managed and must be preserved as listed.
+
 `release-pack` validates **every** package's manifest regardless of scope — an
 adapter release is still a good moment to notice the lockstep surface drifted —
 but narrows what is packed, and requires the tag to match the adapter's own
