@@ -186,7 +186,11 @@ git switch main && git pull
 bun run release:pack -- --only @adrkit/spec-kit --tag spec-kit-v0.1.0
 
 # 3. Tag and push. The Release workflow does the rest.
-git tag spec-kit-v0.1.0
+#    Annotate it: the workflow only *enforces* an annotated tag for lockstep
+#    releases, but every adapter tag pushed so far is annotated, and the
+#    lockstep recipe below uses `-a`. A lightweight adapter tag would work and
+#    then read as an anomaly in `git cat-file -t` forever.
+git tag -a spec-kit-v0.1.0 -m "@adrkit/spec-kit 0.1.0"
 git push origin spec-kit-v0.1.0
 ```
 
@@ -197,6 +201,46 @@ tarball — so the two artifacts cannot disagree about what the extension contai
 where Spec Kit looks first. That zip is what a
 [`catalog.community.json`](https://github.com/github/spec-kit/blob/main/extensions/catalog.community.json)
 entry's `download_url` points at.
+
+**Refresh that catalog entry as part of the release, not "later".** Nothing in
+the pipeline does it for you: the entry is data in someone else's repository,
+pinned to a specific release asset, and a release that skips this step leaves
+catalog users installing the *previous* artifact with the *previous*
+`speckit_version` bound. This is not hypothetical — the `adrkit` entry sat at
+0.1.2 through both the 0.1.3 and 0.1.4 releases, still advertising
+`>=0.13.0,<0.16.0`, which by then refused to install on any current Spec Kit.
+The npm publish looked like the whole release and was not.
+
+The mechanism is an **issue, not a pull request** — and it always was. Upstream's
+[publishing guide](https://github.com/github/spec-kit/blob/main/extensions/EXTENSION-PUBLISHING-GUIDE.md)
+is explicit — "Do **not** open a pull request directly to edit
+`extensions/catalog.community.json`" — and its "Updating an Existing Extension"
+section routes version bumps through the same
+[Extension Submission](https://github.com/github/spec-kit/issues/new?template=extension_submission.yml)
+template as a first listing, noting in the issue that it is an update. adrkit's
+own initial listing (at 0.1.2) followed exactly that path: issue
+[#3942](https://github.com/github/spec-kit/issues/3942), which a maintainer then
+applied in [#3947](https://github.com/github/spec-kit/pull/3947). That pull
+request is the maintainer's step, not ours — do not read it as a precedent for
+opening one. Wait until the release asset actually resolves, because maintainers
+verify the `download_url`, then file it:
+
+```sh
+# The asset must return 200 before the entry is worth submitting.
+tag=spec-kit-v0.1.4   # the tag being released — not a copied constant
+curl -sIL -o /dev/null -w '%{http_code}\n' \
+  "https://github.com/mbeacom/adrkit/releases/download/$tag/adrkit.zip"
+```
+
+For a release that only moves the version and the pin, `version`,
+`download_url`, `requires.speckit_version`, and `updated_at` are the fields that
+change. That list is the common case, not a cap: upstream asks for "any other
+changed fields", so a release that alters the description, `category`, `effect`,
+the command or hook counts, or the `requires.tools` entries must carry those
+too, or the catalog goes stale in a way the version number does not reveal.
+Compare the proposed entry against `extension.yml` rather than against the
+previous entry. Only `created_at`, `verified`, `downloads`, and `stars` are
+maintainer-managed and preserved as listed.
 
 `release-pack` validates **every** package's manifest regardless of scope — an
 adapter release is still a good moment to notice the lockstep surface drifted —

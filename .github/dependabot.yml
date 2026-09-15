@@ -6,14 +6,84 @@
 version: 2
 updates:
   # Root workspace dependencies (packages/*, packages/adapters/*).
+  #
+  # One entry covers the whole Bun workspace. `directory: "/"` reads the root
+  # `bun.lock`, which is the only lockfile for `packages/*` and
+  # `packages/adapters/*`, and Dependabot edits whichever child manifest
+  # declares the range it has to widen. That is observed behaviour here, not an
+  # assumption: PR #99 bumped `@types/semver`, which only `packages/core`
+  # declares, and the root-bun branch at `d9b775c` widened `zod` from `^4.2.0`
+  # to `^4.5.4` in `packages/mcp/package.json`.
+  #
+  # Do **not** add `directories:` entries for `packages/*` or
+  # `packages/adapters/*`. Those directories carry no lockfile of their own, so
+  # the entries duplicate an entry that already reaches them. For the adapters
+  # it is worse than redundant: `spec-kit` and `agent-plugin` declare no
+  # dependencies on purpose, because a single declared dependency makes Bun's
+  # isolated linker create a `node_modules/` that then ships into a consumer's
+  # repository. `packages/adapters/spec-kit/test/packaging.test.ts` enforces it.
   - package-ecosystem: "bun" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    # Update the declared range, not just the lockfile. Without this, a range is
+    # rewritten only where it has the precision to show the change: `^4.2.0` in
+    # `packages/mcp` became `^4.5.4`, while `picomatch: "^4"` and
+    # `@types/semver: "^7"` in `packages/core` stayed textually put across
+    # 4.0.5 -> 4.0.7 and 7.7.1 -> 7.8.0, because the bumped digits sit below the
+    # precision those ranges declare. `increase` makes every child manifest move
+    # with its dependency, which is the behaviour this repository wants from a
+    # dependency PR: the diff shows what changed.
+    #
+    # The cost is real and accepted rather than unnoticed. `@adrkit/core`,
+    # `/cli`, `/evaluator`, `/mcp` and `/sdk` are published, so narrowing `^4` to
+    # `^4.0.7` narrows what a consumer can dedupe to. Widen a range back by hand
+    # if a consumer needs the room; do not read a narrow range here as a
+    # considered compatibility floor.
+    #
+    # It reaches neither `workspace:*` nor the `latest` tag that `@types/bun`
+    # and `yaml` are declared with: the updater returns any requirement matching
+    # `/^([A-Za-uw-z]|v[^\d])/` untouched, so those keep resolving through
+    # `bun.lock` exactly as they do today.
+    versioning-strategy: increase
+
+    # Ungrouping the members below trades a low PR count for PRs that can
+    # actually merge, so raise the default of 5 to leave room for them.
+    open-pull-requests-limit: 10
     groups:
+      # Everything that a version bump cannot invalidate on its own. Restricted
+      # to minor and patch so a major arrives as its own reviewable PR —
+      # Dependabot does not mark a semver-rejected dependency as handled, so it
+      # still opens an individual PR for it rather than dropping the update.
       root-bun:
         patterns:
           - "*"
+        exclude-patterns:
+          # Excluded because a bump rewrites a committed artifact. `zod` builds
+          # the emitted JSON Schema, so a bump fails `fresh schema emit equals
+          # the committed schema artifact` and the T090/T096 envelope-digest
+          # tests until `bun run schema:emit` is re-run and the result
+          # committed. Grouped, that one dependency blocked every other bump in
+          # the PR: it is why #200 is red on `clean-clone-builds` and why three
+          # root-bun branches stacked up re-proposing the same updates.
+          - "zod"
+          # Same shape, different artifact. `glob-compile-once.test.ts`
+          # deliberately records the resolved engine version as an observation
+          # (`expect(await readGlobEngineVersion()).toBe('4.0.5')`), so any
+          # picomatch bump fails T063 until that observation is updated with it.
+          - "picomatch"
+          # Exact-pinned, and pinned to a version whose behaviour was measured
+          # rather than read off a changelog. ADR-0018's dual-era stdio support
+          # was dogfooded against `@modelcontextprotocol/*` 2.0.0 through the
+          # MCP Inspector on both protocol eras; a bump needs that run again,
+          # which is a review no batched PR gets.
+          - "@modelcontextprotocol/*"
+          # Exact-pinned at 1.3.0 for the same reason: it decides RFC 9535
+          # JSONPath semantics for `@adrkit/evaluator`.
+          - "jsonpath-rfc9535"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Docs site has its own bun.lock and is not part of the root workspace.
   #
@@ -43,6 +113,11 @@ updates:
 
   # GitHub Actions used across .github/workflows are SHA-pinned; keep the pins
   # current (Dependabot updates the SHA and the trailing version comment).
+  #
+  # `directory: "/"` covers `.github/workflows/` and the root `action.yml`. The
+  # nested Actions (`packages/ci/action.yml`, `packages/ci/queue/action.yml`)
+  # need no entry of their own: both are `using: node24` JavaScript Actions with
+  # no `uses:` steps, so they declare no Action dependency to update.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
