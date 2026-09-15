@@ -21,7 +21,9 @@ relatesTo:
   - "0034"
 affects:
   - type: path
-    pattern: "packages/adapters/agent-plugin/skills/**"
+    pattern: "packages/adapters/agent-plugin/**"
+  - type: path
+    pattern: "site/src/content/docs/backfill.mdx"
   - type: path
     pattern: "site/src/content/docs/quickstart.mdx"
   - type: path
