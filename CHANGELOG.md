@@ -39,12 +39,32 @@ Until `1.0.0`, minor releases may include breaking changes
   `createAdr` makes the directory itself. That gate is now narrowed to the absent-
   corpus case; an unparseable corpus is still a hard stop.
 
+  A fourth defect surfaced only when the write path was exercised end to end for
+  the first time, in an ephemeral consumer repository: `adr new` scaffolds
+  `affects: []`, so the bootstrap record written through the offer's own
+  prescribed path binds nothing. A record with no matcher is invisible to
+  detection however many buckets are read — every bucket empty, and the next
+  audit offers the same decision again. ADR-0038 had listed precisely this under
+  *how we would know this was wrong*; it was the default behavior all along. The
+  offer now states that the record must carry an `affects` matcher covering the
+  corpus directory.
+
   Detection guidance also now lives in `commands/adr-backfill.md`, not the skill
   alone: `/adr-backfill` loads the command, so a procedure only the skill carried
   was unreachable from the entry point people invoke. The safety-policy checker
   enforces this against both surfaces, and the retained contradictory fixture
   gained the matching negative cases
   ([ADR-0038](docs/adr/0038-offer-the-bootstrap-decision-record-as-an-offer-rather-than-a-backfill-candidate.md)).
+
+### Changed
+
+- **ADR-0038 is ratified.** Accepted by `@mbeacom` on 2026-09-15, after the
+  corrections above and the first functional run of the write path. The decision
+  is unchanged from the original proposal; what was wrong was the mechanic
+  implementing it. Three action items remain open and are tracked rather than
+  closed by ratification: a host run confirming the offer is surfaced, `ADR_DIR`
+  resolution ignoring repository discovery, and mirroring the no-corpus clause
+  into `/adr-context` and `/adr-check`.
 
 
 ### Added

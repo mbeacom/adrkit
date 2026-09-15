@@ -52,6 +52,12 @@ function backfillPolicyViolations(body: string): string[] {
       'adopting adrkit never supersedes the process decision',
       /never\s+a\s+supersession\s+of\s+the\s+decision\s+to\s+record\s+decisions/i,
     ],
+    // Found by a functional run, not by reading: `adr new` scaffolds
+    // `affects: []`, so the bootstrap record written through the offer's own
+    // prescribed path binds nothing and is invisible to the detection above —
+    // every bucket comes back empty and the next audit offers it again. The
+    // matcher is what makes the record detectable, so the offer has to say so.
+    ['bootstrap record must bind the corpus directory', /scaffolds `affects: \[\]`/],
   ];
 
   for (const [name, pattern] of required) {
@@ -383,6 +389,7 @@ describe('guidance that must not regress', () => {
       'missing: bootstrap detection reads all three buckets',
       'missing: bootstrap exit code precedes the buckets',
       'missing: adopting adrkit never supersedes the process decision',
+      'missing: bootstrap record must bind the corpus directory',
       'forbidden: negated read-only boundary',
       'forbidden: automatic proposal',
       'forbidden: negated plan status',

@@ -290,6 +290,11 @@ will usually be a regression:
   `commands/adr-backfill.md` carry this, because `/adr-backfill` loads the
   command
   ([ADR-0038](./docs/adr/0038-offer-the-bootstrap-decision-record-as-an-offer-rather-than-a-backfill-candidate.md)).
+- **The offered record must bind the corpus directory.** `adr new` scaffolds
+  `affects: []`, and a record that binds nothing is invisible to the detection
+  above however many buckets are read — so the offer states the matcher. Found
+  by the first functional run of the write path, not by review; it is the
+  failure ADR-0038 already listed under "how we would know this was wrong".
 - **`/adr-draft` can write into a repository with no corpus.** Its `adr lint`
   gate stops on exit `2` except when the corpus directory does not exist yet:
   `adr new` creates it and allocates `0001`, so the bootstrap offer's own

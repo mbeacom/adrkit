@@ -162,6 +162,12 @@ Audit `$ARGUMENTS` for durable decisions that were made but never recorded.
      output lands in `activeProposals`. Reading `governing` by itself would
      make backfill re-offer the record it just produced, and would re-propose
      a decision a team explicitly rejected.
+   - Say in the offer that the record must carry an `affects` matcher
+     covering the corpus directory (`type: path`, `pattern` matching
+     `$ADR_DIR`). Drafting scaffolds `affects: []`, and a record that binds
+     nothing is invisible to the detection above — every bucket comes back
+     empty and the next audit offers the same decision again. The matcher is
+     what makes the record findable, not its id or its title.
    - Candidate table: key, decision, confidence, evidence, likely `affects`,
      blast radius, and reconciliation.
    - One evidence card per candidate: context, apparent choice, alternatives,

@@ -307,6 +307,38 @@ are why `/adr-draft`'s exit-`2` gate was narrowed: `adr lint` and `adr new`
 disagree about whether an absent corpus is an error, and `adr new` is right,
 because `createAdr` creates the directory itself.
 
+### Functional run of the offer's write path (0.3.1)
+
+Detection above is measured against fixtures. This is the first exercise of the
+**write path end to end**, in an ephemeral consumer repository — a fresh `git
+init` with one source file and no `docs/adr/` — driving the CLI the way the
+guidance tells an agent to:
+
+| Step | Command | Result |
+|---|---|---|
+| 1 | `adr lint --dir docs/adr` | exit `2`, `Corpus directory not found` — the bootstrap case |
+| 2 | `adr new "<title>" --dir docs/adr` | exit `0`, creates the directory, allocates `0001` |
+| 3 | `adr lint --dir docs/adr` | exit `0` — the corpus is valid |
+| 4 | `adr check --dir docs/adr --json -- docs/adr/0001-*.md` | exit `0`, **all three buckets empty** |
+| 5 | same probe, after hand-adding `affects: [{type: path, pattern: "docs/adr/**"}]` | exit `0`, `activeProposals: ["0001"]` |
+
+Steps 1–3 confirm the narrowed `/adr-draft` gate: the headline case is writable.
+
+**Step 4 found a defect the static review did not.** `adr new` scaffolds
+`affects: []` and `status: draft`. A record with no matcher binds nothing, so it
+is invisible to detection no matter how many buckets are read — every bucket
+comes back empty and the next audit offers the same decision again. The
+three-bucket fix only engages once the record carries a matcher covering the
+corpus directory, which step 5 demonstrates. ADR-0038 listed exactly this
+outcome — "a consumer's bootstrap record lands with no rejected alternative and
+no `affects` matcher" — under *how we would know this was wrong*, and it turned
+out to be the default behavior of the path the offer prescribes. Both the skill
+and the command now require the offer to state the matcher.
+
+**Still unverified:** whether any host actually surfaces the offer in a real
+session. That needs an interactive host run and remains open as action item 5.
+
+
 The last row changed the guidance. An unmigrated MADR corpus returns exactly the
 same empty `governing` bucket as a corpus with no process record, because none of
 its records parse — including, in the fixture, the process record itself. Reading

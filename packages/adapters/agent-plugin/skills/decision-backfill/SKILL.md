@@ -236,6 +236,13 @@ even when one of those unparsed records *is* the process decision. Offering
 the process decision there would propose a duplicate of a record the
 repository already has. Migrate first, then detect.
 
+The offered record must carry an `affects` matcher covering the corpus
+directory — `type: path`, `pattern` matching `$ADR_DIR`. Say so in the offer.
+`adr new` scaffolds `affects: []`, and a record that binds nothing is invisible
+to the detection above: every bucket comes back empty, and the next audit offers
+the same decision again. The matcher is what makes the record findable, not its
+id or its title.
+
 An existing MADR corpus needs no supersession here. `adr migrate --from madr`
 preserves those records deterministically, so adopting adrkit reverses nothing.
 

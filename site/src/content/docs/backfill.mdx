@@ -201,6 +201,11 @@ Detection reads all three of `adr check`'s buckets, not `governing` alone —
 *proposed* (which is what `/adr-draft` writes) or one that was *rejected* would
 otherwise look like no decision at all.
 
+Give the record an `affects` matcher covering your corpus directory. `adr new`
+scaffolds `affects: []`, and a record that binds nothing is invisible to that
+detection — the next audit finds nothing and offers the same decision again. The
+matcher is what makes it findable, not its id or title.
+
 **Adopting adrkit never supersedes the decision to record decisions.** The
 tooling choice depends on the process choice and cannot replace it. `supersedes`
 is reserved for a prior *tooling* record — `adr-tools`, `log4brains`, a bespoke

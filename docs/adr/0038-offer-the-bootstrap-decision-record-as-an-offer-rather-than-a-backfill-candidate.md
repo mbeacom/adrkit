@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0038"
 title: "Offer the bootstrap decision record as an offer rather than a backfill candidate"
-status: proposed
+status: accepted
 date: 2026-09-08
 deciders:
   - "@mbeacom"
@@ -30,6 +30,7 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: auto
   tierReason: Guidance-only change to one adapter; sole decider.
@@ -37,6 +38,12 @@ reviewBy: 2027-09-08
 ---
 
 # ADR-0038: Offer the bootstrap decision record as an offer rather than a backfill candidate
+
+> **Status: accepted.** Agent-drafted and explicitly ratified by `@mbeacom` on
+> 2026-09-15, after the 0.3.1 corrections to the detection mechanic and the
+> first functional run of the write path. The decision is unchanged from the
+> original proposal; the mechanic that implements it was wrong three times over
+> and is recorded in Consequences. Action items 5, 7 and 8 remain open.
 
 ## Context
 
@@ -210,9 +217,26 @@ the guidance offers a decision to make rather than a template to accept.
     exactly what a repository with no corpus returns — so the headline case
     could not be written at all. Executed: `adr lint` exits `2` there while
     `adr new` exits `0` and creates the corpus.
+  - A fourth, found by the first functional run of the write path rather than by
+    review: `adr new` scaffolds `affects: []`, so the bootstrap record written
+    through this offer's own prescribed path binds nothing and is invisible to
+    detection — every bucket empty, and the next audit offers it again. This is
+    the failure named directly above under *how we would know this was wrong*,
+    and it was the default behavior all along. The offer now states that the
+    record must carry an `affects` matcher covering the corpus directory.
 - Revisit if: a CLI-level affordance is requested by someone not using the
   plugin, or a functional run shows hosts do not surface the offer on an empty
   corpus.
+
+## Ratification
+
+Ratified 2026-09-15 by @mbeacom, after the 0.3.1 corrections and the first
+functional run of the write path. The decision itself — offer the bootstrap
+record, never mine it — is unchanged from the original proposal; what changed
+before ratification was the detection mechanic, the reachability of the
+guidance from the command, and the requirement that the record bind the corpus
+directory. Action items 5, 7 and 8 remain open and are tracked, not closed by
+ratification.
 
 ## Action items
 
