@@ -23,3 +23,10 @@ affects: ["src/**"]
 ```bash
 adr migrate --from madr --dir "$ADR_DIR" --dry-run
 ```
+
+The bootstrap record is a candidate like any other: mine it from the repository,
+put it in the candidates table, and carry it through the handoff.
+Adopting adrkit supersedes the decision to record decisions, so set `supersedes`
+on the process record.
+An empty `governing` bucket alone means no process record exists, so offer both
+decisions without looking any further.

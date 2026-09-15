@@ -226,9 +226,10 @@ That functional evidence covers the v0.1.0 context/check/draft/queue baseline.
 The v0.2.0 backfill skill and command are contract- and static-host-validated.
 A fresh Copilot synthetic-consumer run produced the expected covered/history/new
 classification and a complete handoff without changing the worktree. For the
-v0.3.0 bootstrap-record offer, detection is measured against synthetic corpora
-(missing, empty, source-only, process-record-present, and unmigrated MADR);
-host surfacing behavior is unverified. No persistent reference-repository or
+v0.3.1 bootstrap-record offer, detection is measured against synthetic corpora
+(missing, empty, source-only, process-record-present, unmigrated MADR, and — added
+after 0.3.0 review — `proposed`, `rejected`, and mixed-validity); host surfacing
+behavior and the offer's write path end to end are both unverified. No persistent reference-repository or
 external run exists.
 
 Things that are load-bearing and easy to break — each measured against the real
@@ -278,12 +279,23 @@ will usually be a regression:
   `candidatePaths` — and routes to plain `/adr-draft`. Adopting adrkit is never
   a supersession of the decision to record decisions; `supersedes` is reserved
   for a prior *tooling* record, and a MADR corpus is migrated, not superseded.
-  Detection reads `adr check`'s exit code **before** its `governing` bucket: an
-  unmigrated MADR corpus returns an empty bucket at exit `1` because nothing
-  parses, so reading the bucket alone offers a duplicate of a process record the
-  repository already has
+  Detection reads the exit code **before** the buckets, and reads **all three
+  buckets** — `governing` holds `accepted` alone, so `activeProposals`
+  (`draft`/`proposed`) and `history` (`rejected`/`superseded`/`deprecated`) are
+  where a record already settling the question actually sits. Reading
+  `governing` by itself makes the offer re-propose its own output, because
+  `/adr-draft` writes `proposed`. The corpus-wide gate is `adr lint`, not
+  `adr check`, whose exit code is path-scoped: a malformed record elsewhere
+  leaves `adr check` at exit `0` with an empty result. Both the skill **and**
+  `commands/adr-backfill.md` carry this, because `/adr-backfill` loads the
+  command
   ([ADR-0038](./docs/adr/0038-offer-the-bootstrap-decision-record-as-an-offer-rather-than-a-backfill-candidate.md)).
-- `copilot plugin install` prints only a skill count. Version 0.3.0 should report
+- **`/adr-draft` can write into a repository with no corpus.** Its `adr lint`
+  gate stops on exit `2` except when the corpus directory does not exist yet:
+  `adr new` creates it and allocates `0001`, so the bootstrap offer's own
+  headline case is writable. A corpus that exists and does not parse is still a
+  hard stop.
+- `copilot plugin install` prints only a skill count. Version 0.3.1 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 

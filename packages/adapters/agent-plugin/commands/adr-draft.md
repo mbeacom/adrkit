@@ -55,7 +55,14 @@ confirmation is present, stop before executing it.
 
 2. Run `adr lint --dir "$ADR_DIR"`. Exit `1` is a complete findings report but
    blocks drafting until the corpus is repaired; exit `2` is a usage or corpus
-   error and also stops.
+   error and also stops — **except** when the corpus directory does not exist
+   yet. There is nothing to lint in that case, and `adr new` creates the
+   corpus directory and allocates `0001` on its own, so proceed to the
+   scaffolding step instead of stopping. Distinguish the two: `Corpus
+   directory not found` is the bootstrap case; any other exit `2` is a real
+   usage error and stops. A corpus that exists and does not parse stays a hard
+   stop at exit `1`, because absence cannot be told apart from a parse failure
+   there.
 
 3. Reconcile immediately before writing:
    - In backfill mode, run

@@ -122,13 +122,46 @@ Audit `$ARGUMENTS` for durable decisions that were made but never recorded.
 7. **Return the report.**
    - Scope and coverage ledger.
    - Existing corpus state and relevant history. When no corpus exists, or
-     when no record governs the corpus directory, say so and offer the
-     bootstrap record — the process decision to keep decisions in git and
-     the tooling decision to enforce them with adrkit. It is an offer, not
-     a candidate: keep it out of the candidate table and out of every
-     `backfillHandoff`, and name plain `/adr-draft`. Adopting adrkit is
+     when no record in any bucket covers the corpus directory, say so and
+     offer the bootstrap record — the process decision to keep decisions in
+     git and the tooling decision to enforce them with adrkit. It is an
+     offer, not a candidate: keep it out of the candidate table and out of
+     every `backfillHandoff`, and name plain `/adr-draft`. Adopting adrkit is
      never a supersession of the decision to record decisions; reserve
      `supersedes` for a prior tooling record.
+   - Detect that record through the CLI, never by reading frontmatter. A
+     corpus directory that does not exist exits `2`; one that exists but
+     holds no record exits `0` with an empty result. Both mean the same
+     thing here, and the offer is both decisions. Once at least one record
+     exists, run:
+
+     ```bash
+     adr lint  --dir "$ADR_DIR"
+     adr check --dir "$ADR_DIR" --json -- "$ADR_DIR/<one-existing-record>.md"
+     ```
+
+     Read the exit code before the buckets, and then read **all three
+     buckets**. Only on exit `0` does an empty result mean the record is
+     absent rather than unreadable. `adr check`'s exit code is scoped to the
+     paths it was handed, not to the corpus, so a malformed record elsewhere
+     leaves it at `0` with an empty result — the corpus-wide `adr lint` above
+     is what must reach exit `0` first. An unmigrated MADR corpus is the case
+     that punishes skipping this: nothing parses, every bucket is empty, and
+     the corpus reports `frontmatter-fence` errors at exit `1` even when one
+     unparsed record *is* the process decision. Migrate first, then detect.
+   - Then read every bucket, because `governing` holds `accepted` alone:
+
+     | Bucket | Statuses | Offer |
+     | --- | --- | --- |
+     | `governing` | `accepted` | The tooling decision only, `relatesTo` that record |
+     | `activeProposals` | `draft`, `proposed` | Nothing — it is **already proposed**; name ratification as the next step |
+     | `history` | `rejected`, `superseded`, `deprecated` | Nothing — report the record and **never re-propose** it |
+     | all three empty | — | Both the process and the tooling decision |
+
+     `/adr-draft` writes new records as `proposed`, so this offer's own
+     output lands in `activeProposals`. Reading `governing` by itself would
+     make backfill re-offer the record it just produced, and would re-propose
+     a decision a team explicitly rejected.
    - Candidate table: key, decision, confidence, evidence, likely `affects`,
      blast radius, and reconciliation.
    - One evidence card per candidate: context, apparent choice, alternatives,

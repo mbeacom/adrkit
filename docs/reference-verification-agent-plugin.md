@@ -289,12 +289,30 @@ re-run):
 | Plus a record binding `docs/adr/**` | a record inside the corpus | `0` | `["0002"]` | Detected by matcher, not by id or title |
 | Unmigrated MADR (no frontmatter fence) | a record inside the corpus | `1` | `[]` + `rule: frontmatter-fence` | **Trap** — a parse failure, not an absence |
 
+Re-measured for **0.3.1**, after review found that reading `governing` alone and
+trusting `adr check`'s exit code were both unsound. Same method, same throwaway
+corpora, CLI built from the fix branch:
+
+| Corpus | Probe | Exit | `governing` | `activeProposals` | `history` | Reading |
+|---|---|---|---|---|---|---|
+| Process record `status: proposed`, `affects: docs/adr/**` | that record | `0` | `[]` | `["0001"]` | `[]` | **Trap** — the record exists; `governing` alone reports absence |
+| Process record `status: rejected`, same matcher | that record | `0` | `[]` | `[]` | `["0001"]` | **Trap** — settled against; re-proposing it is failure mode 3 |
+| Malformed process record + healthy unrelated record | the *healthy* record | `0` | `[]` | `[]` | `[]` | **Trap** — findings come back *empty*; corpus-wide `adr lint` exits `1` |
+| Same corpus | corpus-wide `adr lint` | `1` | — | — | — | The signal that actually catches it |
+| No corpus at all | `adr lint --dir docs/adr` | `2` | — | — | — | `/adr-draft`'s old gate stopped here |
+| No corpus at all | `adr new "<title>" --dir docs/adr` | `0` | — | — | — | Creates the directory, allocates `0001` |
+
+The first three rows each ship an offer the repository did not need. The last two
+are why `/adr-draft`'s exit-`2` gate was narrowed: `adr lint` and `adr new`
+disagree about whether an absent corpus is an error, and `adr new` is right,
+because `createAdr` creates the directory itself.
+
 The last row changed the guidance. An unmigrated MADR corpus returns exactly the
 same empty `governing` bucket as a corpus with no process record, because none of
 its records parse — including, in the fixture, the process record itself. Reading
 the bucket without reading the exit code first would offer a duplicate of a record
 the repository already has, which is the failure ADR-0038 names as proof the
-design is wrong. The skill now reads the exit code first and names the MADR case;
+design is wrong. The skill reads the exit code first and names the MADR case;
 a wiring test covers both sentences, and was confirmed failing against the
 pre-fix text.
 

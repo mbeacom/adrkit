@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Requires repository read access and git for history-backed evidence. Existing ADR reconciliation uses the `adr` CLI (@adrkit/cli), resolved from $ADRKIT_CLI, then ./node_modules/.bin/adr, then PATH. The optional adrkit MCP server may replace read-only corpus retrieval, but is not bundled."
 metadata:
   author: Mark Beacom
-  version: "0.3.0"
+  version: "0.3.1"
   homepage: https://adrkit.dev/backfill/
 ---
 
@@ -175,30 +175,62 @@ depends on the process choice and cannot replace it.
 
 | Corpus state | Offer | Edge |
 | --- | --- | --- |
-| No corpus, or records exist but none govern the corpus directory | Both the process and the tooling decision | `relatesTo` between the two when they are split into separate records |
-| A process record governs the corpus directory | The tooling decision only | `relatesTo` that record |
+| No corpus, or no record in any bucket covers the corpus directory | Both the process and the tooling decision | `relatesTo` between the two when they are split into separate records |
+| An `accepted` process record governs the corpus directory | The tooling decision only | `relatesTo` that record |
+| A process record covering it is **already proposed** (`draft`/`proposed`) | Nothing — say it is already proposed and name ratification as the next step | none; do not draft a second copy |
+| A process record covering it was **rejected, superseded, or deprecated** | Nothing — report the record and stop | none; **never re-propose** it |
 | A prior tooling record governs it (`adr-tools`, `log4brains`, a bespoke MADR script) | The tooling decision | `supersedes` that prior tooling record |
 
 With no corpus there is nothing to detect: the offer is both decisions. A
 corpus directory that does not exist exits `2`; one that exists but holds no
-record exits `0` with an empty bucket. Both mean the same thing here. Once at
-least one record exists, detect the governing process record through the CLI,
-never by reading frontmatter. Run `adr check` over one record already inside
-the corpus and read its `governing` bucket: a meta record binds itself with an `affects` matcher
-whose `type` is `path` and whose `pattern` covers the corpus directory, so it
-resolves there like any other governing decision.
+record exits `0` with an empty result. Both mean the same thing here **only
+when the repository scan in step 1 found no decision-record-shaped content
+anywhere in the tree**. `ADR_DIR` resolution does not consult that scan — it is
+the explicit path, then `$ADRKIT_DIR`, then `docs/adr` — so a pre-adrkit corpus
+at a non-default path (`docs/decisions/` is MADR's own convention) also exits
+`2` while holding a substantial set of records. Route that to migration, not to
+the bootstrap offer. Once at
+least one record exists, detect the process record through the CLI, never by
+reading frontmatter. Run `adr check` over one record already inside the corpus:
+a meta record binds itself with an `affects` matcher whose `type` is `path` and
+whose `pattern` covers the corpus directory, so it resolves there like any other
+decision.
 
 ```bash
+adr lint  --dir "$ADR_DIR"
 adr check --dir "$ADR_DIR" --json -- "$ADR_DIR/<one-existing-record>.md"
 ```
 
-Read the exit code before the bucket. Only on exit `0` does an empty
-`governing` bucket mean no process record exists. On exit `1` the corpus did
-not fully parse, so the absence proves nothing and the offer is unverified
-until the findings are repaired.
+Read the exit code before the buckets, and then read **all three buckets**.
+Only on exit `0` does an empty result mean the record is absent rather than
+unreadable. On exit `1` the corpus did not fully parse, so the absence proves
+nothing and the offer is unverified until the findings are repaired.
 
-An unmigrated MADR corpus is the case that punishes skipping that step. Its
-records carry no frontmatter fence, so none of them parse, `governing` comes
+`adr check`'s exit code is scoped to the paths it was handed, not to the corpus
+([ADR-0022](https://adrkit.dev/)). A malformed record *elsewhere* in the corpus
+leaves it at exit `0` with an empty result, so the corpus-wide `adr lint` above
+is the signal that must reach exit `0` before an empty result is read as
+absence. Run it first and treat exit `1` there as "unverified", exactly as step
+2 of the reconciliation already requires.
+
+Then read every bucket, because `governing` holds `accepted` records **alone**:
+
+| Bucket | Statuses | Means |
+| --- | --- | --- |
+| `governing` | `accepted` | The decision is made and ratified |
+| `activeProposals` | `draft`, `proposed` | **Already proposed** — offer nothing, name ratification |
+| `history` | `rejected`, `superseded`, `deprecated` | Settled against — report it and **never re-propose** |
+
+Reading `governing` by itself reports the other two as absence. That is not
+hypothetical: `/adr-draft` writes a new record as `proposed`, so the record this
+offer produces lands in `activeProposals`, and running backfill again before a
+human ratifies it would offer the same decision a second time — the tool
+re-offering its own output. A `rejected` process record read the same way is
+re-proposing a decision the team explicitly abandoned, which is the third
+failure this skill exists to prevent.
+
+An unmigrated MADR corpus is the case that punishes skipping the exit code. Its
+records carry no frontmatter fence, so none of them parse, every bucket comes
 back empty, and the corpus reports `frontmatter-fence` errors at exit `1` —
 even when one of those unparsed records *is* the process decision. Offering
 the process decision there would propose a duplicate of a record the

@@ -190,9 +190,16 @@ The relationship matters when a corpus already exists:
 
 | Corpus state | Offered | Edge |
 | --- | --- | --- |
-| No corpus, or records exist but none govern the corpus directory | Process and tooling decisions | `relatesTo` between them when split |
-| A process record governs the corpus directory | Tooling decision only | `relatesTo` that record |
+| No corpus, or no record in any bucket covers the corpus directory | Process and tooling decisions | `relatesTo` between them when split |
+| An accepted process record governs the corpus directory | Tooling decision only | `relatesTo` that record |
+| A process record covering it is already proposed | Nothing — ratify the one you have | none |
+| A process record covering it was rejected or superseded | Nothing — it is settled against | none; never re-proposed |
 | A prior tooling record governs it | Tooling decision | `supersedes` that prior tooling record |
+
+Detection reads all three of `adr check`'s buckets, not `governing` alone —
+`governing` holds `accepted` records only, so a process decision that is merely
+*proposed* (which is what `/adr-draft` writes) or one that was *rejected* would
+otherwise look like no decision at all.
 
 **Adopting adrkit never supersedes the decision to record decisions.** The
 tooling choice depends on the process choice and cannot replace it. `supersedes`
