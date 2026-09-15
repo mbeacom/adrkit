@@ -26,6 +26,27 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    # Update the declared range, not just the lockfile. Without this, a range is
+    # rewritten only where it has the precision to show the change: `^4.2.0` in
+    # `packages/mcp` became `^4.5.4`, while `picomatch: "^4"` and
+    # `@types/semver: "^7"` in `packages/core` stayed textually put across
+    # 4.0.5 -> 4.0.7 and 7.7.1 -> 7.8.0, because the bumped digits sit below the
+    # precision those ranges declare. `increase` makes every child manifest move
+    # with its dependency, which is the behaviour this repository wants from a
+    # dependency PR: the diff shows what changed.
+    #
+    # The cost is real and accepted rather than unnoticed. `@adrkit/core`,
+    # `/cli`, `/evaluator`, `/mcp` and `/sdk` are published, so narrowing `^4` to
+    # `^4.0.7` narrows what a consumer can dedupe to. Widen a range back by hand
+    # if a consumer needs the room; do not read a narrow range here as a
+    # considered compatibility floor.
+    #
+    # It reaches neither `workspace:*` nor the `latest` tag that `@types/bun`
+    # and `yaml` are declared with: the updater returns any requirement matching
+    # `/^([A-Za-uw-z]|v[^\d])/` untouched, so those keep resolving through
+    # `bun.lock` exactly as they do today.
+    versioning-strategy: increase
+
     # Ungrouping the members below trades a low PR count for PRs that can
     # actually merge, so raise the default of 5 to leave room for them.
     open-pull-requests-limit: 10
