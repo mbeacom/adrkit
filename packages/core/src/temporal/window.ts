@@ -94,6 +94,18 @@ export function buildDecisionWindows(
 }
 
 /**
+ * A window whose successor is dated before the record it replaced.
+ *
+ * The corpus disagrees with itself, and `standingAsOf` consequently never returns
+ * `governing` for such a record on any date. Exported because the renderer has to agree
+ * with that: printing `in force <opens> → <closes>` for an interval the kernel rejected
+ * would report a governing period that never existed. One definition, two callers.
+ */
+export function isInvertedWindow(window: DecisionWindow): boolean {
+  return window.closesOn !== null && window.closesOn < window.opensOn;
+}
+
+/**
  * Place a record on one UTC calendar date.
  *
  * The window is **half-open**: `[opensOn, closesOn)`. The successor owns its own start day,

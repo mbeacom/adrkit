@@ -10,6 +10,7 @@ import {
   createAdr,
   exitCodeForFindings,
   filterAdrGraph,
+  isInvertedWindow,
   lintCorpus,
   MARKER_DECLARATION_FILE_CAP,
   MARKER_HEADER_WINDOW_BYTES,
@@ -1026,6 +1027,13 @@ function renderWindow(decision: DecisionAsOf): string {
   if (decision.standing === 'activeProposals') return `recorded ${decision.window.opensOn}; never ratified`;
   if (decision.window.closesOn === null) return `in force ${decision.window.opensOn} → open`;
   const closedBy = decision.window.closedBy ? ` (closed by ${decision.window.closedBy})` : '';
+  // An inverted window is one `standingAsOf` refuses to call governing on any date, so it
+  // must not be rendered as an interval. Printing `in force 2026-06-01 → 2026-01-15` would
+  // report a governing period the kernel rejected, and read as a backwards fact rather than
+  // as the corpus contradicting itself.
+  if (isInvertedWindow(decision.window)) {
+    return `no in-force interval: recorded ${decision.window.opensOn}, but its successor${closedBy ? ` ${decision.window.closedBy}` : ''} is dated ${decision.window.closesOn}`;
+  }
   return `in force ${decision.window.opensOn} → ${decision.window.closesOn}${closedBy}`;
 }
 

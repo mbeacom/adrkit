@@ -20,6 +20,7 @@ import type { Adr } from '../schema/adr.schema.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 import {
   decisionWindowFor,
+  isInvertedWindow,
   standingAsOf,
   type DecisionWindow,
   type TemporalStanding,
@@ -146,7 +147,7 @@ export function resolveDecisionsAsOf(input: ResolveDecisionsAsOfInput): Decision
     if (standing === 'undetermined') findings.push(undeterminedFinding(decision, input.asOf));
     if (record.frontmatter.status === 'superseded') {
       if (window.closesOn === null) findings.push(openWindowFinding(decision));
-      else if (window.closesOn < window.opensOn) findings.push(invertedWindowFinding(decision, window));
+      else if (isInvertedWindow(window)) findings.push(invertedWindowFinding(decision, window));
     }
   }
 

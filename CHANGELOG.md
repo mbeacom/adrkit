@@ -67,6 +67,15 @@ Until `1.0.0`, minor releases may include breaking changes
   into `/adr-context` and `/adr-check`.
 
 
+### Changed
+
+- **ADR-0037 and ADR-0039 are ratified.** Both were agent-drafted and explicitly
+  accepted by `@mbeacom` on 2026-09-21, with `provenance.ratifiedBy`,
+  `review.approvals`, and `review.decidedAt` recorded. ADR-0037 ("Treat generated
+  knowledge systems as downstream read models, not decision authorities") was
+  ratified within the 30-day ARB SLA opened 2026-08-30. Neither decision changed
+  from its proposal.
+
 ### Added
 
 - **`adr explain --as-of <date|ref>` answers which decisions governed a path on a
@@ -105,8 +114,20 @@ Until `1.0.0`, minor releases may include breaking changes
   `@adrkit/core` exports: `buildDecisionWindows`, `decisionWindowFor`,
   `standingAsOf`, `wasGoverningAsOf`, `resolveDecisionsAsOf`. Implements part B of
   [#116](https://github.com/mbeacom/adrkit/issues/116) (part A shipped in
-  [#187](https://github.com/mbeacom/adrkit/pull/187)), proposed as
+  [#187](https://github.com/mbeacom/adrkit/pull/187)), ratified as
   [ADR-0039](docs/adr/0039-derive-a-valid-time-window-from-date-and-supersession-and-resolve-a-git-ref-at-th.md).
+
+  Two defects in the implementing mechanic were found in review and are recorded
+  in that ADR. The subprocess wrapper was copied from a Bun-only adapter and used
+  `Bun.spawn`; `@adrkit/cli` builds with `--target=node` and `bun build` does not
+  shim the `Bun` global, so `--as-of <ref>` was a `ReferenceError` in every
+  published install — reported, through a too-broad `catch`, as "git is not
+  installed or not on PATH". It now uses `node:child_process` and catches only
+  `ENOENT`, with a shipped-source contract test and a Node-runtime smoke case as
+  guards. Separately, an inverted supersession window (successor dated before the
+  record it replaced) was rendered as `in force <opens> → <closes>` even though
+  the kernel refuses to call it governing on any date; `isInvertedWindow` is now
+  shared by the kernel and the renderer.
 
 - **The agent plugin offers the bootstrap decision record (`adrkit` 0.3.0).** A
   repository with no ADR corpus, or one whose corpus never recorded why it keeps

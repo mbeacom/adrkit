@@ -108,7 +108,7 @@ run.
 `adr explain <path> --as-of <date|ref>` answers which decisions governed a path
 on a past date, under
 [ADR-0039](./docs/adr/0039-derive-a-valid-time-window-from-date-and-supersession-and-resolve-a-git-ref-at-th.md)
-(**proposed**, part B of [#116](https://github.com/mbeacom/adrkit/issues/116);
+(**accepted**, part B of [#116](https://github.com/mbeacom/adrkit/issues/116);
 part A shipped in [#187](https://github.com/mbeacom/adrkit/pull/187)). A
 valid-time window opens at a record's own `date` and closes at its **immediate**
 successor's — not the terminal one, which would report a record in force for its
@@ -153,6 +153,20 @@ Five things are load-bearing and easy to break:
   user with `log.showSignature = true` and a signed commit otherwise gets
   `Good "git" signature for …` prepended to stdout and `--as-of HEAD` fails with
   a misleading "could not resolve". Both were found by running the code.
+- **Shipped source must be Node-compatible.** `packages/cli/src`,
+  `packages/core/src`, and `packages/evaluator/src` build with `--target=node`,
+  and `bun build` does **not** shim the `Bun` global — it emits the reference
+  verbatim. A `Bun.spawn` there is a `ReferenceError` in every published install
+  while the whole Bun-run suite stays green. `as-of.ts` shipped exactly that
+  once, behind a `catch` that reported it as "git is not installed", so the
+  subprocess wrapper uses `node:child_process` and catches only `ENOENT`.
+  `packages/cli/test/node-compatibility.test.ts` enforces the rule; adapters
+  under `packages/adapters/*` are Bun-only and exempt, which is why copying
+  `runGit` from one of them was wrong.
+- **An inverted window is not an interval.** `isInvertedWindow` lives in
+  `@adrkit/core` and is used by both the kernel and the CLI renderer, so a
+  window the kernel refuses to call governing is never printed as `in force
+  <opens> → <closes>`.
 - **`temporal-window-open` is library-only.** A `superseded` record whose
   successor the corpus lacks is a `dangling-supersededBy` **error**, which gates
   `adr explain` before any temporal code runs. The finding is reachable through
@@ -161,7 +175,8 @@ Five things are load-bearing and easy to break:
 Additive: without the flag, stdout and `--json` are unchanged, and the
 present-tense `governing`/`activeProposals`/`history` keys keep their meaning
 beside the new `asOf` block. **Rung 1** of ADR-0014 only — unit, contract, purity
-and mutation coverage plus maintainer verification. No reference-repository run.
+and mutation coverage, a Node-runtime smoke, plus maintainer verification. No
+reference-repository run.
 
 Phase 6 ARB queue is
 implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure

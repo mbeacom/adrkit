@@ -233,6 +233,34 @@ if (queuePayload.items.length !== 1 || queuePayload.items[0]?.slaState !== 'with
   throw new Error('Expected exactly one within-sla item from the within-sla fixture corpus');
 }
 
+// `adr explain --as-of <ref>` is the CLI's only subprocess path, and the only reason this
+// case exists is that it shipped `Bun.spawn` once: under Node that is a `ReferenceError`,
+// which the resolver reported as "git is not installed or not on PATH" while every
+// Bun-run test passed. A Bun-only test suite cannot see this class of defect at all —
+// only running the built artifact under Node can. `repoRoot` is this repository, so HEAD
+// always resolves.
+const asOf = spawnSync(
+  process.execPath,
+  [cliPath, 'explain', 'packages/core/src/temporal/window.ts', '--as-of', 'HEAD', '--json'],
+  { cwd: repoRoot, encoding: 'utf8' },
+);
+if (asOf.stderr) process.stderr.write(asOf.stderr);
+if (asOf.status !== 0) {
+  throw new Error(`Built CLI \`adr explain --as-of HEAD\` smoke failed with exit ${asOf.status}`);
+}
+const asOfPayload = JSON.parse(asOf.stdout);
+if (asOfPayload.asOf?.resolvedFrom !== 'ref') {
+  throw new Error(
+    `Expected \`--as-of HEAD\` to resolve through git, got resolvedFrom "${asOfPayload.asOf?.resolvedFrom}"`,
+  );
+}
+if (!/^[0-9a-f]{40}$/.test(asOfPayload.asOf?.commit ?? '')) {
+  throw new Error('Expected `--as-of HEAD` to report the full commit id it resolved');
+}
+if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfPayload.asOf?.date ?? '')) {
+  throw new Error('Expected `--as-of HEAD` to report a UTC calendar date');
+}
+
 // The committed Action bundle must run self-contained on the target Node runtime.
 // Outside a pull_request event it is a graceful no-op — that is enough to prove the
 // bundle loads and all its dependencies resolved.
@@ -251,5 +279,5 @@ if (!action.stdout.includes('not a pull_request event')) {
   throw new Error('Expected the Action bundle to no-op outside a pull_request event');
 }
 
-console.log('smoke-node: built core import, evaluator import, MCP sealed handle + stdio tools on both protocol eras (2025 + 2026-07-28), CLI lint, offline `adr evaluate`, `adr queue`, and Action bundle passed');
+console.log('smoke-node: built core import, evaluator import, MCP sealed handle + stdio tools on both protocol eras (2025 + 2026-07-28), CLI lint, offline `adr evaluate`, `adr queue`, `adr explain --as-of <ref>`, and Action bundle passed');
 

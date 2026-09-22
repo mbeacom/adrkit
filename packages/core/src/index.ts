@@ -26,6 +26,7 @@ export { canonicalStringify, fingerprintOf } from './fingerprint/index.ts';
 export {
   buildDecisionWindows,
   decisionWindowFor,
+  isInvertedWindow,
   standingAsOf,
   wasGoverningAsOf,
   type DecisionWindow,

@@ -278,6 +278,32 @@ describe('adr explain --as-of', () => {
     expect(result.stdout).not.toContain('Decisions governing src/app.ts as of');
   });
 
+  test('an inverted window is not rendered as an in-force interval', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    const dir = join(root, 'docs/adr');
+    // The successor is dated *before* the record it replaced, so `standingAsOf` refuses to
+    // call 0007 governing on any date. Rendering `in force 2026-06-01 → 2026-01-15` would
+    // report an interval the kernel rejected.
+    await writeText(
+      join(dir, '0007-old.md'),
+      withDate(withAffects(supersededRecordMarkdown('0007', '0019', 'Use JWT sessions'), 'src/**'), '2026-06-01'),
+    );
+    await writeText(
+      join(dir, '0019-new.md'),
+      withDate(withAffects(acceptedRecordMarkdown('0019', 'Use opaque server sessions'), 'src/**'), '2026-01-15'),
+    );
+    await writeText(join(root, 'src/app.ts'), 'export const app = 1;\n');
+
+    const result = await runAdr(['explain', 'src/app.ts', '--as-of', '2026-09-01'], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('no in-force interval: recorded 2026-06-01');
+    expect(result.stdout).not.toContain('in force 2026-06-01 → 2026-01-15');
+    expect(result.stdout).toContain('temporal-window-inverted');
+    // 0007 is history on every date; only the successor governs.
+    expect(result.stdout).toContain('0019  [accepted] Use opaque server sessions');
+  });
+
   test('a path no decision reaches says so for the date asked about', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeSupersessionCorpus(root);

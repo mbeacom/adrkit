@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0037"
 title: Treat generated knowledge systems as downstream read models, not decision authorities
-status: proposed
+status: accepted
 date: 2026-08-29
 created: 2026-08-29
 deciders: ["@mbeacom"]
@@ -26,6 +26,7 @@ affects:
     pattern: "packages/core/src/schema/adr.schema.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -34,6 +35,8 @@ review:
     integrations consume.
   queuedAt: 2026-08-30T02:14:34Z
   slaDays: 30
+  decidedAt: 2026-09-22T01:42:29Z
+  approvals: ["@mbeacom"]
 externalRefs:
   - type: doc
     url: "https://www.langchain.com/blog/self-correcting-memory-openwiki"
@@ -49,8 +52,10 @@ reviewBy: 2027-02-28
 
 # ADR-0037: Treat generated knowledge systems as downstream read models, not decision authorities
 
-> **Status: proposed.** This record is agent-drafted and requires explicit human
-> ratification before it becomes project law.
+> **Status: accepted.** Agent-drafted and explicitly ratified by `@mbeacom` on
+> 2026-09-21, within the 30-day ARB SLA opened 2026-08-30. The decision is
+> unchanged from the proposal; ratification records that a human reviewed the
+> authority boundary it sets, not that the record was rewritten.
 
 ## Context
 

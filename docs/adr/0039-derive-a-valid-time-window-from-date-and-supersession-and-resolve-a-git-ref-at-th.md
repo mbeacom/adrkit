@@ -2,9 +2,10 @@
 schemaVersion: 0.1.0
 id: "0039"
 title: "Derive a valid-time window from date and supersession, and resolve a git ref at the CLI boundary"
-status: proposed
+status: accepted
 date: 2026-09-21
-deciders: []
+deciders:
+  - "@mbeacom"
 tags:
   - cli
   - core
@@ -32,18 +33,23 @@ affects:
     pattern: "site/src/content/docs/commands.mdx"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: Adds a temporal contract and the first subprocess in @adrkit/cli.
+  decidedAt: 2026-09-22T01:42:29Z
+  approvals: ["@mbeacom"]
 reviewBy: 2027-09-21
 ---
 
 # ADR-0039: Derive a valid-time window from date and supersession, and resolve a git ref at the CLI boundary
 
-> **Status: proposed.** Agent-drafted. Implements part B of
+> **Status: accepted.** Agent-drafted and explicitly ratified by `@mbeacom` on
+> 2026-09-21. Implements part B of
 > [#116](https://github.com/mbeacom/adrkit/issues/116), whose part A shipped in
 > [#187](https://github.com/mbeacom/adrkit/pull/187) under ADR-0022's advisory
-> rule. Not ratified.
+> rule. The decision is unchanged from the proposal; two defects in the mechanic
+> that implements it were found in review and are recorded in Consequences.
 
 ## Context
 
@@ -216,6 +222,24 @@ present-tense output, which reports a record that governed in March as history.
   for an empty scan. Suppressing the evidence lines was the alternative and was
   rejected: hiding them trades a misreading for a silence, and this repository
   consistently prefers the report.
+- **Two defects in the implementing mechanic, both found in review.** Neither
+  changes the decision; both are recorded because the mechanic was wrong in ways
+  the decision's own reasoning should have anticipated.
+  1. **`Bun.spawn` in a Node-targeted artifact.** The subprocess wrapper was
+     copied from `catalog-backstage`, which runs only under Bun. `@adrkit/cli`
+     builds with `--target=node` and `bun build` does not shim the `Bun` global,
+     so `adr explain --as-of <ref>` was a `ReferenceError` in every published
+     install — and the wrapper's broad `catch` converted it into the message
+     *"git is not installed or not on PATH"*. A confident, wrong diagnosis is the
+     exact failure this record's `deprecated` reasoning exists to avoid, so the
+     catch is now narrowed to `ENOENT` and anything else surfaces. A Bun-run test
+     suite cannot observe this class of defect at all; the guards are a
+     shipped-source contract test and a `--as-of <ref>` case in the Node smoke.
+  2. **An inverted window rendered as an interval.** `standingAsOf` refuses to
+     call an inverted window governing on any date, but the renderer still printed
+     `in force <opens> → <closes>` for it — reporting a governing period the kernel
+     had rejected. The predicate is now `isInvertedWindow` in `@adrkit/core`, used
+     by both the kernel and the renderer, so the two cannot drift.
 - **How we would know this was wrong:**
   1. A user reports that `--as-of` named a record as governing that demonstrably
      was not, because `date` was back-dated or edited after the fact. That would
@@ -245,7 +269,8 @@ present-tense output, which reports a record that governed in March as history.
 4. [x] Every load-bearing rule observed failing under mutation before counting
    as coverage (ADR-0016): half-open boundary, present-tense bucketing,
    `deprecated` handling, marker suppression, immediate-vs-terminal successor,
-   and the `--no-show-signature` regression.
+   the `--no-show-signature` regression, the shipped-source Bun-global contract,
+   and inverted-window rendering.
 5. [ ] Reference-repository run against a corpus with a real supersession chain
    (ADR-0014 rung 2). This record ships at **rung 1** only.
 6. [ ] Decide whether `adr check` and the governing-decisions Action should

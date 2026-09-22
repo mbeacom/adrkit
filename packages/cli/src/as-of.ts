@@ -15,11 +15,18 @@
  *
  * The git half is the only subprocess in `@adrkit/cli`. It stays here, at the boundary, and
  * nothing in `@adrkit/core` learns about it — the same split `checkChanges` keeps from
- * marker I/O, and `graph` keeps from TTY detection. `packages/cli` cannot import from
- * `packages/adapters/*` (CI enforces it), so the `runGit` shape is the one from
- * `catalog-backstage/src/repository/identity.ts`, including the denied terminal prompt.
+ * marker I/O, and `graph` keeps from TTY detection.
+ *
+ * It uses `node:child_process`, **not** `Bun.spawn`. `@adrkit/cli` is built with
+ * `--target=node` and declares `engines.node >= 22` (ADR-0010: Bun for development,
+ * Node-targeted published artifacts), and `bun build` does not shim the `Bun` global — it
+ * emits the reference verbatim, so a `Bun.spawn` here is a `ReferenceError` in every
+ * published install. This is the only place in `packages/cli/src` or `packages/core/src`
+ * that runs a subprocess, and `test/node-compatibility.test.ts` now asserts no shipped
+ * source reaches for a Bun global at all.
  */
 
+import { execFile } from 'node:child_process';
 import { resolveAsOf } from '@adrkit/core';
 
 /** Which grammar produced the date. */
@@ -53,27 +60,48 @@ interface GitOutcome {
   exitCode: number;
 }
 
-async function runGit(args: readonly string[], cwd: string): Promise<GitOutcome | 'missing'> {
-  try {
-    const proc = Bun.spawn(['git', ...args], {
-      cwd,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      // A ref lookup is local git state. Denying the terminal prompt keeps the subprocess
-      // from reaching for a credential helper, and therefore from reaching the network,
-      // for a value that came off the command line.
-      env: { ...Bun.env, GIT_TERMINAL_PROMPT: '0' },
-    });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
-    return { ok: exitCode === 0, stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
-  } catch {
-    // `Bun.spawn` throws rather than returning a non-zero exit when the binary is absent.
-    return 'missing';
-  }
+function runGit(args: readonly string[], cwd: string): Promise<GitOutcome | 'missing'> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'git',
+      [...args],
+      {
+        cwd,
+        // A ref lookup is local git state. Denying the terminal prompt keeps the subprocess
+        // from reaching for a credential helper, and therefore from reaching the network,
+        // for a value that came off the command line.
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+        encoding: 'utf8',
+        windowsHide: true,
+        // The outputs are a commit id and a date. A megabyte is already far past anything
+        // legitimate, and bounding it keeps a pathological repository from being read into
+        // memory here.
+        maxBuffer: 1024 * 1024,
+      },
+      (error, stdout, stderr) => {
+        // Narrow on purpose. The predecessor caught *everything* and returned `missing`,
+        // which turned a `ReferenceError: Bun is not defined` under Node into the message
+        // "git is not installed or not on PATH" — a confident, wrong diagnosis that hid the
+        // real defect. Only an absent binary means missing; anything else is either a git
+        // exit code or a bug that should surface.
+        const code = (error as NodeJS.ErrnoException | null)?.code;
+        if (code === 'ENOENT') {
+          resolve('missing');
+          return;
+        }
+        if (error && typeof code !== 'number') {
+          reject(error);
+          return;
+        }
+        resolve({
+          ok: !error,
+          stdout: stdout.trim(),
+          stderr: stderr.trim(),
+          exitCode: typeof code === 'number' ? code : 0,
+        });
+      },
+    );
+  });
 }
 
 /**

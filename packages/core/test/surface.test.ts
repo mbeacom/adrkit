@@ -63,6 +63,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'formatQueueReportJson',
   'formatQueueReportMarkdown',
   'isConventionalNonRecordFileName',
+  'isInvertedWindow',
   'isRecordFileName',
   'lintCorpus',
   'loadAdrFile',
