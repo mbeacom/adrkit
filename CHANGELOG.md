@@ -91,7 +91,9 @@ Until `1.0.0`, minor releases may include breaking changes
   is history on every date, because it was in force on none. **`--as-of` re-dates
   the corpus, never the working tree** — `affects` patterns and `@adr` markers are
   still read from today's records and today's files; reading file contents at a
-  past ref is a strictly larger contract and is not attempted. **A marker that was
+  past ref is a strictly larger contract and is not attempted, and the view prints
+  a note saying so, because the evidence lines are the one thing that is not
+  re-dated. **A marker that was
   accurate on the asked-for date is no longer reported stale**, so part A's
   `stale-marker` warning and this view cannot give two answers to one question.
 

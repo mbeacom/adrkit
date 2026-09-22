@@ -103,7 +103,12 @@ async function resolveRef(ref: string, cwd: string): Promise<AsOfResolution> {
   }
 
   const commit = verified.stdout;
-  const shown = await runGit(['show', '-s', '--format=%cI', commit], cwd);
+  // `--no-show-signature` is not optional. A user with `log.showSignature = true` in their
+  // config and a signed commit otherwise gets `Good "git" signature for …` prepended to
+  // **stdout**, ahead of the date — and this command would then report "git could not
+  // resolve it to a commit" for a perfectly good HEAD. Observed, not anticipated: the same
+  // class of inherited-config surprise as the `tag.gpgSign` hang that the test harness pins.
+  const shown = await runGit(['show', '-s', '--no-show-signature', '--format=%cI', commit], cwd);
   if (shown === 'missing' || !shown.ok || shown.stdout.length === 0) {
     return { ok: false, failure: { code: 'ref-unresolved' } };
   }

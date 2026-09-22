@@ -113,6 +113,37 @@ async function writeSupersessionCorpus(root: string): Promise<string> {
   return dir;
 }
 
+/**
+ * Whether this machine's git can produce an SSH-signed commit.
+ *
+ * The signature regression below needs a genuinely signed commit — `log.showSignature`
+ * changes nothing without one — and SSH signing needs git >= 2.34 plus `ssh-keygen`. The
+ * probe keeps an old toolchain from failing the suite for a reason that is not adrkit's.
+ */
+async function canSignCommits(): Promise<boolean> {
+  const probe = await isolatedRoot();
+  try {
+    const key = join(probe, 'signing-key');
+    const keygen = Bun.spawn(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', key, '-C', 'adrkit-test'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    if ((await keygen.exited) !== 0) return false;
+    await git(['init', '-q', '-b', 'main', '.'], probe);
+    await writeText(join(probe, 'a.txt'), 'x\n');
+    await git(['add', '-A'], probe);
+    await git(
+      ['-c', 'gpg.format=ssh', '-c', `user.signingkey=${key}.pub`, '-c', 'commit.gpgsign=true', 'commit', '-qm', 'signed'],
+      probe,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const SIGNING_AVAILABLE = await canSignCommits();
+
 afterEach(async () => {
   await cleanupTestDir(DIR_NAME);
   await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
@@ -133,6 +164,20 @@ describe('adr explain --as-of', () => {
     expect(result.stdout).toContain('in force 2026-01-15 → 2026-06-01 (closed by 0019)');
     expect(result.stdout).toContain('Not yet recorded as of 2026-03-01:');
     expect(result.stdout).toContain('recorded 2026-06-01');
+  });
+
+  test('the view says plainly that evidence is not re-dated, and only under --as-of', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeSupersessionCorpus(root);
+
+    const asOf = await runAdr(['explain', 'src/auth/session.ts', '--as-of', '2026-03-01'], root);
+    const present = await runAdr(['explain', 'src/auth/session.ts'], root);
+
+    // Every `via path:` and `declared by` line below the header was read from today's
+    // corpus and today's file. Without this, `via path: src/auth/**` under a record dated
+    // after the query reads as a claim about what matched back then.
+    expect(asOf.stdout).toContain('only standing is re-dated');
+    expect(present.stdout).not.toContain('only standing is re-dated');
   });
 
   test('the handover date belongs to the successor alone', async () => {
@@ -347,5 +392,57 @@ describe('adr explain --as-of rejections', () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain('Missing value for option "--as-of"');
+  });
+});
+
+describe('adr explain --as-of and inherited git config', () => {
+  test.skipIf(!SIGNING_AVAILABLE)(
+    'a signed commit under log.showSignature still resolves',
+    async () => {
+      const root = await isolatedRoot();
+      await writeSupersessionCorpus(root);
+      const key = join(root, 'signing-key');
+      const keygen = Bun.spawn(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', key, '-C', 'adrkit-test'], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+      expect(await keygen.exited).toBe(0);
+
+      await git(['init', '-q', '-b', 'main', '.'], root);
+      await git(['add', '-A'], root);
+      await git(
+        ['-c', 'gpg.format=ssh', '-c', `user.signingkey=${key}.pub`, '-c', 'commit.gpgsign=true', 'commit', '-qm', 'first'],
+        root,
+      );
+      // Repo-local, so the CLI's own git invocation inherits it exactly as a user's
+      // global config would.
+      await git(['config', 'log.showSignature', 'true'], root);
+
+      const result = await runAdr(['explain', 'src/auth/session.ts', '--as-of', 'HEAD', '--json'], root);
+
+      // Without `--no-show-signature`, git prepends `Good "git" signature for …` to
+      // stdout and this exits 2 with "git could not resolve it to a commit".
+      expect(result.stderr).toBe('');
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout).asOf.date).toBe('2026-02-10');
+    },
+  );
+
+  test('a ref resolves against the working directory, not --dir', async () => {
+    const repo = await repoRoot();
+    const elsewhere = await isolatedRoot();
+    await writeSupersessionCorpus(elsewhere);
+
+    // The corpus lives outside the repository the ref is resolved in. `--dir` selects
+    // records; the working directory selects the git history. Pinned because moving ref
+    // resolution to the corpus directory would look like a tidy-up and silently change
+    // which repository a ref means.
+    const result = await runAdr(
+      ['explain', 'src/auth/session.ts', '--dir', join(elsewhere, 'docs/adr'), '--as-of', 'HEAD', '--json'],
+      repo,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).asOf.date).toBe('2026-02-10');
   });
 });

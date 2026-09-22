@@ -969,6 +969,13 @@ function renderAsOfView(
       ? ` ${style.note(`(${resolved.requested} → ${resolved.commit.slice(0, 12)}, committed ${resolved.committedAt ?? '?'})`)}`
       : '';
   let output = `${style.heading(`As of ${view.date}`)}${provenance}\n`;
+  // The one line that keeps the as-of view from reading as a claim about the file's past
+  // *contents*. Every evidence line below — `via path:`, `declared by …` — was read from
+  // today's corpus and today's working tree; only standing is re-dated. That is the
+  // failure mode ADR-0039 lists under "how we would know this was wrong", and the same
+  // reason `renderMarkerScanNote` exists: the alternative is a reader silently inferring
+  // the wrong thing from output that looks complete.
+  output += `${style.note('Note: matchers and @adr markers are read from today\u2019s corpus and working tree; only standing is re-dated.')}\n`;
 
   const reached =
     view.governing.length +

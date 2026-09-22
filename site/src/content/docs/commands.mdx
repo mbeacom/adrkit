@@ -221,6 +221,7 @@ adr explain src/auth/session.ts --as-of a1b2c3d
 
 ```
 As of 2026-03-01
+Note: matchers and @adr markers are read from today’s corpus and working tree; only standing is re-dated.
 Decisions governing src/auth/session.ts as of 2026-03-01:
   0007  [superseded] Use JWT sessions (superseded by 0019)
     in force 2026-01-15 → 2026-06-01 (closed by 0019)
@@ -250,7 +251,9 @@ side by side as `bucket` (present) and `standing` (as of).
 - **`--as-of` re-dates the corpus, never the working tree.** Which decisions
   reach the path is still read from today's records and today's file contents;
   only their standing is re-dated. Reading file contents at a past ref is a
-  strictly larger contract and is deliberately not attempted.
+  strictly larger contract and is deliberately not attempted. Because the
+  evidence lines (`via path:`, `declared by …`) are the one thing that is *not*
+  re-dated, the view says so in a note under its header.
 - **A marker accurate on that date is not stale.** `@adr 0007` naming a record
   that was in force on 2026-03-01 raises no `stale-marker` warning under
   `--as-of 2026-03-01`. The present-tense diagnostic is unchanged.

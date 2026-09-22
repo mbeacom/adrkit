@@ -133,7 +133,8 @@ Five things are load-bearing and easy to break:
   come from today's records and `@adr` markers from today's files. Reading file
   contents at a past ref needs rename tracking and a blob read, and is
   deliberately out of scope — it is the boundary #116's author named when
-  deferring part B.
+  deferring part B. The human view prints a note saying so, because the evidence
+  lines are the one thing that is not re-dated; do not delete it as noise.
 - **A marker accurate on that date is not stale.** `resolveSourceMarkers` takes
   an optional `asOf`, and suppresses `stale-marker` for a record that was in
   force then. Without it, the same output tells you to fix a marker while
@@ -145,9 +146,17 @@ Five things are load-bearing and easy to break:
   the only subprocess in `@adrkit/cli`, tries the date grammar **before** a git
   ref (so a tag named `2026-03-01` reads as a date), peels with
   `rev-parse --verify <ref>^{commit}`, and dates with the **committer** date
-  (`%cI`, a stated choice). Tests that shell out to git must set
-  `GIT_CONFIG_GLOBAL=/dev/null` — a developer with `tag.gpgSign = true` globally
-  otherwise hangs the suite on a passphrase prompt.
+  (`%cI`, a stated choice). **Inherited git config is a hazard on both sides**:
+  tests that shell out to git must set `GIT_CONFIG_GLOBAL=/dev/null`, because a
+  developer with `tag.gpgSign = true` globally otherwise hangs the suite on a
+  passphrase prompt; and `git show` must keep `--no-show-signature`, because a
+  user with `log.showSignature = true` and a signed commit otherwise gets
+  `Good "git" signature for …` prepended to stdout and `--as-of HEAD` fails with
+  a misleading "could not resolve". Both were found by running the code.
+- **`temporal-window-open` is library-only.** A `superseded` record whose
+  successor the corpus lacks is a `dangling-supersededBy` **error**, which gates
+  `adr explain` before any temporal code runs. The finding is reachable through
+  `resolveDecisionsAsOf` as a library call and not through the CLI.
 
 Additive: without the flag, stdout and `--json` are unchanged, and the
 present-tense `governing`/`activeProposals`/`history` keys keep their meaning

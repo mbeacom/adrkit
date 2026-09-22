@@ -182,6 +182,16 @@ present-tense output, which reports a record that governed in March as history.
 - **`date` is not a file's history.** A record's `date` is the decision date,
   not when the file was committed. A record back-dated or edited later carries
   the date its author wrote down, and the window inherits that.
+- **The open-window case is library-only, and #116's version of it cannot arise
+  here.** The issue imports from prior art that "legacy records with unknown
+  close dates stay `null` = open". In adrkit a `superseded` record is *required*
+  by the schema to name a successor, and a successor the corpus lacks is a
+  `dangling-supersededBy` **error** — which gates `adr explain` before any
+  temporal code runs. So `temporal-window-open` is reachable through
+  `resolveDecisionsAsOf` as a library call and **not** through the CLI. The guard
+  is kept because the function is a published export, but the claim should not be
+  read as CLI-observable behavior. Verified by running the case, not by reasoning
+  about it.
 
 ## Consequences
 
@@ -189,11 +199,23 @@ present-tense output, which reports a record that governed in March as history.
   reproducible, with no network and no model call (ADR-0009). A stale-marker
   warning stops firing on markers that were accurate at the time being asked
   about, which is what made the combination of part A and part B confusing.
-- **Harder:** the `explain` surface is larger — five standings, a window line,
-  and an `asOf` JSON block. The CLI now has a subprocess, so its test harness
-  has to isolate git config (`GIT_CONFIG_GLOBAL=/dev/null`): a developer with
-  `tag.gpgSign = true` set globally otherwise hangs the suite on a passphrase
-  prompt, which was observed during implementation rather than predicted.
+- **Harder:** the `explain` surface is larger — five standings, a window line, a
+  provenance note, and an `asOf` JSON block. The CLI now has a subprocess, and
+  **inherited git config is a hazard on both sides of it**. Two instances were
+  found by executing the code rather than reasoning about it: a developer with
+  `tag.gpgSign = true` set globally hangs the test suite on a passphrase prompt
+  (fixed with `GIT_CONFIG_GLOBAL=/dev/null` in the harness), and a user with
+  `log.showSignature = true` and a signed commit gets `Good "git" signature for …`
+  prepended to **stdout**, which made `--as-of HEAD` fail with the misleading
+  "git could not resolve it to a commit" (fixed with `--no-show-signature`, and
+  pinned by a test that signs a commit). Any future git invocation here inherits
+  the same class of problem.
+- **The human view states its own boundary.** Because `via path:` and
+  `declared by …` lines are the one thing `--as-of` does *not* re-date, the view
+  says so in a note under its header — the same job `renderMarkerScanNote` does
+  for an empty scan. Suppressing the evidence lines was the alternative and was
+  rejected: hiding them trades a misreading for a silence, and this repository
+  consistently prefers the report.
 - **How we would know this was wrong:**
   1. A user reports that `--as-of` named a record as governing that demonstrably
      was not, because `date` was back-dated or edited after the fact. That would
@@ -204,9 +226,10 @@ present-tense output, which reports a record that governed in March as history.
      in the `undetermined` bucket across the reference repository and the
      repository's own corpus. Above roughly a quarter, option B's schema change
      becomes the better trade.
-  3. Anyone reads the as-of output as a claim about the file's past *contents*.
-     That would mean the "re-dates the corpus, never the working tree" boundary
-     is not legible from the output itself and needs to be said in it.
+  3. Anyone still reads the as-of output as a claim about the file's past
+     *contents* despite the note under the header. That would mean the boundary
+     is not sayable in one line and the evidence lines need to be suppressed or
+     relabelled per group.
 - **Revisit if:** a second surface needs as-of (`check`, the Action, or the MCP
   server), which would make the CLI-boundary git resolution a shared concern
   rather than one command's; or `@adrkit/sdk` moves past a types-only sketch,
@@ -221,8 +244,8 @@ present-tense output, which reports a record that governed in March as history.
 3. [x] Marker staleness judged against `asOf` when supplied, unchanged otherwise.
 4. [x] Every load-bearing rule observed failing under mutation before counting
    as coverage (ADR-0016): half-open boundary, present-tense bucketing,
-   `deprecated` handling, marker suppression, and immediate-vs-terminal
-   successor.
+   `deprecated` handling, marker suppression, immediate-vs-terminal successor,
+   and the `--no-show-signature` regression.
 5. [ ] Reference-repository run against a corpus with a real supersession chain
    (ADR-0014 rung 2). This record ships at **rung 1** only.
 6. [ ] Decide whether `adr check` and the governing-decisions Action should

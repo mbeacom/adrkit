@@ -160,6 +160,7 @@ the record's own `date` and closes on its immediate successor's.
 ```
 $ adr explain src/auth/session.ts --as-of 2026-03-01
 As of 2026-03-01
+Note: matchers and @adr markers are read from today’s corpus and working tree; only standing is re-dated.
 Decisions governing src/auth/session.ts as of 2026-03-01:
   0007  [superseded] Use JWT sessions (superseded by 0019)
     in force 2026-01-15 → 2026-06-01 (closed by 0019)
@@ -170,7 +171,10 @@ Not yet recorded as of 2026-03-01:
 ```
 
 The status in brackets is the record's status **now**; the window underneath is
-what placed it. Both are true, and a reader needs both.
+what placed it. Both are true, and a reader needs both. The note under the header
+is there because the evidence lines (`via path:`, `declared by …`) are read from
+today's corpus and today's file — they are the one thing `--as-of` does not
+re-date.
 
 - **The value is a date first, a git ref second.** `YYYY-MM-DD` or an ISO
   datetime with an explicit timezone is read as a date; anything else is resolved
