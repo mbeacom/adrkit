@@ -48408,6 +48408,37 @@ function bucketDecisions(decisions) {
   return buckets;
 }
 
+// ../core/src/temporal/window.ts
+function decisionWindowFor(record2, byId) {
+  const opensOn = record2.frontmatter.date;
+  if (record2.frontmatter.status !== "superseded")
+    return { opensOn, closesOn: null };
+  const successorId = record2.frontmatter.supersededBy;
+  const successor = successorId ? byId.get(successorId) : undefined;
+  if (!successor)
+    return { opensOn, closesOn: null };
+  return { opensOn, closesOn: successor.frontmatter.date, closedBy: successor.frontmatter.id };
+}
+function standingAsOf(status, window, asOf) {
+  if (asOf < window.opensOn)
+    return "notYetRecorded";
+  switch (status) {
+    case "accepted":
+      return "governing";
+    case "superseded":
+      return window.closesOn === null || asOf < window.closesOn ? "governing" : "history";
+    case "deprecated":
+      return "undetermined";
+    case "rejected":
+      return "history";
+    default:
+      return "activeProposals";
+  }
+}
+function wasGoverningAsOf(record2, byId, asOf) {
+  return standingAsOf(record2.frontmatter.status, decisionWindowFor(record2, byId), asOf) === "governing";
+}
+
 // ../core/src/markers/resolve.ts
 function danglingFinding(marker) {
   return {
@@ -48450,11 +48481,13 @@ function terminalLiveSuccessor(record2, byId) {
   }
   return;
 }
-function staleFinding(marker, record2, byId) {
+function staleFinding(marker, record2, byId, asOf) {
   const status = record2.frontmatter.status;
   if (status !== "superseded" && status !== "rejected" && status !== "deprecated") {
     return;
   }
+  if (asOf !== undefined && wasGoverningAsOf(record2, byId, asOf))
+    return;
   const successor = status === "superseded" ? terminalLiveSuccessor(record2, byId) : undefined;
   const action = successor ? `update it to "@adr ${successor}" or re-affirm ${marker.id}` : `update the marker or re-affirm ${marker.id}`;
   return {
@@ -48488,7 +48521,7 @@ function resolveSourceMarkers(input) {
       findings.push(danglingFinding(marker));
       continue;
     }
-    const stale = staleFinding(marker, record2, byId);
+    const stale = staleFinding(marker, record2, byId, input.asOf);
     if (stale)
       findings.push(stale);
     const declarations = byRecord.get(marker.id) ?? [];
