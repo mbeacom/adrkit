@@ -316,6 +316,12 @@ answer where the next decision is actually being made.
   language, with no schema change. Only `accepted` records are reported as
   governing; matched proposals and superseded/rejected/deprecated records are
   listed separately.
+- **`adr explain <path> --as-of <date|ref>`** — answer the same question for a
+  past date: *which decisions governed this file when this code was written?* A
+  record's window opens on its own `date` and closes on its successor's, so a
+  record superseded today is reported as governing then. Takes `YYYY-MM-DD`, an
+  ISO datetime with an explicit timezone, or a git ref resolved to its commit's
+  committer date. No schema change — the corpus already carries both halves.
 - **`adr check <files...>`** — validate the changed records and list the decisions
   governing a changed-file set, including inbound `@adr` declarations. Marker reads
   are bounded to 3,000 files / 16 concurrent reads, 64 declarations per file, and

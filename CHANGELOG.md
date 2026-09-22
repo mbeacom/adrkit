@@ -69,6 +69,43 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **`adr explain --as-of <date|ref>` answers which decisions governed a path on a
+  past date.** "Which decisions governed this file when this code was written?" is
+  the question every archaeology session asks, and the corpus already held both
+  halves of the answer: every record carries a `date`, and a superseded record
+  names its successor. A valid-time window therefore opens on a record's own
+  `date` and closes on its immediate successor's, with **no schema change**. A
+  record superseded today is reported as governing then, with its window printed
+  beneath its present status — both facts are true, and a reader needs both.
+  Windows are half-open, so the successor owns its own start day and exactly one
+  record along a supersession chain is in force on any date. The value is read as
+  a date first (`YYYY-MM-DD`, or an ISO datetime with an explicit timezone, via
+  the same `resolveAsOf` rule `adr queue` uses) and only otherwise as a git ref,
+  peeled with `rev-parse --verify <ref>^{commit}` and dated by that commit's
+  committer date — so a tag named `2026-03-01` reads as a date.
+
+  Three boundaries are load-bearing. **`deprecated` is reported as
+  `undetermined`, not guessed at**: the schema allows `supersededBy` only on
+  `superseded`, so a deprecated record records no date it stopped governing, and
+  a confidently wrong archaeology answer is worse than none. A `rejected` record
+  is history on every date, because it was in force on none. **`--as-of` re-dates
+  the corpus, never the working tree** — `affects` patterns and `@adr` markers are
+  still read from today's records and today's files; reading file contents at a
+  past ref is a strictly larger contract and is not attempted. **A marker that was
+  accurate on the asked-for date is no longer reported stale**, so part A's
+  `stale-marker` warning and this view cannot give two answers to one question.
+
+  Additive throughout: without the flag, stdout and `--json` are byte-identical to
+  before, and with it the present-tense `governing`, `activeProposals`, and
+  `history` keys keep their meaning underneath a new `asOf` block. The temporal
+  kernel is pure — no clock, no filesystem, no subprocess — and git resolution is
+  confined to the CLI boundary, the first subprocess in `@adrkit/cli`. New
+  `@adrkit/core` exports: `buildDecisionWindows`, `decisionWindowFor`,
+  `standingAsOf`, `wasGoverningAsOf`, `resolveDecisionsAsOf`. Implements part B of
+  [#116](https://github.com/mbeacom/adrkit/issues/116) (part A shipped in
+  [#187](https://github.com/mbeacom/adrkit/pull/187)), proposed as
+  [ADR-0039](docs/adr/0039-derive-a-valid-time-window-from-date-and-supersession-and-resolve-a-git-ref-at-th.md).
+
 - **The agent plugin offers the bootstrap decision record (`adrkit` 0.3.0).** A
   repository with no ADR corpus, or one whose corpus never recorded why it keeps
   decisions, is now offered the process decision (keep decisions in git) and the
