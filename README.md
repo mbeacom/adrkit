@@ -350,8 +350,9 @@ answer where the next decision is actually being made.
 
 It never approves anything. It routes, and humans decide.
 
-The first Marketplace release is planned as `v0.13.0`. Its immutable root
-reference gives a new adopter the complete governing-decisions workflow (see
+The root Marketplace entry point has shipped with every release since
+`v0.13.0`. Pin its immutable root reference — currently `v0.14.0` — for the
+complete governing-decisions workflow (see
 [Use in CI](https://adrkit.dev/ci/)):
 
 ```yaml
@@ -369,10 +370,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mbeacom/adrkit@v0.13.0
+      - uses: mbeacom/adrkit@v0.14.0
 ```
 
-Until that release exists, and for existing consumers after it does, use
+Existing consumers of the nested form can stay on
 `mbeacom/adrkit/packages/ci@v0`. The queue Action remains available at
 `mbeacom/adrkit/packages/ci/queue@v0`.
 

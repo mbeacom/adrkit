@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mbeacom/adrkit@v0.13.0
+      - uses: mbeacom/adrkit@v0.14.0
         # with:
         #   dir: docs/adr          # ADR corpus directory (default: docs/adr)
         #   token: ${{ github.token }}
@@ -67,7 +67,7 @@ the comment reaches GitHub's size limit. Keep the default checkout rooted at
 `GITHUB_WORKSPACE`; if a workflow checks out elsewhere, marker health will
 identify files the Action could not inspect.
 
-The Marketplace form is pinned to the immutable `v0.13.0` release. For
+The Marketplace form is pinned to the immutable `v0.14.0` release. For
 the nested compatibility form, `v0` is a moving major tag; pin an immutable
 release tag or commit SHA when maximum reproducibility matters.
 
@@ -78,14 +78,14 @@ release tag or commit SHA when maximum reproducibility matters.
 </Aside>
 
 <Aside type="caution" title="Pinning a release tag by SHA">
-	The `v*` release tags are **annotated**, so `refs/tags/v0.13.0` resolves to a tag
+	The `v*` release tags are **annotated**, so `refs/tags/v0.14.0` resolves to a tag
 	object rather than a commit, and `uses:` rejects that SHA. Pin the commit the tag
 	points *at*:
 
 	```sh
-	git rev-parse v0.13.0^{commit}
+	git rev-parse v0.14.0^{commit}
 	# or, over the API — this endpoint peels the tag for you:
-	gh api repos/mbeacom/adrkit/commits/v0.13.0 --jq .sha
+	gh api repos/mbeacom/adrkit/commits/v0.14.0 --jq .sha
 	```
 
 	Note that `GET /git/ref/tags/{tag}` does **not** peel: its `object.sha` is the tag

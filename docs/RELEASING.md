@@ -10,8 +10,8 @@ Actions, one Marketplace entry point, and one lockstep OCI image:
 | `@adrkit/cli` (`adr`, `adrkit`) | npm |
 | `@adrkit/mcp` (`adrkit-mcp`) | npm |
 | `action.yml` | GitHub Actions Marketplace and Git tag (governing-decisions alias; available beginning with `v0.13.0`) |
-| `packages/ci/action.yml` | Git tag (existing governing-decisions subpath, latest immutable release `v0.13.0`, moving `v0`) |
-| `packages/ci/queue/action.yml` | Git tag (nested queue Action, latest immutable release `v0.13.0`, moving `v0`) |
+| `packages/ci/action.yml` | Git tag (existing governing-decisions subpath, latest immutable release `v0.14.0`, moving `v0`) |
+| `packages/ci/queue/action.yml` | Git tag (nested queue Action, latest immutable release `v0.14.0`, moving `v0`) |
 | `ghcr.io/mbeacom/adrkit` | GitHub Container Registry (`vX.Y.Z`, moving `vX`, `latest`; begins with the first release containing ADR-0032) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
@@ -23,7 +23,7 @@ Action intentionally remains nested. `scripts/marketplace-action-contract.test.t
 keeps the two governing-decisions metadata contracts identical except for their
 different bundle paths.
 
-The coordinated lockstep surface is published; the current release is `v0.13.0`. `@adrkit/core`,
+The coordinated lockstep surface is published; the current release is `v0.14.0`. `@adrkit/core`,
 `@adrkit/evaluator`, and `@adrkit/cli` use GitHub Actions Trusted Publishing.
 `@adrkit/mcp` was created with the isolated one-time bootstrap path below; its
 Trusted Publisher and token-restriction cleanup must be completed before the
