@@ -245,3 +245,74 @@ describe('mergeSourceDeclarations', () => {
     expect(merged.map((decision) => decision.bucket)).toEqual(['activeProposals']);
   });
 });
+
+describe('resolveSourceMarkers with asOf', () => {
+  // `record()` dates every record 2026-07-18, so a successor has to be dated explicitly
+  // for the window to have two ends.
+  function dated(
+    id: string,
+    status: Adr['frontmatter']['status'],
+    date: string,
+    supersededBy?: string,
+  ): Adr {
+    const base = record(id, status, supersededBy);
+    return { ...base, frontmatter: { ...base.frontmatter, date } };
+  }
+
+  const superseded = dated('0007', 'superseded', '2026-01-15', '0019');
+  const successor = dated('0019', 'accepted', '2026-06-01');
+  const records = [superseded, successor];
+
+  test('a marker naming a record that was in force on that date is not stale', () => {
+    const result = resolveSourceMarkers({
+      records,
+      markers: [marker('0007', 'src/auth/session.ts', 3)],
+      asOf: '2026-03-01',
+    });
+
+    expect(result.findings).toEqual([]);
+    expect(result.matches).toEqual([
+      { recordId: '0007', declaredBy: [{ path: 'src/auth/session.ts', line: 3, ref: '0007' }] },
+    ]);
+  });
+
+  test('the same marker is stale once the window has closed', () => {
+    const result = resolveSourceMarkers({
+      records,
+      markers: [marker('0007', 'src/auth/session.ts', 3)],
+      asOf: '2026-06-01',
+    });
+
+    expect(result.findings.map((finding) => finding.rule)).toEqual(['stale-marker']);
+  });
+
+  test('omitting asOf leaves present-tense staleness exactly as it was', () => {
+    const withoutAsOf = resolveSourceMarkers({
+      records,
+      markers: [marker('0007', 'src/auth/session.ts', 3)],
+    });
+
+    expect(withoutAsOf.findings.map((finding) => finding.rule)).toEqual(['stale-marker']);
+  });
+
+  test('asOf does not rescue a dangling marker, which is about existence rather than time', () => {
+    const result = resolveSourceMarkers({
+      records,
+      markers: [marker('0099', 'src/auth/session.ts', 3)],
+      asOf: '2026-03-01',
+    });
+
+    expect(result.findings.map((finding) => finding.rule)).toEqual(['dangling-marker']);
+  });
+
+  test('asOf never rescues a rejected record, which was in force on no date at all', () => {
+    const rejected = dated('0005', 'rejected', '2026-01-15');
+    const result = resolveSourceMarkers({
+      records: [rejected],
+      markers: [marker('0005', 'src/auth/session.ts', 3)],
+      asOf: '2026-03-01',
+    });
+
+    expect(result.findings.map((finding) => finding.rule)).toEqual(['stale-marker']);
+  });
+});

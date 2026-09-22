@@ -146,6 +146,55 @@ superseded chain, the warning names the terminal live successor when one can be
 resolved; adrkit never silently substitutes it. The warning does not affect the
 exit code.
 
+Under `--as-of`, a marker naming a record that was in force on that date is not
+stale — it was an accurate declaration then. The present-tense warning is
+unchanged.
+
+## Time travel: `adr explain --as-of`
+
+`adr explain <path> --as-of <date|ref>` answers which decisions governed a path
+on a past date. Every record carries a `date`, and a superseded record names its
+successor, so a valid-time window is derivable with no schema change: it opens on
+the record's own `date` and closes on its immediate successor's.
+
+```
+$ adr explain src/auth/session.ts --as-of 2026-03-01
+As of 2026-03-01
+Note: matchers and @adr markers are read from today’s corpus and working tree; only standing is re-dated.
+Decisions governing src/auth/session.ts as of 2026-03-01:
+  0007  [superseded] Use JWT sessions (superseded by 0019)
+    in force 2026-01-15 → 2026-06-01 (closed by 0019)
+    via path: src/auth/**
+Not yet recorded as of 2026-03-01:
+  0019  [accepted] Use opaque server sessions
+    recorded 2026-06-01
+```
+
+The status in brackets is the record's status **now**; the window underneath is
+what placed it. Both are true, and a reader needs both. The note under the header
+is there because the evidence lines (`via path:`, `declared by …`) are read from
+today's corpus and today's file — they are the one thing `--as-of` does not
+re-date.
+
+- **The value is a date first, a git ref second.** `YYYY-MM-DD` or an ISO
+  datetime with an explicit timezone is read as a date; anything else is resolved
+  with `git rev-parse --verify <ref>^{commit}` in the current directory and dated
+  by that commit's **committer** date. A tag named `2026-03-01` therefore reads as
+  a date, not as that tag.
+- **Windows are half-open.** The successor owns its own start day, so exactly one
+  record along a supersession chain is in force on any given date.
+- **`deprecated` is reported as `undetermined`, not guessed at.** The schema
+  allows `supersededBy` only on `superseded`, so a deprecated record records no
+  date it stopped governing. Saying so is the honest answer; a `rejected` record
+  is history on every date, because it was in force on none.
+- **`--as-of` re-dates the corpus, never the working tree.** Which decisions reach
+  the path is still read from today's records and today's file contents. Reading
+  file contents at a past ref is a larger contract and is not attempted.
+- **It is additive.** Without the flag, output is unchanged. With it, `--json`
+  gains an `asOf` block and the present-tense `governing`, `activeProposals`, and
+  `history` keys keep their meaning
+  ([ADR-0039](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0039-derive-a-valid-time-window-from-date-and-supersession-and-resolve-a-git-ref-at-th.md)).
+
 In `--json`, pattern matches appear in `firedMatchers` and file declarations in
 `declaredBy`. `explain --json` includes a single-file `markers` block plus
 `scannedBytes`, `fileBytes`, and exact retained/omitted declaration counts.

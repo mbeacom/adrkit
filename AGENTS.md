@@ -103,6 +103,81 @@ Unlike the surfaces below, this is at **rung 1** of ADR-0014 only — unit,
 contract, and purity coverage plus maintainer verification. No reference-repository
 run.
 
+## Time travel (`adr explain --as-of`)
+
+`adr explain <path> --as-of <date|ref>` answers which decisions governed a path
+on a past date, under
+[ADR-0039](./docs/adr/0039-derive-a-valid-time-window-from-date-and-supersession-and-resolve-a-git-ref-at-th.md)
+(**accepted**, part B of [#116](https://github.com/mbeacom/adrkit/issues/116);
+part A shipped in [#187](https://github.com/mbeacom/adrkit/pull/187)). A
+valid-time window opens at a record's own `date` and closes at its **immediate**
+successor's — not the terminal one, which would report a record in force for its
+successor's whole tenure. No schema change.
+
+Five things are load-bearing and easy to break:
+
+- **The as-of view has its own bucketing.** `decisionBucketFor` sends
+  `superseded` to `history` unconditionally, which is right in the present tense
+  and exactly wrong here. Routing `--as-of` through `bucketDecisions` produces a
+  command that runs, passes its tests, and decorates rather than answers.
+  Standings are `governing`, `activeProposals`, `history`, `notYetRecorded`, and
+  `undetermined`, and windows are **half-open** so the successor owns its own
+  start day.
+- **`deprecated` is `undetermined`, never guessed.** `adr.schema.ts` allows
+  `supersededBy` only on `superseded`, so a `deprecated` record carries no close
+  date anywhere in frontmatter. Treating it as "open from `date`" would assert it
+  governed in a year it may not have. `rejected` is history on every date,
+  because it was in force on none. Both emit advisory findings with no exit-code
+  authority.
+- **`--as-of` re-dates the corpus, never the working tree.** `affects` patterns
+  come from today's records and `@adr` markers from today's files. Reading file
+  contents at a past ref needs rename tracking and a blob read, and is
+  deliberately out of scope — it is the boundary #116's author named when
+  deferring part B. The human view prints a note saying so, because the evidence
+  lines are the one thing that is not re-dated; do not delete it as noise.
+- **A marker accurate on that date is not stale.** `resolveSourceMarkers` takes
+  an optional `asOf`, and suppresses `stale-marker` for a record that was in
+  force then. Without it, the same output tells you to fix a marker while
+  reporting its record as governing. Absent the option, behavior is unchanged —
+  `adr check` and the CI Action never pass it.
+- **The kernel is pure; git lives at the CLI boundary.**
+  `packages/core/src/temporal/**` has no clock, no filesystem, and no
+  subprocess — the date is always an argument. `packages/cli/src/as-of.ts` holds
+  the only subprocess in `@adrkit/cli`, tries the date grammar **before** a git
+  ref (so a tag named `2026-03-01` reads as a date), peels with
+  `rev-parse --verify <ref>^{commit}`, and dates with the **committer** date
+  (`%cI`, a stated choice). **Inherited git config is a hazard on both sides**:
+  tests that shell out to git must set `GIT_CONFIG_GLOBAL=/dev/null`, because a
+  developer with `tag.gpgSign = true` globally otherwise hangs the suite on a
+  passphrase prompt; and `git show` must keep `--no-show-signature`, because a
+  user with `log.showSignature = true` and a signed commit otherwise gets
+  `Good "git" signature for …` prepended to stdout and `--as-of HEAD` fails with
+  a misleading "could not resolve". Both were found by running the code.
+- **Shipped source must be Node-compatible.** `packages/cli/src`,
+  `packages/core/src`, and `packages/evaluator/src` build with `--target=node`,
+  and `bun build` does **not** shim the `Bun` global — it emits the reference
+  verbatim. A `Bun.spawn` there is a `ReferenceError` in every published install
+  while the whole Bun-run suite stays green. `as-of.ts` shipped exactly that
+  once, behind a `catch` that reported it as "git is not installed", so the
+  subprocess wrapper uses `node:child_process` and catches only `ENOENT`.
+  `packages/cli/test/node-compatibility.test.ts` enforces the rule; adapters
+  under `packages/adapters/*` are Bun-only and exempt, which is why copying
+  `runGit` from one of them was wrong.
+- **An inverted window is not an interval.** `isInvertedWindow` lives in
+  `@adrkit/core` and is used by both the kernel and the CLI renderer, so a
+  window the kernel refuses to call governing is never printed as `in force
+  <opens> → <closes>`.
+- **`temporal-window-open` is library-only.** A `superseded` record whose
+  successor the corpus lacks is a `dangling-supersededBy` **error**, which gates
+  `adr explain` before any temporal code runs. The finding is reachable through
+  `resolveDecisionsAsOf` as a library call and not through the CLI.
+
+Additive: without the flag, stdout and `--json` are unchanged, and the
+present-tense `governing`/`activeProposals`/`history` keys keep their meaning
+beside the new `asOf` block. **Rung 1** of ADR-0014 only — unit, contract, purity
+and mutation coverage, a Node-runtime smoke, plus maintainer verification. No
+reference-repository run.
+
 Phase 6 ARB queue is
 implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure
 `buildQueueReport` kernel and canonical JSON/Markdown formatters live in

@@ -67,7 +67,67 @@ Until `1.0.0`, minor releases may include breaking changes
   into `/adr-context` and `/adr-check`.
 
 
+### Changed
+
+- **ADR-0037 and ADR-0039 are ratified.** Both were agent-drafted and explicitly
+  accepted by `@mbeacom` on 2026-09-21, with `provenance.ratifiedBy`,
+  `review.approvals`, and `review.decidedAt` recorded. ADR-0037 ("Treat generated
+  knowledge systems as downstream read models, not decision authorities") was
+  ratified within the 30-day ARB SLA opened 2026-08-30. Neither decision changed
+  from its proposal.
+
 ### Added
+
+- **`adr explain --as-of <date|ref>` answers which decisions governed a path on a
+  past date.** "Which decisions governed this file when this code was written?" is
+  the question every archaeology session asks, and the corpus already held both
+  halves of the answer: every record carries a `date`, and a superseded record
+  names its successor. A valid-time window therefore opens on a record's own
+  `date` and closes on its immediate successor's, with **no schema change**. A
+  record superseded today is reported as governing then, with its window printed
+  beneath its present status — both facts are true, and a reader needs both.
+  Windows are half-open, so the successor owns its own start day and exactly one
+  record along a supersession chain is in force on any date. The value is read as
+  a date first (`YYYY-MM-DD`, or an ISO datetime with an explicit timezone, via
+  the same `resolveAsOf` rule `adr queue` uses) and only otherwise as a git ref,
+  peeled with `rev-parse --verify <ref>^{commit}` and dated by that commit's
+  committer date — so a tag named `2026-03-01` reads as a date.
+
+  Three boundaries are load-bearing. **`deprecated` is reported as
+  `undetermined`, not guessed at**: the schema allows `supersededBy` only on
+  `superseded`, so a deprecated record records no date it stopped governing, and
+  a confidently wrong archaeology answer is worse than none. A `rejected` record
+  is history on every date, because it was in force on none. **`--as-of` re-dates
+  the corpus, never the working tree** — `affects` patterns and `@adr` markers are
+  still read from today's records and today's files; reading file contents at a
+  past ref is a strictly larger contract and is not attempted, and the view prints
+  a note saying so, because the evidence lines are the one thing that is not
+  re-dated. **A marker that was
+  accurate on the asked-for date is no longer reported stale**, so part A's
+  `stale-marker` warning and this view cannot give two answers to one question.
+
+  Additive throughout: without the flag, stdout and `--json` are byte-identical to
+  before, and with it the present-tense `governing`, `activeProposals`, and
+  `history` keys keep their meaning underneath a new `asOf` block. The temporal
+  kernel is pure — no clock, no filesystem, no subprocess — and git resolution is
+  confined to the CLI boundary, the first subprocess in `@adrkit/cli`. New
+  `@adrkit/core` exports: `buildDecisionWindows`, `decisionWindowFor`,
+  `standingAsOf`, `wasGoverningAsOf`, `resolveDecisionsAsOf`. Implements part B of
+  [#116](https://github.com/mbeacom/adrkit/issues/116) (part A shipped in
+  [#187](https://github.com/mbeacom/adrkit/pull/187)), ratified as
+  [ADR-0039](docs/adr/0039-derive-a-valid-time-window-from-date-and-supersession-and-resolve-a-git-ref-at-th.md).
+
+  Two defects in the implementing mechanic were found in review and are recorded
+  in that ADR. The subprocess wrapper was copied from a Bun-only adapter and used
+  `Bun.spawn`; `@adrkit/cli` builds with `--target=node` and `bun build` does not
+  shim the `Bun` global, so `--as-of <ref>` was a `ReferenceError` in every
+  published install — reported, through a too-broad `catch`, as "git is not
+  installed or not on PATH". It now uses `node:child_process` and catches only
+  `ENOENT`, with a shipped-source contract test and a Node-runtime smoke case as
+  guards. Separately, an inverted supersession window (successor dated before the
+  record it replaced) was rendered as `in force <opens> → <closes>` even though
+  the kernel refuses to call it governing on any date; `isInvertedWindow` is now
+  shared by the kernel and the renderer.
 
 - **The agent plugin offers the bootstrap decision record (`adrkit` 0.3.0).** A
   repository with no ADR corpus, or one whose corpus never recorded why it keeps

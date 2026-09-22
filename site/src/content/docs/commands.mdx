@@ -17,7 +17,7 @@ adr migrate --from madr [--dir docs/adr] [--dry-run] [--rename] [--json]
 adr new <title> [--status draft] [--dir docs/adr] [--json]
 adr graph [--dir docs/adr] [--format auto|terminal|dot|json|mermaid]
           [--focus ID] [--kind supersedes|relatesTo|conflictsWith]
-adr explain <path> [--dir docs/adr] [--json]
+adr explain <path> [--dir docs/adr] [--json] [--as-of <date|ref>]
 adr check <files...> [--dir docs/adr] [--json]
 adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
 adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
@@ -199,11 +199,69 @@ Decisions governing src/services/sync/retry.ts:
 | Option | Meaning |
 |---|---|
 | `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
-| `--json` | Emit `{ path, governedBy, governing, activeProposals, history, markers, findings }` |
+| `--as-of <date\|ref>` | Report standing as of a past date — see [time travel](#time-travel-with---as-of) |
+| `--json` | Emit `{ path, governedBy, governing, activeProposals, history, markers, findings }`, plus `asOf` when `--as-of` is given |
 | `--help` | Show help and exit |
 
 **Exit codes:** `0` explained · `1` corpus has error findings · `2` usage error
-(invalid invocation or unreachable corpus directory).
+(invalid invocation, unreachable corpus directory, or an `--as-of` value that is
+neither a date nor a resolvable git ref).
+
+### Time travel with `--as-of`
+
+*"Which decisions governed this file when this code was written?"* Every record
+carries a `date`, and a superseded record names its successor, so a valid-time
+window is derivable with **no schema change**: it opens on the record's own
+`date` and closes on its immediate successor's.
+
+```
+adr explain src/auth/session.ts --as-of 2026-03-01
+adr explain src/auth/session.ts --as-of a1b2c3d
+```
+
+```
+As of 2026-03-01
+Note: matchers and @adr markers are read from today’s corpus and working tree; only standing is re-dated.
+Decisions governing src/auth/session.ts as of 2026-03-01:
+  0007  [superseded] Use JWT sessions (superseded by 0019)
+    in force 2026-01-15 → 2026-06-01 (closed by 0019)
+    via path: src/auth/**
+Not yet recorded as of 2026-03-01:
+  0019  [accepted] Use opaque server sessions
+    recorded 2026-06-01
+```
+
+The bracketed status is the record's status **now**; the window underneath is
+what placed it on that date. Both are true at once, and in `--json` they appear
+side by side as `bucket` (present) and `standing` (as of).
+
+- **A date is tried before a git ref.** `YYYY-MM-DD` or an ISO datetime with an
+  explicit timezone is read as a date. Anything else is resolved with
+  `git rev-parse --verify <ref>^{commit}` in the current directory and dated by
+  that commit's **committer** date (`%cI`). A tag named `2026-03-01` therefore
+  reads as a date rather than as that tag. A timezone-less datetime is rejected
+  outright, in the same words [`adr queue`](#adr-queue) uses.
+- **Windows are half-open**, `[opens, closes)`. The successor owns its own start
+  day, so exactly one record along a supersession chain is in force on any date.
+- **`deprecated` is reported as `undetermined`.** The schema allows
+  `supersededBy` only on `superseded`, so a deprecated record records no date it
+  stopped governing and the corpus cannot say. A `rejected` record is history on
+  every date, because it was in force on none. Both come with an advisory
+  finding that never changes the exit code.
+- **`--as-of` re-dates the corpus, never the working tree.** Which decisions
+  reach the path is still read from today's records and today's file contents;
+  only their standing is re-dated. Reading file contents at a past ref is a
+  strictly larger contract and is deliberately not attempted. Because the
+  evidence lines (`via path:`, `declared by …`) are the one thing that is *not*
+  re-dated, the view says so in a note under its header.
+- **A marker accurate on that date is not stale.** `@adr 0007` naming a record
+  that was in force on 2026-03-01 raises no `stale-marker` warning under
+  `--as-of 2026-03-01`. The present-tense diagnostic is unchanged.
+- **It is additive.** Without the flag nothing changes. With it, `--json` gains
+  an `asOf` block carrying `governing`, `activeProposals`, `history`,
+  `notYetRecorded`, and `undetermined`, each decision annotated with its
+  `window` and `standing`; the present-tense top-level keys keep their meaning
+  ([ADR-0039](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0039-derive-a-valid-time-window-from-date-and-supersession-and-resolve-a-git-ref-at-th.md)).
 
 ### Inbound `@adr` markers
 

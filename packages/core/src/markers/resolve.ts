@@ -9,12 +9,26 @@
 import type { Adr } from '../schema/adr.schema.ts';
 import { toGoverningDecisions, type GoverningDecision } from '../check/decisions.ts';
 import { compareCodeUnits } from '../ordering/index.ts';
+import { wasGoverningAsOf } from '../temporal/window.ts';
 import { sortFindings, type Finding } from '../validate/findings.ts';
 import type { MarkerDeclaration, MarkerMatch, SourceMarker } from './types.ts';
 
 export interface ResolveSourceMarkersInput {
   records: readonly Adr[];
   markers: readonly SourceMarker[];
+  /**
+   * A UTC calendar date to judge staleness against, instead of the present.
+   *
+   * Absent — the default, and what `adr check` and the CI Action always pass — every
+   * marker is judged against the corpus as it stands, and output is unchanged.
+   *
+   * Present, a marker naming a record that was in force on that date is not stale: it was
+   * an accurate declaration then, and telling the reader to "update the marker" while the
+   * same command reports the record as governing on that date is two answers to one
+   * question. The marker *line* is still today's — `--as-of` re-dates the corpus, never
+   * the working tree (ADR-0039).
+   */
+  asOf?: string;
 }
 
 export interface ResolveSourceMarkersResult {
@@ -102,11 +116,13 @@ function staleFinding(
   marker: SourceMarker,
   record: Adr,
   byId: ReadonlyMap<string, Adr>,
+  asOf: string | undefined,
 ): Finding | undefined {
   const status = record.frontmatter.status;
   if (status !== 'superseded' && status !== 'rejected' && status !== 'deprecated') {
     return undefined;
   }
+  if (asOf !== undefined && wasGoverningAsOf(record, byId, asOf)) return undefined;
 
   const successor = status === 'superseded' ? terminalLiveSuccessor(record, byId) : undefined;
   const action = successor
@@ -148,7 +164,7 @@ export function resolveSourceMarkers(input: ResolveSourceMarkersInput): ResolveS
       continue;
     }
 
-    const stale = staleFinding(marker, record, byId);
+    const stale = staleFinding(marker, record, byId, input.asOf);
     if (stale) findings.push(stale);
 
     const declarations = byRecord.get(marker.id) ?? [];
