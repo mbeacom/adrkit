@@ -36,6 +36,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'TEMPLATE_FILE_NAME',
   'bucketDecisions',
   'buildAdrGraph',
+  'buildDecisionWindows',
   'buildQueueReport',
   'canonicalStringify',
   'checkChanges',
@@ -47,6 +48,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'countFindings',
   'createAdr',
   'decisionBucketFor',
+  'decisionWindowFor',
   'deriveChangedDependenciesFromBunLockDiff',
   'discoverAdrFiles',
   'discoverMadrCandidateFiles',
@@ -89,6 +91,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'renderMigratedContent',
   'resolveAffects',
   'resolveAsOf',
+  'resolveDecisionsAsOf',
   'resolveSourceMarkers',
   'scanSourceMarkers',
   'slugifyTitle',
@@ -98,12 +101,14 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'sortFindingsCanonical',
   'sortItemFindings',
   'sortQueueItems',
+  'standingAsOf',
   'stringifyJsonSchema',
   'toGoverningDecisions',
   'validateAdrFrontmatter',
   'validateCorpusInvariants',
   'validateImportIncomplete',
   'validateParsedAdr',
+  'wasGoverningAsOf',
 ] as const;
 
 describe('@adrkit/core public surface', () => {

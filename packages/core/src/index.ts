@@ -23,6 +23,20 @@ export {
   type OrderedSummary,
 } from './ordering/index.ts';
 export { canonicalStringify, fingerprintOf } from './fingerprint/index.ts';
+export {
+  buildDecisionWindows,
+  decisionWindowFor,
+  standingAsOf,
+  wasGoverningAsOf,
+  type DecisionWindow,
+  type TemporalStanding,
+} from './temporal/window.ts';
+export { resolveDecisionsAsOf } from './temporal/decisions.ts';
+export type {
+  DecisionAsOf,
+  DecisionsAsOf,
+  ResolveDecisionsAsOfInput,
+} from './temporal/decisions.ts';
 export { buildQueueReport } from './queue/kernel.ts';
 export { resolveAsOf } from './queue/as-of.ts';
 export type { AsOfResolution } from './queue/as-of.ts';

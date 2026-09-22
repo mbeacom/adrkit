@@ -18,6 +18,7 @@ import {
   readSourceMarkers,
   readSourceMarkersBatch,
   resolveAffects,
+  resolveDecisionsAsOf,
   resolveSourceMarkers,
   renderDotGraph,
   renderJsonGraph,
@@ -25,11 +26,14 @@ import {
   ScaffoldError,
   sortFindings,
   toGoverningDecisions,
+  type DecisionAsOf,
+  type DecisionsAsOf,
   type ExplainedDecision,
   type Finding,
   type SourceMarkerBatchScan,
   type SourceMarkerScan,
 } from '@adrkit/core';
+import { asOfFailureMessage, resolveExplainAsOf, type ResolvedAsOf } from './as-of.ts';
 import { evaluate } from './evaluate.ts';
 import { renderTerminalGraph, resolveGraphFormat } from './graph.ts';
 import { closestCandidate } from './recovery.ts';
@@ -241,23 +245,36 @@ naming a record the corpus does not have is reported as a dangling-marker warnin
 marker naming a superseded, rejected, or deprecated record is reported as a stale-marker
 warning; a resolvable supersession chain names its terminal live successor.
 
+With --as-of, the same decisions are reported as they stood on a past date. A record's
+window opens on its own "date" and closes on its successor's, so a record superseded
+today was governing then. Which decisions reach <path> is still read from today's corpus
+and today's working tree; only their standing is re-dated.
+
 Arguments:
   <path>          Repo-relative path to explain
 
 Options:
   --dir <path>    ADR corpus directory (default: docs/adr)
+  --as-of <when>  Report standing as of a past date instead of today. Accepts
+                  YYYY-MM-DD, an ISO datetime with an explicit timezone, or a git
+                  ref resolved to its commit's committer date in the current
+                  directory. Dates are tried first, so a tag named like a date is
+                  read as a date.
   --json          Emit { path, governedBy, governing, activeProposals, history,
-                  markers, findings }. Pattern matches carry "firedMatchers";
-                  file declarations carry "declaredBy".
+                  markers, findings }, plus "asOf" when --as-of is given. Pattern
+                  matches carry "firedMatchers"; file declarations carry "declaredBy".
 ${renderGlobalColorUsageLine()}
   -h, --help      Show this help and exit
 
 Examples:
   adr explain src/auth/session.ts
   adr explain --json src/auth/session.ts
+  adr explain src/auth/session.ts --as-of 2026-03-01
+  adr explain src/auth/session.ts --as-of a1b2c3d
 
 Exit codes: 0 = explained; 1 = corpus has error findings;
-2 = usage error (invalid invocation or unreachable corpus directory).
+2 = usage error (invalid invocation, unreachable corpus directory, or an --as-of
+value that is neither a date nor a resolvable git ref).
 `,
   graph: `Usage: adr graph [options]
 
@@ -739,6 +756,7 @@ async function runExplain(args: string[]): Promise<number> {
     parsed = parseCommandArgs(args, {
       json: { type: 'boolean', default: false },
       dir: { type: 'string', default: 'docs/adr' },
+      'as-of': { type: 'string' },
     }, EXPLAIN_OPTIONS);
   } catch (error) {
     return usageError(error instanceof Error ? error.message : String(error), 'explain');
@@ -747,6 +765,19 @@ async function runExplain(args: string[]): Promise<number> {
   if (parsed.positionals.length !== 1) return usageError('adr explain requires exactly one path.', 'explain');
   const path = parsed.positionals[0];
   if (!path) return usageError('adr explain requires exactly one path.', 'explain');
+
+  // Resolved before the corpus is loaded: an unusable `--as-of` is a usage error, and a
+  // usage error should not be reported behind a corpus that may itself fail to load.
+  const requestedAsOf = parsed.values['as-of'];
+  let asOf: ResolvedAsOf | undefined;
+  if (requestedAsOf !== undefined) {
+    const cwd = process.cwd();
+    const resolution = await resolveExplainAsOf(String(requestedAsOf), cwd);
+    if (!resolution.ok) {
+      return usageError(asOfFailureMessage(String(requestedAsOf), resolution.failure, cwd), 'explain');
+    }
+    asOf = resolution.value;
+  }
 
   const dir = String(parsed.values.dir);
   let corpus: Awaited<ReturnType<typeof lintCorpus>>;
@@ -769,6 +800,7 @@ async function runExplain(args: string[]): Promise<number> {
         `${JSON.stringify(
           {
             path,
+            ...(asOf ? { asOf: emptyAsOfJson(asOf) } : {}),
             governedBy: [],
             governing: [],
             activeProposals: [],
@@ -789,23 +821,47 @@ async function runExplain(args: string[]): Promise<number> {
   }
 
   const resolution = resolveAffects({ records: corpus.records, changedFiles: [path] });
-  const markerResolution = resolveSourceMarkers({ records: corpus.records, markers: scan.markers });
+  const markerResolution = resolveSourceMarkers({
+    records: corpus.records,
+    markers: scan.markers,
+    ...(asOf ? { asOf: asOf.date } : {}),
+  });
   const governedBy = mergeSourceDeclarations(
     toGoverningDecisions(corpus.records, resolution.matches),
     corpus.records,
     markerResolution.matches,
   );
   const buckets = bucketDecisions(governedBy);
-  const findings = sortFindings([...resolution.findings, ...markerResolution.findings]);
+  const asOfView = asOf
+    ? resolveDecisionsAsOf({ records: corpus.records, decisions: governedBy, asOf: asOf.date })
+    : undefined;
+  const findings = sortFindings([
+    ...resolution.findings,
+    ...markerResolution.findings,
+    ...(asOfView?.findings ?? []),
+  ]);
 
   if (parsed.values.json) {
     writeStdout(
-      `${JSON.stringify({ path, governedBy, ...buckets, markers: markerScanJson(scan), findings }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          path,
+          ...(asOf && asOfView ? { asOf: asOfJson(asOf, asOfView) } : {}),
+          governedBy,
+          ...buckets,
+          markers: markerScanJson(scan),
+          findings,
+        },
+        null,
+        2,
+      )}\n`,
     );
     return 0;
   }
 
-  if (governedBy.length === 0) {
+  if (asOf && asOfView) {
+    writeStdout(renderAsOfView(path, asOf, asOfView, getPresentation().stdout));
+  } else if (governedBy.length === 0) {
     writeStdout(`${getPresentation().stdout.note('No decision governs')} ${getPresentation().stdout.path(path)}.\n`);
   } else {
     if (buckets.governing.length === 0) {
@@ -851,6 +907,119 @@ function renderDecisionGroup(
     }
   }
   return output;
+}
+
+/**
+ * The `asOf` block of `adr explain --json`.
+ *
+ * Additive, and present only when `--as-of` was given. The present-tense `governing`,
+ * `activeProposals`, and `history` keys beside it keep their meaning untouched, because a
+ * consumer that has never heard of this flag must not find those keys re-dated under it —
+ * the same discipline `markerScan` follows in `CheckOutcome`.
+ */
+function asOfJson(resolved: ResolvedAsOf, view: DecisionsAsOf) {
+  return {
+    requested: resolved.requested,
+    date: resolved.date,
+    resolvedFrom: resolved.resolvedFrom,
+    ...(resolved.commit === undefined ? {} : { commit: resolved.commit }),
+    ...(resolved.committedAt === undefined ? {} : { committedAt: resolved.committedAt }),
+    governing: view.governing,
+    activeProposals: view.activeProposals,
+    history: view.history,
+    notYetRecorded: view.notYetRecorded,
+    undetermined: view.undetermined,
+  };
+}
+
+/**
+ * The same block when the corpus did not parse. The resolution still happened and is still
+ * reported, because what the user asked for is a fact independent of whether it could be
+ * answered — the same reason the marker scan state is reported on this path.
+ */
+function emptyAsOfJson(resolved: ResolvedAsOf) {
+  return asOfJson(resolved, {
+    date: resolved.date,
+    governing: [],
+    activeProposals: [],
+    history: [],
+    notYetRecorded: [],
+    undetermined: [],
+    findings: [],
+  });
+}
+
+/**
+ * The human as-of view.
+ *
+ * Each record keeps its **present** status in brackets and gains the window underneath.
+ * Rendering a superseded record as `[accepted]` because it happened to be in force on the
+ * asked-for date would be a lie about the record, and dropping the window would leave the
+ * reader unable to see why a `[superseded]` record is listed as governing. Both facts are
+ * true at once, so both are printed.
+ */
+function renderAsOfView(
+  path: string,
+  resolved: ResolvedAsOf,
+  view: DecisionsAsOf,
+  style = getPresentation().stdout,
+): string {
+  const provenance =
+    resolved.resolvedFrom === 'ref' && resolved.commit
+      ? ` ${style.note(`(${resolved.requested} → ${resolved.commit.slice(0, 12)}, committed ${resolved.committedAt ?? '?'})`)}`
+      : '';
+  let output = `${style.heading(`As of ${view.date}`)}${provenance}\n`;
+
+  const reached =
+    view.governing.length +
+    view.activeProposals.length +
+    view.history.length +
+    view.notYetRecorded.length +
+    view.undetermined.length;
+  if (reached === 0) {
+    return `${output}${style.note('No decision governed')} ${style.path(path)} ${style.note(`as of ${view.date}`)}.\n`;
+  }
+
+  if (view.governing.length === 0) {
+    output += `${style.note('No decision governed')} ${style.path(path)} ${style.note(`as of ${view.date}`)}.\n`;
+  } else {
+    output += renderAsOfGroup(`Decisions governing ${path} as of ${view.date}:`, view.governing, style);
+  }
+  output += renderAsOfGroup(`Active proposals as of ${view.date} (not binding):`, view.activeProposals, style);
+  output += renderAsOfGroup(`Historical records as of ${view.date} (not binding):`, view.history, style);
+  output += renderAsOfGroup(`Not yet recorded as of ${view.date}:`, view.notYetRecorded, style);
+  output += renderAsOfGroup(`Standing on ${view.date} not determinable:`, view.undetermined, style);
+  return output;
+}
+
+/** One as-of group: the present-tense decision line, plus the window that placed it. */
+function renderAsOfGroup(heading: string, decisions: readonly DecisionAsOf[], style: StreamStyle): string {
+  if (decisions.length === 0) return '';
+  let output = `${style.heading(heading)}\n`;
+  for (const decision of decisions) {
+    const successor = decision.supersededBy ? ` (superseded by ${decision.supersededBy})` : '';
+    output += `  ${style.label(decision.recordId)}  [${style.status(decision.status)}] ${decision.title}${successor}\n`;
+    output += `    ${style.note(renderWindow(decision))}\n`;
+    for (const matcher of decision.firedMatchers) {
+      output += `    ${style.note('via')} ${matcher.type}: ${style.path(matcher.pattern)}\n`;
+    }
+    for (const declaration of decision.declaredBy ?? []) {
+      output += `    ${style.note('declared by')} ${style.path(declaration.path)}:${declaration.line} (@adr ${style.label(declaration.ref)})\n`;
+    }
+  }
+  return output;
+}
+
+function renderWindow(decision: DecisionAsOf): string {
+  if (decision.standing === 'notYetRecorded') return `recorded ${decision.window.opensOn}`;
+  if (decision.standing === 'undetermined') {
+    return `recorded ${decision.window.opensOn}; no date it stopped governing is recorded`;
+  }
+  if (decision.status === 'rejected') return `recorded ${decision.window.opensOn}; rejected, so never in force`;
+  if (decision.standing === 'activeProposals') return `recorded ${decision.window.opensOn}; never ratified`;
+  if (decision.window.closesOn === null) return `in force ${decision.window.opensOn} → open`;
+  const closedBy = decision.window.closedBy ? ` (closed by ${decision.window.closedBy})` : '';
+  return `in force ${decision.window.opensOn} → ${decision.window.closesOn}${closedBy}`;
 }
 
 /**
