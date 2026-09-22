@@ -174,9 +174,16 @@ Five things are load-bearing and easy to break:
 
 Additive: without the flag, stdout and `--json` are unchanged, and the
 present-tense `governing`/`activeProposals`/`history` keys keep their meaning
-beside the new `asOf` block. **Rung 1** of ADR-0014 only — unit, contract, purity
-and mutation coverage, a Node-runtime smoke, plus maintainer verification. No
-reference-repository run.
+beside the new `asOf` block. **Rung 1–2** of ADR-0014: rung 1 is unit,
+contract, purity and mutation coverage plus a Node-runtime smoke; rung 2 is
+maintainer-owned isolated reference-repository validation in
+[`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood)
+(fixtures exercising the window closing along a real supersession chain, a
+`deprecated` and a `rejected` record, and a deliberately inverted-date pair;
+self-verifying and fail-closed CI; see
+[mbeacom/adrkit-t018-dogfood#24](https://github.com/mbeacom/adrkit-t018-dogfood/pull/24)
+and its tracked evidence index). Not rung 3 — no external party has run
+this.
 
 Phase 6 ARB queue is
 implemented under `specs/007-arb-queue/` (see [`plan.md`](./plan.md)): the pure

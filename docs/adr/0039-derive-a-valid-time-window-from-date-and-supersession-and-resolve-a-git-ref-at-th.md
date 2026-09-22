@@ -271,8 +271,19 @@ present-tense output, which reports a record that governed in March as history.
    `deprecated` handling, marker suppression, immediate-vs-terminal successor,
    the `--no-show-signature` regression, the shipped-source Bun-global contract,
    and inverted-window rendering.
-5. [ ] Reference-repository run against a corpus with a real supersession chain
-   (ADR-0014 rung 2). This record ships at **rung 1** only.
+5. [x] Reference-repository run against a corpus with a real supersession chain
+   (ADR-0014 rung 2). Closed by
+   [mbeacom/adrkit-t018-dogfood#24](https://github.com/mbeacom/adrkit-t018-dogfood/pull/24):
+   a fixture corpus purpose-built to exercise the window closing (a
+   supersession pair, a three-record chain, a `deprecated` record, a
+   `rejected` record, and a deliberately inverted-date pair), a
+   self-verifying, fail-closed CI workflow, and a
+   [tracked evidence index](https://github.com/mbeacom/adrkit-t018-dogfood/blob/e9a2bf5226f540f7ea905ce18e06a813c2f4a27b/docs/adr-0039-as-of-evidence.md)
+   (merged into `main` at that commit).
+   This record ships at **rung 1–2**: rung 1 (unit, contract, purity, and
+   mutation coverage, a Node-runtime smoke) plus rung 2 (maintainer-owned
+   isolated reference-repository validation). Not rung 3 — no external party
+   has run this.
 6. [ ] Decide whether `adr check` and the governing-decisions Action should
    accept `--as-of`, or stay present-tense permanently.
 7. [ ] Revisit `%cI` versus `%aI` if anyone asks for the author date.
