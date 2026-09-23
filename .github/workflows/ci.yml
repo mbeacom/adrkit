@@ -79,8 +79,8 @@ jobs:
         run: bun scripts/run-network-denied.ts -- bun run release:pack -- --skip-build --skip-smoke-install
       - name: Lint (network denied)
         run: bun scripts/run-network-denied.ts -- bun run lint
-      # The ONE unwrapped post-install step: 14 of the 15 run under a proved denial, and
-      # this is the 15th. It cannot be wrapped, because the suite contains the two-sided
+      # The ONE unwrapped post-install step: 16 of the 17 run under a proved denial, and
+      # this is the 17th. It cannot be wrapped, because the suite contains the two-sided
       # controls that establish the denial and a control cannot prove one from inside it —
       # observed on both platforms, failing differently (3 tests on macOS, where
       # `sandbox-exec` denies loopback outright; 11 on Linux, where `lo` comes up and the
@@ -111,6 +111,12 @@ jobs:
         run: bun scripts/run-network-denied.ts -- bun run check:freeze-hashes
       - name: Verify published docs pin the current CLI release (network denied)
         run: bun scripts/run-network-denied.ts -- bun run check:doc-pins
+      # The prose half of ADR-0040's class 2. Present-tense documentation citing a
+      # superseded record as live authority is drift the corpus already knows about
+      # and no gate ever read; `stale-marker` covers the source-marker half only.
+      # Pure local file comparison, so it runs under the same proved denial.
+      - name: Verify prose cites no stale decision record (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run check:stale-refs
       - name: Verify the ADR-0020 clause-8 gate (clause 5 evidence is present and PASSing)
         run: bun scripts/run-network-denied.ts -- bun run check:clause8
       - name: Verify no spike-009 B/C/D comparison heuristic is present (FR-061)

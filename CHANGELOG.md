@@ -9,6 +9,55 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **`bun run check:stale-refs` — a repository guard for stale prose citations.**
+  Present-tense documentation that cites a `superseded`, `rejected`, or
+  `deprecated` record without saying so now fails `clean-clone-builds`. A
+  citation is acknowledged when the same paragraph or list item names the
+  successor. Scanned: `README.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
+  `MANIFEST.md`, `docs/` and `site/src/content/docs/`. Deliberately not scanned:
+  `docs/adr/`, `CHANGELOG.md`, `specs/`, `plan.md`, and source — all of which
+  narrate history correctly. This is the prose half of class 2 in
+  [ADR-0040](docs/adr/0040-keep-derived-surfaces-in-lockstep-with-three-mechanisms-matched-to-three-classes.md);
+  the `@adr` marker half already ships as `stale-marker`. No CLI surface, no
+  schema change, and no change to `adr lint`, `adr check`, or the
+  governing-decisions Action.
+
+  Six defects found in review of #217 were fixed before it landed, each observed
+  failing as a test first (ADR-0016): repo-relative paths are normalized to
+  forward slashes, so the corpus exclusion works on Windows (reproduced by
+  @davesheffer on Bun 1.3.14 while all 68 tests passed); any symlink at or under
+  a scanned path is refused rather than followed; an unterminated `---` no longer
+  drops the whole document; a closing fence may not carry an info string; ADR
+  links are recognized at the extensionless site routes `gen-adr-pages.ts`
+  actually emits; and the successor index is sorted with `compareCodeUnits`
+  rather than resting on `adr graph`'s locale-dependent edge order.
+
+  A second review round found three more, also observed failing first: the
+  symlink check examined only a path's final entry, so a symlinked *ancestor*
+  (`site/src/content`) still let the walk read outside the root; it ran after the
+  exclusion, so a symlinked `docs/adr` passed unchecked; and the `adr/` anchor
+  used `\b`, which finds a boundary after the hyphen in `not-adr/`, reading an
+  unrelated route as a local citation. Every path component is now checked from
+  the root down, before the exclusion, and the anchor is a path-segment boundary.
+
+### Fixed
+
+- **`site/src/content/docs/commands.mdx` cited ADR-0021 as the live authority**
+  for the marker contract, which ADR-0022 superseded. Found by the new guard
+  before it was wired in (ADR-0016).
+- **The network-denial step count for `clean-clone-builds` had drifted by one**
+  before this change, in all five places that state it —
+  `specs/010-catalog-backstage/evidence/observed-failing-register.md` §4.6
+  (which declares itself canonical), `spec.md` FR-050, `tasks.md` T093, the
+  `ci.yml` workflow comment, and
+  `evidence/negative-cases/clean-clone-offline/README.md` (twice). All are
+  corrected to the current seventeen post-install steps, sixteen of them
+  network-denied, with the drift recorded rather than tidied away. §4.6 claims
+  the others point at it rather than restate it; none did, and that is recorded
+  too.
+
 ## [0.14.0] - 2026-09-22
 
 ### Fixed
