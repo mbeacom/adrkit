@@ -115,9 +115,12 @@ Three kinds of drift, three different mechanisms
 - **Derived inventory** — `MANIFEST.md`'s record table is generated. Run
   `bun run emit:manifest`; never hand-edit the block between its markers.
 - **Referential integrity** — `bun run check:stale-refs` fails when a document
-  that speaks in the present tense cites a `superseded`, `rejected`, or
-  `deprecated` record without saying so. Name the successor in the same
-  paragraph or list item. Narration of history belongs in `docs/adr/`,
+  that speaks in the present tense cites a record that is no longer live without
+  saying so. The two states acknowledge differently: a **superseded** record
+  needs its *successor named* in the same paragraph or list item, because the
+  successor is the only thing that tells a reader where to go next; a
+  **rejected** or **deprecated** record has no successor, so its paragraph must
+  carry the *status word* instead. Narration of history belongs in `docs/adr/`,
   `CHANGELOG.md`, or `specs/`, which are deliberately not scanned.
 - **Implementation claims** — no tool can decide whether an ADR action item is
   *done*; that is a judgment about the tree. Before ticking a checkbox, verify

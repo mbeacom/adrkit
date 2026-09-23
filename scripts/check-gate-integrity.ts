@@ -165,9 +165,10 @@ export const DOCUMENTED_UNPROTECTED_ROUTES: ReadonlyArray<{
     path: 'package.json',
     reaches:
       'clean-clone-builds runs typecheck, build, lint, release:pack, check:deps, ' +
-      'check:freeze-hashes, check:doc-pins, check:clause8, check:no-spike-heuristics, ' +
-      'check:site-grammar and adr lint through `bun run <name>`; node-smoke and ' +
-      'action-dogfood likewise. Repointing a script redirects all of them.',
+      'check:freeze-hashes, check:doc-pins, check:stale-refs, check:clause8, ' +
+      'check:no-spike-heuristics, check:site-grammar and adr lint through ' +
+      '`bun run <name>`; node-smoke and action-dogfood likewise. Repointing a ' +
+      'script redirects all of them.',
   },
   {
     path: 'packages/cli/src/index.ts',

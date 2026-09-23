@@ -24,6 +24,16 @@ Until `1.0.0`, minor releases may include breaking changes
   schema change, and no change to `adr lint`, `adr check`, or the
   governing-decisions Action.
 
+  Six defects found in review of #217 were fixed before it landed, each observed
+  failing as a test first (ADR-0016): repo-relative paths are normalized to
+  forward slashes, so the corpus exclusion works on Windows (reproduced by
+  @davesheffer on Bun 1.3.14 while all 68 tests passed); any symlink at or under
+  a scanned path is refused rather than followed; an unterminated `---` no longer
+  drops the whole document; a closing fence may not carry an info string; ADR
+  links are recognized at the extensionless site routes `gen-adr-pages.ts`
+  actually emits; and the successor index is sorted with `compareCodeUnits`
+  rather than resting on `adr graph`'s locale-dependent edge order.
+
 ### Fixed
 
 - **`site/src/content/docs/commands.mdx` cited ADR-0021 as the live authority**

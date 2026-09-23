@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import {
   SCANNED,
   collectDocs,
+  excludes,
   findStaleReferences,
   formatFailure,
+  normalizeRelative,
   parseCorpus,
   referencedIds,
   splitBlocks,
@@ -346,5 +351,233 @@ describe('the scanned set', () => {
 
   test('a missing configured path is an error, not a silent pass', () => {
     expect(() => collectDocs('/nonexistent-root-for-this-test')).toThrow(/does not exist/u);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regressions from PR #217 review. Each was reproduced against the merged head
+// (`969d12b`) before it was fixed.
+// ---------------------------------------------------------------------------
+
+describe('normalizeRelative (Windows separators)', () => {
+  // @davesheffer reproduced this on Windows/Bun 1.3.14: `node:path.relative()`
+  // returns `docs\adr\0005-….md`, the exclusion list is written with forward
+  // slashes, so the corpus exclusion never matched and the guard reported dozens
+  // of findings inside docs/adr/. The separator is a parameter so the POSIX suite
+  // can assert the Windows behavior — the bug is otherwise unreachable here, and
+  // the 68 tests that shipped all passed while the guard itself failed.
+  test('rewrites backslashes when the platform separator is a backslash', () => {
+    expect(normalizeRelative('docs\\adr\\0005-x.md', '\\')).toBe('docs/adr/0005-x.md');
+  });
+
+  // Mirrors core's `normalizeMarkerPath`: on POSIX a backslash is an ordinary
+  // filename character, and rewriting it would name a different file.
+  test('leaves a backslash alone when the platform separator is a slash', () => {
+    expect(normalizeRelative('docs/we\\ird.md', '/')).toBe('docs/we\\ird.md');
+  });
+
+  test('is identity for an already-normal path', () => {
+    expect(normalizeRelative('site/src/content/docs/ci.mdx', '\\')).toBe('site/src/content/docs/ci.mdx');
+  });
+});
+
+describe('excludes', () => {
+  test.each([
+    ['the directory itself', 'docs/adr'],
+    ['a file inside it', 'docs/adr/0005-x.md'],
+    ['a nested file', 'docs/adr/sub/0005-x.md'],
+  ])('excludes %s', (_label, path) => {
+    expect(excludes(path, ['docs/adr'])).toBe(true);
+  });
+
+  test.each([
+    ['a sibling directory sharing a prefix', 'docs/adrs/x.md'],
+    ['a sibling file sharing a prefix', 'docs/adr-notes.md'],
+    ['an unrelated path', 'docs/RELEASING.md'],
+  ])('does not exclude %s', (_label, path) => {
+    expect(excludes(path, ['docs/adr'])).toBe(false);
+  });
+
+  // The Windows failure, stated as the predicate rather than the walk.
+  test('matches a path that arrived with backslashes once it is normalized', () => {
+    expect(excludes(normalizeRelative('docs\\adr\\0005-x.md', '\\'), ['docs/adr'])).toBe(true);
+  });
+});
+
+describe('frontmatter that never closes', () => {
+  // Reported by Copilot. The loop ran to EOF and then stepped one past it, so the
+  // `for` never executed and the whole document was dropped — a file could hide
+  // every stale citation while the command reported a clean run. That is the
+  // fail-open this script's own docblock promises it does not have (ADR-0016).
+  test('scans a document whose opening --- has no closing delimiter', () => {
+    const blocks = splitBlocks('---\ntitle: x\n\nSee ADR-0021.');
+    expect(blocks.map((block) => block.text)).toContain('See ADR-0021.');
+  });
+
+  test('scans a document that opens with a thematic break', () => {
+    expect(splitBlocks('---\n\nSee ADR-0021.').map((block) => block.text)).toContain('See ADR-0021.');
+  });
+
+  test('still drops frontmatter that does close', () => {
+    expect(splitBlocks('---\ntitle: ADR-0021\n---\n\nbody').map((block) => block.text)).toEqual(['body']);
+  });
+});
+
+describe('closing fences', () => {
+  // Reported by Copilot. A closing fence may not carry an info string, but the
+  // matcher accepted one, so ```js … ```py closed the block early and the code
+  // after it was scanned as prose.
+  test('does not let an info-string fence close an open fence', () => {
+    expect(splitBlocks('```js\ncode\n```py\nSee ADR-0021.\n```')).toEqual([]);
+  });
+
+  test('closes on a bare fence of at least the opening length', () => {
+    expect(splitBlocks('````\ncode\n````\n\nSee ADR-0022.').map((b) => b.text)).toEqual(['See ADR-0022.']);
+  });
+
+  test('does not close on a shorter fence', () => {
+    expect(splitBlocks('````\n```\nSee ADR-0021.\n````')).toEqual([]);
+  });
+
+  test('does not let a tilde fence close a backtick fence', () => {
+    expect(splitBlocks('```\n~~~\nSee ADR-0021.\n```')).toEqual([]);
+  });
+
+  test('tolerates trailing whitespace on a closing fence', () => {
+    expect(splitBlocks('```\ncode\n```   \n\nSee ADR-0022.').map((b) => b.text)).toEqual(['See ADR-0022.']);
+  });
+});
+
+describe('extensionless site routes', () => {
+  // Reported by Copilot. The site renders records at `/adr/<slug>/` with no
+  // extension, and eight pages already link that way, so a citation written as a
+  // site route was invisible and a successor cited that way never acknowledged.
+  test.each([
+    ['a trailing-slash route', '[the rule](/adr/0022-scan-inbound-markers/)'],
+    ['a route without a trailing slash', '[the rule](/adr/0022-scan-inbound-markers)'],
+    ['a repository path', '[the rule](./docs/adr/0022-scan-inbound-markers.md)'],
+    ['a blob URL', '[the rule](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0022-scan.md)'],
+  ])('reads an id from %s', (_label, text) => {
+    expect(referencedIds(text)).toEqual(['0022']);
+  });
+
+  test('acknowledges a superseded citation whose successor is a site route', () => {
+    const text = 'See ADR-0021, now [superseded](/adr/0022-scan-inbound-markers/).';
+    expect(findStaleReferences('site/src/content/docs/ci.mdx', text, corpus)).toEqual([]);
+  });
+
+  // Anchoring on `adr/` made another project's corpus newly matchable, and
+  // `docs/DISTRIBUTION.md` demonstrates the MADR repository — whose 0005 is a
+  // different decision from this corpus's superseded 0005. It is inside a fence,
+  // which is what keeps it inert; this pins that, because the fence is now doing
+  // load-bearing work it was not doing before.
+  test('does not fire on another corpus shown inside a fenced transcript', () => {
+    const text = [
+      '```sh',
+      'npx -y @adrkit/cli migrate --from madr --dry-run',
+      '#   → migrated  docs/adr/0005-use-dashes-in-filenames.md',
+      '```',
+    ].join('\n');
+    expect(findStaleReferences('docs/DISTRIBUTION.md', text, corpus)).toEqual([]);
+  });
+
+  // The old link alternative was unanchored, so any `NNNN-slug.md` matched. A
+  // dated filename is not a decision reference.
+  test.each([
+    ['a dated changelog file', 'see [notes](./notes/2026-09-22-release.md)'],
+    ['a dated page', '[log](/journal/2026-01-thing/)'],
+  ])('does not read an id from %s', (_label, text) => {
+    expect(referencedIds(text)).toEqual([]);
+  });
+});
+
+describe('symlinks under a scanned path', () => {
+  const tree = (): string => {
+    const root = mkdtempSync(join(tmpdir(), 'adrkit-stale-refs-'));
+    for (const entry of SCANNED) {
+      const target = join(root, entry.path);
+      if (entry.path.includes('/') || entry.path === 'docs') {
+        mkdirSync(entry.path.endsWith('.md') ? dirname(target) : target, { recursive: true });
+      }
+      if (entry.path.endsWith('.md')) writeFileSync(target, '# doc\n');
+    }
+    writeFileSync(join(root, 'docs', 'note.md'), '# note\n');
+    return root;
+  };
+
+  // Reported by Copilot. `statSync` follows symlinks and `readdirSync` then
+  // recurses through whatever it reaches, so a PR-authored tree could make the
+  // guard read outside the worktree or recurse forever. Core's marker reader
+  // already refuses every symlink component
+  // (`packages/core/src/markers/read.ts`); this refuses rather than skips,
+  // because skipping is the fail-open the rest of this file exists to avoid.
+  test('refuses a symlinked file inside a scanned directory', () => {
+    const root = tree();
+    writeFileSync(join(root, 'target.md'), 'See ADR-0021.\n');
+    symlinkSync(join(root, 'target.md'), join(root, 'docs', 'linked.md'));
+    expect(() => collectDocs(root)).toThrow(/symlink/iu);
+  });
+
+  test('refuses a symlinked directory inside a scanned directory', () => {
+    const root = tree();
+    mkdirSync(join(root, 'elsewhere'));
+    writeFileSync(join(root, 'elsewhere', 'x.md'), 'See ADR-0021.\n');
+    symlinkSync(join(root, 'elsewhere'), join(root, 'docs', 'linked'));
+    expect(() => collectDocs(root)).toThrow(/symlink/iu);
+  });
+
+  test('refuses a scanned root that is itself a symlink', () => {
+    const root = tree();
+    // A complete tree first, so the refusal is the symlink and not a missing path.
+    rmSync(join(root, 'docs'), { recursive: true });
+    mkdirSync(join(root, 'elsewhere'));
+    writeFileSync(join(root, 'elsewhere', 'x.md'), 'See ADR-0021.\n');
+    symlinkSync(join(root, 'elsewhere'), join(root, 'docs'));
+    expect(() => collectDocs(root)).toThrow(/symlink/iu);
+  });
+
+  test('accepts a tree with no symlinks', () => {
+    expect(() => collectDocs(tree())).not.toThrow();
+  });
+});
+
+describe('successor edge selection', () => {
+  // `adr graph` sorts edges with `localeCompare`, which follows the runtime's ICU
+  // locale. `emit-manifest.ts` refuses to rest a gate on that order for the same
+  // reason; first-wins over an unsorted map would make the successor this guard
+  // names depend on the machine that ran it.
+  test('picks the lowest successor id deterministically, whatever the edge order', () => {
+    const nodes = [
+      { id: '0001', status: 'superseded' },
+      { id: '0002', status: 'accepted' },
+      { id: '0003', status: 'accepted' },
+    ];
+    const forward = { nodes, edges: [
+      { from: '0002', to: '0001', kind: 'supersedes' },
+      { from: '0003', to: '0001', kind: 'supersedes' },
+    ] } satisfies Corpus;
+    const reversed = { nodes, edges: [...forward.edges].reverse() } satisfies Corpus;
+    expect(terminalSuccessor('0001', forward)).toBe(terminalSuccessor('0001', reversed));
+    expect(terminalSuccessor('0001', forward)).toBe('0002');
+  });
+});
+
+describe('the failure message distinguishes the two acknowledgement rules', () => {
+  // Reported by Copilot. The footer told every author to name a successor, while
+  // the per-finding line for a rejected record asks for the status word — sending
+  // contributors to look for a successor those states do not have.
+  test('a rejected finding does not tell the author to name a successor', () => {
+    const message = formatFailure([{ path: 'README.md', line: 1, id: '0044', status: 'rejected' }]);
+    expect(message).toContain('say "rejected"');
+    expect(message).not.toMatch(/acknowledged when the same paragraph or list item names the successor/u);
+  });
+
+  test('the footer states both rules when both kinds are reported', () => {
+    const message = formatFailure([
+      { path: 'README.md', line: 1, id: '0021', status: 'superseded', successor: '0022' },
+      { path: 'README.md', line: 2, id: '0044', status: 'rejected' },
+    ]);
+    expect(message).toMatch(/superseded/u);
+    expect(message).toMatch(/rejected or deprecated/u);
   });
 });

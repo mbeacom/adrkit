@@ -51,8 +51,8 @@
  * and a configured path that does not exist all throw rather than pass green.
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { compareCodeUnits } from '../packages/core/src/ordering/index.ts';
 
 const repoRoot = resolve(import.meta.dir, '..');
@@ -109,19 +109,30 @@ export interface StaleReference {
 }
 
 /**
- * `ADR-0021`, `ADR 0021`, `adr-0021` — and a corpus link target such as
- * `0021-resolve-inbound-source-annotations-without-changing-the-schema.md`,
+ * `ADR-0021`, `ADR 0021`, `adr-0021` — and a link whose target names a record,
  * which is how a successor is often cited without repeating the id in prose.
  *
- * A bare four-digit number is deliberately *not* a reference. `8192`, `2026`
- * and `0.14.0` all appear in these documents, and a guard that fires on them
- * would be turned off within a week.
+ * The link half is anchored on an `adr/` path segment and accepts a repository
+ * file (`docs/adr/0021-….md`), a published site route (`/adr/0021-…/`, which
+ * `site/scripts/gen-adr-pages.ts` emits with **no extension** and eight pages
+ * already link that way), and a blob URL. Requiring `.md` missed every site
+ * route, in both directions: a citation written that way was invisible, and a
+ * successor cited that way never acknowledged one.
+ *
+ * The anchor also removes a false positive the unanchored form had — it matched
+ * any `NNNN-slug.md`, so `notes/2026-09-22-release.md` read as a citation of
+ * record `2026`. A bare four-digit number is likewise deliberately not a
+ * reference: `8192`, `2026` and `0.14.0` all appear in these documents, and a
+ * guard that fires on them would be switched off within a week.
  *
  * Built fresh per call: `matchAll` seeds from the source regex's `lastIndex`,
  * so a shared global instance any caller had poked would start mid-string.
  */
 export function referencePattern(): RegExp {
-  return new RegExp(String.raw`\bADR[-\s]?(\d{4,})\b|\b(\d{4,})-[a-z0-9-]+\.mdx?\b`, 'giu');
+  return new RegExp(
+    String.raw`\bADR[-\s]?(\d{4,})\b|\badr/(\d{4,})-[a-z0-9-]+(?:\.mdx?|/|\b)`,
+    'giu',
+  );
 }
 
 /** Ids named anywhere in one block of text, in first-appearance order. */
@@ -169,11 +180,17 @@ export function splitBlocks(text: string): Block[] {
     current = [];
   };
 
-  // Frontmatter: only when the very first line opens it.
+  // Frontmatter: only when the very first line opens it **and** a closing
+  // delimiter exists. Advancing to EOF on an unterminated block stepped one past
+  // the last line, so the loop below never ran and the whole document was
+  // dropped — a file could then hide every stale citation while the command
+  // reported a clean run, which is the fail-open this file exists to avoid
+  // (ADR-0016). A lone `---` on line 1 is a legal thematic break, so the answer
+  // is to scan the document, not to fail on it.
   if (lines[0]?.trim() === '---') {
-    index = 1;
-    while (index < lines.length && lines[index]?.trim() !== '---') index += 1;
-    index += 1;
+    let close = 1;
+    while (close < lines.length && lines[close]?.trim() !== '---') close += 1;
+    if (close < lines.length) index = close + 1;
   }
 
   for (; index < lines.length; index += 1) {
@@ -181,9 +198,12 @@ export function splitBlocks(text: string): Block[] {
     const fenceOpen = /^\s*(`{3,}|~{3,})/u.exec(line);
 
     if (fence !== undefined) {
-      if (fenceOpen && (fenceOpen[1] as string).startsWith(fence[0] as string) && (fenceOpen[1] as string).length >= fence.length) {
-        fence = undefined;
-      }
+      // A closing fence uses the same character, is at least as long, and carries
+      // **nothing** after it. Accepting an info string let ```js … ```py close the
+      // block, and the code after it was then scanned as prose.
+      const fenceClose = /^\s*(`{3,}|~{3,})\s*$/u.exec(line);
+      const run = fenceClose?.[1];
+      if (run !== undefined && run[0] === fence[0] && run.length >= fence.length) fence = undefined;
       continue;
     }
     if (fenceOpen) {
@@ -223,10 +243,7 @@ export function splitBlocks(text: string): Block[] {
  */
 export function terminalSuccessor(id: string, corpus: Corpus): string | undefined {
   const statusOf = new Map(corpus.nodes.map((node) => [node.id, node.status]));
-  const successorOf = new Map<string, string>();
-  for (const edge of corpus.edges) {
-    if (edge.kind === 'supersedes' && !successorOf.has(edge.to)) successorOf.set(edge.to, edge.from);
-  }
+  const successorOf = successorIndex(corpus);
 
   const seen = new Set([id]);
   let next = successorOf.get(id);
@@ -242,12 +259,34 @@ export function terminalSuccessor(id: string, corpus: Corpus): string | undefine
   return undefined;
 }
 
+/**
+ * superseded id → the record that supersedes it.
+ *
+ * `adr graph` sorts its edges with `localeCompare`, which follows the runtime's
+ * ICU locale, so first-wins over the supplied order would make the successor this
+ * guard names depend on the machine that ran it. `emit-manifest.ts` refuses to
+ * rest a gate on that same order, for the same reason. Re-sorted with
+ * `compareCodeUnits` here, so the lowest id wins deterministically.
+ *
+ * A lint-clean corpus has exactly one successor per superseded record anyway:
+ * `supersedes`/`supersededBy` are reciprocal, `supersession-consistent` is an
+ * **error** rule, `adr graph` exits non-zero on an error finding, and
+ * {@link parseCorpus}'s caller throws on a non-zero exit. The sort is what makes
+ * the guard deterministic on the corpora that never reach that gate.
+ */
+function successorIndex(corpus: Corpus): Map<string, string> {
+  const supersedes = corpus.edges
+    .filter((edge) => edge.kind === 'supersedes')
+    .sort((a, b) => compareCodeUnits(a.to, b.to) || compareCodeUnits(a.from, b.from));
+
+  const successorOf = new Map<string, string>();
+  for (const edge of supersedes) if (!successorOf.has(edge.to)) successorOf.set(edge.to, edge.from);
+  return successorOf;
+}
+
 /** Every id in the supersession chain above `id`, terminal or not. */
 function chainAbove(id: string, corpus: Corpus): Set<string> {
-  const successorOf = new Map<string, string>();
-  for (const edge of corpus.edges) {
-    if (edge.kind === 'supersedes' && !successorOf.has(edge.to)) successorOf.set(edge.to, edge.from);
-  }
+  const successorOf = successorIndex(corpus);
   const chain = new Set<string>();
   let next = successorOf.get(id);
   while (next !== undefined && !chain.has(next)) {
@@ -294,15 +333,64 @@ export interface DocFile {
   readonly text: string;
 }
 
-/** Read every scanned document. Throws when a configured path is missing. */
+/**
+ * A repository-relative path in the one spelling the rest of this file assumes.
+ *
+ * `node:path.relative()` returns `docs\\adr\\0005-x.md` on Windows, and {@link SCANNED}
+ * writes its exclusions with forward slashes, so every exclusion silently missed
+ * there and the guard reported dozens of findings inside the corpus it is supposed
+ * to skip. @davesheffer reproduced it on Windows/Bun 1.3.14 against PR #217's head
+ * while all 68 tests passed — which is why the separator is a parameter rather than
+ * read from `node:path` inside: a POSIX-only suite can otherwise never reach the bug.
+ *
+ * Conditional on the separator, and deliberately so, exactly as core's
+ * `normalizeMarkerPath` is. On POSIX a backslash is an ordinary filename character,
+ * and rewriting it would make `docs/we\\ird.md` report a path that does not exist.
+ */
+export function normalizeRelative(path: string, separator: string = sep): string {
+  return separator === '\\' ? path.replaceAll('\\', '/') : path;
+}
+
+/**
+ * Whether a normalized repo-relative path falls under one of the excluded prefixes.
+ *
+ * Segment-aware: `docs/adr` excludes `docs/adr/0005-x.md` but not `docs/adrs/x.md`
+ * or `docs/adr-notes.md`, which a bare `startsWith` would also swallow.
+ */
+export function excludes(rel: string, exclude: readonly string[]): boolean {
+  return exclude.some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`));
+}
+
+/**
+ * Read every scanned document.
+ *
+ * Throws when a configured path is missing, and throws on **any** symlink at or
+ * beneath a scanned path. `statSync` follows links and `readdirSync` then recurses
+ * through whatever it reaches, so on a pull-request-authored tree a link under
+ * `docs/` could send this guard outside the worktree or into an unbounded cycle.
+ * Core's marker reader already refuses every symlink component
+ * (`packages/core/src/markers/read.ts`); this refuses rather than skips, because a
+ * skip is the silent-pass failure the rest of this file exists to avoid — a
+ * documentation tree has no reason to contain one, so the answer is to check the
+ * file in rather than link to it.
+ */
 export function collectDocs(root: string = repoRoot): DocFile[] {
   const out: DocFile[] = [];
 
-  const walk = (absolute: string, exclude: readonly string[]): void => {
-    const rel = relative(root, absolute);
-    if (exclude.some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`))) return;
+  const refuseSymlink = (absolute: string, rel: string): void => {
+    throw new Error(
+      `"${rel}" is a symlink. This guard refuses to follow one: a link under a scanned path can ` +
+        'leave the worktree or cycle, and following it would let a pull request choose what CI ' +
+        `reads. Check the file in instead of linking to it. (${absolute})`,
+    );
+  };
 
-    const stats = statSync(absolute);
+  const walk = (absolute: string, exclude: readonly string[]): void => {
+    const rel = normalizeRelative(relative(root, absolute));
+    if (excludes(rel, exclude)) return;
+
+    const stats = lstatSync(absolute);
+    if (stats.isSymbolicLink()) refuseSymlink(absolute, rel);
     if (stats.isDirectory()) {
       for (const entry of readdirSync(absolute).sort(compareCodeUnits)) walk(join(absolute, entry), exclude);
       return;
@@ -312,14 +400,17 @@ export function collectDocs(root: string = repoRoot): DocFile[] {
 
   for (const entry of SCANNED) {
     const absolute = join(root, entry.path);
+    let stats;
     try {
-      statSync(absolute);
+      stats = lstatSync(absolute);
     } catch {
       throw new Error(
         `scanned path "${entry.path}" does not exist. A guard that scans nothing reports nothing ` +
           '(ADR-0016) — remove it from SCANNED deliberately, or restore the file.',
       );
     }
+    // The root itself, before the walk, so a symlinked `docs/` is refused too.
+    if (stats.isSymbolicLink()) refuseSymlink(absolute, entry.path);
     walk(absolute, entry.exclude ?? []);
   }
 
@@ -376,7 +467,15 @@ export function parseCorpus(json: string): Corpus {
   };
 }
 
-/** The message a contributor reads when this fails. */
+/**
+ * The message a contributor reads when this fails.
+ *
+ * The footer states only the rules that actually apply to the findings reported.
+ * A single footer claiming every citation is acknowledged by naming a successor
+ * contradicted the per-finding line for a `rejected` record, which asks for the
+ * status word — and sent the author looking for a successor that state does not
+ * have.
+ */
 export function formatFailure(stale: readonly StaleReference[]): string {
   const lines = stale.map((reference) => {
     const action =
@@ -387,10 +486,23 @@ export function formatFailure(stale: readonly StaleReference[]): string {
         : `say "${reference.status}" here, or move the sentence to the past tense`;
     return `${reference.path}:${reference.line}  ADR-${reference.id} is ${reference.status} — ${action}`;
   });
+
+  const rules: string[] = [];
+  if (stale.some((reference) => reference.status === 'superseded')) {
+    rules.push(
+      'A superseded record is acknowledged when the same paragraph or list item names its successor.',
+    );
+  }
+  if (stale.some((reference) => reference.status !== 'superseded')) {
+    rules.push(
+      'A rejected or deprecated record has no successor to name; its window must carry the status word instead.',
+    );
+  }
+
   return (
     `Prose cites a record that is no longer live without saying so:\n  ${lines.join('\n  ')}\n` +
-    'A citation is acknowledged when the same paragraph or list item names the successor ' +
-    '(ADR-0040). Narration of history belongs in docs/adr/, CHANGELOG.md or specs/, which are not scanned.'
+    `${rules.join(' ')} (ADR-0040)\n` +
+    'Narration of history belongs in docs/adr/, CHANGELOG.md or specs/, which are not scanned.'
   );
 }
 
