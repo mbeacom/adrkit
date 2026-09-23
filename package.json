@@ -37,6 +37,7 @@
     "check:freeze-hashes": "bun run scripts/check-freeze-hashes.ts",
     "check:doc-pins": "bun run scripts/check-doc-cli-versions.ts",
     "check:site-grammar": "bun run scripts/check-site-corpus-grammar.ts",
+    "check:stale-refs": "bun run scripts/check-stale-adr-references.ts",
     "emit:manifest": "bun run scripts/emit-manifest.ts",
     "check:dco": "bun run scripts/check-dco.ts",
     "check:gate-integrity": "bun run scripts/check-gate-integrity.ts",

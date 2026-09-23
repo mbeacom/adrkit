@@ -303,7 +303,8 @@ export function syncOnce() { … }
   declarations were omitted.
 - **Nothing enters the record.** The edge is discovered when you run `explain` or `check`.
   There is no schema change and no new `affects` matcher type
-  ([ADR-0021](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0021-resolve-inbound-source-annotations-without-changing-the-schema.md)).
+  ([ADR-0022](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0022-scan-inbound-markers-in-check-and-ci-without-giving-them-exit-code-authority.md),
+  which supersedes ADR-0021).
 
 A marker naming a record the corpus does not have is a `dangling-marker`
 finding at `warn`. A log-qualified marker is `marker-unresolvable` at `info` —

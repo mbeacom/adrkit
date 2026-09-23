@@ -426,6 +426,47 @@ This surface is at **rung 1** of ADR-0014: contract tests, local Docker/Podman
 build and runtime smoke, and CI construction. No reference-repository or
 external/community validation has been recorded.
 
+## Derived surfaces stay in lockstep three different ways
+
+[ADR-0040](./docs/adr/0040-keep-derived-surfaces-in-lockstep-with-three-mechanisms-matched-to-three-classes.md)
+(**proposed**) splits documentation drift into three classes and refuses to
+pretend one mechanism covers them. Conflating them is what produces a gate that
+reports green while checking nothing.
+
+- **Derived inventory** — `MANIFEST.md`'s record table is a pure function of
+  `docs/adr/`. `bun run emit:manifest` generates the block between its markers;
+  `clean-clone-builds` asserts no diff. Never hand-edit it.
+- **Referential integrity** — `bun run check:stale-refs` fails when a document
+  speaking in the present tense cites a `superseded`, `rejected`, or
+  `deprecated` record without saying so. Acknowledgement is per **paragraph or
+  list item**, and for a superseded record it must be the *successor's id*, not
+  the word "superseded" — the word does not tell the reader where to go next.
+  The `@adr` marker half of the same class is the separate, already-shipped
+  `stale-marker` finding; the two share one definition of successor and nothing
+  else, and prose is never treated as an inbound governance declaration.
+- **Implementation claims** — ADR action-item checkboxes are neither derivable
+  nor checkable. Verify each claim against the tree before ticking, and leave an
+  item unchecked when the evidence does not support it. This is process, and the
+  record says so rather than faking automation.
+
+Two boundaries are load-bearing:
+
+- **Scan scope is the whole decision, and it is hand-maintained on purpose.**
+  `docs/adr/`, `CHANGELOG.md`, `specs/`, `plan.md`, and source are excluded
+  because they narrate history correctly — rewriting them would falsify the
+  past. That exclusion is the difference between one finding and 149 mentions.
+  A new top-level prose document is unguarded until someone adds it to
+  `SCANNED` in `scripts/check-stale-adr-references.ts`.
+- **Neither rule gains exit-code authority over a consumer's corpus.** The
+  prose guard fails this repository's own CI step. It does not change
+  `adr lint`, `adr check`, or the governing-decisions Action, and ADR-0022's
+  deliberate denial of exit-code authority to marker findings is untouched.
+
+Both guards are repo-local scripts, not CLI surface: `adr graph --format json`
+already emits every node's `status` and every `supersedes` edge, and the public
+CLI is a semver commitment (ADR-0031) whose write surface is deliberately two
+commands. A public Markdown inventory formatter waits for adopter demand.
+
 ## Toolchain
 
 This project uses **Bun** as its runtime, package manager, test runner, and

@@ -379,18 +379,18 @@ records: **gate 4 remains unmet and not yet testable regardless of this feature'
 and is recorded as unmet — never as passed, and never as failed.** Failed would imply it
 was tested; it was not, because it cannot yet be.
 
-### 4.6 One post-install step of fifteen is not network-denied — the canonical statement
+### 4.6 One post-install step of seventeen is not network-denied — the canonical statement
 
 **This section is the single source for the exemption.** `tasks.md` T093, the workflow
 comment, and `negative-cases/clean-clone-offline/` all point here rather than restate it.
 Three restatements would be three places to drift, and this feature has twice been bitten
 by a description outliving the thing it described.
 
-`clean-clone-builds` has **fifteen post-install steps. Fourteen run through
-`scripts/run-network-denied.ts`. The fifteenth is `bun test`.** The count is stated rather
+`clean-clone-builds` has **seventeen post-install steps. Sixteen run through
+`scripts/run-network-denied.ts`. The seventeenth is `bun test`.** The count is stated rather
 than rounded to "every step is denied": rounding up claims coverage the run does not have,
 which under ADR-0016's own reasoning is a defect, not a simplification. Counted from the
-workflow — 18 steps in the job, 3 before and including the install, 15 after, 14 of which
+workflow — 20 steps in the job, 3 before and including the install, 17 after, 16 of which
 name the wrapper in their `run:` — and counted independently twice, because the number now
 appears in a requirement.
 
@@ -412,6 +412,31 @@ and the emitted schema) were incidental rather than structural and are now wrapp
 schema step's `&& git diff` in particular ran outside the wrapper under a step whose *name*
 said network denied. That history is kept rather than tidied away, because a ledger that
 quietly becomes correct teaches a reader nothing about how far to trust it.
+
+The count has since drifted again, in the same direction and for the same reason: a step
+was added to `clean-clone-builds` and this section was not re-counted. It read fifteen
+post-install steps when there were already sixteen, and is corrected to seventeen alongside
+the step ADR-0040 added. The drift is recorded rather than tidied away, for the reason the
+paragraph above gives.
+
+Two things that correction exposed are worth stating plainly, because they are this
+section's own claims failing.
+
+First, the paragraph above says `tasks.md` T093, the workflow comment, and
+`negative-cases/clean-clone-offline/` "point here rather than restate it". None of them
+did — all three restated the number, as did FR-050 in `spec.md`, and
+`clean-clone-offline/README.md` restates it twice, once directly below the sentence saying
+it does not. Five copies of a number this section warned would drift in three. Every one
+was already wrong by one before ADR-0040's step, and all are corrected here. The
+architecture this section describes is the right one; it was simply not the one in the
+tree.
+
+Second, this is exactly ADR-0040's argument arriving from outside its scope. A
+hand-maintained mirror of state the tree already defines drifts the moment attention moves,
+and *this* mirror declares itself canonical, which is what makes it worth stating rather
+than quietly fixing. Nothing guards the number; it is derivable from the workflow, and a
+decision to generate it would be class 1 of that record rather than this disclosure.
+ADR-0040 action item 7 carries it.
 
 **T093 is closed on this basis**, on the corrected FR-050 and the runner evidence.
 
