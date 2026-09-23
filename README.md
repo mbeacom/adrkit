@@ -18,12 +18,12 @@ answer where the next decision is being made.
 
 ## Decision governance, not generated documentation
 
-**Proposed interoperability direction:** [ADR-0037](docs/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities.md)
-is under review and has not been ratified.
-
 Generated knowledge systems answer *"how does the system work now?"* adrkit
 answers *"what did people decide, what alternatives were rejected, and which
 decisions govern this change?"*
+[ADR-0037](docs/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities.md)
+sets that boundary: generated knowledge systems are downstream read models of
+adrkit's human-reviewed decision corpus, never decision authorities.
 
 Tools such as [OpenWiki](https://github.com/langchain-ai/openwiki) can consume
 ADRs as evidence and turn them into browsable current-state documentation. That
@@ -34,8 +34,8 @@ ratification of a decision.
 
 See the provisional
 [generated-knowledge guide](https://adrkit.dev/generated-knowledge/) for the
-OpenWiki setup being evaluated and the proposed ownership boundary between the
-two tools.
+OpenWiki setup being evaluated and the ownership boundary ADR-0037 sets between
+the two tools.
 
 ## Quickstart
 
