@@ -237,5 +237,8 @@ when those capabilities could improve adrkit's presentation.
        existing SDK publication gate rather than creating a second gate here.
 7. [ ] Scope any implementation-evidence freshness feature in a separate ADR
        against the existing assertion and evidence-status vocabulary.
-8. [ ] Update every public proposed-state qualifier in the same pull request that
+8. [x] Update every public proposed-state qualifier in the same pull request that
        accepts, rejects, supersedes, or otherwise changes this record's status.
+       Missed in the acceptance PR itself; completed across
+       [#216](https://github.com/mbeacom/adrkit/pull/216) (README, site
+       homepage, generated-knowledge guide, and `PRODUCT.md`).
