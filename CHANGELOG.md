@@ -34,6 +34,14 @@ Until `1.0.0`, minor releases may include breaking changes
   actually emits; and the successor index is sorted with `compareCodeUnits`
   rather than resting on `adr graph`'s locale-dependent edge order.
 
+  A second review round found three more, also observed failing first: the
+  symlink check examined only a path's final entry, so a symlinked *ancestor*
+  (`site/src/content`) still let the walk read outside the root; it ran after the
+  exclusion, so a symlinked `docs/adr` passed unchecked; and the `adr/` anchor
+  used `\b`, which finds a boundary after the hyphen in `not-adr/`, reading an
+  unrelated route as a local citation. Every path component is now checked from
+  the root down, before the exclusion, and the anchor is a path-segment boundary.
+
 ### Fixed
 
 - **`site/src/content/docs/commands.mdx` cited ADR-0021 as the live authority**

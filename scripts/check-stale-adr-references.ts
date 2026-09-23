@@ -125,12 +125,18 @@ export interface StaleReference {
  * reference: `8192`, `2026` and `0.14.0` all appear in these documents, and a
  * guard that fires on them would be switched off within a week.
  *
+ * The anchor is a **path-segment** boundary, not `\b`. A word boundary exists
+ * between the hyphen and the `a` of `not-adr`, so `\badr/` read `/not-adr/0005-old/`
+ * as a local citation — an unrelated route failing a required check. The lookbehind
+ * rejects a preceding word character or hyphen, which leaves the segment starts that
+ * actually occur: start of string, `/`, and `./`.
+ *
  * Built fresh per call: `matchAll` seeds from the source regex's `lastIndex`,
  * so a shared global instance any caller had poked would start mid-string.
  */
 export function referencePattern(): RegExp {
   return new RegExp(
-    String.raw`\bADR[-\s]?(\d{4,})\b|\badr/(\d{4,})-[a-z0-9-]+(?:\.mdx?|/|\b)`,
+    String.raw`\bADR[-\s]?(\d{4,})\b|(?<![\w-])adr/(\d{4,})-[a-z0-9-]+(?:\.mdx?|/|\b)`,
     'giu',
   );
 }
@@ -373,6 +379,22 @@ export function excludes(rel: string, exclude: readonly string[]): boolean {
  * skip is the silent-pass failure the rest of this file exists to avoid — a
  * documentation tree has no reason to contain one, so the answer is to check the
  * file in rather than link to it.
+ *
+ * Three properties of that check are each load-bearing, and the first two were
+ * wrong in the round that introduced it:
+ *
+ * - **Every component is checked, not the leaf.** `lstatSync` on a constructed
+ *   path examines only its final entry; the OS still traverses every ancestor,
+ *   following links. Replacing `site/src/content` with a link let the walk read
+ *   `outside/docs/leak.md` and report it under `site/src/content/docs/`.
+ * - **The check precedes the exclusion.** An excluded path is not read, but it is
+ *   inside the boundary this guard claims, and {@link main} hands the same tree to
+ *   `adr graph` — whose corpus loader *does* follow a symlinked `docs/adr` root.
+ *   Checking first is what lets this refuse before the CLI is spawned.
+ * - **Refusal, not omission.** See above.
+ *
+ * The corpus loader's own behavior on a symlinked root is core's boundary and is
+ * unchanged here; `adr lint` already loads the same corpus earlier in the same job.
  */
 export function collectDocs(root: string = repoRoot): DocFile[] {
   const out: DocFile[] = [];
@@ -385,12 +407,33 @@ export function collectDocs(root: string = repoRoot): DocFile[] {
     );
   };
 
+  /**
+   * `lstat` each component from `root` down to `target`, refusing the first
+   * symlink. Mirrors core's `lstatWithoutSymlink`; checking only the leaf is
+   * insufficient because the OS resolves every ancestor on the way to it.
+   */
+  const lstatEveryComponent = (target: string): ReturnType<typeof lstatSync> => {
+    let current = root;
+    let stats = lstatSync(current);
+    for (const segment of normalizeRelative(relative(root, target)).split('/')) {
+      if (segment === '') continue;
+      current = join(current, segment);
+      stats = lstatSync(current);
+      if (stats.isSymbolicLink()) {
+        refuseSymlink(current, normalizeRelative(relative(root, current)));
+      }
+    }
+    return stats;
+  };
+
   const walk = (absolute: string, exclude: readonly string[]): void => {
     const rel = normalizeRelative(relative(root, absolute));
-    if (excludes(rel, exclude)) return;
-
+    // Before the exclusion, not after: an excluded path is not read, but it is
+    // inside the boundary, and `adr graph` follows a symlinked `docs/adr` root.
     const stats = lstatSync(absolute);
     if (stats.isSymbolicLink()) refuseSymlink(absolute, rel);
+    if (excludes(rel, exclude)) return;
+
     if (stats.isDirectory()) {
       for (const entry of readdirSync(absolute).sort(compareCodeUnits)) walk(join(absolute, entry), exclude);
       return;
@@ -400,17 +443,16 @@ export function collectDocs(root: string = repoRoot): DocFile[] {
 
   for (const entry of SCANNED) {
     const absolute = join(root, entry.path);
-    let stats;
     try {
-      stats = lstatSync(absolute);
+      lstatSync(absolute);
     } catch {
       throw new Error(
         `scanned path "${entry.path}" does not exist. A guard that scans nothing reports nothing ` +
           '(ADR-0016) — remove it from SCANNED deliberately, or restore the file.',
       );
     }
-    // The root itself, before the walk, so a symlinked `docs/` is refused too.
-    if (stats.isSymbolicLink()) refuseSymlink(absolute, entry.path);
+    // Every component from the root, so a symlinked ancestor is refused too.
+    lstatEveryComponent(absolute);
     walk(absolute, entry.exclude ?? []);
   }
 

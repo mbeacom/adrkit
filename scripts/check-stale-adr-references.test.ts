@@ -486,8 +486,22 @@ describe('extensionless site routes', () => {
   test.each([
     ['a dated changelog file', 'see [notes](./notes/2026-09-22-release.md)'],
     ['a dated page', '[log](/journal/2026-01-thing/)'],
+    // Second review round. `\badr/` finds a word boundary between the hyphen and
+    // the `a` of `not-adr`, so an unrelated route was read as a local citation —
+    // a false positive that fails a required check.
+    ['a hyphenated lookalike segment', '[other](/not-adr/0005-old/)'],
+    ['another hyphenated lookalike', '[other](/my-adr/0021-x/)'],
+    ['a word-joined lookalike', '[other](/notadr/0005-old/)'],
   ])('does not read an id from %s', (_label, text) => {
     expect(referencedIds(text)).toEqual([]);
+  });
+
+  test.each([
+    ['at the start of a relative path', '[r](adr/0022-scan/)'],
+    ['after a slash', '[r](/docs/adr/0022-scan.md)'],
+    ['after a dot-slash', '[r](./adr/0022-scan/)'],
+  ])('still reads a real adr segment %s', (_label, text) => {
+    expect(referencedIds(text)).toEqual(['0022']);
   });
 });
 
@@ -534,6 +548,46 @@ describe('symlinks under a scanned path', () => {
     writeFileSync(join(root, 'elsewhere', 'x.md'), 'See ADR-0021.\n');
     symlinkSync(join(root, 'elsewhere'), join(root, 'docs'));
     expect(() => collectDocs(root)).toThrow(/symlink/iu);
+  });
+
+  // Second review round. `lstatSync` on the path this walk constructs checks only
+  // its final entry; every ancestor is still traversed by the OS, which follows
+  // links. Replacing `site/src/content` let the walk read `outside/docs/leak.md`
+  // and report it as `site/src/content/docs/leak.md` — outside the root entirely.
+  // Core's `lstatWithoutSymlink` checks each component for exactly this reason.
+  test('refuses a symlinked ancestor of a scanned path', () => {
+    const root = tree();
+    rmSync(join(root, 'site/src/content'), { recursive: true });
+    mkdirSync(join(root, 'outside', 'docs'), { recursive: true });
+    writeFileSync(join(root, 'outside', 'docs', 'leak.md'), 'See ADR-0021.\n');
+    symlinkSync(join(root, 'outside'), join(root, 'site/src/content'));
+    expect(() => collectDocs(root)).toThrow(/symlink/iu);
+  });
+
+  test('refuses a symlinked ancestor deeper than one level', () => {
+    const root = tree();
+    rmSync(join(root, 'site/src'), { recursive: true });
+    mkdirSync(join(root, 'outside', 'content', 'docs'), { recursive: true });
+    symlinkSync(join(root, 'outside'), join(root, 'site/src'));
+    expect(() => collectDocs(root)).toThrow(/symlink/iu);
+  });
+
+  // An excluded path is not read, but it is still inside the boundary this guard
+  // claims. It was returning before the check, so `docs/adr` could be a symlink
+  // and pass — and `main()` then hands that same tree to `adr graph`, whose
+  // corpus loader does follow a symlinked root.
+  test('refuses a symlink at an excluded path rather than skipping the check', () => {
+    const root = tree();
+    mkdirSync(join(root, 'elsewhere'));
+    symlinkSync(join(root, 'elsewhere'), join(root, 'docs', 'adr'));
+    expect(() => collectDocs(root)).toThrow(/symlink/iu);
+  });
+
+  test('still does not read an excluded directory that is a real directory', () => {
+    const root = tree();
+    mkdirSync(join(root, 'docs', 'adr'));
+    writeFileSync(join(root, 'docs', 'adr', '0001-x.md'), 'See ADR-0021.\n');
+    expect(collectDocs(root).map((doc) => doc.path)).not.toContain('docs/adr/0001-x.md');
   });
 
   test('accepts a tree with no symlinks', () => {
