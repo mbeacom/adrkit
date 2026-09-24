@@ -333,6 +333,14 @@ describe('the scanned set', () => {
     expect(paths.some((path) => path.startsWith('site/src/content/docs/adr/'))).toBe(false);
   });
 
+  // The two `startsWith` assertions above are the ones that passed on Windows while
+  // the guard failed there: a `docs\adr\…` path never starts with `docs/adr/`. Without
+  // this, dropping `normalizeRelative` from the walk is caught by no test on any
+  // platform — only by `bun run check:stale-refs` in the Windows smoke job (#218).
+  test('reports every collected path with forward slashes', () => {
+    expect(collectDocs().filter((doc) => doc.path.includes('\\')).map((doc) => doc.path)).toEqual([]);
+  });
+
   test.each([
     ['CHANGELOG.md', 'CHANGELOG.md'],
     ['specs/', 'specs'],
@@ -505,6 +513,43 @@ describe('extensionless site routes', () => {
   });
 });
 
+/**
+ * Whether this process can create a directory symlink.
+ *
+ * On Windows that needs Developer Mode or elevation, so a contributor's machine may
+ * not be able to build the fixtures below. Those tests then skip — but a skipped
+ * refusal test is coverage nobody has, so the skip is printed rather than silent,
+ * and CI sets `ADRKIT_REQUIRE_SYMLINKS=1` to turn it into a failure (ADR-0016, #218).
+ */
+const canSymlink = ((): boolean => {
+  const probe = mkdtempSync(join(tmpdir(), 'adrkit-symlink-probe-'));
+  try {
+    mkdirSync(join(probe, 'target'));
+    symlinkSync(join(probe, 'target'), join(probe, 'link'));
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+})();
+
+const symlinkTest = test.skipIf(!canSymlink);
+
+test('the symlink refusal is exercised here, or its skip is stated', () => {
+  if (canSymlink) return;
+  if (process.env.ADRKIT_REQUIRE_SYMLINKS === '1') {
+    throw new Error(
+      'ADRKIT_REQUIRE_SYMLINKS=1 but this process cannot create a symlink, so every symlink ' +
+        'refusal test would skip. On Windows, enable Developer Mode or run elevated.',
+    );
+  }
+  console.warn(
+    'check-stale-adr-references.test: cannot create symlinks here — the symlink refusal tests ' +
+      'are SKIPPED and this run does not cover them.',
+  );
+});
+
 describe('symlinks under a scanned path', () => {
   const tree = (): string => {
     const root = mkdtempSync(join(tmpdir(), 'adrkit-stale-refs-'));
@@ -525,14 +570,14 @@ describe('symlinks under a scanned path', () => {
   // already refuses every symlink component
   // (`packages/core/src/markers/read.ts`); this refuses rather than skips,
   // because skipping is the fail-open the rest of this file exists to avoid.
-  test('refuses a symlinked file inside a scanned directory', () => {
+  symlinkTest('refuses a symlinked file inside a scanned directory', () => {
     const root = tree();
     writeFileSync(join(root, 'target.md'), 'See ADR-0021.\n');
     symlinkSync(join(root, 'target.md'), join(root, 'docs', 'linked.md'));
     expect(() => collectDocs(root)).toThrow(/symlink/iu);
   });
 
-  test('refuses a symlinked directory inside a scanned directory', () => {
+  symlinkTest('refuses a symlinked directory inside a scanned directory', () => {
     const root = tree();
     mkdirSync(join(root, 'elsewhere'));
     writeFileSync(join(root, 'elsewhere', 'x.md'), 'See ADR-0021.\n');
@@ -540,7 +585,7 @@ describe('symlinks under a scanned path', () => {
     expect(() => collectDocs(root)).toThrow(/symlink/iu);
   });
 
-  test('refuses a scanned root that is itself a symlink', () => {
+  symlinkTest('refuses a scanned root that is itself a symlink', () => {
     const root = tree();
     // A complete tree first, so the refusal is the symlink and not a missing path.
     rmSync(join(root, 'docs'), { recursive: true });
@@ -555,7 +600,7 @@ describe('symlinks under a scanned path', () => {
   // links. Replacing `site/src/content` let the walk read `outside/docs/leak.md`
   // and report it as `site/src/content/docs/leak.md` — outside the root entirely.
   // Core's `lstatWithoutSymlink` checks each component for exactly this reason.
-  test('refuses a symlinked ancestor of a scanned path', () => {
+  symlinkTest('refuses a symlinked ancestor of a scanned path', () => {
     const root = tree();
     rmSync(join(root, 'site/src/content'), { recursive: true });
     mkdirSync(join(root, 'outside', 'docs'), { recursive: true });
@@ -564,7 +609,7 @@ describe('symlinks under a scanned path', () => {
     expect(() => collectDocs(root)).toThrow(/symlink/iu);
   });
 
-  test('refuses a symlinked ancestor deeper than one level', () => {
+  symlinkTest('refuses a symlinked ancestor deeper than one level', () => {
     const root = tree();
     rmSync(join(root, 'site/src'), { recursive: true });
     mkdirSync(join(root, 'outside', 'content', 'docs'), { recursive: true });
@@ -576,18 +621,44 @@ describe('symlinks under a scanned path', () => {
   // claims. It was returning before the check, so `docs/adr` could be a symlink
   // and pass — and `main()` then hands that same tree to `adr graph`, whose
   // corpus loader does follow a symlinked root.
-  test('refuses a symlink at an excluded path rather than skipping the check', () => {
+  symlinkTest('refuses a symlink at an excluded path rather than skipping the check', () => {
     const root = tree();
     mkdirSync(join(root, 'elsewhere'));
     symlinkSync(join(root, 'elsewhere'), join(root, 'docs', 'adr'));
     expect(() => collectDocs(root)).toThrow(/symlink/iu);
   });
 
+  // Exact equality rather than `not.toContain('docs/adr/0001-x.md')`, which a walk
+  // reporting `docs\adr\0001-x.md` also satisfies — the Windows failure from #217.
+  // Listing what *was* collected makes the separator, and the exclusion, both
+  // observable on whichever platform runs it.
   test('still does not read an excluded directory that is a real directory', () => {
     const root = tree();
     mkdirSync(join(root, 'docs', 'adr'));
     writeFileSync(join(root, 'docs', 'adr', '0001-x.md'), 'See ADR-0021.\n');
-    expect(collectDocs(root).map((doc) => doc.path)).not.toContain('docs/adr/0001-x.md');
+    mkdirSync(join(root, 'docs', 'guides'));
+    writeFileSync(join(root, 'docs', 'guides', 'kept.md'), '# kept\n');
+    expect(collectDocs(root).map((doc) => doc.path)).toEqual([
+      'AGENTS.md',
+      'CLAUDE.md',
+      'CONTRIBUTING.md',
+      'MANIFEST.md',
+      'README.md',
+      'docs/guides/kept.md',
+      'docs/note.md',
+    ]);
+  });
+
+  // A directory junction is Windows' other link type, and needs no privilege to
+  // create — so it is the one a contributor without Developer Mode can make. Whether
+  // `lstat` reports it as a symlink is the runtime's call, not this script's; Bun
+  // 1.3.14 does, and this pins that the refusal holds for it (#218).
+  test.skipIf(process.platform !== 'win32')('refuses a directory junction inside a scanned directory', () => {
+    const root = tree();
+    mkdirSync(join(root, 'elsewhere'));
+    writeFileSync(join(root, 'elsewhere', 'x.md'), 'See ADR-0021.\n');
+    symlinkSync(join(root, 'elsewhere'), join(root, 'docs', 'linked'), 'junction');
+    expect(() => collectDocs(root)).toThrow(/symlink/iu);
   });
 
   test('accepts a tree with no symlinks', () => {
