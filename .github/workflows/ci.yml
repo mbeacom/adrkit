@@ -130,6 +130,49 @@ jobs:
       - name: Lint ADR corpus (network denied)
         run: bun scripts/run-network-denied.ts -- bun run adr lint
 
+  windows-stale-refs-smoke:
+    # One repo-local guard, `check:stale-refs`, on a real Windows runner (#218). It
+    # shipped in #217 with 68 passing tests and failed on the first Windows checkout
+    # that ran it: `node:path.relative()` returned `docs\adr\…`, no exclusion matched,
+    # and the guard reported the corpus it exists to skip. The parameterized unit
+    # tests now reach that bug on POSIX, but they prove the helper, not the walk —
+    # `path.sep`, `readdirSync`, CRLF checkouts and `lstat` on links only behave like
+    # Windows on Windows.
+    #
+    # Scoped to exactly that, and named so. This is not a Windows support claim for
+    # the CLI, the MCP server or the Action, and it makes no network-denial claim:
+    # that guarantee belongs to `clean-clone-builds`, which is unchanged.
+    #
+    # Unfiltered on purpose. A `paths` filter on this script would miss the same
+    # class of bug reintroduced by a `node:path` change anywhere else it imports.
+    #
+    # `ADRKIT_REQUIRE_SYMLINKS=1` turns the suite's skip of the symlink refusal tests
+    # into a failure, so a runner image that loses symlink privilege goes red rather
+    # than reporting coverage it no longer has (ADR-0016).
+    name: check:stale-refs on Windows (this guard only)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Test the guard, including the walk and symlink refusal
+        env:
+          ADRKIT_REQUIRE_SYMLINKS: '1'
+        run: bun test scripts/check-stale-adr-references.test.ts
+      - name: Run the guard against this checkout
+        run: bun run check:stale-refs
+
   node-smoke-built-artifacts:
     runs-on: ubuntu-latest
     strategy:
