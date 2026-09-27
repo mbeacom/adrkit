@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0041"
 title: "Regenerate committed artifacts on Dependabot pull requests with default-branch scripts behind a maintainer label"
-status: proposed
+status: accepted
 date: 2026-09-27
 deciders:
   - "@mbeacom"
@@ -31,6 +31,7 @@ affects:
     pattern: "schema/adr.schema.json"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 reviewBy: 2027-09-27
 ---
 
