@@ -57,6 +57,18 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Fixed
 
+- **`@adrkit/core` and `@adrkit/mcp` now declare `zod` as `>=4.4.3 <4.5`
+  (previously `^4` and `^4.2.0`).** zod 4.5.0 made `z.iso.datetime()` require
+  seconds ([colinhacks/zod#6457](https://github.com/colinhacks/zod/pull/6457)),
+  so a fresh install of `@adrkit/core` could resolve a zod whose runtime rejects
+  a minutes-only timestamp such as `2026-01-01T12:30Z` in `importedAt`,
+  `queuedAt`, `escalatedAt`, `decidedAt`, or `ranAt` — while the published
+  `v0.1.0` JSON Schema still accepts it. The cap makes runtime validation match
+  the published schema again. Adopting the stricter RFC 3339 behaviour is
+  planned as schema `v0.2.0`, with `v0.1.0` retained as ADR-0011 requires
+  ([#235](https://github.com/mbeacom/adrkit/issues/235)). Nothing installed
+  in this repository changes: 4.4.3 is already the locked version.
+
 - **`@adrkit/core` and `@adrkit/catalog-backstage` declared `yaml` as the
   `latest` dist-tag instead of a range.** A published `latest` resolves to
   whatever is newest at the consumer's install time, including a future major.

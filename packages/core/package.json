@@ -61,7 +61,7 @@
     "picomatch": "^4",
     "semver": "^7",
     "yaml": "^2.9.0",
-    "zod": "^4"
+    "zod": ">=4.4.3 <4.5"
   },
   "devDependencies": {
     "@types/bun": "latest",
