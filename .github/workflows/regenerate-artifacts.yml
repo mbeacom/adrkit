@@ -314,6 +314,14 @@ jobs:
           done < "${root}/paths.txt"
           jq -n --arg b "$base_tree" --argjson t "$entries" '{base_tree: $b, tree: $t}' > "${RUNNER_TEMP}/tree.json"
           tree=$(gh api "repos/${REPO}/git/trees" --input "${RUNNER_TEMP}/tree.json" --jq .sha)
+          # `build` diffs against the default branch, so a second run on a pull
+          # request that already carries the regeneration lists the same files
+          # again. Git trees are content-addressed: an identical tree means the
+          # head already has these artifacts, and a commit would be empty (#209).
+          if [ "$tree" = "$base_tree" ]; then
+            echo "::notice::the pull request already carries these artifacts; nothing to push"
+            exit 0
+          fi
           message=$(printf '%s\n\n%s\n\n%s\n' \
             "build: regenerate committed artifacts for #${PR_NUMBER} [dependabot skip]" \
             "Rebuilt by the regenerate-artifacts workflow (ADR-0041) from the default branch's scripts." \

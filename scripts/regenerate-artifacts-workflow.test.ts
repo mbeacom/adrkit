@@ -170,6 +170,15 @@ describe('the commit it writes', () => {
   test('an empty regeneration pushes nothing', () => {
     expect(commit()).toContain('nothing to push');
   });
+
+  // Observed on #209: a second run built the same artifacts and pushed an empty
+  // commit, because the build diffs against the default branch, not the head.
+  test('a tree identical to the head is not committed', () => {
+    const body = commit();
+    const guard = body.indexOf('if [ "$tree" = "$base_tree" ]; then');
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(body.indexOf('repos/${REPO}/git/commits"'));
+  });
 });
 
 describe('the label is removed and the removal verified', () => {
