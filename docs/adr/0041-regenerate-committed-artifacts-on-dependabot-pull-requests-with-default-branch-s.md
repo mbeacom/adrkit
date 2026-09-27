@@ -106,6 +106,40 @@ Running dependency code is not hypothetical here. `bun build` bundles
 `@actions/*` without executing it, but `schema:emit` runs
 `bun ./src/schema/emit.cli.ts`, which **executes** the bumped `zod`.
 
+### What Dependabot and GitHub provide natively
+
+Checked against the vendor's own documentation and tracker before choosing,
+because a first-party mechanism would beat anything built here:
+
+- **Dependabot has no post-update command.** `dependabot.yml` has no key that runs
+  a build before the PR is opened. It has been requested since 2020
+  ([dependabot-core#1758](https://github.com/dependabot/dependabot-core/issues/1758),
+  [#2004](https://github.com/dependabot/dependabot-core/issues/2004), both closed
+  without it) and is requested again, still open as of this record, in
+  [#14549](https://github.com/dependabot/dependabot-core/issues/14549) — whose
+  text names this repository's exact failure: the workaround is a workflow that
+  pushes the rebuild back, and a `GITHUB_TOKEN` push never retriggers the required
+  checks. `versioning-strategy`, `groups`, `ignore`, and `allow` all shape *which*
+  PRs exist; none shapes what is in them beyond manifests and lockfiles.
+- **GitHub's documented automation pattern is the one to avoid.** GitHub's
+  guidance for automating Dependabot PRs is a `pull_request` workflow gated on
+  `if: github.actor == 'dependabot[bot]'`, where the token is read-only and only
+  Dependabot secrets are available
+  ([troubleshooting Dependabot on Actions](https://docs.github.com/en/code-security/dependabot/troubleshooting-dependabot/troubleshooting-dependabot-on-github-actions)).
+  `github.actor` is whoever caused the latest event, and published research shows
+  an attacker can make Dependabot that actor on a PR it did not author, and inject
+  through crafted branch names
+  ([Boost Security, "Weaponizing Dependabot"](https://boostsecurity.io/blog/weaponizing-dependabot-pwn-request-at-its-finest)).
+  An actor check is not an identity check.
+- **Dependabot can keep maintaining a PR someone else has committed to.** By
+  default it stops rebasing once extra commits land, but a commit whose message
+  contains `[dependabot skip]` is one it is allowed to force-push over
+  ([managing Dependabot PRs](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/managing-pull-requests-for-dependency-updates)).
+
+The first finding is why something has to be built; the second is why it is not
+built on `github.actor`; the third removes what would otherwise be this design's
+largest cost.
+
 ## Decision
 
 **We will regenerate committed artifacts on Dependabot pull requests with a
@@ -121,17 +155,27 @@ In `.github/workflows/regenerate-artifacts.yml`:
    last property is why the label is not optional: GitHub restricts secrets for
    workflows Dependabot triggers, and a label applied by a person is how the job
    reaches an Actions secret at all. The job records the head SHA it was granted
-   for and refuses if the head has moved; the label is removed when the job
-   finishes, whatever the outcome.
+   for and refuses if the head has moved. A final job, `if: always()`, removes the
+   label whatever the outcome and confirms the removal with a live API read. It
+   uses the workflow's own `GITHUB_TOKEN` with `pull-requests: write` and nothing
+   else — the App token has `contents: write` only and cannot remove a label, and
+   keeping the two credentials apart keeps each one minimal. No job keys anything
+   on `github.actor`, and the head branch name is never interpolated into a
+   command: it is read from the API and passed through `env:`, since a
+   branch name is attacker-influenced text in the research cited above.
 2. **Eligibility, read from the API and not the event payload.** The PR's author
-   is `dependabot[bot]`. Every commit on it is either **authored** by
+   is `dependabot[bot]`, and its head repository is this repository — Dependabot
+   branches are never forks. Every commit on it is either **authored** by
    `dependabot[bot]` (checked by account login, not by the free-text email) or is
    this workflow's own earlier regeneration commit, authored by the App and
    touching only the artifact paths in item 4 — so a second run on the same PR is
    possible. The committer is not checked: Dependabot creates commits through the
    API, and they carry `web-flow` as committer (observed on #206, signature
    verified). Its changed files (paginated) are only `bun.lock`,
-   `package.json`, and `packages/**/package.json`. Each changed manifest must
+   `package.json`, and `packages/**/package.json` — plus the artifact paths in
+   item 4, admitted **only** when every commit that touches them is an App
+   regeneration commit. Without that second clause a re-run after an earlier
+   regeneration would refuse its own output. Each changed manifest must
    differ from the default branch's copy **only** in `dependencies`,
    `devDependencies`, `peerDependencies`, and `optionalDependencies` — a path
    allowlist alone would pass a changed `scripts` block. Anything else refuses
@@ -153,7 +197,9 @@ In `.github/workflows/regenerate-artifacts.yml`:
    result through the Git Data API: a blob per changed file, a tree based on the
    recorded head SHA's tree, a commit whose parent is that SHA and whose message
    carries a `Signed-off-by` for the App's bot identity (`check-dco` already
-   accepts a bot sign-off), then a non-forced ref update — which fails, as the
+   accepts a bot sign-off) and `[dependabot skip]`, so Dependabot keeps rebasing
+   the PR and force-pushes over the regeneration when it does, then a non-forced
+   ref update — which fails, as the
    lease should, if the branch has moved. Commits created this way through an App
    are signed by GitHub, so the regeneration commit is verified like Dependabot's.
    It authenticates with a GitHub App installation token scoped to
@@ -175,7 +221,8 @@ observation that no regeneration updates — and so does the
 - **Not triggering without the label.** An automatic run on every Dependabot
   `synchronize` would have `dependabot[bot]` as the actor, lose access to the App
   secret, and remove the one human step that decides a given bump is worth
-  building.
+  building. Storing the App key as a *Dependabot* secret to get around that is
+  Option G below.
 - **Not regenerating `bun.lock`.** The stale-optional-binding lock seen on
   [#221](https://github.com/mbeacom/adrkit/pull/221) is Bun 1.3.14's own
   incremental resolution — plain `bun install` from `main`'s lock reproduces it
@@ -250,16 +297,49 @@ Dependency PRs keep failing, and keep being closed. The bundled `undici` and
 `@octokit/*` versions that ship to every Action consumer drift until a security
 advisory forces a manual rebuild under time pressure.
 
+### Option G: GitHub's documented pattern — automatic, with the App key as a Dependabot secret
+
+A `pull_request` workflow gated on `github.actor == 'dependabot[bot]'`, reading the
+App key from a Dependabot secret so that no label is needed.
+
+**Pros:** fully automatic; the pattern GitHub documents; nothing to remember.
+**Cons:** it keys trust on `github.actor`, which the Boost Security research shows
+can be made `dependabot[bot]` on a PR Dependabot did not author; the workflow
+file comes from the PR's merge ref rather than the default branch, the property
+ADR-0035 removed; and a Dependabot secret is exposed to every Dependabot-triggered
+run of every workflow, not just this one. Rejected. The label costs one click and
+buys a trusted trigger.
+
+### Option H: Replace Dependabot with self-hosted Renovate and `postUpgradeTasks`
+
+Renovate is the ecosystem's standard answer to the missing feature: its
+`postUpgradeTasks` runs allowlisted commands after an update and commits the
+result into the same PR, with the checks triggered normally.
+
+**Pros:** regeneration happens before the PR exists, so there is never a red PR
+and no second workflow; one tool for every ecosystem.
+**Cons:** `postUpgradeTasks` is available only when Renovate is self-hosted —
+here, a scheduled workflow holding a write-capable token *while* it installs and
+builds the updated dependencies, which is the co-residence this record's two-job
+split exists to avoid. It also replaces Dependabot outright, including the
+security-update PRs tied to GitHub's advisory database, the `github-actions`
+SHA-pin updates, and every exclusion and comment in `dependabot.yml`: a migration,
+not a fix. Revisit if Option A proves too costly to operate, or if
+[dependabot-core#14549](https://github.com/dependabot/dependabot-core/issues/14549)
+ships and makes both unnecessary.
+
 ## Trade-offs
 
 - **A standing privileged credential.** The App key can push to this repository.
   It is scoped to one repository and `contents: write`, used only in a job that
   executes nothing from the PR, and its use is gated on a maintainer's label — but
   it exists, and a leak of it is a leak of push access.
-- **Dependabot stops maintaining the PR.** Dependabot rebases a PR only while
-  nobody else has committed to it. After a regeneration, a conflict needs
-  `@dependabot recreate`, which discards the regenerated commit; the label must
-  then be applied again.
+- **A rebase discards the regeneration.** Because the commit carries
+  `[dependabot skip]`, Dependabot keeps rebasing and re-resolving the PR — which is
+  the point — but each rebase force-pushes over the regenerated commit, and the
+  label must be applied again. Without the marker the regeneration would survive,
+  and Dependabot would stop maintaining the PR entirely; re-labelling is the
+  cheaper of the two.
 - **Two labels per bundled bump.** `regenerate-artifacts` to build, then
   `gate-change-acknowledged` because the push touched `packages/ci/**`. Merging the
   two would let the regenerator acknowledge its own output, so they stay separate.
@@ -282,7 +362,10 @@ advisory forces a manual rebuild under time pressure.
   workflow.
 - Revisit if: GitHub gives `GITHUB_TOKEN` pushes the ability to trigger workflows
   (the App becomes unnecessary); the Action bundle stops being committed; or Bun's
-  output stops depending on host target, which would make Option B cheap enough.
+  output stops depending on host target, which would make Option B cheap enough;
+  or Dependabot ships post-update commands
+  ([dependabot-core#14549](https://github.com/dependabot/dependabot-core/issues/14549)),
+  which would supersede this record with configuration.
 
 ## Action items
 
@@ -292,15 +375,18 @@ advisory forces a manual rebuild under time pressure.
        is available when a maintainer applies the label, and unavailable when
        `dependabot[bot]` is the actor. This record's argument for the label rests
        on it. In the same run, confirm the Git Data API commit shows as verified
-       and passes both `dco` and `trusted-dco`.
+       and passes both `dco` and `trusted-dco`, and that the next Dependabot
+       rebase force-pushes over it as `[dependabot skip]` promises.
 3. [ ] Implement `.github/workflows/regenerate-artifacts.yml` per the Decision,
        with the eligibility checks in a tested script under `scripts/` that imports
        Node builtins only.
 4. [ ] Observe each refusal failing before it counts (ADR-0016): a non-Dependabot
        author, a commit authored by neither Dependabot nor the App, an App commit
        touching a non-artifact path, a changed `scripts` block, a file outside the
-       allowlist, a head moved after labelling, and a patch touching a path
-       outside the artifact set.
+       allowlist, a head repository other than this one, a head moved after
+       labelling, and a patch touching a path outside the artifact set. Also
+       observe the positive case the review of this record found missing: a
+       second run on a PR that already carries an App regeneration commit.
 5. [ ] Regenerate one real bundled bump end to end — `yaml` is the waiting case —
        and merge it with `clean-clone-builds` and `gate-integrity` green.
 6. [ ] After a `zod` bump regenerates green, remove the `zod` exclusion from
