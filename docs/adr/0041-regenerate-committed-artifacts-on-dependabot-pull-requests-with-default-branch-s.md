@@ -243,6 +243,24 @@ observation that no regeneration updates — and so does the
   in [#224](https://github.com/mbeacom/adrkit/issues/224).
 - **Not touching `site/`.** It commits no dependency-derived artifact.
 
+### What implementation clarified
+
+Recorded here rather than folded silently into the ratified text above, which
+items 3 and 4 were edited to match. Neither changes what was decided; both
+narrow how.
+
+- **An overlay against the merge base, not a copy.** Copying the pull request's
+  manifests would revert any `scripts` change `main` made after Dependabot
+  branched. The build writes only the dependency fields onto `main`'s manifests,
+  and eligibility compares each manifest with its merge-base copy — what
+  Dependabot actually started from.
+- **Files plus a path list, not a patch.** The build uploads the changed artifact
+  files and their paths, and the push job validates both as untrusted, because
+  the build ran dependency code. Writing blobs from files needs no `git apply`,
+  and so no worktree, in the privileged job. Writing the validator's tests found
+  that a shell `case` pattern's `*` also matches `/`, so the nested-path refusal
+  is the rule that stops traversal and has to come first.
+
 ## Options considered
 
 ### Option A: Label-triggered two-job `pull_request_target` workflow with a GitHub App token (chosen)
