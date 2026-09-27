@@ -168,8 +168,8 @@ a small, trusted set.
 present or future; ties the authorization to a role independent of who opened
 the pull request; verified against the live API rather than assumed.
 **Cons:** an extra API call and a fail-closed dependency on the
-collaborator-permission endpoint's availability to the workflow's token (open
-item, see Trade-offs); more moving parts than Option B.
+collaborator-permission endpoint's availability to the workflow's token
+(observed on a fork dry run, see Trade-offs); more moving parts than Option B.
 
 ### Option D: Require an approving review from a CODEOWNER instead of a label
 
@@ -193,12 +193,13 @@ is precisely the substitution rule 4 exists to avoid.
 
 - **Eventual consistency.** The issue-events API may lag the label state it
   describes; by how much is not measured. Two observations from 2026-09-27,
-  neither a measurement: a `labeled` run's history read, about nine seconds
-  after the label was applied, already showed the application; and an events
-  read issued immediately after a label was deleted omitted the resulting
-  `unlabeled` event, which the timeline endpoint returned a moment later and
-  the events endpoint within ten seconds. The second may be the deletion's
-  asynchronous removal rather than lag. The rules narrow what a lag can do. A lag of one event cannot make a relabel count:
+  neither a measurement: a `labeled` run's history read, within about nine
+  seconds of the label being applied, already showed the application; and an
+  events read issued immediately after a label was deleted omitted the
+  resulting `unlabeled` event, which the timeline endpoint returned a moment
+  later and the events endpoint by the next poll, roughly ten to fifteen
+  seconds after the deletion. The second may be the deletion's asynchronous
+  removal rather than lag. The rules narrow what a lag can do. A lag of one event cannot make a relabel count:
   if the history shows the removal but not the re-application, rule 2 sees a
   latest `unlabeled` and refuses. Rule 4 covers a run whose own event is the
   removal or the re-application, and a run that dismissed the label itself.
@@ -227,13 +228,22 @@ is precisely the substitution rule 4 exists to avoid.
   label a maintainer applied for another reason to `gate-change-acknowledged`
   therefore inherits nothing: that application is recorded under the old
   name, the history holds no application of this label, and the
-  acknowledgment is unattributed. What a rename can still do — swap which
-  label carries the name while a maintainer's application of this label
-  remains the latest event — only re-presents an acknowledgment the
-  maintainer already gave for the current head, since a push dismisses by
-  name; and editing labels needs write access, which triage does not grant.
+  acknowledgment is unattributed.
+  Renaming the acknowledgment itself is not inert, and that route stays open.
+  Dismissal removes the label by name. Someone who renames it away before a
+  push therefore keeps it on the pull request through that push's
+  dismissal, which finds nothing to delete. Renaming it back afterwards
+  emits no event, so the history's latest event for the name is still the
+  maintainer's application. A later run that does not dismiss — one started
+  by a title edit or by another label — then credits that application to a
+  head the maintainer never saw. This needs write access, since editing
+  labels is a write permission that triage does not grant, and write is not
+  a role this record lets acknowledge. It also needs an admin's or
+  maintainer's earlier acknowledgment on the same pull request and the
+  ability to push its head. The route is recorded here as a residual rather
+  than closed; see Action items.
 - **Token access.** Observed on a real `pull_request_target` run of this
-  workflow on the contributor's fork `davesheffer/adrkit`, from a
+  workflow as of `a68200b` on the contributor's fork `davesheffer/adrkit`, from a
   same-repository pull request
   ([run 36322666130](https://github.com/davesheffer/adrkit/actions/runs/36322666130)):
   with `contents: read` and `pull-requests: write`, the job's `GITHUB_TOKEN`
@@ -260,7 +270,9 @@ is precisely the substitution rule 4 exists to avoid.
 
 - **Easier:** distinguishing an acknowledgment a triage-holder gave themselves
   from one an admin or maintainer gave; auditing exactly who authorized a gate
-  change and under what role, from the timeline alone.
+  change and under what role, from the timeline alone — though not which head
+  it covered, since a rename leaves no event (see Label renames and
+  deletions).
 - **Harder:** landing a gate-touching pull request when the only accounts able
   to label it are admins or maintainers. Today that is @mbeacom alone, so no
   practical acknowledger changes until triage is granted to someone else —
@@ -282,7 +294,15 @@ is precisely the substitution rule 4 exists to avoid.
        2026-09-27 — see Token access above.
 3. [x] **Probe what `issues/{n}/events` reports for a renamed and a deleted
        label** before ratification. Done 2026-09-27: events keep the name at
-       event time, so the rename route inherits nothing — see Label renames and
-       deletions above.
+       event time. Renaming another label to this one inherits nothing, but
+       renaming this label away and back around a push survives dismissal —
+       see Label renames and deletions above.
 4. [ ] **Observe both the accept and the insufficient-role paths on a real pull
        request after merge**, per ADR-0016.
+5. [ ] **Decide whether to close the rename-around-dismissal route** before
+       write access is granted to anyone else. One candidate: dismissal also
+       removes every label whose latest history event under its current name
+       is not an application — the test rule 2 applies to this label, which
+       catches one renamed since it was applied — at the cost of
+       dropping legitimately renamed labels on each push, and of removing a
+       label whose application the events API has not yet reported.

@@ -217,7 +217,9 @@ jobs:
       # alternative — compare the label event against the newest commit — rests
       # on `committed` dates, which the author sets. `GIT_COMMITTER_DATE` is
       # free, so a stale acknowledgment could be made to look fresh. Removing the
-      # label depends on no attacker-controlled value at all.
+      # label depends on no value the pull request controls. It does key on the
+      # label's name, which write access can change; ADR-0042 records that
+      # residual.
       - name: Dismiss the acknowledgment when what it acknowledged has moved
         id: dismiss
         # An **exclusion** list, deliberately, not an inclusion list. Enumerating
