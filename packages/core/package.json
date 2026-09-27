@@ -60,7 +60,7 @@
   "dependencies": {
     "picomatch": "^4",
     "semver": "^7",
-    "yaml": "^2.9.0",
+    "yaml": "^2.9.1",
     "zod": ">=4.4.3 <4.5"
   },
   "devDependencies": {
