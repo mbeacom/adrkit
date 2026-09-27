@@ -188,8 +188,11 @@ In `.github/workflows/regenerate-artifacts.yml`:
    but dependency versions. It runs `bun install --frozen-lockfile
    --ignore-scripts` under the pinned Bun, then, under
    `scripts/run-network-denied.ts`, `bun run --filter='@adrkit/ci' build` and
-   `bun run schema:emit`, on `ubuntu-latest` (linux/amd64). It uploads the
-   resulting `git diff` as a patch and nothing else.
+   `bun run schema:emit`, on `ubuntu-24.04` — the runner `clean-clone-builds`
+   pins, not `ubuntu-latest`, because the bundle must match that job's rebuild
+   byte for byte and `-latest` moves. It uploads the resulting `git diff` as a
+   patch and nothing else. An empty diff is a result, not an error: the push job
+   then creates no commit and reports the artifacts as already current.
 4. **Push job: privileged, and never checks anything out.** ADR-0035's rule lists
    *checkout* beside install, build, and execute, so this job has no worktree at
    all. It downloads the patch, rejects it unless every path is under
@@ -200,8 +203,10 @@ In `.github/workflows/regenerate-artifacts.yml`:
    accepts a bot sign-off) and `[dependabot skip]`, so Dependabot keeps rebasing
    the PR and force-pushes over the regeneration when it does, then a non-forced
    ref update — which fails, as the
-   lease should, if the branch has moved. Commits created this way through an App
-   are signed by GitHub, so the regeneration commit is verified like Dependabot's.
+   lease should, if the branch has moved. Commits an App creates through the API
+   are expected to be signed by GitHub and so show as verified like Dependabot's;
+   that is an expectation to observe (action item 2), not an assumption the
+   design depends on — no gate here requires a signature.
    It authenticates with a GitHub App installation token scoped to
    `contents: write` on this repository, because a push made with `GITHUB_TOKEN`
    does not trigger workflows and would leave the PR's required checks attached to
