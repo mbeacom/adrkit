@@ -339,10 +339,11 @@ jobs:
       # Nothing here swallows the failure into a pass.
       #
       # The endpoint answers 403 "Must have push access to view collaborator
-      # permission." to a token without push access. Whether this job's
-      # `GITHUB_TOKEN` can read it is not yet proven on a real run (ADR-0042). If
-      # it cannot, every acknowledgment — the owner's included — records as
-      # `lookupFailed` and does not count: the fail-closed direction.
+      # permission." to a token without push access. This job's `GITHUB_TOKEN`,
+      # with the permissions above, read it on a real `pull_request_target` run
+      # (ADR-0042 records the run). If a future permission change stops that,
+      # every acknowledgment — the owner's included — records as `lookupFailed`
+      # and does not count: the fail-closed direction.
       #
       # Wrapped in `::stop-commands::` like every step that invokes a check script:
       # its error output quotes API responses, which are not this file's to trust.

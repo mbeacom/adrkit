@@ -112,9 +112,9 @@ Verified live-API shapes (probed against `davesheffer/adrkit`, 2026-09-27):
 Other event types on the same endpoint — `referenced`, `cross-referenced`,
 `subscribed`, and the rest — carry no `label` field and are ignored. A token
 without push access gets `HTTP 403 "Must have push access to view collaborator
-permission"` from the permission endpoint; whether the workflow's own
-`GITHUB_TOKEN` (`contents: read`, `pull-requests: write`) can read it is
-unverified — see Trade-offs.
+permission"` from the permission endpoint. The workflow's own `GITHUB_TOKEN`
+(`contents: read`, `pull-requests: write`) can read it, and the events
+endpoint too — observed on a real `pull_request_target` run; see Trade-offs.
 
 ## What we are explicitly not doing
 
@@ -192,8 +192,13 @@ is precisely the substitution rule 4 exists to avoid.
 ## Trade-offs
 
 - **Eventual consistency.** The issue-events API may lag the label state it
-  describes; whether it does, and by how much, is not measured. The rules
-  narrow what a lag can do. A lag of one event cannot make a relabel count:
+  describes; by how much is not measured. Two observations from 2026-09-27,
+  neither a measurement: a `labeled` run's history read, about nine seconds
+  after the label was applied, already showed the application; and an events
+  read issued immediately after a label was deleted omitted the resulting
+  `unlabeled` event, which the timeline endpoint returned a moment later and
+  the events endpoint within ten seconds. The second may be the deletion's
+  asynchronous removal rather than lag. The rules narrow what a lag can do. A lag of one event cannot make a relabel count:
   if the history shows the removal but not the re-application, rule 2 sees a
   latest `unlabeled` and refuses. Rule 4 covers a run whose own event is the
   removal or the re-application, and a run that dismissed the label itself.
@@ -211,20 +216,38 @@ is precisely the substitution rule 4 exists to avoid.
   timed against the run's read, which the public run log exposes. The residual
   is accepted and named here rather than claimed away.
 - **Label renames and deletions.** Attribution keys on the label name recorded
-  in each event. If the events API reports a label's *current* name rather than
-  the name it had when the event happened, someone with write access could
-  rename a label a maintainer applied for another reason to
-  `gate-change-acknowledged` and inherit the maintainer's application. Which
-  behavior GitHub has is not yet observed, nor what a deleted label's events
-  look like. Both must be probed before ratification (see Action items).
-- **Unverified token access.** Whether the workflow's `GITHUB_TOKEN`, scoped to
-  `contents: read` and `pull-requests: write`, can successfully call
-  `collaborators/{actor}/permission` is not proven by the probe above — that
-  probe used a personal token. A 403 there fails closed under this design,
-  meaning even the repository owner's own acknowledgment would stop counting
-  until the token's access is confirmed. **This must be proven on a real
-  `pull_request_target` run before this record is ratified or merged**, not
-  assumed from the probe.
+  in each event. Probed on `davesheffer/adrkit`, 2026-09-27: an event keeps the
+  name the label had when the event happened. A label applied as
+  `adrkit-probe` and then renamed to `adrkit-probe-renamed` still reported
+  `adrkit-probe` on its `labeled` event, while the pull request's label list
+  reported the new name; the rename itself emitted no event. Deleting the
+  label removed it from the pull request and emitted an `unlabeled` event
+  carrying the name at deletion and a full `label` object, not `null`, so the
+  `label: null` handling stays defensive rather than observed. Renaming a
+  label a maintainer applied for another reason to `gate-change-acknowledged`
+  therefore inherits nothing: that application is recorded under the old
+  name, the history holds no application of this label, and the
+  acknowledgment is unattributed. What a rename can still do — swap which
+  label carries the name while a maintainer's application of this label
+  remains the latest event — only re-presents an acknowledgment the
+  maintainer already gave for the current head, since a push dismisses by
+  name; and editing labels needs write access, which triage does not grant.
+- **Token access.** Observed on a real `pull_request_target` run of this
+  workflow on the contributor's fork `davesheffer/adrkit`, from a
+  same-repository pull request
+  ([run 36322666130](https://github.com/davesheffer/adrkit/actions/runs/36322666130)):
+  with `contents: read` and `pull-requests: write`, the job's `GITHUB_TOKEN`
+  read both `issues/{n}/events` and `collaborators/{actor}/permission`, and
+  the verdict was `applied by @davesheffer (admin)`. The same pull request's
+  run before labeling
+  ([run 36322605737](https://github.com/davesheffer/adrkit/actions/runs/36322605737))
+  blocked the gate change, and a clean-path pull request
+  ([run 36322610068](https://github.com/davesheffer/adrkit/actions/runs/36322610068))
+  stayed green. Not observed: a pull request from a fork into this
+  repository. `pull_request_target` issues the base repository's token with
+  the declared permissions either way, but that is GitHub's documented
+  behavior, not something these runs show. A 403 there would fail closed:
+  even the owner's acknowledgment would stop counting.
 - **Custom roles.** If the repository ever moves into an organization, custom
   roles could grant label-application power without ever reporting `role_name`
   as `admin` or `maintain`. This record does not anticipate that; it needs an
@@ -254,11 +277,12 @@ is precisely the substitution rule 4 exists to avoid.
 ## Action items
 
 1. [ ] **Ratify or reject.** Awaiting @mbeacom.
-2. [ ] **Prove the workflow token can read `collaborators/{actor}/permission`**
-       on a real `pull_request_target` run before merge, per the unverified item
-       above.
-3. [ ] **Probe what `issues/{n}/events` reports for a renamed and a deleted
-       label** before ratification. If it reports the current name, record the
-       rename route as a known gap or close it by amendment.
+2. [x] **Prove the workflow token can read `collaborators/{actor}/permission`**
+       on a real `pull_request_target` run before merge. Done on the fork,
+       2026-09-27 — see Token access above.
+3. [x] **Probe what `issues/{n}/events` reports for a renamed and a deleted
+       label** before ratification. Done 2026-09-27: events keep the name at
+       event time, so the rename route inherits nothing — see Label renames and
+       deletions above.
 4. [ ] **Observe both the accept and the insufficient-role paths on a real pull
        request after merge**, per ADR-0016.
