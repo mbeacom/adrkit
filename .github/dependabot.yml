@@ -81,6 +81,23 @@ updates:
           # Exact-pinned at 1.3.0 for the same reason: it decides RFC 9535
           # JSONPath semantics for `@adrkit/evaluator`.
           - "jsonpath-rfc9535"
+          # Excluded because a bump rewrites a committed artifact, like `zod`.
+          # The Action bundles in `packages/ci/dist` are committed and inline
+          # their dependencies with a `// ../../node_modules/.bun/yaml@2.9.0/…`
+          # source-path comment per module, so any version change rewrites them
+          # and fails `git diff --exit-code packages/ci/dist` in
+          # `clean-clone-builds` until `packages/ci` is rebuilt and committed.
+          # Grouped, it held `@types/bun` red with it: that is #206.
+          #
+          # This covers only the one dependency observed failing. The bundles
+          # also inline `semver`, `@actions/*`, and transitives no direct
+          # pattern reaches — `@octokit/*`, `undici`, `tunnel`, and others —
+          # and each will fail the same gate the first time it moves. A red
+          # `clean-clone-builds` showing only a `packages/ci/dist` diff means
+          # the fix is `bun run --filter='@adrkit/ci' build` under linux/amd64
+          # bun 1.3.14 (a Mac-built bundle fails the same diff; see
+          # CONTRIBUTING.md) and a commit, not another exclusion here.
+          - "yaml"
         update-types:
           - "minor"
           - "patch"
