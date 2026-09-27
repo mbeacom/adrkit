@@ -53,7 +53,7 @@ function eligible(): EligibilityInput {
     grantedHead: HEAD,
     defaultBranch: 'main',
     appLogin: APP,
-    appCommitPaths: {},
+    commitPaths: { c1: ['bun.lock', 'packages/core/package.json'] },
     manifests: { 'packages/core/package.json': { base: CORE_BASE, head: CORE_HEAD } },
   };
 }
@@ -79,7 +79,7 @@ describe('eligible pull requests pass', () => {
   test('a second run over an earlier regeneration commit', () => {
     const input = eligible();
     input.commits = [...input.commits, { sha: 'r1', author: { login: APP }, parents: [{}] }];
-    input.appCommitPaths = { r1: ['packages/ci/dist/index.js', 'schema/adr.schema.json'] };
+    input.commitPaths.r1 = ['packages/ci/dist/index.js', 'schema/adr.schema.json'];
     input.files = [
       ...input.files,
       { filename: 'packages/ci/dist/index.js', status: 'modified' },
@@ -158,16 +158,40 @@ describe('each rule refuses', () => {
   test('an App commit touching a non-artifact path', () => {
     const refusals = refusalsFor((i) => {
       i.commits.push({ sha: 'r1', author: { login: APP }, parents: [{}] });
-      i.appCommitPaths = { r1: ['packages/ci/dist/index.js', 'scripts/check-dco.ts'] };
+      i.commitPaths.r1 = ['packages/ci/dist/index.js', 'scripts/check-dco.ts'];
     });
     expect(refusals.join()).toContain('outside the regenerated artifacts');
+  });
+
+  test('a Dependabot commit touching anything but dependency files', () => {
+    const refusals = refusalsFor((i) => (i.commitPaths.c1 = ['bun.lock', 'packages/ci/dist/index.js']));
+    expect(refusals.join()).toContain('not a dependency file');
+  });
+
+  test('a Dependabot commit whose paths could not be read', () => {
+    const refusals = refusalsFor((i) => delete i.commitPaths.c1);
+    expect(refusals.join()).toContain('not a dependency file');
+  });
+
+  // The review finding on #231: an App commit wrote the artifact, but so did a
+  // commit that is not a validated App commit. One App commit must not launder it.
+  test('an artifact that a non-App commit also touched, on a second run', () => {
+    const refusals = refusalsFor((i) => {
+      i.commits.push({ sha: 'r1', author: { login: APP }, parents: [{}] });
+      i.commitPaths.r1 = ['packages/ci/dist/index.js'];
+      i.commitPaths.c1 = ['bun.lock', 'packages/core/package.json', 'packages/ci/dist/index.js'];
+      i.files.push({ filename: 'packages/ci/dist/index.js', status: 'modified' });
+      i.pr.changed_files = 3;
+    });
+    expect(refusals.join()).toContain('not a dependency file');
+    expect(refusals.join()).toContain('packages/ci/dist/index.js is neither');
   });
 
   test('an App commit when no App is configured', () => {
     const refusals = refusalsFor((i) => {
       i.appLogin = undefined;
       i.commits.push({ sha: 'r1', author: { login: APP }, parents: [{}] });
-      i.appCommitPaths = { r1: ['packages/ci/dist/index.js'] };
+      i.commitPaths.r1 = ['packages/ci/dist/index.js'];
     });
     expect(refusals.join()).toContain(`authored by ${APP}`);
   });

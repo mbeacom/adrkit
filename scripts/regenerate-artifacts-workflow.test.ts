@@ -237,6 +237,32 @@ describe('the push job refuses a forged upload', () => {
     expect(run('packages/ci/dist/index.js\n', {}, 'packages/ci/dist/index.js')).not.toBe(0);
   });
 
+  // Review finding on #231: the final component is a regular file, but an
+  // ancestor directory is a symlink out of the upload tree.
+  test('refuses a symlinked ancestor directory', () => {
+    const temp = mkdtempSync(join(tmpdir(), 'regen-'));
+    const root = join(temp, 'regenerated');
+    const outside = join(temp, 'outside');
+    mkdirSync(outside, { recursive: true });
+    writeFileSync(join(outside, 'index.js'), 'runner secret');
+    mkdirSync(join(root, 'tree', 'packages', 'ci'), { recursive: true });
+    symlinkSync(outside, join(root, 'tree', 'packages', 'ci', 'dist'));
+    writeFileSync(join(root, 'paths.txt'), 'packages/ci/dist/index.js\n');
+    expect(spawnSync('bash', ['-c', script], { env: { ...process.env, RUNNER_TEMP: temp } }).status).not.toBe(0);
+  });
+
+  test('refuses an upload tree that is itself a symlink', () => {
+    const temp = mkdtempSync(join(tmpdir(), 'regen-'));
+    const root = join(temp, 'regenerated');
+    const outside = join(temp, 'outside');
+    mkdirSync(join(outside, 'packages', 'ci', 'dist'), { recursive: true });
+    writeFileSync(join(outside, 'packages', 'ci', 'dist', 'index.js'), 'runner secret');
+    mkdirSync(root, { recursive: true });
+    symlinkSync(outside, join(root, 'tree'));
+    writeFileSync(join(root, 'paths.txt'), 'packages/ci/dist/index.js\n');
+    expect(spawnSync('bash', ['-c', script], { env: { ...process.env, RUNNER_TEMP: temp } }).status).not.toBe(0);
+  });
+
   test('refuses a control character in the list', () => {
     expect(run('packages/ci/dist/index.js\u001b[2K\n', { 'packages/ci/dist/index.js': 'x' })).not.toBe(0);
   });

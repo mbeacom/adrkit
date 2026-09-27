@@ -17,11 +17,12 @@
  *   consulted, because published research shows it can be made
  *   `dependabot[bot]` on a pull request Dependabot did not author.
  * - The head has not moved since the label was applied.
- * - Every commit is authored by `dependabot[bot]`, or by the regeneration App and
- *   touches only artifact paths. Committer is not checked: Dependabot's commits
+ * - Every commit is authored by `dependabot[bot]` and touches only dependency
+ *   files, or by the regeneration App and touches only artifact paths. Committer is not checked: Dependabot's commits
  *   carry `web-flow`.
  * - Every changed file is a root-workspace manifest or `bun.lock`, with status
- *   `modified`, or an artifact path that only App commits touched.
+ *   `modified`, or an artifact path that every commit touching it is an App
+ *   commit.
  * - Each changed manifest differs from its merge-base copy **only** in the four
  *   dependency fields. A path allowlist alone would pass a changed `scripts`.
  *
@@ -113,8 +114,8 @@ export interface EligibilityInput {
   defaultBranch: string;
   /** `<slug>[bot]`, or undefined when no App commit is acceptable. */
   appLogin?: string;
-  /** Paths touched by each App-authored commit, keyed by SHA. */
-  appCommitPaths: Record<string, readonly string[]>;
+  /** Paths touched by every commit on the pull request, keyed by SHA. */
+  commitPaths: Record<string, readonly string[]>;
   /** Merge-base and head text of every changed manifest; `null` when absent. */
   manifests: Record<string, { base: string | null; head: string | null }>;
 }
@@ -188,9 +189,14 @@ export function evaluateEligibility(input: EligibilityInput): Eligibility {
     if ((commit.parents?.length ?? 1) !== 1) {
       refusals.push(`commit ${commit.sha} is a merge; update the branch with a Dependabot rebase instead`);
     } else if (login === DEPENDABOT_LOGIN) {
-      continue;
+      // Dependabot's own commits are held to its own job: dependency files only.
+      // Without this, a Dependabot-authored artifact edit could ride along.
+      const paths = input.commitPaths[commit.sha];
+      if (paths === undefined || !paths.every(isDependencyFile)) {
+        refusals.push(`commit ${commit.sha} by ${login} touches a path that is not a dependency file`);
+      }
     } else if (input.appLogin !== undefined && login === input.appLogin) {
-      const paths = input.appCommitPaths[commit.sha];
+      const paths = input.commitPaths[commit.sha];
       if (paths === undefined || paths.length === 0 || !paths.every(isArtifactFile)) {
         refusals.push(`commit ${commit.sha} by ${login} touches a path outside the regenerated artifacts`);
       } else {
@@ -207,7 +213,12 @@ export function evaluateEligibility(input: EligibilityInput): Eligibility {
     );
   }
 
-  const appTouched = new Set(Array.from(appCommits).flatMap((sha) => input.appCommitPaths[sha] ?? []));
+  // An artifact is admitted only when **every** commit that touched it is a
+  // validated App commit — not merely when one of them was.
+  const writtenOnlyByApp = (path: string): boolean => {
+    const touching = input.commits.filter((c) => (input.commitPaths[c.sha] ?? []).includes(path));
+    return touching.length > 0 && touching.every((c) => appCommits.has(c.sha));
+  };
   const dependencyFiles: string[] = [];
   for (const file of input.files) {
     if (isDependencyFile(file.filename)) {
@@ -216,7 +227,7 @@ export function evaluateEligibility(input: EligibilityInput): Eligibility {
         continue;
       }
       dependencyFiles.push(file.filename);
-    } else if (isArtifactFile(file.filename) && appTouched.has(file.filename)) {
+    } else if (isArtifactFile(file.filename) && writtenOnlyByApp(file.filename)) {
       continue;
     } else {
       refusals.push(`${file.filename} is neither a dependency file nor an artifact a regeneration commit wrote`);
@@ -314,9 +325,9 @@ function runCheck(flags: Map<string, string>): number {
   if (!SHA.test(mergeBase) || !SHA.test(headSha)) throw new Error('merge base and head must be full SHAs');
   const appLogin = flags.get('app-login') || undefined;
 
-  const appCommitPaths: Record<string, string[]> = {};
+  const pathsByCommit: Record<string, string[]> = {};
   for (const commit of commits) {
-    if (appLogin !== undefined && commit.author?.login === appLogin) appCommitPaths[commit.sha] = commitPaths(commit.sha);
+    if (SHA.test(commit.sha)) pathsByCommit[commit.sha] = commitPaths(commit.sha);
   }
   const manifests: Record<string, { base: string | null; head: string | null }> = {};
   for (const file of files) {
@@ -332,7 +343,7 @@ function runCheck(flags: Map<string, string>): number {
     grantedHead: required(flags, 'granted-head'),
     defaultBranch: required(flags, 'default-branch'),
     appLogin,
-    appCommitPaths,
+    commitPaths: pathsByCommit,
     manifests,
   });
   if (!result.eligible) {

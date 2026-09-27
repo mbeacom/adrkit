@@ -239,6 +239,12 @@ jobs:
           set -euo pipefail
           root="${RUNNER_TEMP}/regenerated"
           [ -f "${root}/paths.txt" ] || { echo "no path list was uploaded" >&2; exit 1; }
+          if [ -L "${root}/tree" ] || [ -L "${root}/paths.txt" ]; then
+            echo "the upload root contains a symlink" >&2
+            exit 1
+          fi
+          mkdir -p "${root}/tree"
+          tree_real=$(cd -P "${root}/tree" && pwd -P)
           if LC_ALL=C grep -q '[[:cntrl:]]' "${root}/paths.txt"; then
             echo "a path contains a control character" >&2
             exit 1
@@ -255,6 +261,15 @@ jobs:
             file="${root}/tree/${path}"
             if [ ! -f "$file" ] || [ -L "$file" ]; then
               echo "not a regular file: ${path}" >&2
+              exit 1
+            fi
+            # The last component is not a symlink; neither may any ancestor. A
+            # symlinked `tree/packages/ci/dist` would make a regular file resolve
+            # outside the upload. Resolve the parent physically and require it to
+            # be exactly where the listed path says.
+            parent_real=$(cd -P "$(dirname "$file")" && pwd -P)
+            if [ "$parent_real" != "${tree_real}/$(dirname "$path")" ]; then
+              echo "a directory above ${path} is a symlink" >&2
               exit 1
             fi
           done < "${root}/paths.txt"
