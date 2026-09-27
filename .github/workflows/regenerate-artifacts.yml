@@ -298,6 +298,15 @@ jobs:
         run: |
           set -euo pipefail
           root="${RUNNER_TEMP}/regenerated"
+          # Both exits below report success without a ref update, and the ref
+          # update is the lease. So check the live branch first: if it moved
+          # since eligibility, "nothing to push" would describe a head that no
+          # longer exists (#234 review).
+          live=$(gh api "repos/${REPO}/git/ref/heads/${HEAD_REF}" --jq .object.sha)
+          if [ "$live" != "$HEAD_SHA" ]; then
+            echo "the branch moved to ${live} after eligibility read ${HEAD_SHA}; apply the label again" >&2
+            exit 1
+          fi
           if [ ! -s "${root}/paths.txt" ]; then
             echo "::notice::the committed artifacts already match this dependency graph; nothing to push"
             exit 0

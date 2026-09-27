@@ -171,6 +171,16 @@ describe('the commit it writes', () => {
     expect(commit()).toContain('nothing to push');
   });
 
+  // Review finding on #234: the no-op exits report success without the ref
+  // update that is the lease, so the live head is checked before either exit.
+  test('the live branch head is revalidated before any success exit', () => {
+    const body = commit();
+    const check = body.indexOf('if [ "$live" != "$HEAD_SHA" ]; then');
+    expect(check).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(body.indexOf('::notice::the committed artifacts already match'));
+    expect(check).toBeLessThan(body.indexOf('if [ "$tree" = "$base_tree" ]; then'));
+  });
+
   // Observed on #209: a second run built the same artifacts and pushed an empty
   // commit, because the build diffs against the default branch, not the head.
   test('a tree identical to the head is not committed', () => {
