@@ -44,6 +44,15 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Fixed
 
+- **`@adrkit/core` and `@adrkit/catalog-backstage` declared `yaml` as the
+  `latest` dist-tag instead of a range.** A published `latest` resolves to
+  whatever is newest at the consumer's install time, including a future major.
+  In this repository it also floated `yaml` inside every unrelated dependency
+  update: #227 bumped only `@types/bun`, yet re-resolved `yaml` 2.9.0 → 2.9.1,
+  rewrote the committed `packages/ci/dist` bundles, and failed
+  `clean-clone-builds` despite `yaml` being excluded from that Dependabot group.
+  Both now declare `^2.9.0`, the version already locked; nothing installed
+  changes.
 - **`site/src/content/docs/commands.mdx` cited ADR-0021 as the live authority**
   for the marker contract, which ADR-0022 superseded. Found by the new guard
   before it was wired in (ADR-0016).

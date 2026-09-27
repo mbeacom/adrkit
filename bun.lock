@@ -20,7 +20,7 @@
       "dependencies": {
         "@adrkit/core": "workspace:*",
         "picomatch": "^4",
-        "yaml": "latest",
+        "yaml": "^2.9.0",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -74,7 +74,7 @@
       "dependencies": {
         "picomatch": "^4",
         "semver": "^7",
-        "yaml": "latest",
+        "yaml": "^2.9.0",
         "zod": "^4",
       },
       "devDependencies": {
