@@ -205,6 +205,27 @@ bun install --frozen-lockfile   # restore your local (host) install afterward
 Then commit `packages/ci/dist`. Any change to `packages/ci/src` **or**
 `@adrkit/core` (which is bundled in) requires regenerating it.
 
+### Dependabot pull requests: the `regenerate-artifacts` label
+
+A Dependabot bump of anything bundled into `packages/ci/dist`, or of `zod`,
+arrives failing `clean-clone-builds`, because Dependabot does not rebuild
+committed artifacts. You do not need the container for these. Apply the
+`regenerate-artifacts` label and `.github/workflows/regenerate-artifacts.yml`
+rebuilds the bundles and the schema on linux/amd64 from `main`'s scripts and
+pushes one commit to the pull request
+([ADR-0041](docs/adr/0041-regenerate-committed-artifacts-on-dependabot-pull-requests-with-default-branch-s.md)).
+
+- It refuses anything that is not Dependabot's own pull request changing only
+  dependency fields and `bun.lock`, and says why in the job log.
+- The label is removed after every run. Apply it again after Dependabot
+  rebases — the regeneration commit carries `[dependabot skip]`, so a rebase
+  replaces it.
+- The pushed commit touches `packages/ci/**`, so review the diff and apply
+  `gate-change-acknowledged` as for any other change there.
+
+The container instructions above remain the path for your own changes and the
+fallback if the workflow's App is unavailable.
+
 ## Architecture and governance links
 
 - [README.md](README.md) - product overview and installation paths

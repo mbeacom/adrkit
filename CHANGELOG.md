@@ -11,6 +11,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **A `regenerate-artifacts` label for Dependabot pull requests.** Applying it
+  runs `.github/workflows/regenerate-artifacts.yml`, which rebuilds the committed
+  `packages/ci/dist` bundles and `schema/adr.schema.json` from `main`'s scripts
+  and pushes one commit, so a bump of a bundled dependency no longer needs a
+  linux/amd64 rebuild by hand
+  ([ADR-0041](docs/adr/0041-regenerate-committed-artifacts-on-dependabot-pull-requests-with-default-branch-s.md)).
+  Eligibility — Dependabot's own pull request, dependency fields and `bun.lock`
+  only, unmoved since labelling — is decided by
+  `scripts/check-regeneration-eligibility.ts`. Dependency code runs only in a
+  job with a read-only token and no secret; the only write credential is a
+  GitHub App token in a job that checks nothing out. Repository-internal: no
+  published package, CLI, or Action behaviour changes.
+
 - **`bun run check:stale-refs` — a repository guard for stale prose citations.**
   Present-tense documentation that cites a `superseded`, `rejected`, or
   `deprecated` record without saying so now fails `clean-clone-builds`. A

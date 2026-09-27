@@ -1,0 +1,339 @@
+name: Regenerate artifacts
+
+# Rebuild the committed, dependency-derived artifacts on a Dependabot pull
+# request and push them back, when a maintainer asks for it. Decided in ADR-0041.
+#
+# `packages/ci/dist/*.js` and `schema/adr.schema.json` are committed and diffed
+# byte for byte in `clean-clone-builds`. Dependabot regenerates neither, and has
+# no post-update hook to do it (dependabot-core#14549), so every bump of a
+# bundled dependency — including transitives no `exclude-patterns` can name —
+# arrives red.
+#
+# ## The trust boundary, job by job
+#
+# `pull_request_target` runs this file, and the actions it references, from the
+# default branch. Nothing the pull request contains decides what runs here. The
+# pull request contributes exactly two kinds of input, and each is contained:
+#
+#   * **Dependency versions**, admitted by `eligibility` only after
+#     `scripts/check-regeneration-eligibility.ts` proves the pull request is
+#     Dependabot's own and changes nothing but dependency fields and `bun.lock`.
+#   * **Dependency code**, which runs in `build` — `schema:emit` executes the
+#     bumped `zod`. That job holds a read-only token and no secret, and
+#     everything it uploads is treated as untrusted by `push`.
+#
+# `push` holds the only write credential, a GitHub App installation token, and
+# never checks anything out, installs nothing, and runs no repository script. It
+# re-validates every uploaded path and writes through the Git Data API.
+#
+# `github.actor` is never consulted. It names whoever caused the latest event,
+# and it can be made `dependabot[bot]` on a pull request Dependabot did not
+# author. The label is what makes a maintainer the triggering actor, which is
+# also what makes the App secret available at all.
+#
+# The regenerated commit carries `[dependabot skip]`, so Dependabot keeps
+# rebasing the pull request and force-pushes over it; label again after a
+# rebase. The push moves the head, so `gate-integrity` still requires
+# `gate-change-acknowledged` for the `packages/ci/dist` diff, and
+# `clean-clone-builds` rebuilds and diffs independently. This adds no authority.
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions: {}
+
+# Deliberately no concurrency group. The ref update is conditional on the head
+# this run was granted for, so an overlapping run fails its update instead of
+# overwriting; a group that replaced a pending run could skip the cleanup that
+# removes the label.
+
+jobs:
+  eligibility:
+    name: eligibility
+    if: github.event.label.name == 'regenerate-artifacts'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      head-sha: ${{ steps.check.outputs.head-sha }}
+      head-ref: ${{ steps.check.outputs.head-ref }}
+    steps:
+      # No `ref:`: the default branch, so the script below is `main`'s copy.
+      - name: Check out the default branch (never the pull request)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      # Objects, not a checkout. Read later with `git show` and `git diff-tree`.
+      - name: Fetch the pull request's commit objects
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --no-recurse-submodules origin \
+            "+refs/pull/${PR_NUMBER}/head:refs/adrkit/pr-head"
+
+      # From the API, not the event payload: the payload is a snapshot, and the
+      # rules below are about the pull request as it is now.
+      - name: Read the pull request, its commits, and its files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/pulls/${PR_NUMBER}" > "${RUNNER_TEMP}/pr.json"
+          gh api --paginate --slurp "repos/${REPO}/pulls/${PR_NUMBER}/commits" > "${RUNNER_TEMP}/commits.json"
+          gh api --paginate --slurp "repos/${REPO}/pulls/${PR_NUMBER}/files" > "${RUNNER_TEMP}/files.json"
+
+      # `GRANTED_HEAD` is the head the label was applied to. The script refuses
+      # if the live head differs, so a label cannot authorize a later push.
+      # Wrapped in `::stop-commands::` because refusal messages quote
+      # pull-request-controlled text in a privileged run.
+      - name: Decide eligibility
+        id: check
+        env:
+          GRANTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          APP_LOGIN: ${{ vars.REGENERATE_ARTIFACTS_APP_SLUG && format('{0}[bot]', vars.REGENERATE_ARTIFACTS_APP_SLUG) || '' }}
+        run: |
+          set -euo pipefail
+          merge_base=$(git merge-base HEAD refs/adrkit/pr-head)
+          token="adrkit-$(openssl rand -hex 16)"
+          trap 'echo "::${token}::"' EXIT
+          echo "::stop-commands::${token}"
+          bun scripts/check-regeneration-eligibility.ts check \
+            --pr "${RUNNER_TEMP}/pr.json" \
+            --commits "${RUNNER_TEMP}/commits.json" \
+            --files "${RUNNER_TEMP}/files.json" \
+            --granted-head "${GRANTED_HEAD}" \
+            --merge-base "${merge_base}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --app-login "${APP_LOGIN:-}" \
+            --out "${RUNNER_TEMP}/eligible-files.txt"
+          echo "::${token}::"
+          trap - EXIT
+          # Both values were validated by the script (a full SHA; a
+          # `dependabot/…` branch drawn from a safe character set).
+          {
+            echo "head-sha=$(jq -r .head.sha "${RUNNER_TEMP}/pr.json")"
+            echo "head-ref=$(jq -r .head.ref "${RUNNER_TEMP}/pr.json")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Hand the eligible file list to the build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: eligible-files
+          path: ${{ runner.temp }}/eligible-files.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    name: build
+    needs: eligibility
+    # `clean-clone-builds` pins this runner. The bundle must match that job's
+    # rebuild byte for byte, and `ubuntu-latest` moves.
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the default branch (never the pull request)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Fetch the pull request's commit objects
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --no-recurse-submodules origin \
+            "+refs/pull/${PR_NUMBER}/head:refs/adrkit/pr-head"
+
+      - name: Receive the eligible file list
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: eligible-files
+          path: ${{ runner.temp }}/eligible
+
+      # Only dependency fields and `bun.lock` come from the pull request; every
+      # script that runs below is the default branch's.
+      - name: Overlay the pull request's dependency versions onto the default branch
+        env:
+          HEAD_SHA: ${{ needs.eligibility.outputs.head-sha }}
+        run: |
+          set -euo pipefail
+          bun scripts/check-regeneration-eligibility.ts overlay \
+            --head "${HEAD_SHA}" --list "${RUNNER_TEMP}/eligible/eligible-files.txt"
+
+      # Network only here, and no lifecycle scripts at all.
+      - name: Install the pinned dependency graph
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Rebuild the Action bundles (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run --filter='@adrkit/ci' build
+
+      - name: Re-emit the JSON Schema (network denied)
+        run: bun scripts/run-network-denied.ts -- bun run schema:emit
+
+      # A deletion or a new file is not a regeneration this workflow knows how to
+      # push, so it refuses rather than guessing. An empty list is a result: the
+      # artifacts are already current.
+      - name: Collect the regenerated artifacts
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP}/regenerated"
+          mkdir -p "${out}/tree"
+          if [ -n "$(git ls-files --others --exclude-standard -- packages/ci/dist schema)" ] \
+            || [ -n "$(git diff --name-only --diff-filter=D -- packages/ci/dist schema)" ]; then
+            echo "the rebuild added or removed an artifact file; refusing to push a guess" >&2
+            exit 1
+          fi
+          git diff --name-only -z -- packages/ci/dist schema/adr.schema.json \
+            | while IFS= read -r -d '' path; do
+                mkdir -p "${out}/tree/$(dirname "$path")"
+                cp "$path" "${out}/tree/${path}"
+                printf '%s\n' "$path"
+              done > "${out}/paths.txt"
+          echo "regenerated:"
+          cat "${out}/paths.txt"
+
+      - name: Hand the regenerated artifacts to the push
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: regenerated
+          path: ${{ runner.temp }}/regenerated
+          if-no-files-found: error
+          retention-days: 1
+
+  push:
+    name: push
+    needs: [eligibility, build]
+    runs-on: ubuntu-24.04
+    # No `GITHUB_TOKEN` scope at all: the only credential used is the App token.
+    permissions: {}
+    steps:
+      - name: Receive the regenerated artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: regenerated
+          path: ${{ runner.temp }}/regenerated
+
+      # `build` ran dependency code, so this list is untrusted. Exact artifact
+      # paths only, regular files only, no traversal, no control characters.
+      - name: Validate the uploaded paths
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/regenerated"
+          [ -f "${root}/paths.txt" ] || { echo "no path list was uploaded" >&2; exit 1; }
+          if LC_ALL=C grep -q '[[:cntrl:]]' "${root}/paths.txt"; then
+            echo "a path contains a control character" >&2
+            exit 1
+          fi
+          while IFS= read -r path; do
+            # Order matters: `*` in a case pattern also matches `/`, so
+            # `packages/ci/dist/*.js` alone would admit `packages/ci/dist/../x.js`.
+            # The nested-path refusal comes first and is what stops traversal.
+            case "$path" in
+              packages/ci/dist/*/*) echo "refusing nested or traversing path: ${path}" >&2; exit 1 ;;
+              packages/ci/dist/*.js|schema/adr.schema.json) ;;
+              *) echo "refusing path outside the artifact set: ${path}" >&2; exit 1 ;;
+            esac
+            file="${root}/tree/${path}"
+            if [ ! -f "$file" ] || [ -L "$file" ]; then
+              echo "not a regular file: ${path}" >&2
+              exit 1
+            fi
+          done < "${root}/paths.txt"
+          echo "validated $(grep -c . "${root}/paths.txt" || true) path(s)"
+
+      - name: Mint the App token
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ secrets.REGENERATE_ARTIFACTS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REGENERATE_ARTIFACTS_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      # Blobs, a tree on the granted head's tree, a commit whose parent is that
+      # head, then a non-forced ref update: if the branch moved, the update fails,
+      # which is the lease. No author is set, so GitHub attributes the commit to
+      # the App.
+      - name: Commit the regenerated artifacts to the pull request branch
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ needs.eligibility.outputs.head-sha }}
+          HEAD_REF: ${{ needs.eligibility.outputs.head-ref }}
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/regenerated"
+          if [ ! -s "${root}/paths.txt" ]; then
+            echo "::notice::the committed artifacts already match this dependency graph; nothing to push"
+            exit 0
+          fi
+          bot_login="${APP_SLUG}[bot]"
+          bot_id=$(gh api "users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          base_tree=$(gh api "repos/${REPO}/git/commits/${HEAD_SHA}" --jq .tree.sha)
+          entries='[]'
+          while IFS= read -r path; do
+            base64 -w0 "${root}/tree/${path}" > "${RUNNER_TEMP}/blob.b64"
+            jq -n --rawfile c "${RUNNER_TEMP}/blob.b64" '{content: $c, encoding: "base64"}' > "${RUNNER_TEMP}/blob.json"
+            sha=$(gh api "repos/${REPO}/git/blobs" --input "${RUNNER_TEMP}/blob.json" --jq .sha)
+            entries=$(jq -c --arg p "$path" --arg s "$sha" '. + [{path: $p, mode: "100644", type: "blob", sha: $s}]' <<<"$entries")
+          done < "${root}/paths.txt"
+          jq -n --arg b "$base_tree" --argjson t "$entries" '{base_tree: $b, tree: $t}' > "${RUNNER_TEMP}/tree.json"
+          tree=$(gh api "repos/${REPO}/git/trees" --input "${RUNNER_TEMP}/tree.json" --jq .sha)
+          message=$(printf '%s\n\n%s\n\n%s\n' \
+            "build: regenerate committed artifacts for #${PR_NUMBER} [dependabot skip]" \
+            "Rebuilt by the regenerate-artifacts workflow (ADR-0041) from the default branch's scripts." \
+            "Signed-off-by: ${bot_login} <${bot_id}+${bot_login}@users.noreply.github.com>")
+          jq -n --arg m "$message" --arg t "$tree" --arg p "$HEAD_SHA" \
+            '{message: $m, tree: $t, parents: [$p]}' > "${RUNNER_TEMP}/commit.json"
+          commit=$(gh api "repos/${REPO}/git/commits" --input "${RUNNER_TEMP}/commit.json" --jq .sha)
+          jq -n --arg s "$commit" '{sha: $s, force: false}' > "${RUNNER_TEMP}/ref.json"
+          gh api -X PATCH "repos/${REPO}/git/refs/heads/${HEAD_REF}" --input "${RUNNER_TEMP}/ref.json" --silent
+          echo "pushed ${commit} onto ${HEAD_REF}; apply gate-change-acknowledged after reviewing the diff"
+
+  cleanup:
+    name: remove the label
+    needs: [eligibility, build, push]
+    if: always() && github.event.label.name == 'regenerate-artifacts'
+    runs-on: ubuntu-24.04
+    # A separate credential: the App token is `contents: write` only and cannot
+    # remove a label, and widening it would put two scopes on one secret.
+    permissions:
+      pull-requests: write
+    steps:
+      # The label authorizes one run against one head. Removed whatever happened,
+      # and verified by a paginated live read rather than trusting the delete.
+      - name: Remove the label and verify it is gone
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api -X DELETE "repos/${REPO}/issues/${PR_NUMBER}/labels/regenerate-artifacts" --silent || true
+          gh api --paginate --slurp "repos/${REPO}/issues/${PR_NUMBER}/labels" > "${RUNNER_TEMP}/labels.json"
+          remaining=$(jq -r '[.[][].name | ascii_downcase] | index("regenerate-artifacts") // "absent"' "${RUNNER_TEMP}/labels.json")
+          if [ "$remaining" != "absent" ]; then
+            echo "the regenerate-artifacts label is still present after removal" >&2
+            exit 1
+          fi
+          echo "label removed"
