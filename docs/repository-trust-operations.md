@@ -195,8 +195,8 @@ about, which is why it is filed here rather than in the decision.
 > output nobody saw. [ADR-0042](adr/0042-count-a-gate-change-acknowledgment-only-when-an-admin-or-maintainer-applied-it.md)
 > has since made `--label-events`, `--ack-permission`, and
 > `--dismissed-this-run` required, so each command below now stops at
-> `check-gate-integrity: --label-events is required` (exit 1) as written, and a
-> passing run now also names who applied the acknowledgment and in what role.
+> `check-gate-integrity: --label-events is required` (exit 1) as written, and an
+> acknowledged pass now also names who applied the label and in what role.
 > The current invocation is the `gate-integrity` step of
 > [`trusted-gates.yml`](../.github/workflows/trusted-gates.yml), documented in
 > the header of [`scripts/check-gate-integrity.ts`](../scripts/check-gate-integrity.ts);
