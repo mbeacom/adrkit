@@ -21,7 +21,8 @@ by `initialize`) — via the SDK v2 `serveStdio` entry
 It passed real-session dogfood against the published artifact on **both** eras,
 driven through the official MCP Inspector. The Inspector defaults to the 2025
 era; select the modern one with `"protocolEra": "modern"` (or `"auto"`) in the
-server's entry in the Inspector's `mcp.json` — there is no CLI flag for it.
+server's entry in the Inspector's `mcp.json`; Inspector 2.8.0 (verified 2026-09-27) also accepts
+`--protocol-era legacy|auto|modern` in CLI mode.
 
 ## Visual `adr graph`
 

@@ -434,8 +434,10 @@ Inspector's stdin to a log:
 | `modern` | `server/discover` @ `2026-07-28`, `subscriptions/listen`, `tools/list` / `tools/call` @ `2026-07-28` |
 | `auto` | `server/discover` @ `2026-07-28`, `subscriptions/listen`, `tools/list` / `tools/call` @ `2026-07-28` |
 
-Inspector 2.8.0 also opens `subscriptions/listen`, which 2.0.0 did not. The server
-holds it open without an error, and it ends when the connection closes. Inspector
+Inspector 2.8.0 also opens `subscriptions/listen`, which 2.0.0 did not. The
+reply log shows no error and no reply for it before the Inspector disconnected.
+It does not show whether the request was still open at that point or was
+aborted at hang-up. Inspector
 2.8.0 also adds a `--protocol-era legacy|auto|modern` CLI flag, which produced the
 same `server/discover` opening as the config key.
 
