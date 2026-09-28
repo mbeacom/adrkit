@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0043"
 title: "Publish schema v0.2.0 with RFC 3339 seconds, retain v0.1.0, and validate every record against the current schema"
-status: proposed
+status: accepted
 date: 2026-09-28
 deciders: ["@mbeacom"]
 tags: [schema, core, dependencies, hosting]
@@ -21,6 +21,7 @@ affects:
     pattern: "zod"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -161,6 +162,19 @@ pressure.
   stops serving the pinned bytes.
 - Revisit if: a second schema bump needs a rule change that a one-line migration
   cannot express.
+- **`zod` 4.6's code generator is visible to CodeQL in the Action bundles.** After
+  #241, `js/bad-code-sanitization` flagged zod's object fast path
+  (`Doc.compile()`, which builds a parser with `new Function`) in both
+  `packages/ci/dist/index.js` and `packages/ci/dist/queue-action.js` (alerts 9
+  and 10). The flagged value is `JSON.stringify` of an object-schema *shape key*.
+  Every such key is a field name declared in adrkit's own static schemas — no
+  corpus, PR, or event content becomes one (`z.record` keys do not take this
+  path) — and the result is only ever placed in a string-literal position in
+  code run on Node, where the query's `</script>` and U+2028/U+2029 concerns do
+  not apply. Both are false positives and are dismissed as such, not excluded:
+  the bundles stay in CodeQL's scope on purpose (`.github/workflows/codeql.yml`),
+  so a later `zod` that moves these lines may raise them again. Re-check that
+  shape keys are still static before dismissing a recurrence.
 
 ## Action items
 
