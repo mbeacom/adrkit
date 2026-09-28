@@ -400,13 +400,22 @@ ships and makes both unnecessary.
 ## Action items
 
 1. [ ] Create a GitHub App with `contents: write`, install it on this repository
-       only, and store its id and private key as Actions secrets.
+       only, and store its id and private key as Actions secrets. Done by
+       @mbeacom (`adrkit-dep-gates`), with the **Client ID** rather than the App
+       ID, since `create-github-app-token` v3 deprecates `app-id`, plus the
+       `REGENERATE_ARTIFACTS_APP_SLUG` variable. Left unticked only because the
+       single-repository installation scope was reported, not verified here.
 2. [ ] Confirm, by observing a labelled run on a Dependabot PR, that the App secret
        is available when a maintainer applies the label, and unavailable when
        `dependabot[bot]` is the actor. This record's argument for the label rests
        on it. In the same run, confirm the Git Data API commit shows as verified
        and passes both `dco` and `trusted-dco`, and that the next Dependabot
        rebase force-pushes over it as `[dependabot skip]` promises.
+       **Observed so far:** the secret is available on a maintainer-applied
+       label (#209 runs 36336189018 and 36336372382; #237 run 36361081418); the
+       App's commits are `verified` and passed `dco` and `trusted-dco` on both
+       pull requests. **Not yet observed:** the secret being unavailable with
+       `dependabot[bot]` as actor, and a Dependabot rebase over the App commit.
 3. [x] Implement `.github/workflows/regenerate-artifacts.yml` per the Decision,
        with the eligibility checks in a tested script under `scripts/` that imports
        Node builtins only.
@@ -417,9 +426,19 @@ ships and makes both unnecessary.
        labelling, and a patch touching a path outside the artifact set. Also
        observe the positive case the review of this record found missing: a
        second run on a PR that already carries an App regeneration commit.
-5. [ ] Regenerate one real bundled bump end to end — `yaml` is the waiting case —
-       and merge it with `clean-clone-builds` and `gate-integrity` green.
+       The positive second run was observed live on #209, where it also exposed
+       an empty-commit defect fixed in #234. Each refusal has a unit or contract
+       test; the scripts-diff, author, force-push, nested/traversal, symlinked
+       ancestor, Dependabot-path, and every-commit rules were each observed
+       failing a test when disabled. The rest have not been.
+5. [x] Regenerate one real bundled bump end to end — `yaml` is the waiting case —
+       and merge it with `clean-clone-builds` and `gate-integrity` green. #237
+       (`yaml` 2.9.0 → 2.9.1): one App commit rewrote both bundles, every check
+       passed, merged as `267ca00`.
 6. [ ] After a `zod` bump regenerates green, remove the `zod` exclusion from
-       `dependabot.yml` and update its comment.
+       `dependabot.yml` and update its comment. #209 regenerated correctly but
+       could not go green: zod 4.5 changes the published `v0.1.0` schema, which
+       ADR-0011 makes immutable. `zod` is capped below 4.5 (#236) and this item
+       now waits on schema `v0.2.0` (#235).
 7. [x] Document the label in `CONTRIBUTING.md` beside the existing container
        instructions, which remain the fallback.

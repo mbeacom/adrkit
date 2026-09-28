@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0042"
 title: "Count a gate-change acknowledgment only when an admin or maintainer applied it"
-status: proposed
+status: accepted
 date: 2026-09-27
 deciders: ["@mbeacom"]
 tags: [ci, governance, security]
@@ -17,6 +17,7 @@ affects:
     pattern: "scripts/check-gate-integrity.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: arb
   tierReason: >-
@@ -30,8 +31,9 @@ reviewBy: 2027-09-27
 
 # ADR-0042: Count a gate-change acknowledgment only when an admin or maintainer applied it
 
-> **Status: proposed.** Agent-drafted for @davesheffer; awaiting ratification by
-> @mbeacom.
+> **Status: accepted.** Agent-drafted for @davesheffer; ratified by @mbeacom on
+> 2026-09-27, after #233 merged, with the rename-around-dismissal route (action
+> item 5) deliberately deferred.
 
 ## Context
 
@@ -288,7 +290,7 @@ is precisely the substitution rule 4 exists to avoid.
 
 ## Action items
 
-1. [ ] **Ratify or reject.** Awaiting @mbeacom.
+1. [x] **Ratify or reject.** Ratified by @mbeacom, 2026-09-27.
 2. [x] **Prove the workflow token can read `collaborators/{actor}/permission`**
        on a real `pull_request_target` run before merge. Done on the fork,
        2026-09-27 — see Token access above.
@@ -298,9 +300,14 @@ is precisely the substitution rule 4 exists to avoid.
        renaming this label away and back around a push survives dismissal —
        see Label renames and deletions above.
 4. [ ] **Observe both the accept and the insufficient-role paths on a real pull
-       request after merge**, per ADR-0016.
+       request after merge**, per ADR-0016. Not yet: no acknowledgment has been
+       evaluated under this rule here. #237's passing `gate-integrity` run
+       (36365739410, 01:22 UTC) predates the 01:33 merge of #233 and ran the old
+       presence-only rule. The accept path has been observed only on the fork.
 5. [ ] **Decide whether to close the rename-around-dismissal route** before
-       write access is granted to anyone else. One candidate: dismissal also
+       write access is granted to anyone else. Deferred by @mbeacom at
+       ratification (2026-09-27): nobody else holds write access today, so the
+       route is not reachable; this item is the trigger to revisit. One candidate: dismissal also
        removes every label whose latest history event under its current name
        is not an application — the test rule 2 applies to this label, which
        catches one renamed since it was applied — at the cost of
