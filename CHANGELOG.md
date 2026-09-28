@@ -9,6 +9,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-28
+
 ### Security
 
 - **`gate-change-acknowledged` now counts only when the latest labeler holds
@@ -123,19 +125,16 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Fixed
 
-- **`@adrkit/core` and `@adrkit/mcp` now declare `zod` as `>=4.4.3 <4.5`
-  (previously `^4` and `^4.2.0`).** zod 4.5.0 made `z.iso.datetime()` require
-  seconds ([colinhacks/zod#6457](https://github.com/colinhacks/zod/pull/6457)),
-  so a fresh install of `@adrkit/core` could resolve a zod whose runtime rejects
-  a minutes-only timestamp such as `2026-01-01T12:30Z` in `importedAt`,
-  `queuedAt`, `escalatedAt`, `decidedAt`, or `ranAt` — while the published
-  `v0.1.0` JSON Schema still accepts it. The cap makes runtime validation match
-  the published schema again. Adopting the stricter RFC 3339 behaviour is
-  planned as schema `v0.2.0`, with `v0.1.0` retained as ADR-0011 requires
-  ([#235](https://github.com/mbeacom/adrkit/issues/235)). Nothing installed
-  in this repository changes: 4.4.3 is already the locked version.
-  Replaced before release by schema v0.2.0 under **Changed**, which lifts the
-  cap to `^4.6.5`.
+- **`@adrkit/core` 0.14.0 could validate timestamps more strictly than its
+  published schema.** It declared `zod` as `^4`, so a fresh install could
+  resolve zod 4.5 or later, whose `z.iso.datetime()` requires seconds
+  ([colinhacks/zod#6457](https://github.com/colinhacks/zod/pull/6457)). Such an
+  install rejected a minutes-only `importedAt`, `queuedAt`, `escalatedAt`,
+  `decidedAt`, or `ranAt` that the published `v0.1.0` JSON Schema accepts.
+  In 0.15.0 the two agree again: `zod` is `^4.6.5` and the published schema is
+  `v0.2.0`, which requires seconds too — see **Changed**. (A temporary
+  `>=4.4.3 <4.5` cap, #236, held that line on `main` until the schema was ready
+  and never shipped.)
 
 - **`@adrkit/core` and `@adrkit/catalog-backstage` declared `yaml` as the
   `latest` dist-tag instead of a range.** A published `latest` resolves to
@@ -144,8 +143,9 @@ Until `1.0.0`, minor releases may include breaking changes
   update: #227 bumped only `@types/bun`, yet re-resolved `yaml` 2.9.0 → 2.9.1,
   rewrote the committed `packages/ci/dist` bundles, and failed
   `clean-clone-builds` despite `yaml` being excluded from that Dependabot group.
-  Both now declare `^2.9.0`, the version already locked; nothing installed
-  changes.
+  Both now declare `^2.9.0`. The Action bundles ship `yaml` 2.9.1, taken as
+  its own update (#237) and rebuilt with the `regenerate-artifacts` label
+  (ADR-0041).
 - **`site/src/content/docs/commands.mdx` cited ADR-0021 as the live authority**
   for the marker contract, which ADR-0022 superseded. Found by the new guard
   before it was wired in (ADR-0016).
@@ -1679,7 +1679,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/mbeacom/adrkit/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/mbeacom/adrkit/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/mbeacom/adrkit/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/mbeacom/adrkit/compare/v0.11.0...v0.12.0
