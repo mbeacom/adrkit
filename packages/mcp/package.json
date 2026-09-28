@@ -50,7 +50,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.1.0",
     "@types/bun": "latest"
   },
   "files": [
