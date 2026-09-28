@@ -137,4 +137,17 @@ describe('retained schema versions (ADR-0011 item 6)', () => {
       }),
     ).toThrow(/Unexpected entry/);
   });
+
+  test('an unreadable schema/versions fails closed instead of serving nothing', () => {
+    const root = tempDir();
+    writeFileSync(join(root, 'canonical.json'), schemaWithVersion('0.2.0'));
+    writeFileSync(join(root, 'versions'), 'not a directory');
+    expect(() =>
+      planAllServedSchemas({
+        canonicalPath: join(root, 'canonical.json'),
+        retainedDir: join(root, 'versions'),
+        publicDir: join(root, 'public'),
+      }),
+    ).toThrow(/ENOTDIR/);
+  });
 });

@@ -123,8 +123,12 @@ export function planRetainedSchemas(retainedDir: string, publicDir: string): Ser
   let entries: import('node:fs').Dirent[];
   try {
     entries = readdirSync(retainedDir, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (error) {
+    // Only an absent directory means "no prior versions". Anything else — a
+    // file in its place, a permissions error — must fail the build, or the
+    // site would deploy without a URL it has already published.
+    if ((error as { code?: unknown }).code === 'ENOENT') return [];
+    throw error;
   }
   const plans: ServedSchemaPlan[] = [];
   for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
