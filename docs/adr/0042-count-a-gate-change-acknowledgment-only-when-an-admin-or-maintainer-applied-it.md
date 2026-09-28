@@ -33,7 +33,9 @@ reviewBy: 2027-09-27
 
 > **Status: accepted.** Agent-drafted for @davesheffer; ratified by @mbeacom on
 > 2026-09-27, after #233 merged, with the rename-around-dismissal route (action
-> item 5) deliberately deferred.
+> item 5) deliberately deferred. This record amends ADR-0035; that record's
+> `gate-change-acknowledged` assertion and Decision item 2 were updated to say so
+> in the same change.
 
 ## Context
 
@@ -306,8 +308,10 @@ is precisely the substitution rule 4 exists to avoid.
        presence-only rule. The accept path has been observed only on the fork.
 5. [ ] **Decide whether to close the rename-around-dismissal route** before
        write access is granted to anyone else. Deferred by @mbeacom at
-       ratification (2026-09-27): nobody else holds write access today, so the
-       route is not reachable; this item is the trigger to revisit. One candidate: dismissal also
+       ratification (2026-09-27). The route is reachable today only by the
+       existing maintainer, @mbeacom, who already holds write access and could
+       acknowledge directly; nobody else holds write. Revisit — and close it or
+       accept it explicitly — before write access is granted to any other actor. One candidate: dismissal also
        removes every label whose latest history event under its current name
        is not an application — the test rule 2 applies to this label, which
        catches one renamed since it was applied — at the cost of

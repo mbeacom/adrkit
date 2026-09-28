@@ -9,7 +9,7 @@ tags: [ci, governance, security, supply-chain, provenance]
 scope: org
 reversibility: two-way-door
 blastRadius: org
-relatesTo: ["0006", "0007", "0014", "0016", "0026"]
+relatesTo: ["0006", "0007", "0014", "0016", "0026", "0042"]
 affects:
   - type: path
     pattern: ".github/workflows/**"
@@ -32,8 +32,10 @@ assertions:
       .github/workflows/, .github/actions/, scripts/, or packages/ci/, or a
       CODEOWNERS file at any of the three locations GitHub resolves
       (.github/CODEOWNERS, the repository root, docs/CODEOWNERS) — must carry the
-      gate-change-acknowledged label, which requires triage or write access to
-      apply and is dismissed automatically whenever the head or the base moves.
+      gate-change-acknowledged label, counted only when the actor who most
+      recently applied it holds the admin or maintain role (as amended by
+      ADR-0042; previously any actor with triage or write access), and dismissed
+      automatically whenever the head or the base moves.
     engine: custom
     expression: gate-change-acknowledged
     input: source
@@ -195,6 +197,13 @@ Concretely, in `.github/workflows/trusted-gates.yml`, on `pull_request_target`:
    the act is recorded in the timeline against whoever performed it. The label is
    **dismissed whenever the head or the base moves**, so it authorizes the state
    it was given for and not the next one.
+
+   > **Amended by [ADR-0042](0042-count-a-gate-change-acknowledgment-only-when-an-admin-or-maintainer-applied-it.md)
+   > (accepted 2026-09-27).** Triage or write access is no longer sufficient:
+   > the label counts only when the actor who most recently applied it, per the
+   > live issue-event history, holds the `admin` or `maintain` role. The
+   > sentence above is kept as ratified; the `gate-change-acknowledged`
+   > assertion in this record's frontmatter states the amended rule.
 
 Both jobs import Node builtins only and run with no `bun install`, so a hostile
 or broken dependency graph cannot take them down — the property ADR-0006 action
