@@ -172,8 +172,12 @@ pressure.
 3. [x] Bump `SCHEMA_VERSION` to `0.2.0`, lift the `zod` cap and Dependabot
        `ignore`, re-emit the schema, and re-pin `protected-surfaces.json`.
 4. [x] Record the breaking change and the `:00` migration in the CHANGELOG.
-5. [ ] Confirm, after the next site deploy, that
+5. [x] Confirm, after the next site deploy, that
        `https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json` serves SHA-256
        `1e1841151174cc5a8ed22dadae070f087477e5068bd928d5292c3acd2e2681cc` and
        `https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json` serves the canonical
-       file.
+       file. Observed 2026-09-28 after the v0.15.0 site deploy (`site.yml` push
+       run on `3440c60`, success): v0.1.0 returned HTTP 200 with SHA-256
+       `1e1841151174cc5a…` and `$id` `…/v0.1.0/adr.schema.json`; v0.2.0 returned
+       HTTP 200 with SHA-256 `1db3cafbfe082b24…`, equal to `schema/adr.schema.json`
+       on `main`, and `$id` `…/v0.2.0/adr.schema.json`.
