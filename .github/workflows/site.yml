@@ -23,6 +23,8 @@ on:
     paths:
       - 'site/**'
       - 'schema/adr.schema.json'
+      # Retained prior versions, served at their own `$id` (ADR-0011 item 6).
+      - 'schema/versions/**'
       - 'docs/adr/**'
       - '.github/workflows/site.yml'
       # The docs pin the released CLI version; a release bump must re-run that

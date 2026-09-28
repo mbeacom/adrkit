@@ -1,0 +1,524 @@
+{
+  "$id": "https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Typed frontmatter for a decision record. A superset of MADR: every MADR field is present or derivable, plus governance, routing, provenance, and enforcement metadata. The markdown body below the frontmatter carries the prose.",
+  "properties": {
+    "affects": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "negate": {
+            "default": false,
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          },
+          "pattern": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "path",
+              "entity",
+              "package",
+              "resource",
+              "api",
+              "data"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "pattern"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "assertions": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "engine": {
+            "enum": [
+              "rego",
+              "jsonpath",
+              "grep",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "expression": {
+            "type": "string"
+          },
+          "expressionFile": {
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "type": "string"
+          },
+          "input": {
+            "default": "source",
+            "enum": [
+              "source",
+              "iac-plan",
+              "sbom",
+              "openapi",
+              "catalog",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warn",
+              "info"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "engine",
+          "severity"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "blastRadius": {
+      "default": "component",
+      "enum": [
+        "component",
+        "team",
+        "cross-team",
+        "org"
+      ],
+      "type": "string"
+    },
+    "complianceControls": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "conflictsWith": {
+      "default": [],
+      "items": {
+        "pattern": "^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "consulted": {
+      "default": [],
+      "items": {
+        "pattern": "^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "created": {
+      "format": "date",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+      "type": "string"
+    },
+    "date": {
+      "format": "date",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+      "type": "string"
+    },
+    "deciders": {
+      "default": [],
+      "items": {
+        "pattern": "^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "evaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "deterministicFindings": {
+          "default": [],
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "adr": {
+                "pattern": "^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "error",
+                  "warn",
+                  "info"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule",
+              "severity"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "escalate": {
+          "type": "boolean"
+        },
+        "escalationReasons": {
+          "default": [],
+          "items": {
+            "enum": [
+              "one-way-door",
+              "cost-threshold",
+              "security-surface",
+              "data-residency",
+              "regulatory",
+              "contradicts-accepted-adr",
+              "low-confidence",
+              "pass-disagreement",
+              "agent-authored-production",
+              "novel-no-precedent",
+              "human-requested"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "evaluatorVersion": {
+          "type": "string"
+        },
+        "ranAt": {
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+          "type": "string"
+        },
+        "rubricVersion": {
+          "type": "string"
+        },
+        "scores": {
+          "additionalProperties": {
+            "maximum": 4,
+            "minimum": 0,
+            "type": "number"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "externalRefs": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "issue",
+              "pr",
+              "rfc",
+              "incident",
+              "doc",
+              "meeting",
+              "control",
+              "other"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "url"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "id": {
+      "pattern": "^([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+      "type": "string"
+    },
+    "informed": {
+      "default": [],
+      "items": {
+        "pattern": "^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "additionalProperties": false,
+          "properties": {
+            "harness": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "runId": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "authoredBy": {
+          "default": "human",
+          "enum": [
+            "human",
+            "agent",
+            "agent-drafted"
+          ],
+          "type": "string"
+        },
+        "importedFrom": {
+          "additionalProperties": false,
+          "properties": {
+            "fingerprint": {
+              "type": "string"
+            },
+            "importedAt": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "type": "string"
+            },
+            "sourceKind": {
+              "enum": [
+                "madr",
+                "agent-log",
+                "plan-artifact",
+                "other"
+              ],
+              "type": "string"
+            },
+            "sourceRef": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "sourceKind",
+            "sourceRef",
+            "fingerprint"
+          ],
+          "type": "object"
+        },
+        "ratifiedBy": {
+          "pattern": "^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$",
+          "type": "string"
+        },
+        "sourceArtifact": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "relatesTo": {
+      "default": [],
+      "items": {
+        "pattern": "^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "reversibility": {
+      "default": "unknown",
+      "enum": [
+        "two-way-door",
+        "one-way-door",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "review": {
+      "additionalProperties": false,
+      "properties": {
+        "approvals": {
+          "default": [],
+          "items": {
+            "pattern": "^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "decidedAt": {
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+          "type": "string"
+        },
+        "escalatedAt": {
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+          "type": "string"
+        },
+        "objections": {
+          "default": [],
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "by": {
+                "pattern": "^(@[A-Za-z0-9-]+|team:[a-z0-9-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$",
+                "type": "string"
+              },
+              "resolved": {
+                "default": false,
+                "type": "boolean"
+              },
+              "summary": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "by"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "queuedAt": {
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+          "type": "string"
+        },
+        "quorum": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "slaDays": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tier": {
+          "enum": [
+            "auto",
+            "async",
+            "arb"
+          ],
+          "type": "string"
+        },
+        "tierReason": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "reviewBy": {
+      "format": "date",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "default": "0.1.0",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "type": "string"
+    },
+    "scope": {
+      "default": "component",
+      "enum": [
+        "component",
+        "domain",
+        "org"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "proposed",
+        "accepted",
+        "rejected",
+        "superseded",
+        "deprecated"
+      ],
+      "type": "string"
+    },
+    "supersededBy": {
+      "pattern": "^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+      "type": "string"
+    },
+    "supersedes": {
+      "default": [],
+      "items": {
+        "pattern": "^(([a-z0-9][a-z0-9-]*):)?([0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "tags": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z0-9][a-z0-9-]*$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "title": {
+      "maxLength": 120,
+      "minLength": 3,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "status",
+    "date"
+  ],
+  "title": "Architecture Decision Record",
+  "type": "object"
+}

@@ -56,10 +56,11 @@ quietly stopped looking cannot report a green zero.
 
 Two build steps run before every `dev`/`build` (both are git-ignored output):
 
-- **`scripts/sync-schema.ts`** reads `../schema/adr.schema.json`, derives the
-  served path from the schema's own `$id`, and writes the bytes verbatim to
+- **`scripts/sync-schema.ts`** reads `../schema/adr.schema.json` and every
+  retained prior version under `../schema/versions/`, derives each served path
+  from that file's own `$id`, and writes the bytes verbatim to
   `public/schema/adr/vX.Y.Z/adr.schema.json`. A `--check` mode guards byte
-  equality with the canonical file so the two cannot drift.
+  equality with each source so they cannot drift.
 - **`scripts/gen-adr-pages.ts`** reads the canonical ADR corpus in
   `../docs/adr/*.md` and renders each record as a Starlight page under
   `src/content/docs/adr/`, mapping adrkit's typed frontmatter to page metadata.
