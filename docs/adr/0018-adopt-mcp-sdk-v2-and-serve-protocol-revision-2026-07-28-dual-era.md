@@ -94,6 +94,9 @@ Its entire surface is four read-only tools.
 We will migrate `@adrkit/mcp` to `@modelcontextprotocol/server@2.0.0` and serve
 **both protocol eras on the same stdio connection**, with the client choosing.
 
+> **Amended 2026-09-28** — the exact pin moves to `2.1.0`; see
+> [Amendment ratified by @mbeacom](#amendment-ratified-by-mbeacom-2026-09-28).
+
 - `start()` hands a closure-private server factory to `serveStdio(...)` with the
   default `legacy: 'serve'`. The opening exchange selects the era and pins one
   factory instance for the connection's lifetime: `server/discover` (or any
@@ -219,6 +222,8 @@ Any such change must revisit the hint.
   corpus read; or `@modelcontextprotocol/server@2.x` proves less stable than the
   frozen v1 line it replaced, measured by regressions traced to SDK behavior
   rather than adrkit code.
+  *Amended 2026-09-28:* "client" means one that follows the MCP stdio binding;
+  see [Amendment ratified by @mbeacom](#amendment-ratified-by-mbeacom-2026-09-28).
 - **Revisit if:** the SDK removes 2025-era serving (at which point
   `legacy: 'serve'` becomes moot and Option C becomes the only option), a fifth
   tool or any caller-varying tool metadata is introduced (which invalidates
@@ -460,3 +465,28 @@ identity `{"name":"@adrkit/mcp","version":"0.14.0"}`. It got the same four outco
 byte-identical to an unpinned client, which negotiated `2025-11-25`.
 
 Not exercised: the Inspector's web UI, and any artifact installed from npm.
+
+### Amendment ratified by @mbeacom (2026-09-28)
+
+Ratified by @mbeacom on 2026-09-28, after the verification above and the review of
+[#242](https://github.com/mbeacom/adrkit/pull/242). The ratified text above is kept
+as written; this amends it in two places.
+
+1. **The pin.** `@modelcontextprotocol/server` and `@modelcontextprotocol/client`
+   are exact-pinned at `2.1.0`, moved together so that one
+   `@modelcontextprotocol/core` resolves. The Decision's "`2.0.0`" names the
+   version this record adopted, not a ceiling. The rule it implies stands: each
+   SDK bump stays excluded from Dependabot's grouped updates and lands only after
+   this record's Inspector run is repeated on both eras and appended here.
+2. **"Client" in *How we would know this was wrong*.** It means a client that
+   follows the MCP stdio binding and keeps stdin open until it has read its
+   responses. A process that writes frames and closes stdin at once was never
+   such a client. From 2.1.0 the server exits promptly on EOF, as the binding
+   asks ([typescript-sdk#2494](https://github.com/modelcontextprotocol/typescript-sdk/pull/2494)),
+   and that caller can lose trailing responses. This is accepted as outside the
+   guarantee, not worked around. Working around it would mean replacing
+   `serveStdio`, which the 2026-07-28 era depends on. The change is disclosed in
+   the changelog and `packages/mcp/README.md`.
+
+A protocol-following 2025-era client that fails or sees a changed response still
+falsifies this record, exactly as before.
