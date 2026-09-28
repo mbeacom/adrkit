@@ -33,7 +33,7 @@ describe('MADR in-place migration', () => {
     expect(parsed.body).toBe(body);
     expect(parsed.body).toContain('\n---\n\nThat fence is prose');
     expect(parsed.data).toMatchObject({
-      schemaVersion: '0.1.0',
+      schemaVersion: '0.2.0',
       id: '0001',
       title: 'Use the existing platform decision',
       status: 'accepted',

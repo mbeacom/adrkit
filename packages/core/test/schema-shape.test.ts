@@ -7,7 +7,7 @@ describe('emitted schema shape', () => {
 
   test('advertises the stable schema id and schemaVersion default', () => {
     expect(schema.$id).toBe(ADR_SCHEMA_ID);
-    expect(properties.schemaVersion?.default).toBe('0.1.0');
+    expect(properties.schemaVersion?.default).toBe('0.2.0');
   });
 
   test('requires exactly the top-level fields that have no defaults', () => {

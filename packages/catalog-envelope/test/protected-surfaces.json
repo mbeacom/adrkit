@@ -1,5 +1,5 @@
 {
-  "//": "Pin table for `test/no-core-schema-change.test.ts` (T026, spec.md FR-004/FR-005). Initial digests were read at 99ba8d2500eaf37625ea164f66b4a17870e40dad; #115 re-pinned only the two comparator-migration files. See that file's header for why these live in data rather than in the test source.",
+  "//": "Pin table for `test/no-core-schema-change.test.ts` (T026, spec.md FR-004/FR-005). Initial digests were read at 99ba8d2500eaf37625ea164f66b4a17870e40dad; #115 re-pinned only the two comparator-migration files. #235 re-pinned only the ADR schema source and its emitted JSON Schema for schema v0.2.0 (zod 4.5+ requires seconds in date-time fields; ADR-0043); the published v0.1.0 bytes are retained under schema/versions/ and pinned by site/scripts/sync-schema.test.ts. See that file's header for why these live in data rather than in the test source.",
   "protectedFiles": [
     {
       "path": "packages/core/src/affects/catalog.ts",
@@ -28,12 +28,12 @@
     },
     {
       "path": "packages/core/src/schema/adr.schema.ts",
-      "sha256": "eae1b3c1fe203e8f2ca20657777c6508391f94df4c9e39399bf4b7385ad13e10",
+      "sha256": "44d7d788cb712b541881890ce31fa5f6dcae611bc73eaa38044b526e32effa4c",
       "why": "the Zod ADR schema FR-004 names"
     },
     {
       "path": "schema/adr.schema.json",
-      "sha256": "1e1841151174cc5a8ed22dadae070f087477e5068bd928d5292c3acd2e2681cc",
+      "sha256": "1db3cafbfe082b245d8d6e63a9df270a9570835e53331966753d1665f599c8f5",
       "why": "the published ADR JSON Schema — FR-004, and FR-005's 'never part of any published schema'"
     }
   ],

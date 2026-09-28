@@ -51,16 +51,6 @@ updates:
     # actually merge, so raise the default of 5 to leave room for them.
     open-pull-requests-limit: 10
 
-    # A hold, not a decision to stay on 4.4. zod 4.5.0 made `z.iso.datetime()`
-    # require seconds (RFC 3339, colinhacks/zod#6457), which changes the emitted
-    # pattern of every `IsoDateTime` field. ADR-0011 makes the published `v0.1.0`
-    # schema immutable, so taking it means shipping schema `v0.2.0` alongside a
-    # retained `v0.1.0` — #235. Observed on #209: the regenerated schema failed
-    # its SHA-256 pin in `protected-surfaces.json`. The manifests cap `zod` at
-    # `>=4.4.3 <4.5` for the same reason; remove this with that cap.
-    ignore:
-      - dependency-name: "zod"
-        versions: [">=4.5.0"]
     groups:
       # Everything that a version bump cannot invalidate on its own. Restricted
       # to minor and patch so a major arrives as its own reviewable PR —
@@ -78,9 +68,13 @@ updates:
           # the PR: it is why #200 is red on `clean-clone-builds` and why three
           # root-bun branches stacked up re-proposing the same updates.
           #
-          # A 4.4.x patch arrives alone and the `regenerate-artifacts` label
-          # (ADR-0041) rebuilds the bundle; if it moves the schema, the pin
-          # stops it, which is correct. 4.5+ is ignored above until #235.
+          # A `zod` bump arrives alone and the `regenerate-artifacts` label
+          # (ADR-0041) rebuilds the bundle. If it also moves the emitted schema,
+          # the SHA-256 pin in `protected-surfaces.json` stops it, which is
+          # correct: a published schema version is immutable (ADR-0011), so a
+          # schema-moving bump is a `SCHEMA_VERSION` bump that retains the prior
+          # file under `schema/versions/`, as v0.2.0 did for zod 4.5 (#235,
+          # ADR-0043). Keep this exclusion until ADR-0041 action item 6 is met.
           - "zod"
           # Same shape, different artifact. `glob-compile-once.test.ts`
           # deliberately records the resolved engine version as an observation

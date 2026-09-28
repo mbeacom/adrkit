@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 
-export const SCHEMA_VERSION = '0.1.0' as const;
+export const SCHEMA_VERSION = '0.2.0' as const;
 
 /* ------------------------------------------------------------------ *
  * Primitives
@@ -36,7 +36,16 @@ export const AdrRef = z
 
 /** Calendar-correct `YYYY-MM-DD`; rejects impossible dates like `2026-02-31`. */
 const IsoDate = z.string().date();
-const IsoDateTime = z.string().datetime({ offset: true });
+/**
+ * RFC 3339 `date-time`: seconds are required, fractional seconds optional, and
+ * the offset is `Z` or `±HH:MM`. Schema v0.1.0 also accepted a minutes-only
+ * time (`2026-01-01T12:30Z`); v0.2.0 does not, matching the `format: date-time`
+ * the field has always declared (ADR-0043, #235). Append `:00` to migrate.
+ */
+const IsoDateTime = z.string().datetime({
+  offset: true,
+  error: 'Expected an RFC 3339 date-time with seconds, e.g. 2026-01-01T12:30:00Z',
+});
 
 const Slug = z.string().regex(/^[a-z0-9][a-z0-9-]*$/);
 

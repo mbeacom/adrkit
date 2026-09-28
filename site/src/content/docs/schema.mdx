@@ -112,6 +112,12 @@ error, so a typo fails validation instead of silently doing nothing.
   Each published version is served at its own immutable path
   (<code>/schema/adr/v{SCHEMA_VERSION}/adr.schema.json</code>); a version bump
   adds a **new** path and must retain the prior ones, so references pinned to an
-  older version keep resolving.
+  older version keep resolving. v0.1.0 is still served at
+  <code>/schema/adr/v0.1.0/adr.schema.json</code>.
+- v0.2.0 requires seconds in every `date-time` field (`importedAt`, `queuedAt`,
+  `escalatedAt`, `decidedAt`, `ranAt`): write `2026-01-01T12:30:00Z`, not
+  `2026-01-01T12:30Z`. `adr lint` applies the current rules to every record,
+  whatever `schemaVersion` it declares — see
+  [ADR-0043](/adr/0043-publish-schema-v0-2-0-with-rfc-3339-seconds-retain-v0-1-0-and-validate-every-rec/).
 - The schema is released under [CC0](https://github.com/mbeacom/adrkit/blob/main/schema/LICENSE)
   so competing implementations can adopt it with no license consideration at all.

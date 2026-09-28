@@ -19,9 +19,21 @@
  *
  * `--check` is the guard that mirrors `schema-emit-matches`: it asserts the
  * served file exists and is byte-identical to the canonical schema.
+ *
+ * ## Retained versions (ADR-0011 action item 6)
+ *
+ * Every published version path is immutable: a `SCHEMA_VERSION` bump adds a URL
+ * and may never remove or repoint one. The canonical file only ever holds the
+ * current version, so each previously published schema is committed verbatim
+ * under `schema/versions/v<semver>/adr.schema.json` and is never regenerated.
+ * This script serves every retained file at the path derived from *its own*
+ * `$id`, exactly as it does the canonical one, and `--check` covers all of them.
+ * Two further rules make "never repoint" executable: a retained file's `$id`
+ * version must equal its directory name, and if the canonical version equals a
+ * retained version, their bytes must be identical.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 const EXPECTED_ORIGIN = 'https://adrkit.dev';
@@ -29,10 +41,11 @@ const EXPECTED_ORIGIN = 'https://adrkit.dev';
 const siteDir = resolve(import.meta.dir, '..');
 const repoRoot = resolve(siteDir, '..');
 const canonicalPath = join(repoRoot, 'schema', 'adr.schema.json');
+const retainedDir = join(repoRoot, 'schema', 'versions');
 const publicDir = join(siteDir, 'public');
 
 export interface ServedSchemaPlan {
-  /** Absolute path to the canonical source of truth. */
+  /** Absolute path to the file whose bytes are served (canonical or retained). */
   canonicalPath: string;
   /** The schema `$id` (absolute URL). */
   schemaId: string;
@@ -48,6 +61,11 @@ export interface ServedSchemaPlan {
 
 /** Read the canonical schema and derive where it must be served from its `$id`. */
 export function planServedSchema(): ServedSchemaPlan {
+  return planSchemaFile(canonicalPath, publicDir);
+}
+
+/** Read one schema file and derive where it must be served from its `$id`. */
+export function planSchemaFile(canonicalPath: string, publicDir: string): ServedSchemaPlan {
   const bytes = readFileSync(canonicalPath, 'utf8');
 
   let id: unknown;
@@ -93,6 +111,76 @@ export function planServedSchema(): ServedSchemaPlan {
   };
 }
 
+const RETAINED_DIR_RE = /^v(\d+\.\d+\.\d+)$/;
+
+/**
+ * Plan every retained prior version under `retainedDir`. Each entry must be a
+ * `v<semver>` directory holding exactly the `adr.schema.json` that was served at
+ * that version, and its `$id` must name the same version as its directory — a
+ * mismatch would serve one version's bytes at another version's URL.
+ */
+export function planRetainedSchemas(retainedDir: string, publicDir: string): ServedSchemaPlan[] {
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = readdirSync(retainedDir, { withFileTypes: true });
+  } catch (error) {
+    // Only an absent directory means "no prior versions". Anything else — a
+    // file in its place, a permissions error — must fail the build, or the
+    // site would deploy without a URL it has already published.
+    if ((error as { code?: unknown }).code === 'ENOENT') return [];
+    throw error;
+  }
+  const plans: ServedSchemaPlan[] = [];
+  for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+    const match = RETAINED_DIR_RE.exec(entry.name);
+    if (!entry.isDirectory() || !match?.[1]) {
+      throw new Error(
+        `Unexpected entry in ${retainedDir}: "${entry.name}". Only v<semver>/ directories belong there.`,
+      );
+    }
+    const plan = planSchemaFile(join(retainedDir, entry.name, 'adr.schema.json'), publicDir);
+    if (plan.version !== match[1]) {
+      throw new Error(
+        `Retained schema ${entry.name}/adr.schema.json declares $id version v${plan.version}; ` +
+          `a retained file must be served at the version its directory names.`,
+      );
+    }
+    plans.push(plan);
+  }
+  return plans;
+}
+
+/**
+ * The full set of files the site must serve: the canonical schema plus every
+ * retained prior version. Throws if the canonical version collides with a
+ * retained version whose bytes differ — that would repoint a published URL.
+ */
+export function planAllServedSchemas(
+  options: { canonicalPath: string; retainedDir: string; publicDir: string } = {
+    canonicalPath,
+    retainedDir,
+    publicDir,
+  },
+): { current: ServedSchemaPlan; retained: ServedSchemaPlan[] } {
+  const current = planSchemaFile(options.canonicalPath, options.publicDir);
+  const retained = planRetainedSchemas(options.retainedDir, options.publicDir);
+  const kept: ServedSchemaPlan[] = [];
+  for (const plan of retained) {
+    if (plan.version === current.version) {
+      if (plan.bytes !== current.bytes) {
+        throw new Error(
+          `Canonical schema is v${current.version}, and a different v${plan.version} is already ` +
+            `retained. A published version path is immutable (ADR-0011): bump SCHEMA_VERSION ` +
+            `instead of changing v${plan.version}'s bytes.`,
+        );
+      }
+      continue; // identical: the canonical write already serves it
+    }
+    kept.push(plan);
+  }
+  return { current, retained: kept };
+}
+
 const metaPath = join(siteDir, 'src', 'generated', 'schema-meta.ts');
 
 /**
@@ -117,7 +205,8 @@ function rel(path: string): string {
   return path.startsWith(repoRoot) ? path.slice(repoRoot.length + 1) : path;
 }
 
-function write(plan: ServedSchemaPlan): void {
+/** Write one plan's bytes to its served path and read them back. */
+export function writeServed(plan: ServedSchemaPlan): void {
   mkdirSync(dirname(plan.servedPath), { recursive: true });
   writeFileSync(plan.servedPath, plan.bytes, 'utf8');
 
@@ -126,11 +215,10 @@ function write(plan: ServedSchemaPlan): void {
   if (written !== plan.bytes) {
     throw new Error(`Served schema at ${rel(plan.servedPath)} does not match the canonical bytes`);
   }
-
-  writeSchemaMeta(plan);
 }
 
-function check(plan: ServedSchemaPlan): void {
+/** Assert one plan's served copy exists and is byte-identical to its source. */
+export function checkServed(plan: ServedSchemaPlan): void {
   let served: string;
   try {
     served = readFileSync(plan.servedPath, 'utf8');
@@ -153,8 +241,12 @@ function check(plan: ServedSchemaPlan): void {
 const VERSION_DOCS = ['DEPLOYMENT.md', 'README.md'];
 const SCHEMA_URL_VERSION_RE = /\/schema\/adr\/v(\d+\.\d+\.\d+)\//g;
 
-/** Fail if any operational doc references a schema-URL version other than the current one. */
-function checkDocVersions(plan: ServedSchemaPlan): void {
+/**
+ * Fail if any operational doc references a schema-URL version that is neither
+ * the current one nor a retained prior version. A retained version is still
+ * served, so a doc may name it (to say so); an unknown version would 404.
+ */
+function checkDocVersions(plan: ServedSchemaPlan, retainedVersions: readonly string[]): void {
   const stale: string[] = [];
   for (const doc of VERSION_DOCS) {
     const path = join(siteDir, doc);
@@ -165,7 +257,7 @@ function checkDocVersions(plan: ServedSchemaPlan): void {
       continue;
     }
     for (const match of text.matchAll(SCHEMA_URL_VERSION_RE)) {
-      if (match[1] !== plan.version) {
+      if (match[1] !== plan.version && !retainedVersions.includes(match[1] ?? '')) {
         stale.push(`${doc}: found v${match[1]}, expected v${plan.version}`);
       }
     }
@@ -180,21 +272,28 @@ function checkDocVersions(plan: ServedSchemaPlan): void {
 
 function main(): void {
   const checkOnly = process.argv.includes('--check');
-  const plan = planServedSchema();
+  const { current: plan, retained } = planAllServedSchemas();
+  const all = [plan, ...retained];
+  const retainedVersions = retained.map((r) => r.version);
 
   if (checkOnly) {
-    check(plan);
-    checkDocVersions(plan);
-    console.log(`sync-schema: OK — ${rel(plan.servedPath)} matches ${rel(plan.canonicalPath)}`);
+    for (const p of all) checkServed(p);
+    checkDocVersions(plan, retainedVersions);
+    for (const p of all) {
+      console.log(`sync-schema: OK — ${rel(p.servedPath)} matches ${rel(p.canonicalPath)}`);
+    }
     return;
   }
 
-  write(plan);
-  checkDocVersions(plan);
-  console.log(
-    `sync-schema: wrote ${rel(plan.servedPath)} (served at ${plan.servedPathname}) ` +
-      `from ${rel(plan.canonicalPath)}`,
-  );
+  for (const p of all) writeServed(p);
+  writeSchemaMeta(plan);
+  checkDocVersions(plan, retainedVersions);
+  for (const p of all) {
+    console.log(
+      `sync-schema: wrote ${rel(p.servedPath)} (served at ${p.servedPathname}) ` +
+        `from ${rel(p.canonicalPath)}`,
+    );
+  }
 }
 
 if (import.meta.main) {
