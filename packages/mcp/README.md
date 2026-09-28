@@ -319,6 +319,11 @@ optional `onError` option, which defaults to a stderr diagnostic. The `adrkit-mc
 binary additionally exits non-zero. Nothing is written to stdout: that is reserved
 for protocol frames.
 
+Closing stdin is the shutdown signal, as the MCP stdio binding specifies: the
+`adrkit-mcp` binary exits `0` with nothing on stderr. Requests still in flight
+when stdin closes are aborted and not answered, so a client (or a script piping
+requests in) must keep stdin open until it has read every response it wants.
+
 ## Limits
 
 `query` 1–256 code units (non-empty after trimming); `ref` 1–128; `files[]` 1–256

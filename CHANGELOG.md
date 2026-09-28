@@ -74,6 +74,26 @@ Until `1.0.0`, minor releases may include breaking changes
   unrelated route as a local citation. Every path component is now checked from
   the root down, before the exclusion, and the anchor is a path-segment boundary.
 
+### Changed
+
+- **`@adrkit/mcp` now runs on `@modelcontextprotocol/server@2.1.0`**, from
+  2.0.0, with the dev-only `@modelcontextprotocol/client` moved with it so that
+  one `@modelcontextprotocol/core@2.1.0` resolves in the tree. Both stay
+  exact-pinned. Tool names, schemas, and results are unchanged on both protocol
+  eras. Every `tools/list` and `tools/call` response to the official MCP
+  Inspector was byte-identical to the 2.0.0 build, on both eras.
+  **One lifecycle change comes from the SDK
+  ([modelcontextprotocol/typescript-sdk#2494](https://github.com/modelcontextprotocol/typescript-sdk/pull/2494)):**
+  when stdin closes, `adrkit-mcp` now shuts down at once (exit `0`, nothing on
+  stderr), as the MCP stdio binding asks. A request still in flight at that
+  moment is aborted and not answered. MCP clients keep stdin open until they have
+  their responses, so they are unaffected. A script that pipes requests in and
+  closes stdin straight away (`printf … | adrkit-mcp`) can now lose its last
+  responses. It has to keep stdin open until it has read them. Evidence is
+  recorded in
+  [ADR-0018](docs/adr/0018-adopt-mcp-sdk-v2-and-serve-protocol-revision-2026-07-28-dual-era.md).
+  Supersedes Dependabot #225 and #226, which could not land separately.
+
 ### Fixed
 
 - **`@adrkit/core` and `@adrkit/mcp` now declare `zod` as `>=4.4.3 <4.5`

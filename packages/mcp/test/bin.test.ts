@@ -50,6 +50,71 @@ async function runMain(argv: string[], env: Record<string, string | undefined> =
   }
 }
 
+interface RawExchange {
+  /** Every non-empty stdout line, each already parsed — a non-JSON byte throws. */
+  messages: Array<{ jsonrpc?: unknown; id?: unknown; error?: unknown; result?: unknown }>;
+  exitCode: number;
+  stderr: string;
+}
+
+/**
+ * Drives the real bin with hand-written frames the way a conforming stdio client
+ * does: stdin stays open until every awaited response id has been read, and only
+ * then is closed. Since `@modelcontextprotocol/server@2.1.0` stdin EOF closes the
+ * transport and aborts requests still in flight without answering them (the stdio
+ * binding's "exit promptly when stdin is closed"), so writing every frame and
+ * closing stdin immediately races the server and loses responses.
+ *
+ * Closing stdin is also the graceful-shutdown signal, so the process is awaited
+ * rather than killed and its exit code returned for the caller to assert.
+ */
+async function rawStdioExchange(repo: TempRepo, frames: object[], awaitIds: number[]): Promise<RawExchange> {
+  const proc = Bun.spawn([process.execPath, BIN_SRC, '--cwd', repo.root], {
+    stdin: 'pipe',
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  const stderrText = new Response(proc.stderr).text();
+  const messages: RawExchange['messages'] = [];
+  const seen = new Set<number>();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let stdinClosed = false;
+  const consume = (text: string): void => {
+    buffer += text;
+    let newline: number;
+    while ((newline = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, newline);
+      buffer = buffer.slice(newline + 1);
+      if (line.length === 0) continue;
+      const message = JSON.parse(line) as RawExchange['messages'][number]; // throws on a non-protocol byte
+      messages.push(message);
+      if (typeof message.id === 'number') seen.add(message.id);
+    }
+  };
+  const timer = setTimeout(() => proc.kill(), 10_000);
+  try {
+    proc.stdin.write(frames.map((f) => `${JSON.stringify(f)}\n`).join(''));
+    await proc.stdin.flush();
+    const reader = proc.stdout.getReader();
+    for (;;) {
+      if (!stdinClosed && awaitIds.every((id) => seen.has(id))) {
+        await proc.stdin.end();
+        stdinClosed = true;
+      }
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      consume(decoder.decode(chunk.value, { stream: true }));
+    }
+    consume(decoder.decode());
+    if (buffer.length > 0) JSON.parse(buffer); // a trailing partial line is a non-protocol byte
+    const exitCode = await proc.exited;
+    return { messages, exitCode, stderr: await stderrText };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 describe('adrkit-mcp bin — startup validation and exit codes', () => {
   test('an unknown flag exits 2 with stderr-only diagnostics', async () => {
     const { code, std } = await runMain(['--nope']);
@@ -221,32 +286,42 @@ describe('adrkit-mcp bin — real stdio subprocess', () => {
   test('stdout is line-by-line JSON-RPC only, with zero non-protocol bytes', async () => {
     const repo = await repoFromFixture('status-corpus');
     cleanups.push(repo.cleanup);
-    const proc = Bun.spawn([process.execPath, BIN_SRC, '--cwd', repo.root], {
-      stdin: 'pipe',
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
     const frames = [
       { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } } },
       { jsonrpc: '2.0', method: 'notifications/initialized' },
       { jsonrpc: '2.0', id: 2, method: 'tools/list' },
       { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get_decision', arguments: { ref: '0001' } } },
     ];
-    proc.stdin.write(frames.map((f) => `${JSON.stringify(f)}\n`).join(''));
-    await proc.stdin.end();
-    const out = await new Response(proc.stdout).text();
-    proc.kill();
-    await proc.exited;
-    const lines = out.split('\n').filter((line) => line.length > 0);
-    expect(lines.length).toBeGreaterThanOrEqual(3);
+    // Every stdout line — including anything written after stdin closes — must parse.
+    const { messages, exitCode, stderr } = await rawStdioExchange(repo, frames, [1, 2, 3]);
+    expect(messages.length).toBeGreaterThanOrEqual(3);
     const ids = new Set<number>();
-    for (const line of lines) {
-      const message = JSON.parse(line); // throws if any non-JSON byte leaked to stdout
+    for (const message of messages) {
       expect(message.jsonrpc).toBe('2.0');
       if (typeof message.id === 'number') ids.add(message.id);
     }
     expect(ids.has(2)).toBe(true);
     expect(ids.has(3)).toBe(true);
+    // stdin EOF is the stdio binding's graceful-shutdown signal: a clean exit, no diagnostics.
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe('');
+  });
+
+  test('a client that hangs up with a request in flight gets a prompt, clean exit', async () => {
+    const repo = await repoFromFixture('status-corpus');
+    cleanups.push(repo.cleanup);
+    const frames = [
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } } },
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'get_decision', arguments: { ref: '0001' } } },
+    ];
+    // Awaiting no ids closes stdin straight after the write. Whether id 2 is answered
+    // is the SDK's call (since 2.1.0 it is aborted); what adrkit owns is that the
+    // hang-up is a shutdown, not a transport error, and nothing but JSON-RPC leaks.
+    const { messages, exitCode, stderr } = await rawStdioExchange(repo, frames, []);
+    for (const message of messages) expect(message.jsonrpc).toBe('2.0');
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe('');
   });
 });
 
@@ -370,11 +445,6 @@ describe('adrkit-mcp bin — protocol revision 2026-07-28 over real stdio', () =
   test('a raw 2026-07-28 exchange needs no initialize handshake and carries its version in _meta', async () => {
     const repo = await repoFromFixture('status-corpus');
     cleanups.push(repo.cleanup);
-    const proc = Bun.spawn([process.execPath, BIN_SRC, '--cwd', repo.root], {
-      stdin: 'pipe',
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
     const envelope = {
       'io.modelcontextprotocol/protocolVersion': MODERN_PROTOCOL_VERSION,
       'io.modelcontextprotocol/clientCapabilities': {},
@@ -390,15 +460,12 @@ describe('adrkit-mcp bin — protocol revision 2026-07-28 over real stdio', () =
         params: { name: 'get_decision', arguments: { ref: '0001' }, _meta: envelope },
       },
     ];
-    proc.stdin.write(frames.map((f) => `${JSON.stringify(f)}\n`).join(''));
-    await proc.stdin.end();
-    const out = await new Response(proc.stdout).text();
-    proc.kill();
-    await proc.exited;
+    const { messages, exitCode, stderr } = await rawStdioExchange(repo, frames, [1, 2, 3]);
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe('');
 
     const byId = new Map<number, Record<string, unknown>>();
-    for (const line of out.split('\n').filter((l) => l.length > 0)) {
-      const message = JSON.parse(line) as { id?: number; error?: unknown; result?: Record<string, unknown> };
+    for (const message of messages) {
       if (typeof message.id === 'number') {
         expect(message.error).toBeUndefined();
         byId.set(message.id, message.result as Record<string, unknown>);

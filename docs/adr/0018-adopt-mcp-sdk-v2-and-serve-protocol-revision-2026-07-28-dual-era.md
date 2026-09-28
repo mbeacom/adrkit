@@ -377,3 +377,84 @@ revisions — at which point the claim has an agreed spelling and a consumer.
 Until then supported revisions are discoverable at runtime via the
 `server/discover` RPC this server already answers, which the Inspector's `auto`
 probe above demonstrates working end to end.
+
+## Verification against `@modelcontextprotocol/server@2.1.0` (2026-09-27)
+
+Dependabot proposed the 2.1.0 server and client as two separate pull requests
+(#225, #226). They share `@modelcontextprotocol/core`, so they were moved together
+and stay exact-pinned. `bun.lock` changed only in the three SDK entries. The
+integrity hashes match Dependabot's, and `bun install --frozen-lockfile` accepts
+the result.
+
+This run is against the **built** `packages/mcp/dist/bin.js` under Node 22, not a
+published artifact, because none exists yet. It uses this repository's corpus of
+42 records. After the next release, the post-release run above should be repeated
+against the published package.
+
+### What changed upstream, and what it touches here
+
+Only one 2.1.0 change reaches a local stdio server with four read-only tools.
+[typescript-sdk#2494](https://github.com/modelcontextprotocol/typescript-sdk/pull/2494)
+makes `StdioServerTransport` close itself when stdin ends, following the stdio
+binding's "servers SHOULD exit promptly when their standard input is closed".
+**Requests still in flight at EOF are aborted and not answered.** The other entries
+cover HTTP, OAuth/DPoP, scope challenges, request-id `0` handling, and client
+transports. adrkit uses none of them.
+
+The change showed up first as #225's own CI failure. Two `bin.test.ts` cases wrote
+every frame and then closed stdin before reading anything. Under 2.1.0 that lost
+responses, including the `server/discover` result in one CI run. Those tests now
+read every response they wait for before closing stdin, as `scripts/smoke-node.mjs`
+and `scripts/smoke-container.mjs` already did. A third case asserts that a client
+hanging up with a request still in flight gets a clean exit. All three check exit
+`0` and empty stderr. Each assertion was observed failing under a mutation: first
+with `main` returning `1`, then with stdin closed before the responses were read
+(ADR-0016). Measured shutdown on Node and Bun, on both eras: exit `0`, nothing on
+stderr, and the process gone within 5 ms of EOF.
+
+On this record's "how we would know this was wrong" clause: a 2025-era **client**
+sees no change. It keeps stdin open until it has its responses, and every response
+below is byte-identical to 2.0.0. A **script** that pipes frames in and closes
+stdin at once does see a change, because it can lose trailing responses. That
+behaviour was never part of the protocol, and the SDK now follows the binding's
+shutdown rule. This record therefore treats it as outside what it guarantees, and
+flags it as a user-visible note in the changelog and in `packages/mcp/README.md`
+rather than working around it.
+
+### The Inspector reaches both eras through per-server config, headless
+
+This run used official MCP Inspector `2.8.0`, whose CLI mode is headless and which
+itself still ships SDK `2.0.0`. That makes it an independent, older client against
+the 2.1.0 server. Each server entry ran the bin through a wrapper that tees the
+Inspector's stdin to a log:
+
+| `protocolEra` | Frames the Inspector sent |
+|---|---|
+| *(absent — default)* | `initialize` (offering `2025-11-25`), `notifications/initialized`, `tools/list` / `tools/call` |
+| `modern` | `server/discover` @ `2026-07-28`, `subscriptions/listen`, `tools/list` / `tools/call` @ `2026-07-28` |
+| `auto` | `server/discover` @ `2026-07-28`, `subscriptions/listen`, `tools/list` / `tools/call` @ `2026-07-28` |
+
+Inspector 2.8.0 also opens `subscriptions/listen`, which 2.0.0 did not. The server
+holds it open without an error, and it ends when the connection closes. Inspector
+2.8.0 also adds a `--protocol-era legacy|auto|modern` CLI flag, which produced the
+same `server/discover` opening as the config key.
+
+### Both eras, all four tools, identical results — and identical to 2.0.0
+
+| Tool | 2025 era | 2026-07-28 (`modern` and `auto`) |
+|---|---|---|
+| `search_decisions` (`query: "bun"`) | `results` — 17 decisions | `results` — 17 decisions |
+| `get_decision` (`ref: "0018"`) | `found` — this record | `found` — this record |
+| `get_decision_context` (`packages/mcp/src/server.ts`) | `matches` — 1 governing (0018) | `matches` — 1 governing (0018) |
+| `list_superseded` | `entries` — 2 | `entries` — 2 |
+
+`content` and `structuredContent` were byte-identical across all three
+configurations for every tool. The `tools/list` result and every `tools/call`
+result were also byte-identical, apart from `_meta`, to the same Inspector
+calls made against a build of `main` on `@modelcontextprotocol/server@2.0.0`. That
+holds on both eras. An SDK `2.1.0` client pinned to `{ pin: '2026-07-28' }` against
+the same built binary reported the negotiated version `2026-07-28` and the server
+identity `{"name":"@adrkit/mcp","version":"0.14.0"}`. It got the same four outcomes,
+byte-identical to an unpinned client, which negotiated `2025-11-25`.
+
+Not exercised: the Inspector's web UI, and any artifact installed from npm.
