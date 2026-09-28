@@ -132,6 +132,20 @@ Pages origin has no meaningful scaling ceiling for this traffic. Rejected for no
 if schema traffic ever warrants it, the move must preserve the apex URL bytes via
 redirect or proxy, not relocate the `$id`.
 
+## What the first version bump changed
+
+Schema v0.2.0 (#235, [ADR-0043](./0043-publish-schema-v0-2-0-with-rfc-3339-seconds-retain-v0-1-0-and-validate-every-rec.md))
+is the first `SCHEMA_VERSION` bump, and it settled where retained versions live.
+The canonical `schema/adr.schema.json` only ever holds the current version, so
+each previously published file is committed verbatim at
+`schema/versions/v<semver>/adr.schema.json` and never regenerated. The build step
+serves every retained file at the path derived from *its own* `$id`, as it does
+the canonical one, and the byte-match guard covers each. Two rules make "a bump
+may never remove or repoint a URL" executable: a retained file's `$id` version
+must equal its directory, and a canonical version equal to a retained version
+must have identical bytes. The operational-doc version check now accepts a
+retained version as well as the current one, since both are served.
+
 ## Trade-offs
 
 - The hostname becomes **load-bearing infrastructure**, not just marketing. A
@@ -169,11 +183,15 @@ redirect or proxy, not relocate the `$id`.
 4. [x] Derive version-bearing URLs in the docs from the canonical `$id`, and add a
        build-time check that no operational doc references a stale schema version.
 5. [x] GitHub Actions workflow building with Bun and deploying to GitHub Pages.
-6. [ ] **Prerequisite of the first `SCHEMA_VERSION` bump:** make the publish step
+6. [x] **Prerequisite of the first `SCHEMA_VERSION` bump:** make the publish step
        retain all previously published version files at their exact paths (the
        current build writes only the current version). Only `v0.1.0` exists today,
        so no retention logic is required yet — but a bump must not ship until this
        lands, or it will 404 references pinned to the prior version.
+       Landed with the v0.2.0 bump (#235, ADR-0043): prior versions are committed
+       under `schema/versions/`, `site/scripts/sync-schema.ts` serves and
+       `--check`s each at its own `$id`, and `site/scripts/sync-schema.test.ts`
+       pins v0.1.0's published SHA-256.
 7. [ ] Owner: add the GitHub Pages apex DNS records in Cloudflare, initially
        DNS-only, then enable "Enforce HTTPS" once the certificate issues
        (see `site/DEPLOYMENT.md`).

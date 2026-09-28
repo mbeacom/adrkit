@@ -10,8 +10,12 @@ URL baked into its `$id` — see
 [ADR-0011](../docs/adr/0011-host-the-canonical-json-schema-at-its-id-on-adrkit-dev.md).
 
 ```
-https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json
+https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json
 ```
+
+Every previously published version stays served at its own path — today
+`https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json` — from the verbatim copy
+committed under `schema/versions/` (ADR-0011 action item 6).
 
 ## How the deploy works
 
@@ -26,9 +30,13 @@ https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json
 - **Pages source:** GitHub Actions (already configured on this repo —
   `build_type: workflow`). No branch/folder source is used.
 - **Schema serving:** `bun run sync:schema` copies the canonical
-  `schema/adr.schema.json` into the site's `public/` output at the path derived
-  from the schema's own `$id`, and `bun run check:schema` fails the build if the
-  served bytes ever differ from the canonical file.
+  `schema/adr.schema.json`, and every retained prior version under
+  `schema/versions/v<semver>/adr.schema.json`, into the site's `public/` output
+  at the path derived from each file's own `$id`. `bun run check:schema` fails
+  the build if any served file is missing or its bytes differ from its source.
+  When `SCHEMA_VERSION` moves, copy the outgoing `schema/adr.schema.json` into
+  `schema/versions/v<old>/` in the same change; the planner refuses a canonical
+  version that would repoint a retained one.
 - **Custom domain persistence:** [`public/CNAME`](./public/CNAME) contains
   `adrkit.dev`, so the custom domain survives every deploy.
 
@@ -106,15 +114,19 @@ Once DNS and TLS are in place:
 curl -I https://adrkit.dev/
 
 # The schema resolves at its $id with the exact canonical bytes
-curl -s https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json | head -3
+curl -s https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json | head -3
 
 # $id inside the served schema matches the URL it is served from
-curl -s https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json \
+curl -s https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json \
   | grep '"$id"'
+
+# A retained prior version still serves its published bytes
+curl -s https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json | shasum -a 256
+# 1e1841151174cc5a8ed22dadae070f087477e5068bd928d5292c3acd2e2681cc
 ```
 
 The `$id` line must read
-`"$id": "https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json"` — the URL and the
+`"$id": "https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json"` — the URL and the
 bytes it serves are the same contract every editor and `$ref` depends on.
 
 Those three commands verify the *schema*. They stay green while the marketing

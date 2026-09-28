@@ -74,6 +74,36 @@ Until `1.0.0`, minor releases may include breaking changes
   unrelated route as a local citation. Every path component is now checked from
   the root down, before the exclusion, and the anchor is a path-segment boundary.
 
+### Changed
+
+- **BREAKING: ADR JSON Schema v0.2.0 — `date-time` fields require seconds.**
+  `provenance.importedFrom.importedAt`, `review.queuedAt`, `review.escalatedAt`,
+  `review.decidedAt` and `evaluation.ranAt` must now be RFC 3339 date-times with
+  seconds: `2026-01-01T12:30Z` is rejected, `2026-01-01T12:30:00Z` is accepted.
+  **Migration: append `:00` to any minutes-only value** in those five fields.
+  This applies to every record, including one that declares
+  `schemaVersion: 0.1.0` — `schemaVersion` records the version a record was
+  written against, it does not select the rules `adr lint` applies. The `adr lint`
+  message names the fix. Fractional seconds and `±HH:MM` offsets are unchanged.
+  The fields already declared `"format": "date-time"`, which never allowed a
+  minutes-only time; the `pattern` now agrees with it.
+
+  `SCHEMA_VERSION` is `0.2.0`, the `$id` is
+  `https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json`, and `adr new` writes
+  `schemaVersion: 0.2.0`. Existing records keep the version they declare.
+  `@adrkit/core` and `@adrkit/mcp` now declare `zod` as `^4.6.5`, lifting the
+  `>=4.4.3 <4.5` hold below; zod 4.5.0 is where seconds became mandatory
+  ([colinhacks/zod#6457](https://github.com/colinhacks/zod/pull/6457)).
+
+  **v0.1.0 is still served, byte for byte**, at
+  `https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json`: ADR-0011 makes every
+  published schema path immutable. Prior versions are committed under
+  `schema/versions/`, the site serves and byte-checks each at its own `$id`, and
+  a test pins v0.1.0's published SHA-256. This closes ADR-0011 action item 6.
+  Tracked as [#235](https://github.com/mbeacom/adrkit/issues/235), recorded in
+  [ADR-0043](docs/adr/0043-publish-schema-v0-2-0-with-rfc-3339-seconds-retain-v0-1-0-and-validate-every-rec.md)
+  (proposed).
+
 ### Fixed
 
 - **`@adrkit/core` and `@adrkit/mcp` now declare `zod` as `>=4.4.3 <4.5`
@@ -87,6 +117,8 @@ Until `1.0.0`, minor releases may include breaking changes
   planned as schema `v0.2.0`, with `v0.1.0` retained as ADR-0011 requires
   ([#235](https://github.com/mbeacom/adrkit/issues/235)). Nothing installed
   in this repository changes: 4.4.3 is already the locked version.
+  Replaced before release by schema v0.2.0 under **Changed**, which lifts the
+  cap to `^4.6.5`.
 
 - **`@adrkit/core` and `@adrkit/catalog-backstage` declared `yaml` as the
   `latest` dist-tag instead of a range.** A published `latest` resolves to

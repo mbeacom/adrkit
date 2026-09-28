@@ -29,6 +29,8 @@ describe('ADR scaffold', () => {
     const parsed = await parseAdrFile(join(root, result.path), root);
     expect((parsed.data as { id: string }).id).toBe('0011');
     expect(await readFile(join(root, result.path), 'utf8')).toBe(result.content);
+    // `adr new` writes the current schema version, not the one a corpus started on.
+    expect(result.content).toContain('\nschemaVersion: 0.2.0\n');
 
     const lint = await lintCorpus({ cwd: root, paths: [result.path] });
     expect(lint.findings).toEqual([]);

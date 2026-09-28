@@ -440,5 +440,10 @@ ships and makes both unnecessary.
        could not go green: zod 4.5 changes the published `v0.1.0` schema, which
        ADR-0011 makes immutable. `zod` is capped below 4.5 (#236) and this item
        now waits on schema `v0.2.0` (#235).
+       #235 shipped schema `v0.2.0` and moved `zod` to 4.6 by hand, with the
+       bundles rebuilt in the documented container rather than by the label, so
+       no `zod` bump has yet regenerated green through this workflow. It removed
+       the separate `ignore` for `zod` >=4.5 and updated the exclusion's comment
+       only; the next `zod` Dependabot PR is the evidence this item waits on.
 7. [x] Document the label in `CONTRIBUTING.md` beside the existing container
        instructions, which remain the fallback.
