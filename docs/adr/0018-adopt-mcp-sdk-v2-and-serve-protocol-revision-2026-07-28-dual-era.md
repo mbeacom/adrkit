@@ -490,3 +490,27 @@ as written; this amends it in two places.
 
 A protocol-following 2025-era client that fails or sees a changed response still
 falsifies this record, exactly as before.
+
+## Post-release verification (2026-09-28, against published `@adrkit/mcp@0.15.0`)
+
+The 2.1.0 verification above ran against a local build. This repeats it against
+the artifact users install: `@adrkit/mcp@0.15.0` from npm, which resolves
+`@modelcontextprotocol/server@2.1.0`, installed into a scratch directory and
+launched as `node node_modules/@adrkit/mcp/dist/bin.js` with this repository as
+its working directory. The official MCP Inspector 2.8.0 drove it headless in CLI
+mode with `--protocol-era legacy` and `--protocol-era modern`.
+
+| Call | Result, both eras |
+|---|---|
+| `tools/list` | the four tools; identical once keys are sorted |
+| `search_decisions` (`query: bun`) | 17 items |
+| `get_decision` (`ref: 0018`) | `found`, `accepted` |
+| `get_decision_context` (`files: [packages/mcp/src/server.ts]`) | governing `0018` |
+| `list_superseded` | 2 entries |
+
+Every tool payload (`structuredContent` and `content`) was byte-identical
+across the two eras. The one difference is the envelope the `2026-07-28` era
+adds to each result, `_meta["io.modelcontextprotocol/serverInfo"]`, which named
+`@adrkit/mcp` `0.15.0`. The counts match the pre-release run above.
+
+Not exercised: the Inspector's web UI.
