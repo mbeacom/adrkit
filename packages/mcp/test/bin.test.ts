@@ -110,6 +110,12 @@ async function rawStdioExchange(repo: TempRepo, frames: object[], awaitIds: numb
     if (buffer.length > 0) JSON.parse(buffer); // a trailing partial line is a non-protocol byte
     const exitCode = await proc.exited;
     return { messages, exitCode, stderr: await stderrText };
+  } catch (error) {
+    // A failed parse is the regression this helper exists to surface; never leave the
+    // child blocked on an open stdin behind it.
+    proc.kill();
+    await proc.exited;
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -307,7 +313,7 @@ describe('adrkit-mcp bin — real stdio subprocess', () => {
     expect(stderr).toBe('');
   });
 
-  test('a client that hangs up with a request in flight gets a prompt, clean exit', async () => {
+  test('a client that hangs up straight after writing gets a prompt, clean exit', async () => {
     const repo = await repoFromFixture('status-corpus');
     cleanups.push(repo.cleanup);
     const frames = [
@@ -315,9 +321,12 @@ describe('adrkit-mcp bin — real stdio subprocess', () => {
       { jsonrpc: '2.0', method: 'notifications/initialized' },
       { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'get_decision', arguments: { ref: '0001' } } },
     ];
-    // Awaiting no ids closes stdin straight after the write. Whether id 2 is answered
-    // is the SDK's call (since 2.1.0 it is aborted); what adrkit owns is that the
-    // hang-up is a shutdown, not a transport error, and nothing but JSON-RPC leaks.
+    // Awaiting no ids closes stdin straight after the write, so the server may see EOF
+    // before, during, or after id 2. This deliberately does not assert whether id 2 is
+    // answered or that it was in flight — that is the SDK's timing (since 2.1.0 an
+    // in-flight request is aborted). What adrkit owns, whichever way the race falls, is
+    // that the hang-up is a clean shutdown rather than a transport error, and that
+    // nothing but JSON-RPC reaches stdout.
     const { messages, exitCode, stderr } = await rawStdioExchange(repo, frames, []);
     for (const message of messages) expect(message.jsonrpc).toBe('2.0');
     expect(exitCode).toBe(0);
