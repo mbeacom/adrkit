@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@adrkit/core": "workspace:*",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.1.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
