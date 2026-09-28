@@ -183,21 +183,27 @@ In `.github/workflows/regenerate-artifacts.yml`:
    with a message naming what failed. `site/` and the `github-actions` ecosystem
    are out of scope by construction.
 3. **Build job: unprivileged.** `permissions: contents: read`, no secrets,
-   `persist-credentials: false`. It checks out the **default branch** and copies in
-   only the eligible files from the PR's head commit, fetched as objects — so the
-   build and emit scripts that run are `main`'s, and the PR contributes nothing
-   but dependency versions. It runs `bun install --frozen-lockfile
+   `persist-credentials: false`. It checks out the **default branch** and, from the
+   PR's head commit fetched as objects, writes `bun.lock` verbatim and **only the
+   dependency fields** of each eligible manifest onto `main`'s copy — so the build
+   and emit scripts that run are `main`'s even if `main` changed them after
+   Dependabot branched, and the PR contributes nothing but dependency versions.
+   Eligibility compares each manifest with its **merge-base** copy, which is what
+   Dependabot started from. It runs `bun install --frozen-lockfile
    --ignore-scripts` under the pinned Bun, then, under
    `scripts/run-network-denied.ts`, `bun run --filter='@adrkit/ci' build` and
    `bun run schema:emit`, on `ubuntu-24.04` — the runner `clean-clone-builds`
    pins, not `ubuntu-latest`, because the bundle must match that job's rebuild
-   byte for byte and `-latest` moves. It uploads the resulting `git diff` as a
-   patch and nothing else. An empty diff is a result, not an error: the push job
+   byte for byte and `-latest` moves. It uploads the changed artifact files and a list
+   of their paths, and nothing else; a rebuild that adds or removes an artifact
+   file refuses rather than guessing. An empty diff is a result, not an error: the push job
    then creates no commit and reports the artifacts as already current.
 4. **Push job: privileged, and never checks anything out.** ADR-0035's rule lists
    *checkout* beside install, build, and execute, so this job has no worktree at
-   all. It downloads the patch, rejects it unless every path is under
-   `packages/ci/dist/` or is exactly `schema/adr.schema.json`, and writes the
+   all. It downloads the upload — untrusted, because the build job
+   ran dependency code — and rejects it unless every listed path is a top-level
+   `packages/ci/dist/*.js` file or exactly `schema/adr.schema.json` and is a
+   regular file, and writes the
    result through the Git Data API: a blob per changed file, a tree based on the
    recorded head SHA's tree, a commit whose parent is that SHA and whose message
    carries a `Signed-off-by` for the App's bot identity (`check-dco` already
@@ -236,6 +242,24 @@ observation that no regeneration updates — and so does the
   every transitive, not a mechanical one. It is tracked with the Starlight failure
   in [#224](https://github.com/mbeacom/adrkit/issues/224).
 - **Not touching `site/`.** It commits no dependency-derived artifact.
+
+### What implementation clarified
+
+Recorded here rather than folded silently into the ratified text above, which
+items 3 and 4 were edited to match. Neither changes what was decided; both
+narrow how.
+
+- **An overlay against the merge base, not a copy.** Copying the pull request's
+  manifests would revert any `scripts` change `main` made after Dependabot
+  branched. The build writes only the dependency fields onto `main`'s manifests,
+  and eligibility compares each manifest with its merge-base copy — what
+  Dependabot actually started from.
+- **Files plus a path list, not a patch.** The build uploads the changed artifact
+  files and their paths, and the push job validates both as untrusted, because
+  the build ran dependency code. Writing blobs from files needs no `git apply`,
+  and so no worktree, in the privileged job. Writing the validator's tests found
+  that a shell `case` pattern's `*` also matches `/`, so the nested-path refusal
+  is the rule that stops traversal and has to come first.
 
 ## Options considered
 
@@ -383,7 +407,7 @@ ships and makes both unnecessary.
        on it. In the same run, confirm the Git Data API commit shows as verified
        and passes both `dco` and `trusted-dco`, and that the next Dependabot
        rebase force-pushes over it as `[dependabot skip]` promises.
-3. [ ] Implement `.github/workflows/regenerate-artifacts.yml` per the Decision,
+3. [x] Implement `.github/workflows/regenerate-artifacts.yml` per the Decision,
        with the eligibility checks in a tested script under `scripts/` that imports
        Node builtins only.
 4. [ ] Observe each refusal failing before it counts (ADR-0016): a non-Dependabot
@@ -397,5 +421,5 @@ ships and makes both unnecessary.
        and merge it with `clean-clone-builds` and `gate-integrity` green.
 6. [ ] After a `zod` bump regenerates green, remove the `zod` exclusion from
        `dependabot.yml` and update its comment.
-7. [ ] Document the label in `CONTRIBUTING.md` beside the existing container
+7. [x] Document the label in `CONTRIBUTING.md` beside the existing container
        instructions, which remain the fallback.

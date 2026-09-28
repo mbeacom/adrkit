@@ -30,6 +30,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **A `regenerate-artifacts` label for Dependabot pull requests.** Applying it
+  runs `.github/workflows/regenerate-artifacts.yml`, which rebuilds the committed
+  `packages/ci/dist` bundles and `schema/adr.schema.json` from `main`'s scripts
+  and pushes one commit, so a bump of a bundled dependency no longer needs a
+  linux/amd64 rebuild by hand
+  ([ADR-0041](docs/adr/0041-regenerate-committed-artifacts-on-dependabot-pull-requests-with-default-branch-s.md)).
+  Eligibility — Dependabot's own pull request, dependency fields and `bun.lock`
+  only, unmoved since labelling — is decided by
+  `scripts/check-regeneration-eligibility.ts`. Dependency code runs only in a
+  job with a read-only token and no secret; the only write credential is a
+  GitHub App token in a job that checks nothing out. Repository-internal: no
+  published package, CLI, or Action behaviour changes.
+
 - **`bun run check:stale-refs` — a repository guard for stale prose citations.**
   Present-tense documentation that cites a `superseded`, `rejected`, or
   `deprecated` record without saying so now fails `clean-clone-builds`. A
@@ -63,6 +76,27 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Fixed
 
+- **`@adrkit/core` and `@adrkit/mcp` now declare `zod` as `>=4.4.3 <4.5`
+  (previously `^4` and `^4.2.0`).** zod 4.5.0 made `z.iso.datetime()` require
+  seconds ([colinhacks/zod#6457](https://github.com/colinhacks/zod/pull/6457)),
+  so a fresh install of `@adrkit/core` could resolve a zod whose runtime rejects
+  a minutes-only timestamp such as `2026-01-01T12:30Z` in `importedAt`,
+  `queuedAt`, `escalatedAt`, `decidedAt`, or `ranAt` — while the published
+  `v0.1.0` JSON Schema still accepts it. The cap makes runtime validation match
+  the published schema again. Adopting the stricter RFC 3339 behaviour is
+  planned as schema `v0.2.0`, with `v0.1.0` retained as ADR-0011 requires
+  ([#235](https://github.com/mbeacom/adrkit/issues/235)). Nothing installed
+  in this repository changes: 4.4.3 is already the locked version.
+
+- **`@adrkit/core` and `@adrkit/catalog-backstage` declared `yaml` as the
+  `latest` dist-tag instead of a range.** A published `latest` resolves to
+  whatever is newest at the consumer's install time, including a future major.
+  In this repository it also floated `yaml` inside every unrelated dependency
+  update: #227 bumped only `@types/bun`, yet re-resolved `yaml` 2.9.0 → 2.9.1,
+  rewrote the committed `packages/ci/dist` bundles, and failed
+  `clean-clone-builds` despite `yaml` being excluded from that Dependabot group.
+  Both now declare `^2.9.0`, the version already locked; nothing installed
+  changes.
 - **`site/src/content/docs/commands.mdx` cited ADR-0021 as the live authority**
   for the marker contract, which ADR-0022 superseded. Found by the new guard
   before it was wired in (ADR-0016).

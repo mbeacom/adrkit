@@ -60,8 +60,8 @@
   "dependencies": {
     "picomatch": "^4",
     "semver": "^7",
-    "yaml": "latest",
-    "zod": "^4"
+    "yaml": "^2.9.1",
+    "zod": ">=4.4.3 <4.5"
   },
   "devDependencies": {
     "@types/bun": "latest",
