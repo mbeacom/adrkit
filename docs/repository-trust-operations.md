@@ -189,6 +189,19 @@ about, which is why it is filed here rather than in the decision.
 
 ## 3. Evidence, per ADR-0016
 
+> **The transcripts in this section predate ADR-0042.** They were captured when
+> ADR-0035 landed, against the CLI as it then was, and are kept verbatim as the
+> record of what was observed — rewriting them with today's flags would present
+> output nobody saw. [ADR-0042](adr/0042-count-a-gate-change-acknowledgment-only-when-an-admin-or-maintainer-applied-it.md)
+> has since made `--label-events`, `--ack-permission`, and
+> `--dismissed-this-run` required, so each command below now stops at
+> `check-gate-integrity: --label-events is required` (exit 1) as written, and a
+> passing run now also names who applied the acknowledgment and in what role.
+> The current invocation is the `gate-integrity` step of
+> [`trusted-gates.yml`](../.github/workflows/trusted-gates.yml), documented in
+> the header of [`scripts/check-gate-integrity.ts`](../scripts/check-gate-integrity.ts);
+> ADR-0042 records its own observed evidence.
+
 ### 3.1 Observed failing — the `gate-integrity` kernel
 
 A guard nobody has watched reject anything is an untested function that happens
