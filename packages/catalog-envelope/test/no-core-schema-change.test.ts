@@ -22,7 +22,12 @@
  * from — plus the exact file list under `affects/`, so that adding or removing a
  * file is caught too. The separately authorized #115 comparator migration
  * re-pinned only `affects/index.ts` and `affects/matchers/package.ts`; neither
- * matcher semantics nor the protected type and schema shapes changed.
+ * matcher semantics nor the protected type and schema shapes changed. The
+ * separately authorized schema v0.2.0 bump (#235, ADR-0043) re-pinned only
+ * `packages/core/src/schema/adr.schema.ts` and `schema/adr.schema.json`: the
+ * schema shape did change, by design, when zod 4.5 made `date-time` fields
+ * require seconds. The published v0.1.0 bytes are retained under
+ * `schema/versions/` and pinned by `site/scripts/sync-schema.test.ts`.
  *
  * ## Why the pin table lives in a JSON sidecar
  *
