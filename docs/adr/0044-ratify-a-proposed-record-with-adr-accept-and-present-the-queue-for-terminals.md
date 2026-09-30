@@ -170,8 +170,10 @@ cannot be reshaped for terminals without breaking them.
 
 ## Trade-offs
 
-- **A third writer is a permanent commitment.** Removing or reshaping
-  `adr accept` is a breaking change under ADR-0031.
+- **A third writer is a durable commitment.** Removing or reshaping
+  `adr accept` is a breaking change under ADR-0031. The record is
+  `two-way-door` only because minor releases may still break before `1.0.0`
+  (ADR-0002). From `1.0.0` onward, reversing this needs a major release.
 - **`ratifiedBy` on human-authored records is new.** The schema has always
   allowed it; this corpus has used it only on agent-drafted ones. Writing it
   every time trades one extra frontmatter line for a record that always names
@@ -220,3 +222,10 @@ cannot be reshaped for terminals without breaking them.
        `CHANGELOG.md`, including every statement that only two commands write.
 6. [ ] Ratify this record with `adr accept 0044 --by <maintainer>`. That is
        the first real use and the rung-1 functional evidence for the command.
+7. [ ] In the pull request that accepts this record, update every public
+       proposed-state qualifier that names it. `AGENTS.md` carries three: the
+       `adr queue` `--format` bullet, the `adr accept` section, and the
+       write-surface sentence. `site/src/content/docs/commands.mdx` carries
+       one, in the `adr accept` introduction. `adr accept` flips `status`
+       only, and the prose guard does not catch "proposed" said of an
+       accepted record, so this item cannot be left to either of them.

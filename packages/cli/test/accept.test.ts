@@ -114,3 +114,15 @@ describe('adr accept', () => {
     expect(readFileSync(recordFile(root, ids[0]!), 'utf8')).toBe(before);
   });
 });
+
+describe('adr accept on an unparseable record', () => {
+  test('reports it as existing but invalid (exit 1), not as unknown (exit 2)', async () => {
+    const root = sandbox('within-sla-corpus');
+    const path = recordFile(root, '0001');
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(path, '---\nid: "0001"\nstatus: [unclosed\n---\nbody\n');
+    const result = await runAdr(['accept', '0001', '--by', '@carol'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('exists but is invalid');
+  });
+});

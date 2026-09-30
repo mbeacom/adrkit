@@ -65,6 +65,16 @@ function belongsTo(finding: Finding, id: string, path: string): boolean {
   return finding.id === id || finding.path === path;
 }
 
+/**
+ * A record whose YAML does not parse yields findings with a `path` and no `id`, so
+ * the file name is the only place its id can be read from.
+ */
+function namesRecord(finding: Finding, id: string): boolean {
+  if (finding.id === id) return true;
+  const file = finding.path?.split(/[\\/]/).pop() ?? '';
+  return file.startsWith(`${id}-`);
+}
+
 function renderAccepted(
   result: { id: string; title: string; path: string; ratifiedBy: string; decidedAt: string },
   style: StreamStyle,
@@ -130,7 +140,7 @@ export async function runAccept(args: string[]): Promise<number> {
   let matches: typeof corpus.records = [];
   for (const candidate of candidateIds(rawId)) {
     matches = corpus.records.filter((record) => record.frontmatter.id === candidate);
-    const invalid = errors.filter((finding) => finding.id === candidate);
+    const invalid = errors.filter((finding) => namesRecord(finding, candidate));
     if (matches.length > 0 || invalid.length > 0) {
       id = candidate;
       if (matches.length === 0) return refusal(`ADR "${candidate}" exists but is invalid; fix it first.`, invalid);
