@@ -430,7 +430,7 @@ external/community validation has been recorded.
 ## Derived surfaces stay in lockstep three different ways
 
 [ADR-0040](./docs/adr/0040-keep-derived-surfaces-in-lockstep-with-three-mechanisms-matched-to-three-classes.md)
-(**proposed**) splits documentation drift into three classes and refuses to
+(**accepted**) splits documentation drift into three classes and refuses to
 pretend one mechanism covers them. Conflating them is what produces a gate that
 reports green while checking nothing.
 

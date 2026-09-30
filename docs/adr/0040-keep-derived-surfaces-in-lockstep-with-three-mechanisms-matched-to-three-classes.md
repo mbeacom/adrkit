@@ -2,7 +2,7 @@
 schemaVersion: 0.1.0
 id: "0040"
 title: "Keep derived surfaces in lockstep with three mechanisms matched to three classes of drift"
-status: proposed
+status: accepted
 date: 2026-09-23
 deciders:
   - "@mbeacom"
@@ -40,6 +40,7 @@ affects:
     pattern: ".github/workflows/ci.yml"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: auto
   tierReason: Repo-local guards and a scoping decision; no public surface added; sole decider.
@@ -250,7 +251,7 @@ moment attention moves. This is the failure mode the project exists to end.
        stated expectation rather than folklore from one pull request.
 5. [ ] Revisit the public Markdown inventory formatter when a second adopter
        asks, or close this item at the `reviewBy` date.
-6. [ ] When this record is accepted, update every public proposed-state
+6. [x] When this record is accepted, update every public proposed-state
        qualifier naming it in the same pull request that flips the status —
        `AGENTS.md` carries one. ADR-0037 lacked this item and needed
        [#216](https://github.com/mbeacom/adrkit/pull/216) to clean up after its
