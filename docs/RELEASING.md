@@ -39,13 +39,13 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
 - Packages publish in dependency order: core, evaluator, CLI, MCP (`@adrkit/mcp`
   depends only on core, so it is appended last to preserve the list's
   chronological order).
-- Bun 1.3.14 builds and packs the artifacts.
+- Bun 1.4.2 builds and packs the artifacts.
 - Packed manifests contain no `workspace:` protocols.
 - Tarballs include compiled ESM, declarations, README, LICENSE, and NOTICE.
 - Installed tarballs run on Node.js 22 and 24 before publication.
 - npm Trusted Publishing supplies short-lived OIDC authentication and automatic
-  provenance. npm CLI 11.5.1 is used only as the registry transport because Bun
-  1.3.14 does not implement npm's OIDC exchange.
+  provenance. npm CLI 11.5.1 is used only as the registry transport because
+  `bun publish` in Bun 1.4.2 still offers no OIDC exchange or provenance.
 - A rerun skips an already-published package only when its registry integrity
   exactly matches the local tarball.
 - A lockstep GitHub release draft is created only after every npm package

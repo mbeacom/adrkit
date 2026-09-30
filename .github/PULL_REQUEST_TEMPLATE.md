@@ -18,7 +18,7 @@ New to the project? See the "Your first PR" section in CONTRIBUTING.md.
       `packages/core/src/schema/adr.schema.ts` (not the root re-export), re-ran
       `bun run schema:emit`, and committed the generated `schema/adr.schema.json`.
 - [ ] If `packages/ci/src` **or** `@adrkit/core` changed, I regenerated
-      `packages/ci/dist` under **linux/amd64 bun 1.3.14** and committed it
+      `packages/ci/dist` under **linux/amd64 bun 1.4.2** and committed it
       (see CONTRIBUTING.md — a Mac-built bundle fails the diff gate).
 - [ ] New or changed behavior is covered by tests, and each test was **observed
       failing before it passed** — a check that never failed is not coverage

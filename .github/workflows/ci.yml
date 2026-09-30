@@ -58,7 +58,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       # The ONLY step permitted to use the network.
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -163,7 +163,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Test the guard, including the walk and symlink refusal
@@ -186,7 +186,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
@@ -320,7 +320,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Audit dependencies (fail on high/critical advisories)
@@ -342,7 +342,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: adr check on the PR's changed files
@@ -423,7 +423,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       # No `bun install`. The Action is a self-contained bundle and the assertion
       # script imports only builtins, so a broken dependency graph cannot take this
       # gate down with it — the same property `dco` below is built for.
@@ -615,7 +615,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       - name: Verify every commit carries a DCO sign-off
         env:
           # Explicit SHAs, not `origin/$BASE_REF..HEAD`. A ref resolves to

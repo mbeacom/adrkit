@@ -1,43 +1,16 @@
 <!--
 SYNC IMPACT REPORT
-Version change: 1.0.1 → 1.0.2
-Bump rationale: PATCH clarification of the existing clean-clone policy. The
-public, frozen dependency install already permitted by ADR-0007, contributor
-guidance, and CI is now distinguished from the network-free post-install gates.
+Version change: 1.0.2 → 1.0.3
+Bump rationale: PATCH. Principle II named a literal Bun version (1.3.14), which
+went stale when the toolchain moved to 1.4.2. It now points at the single pin
+that CI, the Containerfile, and contributors already share: `packageManager`
+in the root `package.json`. The rule itself is unchanged.
 Modified principles:
-  - II. Clean Clone Builds Green → II. Clean Clone Builds Green — permits only
-    unauthenticated public-registry access during `bun install
-    --frozen-lockfile`; all later gates and runtime remain credential-free,
-    service-free, and network-free.
+  - II. Clean Clone Builds Green — the frozen install uses the pinned Bun
+    version rather than a literal one.
 Added sections: none.
 Removed sections: none.
-Templates reviewed:
-  ✅ .specify/templates/plan-template.md — no change required; it derives the
-    Constitution Check from this file and contains no duplicated Principle II text.
-  ✅ .specify/templates/spec-template.md — no change required; it contains no
-    duplicated Principle II text.
-  ✅ .specify/templates/tasks-template.md — no change required; it contains no
-    duplicated Principle II text.
-  ✅ .github/agents/speckit.*.agent.md and
-    .github/prompts/speckit.*.prompt.md — no change required; installed
-    instructions load the constitution dynamically and contain no Principle II
-    wording.
-Dependent policy and runtime guidance:
-  ✅ CONTRIBUTING.md — updated to distinguish the sole public-registry install
-    exception from network-free post-install gates and runtime.
-  ✅ docs/adr/0007-adapter-isolation-and-public-surface-build.md — reviewed; no
-    change required.
-  ✅ .github/workflows/ci.yml — reviewed; no change required; Bun 1.3.14 and the
-    frozen install are already isolated in an explicit step.
-  ✅ README.md, CLAUDE.md, bunfig.toml,
-    .github/instructions/use-bun.instructions.md,
-    .cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc, and
-    docs/adr/0010-bun-toolchain.md — reviewed; no conflicting Principle II
-    wording requires propagation.
-Deferred TODOs: none.
-Source of authority: docs/adr/0001, 0002, 0004, 0005, 0007, 0008, 0009, 0010.
-The ADRs are normative. If this file and an accepted ADR disagree, the ADR wins
-and this file must be corrected by amendment.
+Dependent templates: none affected.
 -->
 
 # adrkit Constitution
@@ -70,7 +43,8 @@ code, diffable, and attributable via `git log`. (ADR-0001, ADR-0004)
 ### II. Clean Clone Builds Green
 
 A fresh clone MAY access an unauthenticated public package registry only during
-the frozen dependency-install step. That step MUST use Bun 1.3.14, the committed
+the frozen dependency-install step. That step MUST use the Bun version pinned by
+`packageManager` in the root `package.json`, the committed
 `bun.lock`, and the repository's `bunfig.toml` settings, including the isolated
 linker and `minimumReleaseAge`. After installation, build, typecheck, test, lint,
 packaging, smoke tests, and runtime behavior MUST require no credentials, no
@@ -204,4 +178,4 @@ governs and this file MUST be amended to match.
 - **Compliance.** PRs and reviews verify compliance with Principles I–V. Added
   complexity must be justified against the simpler alternative it displaces.
 
-**Version**: 1.0.2 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-20
+**Version**: 1.0.3 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-09-30
