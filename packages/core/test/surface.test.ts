@@ -34,6 +34,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'Severity',
   'Status',
   'TEMPLATE_FILE_NAME',
+  'acceptAdrSource',
   'bucketDecisions',
   'buildAdrGraph',
   'buildDecisionWindows',

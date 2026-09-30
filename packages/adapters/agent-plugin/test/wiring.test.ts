@@ -629,6 +629,20 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     expect(writers).toEqual(['adr-draft']);
   });
 
+  test('no component runs adr accept', () => {
+    // Ratification is a human act (ADR-0044). An agent may tell a person that
+    // `adr accept <id> --by <identity>` is the next step; no command, skill, or
+    // agent in this plugin may take it. Any mention at all is treated as a
+    // violation, because a host model reads an example as an instruction.
+    const components = [
+      ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
+      ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
+      ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
+    ];
+    const runners = components.filter((path) => /\badr accept\b/.test(readFileSync(path, 'utf8')));
+    expect(runners).toEqual([]);
+  });
+
   test('the read-only agent states its own boundary', () => {
     // With no portable `tools` list to enforce it, the contract lives in the
     // body. If that text is ever dropped, the agent silently loses the only

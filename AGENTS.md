@@ -242,14 +242,18 @@ Emit the ARB operations queue — a read-only, deterministic projection of the
 local ADR corpus — to stdout:
 
 ```bash
-adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
+adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format auto|terminal|markdown|json]
 ```
 
 - `--dir` (default `docs/adr`): ADR corpus directory.
 - `--as-of` (default: today, UTC): UTC calendar date used for SLA state
   computation. Accepts a bare `YYYY-MM-DD` or an ISO datetime with an explicit
   timezone (e.g. `2026-01-08T00:00:00Z`); timezone-less datetimes are rejected.
-- `--format` (default `markdown`): `markdown` or `json` (QueueReport v1).
+- `--format` (default `auto`): `terminal` on a TTY, otherwise `markdown`; or an
+  explicit `terminal`, `markdown`, or `json` (QueueReport v1). Only a TTY ever
+  gets the terminal view — under
+  [ADR-0044](./docs/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals.md)
+  (**proposed**), following ADR-0033 — so piped output is unchanged.
 
 Exit codes: `0` = report with no corpus error findings; `1` = report emitted
 (complete, to stdout) with one or more error-severity corpus findings; `2` =
@@ -260,6 +264,29 @@ Records corpus discovery cannot see — misnamed, or nested below the corpus roo
 are reported as `corpus.file-skipped` corpus findings at **`warn`** severity, so a
 `proposed` record never disappears from the queue silently. Being `warn`, they do
 not change the exit code and do not fail the managed-issue Action.
+
+## `adr accept`
+
+`adr accept <id> --by <identity>` ratifies a `proposed` record, under
+[ADR-0044](./docs/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals.md)
+(**proposed**). It is the third writing command, after `new` and `migrate`.
+
+- **It splices three fields and nothing else**: `status`,
+  `provenance.ratifiedBy`, and `review.decidedAt`. A `yaml` round trip would
+  reformat 39 of this corpus's 44 records, so `acceptAdrSource` in
+  `packages/core/src/transition/` edits lines. It then re-parses the result and
+  refuses unless every other field is semantically unchanged. That re-check
+  caught a real ordering bug during development, so do not replace it with a
+  serializer.
+- **`--by` is mandatory and never inferred.** The clock is read in
+  `packages/cli/src/accept.ts`; the core transition is pure.
+- **It refuses rather than overrides** review state: a record that is not
+  `proposed`, has an unresolved objection, has fewer approvals than its
+  `review.quorum`, or would fail validation is left untouched, with exit `1`.
+- **No agent surface runs it.** The agent plugin's wiring test fails if any
+  command, skill, or agent mentions `adr accept`. The queue's terminal view may
+  *print* the command for a human, and it does so only when the item is not
+  blocked.
 
 ## Moving Action tag recovery
 
@@ -465,8 +492,8 @@ Two boundaries are load-bearing:
 
 Both guards are repo-local scripts, not CLI surface: `adr graph --format json`
 already emits every node's `status` and every `supersedes` edge, and the public
-CLI is a semver commitment (ADR-0031) whose write surface is deliberately two
-commands. A public Markdown inventory formatter waits for adopter demand.
+CLI is a semver commitment (ADR-0031) whose write surface is deliberately
+small: `new`, `migrate`, and `accept` (ADR-0044, **proposed**). A public Markdown inventory formatter waits for adopter demand.
 
 ## Toolchain
 

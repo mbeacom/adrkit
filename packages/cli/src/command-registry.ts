@@ -1,7 +1,7 @@
 import type { GraphEdge } from '@adrkit/core';
 import type { StreamStyle } from './presentation.ts';
 
-export const COMMAND_ORDER = ['new', 'lint', 'check', 'explain', 'graph', 'queue', 'evaluate', 'migrate', 'completion', 'help'] as const;
+export const COMMAND_ORDER = ['new', 'lint', 'check', 'explain', 'graph', 'queue', 'accept', 'evaluate', 'migrate', 'completion', 'help'] as const;
 
 export type CommandName = (typeof COMMAND_ORDER)[number];
 
@@ -12,6 +12,7 @@ export const COMMAND_SUMMARIES: Record<CommandName, string> = {
   explain: 'Explain which decisions govern a path',
   graph: 'Render decision relationships',
   queue: 'Show the architecture review board queue',
+  accept: 'Accept a proposed decision as its named ratifier',
   evaluate: 'Evaluate a proposal from an offline snapshot',
   migrate: 'Import a MADR corpus into adrkit',
   completion: 'Generate shell completion scripts',
@@ -46,6 +47,7 @@ export const COMMAND_OPTIONS = {
   explain: ['--json', '--dir', '--as-of', '--help'],
   graph: ['--dir', '--format', '--focus', '--kind', '--help'],
   queue: ['--dir', '--as-of', '--format', '--help'],
+  accept: ['--by', '--dir', '--json', '--help'],
   evaluate: ['--snapshot', '--date', '--json', '--dir', '--help'],
   migrate: ['--from', '--dir', '--dry-run', '--rename', '--json', '--help'],
   completion: ['--help'],
@@ -59,6 +61,7 @@ export const COMMAND_COMPLETION_OPTIONS = {
   explain: ['-h', '--help', '--json', '--dir', '--as-of'],
   graph: ['-h', '--help', '--dir', '--format', '--focus', '--kind'],
   queue: ['-h', '--help', '--dir', '--as-of', '--format'],
+  accept: ['-h', '--help', '--by', '--dir', '--json'],
   evaluate: ['-h', '--help', '--snapshot', '--date', '--json', '--dir'],
   migrate: ['-h', '--help', '--from', '--dir', '--dry-run', '--rename', '--json'],
   completion: ['-h', '--help'],
@@ -68,7 +71,7 @@ export const COMMAND_COMPLETION_OPTIONS = {
 export const COMMAND_VALUE_CHOICES = {
   new: { '--status': ['draft', 'proposed', 'rejected', 'deprecated'] },
   graph: { '--format': GRAPH_FORMAT_VALUES, '--kind': GRAPH_KIND_VALUES },
-  queue: { '--format': ['markdown', 'json'] },
+  queue: { '--format': ['auto', 'terminal', 'markdown', 'json'] },
   migrate: { '--from': ['madr'] },
 } as const satisfies Partial<Record<CommandName, Record<string, readonly string[]>>>;
 
