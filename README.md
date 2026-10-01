@@ -93,8 +93,8 @@ docker run --rm --read-only --network none -i \
 
 The MCP command keeps stdin open because MCP uses stdio. Its repository mount is
 read-only, matching the server contract; use an absolute host path in MCP client
-configuration. For CLI commands that intentionally write (`new`, or
-`migrate` without `--dry-run`), omit `--read-only` and the mount's `:ro`
+configuration. For CLI commands that intentionally write (`new`, `accept`,
+or `migrate` without `--dry-run`), omit `--read-only` and the mount's `:ro`
 suffix. The image runs as the non-root `node` user; on a host with a different
 UID/GID, add `--user "$(id -u):$(id -g)"`. On SELinux hosts, add the
 appropriate bind-mount label (for example, `:Z`).
@@ -151,6 +151,22 @@ Corpus fingerprint: `96e7f3185c5bb89bd1c87e10a28dcbef66703f381d3f14ea486ceaf2990
 | 1 | `0005` | Gate proposals with a deterministic-first evaluator … | arb | within-sla | 2027-01-18 | 0/- | 0 |
 | 2 | `0015` | Validate descriptors against Backstage field formats … | arb | within-sla | 2027-01-25 | 0/- | 0 |
 ```
+
+That is what a pipe, a CI job, or an agent receives. In a terminal the same
+report prints as a list sized to the window, and each item ends with its next
+step — the command to accept it, or the reason it cannot be accepted yet:
+
+```text
+1. 0044  within-sla · due 2027-03-31 (in 182 days)
+   Ratify a proposed record with adr accept and present the queue for terminals
+   async · asynchronous human review
+   approvals 0 · objections 0 · route @mbeacom
+   docs/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals.md
+   next: adr accept 0044 --by <identity>
+```
+
+`adr accept 0044 --by @you` then sets `status`, `provenance.ratifiedBy`, and
+`review.decidedAt`, and changes no other line, for review in a pull request.
 
 In CI, the `@adrkit/ci` Action comments the governing decisions on the PRs that
 touch them — read-only, comment-only, no database, no approval. See
@@ -336,7 +352,12 @@ answer where the next decision is actually being made.
   approves, persists, or writes**.
 - **`adr queue`** — emit the ARB operations queue: a read-only, deterministic
   projection of the corpus's `review` metadata (tiers, SLA state, approvals,
-  objections) as Markdown or `QueueReport` v1 JSON; also a managed-issue Action.
+  objections) as Markdown or `QueueReport` v1 JSON, or as a list sized to the
+  window in a terminal; also a managed-issue Action.
+- **`adr accept <id> --by <identity>`** — ratify a `proposed` record from the
+  queue. It changes only `status`, `provenance.ratifiedBy`, and
+  `review.decidedAt`, refuses a record with an unresolved objection, an unmet
+  quorum, or a result that would not validate, and never infers who ratified.
 - **CI comment** — the `@adrkit/ci` GitHub Action surfaces the governing decisions
   on the PRs that touch or explicitly declare them; pattern matches render as `via`
   and PR-authored marker claims as `declared by`. The comment also distinguishes
@@ -351,7 +372,7 @@ answer where the next decision is actually being made.
 It never approves anything. It routes, and humans decide.
 
 The root Marketplace entry point has shipped with every release since
-`v0.13.0`. Pin its immutable root reference — currently `v0.15.0` — for the
+`v0.13.0`. Pin its immutable root reference — currently `v0.16.0` — for the
 complete governing-decisions workflow (see
 [Use in CI](https://adrkit.dev/ci/)):
 
@@ -370,7 +391,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mbeacom/adrkit@v0.15.0
+      - uses: mbeacom/adrkit@v0.16.0
 ```
 
 Existing consumers of the nested form can stay on

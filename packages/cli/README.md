@@ -54,12 +54,34 @@ The binary includes:
 - `explain`
 - `check`
 - `queue`
+- `accept`
 - `migrate --from madr`
 - `completion`
 - `evaluate`
 
 Run `adr --help` for the command list, `adr help <command>` for one command's
 flags, and `adr --version` to print the installed version.
+
+## Review queue and acceptance
+
+`adr queue` lists every `proposed` record with its SLA state, deadline,
+approvals, and objections. In a terminal it prints a list sized to the window,
+and each item ends with the next step: the command to accept it, or the reason
+it cannot be accepted yet. Piped, redirected, or captured output is the
+deterministic Markdown report, unchanged; `--format json` emits `QueueReport`
+v1, and `--format terminal|markdown` choose explicitly.
+
+```bash
+adr queue
+adr accept 0044 --by @octocat
+```
+
+`adr accept` sets `status: accepted`, `provenance.ratifiedBy`, and
+`review.decidedAt` (now, UTC, with seconds), and changes no other line. It
+commits nothing. It refuses, and leaves the file untouched, when the record is
+not `proposed`, has an unresolved objection, has fewer approvals than its
+`review.quorum`, or would not be a valid accepted record. `--by` is required and
+is never inferred. Exit codes: `0` accepted, `1` refused, `2` usage error.
 
 ## Decision graph
 
