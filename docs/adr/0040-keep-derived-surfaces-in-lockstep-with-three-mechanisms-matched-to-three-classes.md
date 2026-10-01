@@ -256,7 +256,13 @@ moment attention moves. This is the failure mode the project exists to end.
        `AGENTS.md` carries one. ADR-0037 lacked this item and needed
        [#216](https://github.com/mbeacom/adrkit/pull/216) to clean up after its
        acceptance.
-7. [ ] Decide whether the network-denial step count in
+7. [x] Decide whether the network-denial step count in
        `specs/010-catalog-backstage/` should be derived rather than restated in
        four places. Correcting it by hand here found it already drifted by one,
        which is this record's own argument arriving from outside its scope.
+       **Decided: checked, not derived.** The four statements are hand-written
+       requirement and evidence prose in `specs/`, which this record keeps out
+       of machine rewriting. `scripts/network-denial-count.test.ts` parses
+       `clean-clone-builds` and fails when any of them disagrees with the
+       workflow, or no longer states a count it can read. That is class 2's
+       mechanism, applied to a class-1 fact that lives in prose.
