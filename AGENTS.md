@@ -493,7 +493,8 @@ Two boundaries are load-bearing:
 Both guards are repo-local scripts, not CLI surface: `adr graph --format json`
 already emits every node's `status` and every `supersedes` edge, and the public
 CLI is a semver commitment (ADR-0031) whose write surface is deliberately
-small: `new`, `migrate`, and `accept` (ADR-0044, **proposed**). A public Markdown inventory formatter waits for adopter demand.
+small: `new`, `migrate`, and `accept` (ADR-0044, **proposed**). A public
+Markdown inventory formatter waits for adopter demand.
 
 ## Toolchain
 
