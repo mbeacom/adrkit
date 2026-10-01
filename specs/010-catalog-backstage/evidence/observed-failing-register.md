@@ -419,6 +419,15 @@ post-install steps when there were already sixteen, and is corrected to seventee
 the step ADR-0040 added. The drift is recorded rather than tidied away, for the reason the
 paragraph above gives.
 
+Both drifts had the same cause, so the count is now checked rather than trusted.
+`scripts/network-denial-count.test.ts` parses `clean-clone-builds`. It requires `bun test`
+to be the only unwrapped post-install step, and it fails when this section, the
+`clean-clone-offline` README, FR-050 in `spec.md`, or T093 in `tasks.md` states a different
+count, or stops stating one it can read. The workflow's own comment on the `bun test` step
+used to restate the count too; it now points here instead, and the same test fails if a
+count reappears in `ci.yml`. Adding a step without re-counting is no longer possible on a
+green build (ADR-0040, action item 7).
+
 Two things that correction exposed are worth stating plainly, because they are this
 section's own claims failing.
 

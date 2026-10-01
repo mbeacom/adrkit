@@ -79,8 +79,10 @@ jobs:
         run: bun scripts/run-network-denied.ts -- bun run release:pack -- --skip-build --skip-smoke-install
       - name: Lint (network denied)
         run: bun scripts/run-network-denied.ts -- bun run lint
-      # The ONE unwrapped post-install step: 16 of the 17 run under a proved denial, and
-      # this is the 17th. It cannot be wrapped, because the suite contains the two-sided
+      # The ONE unwrapped post-install step: every other one runs under a proved denial.
+      # The count is stated once, in <EVIDENCE>/observed-failing-register.md §4.6, and
+      # scripts/network-denial-count.test.ts checks it against this job, so do not
+      # restate it here. It cannot be wrapped, because the suite contains the two-sided
       # controls that establish the denial and a control cannot prove one from inside it —
       # observed on both platforms, failing differently (3 tests on macOS, where
       # `sandbox-exec` denies loopback outright; 11 on Linux, where `lo` comes up and the
