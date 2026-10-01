@@ -427,7 +427,7 @@ table is the short version:
 |---|---|---|
 | Available now | `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, `@adrkit/mcp` | Published on npm for Node 22+ |
 | Available now | `@adrkit/spec-kit` | Published separately for current Spec Kit releases |
-| Available now | `adr queue` and the governing-decisions GitHub Action | Queue reporting and PR comments are part of the shipped workflow |
+| Available now | `adr queue`, `adr accept`, and the governing-decisions GitHub Action | Queue reporting, ratification from the queue, and PR comments are part of the shipped workflow |
 | Available now | `adrkit` agent plugin | Install from this repository or marketplace; shells out to `adr` |
 | In development | Later evaluator passes | Passes 1–3 and calibration remain design targets; Pass 0 is the implemented evaluator surface |
 | In development | Catalog packages | `@adrkit/catalog-envelope` and `@adrkit/catalog-backstage` exist in the workspace at `0.0.0` and are not released |
