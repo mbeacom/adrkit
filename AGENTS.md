@@ -253,7 +253,7 @@ adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format auto|terminal|markdown
   explicit `terminal`, `markdown`, or `json` (QueueReport v1). Only a TTY ever
   gets the terminal view — under
   [ADR-0044](./docs/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals.md)
-  (**proposed**), following ADR-0033 — so piped output is unchanged.
+  (**accepted**), following ADR-0033 — so piped output is unchanged.
 
 Exit codes: `0` = report with no corpus error findings; `1` = report emitted
 (complete, to stdout) with one or more error-severity corpus findings; `2` =
@@ -269,7 +269,7 @@ not change the exit code and do not fail the managed-issue Action.
 
 `adr accept <id> --by <identity>` ratifies a `proposed` record, under
 [ADR-0044](./docs/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals.md)
-(**proposed**). It is the third writing command, after `new` and `migrate`.
+(**accepted**). It is the third writing command, after `new` and `migrate`.
 
 - **It splices three fields and nothing else**: `status`,
   `provenance.ratifiedBy`, and `review.decidedAt`. A `yaml` round trip would
@@ -495,7 +495,7 @@ Two boundaries are load-bearing:
 Both guards are repo-local scripts, not CLI surface: `adr graph --format json`
 already emits every node's `status` and every `supersedes` edge, and the public
 CLI is a semver commitment (ADR-0031) whose write surface is deliberately
-small: `new`, `migrate`, and `accept` (ADR-0044, **proposed**). A public
+small: `new`, `migrate`, and `accept` (ADR-0044, **accepted**). A public
 Markdown inventory formatter waits for adopter demand.
 
 ## Toolchain

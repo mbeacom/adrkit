@@ -18,7 +18,7 @@ Until `1.0.0`, minor releases may include breaking changes
   `review.quorum`, or would not be valid. `--by` is required and never
   inferred. This is the third writing command, and no agent surface runs it
   ([ADR-0044](docs/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals.md),
-  proposed).
+  accepted).
 - **`adr queue` has a terminal view.** `--format` now defaults to `auto`: a
   TTY gets a width-aware list with SLA state, days to deadline, approvals,
   objections, and the next `adr accept` command or the reason acceptance is

@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0044"
 title: "Ratify a proposed record with adr accept and present the queue for terminals"
-status: proposed
+status: accepted
 date: 2026-09-30
 deciders: ["@mbeacom"]
 tags: [cli, queue, governance, compatibility]
@@ -25,9 +25,11 @@ affects:
     pattern: "packages/cli/src/command-registry.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
 review:
   tier: async
   tierReason: Grows the public write surface from two commands to three; a semver commitment under ADR-0031.
+  decidedAt: 2026-10-01T02:01:16Z
 reviewBy: 2027-03-31
 ---
 
@@ -224,9 +226,9 @@ cannot be reshaped for terminals without breaking them.
 4. [x] Enforce in the agent plugin's tests that no component runs `adr accept`.
 5. [x] Update `AGENTS.md`, `site/src/content/docs/commands.mdx`, and
        `CHANGELOG.md`, including every statement that only two commands write.
-6. [ ] Ratify this record with `adr accept 0044 --by <maintainer>`. That is
+6. [x] Ratify this record with `adr accept 0044 --by <maintainer>`. That is
        the first real use and the rung-1 functional evidence for the command.
-7. [ ] In the pull request that accepts this record, update every public
+7. [x] In the pull request that accepts this record, update every public
        proposed-state qualifier that names it. `AGENTS.md` carries three: the
        `adr queue` `--format` bullet, the `adr accept` section, and the
        write-surface sentence. `site/src/content/docs/commands.mdx` carries
