@@ -9,6 +9,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-01
+
+### Security
+
+- **The Action bundles carry `undici` 6.29.0**, up from 6.27.0, closing
+  [GHSA-rfgv-xxqx-mfg5](https://github.com/advisories/GHSA-rfgv-xxqx-mfg5)
+  (high): a denial of service through an unrequested WebSocket subprotocol.
+  `undici` reaches both Actions through `@actions/github` and
+  `@actions/http-client`. Consumers of `packages/ci@v0` and
+  `packages/ci/queue@v0` pick it up when `v0` moves to this release; anyone
+  pinned to `v0.15.0` or earlier should move to `v0.16.0`
+  ([#251](https://github.com/mbeacom/adrkit/pull/251)).
+
 ### Added
 
 - **`adr accept <id> --by <identity>`** ratifies a `proposed` record. It sets
@@ -25,6 +38,23 @@ Until `1.0.0`, minor releases may include breaking changes
   blocked. Piped, redirected, and captured output is still the Markdown report,
   byte for byte. `--format terminal` and `--format markdown` choose
   explicitly.
+- **`acceptAdrSource` in `@adrkit/core`**, the pure transition behind
+  `adr accept`: given a record's source text, a ratifier, and a timestamp, it
+  returns the new text or a typed refusal. This adds a runtime export.
+
+### Changed
+
+- **`adr queue --format` defaults to `auto` instead of `markdown`.** Only stdout
+  attached to a terminal sees a difference. Pipes, redirects, CI, the
+  managed-issue Action, and agents still receive the Markdown report byte for
+  byte, and `--format markdown` restores it in a terminal.
+- **The toolchain moved from Bun 1.3.14 to 1.4.2**
+  ([#249](https://github.com/mbeacom/adrkit/pull/249)). The published packages
+  are still Node-targeted and are now built with 1.4.2. The Action bundles are
+  about 25% smaller because 1.4.2 drops the parts of `zod` nothing calls:
+  every error-message locale except English, and unused helpers. Apart from
+  that and the `undici` update under Security, the bundles contain the same
+  modules as in 0.15.0.
 
 ## [0.15.0] - 2026-09-28
 
@@ -1696,7 +1726,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/mbeacom/adrkit/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/mbeacom/adrkit/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/mbeacom/adrkit/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/mbeacom/adrkit/compare/v0.12.0...v0.13.0
