@@ -23,10 +23,38 @@ const WORKFLOW = Bun.YAML.parse(readFileSync(join(ROOT, '.github/workflows/ci.ym
   jobs: Record<string, { steps: Step[] }>;
 };
 
+const WORKFLOW_SOURCE = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
 const STEPS = WORKFLOW.jobs['clean-clone-builds']!.steps;
 const INSTALL = STEPS.findIndex((step) => /bun install --frozen-lockfile/.test(step.run ?? ''));
 const POST_INSTALL = STEPS.slice(INSTALL + 1);
-const isWrapped = (step: Step) => /run-network-denied\.ts/.test(step.run ?? '');
+const WRAPPER = 'bun scripts/run-network-denied.ts -- ';
+
+/**
+ * A step is denied only if the wrapper is its whole command. Naming the wrapper is not
+ * enough: in `wrapper -- a && b` the shell runs `b` outside it, and `echo wrapper` runs
+ * nothing under it. So the run must start with the wrapper and contain no shell
+ * operator outside quotes. `sh -c '... && ...'` stays wrapped, because its operators are
+ * quoted and run inside the wrapped shell.
+ */
+function isWrappedCommand(run: string): boolean {
+  const command = run.trim();
+  if (!command.startsWith(WRAPPER)) return false;
+  let quote: string | null = null;
+  for (let i = WRAPPER.length; i < command.length; i += 1) {
+    const char = command[i]!;
+    if (quote) {
+      if (char === '\\' && quote === '"') i += 1;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "'" || char === '"') quote = char;
+    else if (char === '\\') i += 1;
+    else if (char === '\n' || char === ';' || char === '&' || char === '|' || char === '`' || (char === '$' && command[i + 1] === '(')) return false;
+  }
+  return quote === null;
+}
+
+const isWrapped = (step: Step) => isWrappedCommand(step.run ?? '');
 const ACTUAL = {
   total: POST_INSTALL.length,
   wrapped: POST_INSTALL.filter(isWrapped).length,
@@ -85,6 +113,25 @@ describe('the network-denial step count', () => {
     expect(INSTALL).toBeGreaterThanOrEqual(0);
     const unwrapped = POST_INSTALL.filter((step) => !isWrapped(step));
     expect(unwrapped.map((step) => step.run?.trim())).toEqual(['bun test']);
+  });
+
+  test('a step counts as denied only when the wrapper is its whole command', () => {
+    expect(isWrappedCommand(`${WRAPPER}bun run lint`)).toBe(true);
+    expect(isWrappedCommand(`${WRAPPER}sh -c 'bun run schema:emit && git diff --exit-code schema'`)).toBe(true);
+    expect(isWrappedCommand('bun run build && echo scripts/run-network-denied.ts')).toBe(false);
+    expect(isWrappedCommand(`curl https://example.com; ${WRAPPER}bun run lint`)).toBe(false);
+    expect(isWrappedCommand(`${WRAPPER}bun run lint && curl https://example.com`)).toBe(false);
+    expect(isWrappedCommand(`${WRAPPER}bun run lint | tee out`)).toBe(false);
+    expect(isWrappedCommand(`${WRAPPER}bun run lint\ncurl https://example.com`)).toBe(false);
+    expect(isWrappedCommand(`${WRAPPER}bun run $(curl https://example.com)`)).toBe(false);
+    expect(isWrappedCommand(`${WRAPPER}sh -c 'unterminated`)).toBe(false);
+  });
+
+  test('the workflow itself states no count; the documents below are where it lives', () => {
+    // ci.yml is the thing counted. A count restated in its comments is a fifth copy that
+    // nothing here would read, so the workflow may describe the exemption but not number it.
+    expect(claims(WORKFLOW_SOURCE)).toEqual([]);
+    expect(WORKFLOW_SOURCE.match(/\b\d+ of the \d+\b|\b\d+(?:st|nd|rd|th) (?:post-install )?step\b|\bthis is the \d+(?:st|nd|rd|th)\b/gi) ?? []).toEqual([]);
   });
 
   for (const path of STATEMENTS) {
