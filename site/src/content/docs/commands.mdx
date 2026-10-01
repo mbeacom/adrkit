@@ -20,7 +20,8 @@ adr graph [--dir docs/adr] [--format auto|terminal|dot|json|mermaid]
 adr explain <path> [--dir docs/adr] [--json] [--as-of <date|ref>]
 adr check <files...> [--dir docs/adr] [--json]
 adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
-adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format markdown|json]
+adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format auto|terminal|markdown|json]
+adr accept <id> --by <identity> [--dir docs/adr] [--json]
 adr completion <bash|zsh|fish>
 
 adr help [command]        Show help, or help for one command
@@ -418,12 +419,59 @@ managed-issue Action.
 |---|---|
 | `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
 | `--as-of <date>` | UTC calendar date for SLA computation (default: today, UTC). Accepts `YYYY-MM-DD` or an ISO datetime with an explicit timezone (e.g. `2026-01-08T00:00:00Z`); timezone-less datetimes are rejected. |
-| `--format markdown\|json` | Output format (default: `markdown`) |
+| `--format auto\|terminal\|markdown\|json` | Output format (default: `auto` — the terminal view on a TTY, the canonical Markdown report when piped, redirected, or captured) |
 | `--help` | Show help and exit |
 
 **Exit codes:** `0` report, no error findings · `1` report emitted with
 error-severity corpus findings · `2` usage error (invalid flag/value or
 unreachable corpus directory).
+
+In a terminal the queue prints a width-aware list: each item's SLA state and
+days to its deadline, its tier, approvals against quorum, objections, and the
+next step — either the `adr accept` command to run or the reason acceptance is
+blocked. Anything that captures stdout still receives the Markdown report byte
+for byte, so CI, the managed-issue Action, and agents see no change. Pass
+`--format terminal` or `--format markdown` to choose explicitly.
+
+## adr accept
+
+Accept a `proposed` record as its named ratifier. This is one of three commands
+that write, alongside `new` and `migrate`
+([ADR-0044](/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals/), proposed).
+
+```bash
+adr queue                          # see what is waiting
+adr accept 0044 --by @octocat      # ratify one record
+```
+
+It sets `status: accepted`, `provenance.ratifiedBy`, and `review.decidedAt`
+(the current UTC time, with seconds), and changes no other line of the file.
+Nothing is committed: review the diff and open a pull request, as you would for
+any record. `--by` is required and is never inferred from git or the
+environment, because naming who ratified the decision is the point.
+
+It refuses, exits `1`, and leaves the file untouched when the record is not
+`proposed`, has an unresolved objection, has fewer approvals than its
+`review.quorum`, already has lint errors, or would not be a valid accepted
+record — for example, one with no `deciders`. `--by` never counts as an
+approval.
+
+| Option | Meaning |
+|---|---|
+| `<id>` | ADR id as shown by `adr queue`; `44` and `ADR-0044` also resolve to `0044` |
+| `--by <identity>` | Required. `@handle`, `team:slug`, or an email address |
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--json` | Emit `{ id, path, status, ratifiedBy, decidedAt }` |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` accepted · `1` refused, record unchanged · `2` usage error
+(missing or malformed `--by`, unknown id, or unreachable corpus directory).
+
+<Aside type="note" title="Agents do not ratify">
+	The adrkit agent plugin, the Spec Kit extension, and the MCP server never run
+	`adr accept`. An agent can tell you it is the next step; accepting a decision
+	stays a human act.
+</Aside>
 
 ## adr completion
 

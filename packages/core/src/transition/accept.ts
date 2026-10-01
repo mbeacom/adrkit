@@ -1,0 +1,312 @@
+/**
+ * @adrkit/core — the `proposed` → `accepted` transition (ADR-0044).
+ *
+ * Pure: no clock, no filesystem. The caller supplies the record's source text, the
+ * ratifier, and the decision instant, and receives the new source text or a refusal.
+ *
+ * The transition splices lines rather than re-serializing YAML. A `yaml` round trip
+ * rewrites quoting, flow collections, and folded scalars in most real records, and a
+ * ratification diff should show exactly the three fields it owns. After splicing, the
+ * new frontmatter is parsed again and every field other than those three must be
+ * semantically unchanged; anything else is refused with nothing written.
+ */
+
+import { isMap, isScalar, parseDocument, Scalar, type Pair, type YAMLMap } from 'yaml';
+import { FrontmatterError, parseFrontmatter } from '../parse/frontmatter.ts';
+import { Identity } from '../schema/adr.schema.ts';
+import { validateAdrFrontmatter } from '../validate/contract.ts';
+import type { Finding } from '../validate/findings.ts';
+
+export interface AcceptAdrInput {
+  /** Full record source, frontmatter fences included. */
+  source: string;
+  /** The human ratifier: `@handle`, `team:slug`, or an email address. */
+  by: string;
+  /** RFC 3339 date-time with seconds, e.g. `2026-09-30T12:00:00Z`. */
+  decidedAt: string;
+  /** Display path, used only in findings. */
+  path: string;
+}
+
+export type AcceptRefusalCode =
+  | 'invalid-identity'
+  | 'invalid-decided-at'
+  | 'invalid-record'
+  | 'not-proposed'
+  | 'unresolved-objections'
+  | 'quorum-not-met'
+  | 'unsupported-layout'
+  | 'invalid-result';
+
+export type AcceptAdrResult =
+  | { ok: true; content: string }
+  | { ok: false; code: AcceptRefusalCode; message: string; findings?: Finding[] };
+
+const RFC3339_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function refuse(code: AcceptRefusalCode, message: string, findings?: Finding[]): AcceptAdrResult {
+  return findings ? { ok: false, code, message, findings } : { ok: false, code, message };
+}
+
+interface Edit {
+  start: number;
+  end: number;
+  text: string;
+  /** A new top-level block; at a shared offset it must follow child lines of the block above. */
+  newBlock?: boolean;
+}
+
+interface Located {
+  yaml: string;
+  /** Offset of `yaml` within the full source. */
+  offset: number;
+  eol: string;
+}
+
+function locateFrontmatter(source: string): Located {
+  const firstLineEnd = source.indexOf('\n');
+  const eol = firstLineEnd > 0 && source[firstLineEnd - 1] === '\r' ? '\r\n' : '\n';
+  const offset = firstLineEnd + 1;
+  let lineStart = offset;
+  while (lineStart <= source.length) {
+    const next = source.indexOf('\n', lineStart);
+    const lineEnd = next === -1 ? source.length : next;
+    const raw = source.slice(lineStart, lineEnd);
+    if ((raw.endsWith('\r') ? raw.slice(0, -1) : raw) === '---') {
+      return { yaml: source.slice(offset, lineStart), offset, eol };
+    }
+    if (next === -1) break;
+    lineStart = next + 1;
+  }
+  // parseFrontmatter already accepted this source, so this is unreachable.
+  throw new FrontmatterError('unterminated-frontmatter', 'ADR frontmatter is missing its closing --- fence');
+}
+
+function keyOf(pair: Pair): unknown {
+  return isScalar(pair.key) ? pair.key.value : pair.key;
+}
+
+function lineStartOf(text: string, index: number): number {
+  return text.lastIndexOf('\n', index - 1) + 1;
+}
+
+/**
+ * The offset at which a new last child line of `root.items[index]` belongs: the start
+ * of the next top-level key's line, backed up over blank lines and column-0 comments
+ * (which belong to that next key, not to this block). End of the YAML when last.
+ */
+function blockInsertionPoint(yaml: string, root: YAMLMap, index: number): number {
+  const next = root.items[index + 1];
+  let point = next && isScalar(next.key) && next.key.range ? lineStartOf(yaml, next.key.range[0]) : yaml.length;
+  while (point > 0) {
+    const previousLineStart = lineStartOf(yaml, point - 1);
+    const line = yaml.slice(previousLineStart, point).replace(/\r?\n$/, '');
+    if (line.trim() === '' || line.startsWith('#')) {
+      point = previousLineStart;
+      continue;
+    }
+    break;
+  }
+  return point;
+}
+
+function quoted(value: string): string {
+  return JSON.stringify(value);
+}
+
+function renderScalarLike(original: Scalar, value: string): string {
+  if (original.type === Scalar.QUOTE_DOUBLE) return JSON.stringify(value);
+  if (original.type === Scalar.QUOTE_SINGLE) return `'${value.replace(/'/g, "''")}'`;
+  return value;
+}
+
+/**
+ * Set `root[parentKey][childKey] = rendered` by splicing. Returns an edit, or a reason
+ * the layout cannot be spliced safely.
+ */
+function childEdit(
+  located: Located,
+  root: YAMLMap,
+  parentKey: string,
+  childKey: string,
+  value: string,
+  render: (value: string) => string,
+): Edit | string {
+  const rendered = render(value);
+  const { yaml, eol } = located;
+  const index = root.items.findIndex((pair) => keyOf(pair) === parentKey);
+  if (index === -1) {
+    const point = blockInsertionPoint(yaml, root, root.items.length - 1);
+    const lead = point > 0 && !yaml.slice(0, point).endsWith('\n') ? eol : '';
+    return { start: point, end: point, text: `${lead}${parentKey}:${eol}  ${childKey}: ${rendered}${eol}`, newBlock: true };
+  }
+
+  const parent = root.items[index]!;
+  const map = parent.value;
+  if (!isMap(map) || map.flow || map.items.length === 0) {
+    return `"${parentKey}" is not a block mapping; edit this record by hand`;
+  }
+
+  const existing = map.items.find((pair) => keyOf(pair) === childKey);
+  if (existing) {
+    const current = existing.value;
+    if (!isScalar(current) || !current.range || current.type === Scalar.BLOCK_FOLDED || current.type === Scalar.BLOCK_LITERAL) {
+      return `"${parentKey}.${childKey}" is not a single-line scalar; edit this record by hand`;
+    }
+    // Keep an existing quote style; a plain scalar takes the fresh rendering, because
+    // `@handle` cannot be written plain.
+    const text = current.type === Scalar.PLAIN ? rendered : renderScalarLike(current, value);
+    return { start: current.range[0], end: current.range[1], text };
+  }
+
+  const firstKey = map.items[0]!.key;
+  if (!isScalar(firstKey) || !firstKey.range) {
+    return `"${parentKey}" has a key this command cannot locate; edit this record by hand`;
+  }
+  const indent = yaml.slice(lineStartOf(yaml, firstKey.range[0]), firstKey.range[0]);
+  if (!/^ +$/.test(indent)) {
+    return `"${parentKey}" is not an indented block mapping; edit this record by hand`;
+  }
+  const point = blockInsertionPoint(yaml, root, index);
+  const lead = !yaml.slice(0, point).endsWith('\n') ? eol : '';
+  return { start: point, end: point, text: `${lead}${indent}${childKey}: ${rendered}${eol}` };
+}
+
+function statusEdit(root: YAMLMap): Edit | string {
+  const pair = root.items.find((item) => keyOf(item) === 'status');
+  const value = pair?.value;
+  if (!isScalar(value) || !value.range) return '"status" is not a scalar; edit this record by hand';
+  return { start: value.range[0], end: value.range[1], text: renderScalarLike(value, 'accepted') };
+}
+
+function applyEdits(yaml: string, edits: Edit[]): string {
+  let output = yaml;
+  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
+    output = output.slice(0, edit.start) + edit.text + output.slice(edit.end);
+  }
+  return output;
+}
+
+function expectedAfter(data: Record<string, unknown>, by: string, decidedAt: string): Record<string, unknown> {
+  const provenance = { ...((data.provenance as Record<string, unknown> | undefined) ?? {}), ratifiedBy: by };
+  const review = { ...((data.review as Record<string, unknown> | undefined) ?? {}), decidedAt };
+  return { ...data, status: 'accepted', provenance, review };
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, i) => sameValue(item, b[i]));
+  }
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const aKeys = Object.keys(a).sort();
+    const bKeys = Object.keys(b).sort();
+    return (
+      sameValue(aKeys, bKeys) &&
+      aKeys.every((key) => sameValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))
+    );
+  }
+  return false;
+}
+
+function errorFindings(findings: Finding[]): Finding[] {
+  return findings.filter((finding) => finding.severity === 'error');
+}
+
+export function acceptAdrSource(input: AcceptAdrInput): AcceptAdrResult {
+  if (!Identity.safeParse(input.by).success) {
+    return refuse('invalid-identity', `"${input.by}" is not an identity. Expected @handle, team:slug, or an email address.`);
+  }
+  if (!RFC3339_SECONDS.test(input.decidedAt) || Number.isNaN(Date.parse(input.decidedAt))) {
+    return refuse('invalid-decided-at', `"${input.decidedAt}" is not an RFC 3339 date-time with seconds.`);
+  }
+
+  let data: unknown;
+  try {
+    data = parseFrontmatter(input.source).data;
+  } catch (error) {
+    return refuse('invalid-record', error instanceof Error ? error.message : String(error));
+  }
+
+  const before = validateAdrFrontmatter(data, input.path);
+  const beforeErrors = errorFindings(before.findings);
+  if (!before.record || beforeErrors.length > 0) {
+    return refuse('invalid-record', `${input.path} is not a valid record; fix it before accepting.`, beforeErrors);
+  }
+
+  const frontmatter = before.record.frontmatter;
+  if (frontmatter.status !== 'proposed') {
+    const hint =
+      frontmatter.status === 'draft'
+        ? ' A draft has not been proposed yet; set status: proposed and let it go through review first.'
+        : '';
+    return refuse('not-proposed', `ADR-${frontmatter.id} is "${frontmatter.status}", not "proposed".${hint}`);
+  }
+
+  const review = frontmatter.review;
+  const unresolved = (review?.objections ?? []).filter((objection) => !objection.resolved);
+  if (unresolved.length > 0) {
+    const names = unresolved.map((objection) => objection.by).join(', ');
+    return refuse(
+      'unresolved-objections',
+      `ADR-${frontmatter.id} has ${unresolved.length} unresolved objection(s) (${names}); resolve them before accepting.`,
+    );
+  }
+  const approvals = review?.approvals.length ?? 0;
+  if (review?.quorum !== undefined && approvals < review.quorum) {
+    return refuse(
+      'quorum-not-met',
+      `ADR-${frontmatter.id} has ${approvals} of ${review.quorum} required approval(s); record the approvals before accepting.`,
+    );
+  }
+
+  const located = locateFrontmatter(input.source);
+  const document = parseDocument(located.yaml, { strict: true, prettyErrors: false });
+  const root = document.contents;
+  if (!isMap(root) || root.flow) {
+    return refuse('unsupported-layout', 'The frontmatter is not a block mapping; edit this record by hand.');
+  }
+
+  const edits: Array<Edit | string> = [
+    statusEdit(root),
+    childEdit(located, root, 'provenance', 'ratifiedBy', input.by, quoted),
+    childEdit(located, root, 'review', 'decidedAt', input.decidedAt, (value) => value),
+  ];
+  const problem = edits.find((edit): edit is string => typeof edit === 'string');
+  if (problem) return refuse('unsupported-layout', problem);
+
+  // Insertions can share an offset: an absent block is appended at the end, which is
+  // also where a child of an existing last block goes. Child lines come first so they
+  // stay inside their block; new blocks then follow in the order listed.
+  const concrete = [...(edits as Edit[])].sort((a, b) => Number(Boolean(a.newBlock)) - Number(Boolean(b.newBlock)));
+  const merged: Edit[] = [];
+  for (const edit of concrete) {
+    const same = merged.find((other) => other.start === edit.start && other.end === edit.end && other.start === other.end);
+    if (same && edit.start === edit.end) same.text += edit.text;
+    else merged.push({ ...edit });
+  }
+  const yaml = applyEdits(located.yaml, merged);
+  const content = input.source.slice(0, located.offset) + yaml + input.source.slice(located.offset + located.yaml.length);
+
+  let afterData: unknown;
+  try {
+    afterData = parseFrontmatter(content).data;
+  } catch (error) {
+    return refuse('unsupported-layout', `The edited frontmatter no longer parses (${error instanceof Error ? error.message : String(error)}); edit this record by hand.`);
+  }
+  if (!sameValue(afterData, expectedAfter(data as Record<string, unknown>, input.by, input.decidedAt))) {
+    return refuse('unsupported-layout', 'The edit would change a field other than status, ratifiedBy, and decidedAt; edit this record by hand.');
+  }
+
+  const after = validateAdrFrontmatter(afterData, input.path);
+  const afterErrors = errorFindings(after.findings);
+  if (afterErrors.length > 0) {
+    return refuse(
+      'invalid-result',
+      `ADR-${frontmatter.id} would not be a valid accepted record: ${afterErrors.map((finding) => finding.message).join('; ')}`,
+      afterErrors,
+    );
+  }
+
+  return { ok: true, content };
+}

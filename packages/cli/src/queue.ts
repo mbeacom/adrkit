@@ -1,4 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import {
+  acceptAdrSource,
   buildQueueReport,
   formatQueueReportJson,
   formatQueueReportMarkdown,
@@ -9,6 +12,7 @@ import { commandOptions, renderGlobalColorUsageLine, requiredCommandValueChoices
 import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
 import { closestCandidate } from './recovery.ts';
 import { getPresentation, styleUsageBlock } from './presentation.ts';
+import { renderTerminalQueue, resolveQueueFormat, type QueueFormat } from './queue-terminal.ts';
 
 const USAGE = `Usage: adr queue [options]
 
@@ -19,7 +23,8 @@ Options:
   --as-of <date>            UTC calendar date for SLA computation (default: today, UTC).
                             Accepts YYYY-MM-DD or an ISO datetime with an explicit
                             timezone (e.g. 2026-01-08 or 2026-01-08T00:00:00Z).
-  --format markdown|json    Output format (default: markdown)
+  --format <format>         auto|terminal|markdown|json (default: auto — terminal
+                            on a TTY, markdown when piped or redirected)
 ${renderGlobalColorUsageLine()}
   -h, --help                Show this help and exit
 
@@ -27,6 +32,9 @@ Examples:
   adr queue
   adr queue --as-of 2026-08-24
   adr queue --format json
+  adr queue | less          # piped: the canonical markdown report
+
+Accept a record from the queue with: adr accept <id> --by <identity>
 
 Exit codes: 0 = report, no error findings; 1 = report with corpus error findings;
 2 = usage error (invalid flag/value or unreachable corpus directory).
@@ -75,7 +83,7 @@ type ParseResult =
   | { ok: false; missing: string };
 
 function parseFlags(args: string[]): ParseResult {
-  const flags: ParsedFlags = { dir: 'docs/adr', format: 'markdown', help: false };
+  const flags: ParsedFlags = { dir: 'docs/adr', format: 'auto', help: false };
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]!;
@@ -117,6 +125,31 @@ function parseFlags(args: string[]): ParseResult {
   return { ok: true, flags };
 }
 
+/**
+ * Dry-run `adr accept` against each queued record, so the terminal view advertises
+ * the command only where it would succeed. Same pure transition, nothing written; the
+ * placeholder ratifier and instant are valid inputs that never reach a file. Only the
+ * terminal view pays for these reads — Markdown and JSON are unaffected.
+ */
+async function acceptRefusals(sourcePaths: readonly string[]): Promise<Map<string, string>> {
+  const refusals = new Map<string, string>();
+  await Promise.all(
+    sourcePaths.map(async (sourcePath) => {
+      let source: string;
+      try {
+        source = await readFile(resolve(process.cwd(), sourcePath), 'utf8');
+      } catch {
+        // Loaded a moment ago, unreadable now. Never advertise a command we could not check.
+        refusals.set(sourcePath, 'the record could not be read to check whether it can be accepted');
+        return;
+      }
+      const result = acceptAdrSource({ source, by: '@adrkit', decidedAt: '2000-01-01T00:00:00Z', path: sourcePath });
+      if (!result.ok) refusals.set(sourcePath, result.message);
+    }),
+  );
+  return refusals;
+}
+
 /** Entrypoint for the `adr queue` subcommand. Returns the process exit code. */
 export async function runQueue(args: string[]): Promise<number> {
   const parsed = parseFlags(args);
@@ -136,7 +169,7 @@ export async function runQueue(args: string[]): Promise<number> {
     return 0;
   }
 
-  if (flags.format !== 'markdown' && flags.format !== 'json') {
+  if (!QUEUE_FORMAT_CHOICES.includes(flags.format)) {
     return usageError(formatMessage(flags.format));
   }
 
@@ -165,7 +198,19 @@ export async function runQueue(args: string[]): Promise<number> {
   }
 
   const report = buildQueueReport({ corpus, asOf });
-  const output = flags.format === 'json' ? formatQueueReportJson(report) : formatQueueReportMarkdown(report);
+  // ADR-0033's boundary, applied to the queue by ADR-0044: only a TTY gets the
+  // terminal view; anything that captures stdout keeps the canonical Markdown.
+  const format = resolveQueueFormat(flags.format as QueueFormat, process.stdout.isTTY === true);
+  const output =
+    format === 'json'
+      ? formatQueueReportJson(report)
+      : format === 'terminal'
+        ? renderTerminalQueue(report, {
+            columns: process.stdout.columns ?? 100,
+            style: getPresentation().stdout,
+            acceptRefusals: await acceptRefusals(report.items.map((item) => item.sourcePath)),
+          })
+        : formatQueueReportMarkdown(report);
   process.stdout.write(output);
 
   return report.corpusFindings.some((finding) => finding.severity === 'error') ? 1 : 0;

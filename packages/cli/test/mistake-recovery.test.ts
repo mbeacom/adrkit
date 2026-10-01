@@ -78,7 +78,7 @@ describe('CLI mistake recovery', () => {
     const far = await runAdr(['queue', '--format', 'csv']);
     expect(far.exitCode).toBe(2);
     expect(far.stdout).toBe('');
-    expect(far.stderr).toContain('Invalid --format value "csv". Expected "markdown" or "json".');
+    expect(far.stderr).toContain('Invalid --format value "csv". Expected "auto", "terminal", "markdown", or "json".');
     expect(far.stderr).not.toContain('Did you mean');
   });
 
