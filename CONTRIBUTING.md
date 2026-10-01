@@ -2,7 +2,7 @@
 
 ## Toolchain
 
-Install Bun 1.3.14, then run:
+Install Bun 1.4.2, then run:
 
 ```bash
 bun install --frozen-lockfile
@@ -192,12 +192,12 @@ The `@adrkit/ci` Action ships a committed, self-contained bundle at
 `packages/ci/dist/index.js`, and CI enforces that it matches source with a
 `git diff --exit-code packages/ci/dist` gate.
 
-**Rebuild the bundle under `linux/amd64` Bun 1.3.14**, not on a Mac. Bun's
+**Rebuild the bundle under `linux/amd64` Bun 1.4.2**, not on a Mac. Bun's
 CommonJS interop output differs across host targets, so a Mac-built bundle
 drifts and fails the gate. Use the pinned container:
 
 ```bash
-docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work oven/bun:1.3.14 \
+docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work oven/bun:1.4.2 \
   bash -c "bun install --frozen-lockfile && bun run --filter='@adrkit/ci' build"
 bun install --frozen-lockfile   # restore your local (host) install afterward
 ```
