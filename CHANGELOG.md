@@ -52,8 +52,9 @@ Until `1.0.0`, minor releases may include breaking changes
   ([#249](https://github.com/mbeacom/adrkit/pull/249)). The published packages
   are still Node-targeted and are now built with 1.4.2. The Action bundles are
   about 25% smaller because 1.4.2 drops the parts of `zod` nothing calls:
-  every error-message locale except English, and unused helpers. Every other bundled
-  dependency is unchanged.
+  every error-message locale except English, and unused helpers. Apart from
+  that and the `undici` update under Security, the bundles contain the same
+  modules as in 0.15.0.
 
 ## [0.15.0] - 2026-09-28
 
