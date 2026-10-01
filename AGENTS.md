@@ -285,8 +285,10 @@ not change the exit code and do not fail the managed-issue Action.
   `review.quorum`, or would fail validation is left untouched, with exit `1`.
 - **No agent surface runs it.** The agent plugin's wiring test fails if any
   command, skill, or agent mentions `adr accept`. The queue's terminal view may
-  *print* the command for a human, and it does so only when the item is not
-  blocked.
+  *print* the command for a human. It does so only when a dry run of the same
+  `acceptAdrSource` transition, made in `queue.ts`, would succeed; otherwise it
+  prints that refusal. Review state alone misses refusals such as an empty
+  `deciders`, so do not replace the dry run with a field check.
 
 ## Moving Action tag recovery
 

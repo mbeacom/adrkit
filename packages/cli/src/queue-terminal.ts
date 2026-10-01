@@ -11,6 +11,13 @@ import { clampColumns, cleanText, terminalDisplayWidth, truncate, wrapText } fro
 export interface TerminalQueueOptions {
   readonly columns: number;
   readonly style: StreamStyle;
+  /**
+   * `adr accept`'s own refusal for each item, keyed by `sourcePath`, from a dry run
+   * of the pure transition at the CLI boundary. Review state alone cannot see every
+   * refusal (an accepted record must name a decider, for one), so the next-step
+   * hint is shown only when this has no entry for the item.
+   */
+  readonly acceptRefusals?: ReadonlyMap<string, string>;
 }
 
 export type QueueFormat = 'auto' | 'terminal' | 'markdown' | 'json';
@@ -77,7 +84,15 @@ function corpusFindingLines(findings: readonly CorpusFinding[], style: StreamSty
   return lines;
 }
 
-function itemLines(item: QueueItem, index: number, numberWidth: number, report: QueueReport, style: StreamStyle, width: number): string[] {
+function itemLines(
+  item: QueueItem,
+  index: number,
+  numberWidth: number,
+  report: QueueReport,
+  options: TerminalQueueOptions,
+  width: number,
+): string[] {
+  const { style } = options;
   const marker = `${index + 1}.`.padEnd(numberWidth + 1);
   const indent = ' '.repeat(marker.length + 1);
   const available = Math.max(1, width - indent.length);
@@ -108,6 +123,8 @@ function itemLines(item: QueueItem, index: number, numberWidth: number, report: 
   }
 
   const blockers = acceptBlockers(item);
+  const refusal = options.acceptRefusals?.get(item.sourcePath);
+  if (blockers.length === 0 && refusal !== undefined) blockers.push(cleanText(refusal));
   if (blockers.length > 0) {
     for (const line of wrapText(`blocked: ${blockers.join('; ')}`, available)) lines.push(`${indent}${style.yellow(line)}`);
   } else {
@@ -144,7 +161,7 @@ export function renderTerminalQueue(report: QueueReport, options: TerminalQueueO
   } else {
     const numberWidth = String(report.items.length).length;
     report.items.forEach((item, index) => {
-      lines.push(...itemLines(item, index, numberWidth, report, style, width));
+      lines.push(...itemLines(item, index, numberWidth, report, options, width));
       lines.push('');
     });
     lines.pop();

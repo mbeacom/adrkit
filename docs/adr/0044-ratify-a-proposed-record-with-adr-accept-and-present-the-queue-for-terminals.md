@@ -124,7 +124,11 @@ ADR-0033's rule.**
   the SLA state in colour, the deadline and the days left, the title truncated
   by display width, the tier, approvals against quorum, objections, routing,
   the source path, item findings, and one of two next steps: the `adr accept`
-  command, or the reason acceptance is blocked. Corpus findings print before
+  command, or the reason acceptance is blocked. Which of the two is decided by a
+  dry run of the same pure transition `adr accept` uses, so the view never
+  advertises a command that would refuse. Review state alone cannot see every
+  refusal: a `proposed` record with empty `deciders` is valid, but an accepted
+  one is not. Corpus findings print before
   the items. It uses the grapheme-safe display-width helper that `adr graph`
   already uses, now shared rather than duplicated.
 - TTY detection stays in `packages/cli/src/queue.ts`. `buildQueueReport` and

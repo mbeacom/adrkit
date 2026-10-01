@@ -1,4 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import {
+  acceptAdrSource,
   buildQueueReport,
   formatQueueReportJson,
   formatQueueReportMarkdown,
@@ -122,6 +125,31 @@ function parseFlags(args: string[]): ParseResult {
   return { ok: true, flags };
 }
 
+/**
+ * Dry-run `adr accept` against each queued record, so the terminal view advertises
+ * the command only where it would succeed. Same pure transition, nothing written; the
+ * placeholder ratifier and instant are valid inputs that never reach a file. Only the
+ * terminal view pays for these reads — Markdown and JSON are unaffected.
+ */
+async function acceptRefusals(sourcePaths: readonly string[]): Promise<Map<string, string>> {
+  const refusals = new Map<string, string>();
+  await Promise.all(
+    sourcePaths.map(async (sourcePath) => {
+      let source: string;
+      try {
+        source = await readFile(resolve(process.cwd(), sourcePath), 'utf8');
+      } catch {
+        // Loaded a moment ago, unreadable now. Never advertise a command we could not check.
+        refusals.set(sourcePath, 'the record could not be read to check whether it can be accepted');
+        return;
+      }
+      const result = acceptAdrSource({ source, by: '@adrkit', decidedAt: '2000-01-01T00:00:00Z', path: sourcePath });
+      if (!result.ok) refusals.set(sourcePath, result.message);
+    }),
+  );
+  return refusals;
+}
+
 /** Entrypoint for the `adr queue` subcommand. Returns the process exit code. */
 export async function runQueue(args: string[]): Promise<number> {
   const parsed = parseFlags(args);
@@ -177,7 +205,11 @@ export async function runQueue(args: string[]): Promise<number> {
     format === 'json'
       ? formatQueueReportJson(report)
       : format === 'terminal'
-        ? renderTerminalQueue(report, { columns: process.stdout.columns ?? 100, style: getPresentation().stdout })
+        ? renderTerminalQueue(report, {
+            columns: process.stdout.columns ?? 100,
+            style: getPresentation().stdout,
+            acceptRefusals: await acceptRefusals(report.items.map((item) => item.sourcePath)),
+          })
         : formatQueueReportMarkdown(report);
   process.stdout.write(output);
 

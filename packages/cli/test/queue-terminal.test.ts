@@ -104,6 +104,13 @@ describe('queue terminal presentation', () => {
     expect(terminal.stdout.startsWith('ARB queue — as of 2026-01-08')).toBe(true);
     expect(terminal.stdout).toContain('Corpus findings');
     expect(terminal.exitCode).toBe(1);
+    // 0010 is proposed with no deciders. Review state alone would allow it, but the
+    // accepted record would be invalid, so the view must not advertise the command.
+    const block0010 = terminal.stdout.slice(terminal.stdout.indexOf(' 0010 '));
+    const item0010 = block0010.slice(0, block0010.indexOf('\n\n'));
+    expect(item0010).not.toContain('adr accept 0010');
+    expect(item0010).toContain('blocked:');
+    expect(item0010).toContain('decider');
     const piped = await run([]);
     const markdown = await run(['--format', 'markdown']);
     expect(piped.stdout).toBe(markdown.stdout);

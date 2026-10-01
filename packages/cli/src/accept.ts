@@ -6,6 +6,7 @@ import { commandOptions, renderGlobalColorUsageLine, withGlobalColorOption } fro
 import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
 import { getPresentation, type StreamStyle } from './presentation.ts';
 import { closestCandidate } from './recovery.ts';
+import { cleanText } from './terminal-text.ts';
 
 const USAGE = `Usage: adr accept <id> --by <identity> [options]
 
@@ -44,10 +45,12 @@ function usageError(message: string): number {
 
 function refusal(message: string, findings: readonly Finding[] = []): number {
   const style = getPresentation().stderr;
-  const lines = [`${style.severity('error')} adr accept refused: ${message}`];
+  // Messages and findings quote corpus content (ids, paths, titles), so they cross
+  // the same trust boundary as the queue's terminal view.
+  const lines = [`${style.severity('error')} adr accept refused: ${cleanText(message)}`];
   for (const finding of findings) {
-    const field = finding.field ? ` (${finding.field})` : '';
-    lines.push(`  ${style.severity(finding.severity)} ${finding.rule}${field}: ${finding.message}`);
+    const field = finding.field ? ` (${cleanText(finding.field)})` : '';
+    lines.push(`  ${style.severity(finding.severity)} ${cleanText(finding.rule)}${field}: ${cleanText(finding.message)}`);
   }
   lines.push(style.note('The record was not changed.'));
   process.stderr.write(`${lines.join('\n')}\n`);
@@ -79,10 +82,11 @@ function renderAccepted(
   result: { id: string; title: string; path: string; ratifiedBy: string; decidedAt: string },
   style: StreamStyle,
 ): string {
+  // The title and path come from the corpus; strip terminal control characters.
   return [
-    `${style.status('accepted')} ADR-${result.id}: ${result.title}`,
+    `${style.status('accepted')} ADR-${cleanText(result.id)}: ${cleanText(result.title)}`,
     `  ${style.label('ratified by')} ${result.ratifiedBy} ${style.note(`at ${result.decidedAt}`)}`,
-    `  ${style.path(result.path)}`,
+    `  ${style.path(cleanText(result.path))}`,
     style.note('Nothing was committed. Review the diff, then open a pull request.'),
     '',
   ].join('\n');

@@ -126,3 +126,18 @@ describe('adr accept on an unparseable record', () => {
     expect(result.stderr).toContain('exists but is invalid');
   });
 });
+
+describe('adr accept output', () => {
+  test('never writes corpus-controlled control characters to the terminal', async () => {
+    const root = sandbox('within-sla-corpus');
+    const path = recordFile(root, '0001');
+    const { writeFileSync } = await import('node:fs');
+    const hostile = readFileSync(path, 'utf8').replace(/^title: .*$/m, 'title: "Evil \\u001b[2J\\u001b]0;pwned\\u0007 title"');
+    writeFileSync(path, hostile);
+    const result = await runAdr(['accept', '0001', '--by', '@carol'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Evil');
+    expect(result.stdout).not.toContain('\u001b');
+    expect(result.stdout).not.toContain('\u0007');
+  });
+});
