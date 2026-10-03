@@ -40452,11 +40452,10 @@ function repositoryUrl(links) {
   return `${links.serverUrl.slice(0, end)}/${links.repository.split("/").map(encodeSegment).join("/")}`;
 }
 function blobUrl(links, path, line) {
-  const forward = path.replace(/\\/g, "/");
-  if (forward.length === 0 || forward.startsWith("/") || /[\u0000-\u001f\u007f]/.test(forward)) {
+  if (path.length === 0 || path.startsWith("/") || /[\u0000-\u001f\u007f]/.test(path)) {
     return;
   }
-  const segments = forward.split("/");
+  const segments = path.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
     return;
   }
@@ -40471,7 +40470,7 @@ function recordReference(recordId, links) {
 }
 function footerLine(links) {
   const commit = `${repositoryUrl(links)}/commit/${encodeSegment(links.ref)}`;
-  return `<sub>Records linked at head [${code(links.ref.slice(0, 7))}](${commit}). Run ${code("adr explain <path>")} locally to see why a file is governed.</sub>`;
+  return `<sub>Links point at [${code(links.ref.slice(0, 7))}](${commit}), this run's ${code("GITHUB_SHA")}. Run ${code("adr explain <path>")} locally to see why a file is governed.</sub>`;
 }
 function plural(count, singular, pluralForm = `${singular}s`) {
   return `${count} ${count === 1 ? singular : pluralForm}`;
@@ -40479,7 +40478,7 @@ function plural(count, singular, pluralForm = `${singular}s`) {
 function tallyLine(outcome) {
   const accepted = outcome.governing.length;
   const parts = [
-    `**${accepted}** accepted ${accepted === 1 ? "decision governs" : "decisions govern"} ${plural(outcome.changedFiles.length, "changed file")}`
+    `**${accepted}** accepted ${accepted === 1 ? "decision governs" : "decisions govern"} this change`
   ];
   if (outcome.activeProposals.length > 0)
     parts.push(plural(outcome.activeProposals.length, "active proposal"));
@@ -40888,8 +40887,7 @@ async function main() {
     return;
   }
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
-  const headSha = context2.payload.pull_request.head?.sha;
-  const links = typeof headSha === "string" && headSha.length > 0 ? { serverUrl: context2.serverUrl, repository: `${context2.repo.owner}/${context2.repo.repo}`, ref: headSha } : undefined;
+  const links = context2.sha.length > 0 ? { serverUrl: context2.serverUrl, repository: `${context2.repo.owner}/${context2.repo.repo}`, ref: context2.sha } : undefined;
   await runAction({
     client: createOctokitClient(token),
     dir,

@@ -13,8 +13,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 - **The governing-decisions comment links each record and folds long
   lists.** Every record id, including a superseded record's successor, now
-  links to the record at the pull request's head commit, and each `@adr`
-  declaration links to its line. Links are built from the workflow's server
+  links to the record at the commit the run evaluated (`GITHUB_SHA`), and
+  each `@adr` declaration links to its line. Links are built from the workflow's server
   URL, so they resolve on GitHub Enterprise Server too. A path that is
   absolute, escapes the tree, or holds a control character is left unlinked.
   A one-line tally under the heading gives the accepted-decision count. Up to

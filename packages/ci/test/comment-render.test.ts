@@ -555,7 +555,7 @@ describe('links and collapsed sections', () => {
 
     expect(body).toContain('- **0001** — Guard the API package');
     expect(body).not.toContain('](');
-    expect(body).not.toContain('Records linked at head');
+    expect(body).not.toContain('Links point at');
   });
 
   test('links each record id to the record at the evaluated commit', async () => {
@@ -564,7 +564,7 @@ describe('links and collapsed sections', () => {
     const body = renderComment(outcome, { links: linksFor({ '0001': 'docs/adr/0001-api.md' }) });
 
     expect(body).toContain(`- [**0001**](${BLOB}/docs/adr/0001-api.md) — Guard the API package`);
-    expect(body).toContain(`Records linked at head [\`0123456\`](https://github.com/acme/widgets/commit/${SHA})`);
+    expect(body).toContain(`Links point at [\`0123456\`](https://github.com/acme/widgets/commit/${SHA}), this run's \`GITHUB_SHA\``);
     expect(body.indexOf(CI_COMMENT_MARKER)).toBe(0);
     expect(renderComment(outcome, { links: linksFor({ '0001': 'docs/adr/0001-api.md' }) })).toBe(body);
   });
@@ -619,6 +619,27 @@ describe('links and collapsed sections', () => {
     }
   });
 
+  test('a backslash in a path is a filename character, not a separator', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+    const decision = outcome.governing[0];
+    if (!decision) throw new Error('expected a governing decision to annotate');
+    decision.declaredBy = [{ path: 'packages/api/src/we\\ird.ts', line: 1, ref: '0001' }];
+
+    const body = renderComment(outcome, { links: linksFor({}) });
+
+    expect(body).toContain(`(${BLOB}/packages/api/src/we%5Cird.ts#L1)`);
+    expect(body).not.toContain('/we/ird.ts');
+  });
+
+  test('a rename is not tallied as two changed files', async () => {
+    const root = await seed();
+    const body = renderComment(await outcomeFor(root, ['packages/api/src/old.ts', 'packages/api/src/new.ts']));
+
+    expect(body).toContain('**1** accepted decision governs this change\n');
+    expect(body).not.toContain('changed files');
+  });
+
   test('links a declaration to its line, through the same encoding', async () => {
     const root = await seed();
     const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
@@ -635,7 +656,7 @@ describe('links and collapsed sections', () => {
     const root = await seed();
     const body = renderComment(await outcomeFor(root, ['packages/api/src/a.ts', 'packages/web/src/b.ts']));
 
-    expect(body).toContain('### Decisions governing this change\n\n**2** accepted decisions govern 2 changed files\n');
+    expect(body).toContain('### Decisions governing this change\n\n**2** accepted decisions govern this change\n');
   });
 
   test(`keeps up to ${10} governing decisions expanded`, async () => {
@@ -650,7 +671,7 @@ describe('links and collapsed sections', () => {
     const root = await seedMany(11);
     const body = renderComment(await outcomeFor(root, ['src/a.ts']));
 
-    expect(body).toContain('**11** accepted decisions govern 1 changed file');
+    expect(body).toContain('**11** accepted decisions govern this change');
     expect(body).toContain(
       '<details>\n<summary>Show all 11 governing decisions and why each applies</summary>\n\n- **0001** — Record 0001',
     );

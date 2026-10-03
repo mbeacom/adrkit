@@ -69,7 +69,7 @@ export interface CommentLinks {
   serverUrl: string;
   /** `owner/name`. */
   repository: string;
-  /** The commit record links point at: the pull request's head. */
+  /** The commit links point at: the one whose tree the paths and lines were read from. */
   ref: string;
   /** Record id → repo-relative record path, from the corpus the Action linted. */
   recordPaths: ReadonlyMap<string, string>;
@@ -105,13 +105,15 @@ function repositoryUrl(links: CommentLinks): string {
  * Record paths come from corpus filenames and declaration paths from the pull request,
  * so both are untrusted. Anything absolute, escaping the tree, or carrying a control
  * character renders unlinked rather than producing a link that points somewhere else.
+ *
+ * A backslash is a filename character in a Git path, not a separator, so it is kept and
+ * encoded as `%5C`: `src/we\ird.ts` must not link to the different file `src/we/ird.ts`.
  */
 function blobUrl(links: CommentLinks, path: string, line?: number): string | undefined {
-  const forward = path.replace(/\\/g, '/');
-  if (forward.length === 0 || forward.startsWith('/') || /[\u0000-\u001f\u007f]/.test(forward)) {
+  if (path.length === 0 || path.startsWith('/') || /[\u0000-\u001f\u007f]/.test(path)) {
     return undefined;
   }
-  const segments = forward.split('/');
+  const segments = path.split('/');
   if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
     return undefined;
   }
@@ -127,13 +129,10 @@ function recordReference(recordId: string, links: CommentLinks | undefined): str
   return url ? `[${label}](${url})` : label;
 }
 
-/**
- * A short provenance line, so a reader can tell which push the comment describes. It
- * names the head commit the links point at, not the merge commit the checkout linted.
- */
+/** A short provenance line, so a reader can tell which run the comment describes. */
 function footerLine(links: CommentLinks): string {
   const commit = `${repositoryUrl(links)}/commit/${encodeSegment(links.ref)}`;
-  return `<sub>Records linked at head [${code(links.ref.slice(0, 7))}](${commit}). Run ${code('adr explain <path>')} locally to see why a file is governed.</sub>`;
+  return `<sub>Links point at [${code(links.ref.slice(0, 7))}](${commit}), this run's ${code('GITHUB_SHA')}. Run ${code('adr explain <path>')} locally to see why a file is governed.</sub>`;
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
@@ -147,7 +146,9 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`): s
 function tallyLine(outcome: CheckOutcome): string {
   const accepted = outcome.governing.length;
   const parts = [
-    `**${accepted}** accepted ${accepted === 1 ? 'decision governs' : 'decisions govern'} ${plural(outcome.changedFiles.length, 'changed file')}`,
+    // No changed-file count: `changedFiles` carries both sides of a rename, so it
+    // counts paths the resolver matched against, not files the pull request changed.
+    `**${accepted}** accepted ${accepted === 1 ? 'decision governs' : 'decisions govern'} this change`,
   ];
   if (outcome.activeProposals.length > 0) parts.push(plural(outcome.activeProposals.length, 'active proposal'));
   if (outcome.history.length > 0) parts.push(plural(outcome.history.length, 'historical record'));

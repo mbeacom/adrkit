@@ -28,15 +28,14 @@ async function main(): Promise<void> {
   }
 
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
-  // Link records at the PR head commit, in the base repository. The default checkout
-  // lints the merge commit in GITHUB_SHA, but that commit is regenerated on every base
-  // push and is never shown to reviewers; the head commit is stable, and a fork's head
-  // stays reachable from the base repository through refs/pull/N/head after the fork
-  // is deleted.
-  const headSha: unknown = context.payload.pull_request.head?.sha;
+  // Link at GITHUB_SHA, the merge commit the default checkout lints. Record paths and
+  // marker line numbers are read from that tree, so a link at the PR head would 404 for
+  // a record the base branch added after the PR branched, and a base change above a
+  // marker would shift its #L anchor onto the wrong line. The merge commit is
+  // regenerated when the base moves, but the comment is rewritten on every run.
   const links =
-    typeof headSha === 'string' && headSha.length > 0
-      ? { serverUrl: context.serverUrl, repository: `${context.repo.owner}/${context.repo.repo}`, ref: headSha }
+    context.sha.length > 0
+      ? { serverUrl: context.serverUrl, repository: `${context.repo.owner}/${context.repo.repo}`, ref: context.sha }
       : undefined;
 
   await runAction({
