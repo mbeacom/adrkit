@@ -9,21 +9,37 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-02
+
+This release changes only the governing-decisions Action. The four npm
+packages move to 0.17.0 in lockstep and carry no behavior change from 0.16.0.
+Consumers of `packages/ci@v0` pick up the new comment when `v0` moves to this
+release.
+
 ### Changed
 
 - **The governing-decisions comment links each record and folds long
   lists.** Every record id, including a superseded record's successor, now
   links to the record at the commit the run evaluated (`GITHUB_SHA`), and
-  each `@adr` declaration links to its line. Links are built from the workflow's server
-  URL, so they resolve on GitHub Enterprise Server too. A path that is
-  absolute, escapes the tree, or holds a control character is left unlinked.
-  A one-line tally under the heading gives the accepted-decision count. Up to
-  ten governing decisions stay expanded, and more collapse behind a summary
-  that carries the count. Active proposals and historical records are always
-  collapsed, since neither binds the change. When the body has to be
-  truncated, every open collapsed section is closed first so the truncation
-  notice stays visible. The hidden marker is still the first line, and every
-  existing display cap still applies.
+  each `@adr` declaration links to its line. Links are built from the
+  workflow's server URL, so they resolve on GitHub Enterprise Server too. A
+  path that is absolute, escapes the tree, or holds a control character is
+  left unlinked. A one-line tally under the heading gives the
+  accepted-decision count. Up to ten governing decisions stay expanded, and
+  more collapse behind a summary that carries the count. Active proposals
+  and historical records are always collapsed, since neither binds the
+  change. When the body has to be truncated, every open collapsed section is
+  closed first so the truncation notice stays visible. The hidden marker is
+  still the first line, and every existing display cap still applies
+  ([#257](https://github.com/mbeacom/adrkit/pull/257)).
+
+  **The comment's layout is not a documented contract, but it did change.**
+  The `#### Active proposals touching this change` and
+  `#### Historical records that once covered this change` headings are now
+  `<summary>` lines of collapsed `<details>` blocks, with the record count
+  appended. Anything that scrapes posted comments for those headings needs
+  updating; the `<!-- adrkit:ci -->` marker that identifies the comment is
+  unchanged.
 
 ## [0.16.0] - 2026-10-01
 
@@ -1742,7 +1758,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/mbeacom/adrkit/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/mbeacom/adrkit/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/mbeacom/adrkit/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/mbeacom/adrkit/compare/v0.13.0...v0.14.0
