@@ -28,6 +28,15 @@ async function main(): Promise<void> {
   }
 
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
+  // Link at GITHUB_SHA, the merge commit the default checkout lints. Record paths and
+  // marker line numbers are read from that tree, so a link at the PR head would 404 for
+  // a record the base branch added after the PR branched, and a base change above a
+  // marker would shift its #L anchor onto the wrong line. The merge commit is
+  // regenerated when the base moves, but the comment is rewritten on every run.
+  const links =
+    context.sha.length > 0
+      ? { serverUrl: context.serverUrl, repository: `${context.repo.owner}/${context.repo.repo}`, ref: context.sha }
+      : undefined;
 
   await runAction({
     client: createOctokitClient(token),
@@ -35,6 +44,7 @@ async function main(): Promise<void> {
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
     readMarkers: (paths) => readSourceMarkersBatch(paths, workspace),
     extract: extractChanges,
+    links,
     log: {
       info: (message) => core.info(message),
       notice: (message) => core.notice(message),

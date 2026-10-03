@@ -5,7 +5,7 @@ import {
   type SourceMarkerBatchScan,
 } from '@adrkit/core';
 import { extractChanges, type ExtractedChanges } from './changed-files.ts';
-import { CI_COMMENT_MARKER, renderComment, renderTruncatedNotice } from './comment.ts';
+import { CI_COMMENT_MARKER, renderComment, renderTruncatedNotice, type CommentLinks } from './comment.ts';
 import { isPermissionError, upsertMarkedComment, type GitHubClient, type UpsertOutcome } from './github.ts';
 
 /** Minimal logger port so the orchestrator can be driven with a fake in tests. */
@@ -22,6 +22,11 @@ export interface ActionDeps {
   loadLint: (dir: string) => Promise<CheckLintResult>;
   readMarkers: (paths: readonly string[]) => Promise<SourceMarkerBatchScan>;
   extract?: (client: GitHubClient) => Promise<ExtractedChanges>;
+  /**
+   * Where record ids in the comment link to. The record paths are filled in here from
+   * the linted corpus; when omitted, ids render unlinked.
+   */
+  links?: { serverUrl: string; repository: string; ref: string };
   log: Logger;
 }
 
@@ -110,7 +115,11 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
     }
   }
 
-  const result = await comment(deps, renderComment(outcome));
+  const links: CommentLinks | undefined = deps.links && {
+    ...deps.links,
+    recordPaths: new Map(lint.records.map((record) => [record.frontmatter.id, record.path])),
+  };
+  const result = await comment(deps, renderComment(outcome, { links }));
 
   const changedRecordErrors = outcome.findings.filter(
     (finding) =>

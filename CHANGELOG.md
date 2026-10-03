@@ -9,6 +9,22 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Changed
+
+- **The governing-decisions comment links each record and folds long
+  lists.** Every record id, including a superseded record's successor, now
+  links to the record at the commit the run evaluated (`GITHUB_SHA`), and
+  each `@adr` declaration links to its line. Links are built from the workflow's server
+  URL, so they resolve on GitHub Enterprise Server too. A path that is
+  absolute, escapes the tree, or holds a control character is left unlinked.
+  A one-line tally under the heading gives the accepted-decision count. Up to
+  ten governing decisions stay expanded, and more collapse behind a summary
+  that carries the count. Active proposals and historical records are always
+  collapsed, since neither binds the change. When the body has to be
+  truncated, every open collapsed section is closed first so the truncation
+  notice stays visible. The hidden marker is still the first line, and every
+  existing display cap still applies.
+
 ## [0.16.0] - 2026-10-01
 
 ### Security

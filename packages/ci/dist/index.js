@@ -40428,10 +40428,12 @@ var CI_COMMENT_MARKER = "<!-- adrkit:ci -->";
 var HEADING = "### Decisions governing this change";
 var EMPTY_STATE = "No governing decisions for the changed files.";
 var NO_ACCEPTED_STATE = "No **accepted** decisions govern the changed files. Records below matched but do not bind this change.";
-var PROPOSALS_HEADING = "#### Active proposals touching this change";
+var PROPOSALS_SUMMARY = "Active proposals touching this change";
 var PROPOSALS_NOTE = "These are not yet ratified and do not bind this change:";
-var HISTORY_HEADING = "#### Historical records that once covered this change";
+var HISTORY_SUMMARY = "Historical records that once covered this change";
 var HISTORY_NOTE = "These no longer bind this change, and are listed for context only:";
+var GOVERNING_EXPANDED_MAX = 10;
+var DETAILS_CLOSE = "</details>";
 var MAX_GOVERNING = 50;
 var MAX_DECLARATIONS = 10;
 var MAX_MARKER_PATHS_PER_STATE = 10;
@@ -40440,6 +40442,53 @@ var MAX_COMMENT_CHARS = 65536;
 var TRUNCATION_NOTICE = "- …output truncated to fit GitHub’s comment size limit; run `adr check` locally for the complete result.";
 var MAX_FINDING_FIELD_CHARS = 256;
 var MAX_FINDING_MESSAGE_CHARS = 1024;
+function encodeSegment(segment) {
+  return encodeURIComponent(segment).replace(/[()'!*~]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+function repositoryUrl(links) {
+  let end = links.serverUrl.length;
+  while (end > 0 && links.serverUrl.charCodeAt(end - 1) === 47)
+    end -= 1;
+  return `${links.serverUrl.slice(0, end)}/${links.repository.split("/").map(encodeSegment).join("/")}`;
+}
+function blobUrl(links, path, line) {
+  if (path.length === 0 || path.startsWith("/") || /[\u0000-\u001f\u007f]/.test(path)) {
+    return;
+  }
+  const segments = path.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return;
+  }
+  const anchor = line !== undefined && Number.isInteger(line) && line > 0 ? `#L${line}` : "";
+  return `${repositoryUrl(links)}/blob/${encodeSegment(links.ref)}/${segments.map(encodeSegment).join("/")}${anchor}`;
+}
+function recordReference(recordId, links) {
+  const label = `**${recordId}**`;
+  const path = links?.recordPaths.get(recordId);
+  const url = links && path !== undefined ? blobUrl(links, path) : undefined;
+  return url ? `[${label}](${url})` : label;
+}
+function footerLine(links) {
+  const commit = `${repositoryUrl(links)}/commit/${encodeSegment(links.ref)}`;
+  return `<sub>Links point at [${code(links.ref.slice(0, 7))}](${commit}), this run's ${code("GITHUB_SHA")}. Run ${code("adr explain <path>")} locally to see why a file is governed.</sub>`;
+}
+function plural(count, singular, pluralForm = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+function tallyLine(outcome) {
+  const accepted = outcome.governing.length;
+  const parts = [
+    `**${accepted}** accepted ${accepted === 1 ? "decision governs" : "decisions govern"} this change`
+  ];
+  if (outcome.activeProposals.length > 0)
+    parts.push(plural(outcome.activeProposals.length, "active proposal"));
+  if (outcome.history.length > 0)
+    parts.push(plural(outcome.history.length, "historical record"));
+  return parts.join(" · ");
+}
+function collapsed(summary, body) {
+  return ["<details>", `<summary>${summary}</summary>`, "", ...body, "", DETAILS_CLOSE];
+}
 function changedRecordFindings(outcome) {
   const changed = new Set(outcome.changedRecords);
   return outcome.findings.filter((finding) => finding.field !== "marker" && finding.path !== undefined && changed.has(finding.path));
@@ -40516,16 +40565,18 @@ function markerClaimLines(outcome) {
   }
   return lines;
 }
-function renderDecisionLines(decision, withStatus) {
+function renderDecisionLines(decision, withStatus, links) {
   const status = withStatus ? ` _(${decision.status})_` : "";
-  const successor = decision.supersededBy ? ` — superseded by **${decision.supersededBy}**` : "";
-  const lines = [`- **${decision.recordId}** — ${decision.title}${status}${successor}`];
+  const successor = decision.supersededBy ? ` — superseded by ${recordReference(decision.supersededBy, links)}` : "";
+  const lines = [`- ${recordReference(decision.recordId, links)} — ${decision.title}${status}${successor}`];
   for (const matcher of decision.firedMatchers) {
     lines.push(`  - via ${code(matcher.type)}: ${code(matcher.pattern)}`);
   }
   const declarations = decision.declaredBy ?? [];
   for (const declaration of declarations.slice(0, MAX_DECLARATIONS)) {
-    lines.push(`  - declared by ${code(`${declaration.path}:${declaration.line}`)} (${code(`@adr ${declaration.ref}`)})`);
+    const location = code(`${declaration.path}:${declaration.line}`);
+    const url = links ? blobUrl(links, declaration.path, declaration.line) : undefined;
+    lines.push(`  - declared by ${url ? `[${location}](${url})` : location} (${code(`@adr ${declaration.ref}`)})`);
   }
   const remaining = declarations.length - Math.min(declarations.length, MAX_DECLARATIONS);
   if (remaining > 0) {
@@ -40540,29 +40591,37 @@ function withinCommentLimit(lines) {
   if (body.length <= MAX_COMMENT_CHARS)
     return body;
   const budget = MAX_COMMENT_CHARS - (TRUNCATION_NOTICE.length + 2);
+  const closersCost = (depth) => depth > 0 ? 1 + depth * (DETAILS_CLOSE.length + 1) : 0;
   const kept = [CI_COMMENT_MARKER];
   let used = CI_COMMENT_MARKER.length + 1;
+  let depth = 0;
   for (const line of lines.slice(1)) {
+    const next = line === "<details>" ? depth + 1 : line === DETAILS_CLOSE ? depth - 1 : depth;
     const cost = line.length + 1;
-    if (used + cost > budget)
+    if (used + cost + closersCost(next) > budget)
       break;
     kept.push(line);
     used += cost;
+    depth = next;
   }
-  return `${[...kept, "", TRUNCATION_NOTICE].join(`
+  const closers = depth > 0 ? ["", ...Array.from({ length: depth }, () => DETAILS_CLOSE)] : [];
+  return `${[...kept, ...closers, "", TRUNCATION_NOTICE].join(`
 `)}
 `;
 }
-function renderDecisionList(decisions, withStatus) {
+function renderDecisionList(decisions, withStatus, links) {
   const shown = decisions.slice(0, MAX_GOVERNING);
-  const lines = shown.flatMap((decision) => renderDecisionLines(decision, withStatus));
+  const lines = shown.flatMap((decision) => renderDecisionLines(decision, withStatus, links));
   const remaining = decisions.length - shown.length;
   if (remaining > 0)
     lines.push(`- …and ${remaining} more record${remaining === 1 ? "" : "s"}`);
   return lines;
 }
-function renderComment(outcome) {
+function renderComment(outcome, options = {}) {
+  const { links } = options;
   const lines = [CI_COMMENT_MARKER, "", HEADING, ""];
+  if (outcome.governing.length > 0)
+    lines.push(tallyLine(outcome), "");
   const findings = changedRecordFindings(outcome);
   const errors = findings.filter((finding) => finding.severity === "error");
   const warnings = findings.filter((finding) => finding.severity === "warn");
@@ -40585,22 +40644,32 @@ function renderComment(outcome) {
     lines.push(EMPTY_STATE);
   } else if (outcome.governing.length === 0) {
     lines.push(NO_ACCEPTED_STATE);
+  } else if (outcome.governing.length <= GOVERNING_EXPANDED_MAX) {
+    lines.push(...renderDecisionList(outcome.governing, false, links));
   } else {
-    lines.push(...renderDecisionList(outcome.governing, false));
+    lines.push(...collapsed(`Show all ${outcome.governing.length} governing decisions and why each applies`, renderDecisionList(outcome.governing, false, links)));
   }
   if (outcome.activeProposals.length > 0) {
-    lines.push("", PROPOSALS_HEADING, "", PROPOSALS_NOTE);
-    lines.push(...renderDecisionList(outcome.activeProposals, true));
+    lines.push("", ...collapsed(`${PROPOSALS_SUMMARY} (${outcome.activeProposals.length})`, [
+      PROPOSALS_NOTE,
+      "",
+      ...renderDecisionList(outcome.activeProposals, true, links)
+    ]));
   }
   if (outcome.history.length > 0) {
-    lines.push("", HISTORY_HEADING, "", HISTORY_NOTE);
-    lines.push(...renderDecisionList(outcome.history, true));
+    lines.push("", ...collapsed(`${HISTORY_SUMMARY} (${outcome.history.length})`, [
+      HISTORY_NOTE,
+      "",
+      ...renderDecisionList(outcome.history, true, links)
+    ]));
   }
   if (warnings.length > 0) {
     lines.push("", "#### Warnings on changed records", "");
     for (const finding of warnings)
       lines.push(renderFindingLine(finding));
   }
+  if (links)
+    lines.push("", footerLine(links));
   return withinCommentLimit(lines);
 }
 function renderTruncatedNotice() {
@@ -40792,7 +40861,11 @@ async function runAction(deps) {
       deps.log.warning(`adrkit: marker scan reached the ${report.limit}-file cap; skipped: ${report.skippedPaths.join(", ")}`);
     }
   }
-  const result = await comment(deps, renderComment(outcome));
+  const links = deps.links && {
+    ...deps.links,
+    recordPaths: new Map(lint.records.map((record) => [record.frontmatter.id, record.path]))
+  };
+  const result = await comment(deps, renderComment(outcome, { links }));
   const changedRecordErrors = outcome.findings.filter((finding) => finding.severity === "error" && finding.path !== undefined && outcome.changedRecords.includes(finding.path));
   const failed = changedRecordErrors.length > 0;
   if (failed) {
@@ -40814,12 +40887,14 @@ async function main() {
     return;
   }
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
+  const links = context2.sha.length > 0 ? { serverUrl: context2.serverUrl, repository: `${context2.repo.owner}/${context2.repo.repo}`, ref: context2.sha } : undefined;
   await runAction({
     client: createOctokitClient(token),
     dir,
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
     readMarkers: (paths) => readSourceMarkersBatch(paths, workspace),
     extract: extractChanges,
+    links,
     log: {
       info: (message) => info(message),
       notice: (message) => notice(message),
