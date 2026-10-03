@@ -9,7 +9,7 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
-## [0.17.0] - 2026-10-02
+## [0.17.0] - 2026-10-03
 
 This release changes only the governing-decisions Action. The four npm
 packages move to 0.17.0 in lockstep and carry no behavior change from 0.16.0.
