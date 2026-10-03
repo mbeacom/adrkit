@@ -28,6 +28,16 @@ async function main(): Promise<void> {
   }
 
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
+  // Link records at the PR head commit, in the base repository. The default checkout
+  // lints the merge commit in GITHUB_SHA, but that commit is regenerated on every base
+  // push and is never shown to reviewers; the head commit is stable, and a fork's head
+  // stays reachable from the base repository through refs/pull/N/head after the fork
+  // is deleted.
+  const headSha: unknown = context.payload.pull_request.head?.sha;
+  const links =
+    typeof headSha === 'string' && headSha.length > 0
+      ? { serverUrl: context.serverUrl, repository: `${context.repo.owner}/${context.repo.repo}`, ref: headSha }
+      : undefined;
 
   await runAction({
     client: createOctokitClient(token),
@@ -35,6 +45,7 @@ async function main(): Promise<void> {
     loadLint: (corpusDir) => lintCorpus({ dir: corpusDir }),
     readMarkers: (paths) => readSourceMarkersBatch(paths, workspace),
     extract: extractChanges,
+    links,
     log: {
       info: (message) => core.info(message),
       notice: (message) => core.notice(message),

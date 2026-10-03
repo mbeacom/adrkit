@@ -52,6 +52,24 @@ describe('runAction (end to end with a fake client)', () => {
     expect(client.created[0]).toContain('**0001** — Guard core');
   });
 
+  test('links each record to its path in the linted corpus at the given commit', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-core.md'),
+      withPathMatcher(acceptedRecordMarkdown('0001', 'Guard core'), 'packages/core/**'),
+    );
+    const client = makeFakeClient();
+
+    await runAction({
+      ...deps(client, root, ['packages/core/src/index.ts']),
+      links: { serverUrl: 'https://github.com', repository: 'acme/widgets', ref: 'abc1234def' },
+    });
+
+    expect(client.created[0]).toContain(
+      '- [**0001**](https://github.com/acme/widgets/blob/abc1234def/docs/adr/0001-core.md) — Guard core',
+    );
+  });
+
   test('fails the job and surfaces the failing record when a changed record has an error', async () => {
     const root = await resetTestDir(DIR_NAME);
     await writeText(

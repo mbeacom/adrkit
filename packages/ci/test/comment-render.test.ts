@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { checkChanges, lintCorpus, readSourceMarkersBatch } from '@adrkit/core';
 import { acceptedRecordMarkdown, cleanupTestDir, recordMarkdown, resetTestDir, supersededRecordMarkdown, writeText } from '../../core/test/helpers.ts';
-import { CI_COMMENT_MARKER, renderComment, renderTruncatedNotice } from '../src/comment.ts';
+import { CI_COMMENT_MARKER, renderComment, renderTruncatedNotice, type CommentLinks } from '../src/comment.ts';
 
 const DIR_NAME = 'ci-comment-render';
 
@@ -242,7 +242,7 @@ describe('renderComment status awareness (#39)', () => {
 
     const governingSection = body.slice(
       body.indexOf('### Decisions governing this change'),
-      body.indexOf('#### Active proposals'),
+      body.indexOf('<summary>Active proposals'),
     );
     expect(governingSection).toContain('**0001** — Accepted record');
     expect(governingSection).not.toContain('0002');
@@ -252,13 +252,13 @@ describe('renderComment status awareness (#39)', () => {
     );
   });
 
-  test('proposals and history are labelled with their status under their own headings', async () => {
+  test('proposals and history are labelled with their status in their own collapsed sections', async () => {
     const root = await seedMixed();
     const body = renderComment(await outcomeFor(root, ['src/api/thing.ts']));
 
-    expect(body).toContain('#### Active proposals touching this change');
+    expect(body).toContain('<details>\n<summary>Active proposals touching this change (1)</summary>\n\n');
     expect(body).toContain('**0002** — Draft record _(draft)_');
-    expect(body).toContain('#### Historical records that once covered this change');
+    expect(body).toContain('<details>\n<summary>Historical records that once covered this change (1)</summary>\n\n');
     expect(body).toContain('**0003** — Superseded record _(superseded)_ — superseded by **0001**');
   });
 
@@ -500,7 +500,9 @@ describe('renderComment status awareness (#39)', () => {
     const body = renderComment(await outcomeFor(root, ['src/api/thing.ts']));
 
     expect(body).toContain('No **accepted** decisions govern the changed files.');
-    expect(body).toContain('#### Active proposals touching this change');
+    expect(body).toContain('<summary>Active proposals touching this change (1)</summary>');
+    // A tally of zero would only repeat the sentence above.
+    expect(body).not.toContain('**0** accepted');
   });
 });
 
@@ -524,5 +526,153 @@ describe('the marker leads the body (ADR-0026)', () => {
 
     expect(body.startsWith(CI_COMMENT_MARKER)).toBe(true);
     expect(body.indexOf(CI_COMMENT_MARKER)).toBe(0);
+  });
+});
+
+describe('links and collapsed sections', () => {
+  const SHA = '0123456789abcdef0123456789abcdef01234567';
+  const BLOB = `https://github.com/acme/widgets/blob/${SHA}`;
+
+  function linksFor(recordPaths: Record<string, string>, serverUrl = 'https://github.com'): CommentLinks {
+    return { serverUrl, repository: 'acme/widgets', ref: SHA, recordPaths: new Map(Object.entries(recordPaths)) };
+  }
+
+  async function seedMany(count: number): Promise<string> {
+    const root = await resetTestDir(DIR_NAME);
+    for (let index = 1; index <= count; index += 1) {
+      const id = String(index).padStart(4, '0');
+      await writeText(
+        join(root, `docs/adr/${id}-record.md`),
+        withAffects(acceptedRecordMarkdown(id, `Record ${id}`), path('src/**')),
+      );
+    }
+    return root;
+  }
+
+  test('without links, record ids render exactly as before', async () => {
+    const root = await seed();
+    const body = renderComment(await outcomeFor(root, ['packages/api/src/server.ts']));
+
+    expect(body).toContain('- **0001** — Guard the API package');
+    expect(body).not.toContain('](');
+    expect(body).not.toContain('Records linked at head');
+  });
+
+  test('links each record id to the record at the evaluated commit', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+    const body = renderComment(outcome, { links: linksFor({ '0001': 'docs/adr/0001-api.md' }) });
+
+    expect(body).toContain(`- [**0001**](${BLOB}/docs/adr/0001-api.md) — Guard the API package`);
+    expect(body).toContain(`Records linked at head [\`0123456\`](https://github.com/acme/widgets/commit/${SHA})`);
+    expect(body.indexOf(CI_COMMENT_MARKER)).toBe(0);
+    expect(renderComment(outcome, { links: linksFor({ '0001': 'docs/adr/0001-api.md' }) })).toBe(body);
+  });
+
+  test('uses the server URL it is given, so GitHub Enterprise Server links to itself', async () => {
+    const root = await seed();
+    const body = renderComment(await outcomeFor(root, ['packages/api/src/server.ts']), {
+      links: linksFor({ '0001': 'docs/adr/0001-api.md' }, 'https://ghe.example.com/'),
+    });
+
+    expect(body).toContain(`(https://ghe.example.com/acme/widgets/blob/${SHA}/docs/adr/0001-api.md)`);
+  });
+
+  test('links the successor of a superseded record', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, 'docs/adr/0001-new.md'), withAffects(acceptedRecordMarkdown('0001', 'New'), path('src/**')));
+    await writeText(
+      join(root, 'docs/adr/0002-old.md'),
+      withAffects(supersededRecordMarkdown('0002', '0001', 'Old'), path('src/**')),
+    );
+    const body = renderComment(await outcomeFor(root, ['src/a.ts']), {
+      links: linksFor({ '0001': 'docs/adr/0001-new.md', '0002': 'docs/adr/0002-old.md' }),
+    });
+
+    expect(body).toContain(
+      `- [**0002**](${BLOB}/docs/adr/0002-old.md) — Old _(superseded)_ — superseded by [**0001**](${BLOB}/docs/adr/0001-new.md)`,
+    );
+  });
+
+  test('a record the corpus has no path for renders unlinked', async () => {
+    const root = await seed();
+    const body = renderComment(await outcomeFor(root, ['packages/api/src/server.ts']), { links: linksFor({}) });
+
+    expect(body).toContain('- **0001** — Guard the API package');
+  });
+
+  test('percent-encodes characters that would end a link destination', async () => {
+    const root = await seed();
+    const body = renderComment(await outcomeFor(root, ['packages/api/src/server.ts']), {
+      links: linksFor({ '0001': "docs/adr/0001 (it's)](evil.example).md" }),
+    });
+
+    expect(body).toContain(`(${BLOB}/docs/adr/0001%20%28it%27s%29%5D%28evil.example%29.md)`);
+    expect(body).not.toContain('](evil.example)');
+  });
+
+  test('a path that is absolute or escapes the tree is never linked', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+    for (const unsafe of ['/etc/passwd', '../outside/0001.md', 'docs/./adr/0001.md', 'docs//adr.md', 'docs/a\nb.md']) {
+      expect(renderComment(outcome, { links: linksFor({ '0001': unsafe }) })).toContain('- **0001** — Guard the API package');
+    }
+  });
+
+  test('links a declaration to its line, through the same encoding', async () => {
+    const root = await seed();
+    const outcome = await outcomeFor(root, ['packages/api/src/server.ts']);
+    const decision = outcome.governing[0];
+    if (!decision) throw new Error('expected a governing decision to annotate');
+    decision.declaredBy = [{ path: 'packages/api/src/a b.ts', line: 3, ref: '0001' }];
+
+    const body = renderComment(outcome, { links: linksFor({}) });
+
+    expect(body).toContain(`declared by [\`packages/api/src/a b.ts:3\`](${BLOB}/packages/api/src/a%20b.ts#L3) (\`@adr 0001\`)`);
+  });
+
+  test('leads with a tally of what governs the change', async () => {
+    const root = await seed();
+    const body = renderComment(await outcomeFor(root, ['packages/api/src/a.ts', 'packages/web/src/b.ts']));
+
+    expect(body).toContain('### Decisions governing this change\n\n**2** accepted decisions govern 2 changed files\n');
+  });
+
+  test(`keeps up to ${10} governing decisions expanded`, async () => {
+    const root = await seedMany(10);
+    const body = renderComment(await outcomeFor(root, ['src/a.ts']));
+
+    expect(body).not.toContain('<details>');
+    expect(body).toContain('- **0010** — Record 0010');
+  });
+
+  test('collapses a long governing list behind a summary carrying its count', async () => {
+    const root = await seedMany(11);
+    const body = renderComment(await outcomeFor(root, ['src/a.ts']));
+
+    expect(body).toContain('**11** accepted decisions govern 1 changed file');
+    expect(body).toContain(
+      '<details>\n<summary>Show all 11 governing decisions and why each applies</summary>\n\n- **0001** — Record 0001',
+    );
+    expect(body).toContain('- **0011** — Record 0011\n  - via `path`: `src/**`\n\n</details>');
+  });
+
+  test('truncation inside a collapsed section closes it, so the notice stays visible', async () => {
+    const root = await seedMany(11);
+    const outcome = await outcomeFor(root, ['src/a.ts']);
+    for (const decision of outcome.governing) {
+      decision.firedMatchers = Array.from({ length: 200 }, (_, index) => ({
+        type: 'path' as const,
+        pattern: `src/${index}/${'x'.repeat(40)}/**`,
+      }));
+    }
+
+    const body = renderComment(outcome, { links: linksFor({}) });
+
+    expect(body.length).toBeLessThanOrEqual(65536);
+    expect(body.indexOf(CI_COMMENT_MARKER)).toBe(0);
+    expect(body.match(/^<details>$/gm)?.length).toBe(body.match(/^<\/details>$/gm)?.length);
+    expect(body).toMatch(/<\/details>\n\n- …output truncated to fit GitHub’s comment size limit/);
+    expect(renderComment(outcome, { links: linksFor({}) })).toBe(body);
   });
 });
