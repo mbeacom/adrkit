@@ -129,7 +129,8 @@ that prefix as reserved, measured):
 `ctx.session?.workingDirectory` and throws `CanvasError("workspace_unavailable")`
 when there is none. It is idempotent per `instanceId` (a re-open returns the same
 URL), computes the snapshot by running Collect and Check in that directory, and
-returns `{ url, title, status }` with a short status such as "3 governing · ok".
+returns `{ url, title, status }` with a short status such as "3 governing · incomplete"
+(before a review, a governing decision has no verdict, so the status is never `ok`).
 `onClose(ctx)` closes that instance's server.
 
 **Working directory and CLI.** Every subprocess runs with `cwd` set to the
@@ -238,7 +239,10 @@ ADR draft merge:
 
 7. The extension id was `plugin:adrkit:adrkit` and the status line read
    "2 governing · ok". The page returned 200 with the full CSP (the
-   `style-src` token in it has since changed, above).
+   `style-src` token in it has since changed, above). Re-run after the review
+   fixes at `4781c02`: the status line read "2 governing · incomplete", the CSP
+   carried `style-src 'self' 'unsafe-inline'` with `script-src 'self'`, both
+   403s held, and close released the port.
 8. `GET /api/state` without the token returned 403, and `POST /api/refresh`
    without the header returned 403. The state showed the fixture's two files
    and governing records 0001 and 0002, with `adr check` and `adr lint` at

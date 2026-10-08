@@ -499,7 +499,12 @@ removed afterwards.
 ### Shipped canvas, headless smoke (Copilot CLI 1.0.93 SDK host)
 
 Run against the code at commit `2823994` plus the ADR draft merge, from
-`pluginDirectories`, on a two-record fixture.
+`pluginDirectories`, on a two-record fixture. The no-spend part was re-run after
+the review fixes at `4781c02`. The differences: the status line read
+`2 governing · incomplete`, because an unjudged governing decision is never
+`ok`, and the CSP's `style-src` is `'self' 'unsafe-inline'`, so the app's
+injected theme styles apply. The 403s, the snapshot and the port release on
+close were unchanged.
 
 | # | Probe | Result |
 |---|-------|--------|
