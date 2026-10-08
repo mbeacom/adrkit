@@ -442,6 +442,16 @@ describe('open and close', () => {
     expect(servers.length).toBe(1);
   });
 
+  test('two panels opened at once on one directory both open', async () => {
+    // What the app's rehydrate does after a reload with two panels open: the
+    // older refresh lands first and must still leave a snapshot to return.
+    const { options, servers } = makeCanvas();
+    const opened = await Promise.all([options.open(ctxFor('panel-a')), options.open(ctxFor('panel-b'))]);
+    openCanvases.push({ onClose: options.onClose, instanceId: 'panel-a' }, { onClose: options.onClose, instanceId: 'panel-b' });
+    expect(opened.map((entry: { status: string }) => entry.status)).toEqual(['1 governing · ok', '1 governing · ok']);
+    expect(servers.length).toBe(2);
+  });
+
   test('onClose closes the server, even with an event stream attached', async () => {
     const { options, servers } = makeCanvas();
     const opened = await openPanel(options);

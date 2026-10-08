@@ -593,8 +593,11 @@ export function createDecisionReviewCanvas({
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
     const snapshot = await computeSnapshot({ cwd, input: workspace.args, run, env, exists, now });
-    // A slower, older refresh must not overwrite a newer one.
-    if (seq === workspace.seq) {
+    // A slower, older refresh must not overwrite a newer one. It still fills
+    // an empty workspace: two panels opened at once on one directory would
+    // otherwise have the first to finish return a snapshot that does not exist
+    // yet. The newer refresh overwrites it when it lands.
+    if (seq === workspace.seq || workspace.check === null) {
       workspace.check = snapshot;
       const review = workspace.review;
       if (review && !review.watching && review.result) {
