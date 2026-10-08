@@ -50,7 +50,8 @@ Both links go through GitHub's hosted launcher
 `ghapp://` links as clickable, and the launcher shows a fallback page when the
 app is not installed. The link format follows
 [GitHub's deep-link documentation](https://docs.github.com/en/copilot/how-tos/github-copilot-app/open-with-deep-links).
-I have not followed these links myself. The app reads the same
+Their encoding round-trips exactly and the launcher answers HTTP 200 (measured
+2026-10-08), but I have not followed these links in the app myself. The app reads the same
 `~/.copilot/installed-plugins` as the CLI, so installing with the CLI commands
 above also makes the plugin available in the app. That is measured.
 

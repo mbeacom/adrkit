@@ -9,6 +9,15 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Documentation
+
+- **Recorded why the agent plugin declares no Agent Plugins 1.0 `extensions` logo.**
+  On Copilot CLI 1.0.93 an `extensions` object in `.claude-plugin/plugin.json` stops
+  the plugin's extension (workflow and canvas) from loading, although `claude plugin
+  validate` only warns and APM accepts it. The manifest is unchanged. The README
+  launcher links were checked to round-trip exactly and the launcher returns HTTP 200;
+  clicking them in the Copilot app is still unverified.
+
 ### Added
 
 - **The agent plugin ships a read-only `decision-review` canvas for the GitHub

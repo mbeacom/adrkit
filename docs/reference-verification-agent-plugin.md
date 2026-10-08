@@ -569,6 +569,87 @@ Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
 - Any persistent reference-repository run or external validation (rungs 2 and
   3).
 
+## Copilot app listing and install links (2026-10-08)
+
+Question: can the plugin carry an Agent Plugins 1.0 `extensions["com.github.copilot"].logo`
+(as awesome-copilot plugins do) for the Copilot app's listing, and do the README's
+launcher links say what they claim? Nothing in the manifest changed, because the
+measurement below says it must not. Measured with `claude` 2.1.295, `apm` 0.33.0,
+and the Copilot CLI 1.0.93 SDK host (`CopilotClient`, `createSession` with
+`pluginDirectories`, `requestCanvasRenderer`, `requestExtensions`, then
+`session.rpc.canvas.list`, `extensions.list`, `plugins.list`; no model calls, no
+AI credits). Every run used a copy of the plugin directory outside the repository.
+
+### Manifest: `extensions` with a logo breaks extension loading
+
+| Copy of the plugin | `claude plugin validate` | APM 0.33.0 `install --target copilot` | Extension and canvas loaded (SDK host) |
+| --- | --- | --- | --- |
+| Unmodified (control) | passes | accepts | yes: `plugin:adrkit:adrkit` running, canvas listed |
+| Plus a 128x128 `assets/preview.png`, manifest unmodified | not run | not run | yes |
+| Plus `extensions: {"com.github.copilot": {"logo": "assets/preview.png"}}` | passes **with a warning**: `extensions: Unknown field 'extensions'. Claude Code ignores it at load time.` | accepts (it reports only the existing `$schema` warning) | **no**: extension list empty, canvas list empty, on 2 of 2 runs |
+| `extensions: {}` | not run | not run | no |
+| `extensions: {"com.github.copilot": {}}` | not run | not run | no |
+| `extensions: {"other.vendor": {"logo": ...}}` | not run | not run | no |
+| `extensions: ["extensions/adrkit"]` | not run | not run | no |
+| `extensions: "extensions"` | not run | not run | yes |
+
+Reading: in Copilot CLI 1.0.93, any non-string `extensions` value in
+`.claude-plugin/plugin.json` stops the plugin's extension from loading, so the
+workflow and the canvas both disappear. The plugin itself still lists as enabled in
+`plugins.list`, which is why nothing reports an error. The key is read as a
+component-path field (the string form loads), not as an Agent Plugins 1.0
+vendor-extension map. I did not find why from the runtime bundle (it contains no
+`com.github.copilot` or `agent-plugins.org` string), so the cause is inferred from
+the variants, not read from source. The logo is surfaced nowhere in the runtime
+listings: `plugins.list` and `extensions.list` have no logo field in the 1.0.93
+typings, and the dumped RPC output contained no `logo` or `preview.png`. The only
+`logo` fields in `generated/rpc.d.ts` belong to the connector catalogue.
+
+A validator pass is therefore not sufficient evidence for a manifest key here: Claude
+validates it with a warning and APM accepts it, while Copilot silently drops the
+shipped canvas. No manifest key and no logo file were added.
+
+### Agent Plugins 1.0 root `plugin.json`
+
+GitHub's [plugin documentation](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-cli-plugins)
+(fetched 2026-10-08) says an Agent Plugins 1.0 manifest is selected by its `$schema` and
+"requires the manifest at the plugin root". It does not mention `.claude-plugin/plugin.json`,
+`extensions`, or `logo`. A copy with only a root `plugin.json` (the 1.0 `$schema`, the
+`extensions` map, no `.claude-plugin/`) was recognised as a plugin by `plugins.list` but
+loaded no extension. That run is confounded by the `extensions` finding above, so it does
+not show whether a root manifest could carry the components. Adopting the 1.0 format would
+also mean a second manifest to keep in step on every version bump, so it is not pursued
+without a measured gain.
+
+### Install links
+
+- Encoding: both README launcher URLs round-trip exactly. `decodeURIComponent` of the
+  `open=` value gives `ghapp://plugins/marketplace/add?source=mbeacom%2Fadrkit` and
+  `ghapp://plugins/install?source=adrkit%40adrkit`, and `encodeURIComponent` of those
+  strings reproduces the README's values byte for byte; `URL.searchParams.get("open")`
+  agrees. GitHub's
+  [deep-link documentation](https://docs.github.com/en/copilot/how-tos/github-copilot-app/open-with-deep-links)
+  documents the same double encoding (`@` becomes `%40`, then `%2540`), gives the install
+  example, and gives no launcher example for marketplace add; the README's marketplace
+  URL follows the documented method.
+- Launcher: `curl` (no redirect following, no credentials) returned HTTP 200 with
+  `text/html` and no redirect target for both URLs. The page title is
+  "Open GitHub Copilot", and the body carries the decoded `ghapp://` link. That shows the
+  launcher accepts the URLs; it does not show the app handles them.
+
+### Not verified
+
+- Clicking either link with the app installed. Unmeasured in the Copilot app. Maintainer
+  step: open link 1 in the README, check that Customize, then Plugins opens an add-marketplace
+  form already filled with `mbeacom/adrkit`, and cancel or confirm. Then open link 2 and
+  check the install form is filled with `adrkit@adrkit`. Nothing changes until confirmed.
+- Whether the app shows a logo, or a different listing, for a plugin that declares one.
+  Unmeasured in the Copilot app, and moot while the key disables the extension on the CLI
+  runtime.
+- Whether the app's runtime (cached 1.0.93-1) treats `extensions` as the CLI does.
+  Unmeasured in the Copilot app.
+- Behaviour on Copilot CLI versions other than 1.0.93.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a
