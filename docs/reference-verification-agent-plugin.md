@@ -559,9 +559,6 @@ Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
 - App version drift: rows 8 to 15 were measured under app 1.1.14 with runtime
   1.0.93-1, and rows 23 to 29 under app 1.1.27. Neither set is re-dated to the
   other.
-- The README's Copilot app install links (`ghapp://plugins/marketplace/add` and
-  `ghapp://plugins/install`, through GitHub's hosted launcher). They follow
-  GitHub's documented format, but I have not followed them.
 - Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI
   strips "sensitive" variables unless an extension requests them; whether this
   one counts is unmeasured. It was null in the app probe because it was not set.
@@ -578,20 +575,25 @@ measurement below says it must not. Measured with `claude` 2.1.295, `apm` 0.33.0
 and the Copilot CLI 1.0.93 SDK host (`CopilotClient`, `createSession` with
 `pluginDirectories`, `requestCanvasRenderer`, `requestExtensions`, then
 `session.rpc.canvas.list`, `extensions.list`, `plugins.list`; no model calls, no
-AI credits). Every run used a copy of the plugin directory outside the repository.
+AI credits). Every run used a copy of the plugin directory outside the repository. The loader
+variants were run twice, once ad hoc and once from a retained script
+(`variants.sh`); the second pass reproduced every outcome, and its per-variant output
+is kept as `result-<variant>.json` plus `variants-summary.txt` in the investigation
+scratchpad (not committed). The `claude validate` and APM columns were run only on
+the unmodified and the logo-object copies.
 
 ### Manifest: `extensions` with a logo breaks extension loading
 
 | Copy of the plugin | `claude plugin validate` | APM 0.33.0 `install --target copilot` | Extension and canvas loaded (SDK host) |
 | --- | --- | --- | --- |
-| Unmodified (control) | passes | accepts | yes: `plugin:adrkit:adrkit` running, canvas listed |
-| Plus a 128x128 `assets/preview.png`, manifest unmodified | not run | not run | yes |
-| Plus `extensions: {"com.github.copilot": {"logo": "assets/preview.png"}}` | passes **with a warning**: `extensions: Unknown field 'extensions'. Claude Code ignores it at load time.` | accepts (it reports only the existing `$schema` warning) | **no**: extension list empty, canvas list empty, on 2 of 2 runs |
-| `extensions: {}` | not run | not run | no |
-| `extensions: {"com.github.copilot": {}}` | not run | not run | no |
-| `extensions: {"other.vendor": {"logo": ...}}` | not run | not run | no |
-| `extensions: ["extensions/adrkit"]` | not run | not run | no |
-| `extensions: "extensions"` | not run | not run | yes |
+| Unmodified (control) | passes | accepts | yes: `plugin:adrkit:adrkit` running, canvas listed (`control-unmodified`) |
+| Plus a 128x128 `assets/preview.png`, manifest unmodified | not run | not run | yes (`control-png-only`) |
+| Plus `extensions: {"com.github.copilot": {"logo": "assets/preview.png"}}` | passes **with a warning**: `extensions: Unknown field 'extensions'. Claude Code ignores it at load time.` | accepts (it reports only the existing `$schema` warning) | **no**: extension list empty, canvas list empty, on 2 of 2 runs (`ext-logo-object`) |
+| `extensions: {}` | not run | not run | no (`ext-empty-object`) |
+| `extensions: {"com.github.copilot": {}}` | not run | not run | no (`ext-empty-vendor-map`) |
+| `extensions: {"other.vendor": {"logo": ...}}` | not run | not run | no (`ext-other-vendor`) |
+| `extensions: ["extensions/adrkit"]` | not run | not run | no (`ext-array`) |
+| `extensions: "extensions"` | not run | not run | yes (`ext-string`) |
 
 Reading: in Copilot CLI 1.0.93, any non-string `extensions` value in
 `.claude-plugin/plugin.json` stops the plugin's extension from loading, so the
@@ -600,10 +602,12 @@ workflow and the canvas both disappear. The plugin itself still lists as enabled
 component-path field (the string form loads), not as an Agent Plugins 1.0
 vendor-extension map. I did not find why from the runtime bundle (it contains no
 `com.github.copilot` or `agent-plugins.org` string), so the cause is inferred from
-the variants, not read from source. The logo is surfaced nowhere in the runtime
-listings: `plugins.list` and `extensions.list` have no logo field in the 1.0.93
-typings, and the dumped RPC output contained no `logo` or `preview.png`. The only
-`logo` fields in `generated/rpc.d.ts` belong to the connector catalogue.
+the variants, not read from source. Whether the runtime surfaces the logo is
+**not shown by this run**: the only copies that declared a logo loaded no extension, and
+the copies that loaded declared none, so the absence of `logo` in the dumped RPC output
+(`plugins.list`, `extensions.list`, `canvas.list`) is uninformative. The typings are the
+only evidence: `PluginList`, `InstalledPluginInfo` and `Extension` carry no logo field in
+the 1.0.93 `generated/rpc.d.ts`, and its only `logo` fields belong to the connector catalogue.
 
 A validator pass is therefore not sufficient evidence for a manifest key here: Claude
 validates it with a warning and APM accepts it, while Copilot silently drops the
@@ -615,9 +619,10 @@ GitHub's [plugin documentation](https://docs.github.com/en/copilot/concepts/agen
 (fetched 2026-10-08) says an Agent Plugins 1.0 manifest is selected by its `$schema` and
 "requires the manifest at the plugin root". It does not mention `.claude-plugin/plugin.json`,
 `extensions`, or `logo`. A copy with only a root `plugin.json` (the 1.0 `$schema`, the
-`extensions` map, no `.claude-plugin/`) was recognised as a plugin by `plugins.list` but
-loaded no extension. That run is confounded by the `extensions` finding above, so it does
-not show whether a root manifest could carry the components. Adopting the 1.0 format would
+`extensions` map, no `.claude-plugin/`) loaded no extension and no canvas
+(`root-plugin-json`). That run is confounded by the `extensions` finding above, and
+`plugins.list` shows the same two `adrkit` entries for every run, so it does not show
+that Copilot read the root manifest at all, nor whether it could carry the components. Adopting the 1.0 format would
 also mean a second manifest to keep in step on every version bump, so it is not pursued
 without a measured gain.
 
@@ -633,9 +638,11 @@ without a measured gain.
   example, and gives no launcher example for marketplace add; the README's marketplace
   URL follows the documented method.
 - Launcher: `curl` (no redirect following, no credentials) returned HTTP 200 with
-  `text/html` and no redirect target for both URLs. The page title is
-  "Open GitHub Copilot", and the body carries the decoded `ghapp://` link. That shows the
-  launcher accepts the URLs; it does not show the app handles them.
+  `text/html` and no redirect target for both URLs (`links-curl.txt`; the round-trip check
+  is `links-roundtrip.json`, both in the investigation scratchpad). A separate fetch of the
+  install URL showed the page title "Open GitHub Copilot" and the decoded `ghapp://` link
+  in its body; that was not retained. This shows the launcher accepts the URLs; it does not
+  show the app handles them.
 
 ### Not verified
 

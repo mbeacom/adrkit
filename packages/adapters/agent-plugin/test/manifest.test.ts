@@ -20,15 +20,6 @@ const apm = readFlatYaml(readFileSync(apmManifestPath, 'utf8'));
 const marketplace = readJson(marketplacePath);
 
 describe('manifest agreement', () => {
-  test('plugin.json declares no `extensions` key', () => {
-    // Measured on Copilot CLI 1.0.93 (2026-10-08): any non-string `extensions`
-    // value, including `{}` and the Agent Plugins 1.0 vendor map with a logo,
-    // stops the plugin's extension loading, so the workflow and canvas vanish
-    // while the plugin still lists as enabled. `claude plugin validate` only
-    // warns and APM accepts it, so no validator catches the regression.
-    expect('extensions' in plugin).toBe(false);
-  });
-
   test('all three manifests carry the same name', () => {
     // `name` is the install and uninstall handle on every host. A divergence
     // means `copilot plugin uninstall <what plugin.json says>` cannot remove
@@ -127,6 +118,12 @@ describe('manifest shape the hosts actually accept', () => {
     // only shape that loads everywhere is to declare none of them. Re-adding
     // one breaks Claude Code without breaking Copilot, which is exactly the
     // kind of asymmetry nobody notices until a user reports it.
+    //
+    // `extensions` is guarded for a second, measured reason (Copilot CLI
+    // 1.0.93, 2026-10-08): a non-string value, including the Agent Plugins 1.0
+    // vendor map with a logo, stops the plugin's extension loading, so the
+    // workflow and canvas vanish while the plugin still lists as enabled.
+    // `claude plugin validate` only warns and APM accepts it.
     for (const field of ['agents', 'skills', 'commands', 'extensions', 'lspServers']) {
       expect({ field, value: plugin[field] }).toEqual({ field, value: undefined });
     }
