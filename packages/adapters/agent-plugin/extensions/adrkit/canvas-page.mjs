@@ -147,15 +147,28 @@ export const PAGE_JS = `(function () {
     var details = el('details', 'evidence');
     details.appendChild(el('summary', null, 'Evidence'));
     if (verdict) details.appendChild(el('p', 'verdict-evidence', verdict.evidence));
+    // Provenance: what tied this record to the change. A marker names its file
+    // and line; an affects match names only the pattern, because adr check
+    // reports no file for one, so the page does not invent one.
     var matchers = list(decision.firedMatchers);
     if (matchers.length > 0) {
       var matched = el('ul', 'matchers');
       matchers.forEach(function (matcher) { matched.appendChild(el('li', 'mono', describeMatcher(matcher))); });
-      details.appendChild(el('p', 'muted', 'Matched by:'));
+      details.appendChild(el('p', 'muted', 'Matched by affects pattern:'));
       details.appendChild(matched);
+      details.appendChild(el('p', 'muted', 'adr check does not report which changed file matched a pattern.'));
+    }
+    var declared = list(decision.declaredBy);
+    if (declared.length > 0) {
+      var declaring = el('ul', 'matchers');
+      declared.forEach(function (entry) {
+        declaring.appendChild(el('li', 'mono', text(entry.path) + ':' + text(entry.line) + ' names ' + text(entry.ref)));
+      });
+      details.appendChild(el('p', 'muted', 'Declared by an inbound marker in a changed file:'));
+      details.appendChild(declaring);
     }
     if (decision.supersededBy) details.appendChild(el('p', 'muted', 'Superseded by ' + text(decision.supersededBy)));
-    if (!verdict && matchers.length === 0) details.appendChild(el('p', 'muted', 'No evidence recorded.'));
+    if (!verdict && matchers.length === 0 && declared.length === 0) details.appendChild(el('p', 'muted', 'No evidence recorded.'));
     item.appendChild(details);
 
     if (explainable && /^[0-9]{4}$/.test(text(decision.recordId))) {
@@ -204,6 +217,48 @@ export const PAGE_JS = `(function () {
     return node;
   }
 
+  /**
+   * Open proposed records, corpus-wide, from adr queue. Listed only: no button,
+   * no action, and no explain, so nothing here reaches the agent. Titles and
+   * paths are untrusted text like everything else.
+   */
+  function queueSection(queue) {
+    var items = list(queue.items);
+    var node = section('Open proposals, corpus-wide', queue.available ? items.length : undefined);
+    if (!queue.available) {
+      node.appendChild(el('p', 'muted note', queue.note || 'The open-proposal list is unavailable.'));
+      return node;
+    }
+    node.appendChild(el('p', 'muted', 'Listed, not judged' + (queue.asOf ? ', as of ' + text(queue.asOf) : '') + '.'));
+    if (items.length === 0) {
+      node.appendChild(el('p', 'muted', 'No proposed record is open.'));
+    } else {
+      var rows = el('ul', 'decisions');
+      items.forEach(function (item) {
+        var row = el('li', 'decision');
+        var head = el('div', 'decision-head');
+        head.appendChild(el('span', 'record-id mono', item.id));
+        head.appendChild(el('span', 'record-title', item.title));
+        row.appendChild(head);
+        var facts = ['SLA ' + (text(item.slaState) || 'unknown')];
+        if (item.deadlineDate) facts.push('due ' + text(item.deadlineDate));
+        facts.push('approvals ' + text(item.approvalCount) + '/' + (item.quorum === null || item.quorum === undefined ? '-' : text(item.quorum)));
+        if (item.unresolvedObjectionCount > 0) facts.push(text(item.unresolvedObjectionCount) + ' unresolved objection(s)');
+        var targets = list(item.routingTargets).map(text);
+        if (targets.length > 0) facts.push('routed to ' + targets.join(', '));
+        row.appendChild(el('p', 'muted', facts.join(' · ')));
+        if (item.sourcePath) row.appendChild(el('p', 'mono muted', item.sourcePath));
+        rows.appendChild(row);
+      });
+      node.appendChild(rows);
+    }
+    if (queue.corpusFindings > 0) {
+      node.appendChild(el('p', 'muted', 'adr queue reported ' + text(queue.corpusFindings) + ' corpus finding(s); adr lint shows them.'));
+    }
+    if (queue.note) node.appendChild(el('p', 'muted note', queue.note));
+    return node;
+  }
+
   function findingsSection(findings) {
     var node = section('Findings', findings.length);
     if (findings.length === 0) {
@@ -232,13 +287,22 @@ export const PAGE_JS = `(function () {
     $('cwd').textContent = text(snapshot.workingDirectory);
     $('refresh').disabled = busy;
     var files = list(snapshot.files);
-    // With no changed files a run would review nothing and still spend.
+    // Cost before spend: the workflow makes one decision-checker call per
+    // governing decision. With no changed files, or nothing governing them, a
+    // run would judge nothing, so the button says why and stays disabled.
     var noFiles = files.length === 0;
+    var calls = typeof snapshot.judgeCalls === 'number' ? snapshot.judgeCalls : list(snapshot.governing).length;
+    var reason = noFiles ? 'No changed files to review' : calls === 0 ? 'No governing decision, so there is nothing to judge' : '';
     var runButton = $('run-review');
-    runButton.disabled = busy || status === 'pending' || noFiles;
-    if (noFiles) {
-      runButton.title = 'No changed files to review';
-      runButton.setAttribute('aria-description', 'No changed files to review');
+    runButton.disabled = busy || status === 'pending' || reason !== '';
+    runButton.textContent = noFiles
+      ? 'Run review (uses AI credits)'
+      : calls === 0
+        ? 'Run review: nothing to judge'
+        : 'Run review: ' + calls + ' decision-checker call' + (calls === 1 ? '' : 's') + ' (uses AI credits)';
+    if (reason) {
+      runButton.title = reason;
+      runButton.setAttribute('aria-description', reason);
     } else {
       runButton.title = '';
       runButton.removeAttribute('aria-description');
@@ -273,6 +337,7 @@ export const PAGE_JS = `(function () {
     parts.push(decisionList('Governing', governingOf(snapshot), verdicts, true, 'No accepted decision governs these files.'));
     parts.push(decisionList('Active proposals', list(snapshot.activeProposals), new Map(), true, 'None.'));
     parts.push(decisionList('History (listed, not judged)', list(snapshot.history), new Map(), true, 'None.'));
+    if (snapshot.queue && typeof snapshot.queue === 'object') parts.push(queueSection(snapshot.queue));
     parts.push(findingsSection(list(snapshot.findings)));
 
     var notes = list(snapshot.notes);

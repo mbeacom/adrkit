@@ -87,16 +87,28 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
 
 /**
  * @typedef {(command: string, args: string[], options: { cwd: string }) => Promise<CommandResult>} CwdRunner
- * @typedef {{ recordId: string, title: string, status?: string, bucket?: string, supersededBy?: string, firedMatchers?: unknown[] }} ShownDecision
+ * @typedef {{ path: string, line: number, ref: string }} Declaration
+ * @typedef {{
+ *   recordId: string, title: string, status?: string, bucket?: string, supersededBy?: string,
+ *   firedMatchers?: unknown[], declaredBy?: Declaration[],
+ * }} ShownDecision
+ * @typedef {{
+ *   id: string, title: string, sourcePath: string, slaState: string, deadlineDate: string | null,
+ *   approvalCount: number, quorum: number | null, unresolvedObjectionCount: number, routingTargets: string[],
+ * }} QueueItem
+ * @typedef {{
+ *   available: boolean, asOf: string | null, exitCode: number | null, totalItems: number,
+ *   corpusFindings: number, items: QueueItem[], note: string | null,
+ * }} QueueView
  * @typedef {{
  *   workingDirectory: string, base: string | null, files: string[], filesSource: string | null,
  *   status: string, checkExitCode: number | null, lintExitCode: number | null,
  *   governing: ShownDecision[], history: ShownDecision[], activeProposals: ShownDecision[],
  *   findings: unknown[], notes: string[], review: null | { runId?: string, runStatus: string, result: any },
- *   updatedAt: string,
+ *   updatedAt: string, judgeCalls?: number, queue?: QueueView | null,
  * }} Snapshot
  * @typedef {{ runId: string | null, runStatus: string, result: any, watching: boolean, message?: string, governingKey?: string, fingerprint?: string }} ReviewState
- * @typedef {{ args: unknown, check: Snapshot | null, review: ReviewState | null, seq: number }} Workspace
+ * @typedef {{ args: unknown, check: Snapshot | null, queue: QueueView | null, review: ReviewState | null, seq: number }} Workspace
  * @typedef {{
  *   instanceId: string, cwd: string, token: string, origin: string, url: string,
  *   server: Server, clients: Set<ServerResponse>,
@@ -170,6 +182,15 @@ function shownDecision(entry) {
       for (const [key, value] of Object.entries(matcher)) if (typeof value === 'string') kept[key] = value;
       return kept;
     });
+  }
+  // Provenance for an inbound marker: the changed file and line that named the
+  // record. `adr check --json` reports it per file; an `affects` match carries
+  // only the pattern, so there is no file to keep for one (ADR-0047).
+  if (Array.isArray(entry['declaredBy'])) {
+    out.declaredBy = entry['declaredBy']
+      .filter(isRecord)
+      .filter((d) => typeof d['path'] === 'string' && Number.isInteger(d['line']) && typeof d['ref'] === 'string')
+      .map((d) => ({ path: String(d['path']), line: Number(d['line']), ref: String(d['ref']) }));
   }
   return out;
 }
@@ -412,6 +433,115 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
   });
 }
 
+/** The most queue rows a snapshot carries; the count of the rest is kept. */
+export const QUEUE_LIMIT = 200;
+
+/**
+ * Fixed notes for a queue that could not be read. Never the CLI's own stderr
+ * or an exception's text: these reach the page and the agent, and a fixed
+ * message selected by an explicit check is the rule since CodeQL's
+ * stack-trace finding on the first canvas.
+ */
+export const QUEUE_NOTES = {
+  args: "The open-proposal list was not computed: the panel's arguments are not valid.",
+  start: 'The open-proposal list is unavailable: the adr CLI could not be started.',
+  unreadable: 'The open-proposal list is unavailable: adr queue did not return a readable report.',
+  version: 'The open-proposal list is unavailable: adr queue returned a report version this panel does not read.',
+  /** @param {number} code */
+  exit: (code) => `The open-proposal list is unavailable: adr queue exited ${code}.`,
+};
+
+/** @param {unknown} value */
+const intOr = (value, fallback = 0) => (Number.isInteger(value) ? /** @type {number} */ (value) : fallback);
+/** @param {unknown} value */
+const stringOrNull = (value) => (typeof value === 'string' ? value : null);
+
+/**
+ * Keep the queue fields the page renders, by allowlist. The allowlist is the
+ * mechanism that keeps a ratifying command out of the panel: the queue's
+ * terminal view prints one for a human, and any such field the JSON gains
+ * later is dropped here without anyone having to name it.
+ *
+ * @param {Record<string, unknown>} item
+ * @returns {QueueItem}
+ */
+function shownQueueItem(item) {
+  return {
+    id: String(item['id']),
+    title: typeof item['title'] === 'string' ? item['title'] : '',
+    sourcePath: typeof item['sourcePath'] === 'string' ? item['sourcePath'] : '',
+    slaState: typeof item['slaState'] === 'string' ? item['slaState'] : '',
+    deadlineDate: stringOrNull(item['deadlineDate']),
+    approvalCount: intOr(item['approvalCount']),
+    quorum: Number.isInteger(item['quorum']) ? /** @type {number} */ (item['quorum']) : null,
+    unresolvedObjectionCount: intOr(item['unresolvedObjectionCount']),
+    routingTargets: Array.isArray(item['routingTargets'])
+      ? item['routingTargets'].filter((target) => typeof target === 'string')
+      : [],
+  };
+}
+
+/**
+ * The open `proposed` records, corpus-wide, from `adr queue --format json`
+ * (QueueReport v1). Read-only and free: one CLI call, no model. It is computed
+ * beside the check, never inside it, so it runs when no file changed, and
+ * nothing here can change the check's status or its governing list. Exit 0
+ * and 1 both carry a complete report (1 means corpus findings); anything else
+ * becomes a fixed note. Nothing here throws.
+ *
+ * @param {{ cwd: string, input: unknown, run: CwdRunner, env: Record<string, string | undefined>, exists: (path: string) => boolean }} deps
+ * @returns {Promise<QueueView>}
+ */
+export async function computeQueue({ cwd, input, run, env, exists }) {
+  /** @param {string} note @param {number | null} [exitCode] @returns {QueueView} */
+  const unavailable = (note, exitCode = null) => ({
+    available: false,
+    asOf: null,
+    exitCode,
+    totalItems: 0,
+    corpusFindings: 0,
+    items: [],
+    note,
+  });
+  /** @type {ReviewArgs} */
+  let args;
+  try {
+    args = validateArgs(input);
+  } catch {
+    return unavailable(QUEUE_NOTES.args);
+  }
+  const dir = args.dir ?? env['ADRKIT_DIR'];
+  /** @type {CommandResult} */
+  let result;
+  try {
+    const cli = resolveCli({ env, cwd, exists });
+    result = await run(cli.command, [...cli.args, 'queue', '--format', 'json', ...(dir ? ['--dir', dir] : [])], { cwd });
+  } catch {
+    return unavailable(QUEUE_NOTES.start);
+  }
+  if (result.exitCode !== 0 && result.exitCode !== 1) return unavailable(QUEUE_NOTES.exit(result.exitCode), result.exitCode);
+  /** @type {unknown} */
+  let report;
+  try {
+    report = JSON.parse(result.stdout);
+  } catch {
+    return unavailable(QUEUE_NOTES.unreadable, result.exitCode);
+  }
+  if (!isRecord(report) || !Array.isArray(report['items'])) return unavailable(QUEUE_NOTES.unreadable, result.exitCode);
+  if (report['version'] !== '1') return unavailable(QUEUE_NOTES.version, result.exitCode);
+  const all = report['items'].filter(isRecord).filter((item) => typeof item['id'] === 'string');
+  const items = all.slice(0, QUEUE_LIMIT).map(shownQueueItem);
+  return {
+    available: true,
+    asOf: stringOrNull(report['asOf']),
+    exitCode: result.exitCode,
+    totalItems: intOr(report['totalItems'], all.length),
+    corpusFindings: intOr(report['totalCorpusFindings']),
+    items,
+    note: all.length > items.length ? `Showing the first ${items.length} of ${all.length} open proposals.` : null,
+  };
+}
+
 /** @param {string} a @param {string} b */
 const worse = (a, b) => (rank(a) >= rank(b) ? a : b);
 
@@ -469,6 +599,10 @@ function snapshotOf(workspace) {
     ...check,
     status: combinedStatus(check.status, check.governing, review),
     notes,
+    // What a review would cost before it is started: the workflow's Judge makes
+    // one decision-checker call per governing decision (review.mjs).
+    judgeCalls: check.governing.length,
+    queue: workspace.queue,
     review: review
       ? { ...(review.runId ? { runId: review.runId } : {}), runStatus: review.runStatus, result: review.result }
       : null,
@@ -614,7 +748,7 @@ export function createDecisionReviewCanvas({
   const workspaceFor = (cwd) => {
     let workspace = workspaces.get(cwd);
     if (!workspace) {
-      workspace = { args: undefined, check: null, review: null, seq: 0 };
+      workspace = { args: undefined, check: null, queue: null, review: null, seq: 0 };
       workspaces.set(cwd, workspace);
     }
     return workspace;
@@ -690,6 +824,9 @@ export function createDecisionReviewCanvas({
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
     const snapshot = await computeCheck({ cwd, input: workspace.args, run, env, exists, now });
+    // After the check, not inside it: the queue is corpus-wide, so it runs with
+    // no changed files too, and it can never alter the check's result.
+    const queue = await computeQueue({ cwd, input: workspace.args, run, env, exists });
     const fingerprint = await fingerprintOf(cwd, snapshot);
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
@@ -697,6 +834,7 @@ export function createDecisionReviewCanvas({
     // yet. The newer refresh overwrites it when it lands.
     if (seq === workspace.seq || workspace.check === null) {
       workspace.check = snapshot;
+      workspace.queue = queue;
       const review = workspace.review;
       if (review && !review.watching && review.result) {
         const reviewed = [...review.result.files].sort().join('\0');
@@ -1018,15 +1156,18 @@ export function createDecisionReviewCanvas({
       {
         name: 'get_state',
         description:
-          'Return the panel snapshot: status, changed files, governing decisions, active proposals, ' +
-          'history (listed, not judged), findings, notes, and the latest adr-review result if any. Read-only.',
+          'Return the panel snapshot: status, changed files, governing decisions (with what tied each to ' +
+          'the change: firedMatchers for an affects pattern, declaredBy for an inbound marker), active ' +
+          'proposals, history (listed, not judged), findings, notes, judgeCalls (the decision-checker calls ' +
+          'a review would make now), queue (open proposed records corpus-wide, listed only), and the latest ' +
+          'adr-review result if any. Read-only.',
         handler: (/** @type {any} */ ctx) => withCwd(ctx, (cwd) => stateFor(cwd)),
       },
       {
         name: 'refresh',
         description:
-          'Re-run Collect and Check (git diff, adr check, adr lint) in the session working directory and ' +
-          'update the panel. No model calls. Input replaces the remembered { base, files, dir }; omit it to reuse them.',
+          'Re-run Collect and Check (git diff, adr check, adr lint) and the open-proposal list (adr queue) ' +
+          'in the session working directory and update the panel. No model calls. Input replaces the remembered { base, files, dir }; omit it to reuse them.',
         inputSchema: ARGS_SCHEMA,
         handler: (/** @type {any} */ ctx) => withCwd(ctx, (cwd, input) => refresh(cwd, input)),
       },
@@ -1090,7 +1231,11 @@ export function createDecisionReviewCanvas({
         name: 'run_review',
         description:
           'Start the adr-review dynamic workflow for { base, files, dir } (default: the panel\'s). ' +
-          'This spends AI credits: the adrkit decision-checker judges each governing decision. ' +
+          'This spends AI credits: as the workflow is written it makes one decision-checker call per ' +
+          "governing decision, and get_state's judgeCalls is that count for the panel's current files " +
+          '(runtime retries are not counted; new input re-checks first, so the count can change). With 0 ' +
+          'governing decisions nothing is judged. One measured run judged two decisions for about 0.16 AI ' +
+          'credits on Copilot CLI 1.0.93; that is a measurement, not a price. ' +
           'Returns { runId, status } at once; the panel follows the run and shows its verdicts. Advisory only.',
         inputSchema: ARGS_SCHEMA,
         handler: (/** @type {any} */ ctx) => withCwd(ctx, (cwd, input) => runReview(cwd, input)),

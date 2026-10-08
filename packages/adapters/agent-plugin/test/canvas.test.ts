@@ -46,19 +46,57 @@ const governed = (recordId: string, bucket: string, title = `Decision ${recordId
 const checkReport = (entries: unknown[], findings: unknown[] = []) =>
   JSON.stringify({ changedFiles: ['src/a.ts'], governedBy: entries, findings });
 
-/** A scripted `run`: git diff, adr check, and adr lint answer from `script`. */
-function fakeCli(script: { diff?: Run | Error; check?: Run | Error; lint?: Run | Error } = {}) {
+/** One QueueReport v1 item, shaped as `adr queue --format json` emits it (measured on a fixture). */
+const queueItem = (id: string, title = `Proposal ${id}`, extra: Record<string, unknown> = {}) => ({
+  id,
+  title,
+  sourcePath: `docs/adr/${id}-proposal.md`,
+  tier: null,
+  tierLabel: null,
+  queuedAt: null,
+  slaDays: null,
+  reviewBy: null,
+  slaState: 'not-queued',
+  deadlineDate: null,
+  routingTargets: ['@fixture'],
+  quorum: null,
+  approvalCount: 0,
+  unresolvedObjectionCount: 0,
+  resolvedObjectionCount: 0,
+  escalatedAt: null,
+  decidedAt: null,
+  itemFindings: [],
+  ...extra,
+});
+
+const queueReport = (items: unknown[], corpusFindings: unknown[] = []) =>
+  JSON.stringify({
+    version: '1',
+    asOf: '2026-10-08',
+    corpusFingerprint: 'f'.repeat(64),
+    totalItems: items.length,
+    totalCorpusFindings: corpusFindings.length,
+    itemsWithFindings: 0,
+    items,
+    corpusFindings,
+  });
+
+/** A scripted `run`: git diff, adr check, adr lint, and adr queue answer from `script`. */
+function fakeCli(script: { diff?: Run | Error; check?: Run | Error; lint?: Run | Error; queue?: Run | Error } = {}) {
   const calls: Call[] = [];
   const run = async (command: string, args: string[], { cwd }: { cwd: string }) => {
     calls.push({ command, args, cwd });
-    const key = command === 'git' ? 'diff' : args.includes('check') ? 'check' : 'lint';
+    const key =
+      command === 'git' ? 'diff' : args.includes('check') ? 'check' : args.includes('queue') ? 'queue' : 'lint';
     const answer =
       script[key] ??
       (key === 'diff'
         ? ok('src/a.ts\0')
         : key === 'check'
           ? ok(checkReport([governed('0012', 'governing', TITLE)]))
-          : ok());
+          : key === 'queue'
+            ? ok(queueReport([queueItem('0020')]))
+            : ok());
     if (answer instanceof Error) throw answer;
     return answer;
   };
@@ -711,6 +749,8 @@ describe('actions', () => {
         'notes',
         'review',
         'updatedAt',
+        'judgeCalls',
+        'queue',
       ].sort(),
     );
   });
@@ -721,7 +761,7 @@ describe('actions', () => {
     cli.calls.length = 0;
     const state = await action(options, 'refresh')({ files: ['src/c.ts'] });
     expect(state.files).toEqual(['src/c.ts']);
-    expect(cli.calls.map((call) => call.args[0])).toEqual(['check', 'lint']);
+    expect(cli.calls.map((call) => call.args[0])).toEqual(['check', 'lint', 'queue']);
     expect(fake.started).toEqual([]);
     expect(fake.sent).toEqual([]);
   });
@@ -1272,7 +1312,7 @@ describe('app smoke round', () => {
     expect(button.title).toBe('No changed files to review');
     expect(button.attrs['aria-description']).toBe('No changed files to review');
 
-    const some = await renderPageWith({ ...base, files: ['src/a.ts'] });
+    const some = await renderPageWith({ ...base, files: ['src/a.ts'], governing: [governed('0012', 'governing')], judgeCalls: 1 });
     const enabled = some.get('run-review') as FakeNode;
     expect(enabled.disabled).toBe(false);
     expect(enabled.attrs['aria-description']).toBeUndefined();
@@ -1450,5 +1490,266 @@ describe('PR review round', () => {
     });
     expect(response.status).toBe(502);
     expect(response.body).not.toContain('internal detail');
+  });
+});
+
+/**
+ * ADR-0047 (proposed): provenance, cost before spend, and a read-only queue.
+ * The shapes below are the ones `adr check --json` and `adr queue --format
+ * json` emitted on a fixture repository, not guesses.
+ */
+describe('ADR-0047: provenance', () => {
+  const markerOnly = {
+    recordId: '0002',
+    title: 'Load config from one module',
+    status: 'accepted',
+    bucket: 'governing',
+    firedMatchers: [],
+    declaredBy: [{ path: 'src/net/client.ts', line: 1, ref: '0002' }],
+  };
+
+  test('declaredBy reaches the snapshot, keeping only path, line, and ref', async () => {
+    const planted = {
+      ...markerOnly,
+      declaredBy: [
+        { path: 'src/net/client.ts', line: 1, ref: '0002', extra: 'dropped' },
+        { path: 'src/net/bad.ts', line: 'one', ref: '0002' },
+        'not an object',
+      ],
+    };
+    const { run } = fakeCli({ check: ok(checkReport([governed('0001', 'governing'), planted])) });
+    const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
+    const marker = snapshot.governing.find((entry: { recordId: string }) => entry.recordId === '0002');
+    expect(marker?.declaredBy).toEqual([{ path: 'src/net/client.ts', line: 1, ref: '0002' }]);
+    const pattern = snapshot.governing.find((entry: { recordId: string }) => entry.recordId === '0001');
+    expect(pattern?.declaredBy).toBeUndefined();
+    expect(pattern?.firedMatchers).toEqual([{ type: 'path', pattern: 'src/**' }]);
+  });
+
+  test('a review result handed over keeps declaredBy too', () => {
+    const result = sanitizeReviewResult({
+      status: 'incomplete',
+      checkExitCode: 0,
+      lintExitCode: 0,
+      files: ['src/net/client.ts'],
+      governing: [markerOnly],
+      unverified: ['0002'],
+    });
+    expect((result['governing'] as Array<Record<string, unknown>>)[0]?.['declaredBy']).toEqual(markerOnly.declaredBy);
+  });
+
+  test('the page names the marker file and line, and the pattern, as text', async () => {
+    const base = { workingDirectory: CWD, status: 'incomplete', files: ['src/net/client.ts'], history: [], activeProposals: [], findings: [], notes: [], review: null };
+    const nodes = await renderPageWith({ ...base, governing: [governed('0001', 'governing'), markerOnly] });
+    const text = (nodes.get('app') as FakeNode).allText();
+    expect(text).toContain('src/net/client.ts:1');
+    expect(text).toContain('inbound marker');
+    expect(text).toContain('affects pattern');
+    expect(text).toContain('src/**');
+    // The CLI reports the pattern, not the file it matched; the page says so
+    // rather than imply a file it does not know.
+    expect(text).toContain('does not report which changed file');
+    // A marker-only record has evidence: it must not read "No evidence recorded."
+    expect(text).not.toContain('No evidence recorded.');
+  });
+});
+
+describe('ADR-0047: cost before spend', () => {
+  test('the snapshot carries judgeCalls, one per governing decision', async () => {
+    const { options } = makeCanvas({
+      run: fakeCli({ check: ok(checkReport([governed('0001', 'governing'), governed('0002', 'governing'), governed('0003', 'history')])) }).run,
+    });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.governing.length).toBe(2);
+    expect(state.judgeCalls).toBe(2);
+  });
+
+  test('no changed files means zero calls', async () => {
+    const { options } = makeCanvas({ run: fakeCli({ diff: ok('') }).run });
+    await openPanel(options);
+    expect((await action(options, 'get_state')()).judgeCalls).toBe(0);
+  });
+
+  test('run_review says it makes one decision-checker call per governing decision', () => {
+    const { options } = makeCanvas();
+    const runReview = options.actions.find((entry: { name: string }) => entry.name === 'run_review');
+    expect(runReview?.description).toMatch(/one decision-checker call per governing decision/);
+    expect(runReview?.description).toContain('judgeCalls');
+    expect(runReview?.description).toMatch(/0 governing/);
+  });
+
+  test('the button states the call count, and is disabled with a reason when nothing would be judged', async () => {
+    const base = { workingDirectory: CWD, status: 'incomplete', files: ['src/a.ts'], history: [], activeProposals: [], findings: [], notes: [], review: null };
+    const two = await renderPageWith({ ...base, governing: [governed('0001', 'governing'), governed('0002', 'governing')], judgeCalls: 2 });
+    const enabled = two.get('run-review') as FakeNode;
+    expect(enabled.disabled).toBe(false);
+    expect(enabled.textContent).toBe('Run review: 2 decision-checker calls (uses AI credits)');
+
+    const one = await renderPageWith({ ...base, governing: [governed('0001', 'governing')], judgeCalls: 1 });
+    expect((one.get('run-review') as FakeNode).textContent).toBe('Run review: 1 decision-checker call (uses AI credits)');
+
+    const none = await renderPageWith({ ...base, status: 'ok', governing: [], judgeCalls: 0 });
+    const disabled = none.get('run-review') as FakeNode;
+    expect(disabled.disabled).toBe(true);
+    expect(disabled.title).toBe('No governing decision, so there is nothing to judge');
+    expect(disabled.attrs['aria-description']).toBe('No governing decision, so there is nothing to judge');
+  });
+});
+
+describe('ADR-0047: read-only queue', () => {
+  // Built by concatenation so this file never spells the ratifying command.
+  const RATIFY = ['adr', 'accept'].join(' ');
+
+  test('refresh runs adr queue --format json with the same dir, and spends nothing', async () => {
+    const { options, cli, fake } = makeCanvas();
+    await openPanel(options, 'panel-1', { input: { dir: 'decisions' } });
+    const queueCall = cli.calls.find((call) => call.args.includes('queue'));
+    expect(queueCall?.args).toEqual(['queue', '--format', 'json', '--dir', 'decisions']);
+    expect(queueCall?.cwd).toBe(CWD);
+    expect(fake.started).toEqual([]);
+    expect(fake.sent).toEqual([]);
+  });
+
+  test('the queue is in the state, with only the allowlisted fields', async () => {
+    const { options } = makeCanvas();
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue).toEqual({
+      available: true,
+      asOf: '2026-10-08',
+      exitCode: 0,
+      totalItems: 1,
+      corpusFindings: 0,
+      items: [
+        {
+          id: '0020',
+          title: 'Proposal 0020',
+          sourcePath: 'docs/adr/0020-proposal.md',
+          slaState: 'not-queued',
+          deadlineDate: null,
+          approvalCount: 0,
+          quorum: null,
+          unresolvedObjectionCount: 0,
+          routingTargets: ['@fixture'],
+        },
+      ],
+      note: null,
+    });
+  });
+
+  test('the queue is computed even when there are no changed files', async () => {
+    const scripted = fakeCli({ diff: ok('') });
+    const { options } = makeCanvas({ run: scripted.run });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.files).toEqual([]);
+    expect(state.queue.items.map((item: { id: string }) => item.id)).toEqual(['0020']);
+    expect(scripted.calls.some((call) => call.args.includes('queue'))).toBe(true);
+  });
+
+  test('any ratify field is stripped, and neither the state nor the page carries the command', async () => {
+    const planted = queueItem('0020', 'Proposal 0020', {
+      acceptCommand: `${RATIFY} 0020 --by @someone`,
+      nextStep: `${RATIFY} 0020 --by @someone`,
+      ratify: { command: `${RATIFY} 0020` },
+    });
+    const scripted = fakeCli({ queue: ok(queueReport([planted])) });
+    const { options } = makeCanvas({ run: scripted.run });
+    const { url } = await openPanel(options);
+    const state = await action(options, 'get_state')();
+    const serialized = JSON.stringify(state);
+    expect(serialized).not.toContain(RATIFY);
+    expect(serialized).not.toContain('acceptCommand');
+    expect(serialized).not.toContain('nextStep');
+    expect(Object.keys(state.queue.items[0]).sort()).toEqual(
+      ['id', 'title', 'sourcePath', 'slaState', 'deadlineDate', 'approvalCount', 'quorum', 'unresolvedObjectionCount', 'routingTargets'].sort(),
+    );
+    // What the page actually receives over HTTP, and what it builds from it.
+    const served = await send(withPath(url, '/api/state'));
+    expect(served.body).not.toContain(RATIFY);
+    const rendered = (await renderPageWith(state)).get('app') as FakeNode;
+    expect(rendered.allText()).not.toContain(RATIFY);
+    for (const shipped of [PAGE_HTML, PAGE_JS, PAGE_CSS]) expect(shipped).not.toContain(RATIFY);
+    // "accepted" is a status word the page uses; the bare verb is not.
+    expect(PAGE_JS).not.toMatch(/\baccept\b/i);
+  });
+
+  test('exit 1 is a complete report: items are kept and corpus findings are counted', async () => {
+    const scripted = fakeCli({ queue: { stdout: queueReport([queueItem('0020')], [{ code: 'x', severity: 'error', message: 'bad' }]), stderr: '', exitCode: 1 } });
+    const { options } = makeCanvas({ run: scripted.run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.available).toBe(true);
+    expect(queue.exitCode).toBe(1);
+    expect(queue.corpusFindings).toBe(1);
+    expect(queue.items.length).toBe(1);
+  });
+
+  for (const [label, answer] of [
+    ['exit 2', { stdout: '', stderr: 'Error: SECRET-STDERR /Users/someone', exitCode: 2 }],
+    ['a spawn failure', new Error('could not start SECRET-SPAWN /Users/someone')],
+    ['unreadable output', ok('not json SECRET-OUT')],
+  ] as const) {
+    test(`${label} becomes a fixed note, and the governing view is untouched`, async () => {
+      const clean = makeCanvas();
+      await openPanel(clean.options, 'clean');
+      const before = await action(clean.options, 'get_state')(undefined, 'clean');
+
+      const scripted = fakeCli({ queue: answer as Run | Error });
+      const { options } = makeCanvas({ run: scripted.run });
+      const { url } = await openPanel(options);
+      const state = await action(options, 'get_state')();
+      expect(state.queue.available).toBe(false);
+      expect(state.queue.items).toEqual([]);
+      expect(typeof state.queue.note).toBe('string');
+      expect(JSON.stringify(state)).not.toContain('SECRET');
+      expect(state.governing).toEqual(before.governing);
+      expect(state.status).toBe(before.status);
+      expect(state.notes).toEqual(before.notes);
+      const page = (await renderPageWith(state)).get('app') as FakeNode;
+      expect(page.allText()).toContain(state.queue.note);
+      expect((await send(withPath(url, '/api/state'))).status).toBe(200);
+    });
+  }
+
+  test('a CLI that cannot be resolved leaves a note, not a crash', async () => {
+    const { options } = makeCanvas({ env: { ADRKIT_CLI: '/nowhere/adr' }, exists: () => false });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue.available).toBe(false);
+    expect(JSON.stringify(state.queue)).not.toContain('/nowhere');
+  });
+
+  test('queue rows offer no explain, and a queue-only id cannot be explained', async () => {
+    const { options, fake } = makeCanvas();
+    const { url } = await openPanel(options);
+    const response = await send(withPath(url, '/api/explain'), {
+      method: 'POST',
+      headers: { 'X-Adrkit-Token': tokenOf(url), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordId: '0020' }),
+    });
+    expect(response.status).toBe(404);
+    expect(fake.sent).toEqual([]);
+  });
+
+  test('the page lists open proposals as untrusted text under its own heading, with no button', async () => {
+    const base = { workingDirectory: CWD, status: 'ok', files: [], governing: [], history: [], activeProposals: [], findings: [], notes: [], review: null, judgeCalls: 0 };
+    const queue = {
+      available: true, asOf: '2026-10-08', exitCode: 0, totalItems: 1, corpusFindings: 0, note: null,
+      items: [{ id: '0020', title: TITLE, sourcePath: 'docs/adr/0020-x.md', slaState: 'on-track', deadlineDate: '2026-10-20', approvalCount: 1, quorum: 2, unresolvedObjectionCount: 0, routingTargets: ['@a'] }],
+    };
+    const nodes = await renderPageWith({ ...base, queue });
+    const app = nodes.get('app') as FakeNode;
+    const text = app.allText();
+    expect(text).toContain('Open proposals, corpus-wide (1)');
+    expect(text).toContain(TITLE);
+    expect(text).toContain('on-track');
+    expect(text).toContain('1/2');
+    const find = (node: FakeNode, predicate: (node: FakeNode) => boolean): FakeNode[] =>
+      [...(predicate(node) ? [node] : []), ...node.children.flatMap((child) => find(child, predicate))];
+    const queueSection = find(app, (node) => node.tag === 'section' && node.allText().includes('Open proposals, corpus-wide'));
+    expect(queueSection.length).toBe(1);
+    expect(find(queueSection[0] as FakeNode, (node) => node.tag === 'button')).toEqual([]);
   });
 });
