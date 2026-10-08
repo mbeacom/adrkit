@@ -568,6 +568,8 @@ Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
 - Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI
   strips "sensitive" variables unless an extension requests them; whether this
   one counts is unmeasured. It was null in the app probe because it was not set.
+  Measured afterwards in the headless SDK host (row C12): it does reach the
+  extension there. The app remains unmeasured.
 - Copilot app and CLI versions other than those above, and a Windows host.
 - Any persistent reference-repository run or external validation (rungs 2 and
   3).

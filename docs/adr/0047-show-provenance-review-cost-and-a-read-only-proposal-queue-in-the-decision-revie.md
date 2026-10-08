@@ -131,9 +131,10 @@ path. Either would produce a provenance that could disagree with the CLI's own
 answer. The page says what the CLI does not report instead.
 
 **2. Cost before spend.** The panel snapshot gains `judgeCalls`, the number of
-governing decisions in the current check, which is the number of
-`decision-checker` calls `adr-review` makes as `review.mjs` is written (runtime
-retries are not counted). The Run review button reads "Run review: N
+governing decisions in the current check. As `review.mjs` is written,
+`adr-review` makes at most that many `decision-checker` calls, and exactly that
+many when `adr check` and `adr lint` exit `0` or `1`; otherwise it skips the
+Judge and makes none. Runtime retries are not counted. The Run review button reads "Run review: N
 decision-checker call(s) (uses AI credits)", and is disabled with a stated
 reason ("No governing decision, so there is nothing to judge") when N is 0, as
 it already was with no changed files. The `run_review` action description says

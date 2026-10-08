@@ -337,7 +337,7 @@ canvas". It takes the same optional `files`, `base`, and `dir` as the workflow.
 | Action | Spends AI credits | What it does |
 | --- | --- | --- |
 | `get_state` | no | Returns the panel snapshot. |
-| `refresh` | no | Re-runs Collect and Check (`git diff`, `adr check`, `adr lint`) and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
+| `refresh` | no | Re-runs Collect and Check (`git diff`, `adr check`, `adr lint`) and `adr queue --format json`, and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
 | `show_review` | no | Displays an `adr-review` result you already have, passed as `{ result }`. The shape is validated and unknown keys are dropped. A result whose status is cleaner than its own payload, or that describes other files or governing records than the panel's, is refused. It never replaces a run the panel started. |
 | `run_review` | **yes** | Starts the `adr-review` workflow and returns `{ runId, status }` at once; the panel follows the run and shows its verdicts. Spend is the workflow's: one `decision-checker` call per governing decision. Invalid arguments throw `invalid_input` before anything is spent, and while a run is in flight a second request starts nothing. |
 
