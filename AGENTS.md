@@ -425,7 +425,7 @@ will usually be a regression:
 - **The workflow's exit code is always 0, so the result carries the exit
   codes.** `copilot workflow run` exits 0 on success, a thrown error, invalid
   arguments, and an unknown name. The workflow is advisory; callers gate on
-  `workflow.result.data.run.status == "completed"` and then the result's
+  the final `workflow.result` JSONL event's `.data.run.status`, then `.data.run.result` (or the `--result-file`), and then the result's
   `status`, `checkExitCode`, and `lintExitCode`. A non-zero `adr` exit is data,
   never a throw, or the run settles with no result and still exits 0.
 - **The agent name is namespaced.** `ctx.agent` must use

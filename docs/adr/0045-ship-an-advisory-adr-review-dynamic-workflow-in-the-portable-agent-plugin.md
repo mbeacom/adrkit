@@ -85,7 +85,9 @@ host registration, `review.mjs` for pure logic).
 3. **Judge.** For each decision in the `governing` bucket, call
    `ctx.agent(..., { agent: "adrkit:decision-checker", schema })` for a
    verdict of `consistent`, `conflicts`, or `unclear` with evidence. History
-   hits are returned, not judged. Records in other buckets, such as
+   hits are returned, not judged. Judge is also skipped when `adr lint` exits
+   outside `{0, 1}`: the result is `usage-error` with `governing` and `history`
+   populated and no verdicts. Records in other buckets, such as
    `activeProposals`, are logged with `ctx.log` and not returned. Model spend
    scales with the number of governing decisions, not with the number of files.
 
@@ -98,8 +100,8 @@ Callers gate on that content.
 
 - **Advisory only.** The workflow has no exit-code authority, and none of its
   output is a gate. The governing-decisions Action remains the CI authority.
-  Documented gating is `--output-format json`, confirm
-  `workflow.result.data.run.status == "completed"`, then read `checkExitCode`.
+  Documented gating is `--output-format json`, which prints JSONL: confirm
+  the final `workflow.result` JSONL event's `.data.run.status`, then `.data.run.result` (or the `--result-file`), then read `checkExitCode`.
   File existence is not a gate.
 - **Read-only.** It may invoke only `adr check`, `adr lint`, `adr explain`,
   `adr graph`, and read-only git (`git diff`, `git rev-parse`). It

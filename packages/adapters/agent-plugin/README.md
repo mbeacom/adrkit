@@ -224,18 +224,24 @@ CI gate. To gate a script on the workflow anyway, check that the run completed
 and then read the result:
 
 ```bash
-copilot workflow run adr-review --args '{"base":"origin/main"}' --output-format json > out.json
-jq -e '.workflow.result.data.run.status == "completed"
-       and .result.status == "ok"' out.json
+copilot workflow run adr-review --args '{"base":"origin/main"}' --output-format json 2>/dev/null > out.jsonl
+jq -se 'map(select(.type=="workflow.result"))[-1].data.run | .status == "completed" and .result.status == "ok"' out.jsonl
 ```
 
-The exact path of the result object depends on your Copilot version, so confirm
-it against your own `--output-format json` output first. `.result.status` is
-`ok`, `findings` (a non-zero `adr` exit or a `conflicts` verdict), or
-`usage-error`. The result also carries `checkExitCode`, `lintExitCode`,
-`files`, `filesSource`, `notes`, `governing`, `history`, `verdicts`,
-`unverified`, and `findings`. Treat a non-empty `unverified` as "not checked".
-File existence is not a gate.
+With `--output-format json`, stdout is JSONL, one event per line, so use `jq -s`.
+Warnings such as "Project extensions are excluded because the working folder is
+not trusted" go to stderr, which the recipe discards. The last event, of type
+`workflow.result`, carries the run: `.data.run` has `status` and the workflow's
+return value at `.data.run.result`. This shape was measured on Copilot CLI
+1.0.92. With `--result-file`, `.data.run` carries no inline result:
+`.data.resultFile` holds the path, and that file contains the bare result
+object.
+
+`.result.status` is `ok`, `findings` (a non-zero `adr` exit or a `conflicts`
+verdict), or `usage-error`. The result also carries `checkExitCode`,
+`lintExitCode`, `files`, `filesSource`, `notes`, `governing`, `history`,
+`verdicts`, `unverified`, and `findings`. Treat a non-empty `unverified` as "not
+checked". File existence is not a gate.
 
 ### Limits are yours to set
 

@@ -375,6 +375,7 @@ a local marketplace install; the workflow itself was then run end to end.
 | 8 | `ctx.agent(..., { agent: "decision-checker" })` (bare name), same install | `null`, no throw |
 | 9 | `claude plugin validate` on a plugin containing `extensions/` | Passes; Claude Code ignores the directory |
 | 10 | `adr check --json` exit 0 and exit 1 | Complete CheckOutcome on both; exit 2 is a usage error |
+| 11 | `--output-format json` and `--result-file` output shape (2026-10-08) | stdout is JSONL with warnings on stderr; the final `workflow.result` event has `.data.run` = `{runId, attempt, status, result}`; with `--result-file`, `.data.run` has no `result`, `.data.resultFile` holds the path, and the file holds the bare result object |
 
 ### End-to-end run
 
