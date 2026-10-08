@@ -123,6 +123,14 @@ that prefix as reserved, measured):
 - `refresh` re-runs Collect and Check only. **Zero model spend.**
 - `show_review` takes an `adr-review` result object the agent already holds,
   validates its shape defensively, keeps only the known keys, and displays it.
+  It refuses a result whose status is cleaner than its own payload (an `ok`
+  over a conflict, an exit 1, or an unjudged record) and a result whose files
+  or governing records are not the panel's current ones. It never replaces a
+  run the panel started.
+- A displayed review is dropped on refresh when the file set, the governing
+  records, the base, or any changed file's size or modification time differs
+  from what the review was judged against, so a clean verdict never stays over
+  contents it did not read.
 - `run_review` starts the `adr-review` workflow through
   `session.rpc.workflow.run({ name: "adr-review", args })`, returns
   `{ runId, status }`, and polls the run until it is terminal. **This is the
@@ -183,8 +191,10 @@ test:
   `script-src` stays `'self'` and the page has no inline script. The same
   strings suggest the app renders a canvas in a dedicated native webview rather
   than a frame, in which case `frame-ancestors *` does nothing; it is kept, and
-  `X-Frame-Options: DENY` is omitted, until the app render is measured. Neither
-  the theme injection nor the render surface has been observed in the app.
+  `X-Frame-Options: DENY` is omitted, until the render surface is observed. The
+  panel has since rendered in the app with the app's theme applied (evidence
+  index row 24), so the theme injection is observed. Whether the panel is
+  framed or in a native webview is not.
 - **`textContent` only.** ADR titles, evidence, paths, notes, and messages are
   untrusted repository content. The page builds its DOM with
   `createElement` and `textContent`; it uses no `innerHTML`, `outerHTML`,
@@ -412,13 +422,13 @@ whole extension failed visibly.
 **Rung 1** under ADR-0014, and only that: unit and contract coverage of the
 pure logic, plus maintainer measurements against the installed hosts. The
 headless measurements above, including the shipped canvas's `run_review` run,
-are against the CLI SDK host, not the app. The single
-app session covered one canvas render of a probe, not the shipped canvas; the
-shipped canvas's app run will be added to
-`docs/reference-verification-agent-plugin.md` when it happens. Unmeasured: the
-shipped canvas in the app (render, theme tokens, frame or webview, event
-stream, `run_review` from the panel), `ADRKIT_CLI` reaching the extension in the app, Copilot CLI and app versions other than those
-named, GitHub-source (copied) plugin installs, and any external validation.
+are against the CLI SDK host. The app measurements are a probe canvas in app
+1.1.14 and the shipped canvas in three maintainer sessions in app 1.1.27:
+render, theme, the event stream, `Run review` and explain from the panel
+(evidence index rows 23 to 29). Unmeasured: whether the app frames the panel
+or uses a native webview, `ADRKIT_CLI` reaching the extension in the app,
+Copilot CLI and app versions other than those named, the 0.5.0 install from
+GitHub, and any external validation.
 
 ## Action items
 
@@ -447,5 +457,5 @@ named, GitHub-source (copied) plugin installs, and any external validation.
    measurement.
 8. [x] Add reciprocal notes to ADR-0028, ADR-0034, and ADR-0045 (drafted with this
    record), and ratify this record before the plugin publishes the canvas.
-9. [ ] Tighten `frame-ancestors` once the app render is measured, and correct
-   the wording above to what the app does.
+9. [ ] Tighten `frame-ancestors` once the app's render surface (frame or native
+   webview) is observed, and correct the wording above to what the app does.

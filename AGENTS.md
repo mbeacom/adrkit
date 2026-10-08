@@ -490,7 +490,10 @@ will usually be a regression:
 - **`show_review` never replaces a run the panel started.** In the app, a
   finished panel run is surfaced to the agent, which then handed the same
   result back and relabelled it "supplied by the agent". Measured, then fixed;
-  do not loosen the guard.
+  do not loosen the guard. It also refuses a result whose status is cleaner
+  than its own payload, or whose files or governing records are not the
+  panel's, and a refresh drops a shown review once any changed file's size or
+  modification time moves. File names alone miss an edit inside the set.
 - **Canvases render only in the Copilot app.** A CLI terminal session has no
   canvas renderer, so the agent gets no canvas tools there. Do not describe the
   canvas as available in the CLI.

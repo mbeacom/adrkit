@@ -25,8 +25,9 @@
 
 import { Buffer } from 'node:buffer';
 import { randomBytes as nodeRandomBytes, timingSafeEqual } from 'node:crypto';
+import { stat as nodeStat } from 'node:fs/promises';
 import { createServer as nodeCreateServer } from 'node:http';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { setTimeout as nodeSleep } from 'node:timers/promises';
 import { PAGE_CSS, PAGE_JS, renderPage } from './canvas-page.mjs';
 import {
@@ -69,9 +70,13 @@ const SECURITY_HEADERS = {
 const RESULT_STATUSES = ['ok', 'findings', 'incomplete', 'usage-error'];
 /** Severity order for combining a check status with a review status. */
 const STATUS_RANK = { ok: 0, incomplete: 1, findings: 2, 'usage-error': 3 };
+/** Severity of a status; an unknown one counts as the worst. @param {string} status */
+const rank = (status) => STATUS_RANK[/** @type {keyof typeof STATUS_RANK} */ (status)] ?? 3;
 /** Settled run states. `paused` settles the attempt, so polling stops there too. */
 const TERMINAL_RUN_STATES = new Set(['completed', 'error', 'halted', 'paused', 'cancelled']);
 const RECORD_ID = /^[0-9]{4}$/;
+const SESSION_UNAVAILABLE = 'The Copilot session is not available yet; try again.';
+const INVALID_REVIEW_ARGS = "The panel's review arguments are not valid; see its notes, then refresh with corrected ones.";
 /** Exactly the keys of an `adr-review` result payload. */
 const RESULT_KEYS = Object.keys(assembleResult({}));
 
@@ -90,7 +95,7 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  *   findings: unknown[], notes: string[], review: null | { runId?: string, runStatus: string, result: any },
  *   updatedAt: string,
  * }} Snapshot
- * @typedef {{ runId: string | null, runStatus: string, result: any, watching: boolean, message?: string, governingKey?: string }} ReviewState
+ * @typedef {{ runId: string | null, runStatus: string, result: any, watching: boolean, message?: string, governingKey?: string, fingerprint?: string }} ReviewState
  * @typedef {{ args: unknown, check: Snapshot | null, review: ReviewState | null, seq: number }} Workspace
  * @typedef {{
  *   instanceId: string, cwd: string, token: string, origin: string, url: string,
@@ -257,6 +262,20 @@ export function sanitizeReviewResult(raw) {
     unverified: strings('unverified'),
     findings: array('findings').map(shownFinding),
   };
+  // The status must not be cleaner than the payload under it: a result saying
+  // `ok` over a conflict, an exit 1, or an unjudged record would put a clean
+  // header on a review that is not clean. A worse status is allowed, because
+  // `incomplete` and `usage-error` also come from inputs the payload does not
+  // carry (a partial file set, a base that did not resolve).
+  const implied = assembleResult({
+    checkExitCode: /** @type {number | null} */ (result['checkExitCode']),
+    lintExitCode: /** @type {number | null} */ (result['lintExitCode']),
+    verdicts,
+    unverified: /** @type {string[]} */ (result['unverified']),
+  }).status;
+  if (rank(/** @type {string} */ (result['status'])) < rank(implied)) {
+    fail(`status ${result['status']} is cleaner than its own payload, which implies ${implied}`);
+  }
   // Guard against `assembleResult` growing a key this projection does not know.
   return Object.fromEntries(RESULT_KEYS.map((key) => [key, result[key]]));
 }
@@ -394,10 +413,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
 }
 
 /** @param {string} a @param {string} b */
-const worse = (a, b) =>
-  (STATUS_RANK[/** @type {keyof typeof STATUS_RANK} */ (a)] ?? 3) >= (STATUS_RANK[/** @type {keyof typeof STATUS_RANK} */ (b)] ?? 3)
-    ? a
-    : b;
+const worse = (a, b) => (rank(a) >= rank(b) ? a : b);
 
 /** @param {ReviewState | null} review */
 const usableResult = (review) => (review && review.runStatus === 'completed' && review.result ? review.result : null);
@@ -561,6 +577,7 @@ const singleHeader = (value) => (Array.isArray(value) ? undefined : value);
  *   randomBytes?: (size: number) => Buffer,
  *   now?: () => string,
  *   sleep?: (ms: number) => Promise<unknown>,
+ *   stat?: (path: string) => Promise<{ size: number, mtimeMs: number }>,
  *   pollIntervalMs?: number,
  *   maxPolls?: number,
  * }} deps
@@ -575,6 +592,7 @@ export function createDecisionReviewCanvas({
   randomBytes = nodeRandomBytes,
   now = () => new Date().toISOString(),
   sleep = (ms) => nodeSleep(ms),
+  stat = (path) => nodeStat(path),
   pollIntervalMs = 2000,
   maxPolls = 1800,
 }) {
@@ -635,11 +653,34 @@ export function createDecisionReviewCanvas({
   const panelOpenFor = (cwd) => [...live].some((instance) => instance.cwd === cwd);
 
   /**
+   * What a review was judged against beyond the file names: the base, the
+   * file source, and each changed file's size and modification time. File
+   * names alone miss an edit to a file already in the set, which would leave a
+   * clean verdict over contents nobody reviewed. Held in memory only.
+   *
+   * @param {string} cwd
+   * @param {Snapshot} check
+   */
+  const fingerprintOf = async (cwd, check) => {
+    const marks = await Promise.all(
+      [...check.files].sort().map(async (file) => {
+        try {
+          const found = await stat(resolve(cwd, file));
+          return `${file}\0${found.size}:${found.mtimeMs}`;
+        } catch {
+          return `${file}\0missing`;
+        }
+      }),
+    );
+    return [`base:${check.base ?? ''}`, `source:${check.filesSource ?? ''}`, ...marks].join('\n');
+  };
+
+  /**
    * Recompute the snapshot for `cwd`. `input` replaces the remembered args when
    * given; the page's Refresh reuses them. A review stays only while it still
-   * describes the same file set and the same governing records: otherwise its
-   * verdicts would be shown against files it never read, or a record added
-   * since would sit unjudged under a clean header.
+   * describes the same file set, the same file contents, and the same governing
+   * records: otherwise its verdicts would be shown against files it never read,
+   * or a record added since would sit unjudged under a clean header.
    *
    * @param {string} cwd
    * @param {unknown} [input]
@@ -649,6 +690,7 @@ export function createDecisionReviewCanvas({
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
     const snapshot = await computeCheck({ cwd, input: workspace.args, run, env, exists, now });
+    const fingerprint = await fingerprintOf(cwd, snapshot);
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
     // otherwise have the first to finish return a snapshot that does not exist
@@ -660,7 +702,8 @@ export function createDecisionReviewCanvas({
         const reviewed = [...review.result.files].sort().join('\0');
         const sameFiles = reviewed === [...snapshot.files].sort().join('\0');
         const sameGoverning = review.governingKey === undefined || review.governingKey === governingKey(snapshot.governing);
-        if (!sameFiles || !sameGoverning) workspace.review = null;
+        const sameContents = review.fingerprint === fingerprint;
+        if (!sameFiles || !sameGoverning || !sameContents) workspace.review = null;
       }
       broadcast(cwd);
     }
@@ -792,7 +835,7 @@ export function createDecisionReviewCanvas({
     }
     const session = getSession();
     if (!session?.rpc?.workflow) {
-      throw makeError('session_unavailable', 'The Copilot session is not available yet; try again.');
+      throw makeError('session_unavailable', SESSION_UNAVAILABLE);
     }
     /** @type {ReviewState} */
     const review = { runId: null, runStatus: 'pending', result: null, watching: true };
@@ -802,6 +845,7 @@ export function createDecisionReviewCanvas({
     // a check of one set with a review of another.
     if (input !== undefined || !workspace.check) await refresh(cwd, input);
     review.governingKey = governingKey(/** @type {Snapshot} */ (workspace.check).governing);
+    review.fingerprint = await fingerprintOf(cwd, /** @type {Snapshot} */ (workspace.check));
     broadcast(cwd);
 
     let envelope;
@@ -890,7 +934,13 @@ export function createDecisionReviewCanvas({
       try {
         await runReview(cwd);
       } catch (error) {
-        return replyJson(res, 400, { error: messageOf(error) });
+        // A fixed message, never the error's own text: the detail is already
+        // in the panel's notes, and an exception's text does not belong in a
+        // response.
+        const code = isRecord(error) ? error['code'] : undefined;
+        if (code === 'session_unavailable') return replyJson(res, 503, { error: SESSION_UNAVAILABLE });
+        if (code === 'invalid_input') return replyJson(res, 400, { error: INVALID_REVIEW_ARGS });
+        return replyJson(res, 500, { error: 'The review could not be started.' });
       }
       return replyJson(res, 200, await stateFor(cwd));
     }
@@ -908,7 +958,7 @@ export function createDecisionReviewCanvas({
     try {
       await session.send({ prompt: buildExplainPrompt(recordId) });
     } catch (error) {
-      return replyJson(res, 502, { error: `Could not reach the agent: ${messageOf(error)}` });
+      return replyJson(res, 502, { error: 'Could not reach the agent.' });
     }
     return replyJson(res, 200, { ok: true });
   };
@@ -985,7 +1035,8 @@ export function createDecisionReviewCanvas({
         description:
           'Display an adr-review result the panel did not start itself: pass the run result object as ' +
           '{ result }. Runs started from the panel or via run_review appear automatically; do not call this ' +
-          'for them. Its shape is validated and unknown keys are dropped. Starts nothing.',
+          'for them. It must describe the panel\'s current files and governing records, and its status must ' +
+          'not be cleaner than its own verdicts and exit codes. Unknown keys are dropped. Starts nothing.',
         inputSchema: { type: 'object', required: ['result'], properties: { result: { type: 'object' } } },
         handler: (/** @type {any} */ ctx) =>
           withCwd(ctx, async (cwd, input) => {
@@ -998,6 +1049,19 @@ export function createDecisionReviewCanvas({
             }
             const workspace = workspaceFor(cwd);
             if (!workspace.check) await refresh(cwd);
+            const current = /** @type {Snapshot} */ (workspace.check);
+            // A result for another change would put its verdicts over files and
+            // records it never judged, so it must describe this panel's.
+            const shownFiles = /** @type {string[]} */ (result['files']);
+            const shownGoverning = /** @type {ShownDecision[]} */ (result['governing']);
+            const sameFiles = [...shownFiles].sort().join('\0') === [...current.files].sort().join('\0');
+            if (!sameFiles || governingKey(shownGoverning) !== governingKey(current.governing)) {
+              throw makeError(
+                'stale_result',
+                "The result describes a different change: its files or governing records differ from the panel's. " +
+                  'Refresh with its { base, files, dir }, or use run_review.',
+              );
+            }
             // Measured in the app: when a panel-started run finished, the agent
             // was told about it and handed the same result back, which relabelled
             // the panel's own run as agent-supplied. A run this panel started is
@@ -1015,7 +1079,8 @@ export function createDecisionReviewCanvas({
               runStatus: 'completed',
               result,
               watching: false,
-              governingKey: governingKey(/** @type {Snapshot} */ (workspace.check).governing),
+              governingKey: governingKey(current.governing),
+              fingerprint: await fingerprintOf(cwd, current),
             };
             broadcast(cwd);
             return snapshotOf(workspace);

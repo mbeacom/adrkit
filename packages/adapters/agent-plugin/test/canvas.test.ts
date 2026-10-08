@@ -980,7 +980,9 @@ describe('review round', () => {
     const cli = fakeCli(script);
     const { options } = makeCanvas({ run: cli.run });
     await openPanel(options);
-    const state = await action(options, 'show_review')({ result: resultFor(['0012'], [['0012', 'consistent']]) });
+    const state = await action(options, 'show_review')({
+      result: { ...resultFor(['0012', '0099'], [['0012', 'consistent']]), status: 'incomplete', unverified: ['0099'] },
+    });
     expect(state.status).toBe('incomplete');
     expect(state.notes.join('\n')).toContain('0099');
   });
@@ -1282,5 +1284,171 @@ describe('app smoke round', () => {
     expect((supplied.get('app') as FakeNode).allText()).toContain('not a run this panel followed');
     const followed = await renderPageWith({ ...base, review: { runId: 'run-1', runStatus: 'completed', result: completed } });
     expect((followed.get('app') as FakeNode).allText()).not.toContain('not a run this panel followed');
+  });
+});
+
+describe('PR review round', () => {
+  const clean = {
+    status: 'ok',
+    checkExitCode: 0,
+    lintExitCode: 0,
+    files: ['src/a.ts'],
+    filesSource: 'args',
+    notes: [],
+    governing: [governed('0012', 'governing')],
+    history: [],
+    verdicts: [{ recordId: '0012', title: 'T', verdict: 'consistent', evidence: 'e' }],
+    unverified: [],
+    findings: [],
+  };
+  const conflicting = { ...clean.verdicts[0], verdict: 'conflicts' };
+
+  test('sanitizeReviewResult refuses a status cleaner than its own payload', () => {
+    for (const bad of [
+      { ...clean, checkExitCode: 1 },
+      { ...clean, lintExitCode: 1 },
+      { ...clean, checkExitCode: 2 },
+      { ...clean, verdicts: [conflicting] },
+      { ...clean, verdicts: [], unverified: ['0012'] },
+      { ...clean, status: 'incomplete', verdicts: [conflicting] },
+      { ...clean, status: 'findings', checkExitCode: 2 },
+    ]) {
+      expect(() => sanitizeReviewResult(bad)).toThrow(/status/);
+    }
+  });
+
+  test('sanitizeReviewResult keeps a status at least as severe as its payload', () => {
+    // `incomplete` and `usage-error` can come from inputs the payload does not
+    // carry (a partial file set, an unresolved base), so worse is allowed.
+    for (const good of [
+      clean,
+      { ...clean, status: 'incomplete' },
+      { ...clean, status: 'usage-error' },
+      { ...clean, status: 'findings', verdicts: [conflicting] },
+    ]) {
+      expect(sanitizeReviewResult(good).status).toBe(good.status);
+    }
+  });
+
+  test('show_review refuses a result that describes a different change', async () => {
+    const { options } = makeCanvas();
+    await openPanel(options);
+    const show = action(options, 'show_review');
+    await expect(Promise.resolve().then(() => show({ result: { ...clean, files: ['src/other.ts'] } }))).rejects.toThrow(
+      /different change/,
+    );
+    await expect(
+      Promise.resolve().then(() =>
+        show({
+          result: {
+            ...clean,
+            governing: [governed('0012', 'governing'), governed('0099', 'governing')],
+            unverified: ['0099'],
+            status: 'incomplete',
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different change/);
+    expect((await action(options, 'get_state')()).review).toBeNull();
+  });
+
+  test('show_review accepts a result for the same files and records in any order', async () => {
+    const cli = fakeCli({
+      diff: ok('src/b.ts\0src/a.ts\0'),
+      check: ok(checkReport([governed('0013', 'governing'), governed('0012', 'governing')])),
+    });
+    const { options } = makeCanvas({ run: cli.run });
+    await openPanel(options);
+    const state = await action(options, 'show_review')({
+      result: {
+        ...clean,
+        files: ['src/a.ts', 'src/b.ts'],
+        governing: [governed('0012', 'governing'), governed('0013', 'governing')],
+        verdicts: [clean.verdicts[0], { ...clean.verdicts[0], recordId: '0013' }],
+      },
+    });
+    expect(state.review).not.toBeNull();
+    expect(state.status).toBe('ok');
+  });
+
+  /** A `stat` whose answers the test changes, keyed by absolute path. */
+  function fakeStat() {
+    const files = new Map<string, { size: number; mtimeMs: number }>([[join(CWD, 'src/a.ts'), { size: 10, mtimeMs: 1 }]]);
+    const stat = async (path: string) => {
+      const found = files.get(path);
+      if (!found) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      return found;
+    };
+    return { files, stat };
+  }
+
+  test('refresh drops a shown review once a reviewed file changes on disk', async () => {
+    const disk = fakeStat();
+    const { options } = makeCanvas({ stat: disk.stat });
+    await openPanel(options);
+    await action(options, 'show_review')({ result: clean });
+    expect((await action(options, 'refresh')()).review).not.toBeNull();
+    disk.files.set(join(CWD, 'src/a.ts'), { size: 10, mtimeMs: 2 });
+    const state = await action(options, 'refresh')();
+    expect(state.review).toBeNull();
+    expect(state.status).toBe('incomplete');
+  });
+
+  test('refresh drops a panel run whose files changed after it started', async () => {
+    const disk = fakeStat();
+    let finish = false;
+    const session = {
+      send: async () => 'm',
+      log: async () => {},
+      rpc: {
+        workflow: {
+          run: async () => ({ runId: 'run-1', status: 'running' }),
+          getRun: async () => (finish ? { runId: 'run-1', status: 'completed', result: clean } : { runId: 'run-1', status: 'running' }),
+        },
+      },
+    };
+    const { options } = makeCanvas({
+      stat: disk.stat,
+      getSession: () => session,
+      sleep: () => new Promise((resolve) => setTimeout(resolve, 1)),
+    });
+    await openPanel(options);
+    await action(options, 'run_review')({});
+    // Edited while the run was judging the earlier contents.
+    disk.files.set(join(CWD, 'src/a.ts'), { size: 11, mtimeMs: 1 });
+    finish = true;
+    const settled = await settle(() => action(options, 'get_state')());
+    expect(settled.review.runId).toBe('run-1');
+    const state = await action(options, 'refresh')();
+    expect(state.review).toBeNull();
+  });
+
+  test('a run-review refusal over HTTP never echoes the error text', async () => {
+    const { options } = makeCanvas();
+    const { url } = await openPanel(options, 'panel-1', { input: { base: '-x' } });
+    const response = await send(withPath(url, '/api/run-review'), {
+      method: 'POST',
+      headers: { 'X-Adrkit-Token': tokenOf(url) },
+    });
+    expect(response.status).toBe(400);
+    expect(response.body).not.toContain("must not start with '-'");
+    expect(response.body).not.toContain('-x');
+    expect(JSON.parse(response.body).error.length).toBeGreaterThan(0);
+  });
+
+  test('an explain that cannot reach the agent never echoes the error text', async () => {
+    const fake = fakeSession();
+    fake.session.send = async () => {
+      throw new Error('internal detail /Users/someone/secret');
+    };
+    const { options } = makeCanvas({ getSession: () => fake.session });
+    const { url } = await openPanel(options);
+    const response = await send(withPath(url, '/api/explain'), {
+      method: 'POST',
+      headers: { 'X-Adrkit-Token': tokenOf(url), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordId: '0012' }),
+    });
+    expect(response.status).toBe(502);
+    expect(response.body).not.toContain('internal detail');
   });
 });
