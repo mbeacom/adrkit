@@ -101,10 +101,11 @@ same sense as ADR-0045.
   `session.log` after joining. The registration logic lives in a module other
   than `extension.mjs`, behind injected seams, so the wiring is testable without
   the SDK.
-- `canvas.mjs` holds the canvas logic and imports only `node:*` built-ins and
-  `./review.mjs`. The page's HTML, JavaScript, and CSS are string exports from a
-  module (for example `canvas-page.mjs`), so there is no file-path lookup at
-  runtime.
+- `canvas.mjs` holds the canvas logic and imports only `node:*` built-ins,
+  `./review.mjs`, and `./canvas-page.mjs`. The page's HTML, JavaScript, and CSS
+  are string exports from `canvas-page.mjs`, so there is no file-path lookup at
+  runtime. The registration seam is `./register.mjs`, which `extension.mjs`
+  imports beside the SDK.
 - `review.mjs` may gain small, backwards-compatible exports. Its behavior and
   tests do not change. The canvas reuses `validateArgs`, `resolveCli`,
   `runCommand`, and `collectChangedFiles` from it.
@@ -166,10 +167,20 @@ test:
   (SSE); `POST /api/refresh`, `/api/run-review`, and `/api/explain`. Everything
   else is 404. Request bodies are capped at 64 KB.
 - **Headers on every response.** `Content-Security-Policy: default-src 'none';
-  script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:;
-  base-uri 'none'; form-action 'none'; frame-ancestors *`, plus
-  `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`. The host
-  embeds the page in a frame, so no `X-Frame-Options: DENY`.
+  script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self';
+  img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors *`,
+  plus `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`.
+  `style-src` allows inline styles because review of the app binary's strings
+  found that the app applies its theme by injecting `<style>` elements
+  (`applyExtensionCanvasTheme`); under `style-src 'self'` alone the browser
+  would refuse them, no theme token would be defined, and the panel would render
+  light inside a dark app. The page builds no style from data and has no HTML
+  sink through which a `<style>` could be injected, so this costs no protection.
+  `script-src` stays `'self'` and the page has no inline script. The same
+  strings suggest the app renders a canvas in a dedicated native webview rather
+  than a frame, in which case `frame-ancestors *` does nothing; it is kept, and
+  `X-Frame-Options: DENY` is omitted, until the app render is measured. Neither
+  the theme injection nor the render surface has been observed in the app.
 - **`textContent` only.** ADR titles, evidence, paths, notes, and messages are
   untrusted repository content. The page builds its DOM with
   `createElement` and `textContent`; it uses no `innerHTML`, `outerHTML`,
@@ -221,8 +232,31 @@ Measured on 2026-10-08. Two environments, and the difference matters.
    `session.rpc.workflow.run({ name, args })` returned
    `{ runId, attempt, status: "running" }`.
 
+**Headless smoke of the shipped canvas, Copilot CLI 1.0.93 SDK host**, from
+`pluginDirectories`, on a two-record fixture, at commit `2823994` plus the
+ADR draft merge:
+
+7. The extension id was `plugin:adrkit:adrkit` and the status line read
+   "2 governing · ok". The page returned 200 with the full CSP (the
+   `style-src` token in it has since changed, above).
+8. `GET /api/state` without the token returned 403, and `POST /api/refresh`
+   without the header returned 403. The state showed the fixture's two files
+   and governing records 0001 and 0002, with `adr check` and `adr lint` at
+   exit 0. `refresh` returned the snapshot, and after close the port refused
+   connections.
+9. `run_review` returned `{ runId, status: "running" }`, and polling
+   `get_state` reached run status `completed` and panel status `findings`, with
+   verdicts `conflicts` for both 0001 and 0002 and `unverified` empty. It cost
+   about 0.16 AI credits and left the fixture repository clean. This is one run
+   of a non-deterministic agent, not a pass rate.
+
+The smoke fetched the page over HTTP and did not render it, so it says nothing
+about the theme, the frame, or the page script running.
+
 **One maintainer session in GitHub Copilot app 1.1.14**, which runs its own
 runtime (`1.0.93-1`, observed through `ps`) rather than the terminal CLI. The
+installed app now reads 1.1.27 (its plist); these measurements were made under
+1.1.14 and are recorded as measured, not re-dated. The
 runtime's environment carries the login-shell `PATH` (Homebrew, `~/.bun/bin`,
 nvm, `/usr/local/bin`) and not launchd's minimal one, so a bare `adr` on `PATH`
 can resolve there; `ADRKIT_CLI` is unset unless the user exports it in a shell
@@ -234,7 +268,8 @@ canvas**.
 What this record does not claim: the shipped canvas has not run in the app,
 `ADRKIT_CLI` forwarding to the extension was not measured (the CLI strips
 variables it considers sensitive unless an extension requests them, and whether
-`ADRKIT_CLI` counts is unmeasured), and no model-spending `run_review` has run.
+`ADRKIT_CLI` counts is unmeasured), and no `run_review` has been started from
+the panel inside the app.
 
 ## Options considered
 
@@ -325,7 +360,8 @@ whole extension failed visibly.
   version surfaces, the wiring test, and the packaging test; a local server whose
   security properties must stay tested; and an experimental API to re-measure on
   each app and CLI upgrade.
-- **How we would know this was wrong:** the canvas writes any file or invokes
+- **How we would know this was wrong:** a panel reports `ok` while a governing
+  decision has no verdict; the canvas writes any file or invokes
   any writing command; a route answers without a valid token, or a POST succeeds
   without the header or with a foreign `Origin`; page script gains an
   `innerHTML`-family sink or a repository string reaches a prompt; a socket is
@@ -335,7 +371,11 @@ whole extension failed visibly.
   working directory than the session's; a panel reports `ok` after a spawn
   failure or a usage error; the experimental API changes and the canvas
   silently stops registering without the logged line; or users read the panel's
-  status as a merge gate.
+  status as a merge gate. Re-measure on each app upgrade: the workflow reviews
+  `process.cwd()` while the panel uses `ctx.session.workingDirectory`, and they
+  were equal in the one app session measured; and whether every runtime accepts
+  `canvases` in `joinSession`, since `register` retries without `canvases` if a
+  runtime rejects the key, which is unmeasured.
 - Revisit if: the SDK's canvas API stabilizes or changes shape; the plugin
   adopts the Agent Plugins 1.0 layout; the app defines a gating mechanism for
   canvases; MCP plugin wiring becomes viable (ADR-0028's condition); or a second
@@ -345,37 +385,41 @@ whole extension failed visibly.
 
 **Rung 1** under ADR-0014, and only that: unit and contract coverage of the
 pure logic, plus maintainer measurements against the installed hosts. The
-headless measurements above are against the CLI SDK host, not the app. The single
+headless measurements above, including the shipped canvas's `run_review` run,
+are against the CLI SDK host, not the app. The single
 app session covered one canvas render of a probe, not the shipped canvas; the
 shipped canvas's app run will be added to
 `docs/reference-verification-agent-plugin.md` when it happens. Unmeasured: the
-shipped canvas in the app, `run_review` end to end through a canvas, `ADRKIT_CLI`
-reaching the extension in the app, Copilot CLI and app versions other than those
+shipped canvas in the app (render, theme tokens, frame or webview, event
+stream, `run_review` from the panel), `ADRKIT_CLI` reaching the extension in the app, Copilot CLI and app versions other than those
 named, GitHub-source (copied) plugin installs, and any external validation.
 
 ## Action items
 
-1. [ ] Implement `canvas.mjs`, the page module, and the registration seam, and
+1. [x] Implement `canvas.mjs`, the page module, and the registration seam, and
    rewire `extension.mjs` to register the workflow and the canvas in one
    `joinSession` with each registration guarded.
-2. [ ] Add `test/canvas.test.ts`, each test observed failing before it passes
+2. [x] Add `test/canvas.test.ts`, each test observed failing before it passes
    (ADR-0016): token and header and Origin checks, response headers, 404 and
    body cap, explain validation, snapshot across exit 0/1/2 and spawn failure,
    `show_review` and `run_review`, no server at import, open idempotence and
    close, `workspace_unavailable`, no `innerHTML`-family sink, and the
    registration seam in both failure directions.
-3. [ ] Extend, without weakening, the wiring and packaging tests where they
+3. [x] Extend, without weakening, the wiring and packaging tests where they
    enumerate extension files.
-4. [ ] Document the canvas, its actions, which one spends credits, and its
+4. [x] Document the canvas, its actions, which one spends credits, and its
    security boundary in `docs/reference-verification-agent-plugin.md` and the
    plugin README.
-5. [ ] Bump the plugin 0.4.0 to 0.5.0 on every version-bearing surface in the
+5. [x] Bump the plugin 0.4.0 to 0.5.0 on every version-bearing surface in the
    agent-plugin section of `docs/RELEASING.md`.
-6. [ ] Live smoke, headless: open the shipped canvas through the SDK host, call
+6. [x] Live smoke, headless: open the shipped canvas through the SDK host, call
    `get_state` and `refresh`, and confirm the response headers and the 403 paths
    against the running server.
 7. [ ] App smoke: install the plugin in the Copilot app, open the shipped
-   canvas, confirm the working directory and CLI resolution, and record the
-   result as a rung-1 measurement.
+   canvas, confirm the working directory, CLI resolution, and that the theme
+   tokens apply, and record the result, with the exact app version, as a rung-1
+   measurement.
 8. [ ] Add reciprocal notes to ADR-0028, ADR-0034, and ADR-0045 (drafted with this
    record), and ratify this record before the plugin publishes the canvas.
+9. [ ] Tighten `frame-ancestors` once the app render is measured, and correct
+   the wording above to what the app does.

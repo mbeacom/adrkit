@@ -527,6 +527,19 @@ commit; before a review runs the panel shows what `adr check` found.
   extension in one app session, and on the app loading the plugin's root
   `extensions/`, which row 15 measured for the installed 0.4.0 plugin. The
   shipped canvas's own run in the app is still pending (row 23).
+- The panel's response headers in the app. The Content-Security-Policy now
+  allows `style-src 'self' 'unsafe-inline'` because the app appears to inject
+  its theme tokens as `<style>` elements (from the app binary's strings,
+  `applyExtensionCanvasTheme`); whether the tokens then apply is unobserved. The
+  strings also suggest a dedicated native webview, which would make
+  `frame-ancestors *` a no-op; it stays until the render is measured.
+- Re-measure on app upgrades: the workflow reviews `process.cwd()` while the
+  panel uses the session directory (equal in the one app session measured), and
+  whether every runtime accepts `canvases` in `joinSession` (`register` retries
+  without `canvases` if one rejects it; unmeasured).
+- App version drift: the app's plist now reads 1.1.27, while the app
+  measurements here were made under 1.1.14 with runtime 1.0.93-1. They are
+  recorded as measured and not re-dated.
 - The `ghapp://plugins/install?source=adrkit@adrkit` deep link.
   The installed 0.4.0 extension loading cleanly (row 15) is the only evidence.
 - Whether the app shares `~/.copilot/installed-plugins` with the CLI.
