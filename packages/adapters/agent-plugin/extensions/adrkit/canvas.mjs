@@ -1383,5 +1383,18 @@ export function createDecisionReviewCanvas({
         instance.server.closeAllConnections?.();
       });
     },
+
+    /**
+     * The advisory post-edit hook's way in (ADR-0049): the free `refresh` for
+     * each directory with an open panel, and nothing when none is open. Never
+     * starts `run_review`. Not an SDK field: `createCanvas` copies only the
+     * fields it knows, so this stays in process. Resolves to the number of
+     * directories refreshed.
+     */
+    refreshOpen: async () => {
+      const cwds = new Set([...live].map((instance) => instance.cwd));
+      for (const cwd of cwds) await refresh(cwd);
+      return cwds.size;
+    },
   };
 }

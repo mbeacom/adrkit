@@ -1,13 +1,13 @@
 /**
  * Registers the advisory `adr-review` dynamic workflow (ADR-0045), the
- * read-only `decision-review` canvas (ADR-0046), and the read-only
- * `adr_check`, `adr_explain`, and `adr_lint` tools (ADR-0048) with GitHub
- * Copilot.
+ * read-only `decision-review` canvas (ADR-0046), the read-only `adr_check`,
+ * `adr_explain`, and `adr_lint` tools (ADR-0048), and the advisory session
+ * hooks (ADR-0049) with GitHub Copilot.
  *
  * This is the only file that imports the Copilot SDK, which the host resolves
  * when it forks the extension; the plugin ships no dependencies. All logic
- * lives in `review.mjs`, `canvas.mjs`, and `tools.mjs`, and the registration itself in
- * `register.mjs`, so each can be tested without the SDK.
+ * lives in `review.mjs`, `canvas.mjs`, `tools.mjs`, and `hooks.mjs`, and the
+ * registration itself in `register.mjs`, so each can be tested without the SDK.
  *
  * Location is manifest-coupled: for a `.claude-plugin/plugin.json` plugin,
  * Copilot loads `<plugin-root>/extensions/<dir>/extension.mjs` (measured). The
@@ -26,6 +26,7 @@ import { CanvasError, createCanvas, defineWorkflow, joinSession } from '@github/
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createDecisionReviewCanvas } from './canvas.mjs';
+import { createAdvisoryHooks } from './hooks.mjs';
 import { register } from './register.mjs';
 import { ADR_REVIEW_META, reviewWorkflow, runCommand } from './review.mjs';
 import { createAdrTools, trackWorkingDirectory } from './tools.mjs';
@@ -64,4 +65,14 @@ await register({
       getCwd: toolsCwd.get,
     }),
   onEvent: toolsCwd.observe,
+  // Hooks take their directory from each hook input, like the canvas, and
+  // return undefined (registering nothing) when ADRKIT_HOOKS=0.
+  hooks: ({ getSession, refreshCanvas }) =>
+    createAdvisoryHooks({
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      env: process.env,
+      exists: existsSync,
+      getSession,
+      refreshCanvas,
+    }),
 });
