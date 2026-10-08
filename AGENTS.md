@@ -537,6 +537,50 @@ will usually be a regression:
   pre-run refresh; only agent `get_state`/`refresh` do. Its strings, and
   `declaredBy` paths, are clipped like CLI messages, and the rows share a
   256 KiB (UTF-8 bytes) serialized budget, before every broadcast.
+- **The extension also registers three advisory session hooks**
+  (`hooks.mjs`, [ADR-0049](./docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md),
+  **proposed**): `onSessionStart` adds a governing-decisions summary,
+  `onPreToolUse` names the accepted decision(s) governing an edit's target,
+  and `onPostToolUse` refreshes open `decision-review` panels, debounced. Their
+  registration is guarded like the other two, and `ADRKIT_HOOKS=0` makes the
+  factory return `undefined`, so no `hooks` key is joined at all.
+- **A hook returns `additionalContext` and nothing else.** No
+  `permissionDecision` (the SDK's own example returns `"allow"`, which would
+  override a person's `ask`), no `modifiedArgs`, `modifiedResult`, or
+  `suppressOutput`. That is ADR-0022's stance: advisories never gain
+  authority. A test asserts the key set and was observed failing against an
+  `"allow"` mutation; do not add a decision "just for governed files".
+- **Hook context carries ids, never text.** Record ids are checked against
+  `^[0-9]{4}$` and statuses against a fixed set; titles, paths, and error
+  messages never reach it, because the model reads hook context as
+  instructions. Failures are silent to the model and log one fixed
+  `session.log` warning per process.
+- **`onSessionStart` fires with the first prompt, not at load.** Measured on
+  Copilot CLI 1.0.93 (SDK host): a plugin extension joins after
+  `session.start`; with no prompt no hook fires, even on resume. With a prompt
+  it fires after `onUserPromptSubmitted` with `source: "new"`. Its summary
+  therefore adds latency to the first turn (111 ms measured).
+- **The edit tools are the runtime's edit category**: `edit` and `create`
+  (`{ path }`, absolute in session logs), `str_replace_editor` (`{ path }`,
+  from the bundle's schema only), and `apply_patch`, whose `toolArgs` is the
+  raw patch **string** (measured with `gpt-6-luna`), parsed for
+  `*** Add/Update/Delete File:` and `*** Move to:`. A renamed tool turns the
+  note off silently. Paths are made relative to the hook input's
+  `workingDirectory`, never `process.cwd()`.
+- **Hook cost is capped.** Non-edit tools return before any I/O; one
+  `adr check` per distinct path per process (500 at most), cached even when it
+  fails; `AbortSignal.timeout(5000)` on every `git` and `adr` call; the
+  refresh debounce timer is `unref`'d (a test fails if the process lingers).
+  Measured: 117 ms for a first governed edit, 0 to 1 ms otherwise. An edit
+  inside the corpus directory drops the cache.
+- **`ADRKIT_*` variables reach the extension without
+  `requestedEnvironmentVariables`.** Measured on 1.0.93 through the SDK host,
+  including a variable whose name ends in `_SECRET_TOKEN`. Hook firing is
+  unmeasured in the Copilot app and in an interactive CLI session.
+- **The canvas's `refreshOpen` is the hooks' only way in.** It is an
+  in-process method on the canvas options (`createCanvas` copies only the
+  fields it knows) that runs the free `refresh` for directories with an open
+  panel. Nothing in the hooks starts `run_review`.
 - `copilot plugin install` prints only a skill count. Version 0.7.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.

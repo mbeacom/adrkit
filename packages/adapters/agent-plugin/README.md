@@ -457,6 +457,41 @@ tools were measured registering and running in a headless Copilot CLI 1.0.93
 session; they are **unmeasured in the Copilot app**. Details are in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
 
+## Advisory session hooks (GitHub Copilot)
+
+The same extension registers three session hooks, proposed in
+[ADR-0049](../../../docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
+(**proposed**). They add context for the agent and never block anything.
+
+| Hook | When | What it adds | Cost |
+| --- | --- | --- | --- |
+| `onSessionStart` | With the session's first prompt (measured) | A short summary: how many files changed, and the ids of the accepted decisions that govern them and of open proposals that bind them | One `git diff` and one `adr check`; no model call |
+| `onPreToolUse` | Before an edit tool (`edit`, `create`, `str_replace_editor`, `apply_patch`) | A note naming the accepted decision(s) that govern the target file, once per file per session | One `adr check` per distinct file, cached; nothing for any other tool |
+| `onPostToolUse` | After an edit tool | Nothing for the agent; refreshes any open `decision-review` panel, debounced | The panel's free refresh; never a review |
+
+**They cannot block.** Every hook returns at most `additionalContext`. None
+returns a permission decision (not even "allow", which would skip a prompt you
+configured), rewrites a tool's arguments or result, or hides output. A failure
+is silent to the agent and logs one warning line for you.
+
+**They pass ids, not text.** The context names four-digit record ids and a
+status (`accepted`, `proposed`, `draft`), never an ADR title or a file path,
+because those are repository content and the agent reads hook context as
+instructions. `adr explain <path>` gives the agent the rest.
+
+**Turn them off** with `ADRKIT_HOOKS=0` (or `false`, `off`, `no`) in the
+environment Copilot starts from. The variable reaches the extension without
+being requested (measured on Copilot CLI 1.0.93). Each `git` and `adr` call has
+a 5-second limit. The CLI is resolved as everywhere else in this plugin.
+
+**Evidence.** Rung 1 of ADR-0014: unit and contract tests, plus a headless
+Copilot CLI 1.0.93 SDK-host run, one model turn on `gpt-6-luna`, that measured
+the session summary at 111 ms, the first pre-edit check of a governed file at
+117 ms, a repeated edit and every other tool at 0 to 1 ms, and the open panel
+refreshing about 1.7 s after the last edit. Hook firing is unmeasured in the
+Copilot app and in an interactive CLI session. Details are in the
+[evidence index](../../../docs/reference-verification-agent-plugin.md).
+
 ## Things that are load-bearing and easy to break
 
 Each of these was measured against the real hosts, not inferred from their docs.

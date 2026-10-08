@@ -793,6 +793,53 @@ results; `base: "no-such-ref"` now returns `git-base-unresolved`.
 - Copilot CLI versions other than 1.0.93, an install from GitHub with the tools
   in place, a Windows host, and any rung-2 or rung-3 evidence.
 
+## Advisory session hooks (2026-10-08)
+
+Measured on 2026-10-08 at **rung 1** of ADR-0014. The hooks are proposed in
+[ADR-0049](adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
+(**proposed**). They are registered by the same `joinSession` as the workflow
+and the canvas, and return nothing but `additionalContext`.
+
+All rows: Copilot CLI 1.0.93 through a headless SDK host (`CopilotClient`,
+`createSession({ pluginDirectories, requestExtensions: true,
+requestCanvasRenderer: true, workingDirectory })`), on a fixture repository
+where 0001 (`src/**`) and 0002 (`package.json`) are `accepted` and both files
+differ from `origin/main`. Latencies are the runtime's own `hook.start` to
+`hook.end` event timestamps.
+
+| # | Probe | Result |
+|---|-------|--------|
+| H1 | A probe extension registering every hook; session created, no prompt (free) | `load` and `joined` only; no hook fired. Resuming the session with no prompt fired none either |
+| H2 | Same probe, one prompt asking for one edit (`gpt-6-luna`) | `onUserPromptSubmitted`, then `onSessionStart` (`source: "new"`, `initialPrompt` set), then the model; `onPreToolUse` and `onPostToolUse` around the edit; then `onAgentStop` and `onSessionEnd` (`reason: "complete"`) |
+| H3 | Did the context reach the model? | The model quoted the session-start, prompt, and pre-tool sentinels verbatim |
+| H4 | Edit tool and arguments, `gpt-6-luna` | `apply_patch`; `toolArgs` is the raw patch string, `*** Update File: src/net.ts`, a relative path; `toolResult.resultType` `success` in the post hook |
+| H5 | Edit tool shapes in 2,424 local Copilot session logs (free) | `edit` `{ path, old_str, new_str }` and `create` `{ path, file_text }` with absolute paths; `apply_patch` with relative and absolute paths. `str_replace_editor` is in the runtime's edit category but appeared in no log |
+| H6 | `ADRKIT_HOOKS=0` and `ADRKIT_PROBE_SECRET_TOKEN` set in the runtime environment via `forStdio({ env })`, no `requestedEnvironmentVariables` (free) | Both present in the extension's `process.env` |
+| H7 | The shipped extension with `ADRKIT_HOOKS=0` (free) | Loaded (`status: "running"`); the `decision-review` canvas still listed |
+| H8 | Shipped hooks, one turn (`gpt-6-luna`), canvas open, two separate edits of `src/net.ts` | `onSessionStart` **111 ms**, returned the summary naming 0001 and 0002 |
+| H9 | Same turn, `onPreToolUse` | First `apply_patch` of `src/net.ts`: **117 ms** (one uncached `adr check`), note naming 0001. Second edit of the same file: **0 ms**, nothing returned. Six other pre-tool calls (`skill`, `extensions_manage`, `view`): 0 to 1 ms |
+| H10 | Same turn, `onPostToolUse` | 0 to 1 ms every call. The panel's `updatedAt` moved 1.7 s after the last edit's post hook (1.5 s debounce plus one refresh); `review` stayed `null`, so no review started |
+| H11 | Same turn, outcome | The model quoted both advisories verbatim and read 0001 before editing; both edits landed |
+
+Spend: two paid turns, both `gpt-6-luna`. H2 cost 208,739,500 nano-AIU and H8
+to H11 cost 605,392,000, about 0.81 AI credits together at 10^9 nano-AIU per
+credit. Every other row was free. H2 and H8 are single runs of a
+non-deterministic agent, not a pass rate.
+
+### Not verified
+
+- Hook firing in the Copilot app: **unmeasured in the Copilot app**. That
+  includes whether `onSessionStart` fires with the first prompt there, as it
+  does for a plugin extension in the SDK host.
+- Hook firing in an interactive Copilot CLI terminal session, and
+  `source: "startup"` or `"resume"`.
+- Any live model family other than `gpt-6-luna`. The `edit` and `create`
+  shapes come from session logs, not from a run of these hooks.
+- The off switch end to end with a model turn. H6 shows the variable arrives
+  and H7 that the extension loads without hooks; that no hook then fires is
+  unit-tested, not observed.
+- Whether the person sees hook context in the CLI or the app transcript.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a
