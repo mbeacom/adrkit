@@ -5,6 +5,7 @@ import {
   AGENTS,
   COMMANDS,
   SKILLS,
+  extensionFiles,
   frontmatterOf,
   marketplacePath,
   packageRoot,
@@ -633,14 +634,27 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     // Ratification is a human act (ADR-0044). An agent may tell a person that
     // `adr accept <id> --by <identity>` is the next step; no command, skill, or
     // agent in this plugin may take it. Any mention at all is treated as a
-    // violation, because a host model reads an example as an instruction.
+    // violation, because a host model reads an example as an instruction. The
+    // workflow extension is covered too: it builds prompts for the
+    // decision-checker, and it runs code outside Copilot's permission prompts.
     const components = [
       ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
       ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
       ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
+      ...extensionFiles(),
     ];
+    expect(components.some((path) => path.endsWith('extension.mjs'))).toBe(true);
     const runners = components.filter((path) => /\badr accept\b/.test(readFileSync(path, 'utf8')));
     expect(runners).toEqual([]);
+  });
+
+  test('the workflow extension names no writing command at all', () => {
+    // `adr-draft` may run `adr new`; the workflow is read-only (ADR-0045) and
+    // writes nothing, so neither creating nor migrating a record may appear.
+    const writers = extensionFiles().filter((path) =>
+      /\badr (?:new|migrate)\b/.test(readFileSync(path, 'utf8')),
+    );
+    expect(writers).toEqual([]);
   });
 
   test('the read-only agent states its own boundary', () => {
