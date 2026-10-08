@@ -339,8 +339,10 @@ and its accepted backfill amendment,
 against the installed hosts, including a functional exercise in an ephemeral
 consumer repository. The v0.4.0 `adr-review` workflow adds unit and contract
 tests and a maintainer live smoke on Copilot CLI 1.0.92 (two subagents, both
-planted conflicts found, worktree clean); copied installs, the Copilot app
-canvas, earlier Copilot CLI versions, and a native opencode load are unverified.
+planted conflicts found, worktree clean). It also has a repeat through the
+published GitHub install on 1.0.93, plus a deletion-only run. The Copilot app
+canvas, earlier Copilot CLI versions, and a native opencode load are
+unverified.
 No persistent reference-repository run, no external validation. Scope and
 limitations:
 [`docs/reference-verification-agent-plugin.md`](./docs/reference-verification-agent-plugin.md).
