@@ -12,6 +12,10 @@
  * There is one `joinSession` and one extension directory on purpose: the app
  * starts one extension process per restored session (measured: 181 loads), so
  * a second directory would double that.
+ *
+ * The read-only adrkit tools (ADR-0048) join the same session. They are
+ * optional here so a caller that registers only the workflow and canvas is
+ * unchanged.
  */
 
 /** @param {unknown} error */
@@ -25,10 +29,12 @@ const messageOf = (error) => (error instanceof Error ? error.message : String(er
  *   joinSession: (config: Record<string, unknown>) => Promise<S>,
  *   workflow: () => unknown,
  *   canvas: (getSession: () => S | undefined) => unknown,
+ *   tools?: () => unknown[],
+ *   onJoined?: (session: S) => void,
  * }} deps
  * @returns {Promise<S>}
  */
-export async function register({ defineWorkflow, createCanvas, joinSession, workflow, canvas }) {
+export async function register({ defineWorkflow, createCanvas, joinSession, workflow, canvas, tools, onJoined }) {
   /** @type {string[]} */
   const failures = [];
   /** @type {S | undefined} */
@@ -49,15 +55,47 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
     failures.push(`decision-review canvas: ${messageOf(error)}`);
   }
 
-  try {
-    joined = await joinSession(config);
-  } catch (error) {
-    // Isolating the factories is not enough if the runtime itself refuses the
-    // join: one that does not know `canvases` (an older CLI or app runtime)
-    // would take the workflow down with it. Retry once without the canvas.
-    if (!config['canvases'] || !config['workflows']) throw error;
-    failures.push(`decision-review canvas: the session refused it (${messageOf(error)})`);
-    joined = await joinSession({ workflows: config['workflows'] });
+  if (tools) {
+    try {
+      config['tools'] = tools();
+    } catch (error) {
+      failures.push(`adrkit tools: ${messageOf(error)}`);
+    }
+  }
+
+  // Isolating the factories is not enough if the runtime itself refuses the
+  // join, so each refusal drops the newest optional piece and tries again, at
+  // most three joins in all. Measured on Copilot CLI 1.0.93: an invalid tool
+  // definition rejects the whole join, which would take the workflow and the
+  // canvas down with it. A runtime that does not know `canvases` (an older CLI
+  // or app) would do the same, so the last attempt keeps the workflow alone.
+  /** @type {Array<{ config: Record<string, unknown[]>, dropped: string }>} */
+  const attempts = [{ config, dropped: '' }];
+  if (config['tools']) {
+    const { tools: _tools, ...withoutTools } = config;
+    attempts.push({ config: withoutTools, dropped: 'adrkit tools' });
+  }
+  if (config['canvases'] && config['workflows']) {
+    attempts.push({ config: { workflows: config['workflows'] }, dropped: 'decision-review canvas' });
+  }
+  for (let index = 0; ; index++) {
+    const attempt = /** @type {{ config: Record<string, unknown[]>, dropped: string }} */ (attempts[index]);
+    try {
+      joined = await joinSession(attempt.config);
+      break;
+    } catch (error) {
+      const next = attempts[index + 1];
+      if (!next) throw error;
+      failures.push(`${next.dropped}: the session refused it (${messageOf(error)})`);
+    }
+  }
+
+  if (onJoined) {
+    try {
+      onJoined(/** @type {S} */ (joined));
+    } catch (error) {
+      failures.push(`adrkit tools' working-directory tracking: ${messageOf(error)}`);
+    }
   }
   for (const failure of failures) {
     // Reporting must not become a second way to take the extension down.
