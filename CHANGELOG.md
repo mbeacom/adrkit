@@ -27,6 +27,22 @@ Until `1.0.0`, minor releases may include breaking changes
   (proposed, amends ADR-0046); rung 1, with a headless Copilot CLI 1.0.93
   SDK-host smoke. Unmeasured in the Copilot app.
 
+- **The agent plugin's Copilot extension registers three read-only tools,
+  `adr_check`, `adr_explain`, and `adr_lint`.** Copilot's model can call them
+  directly; each runs one read-only `adr` subcommand with `--json` in the
+  session's repository and returns `{ tool, exitCode, report }`, where an exit
+  of `1` with a report is a finding, not a failure. The CLI is chosen by the
+  environment alone, in the workflow's order. Arguments are validated in the
+  extension (relative paths inside the repository, no leading `-`, capped), and
+  failures return fixed messages that never echo the input or exception text.
+  The tools follow the session's directory when it moves, which the extension's
+  own `process.cwd()` was measured not to do. A tool definition the runtime
+  refuses no longer takes the workflow and canvas down with it. The plugin still
+  ships no `.mcp.json`. Proposed in
+  [ADR-0048](docs/adr/0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md)
+  (proposed); rung 1 of ADR-0014 with headless Copilot CLI 1.0.93 measurements
+  and no model calls, unmeasured in the Copilot app.
+
 - **The agent plugin ships a read-only `decision-review` canvas for the GitHub
   Copilot app (`adrkit` 0.5.0).** It is a panel showing the changed files, the
   governing decisions, active proposals, history (listed, not judged), the

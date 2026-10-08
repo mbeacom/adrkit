@@ -141,6 +141,7 @@ your project config - see
 | Command | `/adr-backfill [files-or-directories...]` | no |
 | Dynamic workflow (Copilot CLI only) | `adr-review` | no |
 | Canvas (Copilot app only) | `decision-review` | no |
+| Tools (Copilot only) | `adr_check`, `adr_explain`, `adr_lint` | no |
 
 The skill is the part that works without being asked for: it teaches the
 context -> check -> draft loop, the exit-code contract, and the rules that keep
@@ -413,6 +414,48 @@ Proposed in
 Measured in a headless Copilot CLI 1.0.93 SDK host; the new UI is unmeasured in
 the Copilot app.
 
+## Tools: `adr_check`, `adr_explain`, `adr_lint` (GitHub Copilot)
+
+The same `extensions/adrkit/` extension registers three read-only tools that
+Copilot's model can call directly. They are proposed in
+[ADR-0048](../../../docs/adr/0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md)
+(**proposed**, not yet ratified).
+
+| Tool | Runs | Arguments |
+| --- | --- | --- |
+| `adr_check` | `adr check --json` | `paths` (repository-relative), or `base` (files from `git diff <base>...HEAD`), or neither (`origin/main`); optional `dir` |
+| `adr_explain` | `adr explain --json` | `path` (one, required); optional `dir` |
+| `adr_lint` | `adr lint --json` | optional `dir` |
+
+**Why tools and not MCP.** This plugin ships no `.mcp.json` (see below): Copilot
+starts a plugin's MCP servers outside your repository. The extension process
+starts in the session's directory, so it can answer the same questions in the
+right place. The tools wrap the CLI's JSON; they are not an MCP server.
+
+**What they return.** `{ tool, exitCode, report }`, where `report` is the CLI's
+JSON. An exit of `1` with a report is a finding, not a failure. A usage exit
+(`2`) is a failure carrying the CLI's own message. Invalid arguments, a CLI that
+cannot be found or started, and a `base` git cannot diff return a fixed message
+and run nothing further.
+
+**Boundary.** The executable is chosen by the environment alone, in the
+workflow's order: `$ADRKIT_CLI`, then `./node_modules/.bin/adr` only when
+`ADRKIT_ALLOW_REPO_CLI=1`, then `PATH`. Paths must be relative, stay inside the
+repository (no `..`), not start with `-`, and are capped at 200 entries of 1024
+characters each. The tools run without a per-call permission prompt, like the
+workflow and the canvas's `refresh`, because every subcommand they reach is
+read-only.
+
+**Working directory.** A tool call carries no directory, so the tools start in
+the extension's directory and follow the session when it moves (`/cd`), which
+the extension's own `process.cwd()` does not.
+
+**Where they exist.** Copilot only: Claude Code and opencode do not load Copilot
+extensions, and the skill and commands keep using the CLI on every host. The
+tools were measured registering and running in a headless Copilot CLI 1.0.93
+session; they are **unmeasured in the Copilot app**. Details are in the
+[evidence index](../../../docs/reference-verification-agent-plugin.md).
+
 ## Things that are load-bearing and easy to break
 
 Each of these was measured against the real hosts, not inferred from their docs.
@@ -521,6 +564,10 @@ Copilot CLI 1.0.93, and maintainer sessions in Copilot app 1.1.27 that opened
 the panel, ran a review from it, and recorded two defects fixed before release.
 Other app versions, Copilot CLI versions before 1.0.92, and a native opencode
 load of `extensions/` are unverified.
+
+The extension tools (`adr_check`, `adr_explain`, `adr_lint`; ADR-0048,
+**proposed**) are rung 1: unit and contract tests plus a headless Copilot CLI
+1.0.93 measurement with no model calls. They are unmeasured in the Copilot app.
 
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)

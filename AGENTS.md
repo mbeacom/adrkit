@@ -541,6 +541,41 @@ will usually be a regression:
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
+### Extension tools (`adr_check`, `adr_explain`, `adr_lint`)
+
+The same extension registers three read-only tools through
+`joinSession({ tools })`, proposed in
+[ADR-0048](./docs/adr/0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md)
+(**proposed**). They amend ADR-0028's inventory without reversing it: the plugin
+still ships no `.mcp.json`. **Rung 1**: unit and contract tests plus headless
+Copilot CLI 1.0.93 measurements with no model calls; unmeasured in the Copilot
+app. Measured, and easy to break:
+
+- **A tool invocation carries no directory, and `process.cwd()` goes stale.**
+  After `metadata.setWorkingDirectory` (what `/cd` uses) the extension is not
+  restarted and its `process.cwd()` does not move, but it receives
+  `session.context_changed` with the new `cwd`. The tools track that event; do
+  not "simplify" them back to `process.cwd()`. The workflow still uses
+  `process.cwd()` and has the same staleness (open in ADR-0048).
+- **A bad tool definition refuses the whole join.** A name outside
+  `/^[a-zA-Z0-9_-]+$/` made the runtime reject `joinSession`, workflow and
+  canvas included, so `register.mjs` retries without the tools, then with the
+  workflow alone (at most three joins). A name that collides with a built-in
+  joins but breaks `tools.initializeAndValidate()` for the **whole session**, so
+  never name a tool after a built-in.
+- **The executable is chosen by the environment only**, through the workflow's
+  `resolveCli`. No tool argument selects it, and unknown keys are refused.
+- **Arguments are validated in the extension**, because the host does not enforce
+  the schema: relative paths only, no `..`, no leading `-`, no control
+  characters, at most 200 paths of 1024 characters, a conservative `base`.
+- **Results never carry exception text or a writing command.** Rejections and
+  spawn failures return fixed messages chosen by code (CodeQL
+  `js/stack-trace-exposure`); results are scrubbed because a record's own text
+  can name a writing command. A non-zero `adr` exit with a report is
+  `success` with its `exitCode`.
+- **Commands and skills do not mention the tools.** Claude Code and opencode
+  never load extensions; the CLI path stays the portable one.
+
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 
 The OCI image is the fifth distribution surface, authorized by
