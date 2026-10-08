@@ -36,10 +36,23 @@ copilot plugin install adrkit@adrkit
 apm install mbeacom/adrkit/packages/adapters/agent-plugin --target copilot
 ```
 
-In the GitHub Copilot app, the install deep link is
-`ghapp://plugins/install?source=adrkit@adrkit` ("Open in the Copilot app").
-That deep link is unmeasured: I have not followed it. The marketplace commands
-above are the measured install path.
+In the GitHub Copilot app, open these two links in order. Each one opens a
+form in **Customize → Plugins** that is already filled in, and nothing changes
+until you confirm it:
+
+1. [Add the adrkit marketplace in the Copilot app](https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fplugins%2Fmarketplace%2Fadd%3Fsource%3Dmbeacom%252Fadrkit)
+   (`ghapp://plugins/marketplace/add?source=mbeacom%2Fadrkit`)
+2. [Install adrkit in the Copilot app](https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fplugins%2Finstall%3Fsource%3Dadrkit%2540adrkit)
+   (`ghapp://plugins/install?source=adrkit%40adrkit`)
+
+Both links go through GitHub's hosted launcher
+(`https://github.com/copilot/app/launch?open=…`). GitHub does not render
+`ghapp://` links as clickable, and the launcher shows a fallback page when the
+app is not installed. The link format follows
+[GitHub's deep-link documentation](https://docs.github.com/en/copilot/how-tos/github-copilot-app/open-with-deep-links).
+I have not followed these links myself. The app reads the same
+`~/.copilot/installed-plugins` as the CLI, so installing with the CLI commands
+above also makes the plugin available in the app. That is measured.
 
 You also need the CLI itself, because the components shell out to it:
 

@@ -559,8 +559,9 @@ Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
 - App version drift: rows 8 to 15 were measured under app 1.1.14 with runtime
   1.0.93-1, and rows 23 to 29 under app 1.1.27. Neither set is re-dated to the
   other.
-- The `ghapp://plugins/install?source=adrkit@adrkit` deep link.
-  The installed 0.4.0 extension loading cleanly (row 15) is the only evidence.
+- The README's Copilot app install links (`ghapp://plugins/marketplace/add` and
+  `ghapp://plugins/install`, through GitHub's hosted launcher). They follow
+  GitHub's documented format, but I have not followed them.
 - Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI
   strips "sensitive" variables unless an extension requests them; whether this
   one counts is unmeasured. It was null in the app probe because it was not set.
