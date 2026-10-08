@@ -326,8 +326,10 @@ two skills (`decision-memory`, `decision-backfill`), one read-only subagent
 through the `adr` CLI. Since 0.4.0 it also ships one GitHub Copilot CLI dynamic
 workflow, `adr-review` (`extensions/adrkit/`), authorized by
 [ADR-0045](./docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
-(**proposed**). Claude Code, opencode, and APM ignore it. Independently versioned per ADR-0007, not published
-to npm, and catalogued from the repository root's
+(**proposed**). `claude plugin validate` passes with it present; APM 0.33.0
+installs it into `apm_modules` without warning and deploys it to no target; a
+native opencode load is unmeasured. Independently versioned per ADR-0007, not
+published to npm, and catalogued from the repository root's
 `.claude-plugin/marketplace.json`. Authorized by
 [ADR-0028](./docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)
 and its accepted backfill amendment,
@@ -337,8 +339,9 @@ against the installed hosts, including a functional exercise in an ephemeral
 consumer repository. The v0.4.0 `adr-review` workflow adds unit and contract
 tests and a maintainer live smoke on Copilot CLI 1.0.92 (two subagents, both
 planted conflicts found, worktree clean); copied installs, the Copilot app
-canvas, and opencode/APM tolerance are unverified. No persistent reference-repository run, no external
-validation. Scope and limitations:
+canvas, earlier Copilot CLI versions, and a native opencode load are unverified.
+No persistent reference-repository run, no external validation. Scope and
+limitations:
 [`docs/reference-verification-agent-plugin.md`](./docs/reference-verification-agent-plugin.md).
 That functional evidence covers the v0.1.0 context/check/draft/queue baseline.
 The v0.2.0 backfill skill and command are contract- and static-host-validated.
@@ -422,12 +425,17 @@ will usually be a regression:
   `.claude-plugin/plugin.json` plugin Copilot reads
   `<plugin-root>/extensions/<dir>/extension.mjs`; `com.github.copilot/extensions/`
   is for Agent Plugins 1.0 manifests and was not found. Exactly one copy.
-- **The workflow's exit code is always 0, so the result carries the exit
-  codes.** `copilot workflow run` exits 0 on success, a thrown error, invalid
-  arguments, and an unknown name. The workflow is advisory; callers gate on
-  the final `workflow.result` JSONL event's `.data.run.status`, then `.data.run.result` (or the `--result-file`), and then the result's
-  `status`, `checkExitCode`, and `lintExitCode`. A non-zero `adr` exit is data,
-  never a throw, or the run settles with no result and still exits 0.
+- **The workflow's exit code is always 0, so `result.status` is the gate.**
+  `copilot workflow run` exits 0 on success, a thrown error, invalid
+  arguments, and an unknown name. The workflow is advisory, and the single
+  gating rule is: the run's status is `completed` and `result.status` is
+  `"ok"`. `status` is `ok` | `findings` | `incomplete` | `usage-error`, with
+  precedence usage-error > findings > incomplete > ok; `checkExitCode`,
+  `lintExitCode`, `verdicts`, and `unverified` are detail, not the gate. A
+  missing judgment makes the run `incomplete`, and an unresolvable explicit
+  `base`, or an unresolved `origin/main` over a clean working tree, is a
+  `usage-error` — never `ok`. A non-zero `adr` exit is data, never a throw, or
+  the run settles with no result and still exits 0.
 - **The agent name is namespaced.** `ctx.agent` must use
   `adrkit:decision-checker`; the bare name resolves to `null` without throwing,
   so every null is reported under `unverified`, never dropped.

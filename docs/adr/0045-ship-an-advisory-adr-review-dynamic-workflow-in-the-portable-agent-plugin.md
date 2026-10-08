@@ -75,7 +75,10 @@ host registration, `review.mjs` for pure logic).
 
 1. **Collect.** Changed files come from the `files` argument, else from
    `git diff -z --name-only <base>...HEAD` (NUL-separated, so unusual paths
-   survive).
+   survive). An explicit `base` that does not resolve yields `usage-error`
+   naming the ref, with no fallback. Only the default `origin/main` falls back,
+   to the working tree against `HEAD` with a note, and that fallback finding no
+   changes yields `usage-error` rather than an empty, clean-looking review.
 2. **Check.** Run `adr check --json <files>` and `adr lint`. Both exit codes
    are captured as data. Exit `1` is data. A spawn failure, or any exit outside
    `{0, 1}` from either command, yields `status: "usage-error"` in the result
@@ -91,23 +94,38 @@ host registration, `review.mjs` for pure logic).
    `activeProposals`, are logged with `ctx.log` and not returned. Model spend
    scales with the number of governing decisions, not with the number of files.
 
-The result has exactly these keys, always present: `status` (`ok`, `findings`,
-or `usage-error`), `checkExitCode`, `lintExitCode`, `files`, `filesSource`,
-`notes`, `governing`, `history`, `verdicts`, `unverified`, and `findings`.
-Callers gate on that content.
+The result has exactly these keys, always present: `status`, `checkExitCode`,
+`lintExitCode`, `files`, `filesSource`, `notes`, `governing`, `history`,
+`verdicts`, `unverified`, and `findings`. `status` is one of:
+
+- `usage-error`: the review could not run as asked (invalid arguments, an
+  unresolvable `base`, an empty fallback, a missing CLI, or an `adr` exit
+  outside `{0, 1}`);
+- `findings`: an `adr` exit `1`, or a `conflicts` verdict;
+- `incomplete`: `unverified` is non-empty, so some governing decision has no
+  usable verdict;
+- `ok`: none of the above.
+
+Precedence is in that order: usage-error > findings > incomplete > ok. The one
+gating rule is that **the run's status is `completed` and `result.status` is
+`"ok"`**. The other keys are detail for a reader, not the gate.
 
 **Contracts.**
 
-- **Advisory only.** The workflow has no exit-code authority, and none of its
-  output is a gate. The governing-decisions Action remains the CI authority.
-  Documented gating is `--output-format json`, which prints JSONL: confirm
-  the final `workflow.result` JSONL event's `.data.run.status`, then `.data.run.result` (or the `--result-file`), then read `checkExitCode`.
-  File existence is not a gate.
-- **Read-only.** It may invoke only `adr check`, `adr lint`, `adr explain`,
-  `adr graph`, and read-only git (`git diff`, `git rev-parse`). It
-  never mentions or invokes `adr accept`, `adr new`, or `adr migrate`, and it
-  writes no file. The plugin wiring test's rule against `adr accept` is extended
-  to cover the extension.
+- **Advisory only.** The workflow has no exit-code authority. The
+  governing-decisions Action remains the CI authority. A script that gates on
+  the workflow anyway applies one rule: the run's status is `completed` and
+  `result.status` is `"ok"`. With `--output-format json`, stdout is JSONL, and
+  both values are in the final `workflow.result` event, at `.data.run.status`
+  and `.data.run.result` (or in the `--result-file`). `status` alone is
+  sufficient; `checkExitCode`, `lintExitCode`, `verdicts`, and `unverified` are
+  detail. File existence is not a gate.
+- **Read-only.** The workflow itself runs only `adr check`, `adr lint`, and
+  read-only git (`git diff`). The Judge agent may also run `adr explain`,
+  `adr graph`, and `adr queue`, and read files. The workflow never mentions or
+  invokes `adr accept`, `adr new`, or `adr migrate`, and it writes no file. The
+  plugin wiring test's rule against `adr accept` is extended to cover the
+  extension.
 - **Namespaced agent, null-guarded.** The agent is `adrkit:decision-checker`.
   Every `ctx.agent` result may be `null`; a null is reported under `unverified`
   and never dropped, because a silently missing judgment looks like a clean one.
@@ -175,7 +193,10 @@ Nothing was written to this repository by the probes.
    makes treating a non-zero exit as data safe.
 
 A seventh observation is not a design input: `claude plugin validate` passes on
-a plugin containing `extensions/`, and Claude Code ignores the directory.
+a plugin containing `extensions/`. Agent Package Manager 0.33.0
+(`apm install --target claude|copilot|opencode`) gives no warning and leaves
+`extensions/` in `apm_modules` without deploying it to any target. A native
+opencode load is unmeasured.
 
 ## Options considered
 
@@ -233,6 +254,12 @@ also grants code execution. The environment-only CLI selection and the
 repository could substitute a binary, and keep a model-written argument from
 ever choosing what runs.
 
+The Judge subagent's read-only boundary is enforced by the agent's instructions,
+not by a tool allowlist: `decision-checker` declares no `tools` by design, and
+whether workflow-owned subagents get permission prompts under
+`copilot workflow run` is unmeasured. The live smoke left the tree clean, which
+is evidence, not a guarantee.
+
 The layout is manifest-coupled. Moving to an Agent Plugins 1.0 manifest would
 relocate the directory, and this record does not pre-authorize that move.
 
@@ -257,11 +284,15 @@ the content-based recipe prominently, and it is a recurring cost.
 - **How we would know this was wrong:** Copilot starts honoring workflow exit
   codes, which would make an advisory-only stance needlessly weak; a
   `workflow run` is observed gating a merge by itself; the extension writes to
-  the worktree, invokes `adr accept`, `adr new`, or `adr migrate`, or runs a
-  repo-local CLI without `ADRKIT_ALLOW_REPO_CLI=1`, or accepts a `cli` argument; agent-name resolution changes so
-  `adrkit:decision-checker` no longer resolves and judgments arrive `unverified`
-  unnoticed; or adrkit moves to an Agent Plugins 1.0 manifest and `extensions/`
-  stops loading.
+  the worktree, invokes `adr accept`, `adr new`, or `adr migrate`, runs a
+  repo-local CLI without `ADRKIT_ALLOW_REPO_CLI=1`, or accepts a `cli`
+  argument; a run with a missing judgment or an unresolvable base reports
+  `ok`; agent-name resolution changes so `adrkit:decision-checker` no longer
+  resolves and judgments arrive `unverified` unnoticed; adrkit moves to an
+  Agent Plugins 1.0 manifest and `extensions/` stops loading; or a user on a
+  Copilot CLI earlier than 1.0.92 (the only version measured) reports that the
+  extension fails to load because their CLI loads plugin extensions but
+  predates dynamic workflows.
 - Revisit if: the plugin adopts the Agent Plugins 1.0 layout, the host defines
   a gating mechanism for workflows, the backfill sweep (a sharded
   `decision-backfill` triage, the documented sweet spot for workflows) is
@@ -276,8 +307,8 @@ maintainer live smokes against the installed host. The live end-to-end run
 found both planted conflicts, exited `0`, and left the worktree clean. There is
 no persistent reference-repository run and no external validation. Unmeasured:
 GitHub-source (copied) plugin installs, the Copilot app canvas and SDK host,
-`/every` scheduling, whether opencode or Agent Package Manager tolerate an
-`extensions/` directory, and the Copilot cloud agent in Actions. The evidence is
+`/every` scheduling, Copilot CLI versions before 1.0.92, a native opencode load
+of `extensions/`, and the Copilot cloud agent in Actions. The evidence is
 recorded in `docs/reference-verification-agent-plugin.md`.
 
 ## Action items
@@ -285,8 +316,9 @@ recorded in `docs/reference-verification-agent-plugin.md`.
 1. [x] Implement `review.mjs` and `extension.mjs` under
    `packages/adapters/agent-plugin/extensions/adrkit/`, Node built-ins only.
 2. [x] Add unit tests for the pure logic, including exit `1` captured as data,
-   spawn failure and exit `2` thrown, null agent results reported as
-   `unverified`, and the CLI trust order.
+   spawn failure and exit `2` returned as `usage-error` (never thrown), null
+   agent results reported as `unverified` with `status: "incomplete"`, an
+   unresolvable `base` reported as `usage-error`, and the CLI trust order.
 3. [x] Extend the wiring test so no `adr accept`, `adr new`, or `adr migrate`
    appears in the extension, and add a packaging test for the root layout, one
    copy, no dependencies, and the SDK import confined to `extension.mjs`.

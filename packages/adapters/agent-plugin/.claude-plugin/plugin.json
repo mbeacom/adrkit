@@ -3,7 +3,7 @@
   "name": "adrkit",
   "displayName": "adrkit — decision memory",
   "version": "0.4.0",
-  "description": "Load the architecture decisions governing a change, check plans against them, audit existing code and documentation for missing decisions, and draft new records deliberately — driven by the adr CLI.",
+  "description": "Load the architecture decisions governing a change, check plans against them, audit existing code and documentation for missing decisions, draft new records deliberately, and (in GitHub Copilot CLI) run an advisory adr-review workflow — driven by the adr CLI.",
   "author": {
     "name": "Mark Beacom",
     "url": "https://github.com/mbeacom"

@@ -165,22 +165,34 @@ The same workflow is described in the
 `decision-checker` agent for a verdict per governing decision. It is a Copilot
 CLI dynamic workflow (`extensions/adrkit/`), authorized by
 [ADR-0045](../../../docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md).
-Claude Code, opencode, and Agent Package Manager ignore the directory.
+Outside Copilot CLI: `claude plugin validate` passes with the directory present,
+and Agent Package Manager 0.33.0 (`apm install --target claude|copilot|opencode`)
+gives no warning and leaves `extensions/` in `apm_modules` without deploying it
+to any target (measured 2026-10-08). A native opencode load is unmeasured.
+
+The workflow was measured on Copilot CLI 1.0.92; earlier versions are
+unmeasured, and a CLI that loads plugin extensions but predates dynamic
+workflows may fail to load the extension.
 
 It runs three phases:
 
 1. **Collect.** The changed files come from the `files` argument, else from
-   `git diff -z` against `<base>...HEAD`. If that range does not resolve, it
-   falls back to uncommitted changes against `HEAD` and says so in `notes`.
+   `git diff -z` against `<base>...HEAD`. An explicit `base` that does not
+   resolve is a `usage-error` naming the ref, with no fallback. When the default
+   `origin/main` does not resolve, it falls back to uncommitted changes against
+   `HEAD` and says so in `notes`; if the working tree has no changes either, the
+   result is a `usage-error` telling you to pass `files` or `base`, or to fetch
+   history (for example `actions/checkout` with `fetch-depth: 0`).
 2. **Check.** `adr check --json` and `adr lint`. No model spend.
 3. **Judge.** One `adrkit:decision-checker` call per `accepted` governing
    decision, returning `consistent`, `conflicts`, or `unclear` with evidence.
    Spend scales with the number of governing decisions, not files. History
    hits are reported, not judged. A call that returns nothing is listed under
-   `unverified`, never dropped.
+   `unverified`, never dropped, and makes the run `incomplete`.
 
-It is read-only: it runs only `adr check`, `adr lint`, and read-only git, and
-writes no file.
+It is read-only. The workflow itself runs only `adr check`, `adr lint`, and
+read-only git, and writes no file. The Judge agent may also run `adr explain`,
+`adr graph`, and `adr queue`, and read files.
 
 ### Arguments
 
@@ -214,7 +226,16 @@ In order: `$ADRKIT_CLI` (resolved to an absolute path; a `.js`, `.mjs`, or
 repo-local step is gated because a non-interactive run cannot ask whether to
 trust a binary an inherited repository supplied.
 
-### It is advisory: gate on the payload, never on the exit code
+On Windows, `ADRKIT_ALLOW_REPO_CLI=1` cannot run the repo-local CLI:
+`node_modules/.bin/adr` is `adr.cmd` there, and `execFile` cannot start a `.cmd`
+without a shell, which the workflow deliberately never uses. Set
+`ADRKIT_CLI=<repo>/node_modules/@adrkit/cli/dist/index.js` instead; a `.js`
+value runs under `node`.
+
+### It is advisory: gate on `result.status`, never on the exit code
+
+The one gating rule: **the run's status is `completed` and `result.status` is
+`"ok"`**. Nothing else is needed, and nothing less is enough.
 
 `copilot workflow run` exits `0` on success, on a thrown error, on invalid
 arguments, and on an unknown workflow name (measured on Copilot CLI 1.0.92).
@@ -237,11 +258,21 @@ return value at `.data.run.result`. This shape was measured on Copilot CLI
 `.data.resultFile` holds the path, and that file contains the bare result
 object.
 
-`.result.status` is `ok`, `findings` (a non-zero `adr` exit or a `conflicts`
-verdict), or `usage-error`. The result also carries `checkExitCode`,
-`lintExitCode`, `files`, `filesSource`, `notes`, `governing`, `history`,
-`verdicts`, `unverified`, and `findings`. Treat a non-empty `unverified` as "not
-checked". File existence is not a gate.
+`.result.status` is one of:
+
+- `ok`: nothing below fired.
+- `findings`: an `adr` exit `1`, or a `conflicts` verdict.
+- `incomplete`: a governing decision has no usable verdict (`unverified` is
+  non-empty) and nothing above fired.
+- `usage-error`: the review could not run as asked: invalid arguments, an
+  unresolvable `base`, no files to review because `origin/main` did not resolve,
+  a missing CLI, or an `adr` exit outside `{0, 1}`. It takes precedence over
+  everything else.
+
+Precedence is `usage-error` > `findings` > `incomplete` > `ok`. The result also
+carries `checkExitCode`, `lintExitCode`, `files`, `filesSource`, `notes`,
+`governing`, `history`, `verdicts`, `unverified`, and `findings`; those are
+detail for a human or a report, not the gate. File existence is not a gate.
 
 ### Limits are yours to set
 
@@ -350,8 +381,8 @@ functional run, and no external validation.
 
 The v0.4.0 `adr-review` workflow is at rung 1: unit and contract tests plus
 maintainer live smokes on Copilot CLI 1.0.92, recorded in the evidence index.
-Copied (GitHub-source) installs, the Copilot app canvas, and opencode/APM
-tolerance of `extensions/` are unverified.
+Copied (GitHub-source) installs, the Copilot app canvas, Copilot CLI versions
+before 1.0.92, and a native opencode load of `extensions/` are unverified.
 
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)

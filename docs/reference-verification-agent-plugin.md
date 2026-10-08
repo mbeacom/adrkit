@@ -361,6 +361,10 @@ ADR-0014. The workflow is specified by
 (proposed). Probes used throwaway plugins loaded with `--plugin-dir` and through
 a local marketplace install; the workflow itself was then run end to end.
 
+There is no stated minimum Copilot CLI version. The workflow was measured on
+Copilot CLI 1.0.92; earlier versions are unmeasured, and a CLI that loads plugin
+extensions but predates dynamic workflows may fail to load the extension.
+
 ### Platform measurements
 
 | # | Probe | Result |
@@ -373,9 +377,10 @@ a local marketplace install; the workflow itself was then run end to end.
 | 6 | `--result-file` on a thrown error | Not written; exit status still 0 |
 | 7 | `ctx.agent(..., { agent: "adrkit:decision-checker" })` with the plugin installed via a local marketplace | Resolved and ran with the decision-checker's own instructions |
 | 8 | `ctx.agent(..., { agent: "decision-checker" })` (bare name), same install | `null`, no throw |
-| 9 | `claude plugin validate` on a plugin containing `extensions/` | Passes; Claude Code ignores the directory |
+| 9 | `claude plugin validate` on a plugin containing `extensions/` | Passes |
 | 10 | `adr check --json` exit 0 and exit 1 | Complete CheckOutcome on both; exit 2 is a usage error |
 | 11 | `--output-format json` and `--result-file` output shape (2026-10-08) | stdout is JSONL with warnings on stderr; the final `workflow.result` event has `.data.run` = `{runId, attempt, status, result}`; with `--result-file`, `.data.run` has no `result`, `.data.resultFile` holds the path, and the file holds the bare result object |
+| 12 | Agent Package Manager 0.33.0, `apm install --target claude`, `--target copilot`, and `--target opencode` on the plugin (2026-10-08) | No warning on any target; `extensions/` lands only in `apm_modules` and is deployed to no target |
 
 ### End-to-end run
 
@@ -407,15 +412,19 @@ The CLI was the published `@adrkit/cli` 0.17.0, run through `node` because
 | Smoke repository `git status` afterwards | clean |
 
 Both planted conflicts were found. The process exit status carried none of it,
-which is why the documentation tells callers to gate on the payload.
+which is why the documentation gives callers one gating rule: the run's status
+is `completed` and `result.status` is `"ok"`. `result.status` is `ok`,
+`findings`, `incomplete`, or `usage-error`; the other result fields are detail,
+not the gate.
 
 ### Not verified
 
 - GitHub-source (copied) plugin installs. The local marketplace install loaded
   live from disk, so the cwd and agent resolution are unmeasured for a copy.
 - The Copilot app canvas, the SDK host, and `/every` scheduling.
-- Whether opencode or Agent Package Manager tolerate an `extensions/`
-  directory. Probably inert; never run.
+- A native opencode load of `extensions/`. APM's opencode target was measured
+  (row 12); opencode itself was never pointed at the directory.
+- Copilot CLI versions before 1.0.92.
 - The Copilot cloud agent in Actions. Dynamic workflows are a CLI and app
   feature.
 - Any persistent reference-repository run or external validation (rungs 2 and

@@ -40,9 +40,11 @@ export const ADR_REVIEW_META = {
   description:
     'Check changed files against the ADRs that govern them, then ask the ' +
     'adrkit decision-checker for a per-decision verdict. Advisory only: the ' +
-    'workflow has no exit-code authority (the host exits 0 regardless), so gate ' +
-    'on the result payload: status, checkExitCode, lintExitCode, verdicts, ' +
-    'unverified. Read-only. args: { files?: string[] (repo-relative; default ' +
+    'workflow has no exit-code authority (the host exits 0 regardless). Gate on ' +
+    'one rule: the run\'s status is completed and result.status is "ok". ' +
+    'result.status is ok, findings, incomplete (a governing decision has no ' +
+    'usable verdict), or usage-error; checkExitCode, lintExitCode, verdicts, and ' +
+    'unverified are detail, not the gate. Read-only. args: { files?: string[] (repo-relative; default ' +
     'git diff <base>...HEAD), base?: string (default origin/main), dir?: string ' +
     '(ADR corpus; default $ADRKIT_DIR or docs/adr) }. The CLI is chosen by the ' +
     'environment only: $ADRKIT_CLI, then ./node_modules/.bin/adr when ' +
@@ -224,9 +226,14 @@ function nulSeparated(stdout) {
 /**
  * The changed files: the `files` argument when given, else the committed
  * difference from `base` (default `origin/main`). Deletions are excluded,
- * because a deleted path has nothing left to judge. When the base does not
- * resolve — a shallow clone, a repository with no `origin` — this falls back
- * to the working tree against `HEAD` and says so in `notes`.
+ * because a deleted path has nothing left to judge.
+ *
+ * An explicit `base` that does not resolve throws naming it: falling back would
+ * review something other than what the caller asked for. Only the default
+ * `origin/main` falls back — a shallow clone, a repository with no `origin` —
+ * to the working tree against `HEAD`, and says so in `notes`. If that fallback
+ * is empty too, it throws rather than return no files, because an empty review
+ * reports `ok` and the likeliest cause is a CI checkout with no history.
  *
  * @param {{ files?: string[], base?: string }} options
  * @param {Runner} run
@@ -239,18 +246,30 @@ export async function collectChangedFiles({ files, base }, run) {
   const range = `${ref}...HEAD`;
   const primary = await run('git', ['diff', '--name-only', '-z', '--diff-filter=d', range]);
   if (primary.exitCode === 0) return { files: nulSeparated(primary.stdout), source: `git:${range}`, notes: [] };
+  const why = primary.stderr.trim() || `exit ${primary.exitCode}`;
 
-  const fallback = await run('git', ['diff', '--name-only', '-z', 'HEAD']);
+  if (base !== undefined) {
+    throw new Error(`base '${base}' did not resolve (git diff ${range}: ${why}); no fallback was attempted.`);
+  }
+
+  const fallback = await run('git', ['diff', '--name-only', '-z', '--diff-filter=d', 'HEAD']);
   if (fallback.exitCode !== 0) {
     throw new Error(
       `git diff failed for ${range} and for HEAD: ${fallback.stderr.trim() || primary.stderr.trim()}`,
     );
   }
+  const changed = nulSeparated(fallback.stdout);
+  if (changed.length === 0) {
+    throw new Error(
+      'origin/main did not resolve and the working tree has no changes; pass files or base, ' +
+        'or fetch history (e.g. actions/checkout fetch-depth: 0)',
+    );
+  }
   return {
-    files: nulSeparated(fallback.stdout),
+    files: changed,
     source: 'git:HEAD',
     notes: [
-      `git diff ${range} failed (${primary.stderr.trim() || `exit ${primary.exitCode}`}); ` +
+      `git diff ${range} failed (${why}); ` +
         'fell back to uncommitted changes against HEAD.',
     ],
   };
@@ -318,6 +337,11 @@ export const historyDecisions = (/** @type {unknown} */ outcome) => decisionsIn(
  * The result payload. Every key is always present, so a caller can read
  * `checkExitCode` without first proving the run got that far.
  *
+ * `status` alone is sufficient to gate on. Precedence is usage-error >
+ * findings > incomplete > ok: `incomplete` means a governing decision has no
+ * usable verdict (`unverified` is non-empty) and nothing else fired, so a Judge
+ * phase that failed outright can never read as a clean `ok`.
+ *
  * @param {{
  *   checkExitCode?: number | null, lintExitCode?: number | null,
  *   files?: string[], filesSource?: string | null, notes?: string[],
@@ -347,7 +371,9 @@ export function assembleResult({
       ? 'usage-error'
       : exits.includes(1) || verdicts.some((entry) => entry.verdict === 'conflicts')
         ? 'findings'
-        : 'ok';
+        : unverified.length > 0
+          ? 'incomplete'
+          : 'ok';
   return {
     status,
     checkExitCode,

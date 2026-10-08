@@ -197,7 +197,25 @@ describe('collectChangedFiles', () => {
     expect(result).toEqual({ files: ['a.ts', 'b/c.ts'], source: 'git:origin/main...HEAD', notes: [] });
   });
 
-  test('falls back to the working tree against HEAD and records why', async () => {
+  test('an unresolved default base falls back to the working tree and records why', async () => {
+    const calls: string[][] = [];
+    const run = async (_command: string, args: string[]): Promise<Run> => {
+      calls.push(args);
+      if (args.includes('origin/main...HEAD')) {
+        return { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 };
+      }
+      return { stdout: 'x.ts\0', stderr: '', exitCode: 0 };
+    };
+    const result = await collectChangedFiles({}, run);
+    // Deletions are excluded on the fallback too: a deleted path has nothing to judge.
+    expect(calls[1]).toEqual(['diff', '--name-only', '-z', '--diff-filter=d', 'HEAD']);
+    expect(result.files).toEqual(['x.ts']);
+    expect(result.source).toBe('git:HEAD');
+    expect(result.notes.join('\n')).toMatch(/origin\/main.*fell back/);
+  });
+
+  test('an explicit base that does not resolve throws naming it, with no fallback', async () => {
+    // Falling back would review something other than what the caller asked for.
     const calls: string[][] = [];
     const run = async (_command: string, args: string[]): Promise<Run> => {
       calls.push(args);
@@ -206,11 +224,20 @@ describe('collectChangedFiles', () => {
       }
       return { stdout: 'x.ts\0', stderr: '', exitCode: 0 };
     };
-    const result = await collectChangedFiles({ base: 'feature' }, run);
-    expect(calls[1]).toEqual(['diff', '--name-only', '-z', 'HEAD']);
-    expect(result.files).toEqual(['x.ts']);
-    expect(result.source).toBe('git:HEAD');
-    expect(result.notes.join('\n')).toMatch(/feature.*fell back/);
+    await expect(collectChangedFiles({ base: 'feature' }, run)).rejects.toThrow(/'feature'/);
+    expect(calls).toHaveLength(1);
+  });
+
+  test('an unresolved default base over a clean working tree throws instead of reviewing nothing', async () => {
+    // The shallow-clone CI case: an empty fallback would read as a clean `ok`.
+    const run = async (_command: string, args: string[]): Promise<Run> =>
+      args.includes('origin/main...HEAD')
+        ? { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 }
+        : { stdout: '', stderr: '', exitCode: 0 };
+    await expect(collectChangedFiles({}, run)).rejects.toThrow(
+      'origin/main did not resolve and the working tree has no changes; pass files or base, ' +
+        'or fetch history (e.g. actions/checkout fetch-depth: 0)',
+    );
   });
 
   test('keeps non-ASCII and space-bearing paths byte-for-byte', async () => {
@@ -321,6 +348,32 @@ describe('assembleResult status', () => {
   test('an explicit usage error wins even without an exit code', () => {
     expect(assembleResult({ usageError: true }).status).toBe('usage-error');
   });
+
+  const verdict = (recordId: string, value: string) => ({ recordId, title: 't', verdict: value, evidence: 'e' });
+
+  // Precedence: usage-error > findings > incomplete > ok.
+  test.each([
+    ['every judgment missing', 'incomplete', { checkExitCode: 0, lintExitCode: 0, unverified: ['0001'] }],
+    [
+      'some judgments missing, the rest consistent',
+      'incomplete',
+      { checkExitCode: 0, lintExitCode: 0, verdicts: [verdict('0001', 'consistent')], unverified: ['0002'] },
+    ],
+    [
+      'a conflict beside a missing judgment',
+      'findings',
+      { checkExitCode: 0, lintExitCode: 0, verdicts: [verdict('0001', 'conflicts')], unverified: ['0002'] },
+    ],
+    ['an adr exit 1 beside a missing judgment', 'findings', { checkExitCode: 1, lintExitCode: 0, unverified: ['0001'] }],
+    ['a usage error beside a missing judgment', 'usage-error', { usageError: true, unverified: ['0001'] }],
+    [
+      'an undocumented exit beside a missing judgment',
+      'usage-error',
+      { checkExitCode: 0, lintExitCode: 13, unverified: ['0001'] },
+    ],
+  ] satisfies Array<[string, string, Parameters<typeof assembleResult>[0]]>)('%s -> %s', (_name, status, input) => {
+    expect(assembleResult(input).status).toBe(status);
+  });
 });
 
 describe('ADR_REVIEW_META', () => {
@@ -334,6 +387,14 @@ describe('ADR_REVIEW_META', () => {
     expect('limits' in ADR_REVIEW_META).toBe(false);
     expect(ADR_REVIEW_META.description).toMatch(/advisory/i);
     expect(ADR_REVIEW_META.description).toMatch(/exit.code/i);
+  });
+
+  test('states the one gate and every status', () => {
+    // The per-field data is detail; `status` alone is sufficient to gate on.
+    expect(ADR_REVIEW_META.description).toContain('result.status is "ok"');
+    for (const status of ['ok', 'findings', 'incomplete', 'usage-error']) {
+      expect(ADR_REVIEW_META.description).toContain(status);
+    }
   });
 });
 
@@ -390,11 +451,14 @@ function checkOutcome(governedBy: unknown[], findings: unknown[] = []) {
   return JSON.stringify({ changedFiles: [], governedBy, findings, ok: findings.length === 0 });
 }
 
-function fakeRunner(responses: { check?: Run; lint?: Run; git?: Run }) {
+function fakeRunner(responses: { check?: Run; lint?: Run; git?: Run | ((args: string[]) => Run) }) {
   const calls: Array<{ command: string; args: string[] }> = [];
   const run = async (command: string, args: string[]): Promise<Run> => {
     calls.push({ command, args });
-    if (command === 'git') return responses.git ?? { stdout: '', stderr: '', exitCode: 0 };
+    if (command === 'git') {
+      const git = responses.git;
+      return (typeof git === 'function' ? git(args) : git) ?? { stdout: '', stderr: '', exitCode: 0 };
+    }
     if (args[0] === 'check') return responses.check ?? { stdout: checkOutcome([]), stderr: '', exitCode: 0 };
     if (args[0] === 'lint') return responses.lint ?? { stdout: '', stderr: '', exitCode: 0 };
     throw new Error(`unexpected ${command} ${args.join(' ')}`);
@@ -472,6 +536,99 @@ describe('reviewWorkflow', () => {
     const result = await reviewWorkflow(ctx, deps(run));
     expect(result.verdicts.map((entry: { recordId: string }) => entry.recordId)).toEqual(['0001']);
     expect(result.unverified).toEqual(['0002', '0003']);
+    expect(result.status).toBe('incomplete');
+  });
+
+  test('a run whose every judgment is missing is incomplete, never ok', async () => {
+    // The Judge phase failing outright must not look like a clean review.
+    const outcome = checkOutcome([governing('0001'), governing('0002')]);
+    const { ctx, agentCalls } = fakeContext({ files: ['a.ts'] });
+    const { run } = fakeRunner({ check: { stdout: outcome, stderr: '', exitCode: 0 } });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(agentCalls).toHaveLength(2);
+    expect(result.verdicts).toEqual([]);
+    expect(result.unverified).toEqual(['0001', '0002']);
+    expect(result.status).toBe('incomplete');
+  });
+
+  test('a conflict beside a missing judgment is findings', async () => {
+    const outcome = checkOutcome([governing('0001'), governing('0002')]);
+    const { ctx } = fakeContext({ files: ['a.ts'] }, { 'judge:0001': { verdict: 'conflicts', evidence: 'no' } });
+    const { run } = fakeRunner({ check: { stdout: outcome, stderr: '', exitCode: 0 } });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(result.unverified).toEqual(['0002']);
+    expect(result.status).toBe('findings');
+  });
+
+  test('lint exit 1 is data: Judge still runs, and the status is findings', async () => {
+    // A corpus with error findings may have dropped a record, so a consistent
+    // verdict over it is not enough for `ok`.
+    const { ctx, agentCalls } = fakeContext(
+      { files: ['a.ts'] },
+      { 'judge:0001': { verdict: 'consistent', evidence: 'fine' } },
+    );
+    const { run } = fakeRunner({
+      check: { stdout: checkOutcome([governing('0001')]), stderr: '', exitCode: 0 },
+      lint: { stdout: '', stderr: '0007: invalid frontmatter', exitCode: 1 },
+    });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(agentCalls).toHaveLength(1);
+    expect(result.lintExitCode).toBe(1);
+    expect(result.verdicts.map((entry: { verdict: string }) => entry.verdict)).toEqual(['consistent']);
+    expect(result.notes.join('\n')).toContain('0007: invalid frontmatter');
+    expect(result.status).toBe('findings');
+  });
+
+  test('an explicit base that does not resolve is a usage-error naming it', async () => {
+    const { ctx, agentCalls } = fakeContext({ base: 'release/9' });
+    const { run, calls } = fakeRunner({
+      git: (args) =>
+        args.includes('release/9...HEAD')
+          ? { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 }
+          : { stdout: 'src/x.ts\0', stderr: '', exitCode: 0 },
+    });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(result.status).toBe('usage-error');
+    expect(result.notes.join('\n')).toContain("'release/9'");
+    expect(result.files).toEqual([]);
+    expect(calls).toHaveLength(1);
+    expect(agentCalls).toEqual([]);
+  });
+
+  test('an unresolved origin/main over a clean working tree is a usage-error, not ok', async () => {
+    const { ctx, agentCalls } = fakeContext({});
+    const { run, calls } = fakeRunner({
+      git: (args) =>
+        args.includes('origin/main...HEAD')
+          ? { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 }
+          : { stdout: '', stderr: '', exitCode: 0 },
+    });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(result.status).toBe('usage-error');
+    expect(result.notes.join('\n')).toContain(
+      'origin/main did not resolve and the working tree has no changes; pass files or base, ' +
+        'or fetch history (e.g. actions/checkout fetch-depth: 0)',
+    );
+    expect(calls.every((call) => call.command === 'git')).toBe(true);
+    expect(agentCalls).toEqual([]);
+  });
+
+  test('an unresolved origin/main with working-tree changes reviews them and keeps the note', async () => {
+    const { ctx, agentCalls } = fakeContext({}, { 'judge:0001': { verdict: 'consistent', evidence: 'fine' } });
+    const { run, calls } = fakeRunner({
+      git: (args) =>
+        args.includes('origin/main...HEAD')
+          ? { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 }
+          : { stdout: 'src/x.ts\0', stderr: '', exitCode: 0 },
+      check: { stdout: checkOutcome([governing('0001')]), stderr: '', exitCode: 0 },
+    });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(calls[1]?.args).toEqual(['diff', '--name-only', '-z', '--diff-filter=d', 'HEAD']);
+    expect(result.files).toEqual(['src/x.ts']);
+    expect(result.filesSource).toBe('git:HEAD');
+    expect(result.notes.join('\n')).toMatch(/origin\/main.*fell back/);
+    expect(agentCalls[0]?.prompt).toContain('git diff HEAD -- <path>');
+    expect(result.status).toBe('ok');
   });
 
   test('check exit 1 is data: the report is still read and judged', async () => {
