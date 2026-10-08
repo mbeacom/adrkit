@@ -9,6 +9,23 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **The agent plugin ships an advisory `adr-review` dynamic workflow for
+  GitHub Copilot CLI (`adrkit` 0.4.0).** It collects the changed files, runs
+  `adr check --json` and `adr lint`, then asks `adrkit:decision-checker` for a
+  `consistent`, `conflicts`, or `unclear` verdict per governing decision. It is
+  read-only and has no exit-code authority: `copilot workflow run` exits `0`
+  whatever the run does, so callers gate on the result payload
+  (`status`, `checkExitCode`, `lintExitCode`, `verdicts`, `unverified`). The
+  CLI is chosen by the environment alone (`ADRKIT_CLI`, then the repo-local
+  binary only when `ADRKIT_ALLOW_REPO_CLI=1`, then `PATH`); `cli` and
+  `allowRepoCli` are deliberately not workflow arguments. Claude Code, opencode,
+  and APM ignore the new `extensions/` directory. Authorized by
+  [ADR-0045](docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
+  (proposed); rung 1 of ADR-0014 with a live Copilot CLI 1.0.92 smoke. The
+  plugin has no tag and ships on merge to `main`.
+
 ## [0.17.0] - 2026-10-03
 
 This release changes only the governing-decisions Action. The four npm

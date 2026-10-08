@@ -74,20 +74,25 @@ host registration, `review.mjs` for pure logic).
 **Shape.** Three phases:
 
 1. **Collect.** Changed files come from the `files` argument, else from
-   `git diff --name-only <base>...HEAD`.
+   `git diff -z --name-only <base>...HEAD` (NUL-separated, so unusual paths
+   survive).
 2. **Check.** Run `adr check --json <files>` and `adr lint`. Both exit codes
-   are captured as data. The workflow throws only on spawn failure or exit `2`
-   (usage error), never on exit `1`. If exit `1` could throw, the run would
-   settle as an error, return no result, and still exit `0`; the case worth
-   surfacing would disappear. Zero model spend through this phase.
-3. **Judge.** For each decision in `governedBy` whose bucket is `governing`,
-   call `ctx.agent(..., { agent: "adrkit:decision-checker", schema })` for a
+   are captured as data. Exit `1` is data. A spawn failure, or any exit outside
+   `{0, 1}` from either command, yields `status: "usage-error"` in the result
+   rather than a thrown error: a thrown error would settle the run with no
+   result and still exit `0`, and the case worth surfacing would disappear.
+   Zero model spend through this phase.
+3. **Judge.** For each decision in the `governing` bucket, call
+   `ctx.agent(..., { agent: "adrkit:decision-checker", schema })` for a
    verdict of `consistent`, `conflicts`, or `unclear` with evidence. History
-   hits are listed, not judged. Model spend scales with the number of governing
-   decisions, not with the number of files.
+   hits are returned, not judged. Records in other buckets, such as
+   `activeProposals`, are logged with `ctx.log` and not returned. Model spend
+   scales with the number of governing decisions, not with the number of files.
 
-The result carries `status`, `checkExitCode`, `lintExitCode`, `governedBy`,
-`verdicts`, `unverified`, and `dropped`. Callers gate on that content.
+The result has exactly these keys, always present: `status` (`ok`, `findings`,
+or `usage-error`), `checkExitCode`, `lintExitCode`, `files`, `filesSource`,
+`notes`, `governing`, `history`, `verdicts`, `unverified`, and `findings`.
+Callers gate on that content.
 
 **Contracts.**
 
@@ -97,20 +102,27 @@ The result carries `status`, `checkExitCode`, `lintExitCode`, `governedBy`,
   `workflow.result.data.run.status == "completed"`, then read `checkExitCode`.
   File existence is not a gate.
 - **Read-only.** It may invoke only `adr check`, `adr lint`, `adr explain`,
-  `adr graph`, and read-only git (`git diff --name-only`, `git rev-parse`). It
+  `adr graph`, and read-only git (`git diff`, `git rev-parse`). It
   never mentions or invokes `adr accept`, `adr new`, or `adr migrate`, and it
   writes no file. The plugin wiring test's rule against `adr accept` is extended
   to cover the extension.
 - **Namespaced agent, null-guarded.** The agent is `adrkit:decision-checker`.
   Every `ctx.agent` result may be `null`; a null is reported under `unverified`
   and never dropped, because a silently missing judgment looks like a clean one.
-- **CLI trust order.** An explicit `cli` argument, then `$ADRKIT_CLI`, then
-  `./node_modules/.bin/adr` only when `allowRepoCli: true` is passed, then `adr`
-  on `PATH`. This matches the skill and agent order with the repo-local step
-  gated, because extension code runs outside Copilot's permission prompts and a
-  non-interactive run cannot ask for confirmation, in line with ADR-0034's rule
-  for repository-local executables. Processes are started with `execFile`, never
-  a shell, and honor `ctx.signal`.
+- **CLI trust order, chosen by the environment only.** The workflow accepts
+  three arguments: `files`, `base`, and `dir`. `cli` and `allowRepoCli` are
+  deliberately **not** arguments, and any unknown key yields
+  `status: "usage-error"`. Arguments can be chosen by a model that has just read
+  untrusted repository content, and extension code runs outside Copilot's
+  permission prompts, so an argument that selects an executable would be a
+  code-execution path with no human in it. The CLI is resolved from the
+  environment: `$ADRKIT_CLI` (made absolute; a `.js`, `.mjs`, or `.cjs` value
+  runs under `node`), then `./node_modules/.bin/adr` only when
+  `ADRKIT_ALLOW_REPO_CLI=1` exactly, then `adr` on `PATH`. This matches the skill
+  and agent order with the repo-local step gated, because a non-interactive run
+  cannot ask for confirmation, in line with ADR-0034's rule for repository-local
+  executables. Processes are started with `execFile`, never a shell, and honor
+  `ctx.signal`.
 - **Root `extensions/` layout.** For adrkit's `.claude-plugin` manifest the
   workflow lives at the plugin root under `extensions/<dir>/extension.mjs`.
   There is exactly one copy.
@@ -122,7 +134,7 @@ The result carries `status`, `checkExitCode`, `lintExitCode`, `governedBy`,
   Per-invocation `limits` and `workflows.defaultLimits.*` are documented
   instead. Nothing depends on pausing, because CI cannot resume interactively.
 - **Version.** The plugin moves 0.3.1 to 0.4.0 on every version-bearing surface
-  named in ADR-0028 and ADR-0034.
+  enumerated in the agent-plugin section of `docs/RELEASING.md`.
 
 ### Measured facts
 
@@ -214,16 +226,18 @@ verdict a caller can read as data.
 
 The extension is executable code that runs outside Copilot's permission prompts.
 Installing the plugin was already a trust decision for skills and agents; it now
-also grants code execution. The repo-local CLI gate (`allowRepoCli`) limits
-that to the one step where an inherited repository could substitute a binary.
+also grants code execution. The environment-only CLI selection and the
+`ADRKIT_ALLOW_REPO_CLI=1` gate limit that to the one step where an inherited
+repository could substitute a binary, and keep a model-written argument from
+ever choosing what runs.
 
 The layout is manifest-coupled. Moving to an Agent Plugins 1.0 manifest would
 relocate the directory, and this record does not pre-authorize that move.
 
 Verdicts are model judgment. A `consistent` verdict is evidence, not proof, and
 the structured schema narrows the output without making it deterministic. The
-workflow therefore reports `unverified` and `dropped` entries instead of
-claiming exhaustive coverage.
+workflow therefore reports `unverified` entries instead of claiming exhaustive
+coverage.
 
 Because the host exit status carries no meaning, a naive script that checks only
 the exit code will read every failure as success. The documentation has to state
@@ -242,7 +256,7 @@ the content-based recipe prominently, and it is a recurring cost.
   codes, which would make an advisory-only stance needlessly weak; a
   `workflow run` is observed gating a merge by itself; the extension writes to
   the worktree, invokes `adr accept`, `adr new`, or `adr migrate`, or runs a
-  repo-local CLI without `allowRepoCli`; agent-name resolution changes so
+  repo-local CLI without `ADRKIT_ALLOW_REPO_CLI=1`, or accepts a `cli` argument; agent-name resolution changes so
   `adrkit:decision-checker` no longer resolves and judgments arrive `unverified`
   unnoticed; or adrkit moves to an Agent Plugins 1.0 manifest and `extensions/`
   stops loading.
@@ -254,26 +268,29 @@ the content-based recipe prominently, and it is a recurring cost.
 
 ## Evidence rung
 
-**Rung 1 only** under ADR-0014: unit and contract coverage of the pure logic,
-plus the maintainer probes recorded above against the installed host. There is
+**Rung 1** under ADR-0014: unit and contract coverage of the pure logic, plus
+maintainer live smokes against the installed host. The live end-to-end run
+(Copilot CLI 1.0.92, 2026-10-08) used two subagents and about 0.16 AI credits,
+found both planted conflicts, exited `0`, and left the worktree clean. There is
 no persistent reference-repository run and no external validation. Unmeasured:
 GitHub-source (copied) plugin installs, the Copilot app canvas and SDK host,
 `/every` scheduling, whether opencode or Agent Package Manager tolerate an
-`extensions/` directory, and the Copilot cloud agent in Actions. The new
-evidence is recorded in `docs/reference-verification-agent-plugin.md`.
+`extensions/` directory, and the Copilot cloud agent in Actions. The evidence is
+recorded in `docs/reference-verification-agent-plugin.md`.
 
 ## Action items
 
-1. [ ] Implement `review.mjs` and `extension.mjs` under
+1. [x] Implement `review.mjs` and `extension.mjs` under
    `packages/adapters/agent-plugin/extensions/adrkit/`, Node built-ins only.
-2. [ ] Add unit tests for the pure logic, including exit `1` captured as data,
+2. [x] Add unit tests for the pure logic, including exit `1` captured as data,
    spawn failure and exit `2` thrown, null agent results reported as
    `unverified`, and the CLI trust order.
-3. [ ] Extend the wiring test so no `adr accept`, `adr new`, or `adr migrate`
+3. [x] Extend the wiring test so no `adr accept`, `adr new`, or `adr migrate`
    appears in the extension, and add a packaging test for the root layout, one
    copy, no dependencies, and the SDK import confined to `extension.mjs`.
-4. [ ] Bump the plugin 0.3.1 to 0.4.0 on every version-bearing surface.
-5. [ ] Document the content-based gating recipe, the `allowRepoCli` argument,
-   and per-invocation `limits`.
-6. [ ] Record the measured facts and rung-1 status in
+4. [x] Bump the plugin 0.3.1 to 0.4.0 on every version-bearing surface.
+5. [x] Document the content-based gating recipe, the environment-only CLI
+   selection (`ADRKIT_CLI`, `ADRKIT_ALLOW_REPO_CLI`), and per-invocation
+   `limits`.
+6. [x] Record the measured facts and rung-1 status in
    `docs/reference-verification-agent-plugin.md`.

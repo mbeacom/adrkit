@@ -58,7 +58,8 @@ claude plugin update adrkit@adrkit
 apm update --yes --target claude,copilot,opencode
 ```
 
-The expected inventory is two skills, one agent, and five commands. Copilot's
+The expected inventory is two skills, one agent, five commands, and (Copilot
+CLI only) one dynamic workflow. Copilot's
 install summary reports only the skill count (`Installed 2 skills`); use a fresh
 session to verify the commands and agent.
 
@@ -112,6 +113,7 @@ your project config - see
 | Command | `/adr-draft <title-or-candidate-key>` | one new record |
 | Command | `/adr-queue [--as-of ...]` | no |
 | Command | `/adr-backfill [files-or-directories...]` | no |
+| Dynamic workflow (Copilot CLI only) | `adr-review` | no |
 
 The skill is the part that works without being asked for: it teaches the
 context -> check -> draft loop, the exit-code contract, and the rules that keep
@@ -156,6 +158,91 @@ shell source.
 
 The same workflow is described in the
 [backfill guide](https://adrkit.dev/backfill/).
+
+## Dynamic workflow: `adr-review` (GitHub Copilot CLI)
+
+`adr-review` checks a change against the decisions that govern it and asks the
+`decision-checker` agent for a verdict per governing decision. It is a Copilot
+CLI dynamic workflow (`extensions/adrkit/`), authorized by
+[ADR-0045](../../../docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md).
+Claude Code, opencode, and Agent Package Manager ignore the directory.
+
+It runs three phases:
+
+1. **Collect.** The changed files come from the `files` argument, else from
+   `git diff -z` against `<base>...HEAD`. If that range does not resolve, it
+   falls back to uncommitted changes against `HEAD` and says so in `notes`.
+2. **Check.** `adr check --json` and `adr lint`. No model spend.
+3. **Judge.** One `adrkit:decision-checker` call per `accepted` governing
+   decision, returning `consistent`, `conflicts`, or `unclear` with evidence.
+   Spend scales with the number of governing decisions, not files. History
+   hits are reported, not judged. A call that returns nothing is listed under
+   `unverified`, never dropped.
+
+It is read-only: it runs only `adr check`, `adr lint`, and read-only git, and
+writes no file.
+
+### Arguments
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `files` | none | Repo-relative paths to review. Overrides the git diff. |
+| `base` | `origin/main` | Ref to diff `<base>...HEAD` against. |
+| `dir` | `$ADRKIT_DIR`, else `docs/adr` | ADR corpus directory. |
+
+Any other key, including `cli` or `allowRepoCli`, returns `status:
+"usage-error"`. Which CLI runs is chosen by the environment alone, because
+workflow arguments can be written by a model that has just read untrusted
+repository content, and extension code runs outside Copilot's permission
+prompts.
+
+### Run it
+
+Interactively, start `copilot` in the repository and run the `adr-review`
+workflow from there. From a script:
+
+```bash
+copilot workflow run adr-review --args '{"base":"origin/main"}' --output-format json
+```
+
+### Which `adr` it runs
+
+In order: `$ADRKIT_CLI` (resolved to an absolute path; a `.js`, `.mjs`, or
+`.cjs` value runs under `node`), then `./node_modules/.bin/adr` **only when
+`ADRKIT_ALLOW_REPO_CLI=1` is set exactly**, then `adr` on `PATH`. A missing
+`ADRKIT_CLI` target is an error rather than a fall-through to `PATH`. The
+repo-local step is gated because a non-interactive run cannot ask whether to
+trust a binary an inherited repository supplied.
+
+### It is advisory: gate on the payload, never on the exit code
+
+`copilot workflow run` exits `0` on success, on a thrown error, on invalid
+arguments, and on an unknown workflow name (measured on Copilot CLI 1.0.92).
+The workflow therefore has no exit-code authority, and a script that checks
+`$?` reads every failure as success. The governing-decisions Action remains the
+CI gate. To gate a script on the workflow anyway, check that the run completed
+and then read the result:
+
+```bash
+copilot workflow run adr-review --args '{"base":"origin/main"}' --output-format json > out.json
+jq -e '.workflow.result.data.run.status == "completed"
+       and .result.status == "ok"' out.json
+```
+
+The exact path of the result object depends on your Copilot version, so confirm
+it against your own `--output-format json` output first. `.result.status` is
+`ok`, `findings` (a non-zero `adr` exit or a `conflicts` verdict), or
+`usage-error`. The result also carries `checkExitCode`, `lintExitCode`,
+`files`, `filesSource`, `notes`, `governing`, `history`, `verdicts`,
+`unverified`, and `findings`. Treat a non-empty `unverified` as "not checked".
+File existence is not a gate.
+
+### Limits are yours to set
+
+The workflow declares no `limits`, because a guessed ceiling only stops a
+healthy run after it has spent credits. Set them per invocation or with
+`workflows.defaultLimits.*` in your Copilot settings. The first live run (two
+governing decisions) used two subagent calls and about 0.16 AI credits.
 
 ## Things that are load-bearing and easy to break
 
@@ -255,10 +342,16 @@ decision, retained one rejected decision as history, emitted one evidence-backed
 remains rung 1: there is no persistent reference repository, no Claude/APM
 functional run, and no external validation.
 
+The v0.4.0 `adr-review` workflow is at rung 1: unit and contract tests plus
+maintainer live smokes on Copilot CLI 1.0.92, recorded in the evidence index.
+Copied (GitHub-source) installs, the Copilot app canvas, and opencode/APM
+tolerance of `extensions/` are unverified.
+
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)
 and its accepted backfill amendment,
-[ADR-0034](../../../docs/adr/0034-extend-the-portable-agent-plugin-with-decision-backfill.md).
+[ADR-0034](../../../docs/adr/0034-extend-the-portable-agent-plugin-with-decision-backfill.md);
+the workflow by ADR-0045 (above).
 
 ## License
 

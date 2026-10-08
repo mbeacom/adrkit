@@ -353,6 +353,74 @@ whether Claude Code, Copilot CLI, or opencode actually surface the offer when
 backfill runs against an empty corpus. That needs a functional run in a real
 host session and is tracked as an open action item on ADR-0038.
 
+## v0.4.0 `adr-review` dynamic workflow (2026-10-08)
+
+Measured on 2026-10-08 against GitHub Copilot CLI 1.0.92, at **rung 1** of
+ADR-0014. The workflow is specified by
+[ADR-0045](adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
+(proposed). Probes used throwaway plugins loaded with `--plugin-dir` and through
+a local marketplace install; the workflow itself was then run end to end.
+
+### Platform measurements
+
+| # | Probe | Result |
+|---|-------|--------|
+| 1 | `.claude-plugin/plugin.json` plugin with `extensions/<dir>/extension.mjs` at the plugin root | Workflow registered and ran |
+| 2 | Same extension under `com.github.copilot/extensions/` | Not found; that path is read only for Agent Plugins 1.0 manifests |
+| 3 | Extension `process.cwd()` and `git rev-parse --show-toplevel`, under `--plugin-dir` and local-marketplace install | Both the workspace repository |
+| 4 | Plugin extension in an untrusted folder | Ran; project extensions were excluded, plugin extensions were not |
+| 5 | `copilot workflow run` exit status for success, thrown error, arguments failing `argsSchema`, unknown name | 0, 0, 0, 0 |
+| 6 | `--result-file` on a thrown error | Not written; exit status still 0 |
+| 7 | `ctx.agent(..., { agent: "adrkit:decision-checker" })` with the plugin installed via a local marketplace | Resolved and ran with the decision-checker's own instructions |
+| 8 | `ctx.agent(..., { agent: "decision-checker" })` (bare name), same install | `null`, no throw |
+| 9 | `claude plugin validate` on a plugin containing `extensions/` | Passes; Claude Code ignores the directory |
+| 10 | `adr check --json` exit 0 and exit 1 | Complete CheckOutcome on both; exit 2 is a usage error |
+
+### End-to-end run
+
+A scratch git repository on `main` held two accepted records: 0001 (use the
+platform fetch API; affects `src/**`) and 0002 (zero runtime dependencies;
+affects `package.json`). A branch commit, "switch to axios", added the axios
+dependency and replaced `fetch` in `src/net.ts`.
+
+```sh
+ADRKIT_CLI=<abs>/node_modules/@adrkit/cli/dist/index.js \
+  copilot --plugin-dir <worktree>/packages/adapters/agent-plugin \
+  workflow run adr-review --args '{"base":"main"}' \
+  --output-format json --result-file r.json
+```
+
+The CLI was the published `@adrkit/cli` 0.17.0, run through `node` because
+`ADRKIT_CLI` ends in `.js`.
+
+| Observation | Value |
+|---|---|
+| Process exit status | 0, even with `status: "findings"` |
+| Run settled | `completed` |
+| Subagents consumed | 2 |
+| AI credits | about 0.16 (158798625000 nano-AIU) |
+| Elapsed | 33985 ms |
+| Result | `status: "findings"`, `checkExitCode` 0, `lintExitCode` 0, files `package.json` and `src/net.ts` |
+| Verdicts | 0001 `conflicts` and 0002 `conflicts`, each with evidence citing the diff |
+| `unverified` | empty |
+| Smoke repository `git status` afterwards | clean |
+
+Both planted conflicts were found. The process exit status carried none of it,
+which is why the documentation tells callers to gate on the payload.
+
+### Not verified
+
+- GitHub-source (copied) plugin installs. The local marketplace install loaded
+  live from disk, so the cwd and agent resolution are unmeasured for a copy.
+- The Copilot app canvas, the SDK host, and `/every` scheduling.
+- Whether opencode or Agent Package Manager tolerate an `extensions/`
+  directory. Probably inert; never run.
+- The Copilot cloud agent in Actions. Dynamic workflows are a CLI and app
+  feature.
+- Any persistent reference-repository run or external validation (rungs 2 and
+  3). This is one run of a non-deterministic agent on a two-record fixture, not
+  a pass rate.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a
