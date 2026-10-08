@@ -32,7 +32,7 @@ Until `1.0.0`, minor releases may include breaking changes
   deploys it to no target (its one `Unrecognized plugin manifest $schema`
   warning comes from the manifest's existing `$schema` field), and a native opencode load is unmeasured. Authorized by
   [ADR-0045](docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
-  (proposed); rung 1 of ADR-0014 with a live Copilot CLI 1.0.92 smoke. The
+  (accepted); rung 1 of ADR-0014 with a live Copilot CLI 1.0.92 smoke. The
   plugin has no tag and ships on merge to `main`.
 
 ## [0.17.0] - 2026-10-03

@@ -358,7 +358,7 @@ host session and is tracked as an open action item on ADR-0038.
 Measured on 2026-10-08 against GitHub Copilot CLI 1.0.92, at **rung 1** of
 ADR-0014. The workflow is specified by
 [ADR-0045](adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
-(proposed). Probes used throwaway plugins loaded with `--plugin-dir` and through
+(proposed when measured; accepted 2026-10-08). Probes used throwaway plugins loaded with `--plugin-dir` and through
 a local marketplace install; the workflow itself was then run end to end.
 
 There is no stated minimum Copilot CLI version. The workflow was measured on

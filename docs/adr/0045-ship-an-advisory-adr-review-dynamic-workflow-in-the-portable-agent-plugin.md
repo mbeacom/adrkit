@@ -34,7 +34,7 @@ review:
 
 # ADR-0045: Ship an advisory adr-review dynamic workflow in the portable agent plugin
 
-> **Status: proposed.** Agent-drafted; not yet ratified. This record amends the
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-08. This record amends the
 > component inventory of ADR-0028 and ADR-0034; it does not supersede either.
 > Their portability, read-only, and independent-versioning constraints remain
 > binding.
