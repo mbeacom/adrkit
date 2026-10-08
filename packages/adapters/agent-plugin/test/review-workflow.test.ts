@@ -27,69 +27,61 @@ type Run = { stdout: string; stderr: string; exitCode: number };
 const missing = () => false;
 
 describe('resolveCli', () => {
-  test('an explicit cli argument wins over everything else', () => {
-    const resolved = resolveCli(
-      { cli: '/opt/adr', allowRepoCli: true },
-      { env: { ADRKIT_CLI: '/env/adr' }, cwd: '/repo', exists: () => true },
-    );
-    expect(resolved).toEqual({ command: '/opt/adr', args: [], source: 'arg' });
+  test('$ADRKIT_CLI wins, made absolute against the workspace', () => {
+    // Absolute so the value can never be read as a flag by node or by execFile.
+    const resolved = resolveCli({
+      env: { ADRKIT_CLI: 'tools/adr', ADRKIT_ALLOW_REPO_CLI: '1' },
+      cwd: '/repo',
+      exists: () => true,
+    });
+    expect(resolved).toEqual({ command: '/repo/tools/adr', args: [], source: 'env' });
   });
 
-  test('$ADRKIT_CLI is next', () => {
-    const resolved = resolveCli(
-      { allowRepoCli: true },
-      { env: { ADRKIT_CLI: '/env/adr' }, cwd: '/repo', exists: () => true },
-    );
-    expect(resolved).toEqual({ command: '/env/adr', args: [], source: 'env' });
+  test('an option-shaped $ADRKIT_CLI becomes a path, not a node flag', () => {
+    const resolved = resolveCli({
+      env: { ADRKIT_CLI: '--require=evil.js' },
+      cwd: '/repo',
+      exists: () => true,
+    });
+    expect(resolved).toEqual({ command: 'node', args: ['/repo/--require=evil.js'], source: 'env' });
   });
 
   test('a JavaScript entry point runs under node, as the Spec Kit helper does', () => {
-    const resolved = resolveCli(
-      { allowRepoCli: false },
-      { env: { ADRKIT_CLI: '/src/cli/dist/index.js' }, cwd: '/repo', exists: () => true },
-    );
-    expect(resolved).toEqual({
-      command: 'node',
-      args: ['/src/cli/dist/index.js'],
-      source: 'env',
+    const resolved = resolveCli({
+      env: { ADRKIT_CLI: '/src/cli/dist/index.js' },
+      cwd: '/repo',
+      exists: () => true,
     });
+    expect(resolved).toEqual({ command: 'node', args: ['/src/cli/dist/index.js'], source: 'env' });
   });
 
   test('a configured CLI that does not exist is an error, not a silent fallback', () => {
     // Falling through to PATH would run a different CLI than the one the user
     // named, and report its answer as theirs.
-    expect(() =>
-      resolveCli({ allowRepoCli: false }, { env: { ADRKIT_CLI: '/nope' }, cwd: '/r', exists: missing }),
-    ).toThrow(/ADRKIT_CLI.*\/nope/);
-    expect(() =>
-      resolveCli({ cli: '/gone', allowRepoCli: false }, { env: {}, cwd: '/r', exists: missing }),
-    ).toThrow(/\/gone/);
+    expect(() => resolveCli({ env: { ADRKIT_CLI: '/nope' }, cwd: '/r', exists: missing })).toThrow(
+      /ADRKIT_CLI.*\/nope/,
+    );
   });
 
-  test('the repository-local CLI is used only when allowRepoCli is true', () => {
+  test('the repository-local CLI is used only when ADRKIT_ALLOW_REPO_CLI is exactly "1"', () => {
     const repoCli = '/repo/node_modules/.bin/adr';
     const exists = (path: string) => path === repoCli;
-    expect(resolveCli({ allowRepoCli: true }, { env: {}, cwd: '/repo', exists })).toEqual({
+    expect(resolveCli({ env: { ADRKIT_ALLOW_REPO_CLI: '1' }, cwd: '/repo', exists })).toEqual({
       command: repoCli,
       args: [],
       source: 'repo',
     });
-  });
-
-  test('a present repository-local CLI is skipped without allowRepoCli', () => {
     // Plugin extensions run outside Copilot's permission prompts, and a
-    // non-interactive run cannot ask, so an inherited repository's binary is
-    // never executed by default (ADR-0034's trust rule).
-    const exists = (path: string) => path === '/repo/node_modules/.bin/adr';
-    expect(resolveCli({ allowRepoCli: false }, { env: {}, cwd: '/repo', exists })).toEqual({
-      command: 'adr',
-      args: [],
-      source: 'path',
-    });
+    // non-interactive run cannot ask, so anything short of the exact opt-in
+    // leaves an inherited repository's binary unexecuted (ADR-0034).
+    for (const value of [undefined, '', '0', 'true', 'yes', ' 1']) {
+      expect({ value, resolved: resolveCli({ env: { ADRKIT_ALLOW_REPO_CLI: value }, cwd: '/repo', exists }) })
+        .toEqual({ value, resolved: { command: 'adr', args: [], source: 'path' } });
+    }
   });
 
   test('PATH is the last resort', () => {
-    expect(resolveCli({ allowRepoCli: true }, { env: {}, cwd: '/repo', exists: missing })).toEqual({
+    expect(resolveCli({ env: { ADRKIT_ALLOW_REPO_CLI: '1' }, cwd: '/repo', exists: missing })).toEqual({
       command: 'adr',
       args: [],
       source: 'path',
@@ -151,15 +143,15 @@ describe('runCommand', () => {
 });
 
 describe('validateArgs', () => {
-  test('defaults allowRepoCli to false and accepts an empty object', () => {
-    expect(validateArgs({})).toEqual({ allowRepoCli: false });
-    expect(validateArgs(undefined)).toEqual({ allowRepoCli: false });
+  test('accepts an empty object', () => {
+    expect(validateArgs({})).toEqual({});
+    expect(validateArgs(undefined)).toEqual({});
   });
 
   test('passes valid arguments through', () => {
     expect(
-      validateArgs({ files: ['src/a.ts'], base: 'main', dir: 'docs/adr', cli: '/x', allowRepoCli: true }),
-    ).toEqual({ files: ['src/a.ts'], base: 'main', dir: 'docs/adr', cli: '/x', allowRepoCli: true });
+      validateArgs({ files: ['src/a.ts'], base: 'main', dir: 'docs/adr' }),
+    ).toEqual({ files: ['src/a.ts'], base: 'main', dir: 'docs/adr' });
   });
 
   test.each([
@@ -171,7 +163,10 @@ describe('validateArgs', () => {
     ['a non-array files', { files: 'src/a.ts' }],
     ['an option-shaped base', { base: '--output=/tmp/x' }],
     ['an option-shaped dir', { dir: '-x' }],
-    ['a non-boolean allowRepoCli', { allowRepoCli: 'yes' }],
+    // Arguments can be written by a model that read untrusted content, so they
+    // never choose what is executed: both former keys are now unknown.
+    ['a cli argument', { cli: '/tmp/evil' }],
+    ['an allowRepoCli argument', { allowRepoCli: true }],
     ['an unknown key', { allowRepoCLI: true }],
     ['a non-object', ['src/a.ts']],
   ])('rejects %s', (_name, raw) => {
@@ -195,10 +190,10 @@ describe('collectChangedFiles', () => {
     const calls: string[][] = [];
     const run = async (_command: string, args: string[]): Promise<Run> => {
       calls.push(args);
-      return { stdout: 'a.ts\nb/c.ts\n', stderr: '', exitCode: 0 };
+      return { stdout: 'a.ts\0b/c.ts\0', stderr: '', exitCode: 0 };
     };
     const result = await collectChangedFiles({}, run);
-    expect(calls).toEqual([['diff', '--name-only', '--diff-filter=d', 'origin/main...HEAD']]);
+    expect(calls).toEqual([['diff', '--name-only', '-z', '--diff-filter=d', 'origin/main...HEAD']]);
     expect(result).toEqual({ files: ['a.ts', 'b/c.ts'], source: 'git:origin/main...HEAD', notes: [] });
   });
 
@@ -209,13 +204,24 @@ describe('collectChangedFiles', () => {
       if (args.includes('feature...HEAD')) {
         return { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 };
       }
-      return { stdout: 'x.ts\n', stderr: '', exitCode: 0 };
+      return { stdout: 'x.ts\0', stderr: '', exitCode: 0 };
     };
     const result = await collectChangedFiles({ base: 'feature' }, run);
-    expect(calls[1]).toEqual(['diff', '--name-only', 'HEAD']);
+    expect(calls[1]).toEqual(['diff', '--name-only', '-z', 'HEAD']);
     expect(result.files).toEqual(['x.ts']);
     expect(result.source).toBe('git:HEAD');
     expect(result.notes.join('\n')).toMatch(/feature.*fell back/);
+  });
+
+  test('keeps non-ASCII and space-bearing paths byte-for-byte', async () => {
+    // Without -z, core.quotepath prints "docs/\303\251t\303\251.md" with the
+    // quotes, which no affects pattern matches: a silent false-clean.
+    const run = async (): Promise<Run> => ({
+      stdout: 'docs/été.md\0src/日本 語.ts\0',
+      stderr: '',
+      exitCode: 0,
+    });
+    expect((await collectChangedFiles({}, run)).files).toEqual(['docs/été.md', 'src/日本 語.ts']);
   });
 
   test('throws when both diffs fail, so the caller can report it', async () => {
@@ -276,6 +282,10 @@ describe('assembleResult status', () => {
     [2, 0, [], 'usage-error'],
     [0, 2, [], 'usage-error'],
     [2, 1, ['conflicts'], 'usage-error'],
+    [13, 0, [], 'usage-error'],
+    [0, 13, [], 'usage-error'],
+    [-1, 0, [], 'usage-error'],
+    [137, 1, ['consistent'], 'usage-error'],
   ] as const)('check %p, lint %p, verdicts %p -> %p', (checkExitCode, lintExitCode, verdicts, status) => {
     const result = assembleResult({
       checkExitCode,
@@ -509,6 +519,56 @@ describe('reviewWorkflow', () => {
     ]);
   });
 
+  test.each([13, 139])('an undocumented check exit (%p) is a usage-error, even with a report', async (code) => {
+    const { ctx, agentCalls } = fakeContext({ files: ['a.ts'] });
+    const { run } = fakeRunner({
+      check: { stdout: checkOutcome([governing('0001')]), stderr: 'crashed', exitCode: code },
+    });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(result.status).toBe('usage-error');
+    expect(result.checkExitCode).toBe(code);
+    expect(agentCalls).toEqual([]);
+  });
+
+  test('an undocumented lint exit is a usage-error and skips Judge', async () => {
+    const { ctx, agentCalls } = fakeContext({ files: ['a.ts'] });
+    const { run } = fakeRunner({
+      check: { stdout: checkOutcome([governing('0001')]), stderr: '', exitCode: 0 },
+      lint: { stdout: '', stderr: 'segfault', exitCode: 13 },
+    });
+    const result = await reviewWorkflow(ctx, deps(run));
+    expect(result.status).toBe('usage-error');
+    expect(result.notes.join('\n')).toContain('segfault');
+    expect(agentCalls).toEqual([]);
+  });
+
+  test('explicit files are judged against origin/main by default, not HEAD', async () => {
+    // A diff against HEAD is empty for committed work.
+    const { ctx, agentCalls } = fakeContext({ files: ['a.ts'] });
+    const { run } = fakeRunner({
+      check: { stdout: checkOutcome([governing('0001')]), stderr: '', exitCode: 0 },
+    });
+    await reviewWorkflow(ctx, deps(run));
+    expect(agentCalls[0]?.prompt).toContain('git diff origin/main...HEAD');
+  });
+
+  test('an argument cannot enable the repository-local CLI', async () => {
+    const { ctx } = fakeContext({ files: ['a.ts'], allowRepoCli: true });
+    const { run, calls } = fakeRunner({});
+    const result = await reviewWorkflow(ctx, { ...deps(run), exists: () => true });
+    expect(result.status).toBe('usage-error');
+    expect(result.notes.join('\n')).toMatch(/unknown argument: allowRepoCli/);
+    expect(calls).toEqual([]);
+  });
+
+  test('logs governedBy entries that are neither judged nor listed', async () => {
+    const outcome = checkOutcome([{ ...governing('0004'), status: 'proposed', bucket: 'activeProposals' }]);
+    const { ctx, logs } = fakeContext({ files: ['a.ts'] });
+    const { run } = fakeRunner({ check: { stdout: outcome, stderr: '', exitCode: 0 } });
+    await reviewWorkflow(ctx, deps(run));
+    expect(logs.join('\n')).toContain('0004 (activeProposals)');
+  });
+
   test('unparseable check output is a usage-error, not a throw', async () => {
     const { ctx, agentCalls } = fakeContext({ files: ['a.ts'] });
     const { run } = fakeRunner({ check: { stdout: 'not json', stderr: 'odd', exitCode: 0 } });
@@ -540,10 +600,10 @@ describe('reviewWorkflow', () => {
 
   test('passes --dir to both commands and collects files from git when none are given', async () => {
     const { ctx } = fakeContext({ dir: 'decisions', base: 'main' });
-    const { run, calls } = fakeRunner({ git: { stdout: 'src/x.ts\n', stderr: '', exitCode: 0 } });
+    const { run, calls } = fakeRunner({ git: { stdout: 'src/x.ts\0', stderr: '', exitCode: 0 } });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(calls.map((call) => [call.command, ...call.args])).toEqual([
-      ['git', 'diff', '--name-only', '--diff-filter=d', 'main...HEAD'],
+      ['git', 'diff', '--name-only', '-z', '--diff-filter=d', 'main...HEAD'],
       ['adr', 'check', '--json', '--dir', 'decisions', '--', 'src/x.ts'],
       ['adr', 'lint', '--dir', 'decisions'],
     ]);

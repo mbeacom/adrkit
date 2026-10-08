@@ -14,7 +14,7 @@
  * `usage-error` result instead, and callers gate on the payload.
  */
 
-import { isAbsolute, join, win32 } from 'node:path';
+import { isAbsolute, join, resolve, win32 } from 'node:path';
 
 /** Plugin-namespaced. Measured: the bare `decision-checker` resolves to null. */
 export const DECISION_CHECKER_AGENT = 'adrkit:decision-checker';
@@ -44,8 +44,9 @@ export const ADR_REVIEW_META = {
     'on the result payload: status, checkExitCode, lintExitCode, verdicts, ' +
     'unverified. Read-only. args: { files?: string[] (repo-relative; default ' +
     'git diff <base>...HEAD), base?: string (default origin/main), dir?: string ' +
-    '(ADR corpus; default $ADRKIT_DIR or docs/adr), cli?: string (path to the adr ' +
-    'CLI), allowRepoCli?: boolean (default false; permits ./node_modules/.bin/adr) }.',
+    '(ADR corpus; default $ADRKIT_DIR or docs/adr) }. The CLI is chosen by the ' +
+    'environment only: $ADRKIT_CLI, then ./node_modules/.bin/adr when ' +
+    'ADRKIT_ALLOW_REPO_CLI=1, then adr on PATH.',
   phases: [{ title: 'Collect' }, { title: 'Check' }, { title: 'Judge' }],
   argsSchema: {
     type: 'object',
@@ -53,17 +54,15 @@ export const ADR_REVIEW_META = {
       files: { type: 'array', items: { type: 'string' } },
       base: { type: 'string' },
       dir: { type: 'string' },
-      cli: { type: 'string' },
-      allowRepoCli: { type: 'boolean' },
     },
   },
 };
 
 /**
- * @typedef {{ command: string, args: string[], source: 'arg' | 'env' | 'repo' | 'path' }} ResolvedCli
+ * @typedef {{ command: string, args: string[], source: 'env' | 'repo' | 'path' }} ResolvedCli
  * @typedef {{ stdout: string, stderr: string, exitCode: number }} CommandResult
  * @typedef {(command: string, args: string[]) => Promise<CommandResult>} Runner
- * @typedef {{ files?: string[], base?: string, dir?: string, cli?: string, allowRepoCli: boolean }} ReviewArgs
+ * @typedef {{ files?: string[], base?: string, dir?: string }} ReviewArgs
  * @typedef {{ recordId: string, title: string, status?: string, bucket?: string, supersededBy?: string, firedMatchers?: unknown[] }} Decision
  * @typedef {{ recordId: string, title: string, verdict: string, evidence: string }} Verdict
  */
@@ -72,38 +71,43 @@ const JS_ENTRY = /\.(?:c|m)?js$/;
 
 /**
  * Resolve the `adr` CLI in the order every other plugin component documents —
- * explicit argument, `$ADRKIT_CLI`, `./node_modules/.bin/adr`, then `PATH` —
- * with the repository-local step gated behind `allowRepoCli`. Extension code
- * runs outside Copilot's permission prompts and a non-interactive run cannot
- * ask, so an inherited repository's binary is never run by default (ADR-0034).
+ * `$ADRKIT_CLI`, `./node_modules/.bin/adr`, then `PATH` — with the
+ * repository-local step gated behind `ADRKIT_ALLOW_REPO_CLI=1`.
  *
- * The returned command is for `execFile`, never a shell. A configured path that
- * does not exist throws rather than falling through to `PATH`, which would run
- * a different CLI and report its answer as the configured one's.
+ * Only the environment chooses what runs, never a workflow argument. Arguments
+ * can be written by a model that has just read untrusted repository content,
+ * and extension code runs outside Copilot's permission prompts, so an argument
+ * that selected an executable would be a code-execution path with no human in
+ * it. The repository-local step is gated for the same reason (ADR-0034): an
+ * inherited repository's binary is never run unless the person running the
+ * workflow opted in.
  *
- * @param {{ cli?: string, allowRepoCli?: boolean }} options
+ * The returned command is for `execFile`, never a shell. `$ADRKIT_CLI` is made
+ * absolute first, so its value can never be read as a flag by `node`. A path
+ * that does not exist throws rather than falling through to `PATH`, which would
+ * run a different CLI and report its answer as the configured one's.
+ *
  * @param {{ env: Record<string, string | undefined>, cwd: string, exists: (path: string) => boolean }} deps
  * @returns {ResolvedCli}
  */
-export function resolveCli({ cli, allowRepoCli }, { env, cwd, exists }) {
-  /** @param {string} path @param {'arg' | 'env'} source @returns {ResolvedCli} */
-  const configured = (path, source) => {
+export function resolveCli({ env, cwd, exists }) {
+  const fromEnv = env['ADRKIT_CLI'];
+  if (fromEnv) {
+    const path = resolve(cwd, fromEnv);
     if (!exists(path)) {
-      const origin = source === 'arg' ? 'the cli argument' : 'ADRKIT_CLI';
-      throw new Error(`${origin} is set to '${path}', but nothing exists at that path`);
+      throw new Error(`ADRKIT_CLI is set to '${fromEnv}', but nothing exists at ${path}`);
     }
     // Same rule as the Spec Kit adapter's helper: a JavaScript entry point is
     // run by node rather than relying on its executable bit.
     return JS_ENTRY.test(path)
-      ? { command: 'node', args: [path], source }
-      : { command: path, args: [], source };
-  };
-
-  if (cli) return configured(cli, 'arg');
-  const fromEnv = env['ADRKIT_CLI'];
-  if (fromEnv) return configured(fromEnv, 'env');
+      ? { command: 'node', args: [path], source: 'env' }
+      : { command: path, args: [], source: 'env' };
+  }
   const repoCli = join(cwd, 'node_modules', '.bin', 'adr');
-  if (allowRepoCli && exists(repoCli)) return { command: repoCli, args: [], source: 'repo' };
+  // Exactly "1": a value such as "false" or "0" must not read as consent.
+  if (env['ADRKIT_ALLOW_REPO_CLI'] === '1' && exists(repoCli)) {
+    return { command: repoCli, args: [], source: 'repo' };
+  }
   return { command: 'adr', args: [], source: 'path' };
 }
 
@@ -142,7 +146,9 @@ export function runCommand(command, args, { cwd, signal, execFile }) {
   });
 }
 
-const ARG_KEYS = new Set(['files', 'base', 'dir', 'cli', 'allowRepoCli']);
+// `cli` and `allowRepoCli` are deliberately absent: what runs is chosen by the
+// environment only (see resolveCli), so either key is rejected as unknown.
+const ARG_KEYS = new Set(['files', 'base', 'dir']);
 
 /** @param {unknown} value @param {string} name */
 function optionalString(value, name) {
@@ -164,14 +170,14 @@ function notOptionShaped(value, name) {
 /**
  * Validate and normalize `ctx.args`. The host enforces `argsSchema` types only,
  * and SDK callers are not validated at all, so the real checks live here.
- * Unknown keys are rejected: `allowRepoCLI: true` silently doing nothing is the
- * kind of typo that should fail loudly.
+ * Unknown keys are rejected, so a misspelled key fails loudly instead of being
+ * silently ignored, and an attempt to choose the executable is refused.
  *
  * @param {unknown} raw
  * @returns {ReviewArgs}
  */
 export function validateArgs(raw) {
-  if (raw === undefined || raw === null) return { allowRepoCli: false };
+  if (raw === undefined || raw === null) return {};
   if (typeof raw !== 'object' || Array.isArray(raw)) throw new Error('args must be an object');
   const input = /** @type {Record<string, unknown>} */ (raw);
   for (const key of Object.keys(input)) {
@@ -179,7 +185,7 @@ export function validateArgs(raw) {
   }
 
   /** @type {ReviewArgs} */
-  const out = { allowRepoCli: false };
+  const out = {};
 
   if (input['files'] !== undefined) {
     if (!Array.isArray(input['files'])) throw new Error('files must be an array of strings');
@@ -201,22 +207,18 @@ export function validateArgs(raw) {
   if (base !== undefined) out.base = notOptionShaped(base, 'base');
   const dir = optionalString(input['dir'], 'dir');
   if (dir !== undefined) out.dir = notOptionShaped(dir, 'dir');
-  const cli = optionalString(input['cli'], 'cli');
-  if (cli !== undefined) out.cli = cli;
-
-  if (input['allowRepoCli'] !== undefined) {
-    if (typeof input['allowRepoCli'] !== 'boolean') throw new Error('allowRepoCli must be a boolean');
-    out.allowRepoCli = input['allowRepoCli'];
-  }
   return out;
 }
 
-/** @param {string} stdout */
-function lines(stdout) {
-  return stdout
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+/**
+ * Split `git diff -z` output. `-z` is what keeps non-ASCII paths intact: without
+ * it, git's default `core.quotepath` prints them as quoted octal escapes, which
+ * match no `affects` pattern and turn a governed change into a clean `ok`.
+ *
+ * @param {string} stdout
+ */
+function nulSeparated(stdout) {
+  return stdout.split('\0').filter((path) => path.length > 0);
 }
 
 /**
@@ -235,17 +237,17 @@ export async function collectChangedFiles({ files, base }, run) {
 
   const ref = base ?? 'origin/main';
   const range = `${ref}...HEAD`;
-  const primary = await run('git', ['diff', '--name-only', '--diff-filter=d', range]);
-  if (primary.exitCode === 0) return { files: lines(primary.stdout), source: `git:${range}`, notes: [] };
+  const primary = await run('git', ['diff', '--name-only', '-z', '--diff-filter=d', range]);
+  if (primary.exitCode === 0) return { files: nulSeparated(primary.stdout), source: `git:${range}`, notes: [] };
 
-  const fallback = await run('git', ['diff', '--name-only', 'HEAD']);
+  const fallback = await run('git', ['diff', '--name-only', '-z', 'HEAD']);
   if (fallback.exitCode !== 0) {
     throw new Error(
       `git diff failed for ${range} and for HEAD: ${fallback.stderr.trim() || primary.stderr.trim()}`,
     );
   }
   return {
-    files: lines(fallback.stdout),
+    files: nulSeparated(fallback.stdout),
     source: 'git:HEAD',
     notes: [
       `git diff ${range} failed (${primary.stderr.trim() || `exit ${primary.exitCode}`}); ` +
@@ -337,8 +339,11 @@ export function assembleResult({
   usageError = false,
 }) {
   const exits = [checkExitCode, lintExitCode];
+  // `adr` documents 0, 1, and 2. Anything else — a crash, a signal, a wrapper's
+  // own code — means no trustworthy report, and must never read as `ok`.
+  const unexpected = exits.some((code) => code !== null && code !== 0 && code !== 1);
   const status =
-    usageError || exits.includes(2)
+    usageError || unexpected
       ? 'usage-error'
       : exits.includes(1) || verdicts.some((entry) => entry.verdict === 'conflicts')
         ? 'findings'
@@ -403,8 +408,9 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
   const base = { files, filesSource: collected.source };
   // The ref the Judge diffs against: the one the files came from, else the one
   // the caller named. A fallback to HEAD means the base did not resolve.
-  const diffBase =
-    collected.source === 'git:HEAD' ? undefined : args.base ?? (args.files ? undefined : 'origin/main');
+  // Explicit files default to origin/main too: a diff against HEAD is empty
+  // for committed work, which would leave the Judge nothing to read.
+  const diffBase = collected.source === 'git:HEAD' ? undefined : args.base ?? 'origin/main';
 
   if (files.length === 0) {
     // Before resolving the CLI on purpose: an empty review spends nothing and
@@ -420,7 +426,7 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
   /** @type {{ check: CommandResult, lint: CommandResult }} */
   let checked;
   try {
-    const cli = resolveCli(args, { env, cwd, exists });
+    const cli = resolveCli({ env, cwd, exists });
     /** @param {string[]} cliArgs */
     const adr = (cliArgs) => run(cli.command, [...cli.args, ...cliArgs]);
     const check = await ctx.step('check-v1', () => adr(['check', '--json', ...dirArgs, '--', ...files]));
@@ -440,7 +446,7 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
 
   /** @type {unknown} */
   let outcome = null;
-  if (check.exitCode !== 2) {
+  if (check.exitCode === 0 || check.exitCode === 1) {
     try {
       outcome = JSON.parse(check.stdout);
     } catch {
@@ -459,9 +465,18 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
   const history = historyDecisions(outcome);
   const rawFindings = /** @type {{ findings?: unknown }} */ (outcome).findings;
   const findings = Array.isArray(rawFindings) ? rawFindings : [];
-  if (lint.exitCode === 2) {
-    ctx.log('adr lint reported a usage error; skipped Judge.');
+  if (lint.exitCode !== 0 && lint.exitCode !== 1) {
+    ctx.log(`adr lint exited ${lint.exitCode}; skipped Judge.`);
     return assembleResult({ ...base, ...exits, notes, governing, history, findings });
+  }
+  // Neither judged nor listed in the result (for example `activeProposals`):
+  // say so, rather than let them vanish.
+  const unlisted = /** @type {Decision[]} */ (
+    Array.isArray(/** @type {any} */ (outcome).governedBy) ? /** @type {any} */ (outcome).governedBy : []
+  ).filter((entry) => entry && entry.bucket !== 'governing' && entry.bucket !== 'history');
+  if (unlisted.length > 0) {
+    const ids = [...new Set(unlisted.map((entry) => `${entry.recordId} (${entry.bucket})`))];
+    ctx.log(`Neither judged nor listed: ${ids.join(', ')}`);
   }
   if (history.length > 0) {
     ctx.log(`Listed ${history.length} history record(s) without judging them: ${history.map((d) => d.recordId).join(', ')}`);
