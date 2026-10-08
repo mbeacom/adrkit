@@ -417,14 +417,36 @@ is `completed` and `result.status` is `"ok"`. `result.status` is `ok`,
 `findings`, `incomplete`, or `usage-error`; the other result fields are detail,
 not the gate.
 
+### Published install (2026-10-08, Copilot CLI 1.0.93)
+
+After 0.4.0 merged, I installed the plugin the way a user does:
+`copilot plugin marketplace add mbeacom/adrkit`, then
+`copilot plugin install adrkit@adrkit`. The install reported `v0.4.0` and two
+skills. It is a copy in `~/.copilot/installed-plugins/adrkit/adrkit/`, not a
+live link, and the copied `review.mjs` was the merged code. The same fixture
+and the published `@adrkit/cli` 0.17.0 were used, with no `--plugin-dir`:
+
+| Run | Result |
+|---|---|
+| `{"base":"main"}` on the "switch to axios" branch | Exit 0; run `completed`; `status: "findings"`; 0001 and 0002 both `conflicts`; 2 subagents; about 0.16 AI credits (159854750000 nano-AIU); worktree clean |
+| `{"base":"main"}` on a branch whose only change deletes `src/net.ts` | Run `completed`; `status: "ok"`; `files` is `["src/net.ts"]`; 0001 judged `consistent` (removing a `fetch` call does not contradict "use fetch") |
+
+The copied install loads from root `extensions/`, runs with the workspace as
+its working directory, and resolves `adrkit:decision-checker` exactly as the
+`--plugin-dir` and local-marketplace probes did. The second run is the first
+live exercise of the deletion handling added before merge: before it, a
+deletion-only change had no files and returned `ok` without any judgment.
+`copilot workflow list` does not exist in 1.0.93 (`unrecognized subcommand`).
+I did not re-run the exit-code, invalid-args, or `--result-file` probes on
+1.0.93.
+
 ### Not verified
 
-- GitHub-source (copied) plugin installs. The local marketplace install loaded
-  live from disk, so the cwd and agent resolution are unmeasured for a copy.
 - The Copilot app canvas, the SDK host, and `/every` scheduling.
 - A native opencode load of `extensions/`. APM's opencode target was measured
   (row 12); opencode itself was never pointed at the directory.
-- Copilot CLI versions before 1.0.92.
+- Copilot CLI versions before 1.0.92, and on 1.0.93 everything except the two
+  published-install runs above.
 - The Copilot cloud agent in Actions. Dynamic workflows are a CLI and app
   feature.
 - Any persistent reference-repository run or external validation (rungs 2 and
