@@ -522,12 +522,12 @@ commit; before a review runs the panel shows what `adr check` found.
   page JS, the event stream in the host frame, `frame-ancestors *`, and the
   theme tokens are exercised only by tests and a headless fetch, never in a live
   render.
-- Whether the app's extension `process.cwd()` equals the session directory. Only
-  the probe's `cwd` and `sessionWorkingDirectory` were observed to agree
-  (row 12). `run_review` runs the workflow, which uses `process.cwd()`, so it
-  depends on this; the check-only views do not.
-- The `ghapp://plugins/install?source=adrkit@adrkit` deep link, and whether the
-  app loads a `.claude-plugin` plugin's root `extensions/` the way the CLI does.
+- `run_review` inside the app. It relies on the extension's `process.cwd()`
+  equalling the session directory, which row 12 measured for a user-scope
+  extension in one app session, and on the app loading the plugin's root
+  `extensions/`, which row 15 measured for the installed 0.4.0 plugin. The
+  shipped canvas's own run in the app is still pending (row 23).
+- The `ghapp://plugins/install?source=adrkit@adrkit` deep link.
   The installed 0.4.0 extension loading cleanly (row 15) is the only evidence.
 - Whether the app shares `~/.copilot/installed-plugins` with the CLI.
 - Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI

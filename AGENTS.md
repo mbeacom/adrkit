@@ -475,10 +475,14 @@ will usually be a regression:
   one `decision-checker` call per governing decision. Invalid `run_review`
   arguments throw `invalid_input` before anything is spent. The explain
   affordance is an HTTP route the page uses, not an agent action.
-- **The canvas takes its directory from `ctx.session.workingDirectory`.** The
-  app's runtime runs from `/`, so `process.cwd()` is not the repository there.
-  The workflow still uses `process.cwd()` (measured only under the CLI), so
-  `run_review` in the app depends on an unmeasured equality.
+- **The canvas takes its directory from `ctx.session.workingDirectory`.** That
+  is the documented source. The app's *runtime* process runs from `/`, but each
+  extension process it forks starts in its session's directory: a probe in an
+  app session measured `process.cwd()` equal to `sessionWorkingDirectory`, both
+  the app's session worktree. That is why the workflow's `process.cwd()`, and
+  therefore `run_review`, reviews the right repository in the app. If a later
+  runtime breaks that equality, the workflow must take the session directory
+  too.
 - **Canvases render only in the Copilot app.** A CLI terminal session has no
   canvas renderer, so the agent gets no canvas tools there. Do not describe the
   canvas as available in the CLI.
