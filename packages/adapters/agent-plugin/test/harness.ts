@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,6 +26,18 @@ export const COMMANDS = [
 ] as const;
 export const AGENTS = ['decision-checker'] as const;
 export const SKILLS = ['decision-memory', 'decision-backfill'] as const;
+
+/**
+ * Every executable file under `extensions/`, found on disk rather than listed,
+ * so a new file cannot escape the import and write-boundary checks by being
+ * forgotten here.
+ */
+export function extensionFiles(): string[] {
+  return readdirSync(join(packageRoot, 'extensions'), { recursive: true, encoding: 'utf8' })
+    .filter((path) => /\.(?:c|m)?[jt]s$/.test(path))
+    .map((path) => join(packageRoot, 'extensions', path))
+    .sort();
+}
 
 export function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;

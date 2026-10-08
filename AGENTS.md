@@ -323,16 +323,26 @@ GitHub Copilot CLI, Claude Code, opencode, and Agent Package Manager. It ships
 two skills (`decision-memory`, `decision-backfill`), one read-only subagent
 (`decision-checker`), and five commands (`/adr-context`, `/adr-check`,
 `/adr-draft`, `/adr-queue`, `/adr-backfill`), all of which drive or reconcile
-through the `adr` CLI. Independently versioned per ADR-0007, not published
-to npm, and catalogued from the repository root's
+through the `adr` CLI. Since 0.4.0 it also ships one GitHub Copilot CLI dynamic
+workflow, `adr-review` (`extensions/adrkit/`), authorized by
+[ADR-0045](./docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
+(**proposed**). `claude plugin validate` passes with it present; APM 0.33.0
+installs it into `apm_modules` and deploys it to no target (its one warning,
+`Unrecognized plugin manifest $schema`, predates the workflow); a
+native opencode load is unmeasured. Independently versioned per ADR-0007, not
+published to npm, and catalogued from the repository root's
 `.claude-plugin/marketplace.json`. Authorized by
 [ADR-0028](./docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)
 and its accepted backfill amendment,
 [ADR-0034](./docs/adr/0034-extend-the-portable-agent-plugin-with-decision-backfill.md).
 **Rung 1 only** — unit and contract coverage plus maintainer verification
 against the installed hosts, including a functional exercise in an ephemeral
-consumer repository. No persistent reference-repository run, no external
-validation. Scope and limitations:
+consumer repository. The v0.4.0 `adr-review` workflow adds unit and contract
+tests and a maintainer live smoke on Copilot CLI 1.0.92 (two subagents, both
+planted conflicts found, worktree clean); copied installs, the Copilot app
+canvas, earlier Copilot CLI versions, and a native opencode load are unverified.
+No persistent reference-repository run, no external validation. Scope and
+limitations:
 [`docs/reference-verification-agent-plugin.md`](./docs/reference-verification-agent-plugin.md).
 That functional evidence covers the v0.1.0 context/check/draft/queue baseline.
 The v0.2.0 backfill skill and command are contract- and static-host-validated.
@@ -412,7 +422,32 @@ will usually be a regression:
   `adr new` creates it and allocates `0001`, so the bootstrap offer's own
   headline case is writable. A corpus that exists and does not parse is still a
   hard stop.
-- `copilot plugin install` prints only a skill count. Version 0.3.1 should report
+- **The `adr-review` workflow lives at the plugin root `extensions/`.** For a
+  `.claude-plugin/plugin.json` plugin Copilot reads
+  `<plugin-root>/extensions/<dir>/extension.mjs`; `com.github.copilot/extensions/`
+  is for Agent Plugins 1.0 manifests and was not found. Exactly one copy.
+- **The workflow's exit code is always 0, so `result.status` is the gate.**
+  `copilot workflow run` exits 0 on success, a thrown error, invalid
+  arguments, and an unknown name. The workflow is advisory, and the single
+  gating rule is: the run's status is `completed` and `result.status` is
+  `"ok"`. `status` is `ok` | `findings` | `incomplete` | `usage-error`, with
+  precedence usage-error > findings > incomplete > ok; `checkExitCode`,
+  `lintExitCode`, `verdicts`, and `unverified` are detail, not the gate. A
+  missing judgment makes the run `incomplete`, and an unresolvable explicit
+  `base`, or an unresolved `origin/main` over a clean working tree, is a
+  `usage-error` — never `ok`. A non-zero `adr` exit is data, never a throw, or
+  the run settles with no result and still exits 0.
+- **The agent name is namespaced.** `ctx.agent` must use
+  `adrkit:decision-checker`; the bare name resolves to `null` without throwing,
+  so every null is reported under `unverified`, never dropped.
+- **The CLI is chosen by the environment only, and a repo-local one is gated.**
+  `$ADRKIT_CLI`, then `./node_modules/.bin/adr` only when
+  `ADRKIT_ALLOW_REPO_CLI=1`, then `PATH`. `cli` and `allowRepoCli` are
+  deliberately not workflow arguments: a model that read untrusted repository
+  content can choose arguments, and extension code runs outside Copilot's
+  permission prompts. Unknown arguments are a `usage-error`. Do not add them
+  back.
+- `copilot plugin install` prints only a skill count. Version 0.4.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
