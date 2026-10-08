@@ -1,7 +1,7 @@
 {
   "name": "@adrkit/agent-plugin",
-  "version": "0.4.0",
-  "description": "Portable agent plugin exposing adrkit decision memory and evidence-backed ADR backfill to GitHub Copilot CLI, Claude Code, APM, and opencode.",
+  "version": "0.5.0",
+  "description": "Portable agent plugin exposing adrkit decision memory, evidence-backed ADR backfill, and a read-only decision-review canvas (Copilot app) to GitHub Copilot CLI, Claude Code, APM, and opencode.",
   "type": "module",
   "private": true,
   "license": "Apache-2.0",

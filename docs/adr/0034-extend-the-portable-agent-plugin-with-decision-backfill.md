@@ -86,10 +86,13 @@ binding: conventional component directories, no manifest component paths, no
 portable `tools` or `allowed-tools` list, no plugin-level `.mcp.json`, no
 dependencies, independent versioning, and `main` as the release channel.
 
-> **Amended by [ADR-0045](./0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md).**
+> **Amended by [ADR-0045](./0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
+> and [ADR-0046](./0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md).**
 > The inventory now also includes one read-only, advisory GitHub Copilot CLI
-> dynamic workflow (`adr-review`, in `extensions/adrkit/`). It amends only the
-> inventory; the backfill contracts below are unchanged.
+> dynamic workflow (`adr-review`, in `extensions/adrkit/`), and ADR-0046
+> adds one read-only GitHub Copilot app canvas (`decision-review`) to
+> the same extension. They amend only the inventory; the backfill contracts below
+> are unchanged.
 
 The backfill workflow adds these contracts:
 

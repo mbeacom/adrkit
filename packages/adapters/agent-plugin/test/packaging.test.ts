@@ -74,6 +74,9 @@ describe('packaging', () => {
       'opencode/opencode.json',
       'extensions/adrkit/extension.mjs',
       'extensions/adrkit/review.mjs',
+      'extensions/adrkit/register.mjs',
+      'extensions/adrkit/canvas.mjs',
+      'extensions/adrkit/canvas-page.mjs',
       'README.md',
       'LICENSE',
       'NOTICE',
@@ -135,15 +138,18 @@ describe('workflow extension packaging', () => {
     for (const file of files) expect({ file, ext: file.endsWith('.mjs') }).toEqual({ file, ext: true });
   });
 
-  test('imports only node builtins, its sibling, and (extension.mjs alone) the SDK', () => {
-    // The SDK is allowed only in extension.mjs so review.mjs stays importable,
-    // and testable, under Bun where the host's module resolver does not exist.
+  test('imports only node builtins, its named siblings, and (extension.mjs alone) the SDK', () => {
+    // The SDK is allowed only in extension.mjs so the other modules stay
+    // importable, and testable, under Bun where the host's module resolver does
+    // not exist. Siblings are named, not matched by pattern, so a new module is
+    // a deliberate edit here rather than something that slips in.
+    const siblings = new Set(['./review.mjs', './canvas.mjs', './canvas-page.mjs', './register.mjs']);
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
       const name = relative(packageRoot, file);
       const allowed = (specifier: string) =>
         specifier.startsWith('node:') ||
-        specifier === './review.mjs' ||
+        siblings.has(specifier) ||
         (basename(file) === 'extension.mjs' && specifier === '@github/copilot-sdk/extension');
       const specifiers = [...source.matchAll(/^\s*(?:import|export)\b[^'"]*?\bfrom\s*['"]([^'"]+)['"]/gm)]
         .concat([...source.matchAll(/^\s*import\s*['"]([^'"]+)['"]/gm)])

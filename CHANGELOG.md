@@ -11,6 +11,28 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **The agent plugin ships a read-only `decision-review` canvas for the GitHub
+  Copilot app (`adrkit` 0.5.0).** It is a panel showing the changed files, the
+  governing decisions, active proposals, history (listed, not judged), the
+  `adr check` and `adr lint` findings, and, once a review exists, the
+  `adr-review` verdicts and anything `unverified`. Ask the agent in an app
+  session to "open the decision-review canvas". Its actions are `get_state`,
+  `refresh` (re-runs `git diff`, `adr check`, and `adr lint`; no AI spend),
+  `show_review` (displays a result you already have), and `run_review`, which
+  starts `adr-review` and spends AI credits. It writes nothing. The panel is
+  served from a loopback-only server started when the canvas opens, behind a
+  per-panel token, a Content-Security-Policy, and `textContent`-only rendering,
+  so repository text never renders as markup. It takes its directory from the
+  session and chooses the CLI by the environment alone, in the workflow's order.
+  Canvases render only in the Copilot app; a CLI terminal session has none. The
+  workflow and canvas now register in one `joinSession`, each guarded so a
+  failure in one does not stop the other. Authorized by
+  [ADR-0046](docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
+  (accepted); rung 1 of ADR-0014 with a headless Copilot CLI 1.0.93 SDK-host
+  smoke and maintainer sessions in Copilot app 1.1.27, which found two defects
+  fixed before release (a `null` open input, and the agent relabelling a run
+  the panel started). The plugin has no tag and ships on merge to `main`.
+
 - **The agent plugin ships an advisory `adr-review` dynamic workflow for
   GitHub Copilot CLI (`adrkit` 0.4.0).** It collects the changed files, runs
   `adr check --json` and `adr lint`, then asks `adrkit:decision-checker` for a
