@@ -340,9 +340,15 @@ against the installed hosts, including a functional exercise in an ephemeral
 consumer repository. The v0.4.0 `adr-review` workflow adds unit and contract
 tests and a maintainer live smoke on Copilot CLI 1.0.92 (two subagents, both
 planted conflicts found, worktree clean). It also has a repeat through the
-published GitHub install on 1.0.93, plus a deletion-only run. The Copilot app
-canvas, earlier Copilot CLI versions, and a native opencode load are
-unverified.
+published GitHub install on 1.0.93, plus a deletion-only run. Since 0.5.0 it
+also ships one read-only Copilot app canvas, `decision-review`, in the same
+extension, authorized by
+[ADR-0046](./docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
+(**proposed**). The canvas is **rung 1**: unit and contract tests plus a
+headless Copilot CLI 1.0.93 SDK-host smoke (open, state, refresh, and one
+`run_review` at about 0.16 AI credits). A probe canvas rendered in one
+maintainer app session, but the shipped panel's in-app render is pending. Earlier
+Copilot CLI versions and a native opencode load are unverified.
 No persistent reference-repository run, no external validation. Scope and
 limitations:
 [`docs/reference-verification-agent-plugin.md`](./docs/reference-verification-agent-plugin.md).
@@ -449,7 +455,34 @@ will usually be a regression:
   content can choose arguments, and extension code runs outside Copilot's
   permission prompts. Unknown arguments are a `usage-error`. Do not add them
   back.
-- `copilot plugin install` prints only a skill count. Version 0.4.0 should report
+- **One extension registers both the workflow and the canvas, and each
+  registration is guarded.** `register.mjs` builds each in its own `try` and
+  logs a failure through `session.log`. Measured: one invalid workflow
+  definition (no `meta.phases`) throws at import and took the whole extension
+  down, canvas included. A throwing canvas must likewise not stop the workflow.
+- **The canvas server starts lazily inside `open()`.** The app launched 181
+  extension loads within minutes of starting, one process per restored session;
+  a server bound at load would bind a port in every one. A test imports the
+  modules under Node and asserts no socket opens.
+- **The panel is hardened because ADR titles are untrusted.** Every route
+  checks a per-panel token before routing (403 otherwise), a POST needs the
+  token as a header and a same-origin `Origin`, the CSP is `default-src 'none'`
+  with `'self'` scripts and styles, and the page builds its DOM with
+  `textContent` only. Do not add `innerHTML`, an inline script or style, or a
+  looser CSP; tests fail on each.
+- **`refresh` costs nothing and `run_review` spends credits.** `refresh` runs
+  `git diff`, `adr check`, and `adr lint`; `run_review` starts `adr-review`,
+  one `decision-checker` call per governing decision. Invalid `run_review`
+  arguments throw `invalid_input` before anything is spent. The explain
+  affordance is an HTTP route the page uses, not an agent action.
+- **The canvas takes its directory from `ctx.session.workingDirectory`.** The
+  app's runtime runs from `/`, so `process.cwd()` is not the repository there.
+  The workflow still uses `process.cwd()` (measured only under the CLI), so
+  `run_review` in the app depends on an unmeasured equality.
+- **Canvases render only in the Copilot app.** A CLI terminal session has no
+  canvas renderer, so the agent gets no canvas tools there. Do not describe the
+  canvas as available in the CLI.
+- `copilot plugin install` prints only a skill count. Version 0.5.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 

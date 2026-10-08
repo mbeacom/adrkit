@@ -292,6 +292,8 @@ Three consequences follow, and all three bite at the wrong moment:
    For a new workflow, also run the synthetic consumer case documented in
    `docs/reference-verification-agent-plugin.md`: install through a release-like
    host path, exercise the command, and compare the worktree before and after.
+   A new canvas also needs a headless SDK-host open (with
+   `requestCanvasRenderer: true`) plus one render in the Copilot app.
 
 3. **There is no yank.** Rolling back means shipping a *higher* version with the
    fix; a revert commit alone leaves every cached install untouched. Users on a

@@ -15,8 +15,8 @@
 # `description` is deliberately the shorter, CLI-listing variant of the
 # plugin.json description. That is the one intended difference between them.
 name: adrkit
-version: 0.4.0
-description: Load governing decisions, check plans, and audit code or documentation for missing ADR candidates.
+version: 0.5.0
+description: Load governing decisions, check plans, audit code or documentation for missing ADR candidates, and (Copilot) review a change in a read-only canvas.
 author: Mark Beacom
 license: Apache-2.0
 homepage: https://adrkit.dev

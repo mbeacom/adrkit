@@ -453,6 +453,90 @@ I did not re-run the exit-code, invalid-args, or `--result-file` probes on
   3). This is one run of a non-deterministic agent on a two-record fixture, not
   a pass rate.
 
+## v0.5.0 `decision-review` canvas (2026-10-08)
+
+Measured on 2026-10-08 at **rung 1** of ADR-0014. The canvas is specified by
+[ADR-0046](adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
+(**proposed**). It lives beside the `adr-review` workflow in
+`extensions/adrkit/` and is registered by the same `joinSession` call. Canvases
+are `@experimental` in the Copilot SDK 1.0.93 typings, so every row below is a
+measurement of one version, not a contract.
+
+### Headless SDK host (Copilot CLI 1.0.93, no model calls except where stated)
+
+The probes were driven by a throwaway host: `CopilotClient` with
+`createSession({ pluginDirectories, requestCanvasRenderer: true,
+requestExtensions: true, workingDirectory })`, then
+`session.rpc.canvas.{list,open,action.invoke,close}`.
+
+| # | Probe | Result |
+|---|-------|--------|
+| 1 | `.claude-plugin/plugin.json` plugin with a canvas in root `extensions/<dir>/extension.mjs` | Canvas delivered; extensionId `plugin:<plugin>:<dir>` (`user:<dir>` for a user-scope extension) |
+| 2 | One `joinSession({ canvases, workflows })` | Registers both |
+| 3 | A workflow definition missing `meta.phases` | Throws at import and takes the whole extension down, canvas included |
+| 4 | `open()` and action `ctx` | Carries `session.workingDirectory` (the session cwd) and no `host` field; extension `process.cwd()` equals the session cwd |
+| 5 | `open()` returning a loopback URL | Page fetchable; action results round-trip |
+| 6 | An action named with the `canvas.` prefix | Rejected by the runtime as reserved |
+| 7 | A canvas action starting a workflow in-process | `session.rpc.workflow.run({ name, args })` returned `{ runId, attempt, status: "running" }` |
+
+### Desktop app (GitHub Copilot.app 1.1.14)
+
+| # | Probe | Result |
+|---|-------|--------|
+| 8 | Which runtime the app runs | Its own, `github-copilot-sdk/cli/1.0.93-1/copilot --server --stdio`; an earlier session ran 1.0.80, and it moved to `1.0.93-1`. The terminal CLI is a separate install |
+| 9 | Runtime environment | Carries the login-shell `PATH` (homebrew, `~/.bun/bin`, nvm, `/usr/local/bin`), not launchd's minimal one; `ADRKIT_CLI` was null unless exported in the shell profile |
+| 10 | Runtime working directory | `/` or `~/.copilot`, so the session directory must come from the session |
+| 11 | A probe canvas (user scope, not the shipped one), one maintainer app session | Rendered in the app side panel |
+| 12 | What that panel reported | `cwd` equal to `sessionWorkingDirectory`, both the app's session worktree; `host` null; extensionId `user:adrkit-app-probe`; `joined: canvas+workflow` |
+| 13 | Extension processes across restored sessions | 181 `load` and 180 `joined` events within minutes of the app starting: one extension process per restored session, in several repositories |
+| 14 | SDK exports seen in the app | `Canvas`, `CanvasError`, `WorkflowResumeError`, `createCanvas`, `defineWorkflow`, `isWorkflowRunTerminal`, `joinSession` |
+| 15 | The installed adrkit 0.4.0 extension in app sessions | Launched and imported with no error in its logs |
+
+Row 13 is why the canvas starts its HTTP server inside `open()` and not when
+the extension loads: loading the extension must not bind a port. The probe was
+removed afterwards.
+
+### Shipped canvas, headless smoke (Copilot CLI 1.0.93 SDK host)
+
+Run against the code at commit `2823994` plus the ADR draft merge, from
+`pluginDirectories`, on a two-record fixture.
+
+| # | Probe | Result |
+|---|-------|--------|
+| 16 | Open | extensionId `plugin:adrkit:adrkit`; status line `2 governing · ok`; the page returned 200 with the full Content-Security-Policy |
+| 17 | `GET /api/state` without the token | 403 |
+| 18 | `POST /api/refresh` without the header token | 403 |
+| 19 | State after open | Files `package.json` and `src/net.ts`; governing 0001 and 0002; `adr check` and `adr lint` exit 0 |
+| 20 | `refresh` | Returned the snapshot |
+| 21 | After close | The port refused connections |
+| 22 | `run_review` (with `RUN_REVIEW=1`) | Returned `{ runId, status: "running" }`; polling `get_state` reached run status `completed`, panel status `findings`, verdicts 0001 and 0002 both `conflicts`, `unverified` empty; about 0.16 AI credits; the smoke repository was clean afterwards |
+| 23 | Shipped canvas rendered in the Copilot app | **pending** (not yet run) |
+
+Rows 16 to 22 are one run of a non-deterministic agent on a two-record fixture,
+not a pass rate. The status line in row 16 is the wording measured on that
+commit; before a review runs the panel shows what `adr check` found.
+
+### Not verified
+
+- The shipped `decision-review` panel rendered in the Copilot app (row 23). The
+  page JS, the event stream in the host frame, `frame-ancestors *`, and the
+  theme tokens are exercised only by tests and a headless fetch, never in a live
+  render.
+- Whether the app's extension `process.cwd()` equals the session directory. Only
+  the probe's `cwd` and `sessionWorkingDirectory` were observed to agree
+  (row 12). `run_review` runs the workflow, which uses `process.cwd()`, so it
+  depends on this; the check-only views do not.
+- The `ghapp://plugins/install?source=adrkit@adrkit` deep link, and whether the
+  app loads a `.claude-plugin` plugin's root `extensions/` the way the CLI does.
+  The installed 0.4.0 extension loading cleanly (row 15) is the only evidence.
+- Whether the app shares `~/.copilot/installed-plugins` with the CLI.
+- Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI
+  strips "sensitive" variables unless an extension requests them; whether this
+  one counts is unmeasured. It was null in the app probe because it was not set.
+- Copilot app and CLI versions other than those above, and a Windows host.
+- Any persistent reference-repository run or external validation (rungs 2 and
+  3).
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

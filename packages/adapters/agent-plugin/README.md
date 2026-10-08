@@ -3,7 +3,9 @@
 Decision memory for the agent that is about to change your code.
 
 This package turns adrkit's workflow into portable agent components: two skills,
-one read-only subagent, and five slash commands. An agent can load the decisions
+one read-only subagent, and five slash commands, plus two host-specific
+extensions: an advisory dynamic workflow for GitHub Copilot CLI and a read-only
+review canvas for the GitHub Copilot app. An agent can load the decisions
 that already govern a change before planning it, check the plan against them,
 audit an inherited codebase for decisions that were never recorded, and draft a
 new record when the work actually makes one.
@@ -34,6 +36,11 @@ copilot plugin install adrkit@adrkit
 apm install mbeacom/adrkit/packages/adapters/agent-plugin --target copilot
 ```
 
+In the GitHub Copilot app, the install deep link is
+`ghapp://plugins/install?source=adrkit@adrkit` ("Open in the Copilot app").
+That deep link is unmeasured: I have not followed it. The marketplace commands
+above are the measured install path.
+
 You also need the CLI itself, because the components shell out to it:
 
 ```bash
@@ -48,7 +55,8 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.3.0 adds the bootstrap-record offer to backfill; 0.2.0 added the
+Version 0.5.0 adds the `decision-review` canvas; 0.4.0 added the `adr-review`
+workflow; 0.3.0 added the bootstrap-record offer to backfill; 0.2.0 added the
 second skill and fifth command. Existing installations must refresh and start a
 new host session:
 
@@ -59,7 +67,7 @@ apm update --yes --target claude,copilot,opencode
 ```
 
 The expected inventory is two skills, one agent, five commands, and (Copilot
-CLI only) one dynamic workflow. Copilot's
+CLI only) one dynamic workflow, and (Copilot app only) one canvas. Copilot's
 install summary reports only the skill count (`Installed 2 skills`); use a fresh
 session to verify the commands and agent.
 
@@ -114,6 +122,7 @@ your project config - see
 | Command | `/adr-queue [--as-of ...]` | no |
 | Command | `/adr-backfill [files-or-directories...]` | no |
 | Dynamic workflow (Copilot CLI only) | `adr-review` | no |
+| Canvas (Copilot app only) | `decision-review` | no |
 
 The skill is the part that works without being asked for: it teaches the
 context -> check -> draft loop, the exit-code contract, and the rules that keep
@@ -287,6 +296,71 @@ healthy run after it has spent credits. Set them per invocation or with
 `workflows.defaultLimits.*` in your Copilot settings. The first live run (two
 governing decisions) used two subagent calls and about 0.16 AI credits.
 
+## Canvas: `decision-review` (GitHub Copilot app)
+
+`decision-review` is a read-only panel in the GitHub Copilot app that shows the
+architecture decisions governing the current change. It ships in the same
+`extensions/adrkit/` extension as the workflow, and is authorized by
+[ADR-0046](../../../docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
+(**proposed**).
+
+**What it shows.** The status, the working directory, and the changed files;
+the governing decisions; active proposals; history (listed, not judged); the
+`adr check` and `adr lint` findings; notes; and, once a review exists, the
+`adr-review` verdicts and anything left `unverified`. Each decision has a
+collapsed evidence section, and clicking a decision asks the agent to explain
+it (see Explain, below). Before a review runs, the panel shows what `adr check`
+found.
+
+**Open it.** In an app session, ask the agent to "open the decision-review
+canvas". It takes the same optional `files`, `base`, and `dir` as the workflow.
+
+**Actions the agent can invoke:**
+
+| Action | Spends AI credits | What it does |
+| --- | --- | --- |
+| `get_state` | no | Returns the panel snapshot. |
+| `refresh` | no | Re-runs Collect and Check (`git diff`, `adr check`, `adr lint`) and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
+| `show_review` | no | Displays an `adr-review` result you already have, passed as `{ result }`. The shape is validated and unknown keys are dropped. |
+| `run_review` | **yes** | Starts the `adr-review` workflow and returns `{ runId, status }` at once; the panel follows the run and shows its verdicts. Spend is the workflow's: one `decision-checker` call per governing decision. Invalid arguments throw `invalid_input` before anything is spent, and while a run is in flight a second request starts nothing. |
+
+Explain is not an agent action. It is an HTTP route the page uses when you
+click a decision, and it sends the agent one fixed prompt naming only the
+four-digit id.
+
+**It is read-only.** The canvas writes nothing to the repository. The agent
+that runs a review may run `adr explain`, `adr check`, and read files, as the
+workflow's Judge does. Nothing in the extension mentions a command that writes
+a record.
+
+**Security model.** The panel is served from a loopback-only HTTP server that
+the extension starts when the canvas opens, not when the extension loads. Every
+request needs a per-panel random token, and a POST needs the token as a header
+and a same-origin `Origin`. The page carries a strict Content-Security-Policy
+and builds its DOM with `textContent` only, so ADR titles and findings, which
+come from the repository and are untrusted, render as text and never as markup.
+
+**Working directory and CLI.** The canvas takes its directory from the session
+(`ctx.session.workingDirectory`), because the app's runtime itself runs from
+`/`. The CLI is chosen by the environment alone, in the same order as the
+workflow: `$ADRKIT_CLI`, then `./node_modules/.bin/adr` only when
+`ADRKIT_ALLOW_REPO_CLI=1`, then `PATH`. The app passes extensions the login
+shell's `PATH` (measured in one maintainer app session), so a globally
+installed `adr` is found; `ADRKIT_CLI` is only set if your shell profile
+exports it.
+
+**Where it is unavailable.** Canvases render only in the Copilot app. Copilot
+CLI terminal sessions have no canvas renderer, so the agent has no canvas tools
+there; use the `adr-review` workflow instead. APM deploys `extensions/` to no
+target (measured), and neither Claude Code nor a native opencode load of it is
+measured.
+
+**Evidence.** Rung 1 of ADR-0014. Unit and contract tests; a headless Copilot
+CLI 1.0.93 SDK-host open, state, refresh, and `run_review` smoke; and a probe
+canvas rendered in one maintainer app session. The shipped panel's in-app render
+is pending. Details and the "not verified" list are in the
+[evidence index](../../../docs/reference-verification-agent-plugin.md).
+
 ## Things that are load-bearing and easy to break
 
 Each of these was measured against the real hosts, not inferred from their docs.
@@ -389,15 +463,17 @@ functional run, and no external validation.
 
 The v0.4.0 `adr-review` workflow is at rung 1: unit and contract tests plus
 maintainer live smokes on Copilot CLI 1.0.92 and, through the published GitHub
-install, 1.0.93, all recorded in the evidence index. The Copilot app canvas,
-Copilot CLI versions before 1.0.92, and a native opencode load of `extensions/`
-are unverified.
+install, 1.0.93, all recorded in the evidence index. The v0.5.0 `decision-review`
+canvas is also rung 1: unit and contract tests, plus a headless SDK-host smoke on
+Copilot CLI 1.0.93. A probe canvas rendered in one maintainer app session; the
+shipped panel's in-app render, Copilot CLI versions before 1.0.92, and a native
+opencode load of `extensions/` are unverified.
 
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)
 and its accepted backfill amendment,
 [ADR-0034](../../../docs/adr/0034-extend-the-portable-agent-plugin-with-decision-backfill.md);
-the workflow by ADR-0045 (above).
+the workflow by ADR-0045 and the canvas by ADR-0046 (both above).
 
 ## License
 
