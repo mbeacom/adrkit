@@ -595,11 +595,12 @@ the unmodified and the logo-object copies.
 | `extensions: ["extensions/adrkit"]` | not run | not run | no (`ext-array`) |
 | `extensions: "extensions"` | not run | not run | yes (`ext-string`) |
 
-Reading: in Copilot CLI 1.0.93, any non-string `extensions` value in
+Reading: in Copilot CLI 1.0.93, each non-string `extensions` value tested above (three
+objects and an array) in
 `.claude-plugin/plugin.json` stops the plugin's extension from loading, so the
 workflow and the canvas both disappear. The plugin itself still lists as enabled in
 `plugins.list`, which is why nothing reports an error. The key is read as a
-component-path field (the string form loads), not as an Agent Plugins 1.0
+component-path field (the string form loads; `null`, booleans and numbers were not tried), not as an Agent Plugins 1.0
 vendor-extension map. I did not find why from the runtime bundle (it contains no
 `com.github.copilot` or `agent-plugins.org` string), so the cause is inferred from
 the variants, not read from source. Whether the runtime surfaces the logo is
