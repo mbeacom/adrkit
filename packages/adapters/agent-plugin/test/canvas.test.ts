@@ -272,14 +272,15 @@ describe('tokenMatches', () => {
 });
 
 describe('computeSnapshot', () => {
-  test('exit 0: governing, history, and active proposals are listed and the state is ok', async () => {
+  test('exit 0: everything is listed, and governing records without a verdict make it incomplete', async () => {
     const { run, calls } = fakeCli({
       check: ok(
         checkReport([governed('0012', 'governing'), governed('0003', 'history'), governed('0044', 'activeProposals')]),
       ),
     });
     const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
-    expect(snapshot.status).toBe('ok');
+    // `ok` is the workflow's word for "judged clean"; nothing has been judged.
+    expect(snapshot.status).toBe('incomplete');
     expect(snapshot.workingDirectory).toBe(CWD);
     expect(snapshot.files).toEqual(['src/a.ts']);
     expect(snapshot.filesSource).toBe('git:origin/main...HEAD');
@@ -416,7 +417,7 @@ describe('open and close', () => {
     const opened = await openPanel(options);
     expect(servers.length).toBe(1);
     expect(opened.title).toBe('Decision review');
-    expect(opened.status).toBe('1 governing · ok');
+    expect(opened.status).toBe('1 governing · incomplete');
     const url = new URL(opened.url);
     expect(url.hostname).toBe('127.0.0.1');
     expect(tokenOf(opened.url)).toMatch(/^[0-9a-f]{64}$/);
@@ -448,7 +449,7 @@ describe('open and close', () => {
     const { options, servers } = makeCanvas();
     const opened = await Promise.all([options.open(ctxFor('panel-a')), options.open(ctxFor('panel-b'))]);
     openCanvases.push({ onClose: options.onClose, instanceId: 'panel-a' }, { onClose: options.onClose, instanceId: 'panel-b' });
-    expect(opened.map((entry: { status: string }) => entry.status)).toEqual(['1 governing · ok', '1 governing · ok']);
+    expect(opened.map((entry: { status: string }) => entry.status)).toEqual(['1 governing · incomplete', '1 governing · incomplete']);
     expect(servers.length).toBe(2);
   });
 
@@ -586,7 +587,7 @@ describe('HTTP boundary', () => {
       expect(headers['x-frame-options']).toBeUndefined();
     }
     expect(CSP).toBe(
-      "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors *",
+      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors *",
     );
   });
 
@@ -930,5 +931,205 @@ describe('page', () => {
 
   test('the run button names its cost', () => {
     expect(PAGE_JS + PAGE_HTML).toContain('Run review (uses AI credits)');
+  });
+});
+
+/**
+ * Findings from the whole-branch review: false-clean states (I2, I3), a
+ * paid run that could be started twice (M1), and lifecycle gaps (M2, M7, M9).
+ */
+describe('review round', () => {
+  const resultFor = (governing: string[], verdicts: Array<[string, string]>, files = ['src/a.ts']) => ({
+    status: verdicts.some(([, verdict]) => verdict === 'conflicts') ? 'findings' : 'ok',
+    checkExitCode: 0,
+    lintExitCode: 0,
+    files,
+    filesSource: 'args',
+    notes: [],
+    governing: governing.map((id) => governed(id, 'governing')),
+    history: [],
+    verdicts: verdicts.map(([recordId, verdict]) => ({ recordId, title: 'T', verdict, evidence: 'e' })),
+    unverified: [],
+    findings: [],
+  });
+
+  test('I2: zero governing records and a clean check is ok', async () => {
+    const { run } = fakeCli({ check: ok(checkReport([governed('0003', 'history')])) });
+    const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
+    expect(snapshot.status).toBe('ok');
+  });
+
+  test('I2: exit 1 is still findings while governing records await a verdict', async () => {
+    const { run } = fakeCli({ check: { ...ok(checkReport([governed('0012', 'governing')])), exitCode: 1 } });
+    const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
+    expect(snapshot.status).toBe('findings');
+  });
+
+  test('I2: a review covering every governing record lifts incomplete to ok', async () => {
+    const { options } = makeCanvas();
+    await openPanel(options);
+    expect((await action(options, 'get_state')()).status).toBe('incomplete');
+    const state = await action(options, 'show_review')({ result: resultFor(['0012'], [['0012', 'consistent']]) });
+    expect(state.status).toBe('ok');
+  });
+
+  test('I3: show_review that leaves a governing record unjudged is incomplete and says which', async () => {
+    const script: { check?: Run } = {
+      check: ok(checkReport([governed('0012', 'governing'), governed('0099', 'governing')])),
+    };
+    const cli = fakeCli(script);
+    const { options } = makeCanvas({ run: cli.run });
+    await openPanel(options);
+    const state = await action(options, 'show_review')({ result: resultFor(['0012'], [['0012', 'consistent']]) });
+    expect(state.status).toBe('incomplete');
+    expect(state.notes.join('\n')).toContain('0099');
+  });
+
+  test('I3: refresh drops a kept review when the governing set changed but the files did not', async () => {
+    const script: { check?: Run } = { check: ok(checkReport([governed('0012', 'governing')])) };
+    const cli = fakeCli(script);
+    const { options } = makeCanvas({ run: cli.run });
+    await openPanel(options);
+    await action(options, 'show_review')({ result: resultFor(['0012'], [['0012', 'consistent']]) });
+    script.check = ok(checkReport([governed('0012', 'governing'), governed('0099', 'governing')]));
+    const state = await action(options, 'refresh')();
+    expect(state.review).toBeNull();
+    expect(state.status).toBe('incomplete');
+  });
+
+  test('I3: refresh keeps a review whose files and governing set are unchanged', async () => {
+    const { options } = makeCanvas();
+    await openPanel(options);
+    await action(options, 'show_review')({ result: resultFor(['0012'], [['0012', 'consistent']]) });
+    const state = await action(options, 'refresh')();
+    expect(state.review).not.toBeNull();
+    expect(state.status).toBe('ok');
+  });
+
+  test('M1: a run left unfollowed by a closed panel is resumed on re-open, never started twice', async () => {
+    let terminal = false;
+    const started: unknown[] = [];
+    const session = {
+      send: async () => 'm',
+      log: async () => {},
+      rpc: {
+        workflow: {
+          run: async (params: unknown) => {
+            started.push(params);
+            return { runId: 'run-1', status: 'running' };
+          },
+          getRun: async () =>
+            terminal
+              ? { runId: 'run-1', status: 'completed', result: resultFor(['0012'], [['0012', 'consistent']]) }
+              : { runId: 'run-1', status: 'running' },
+        },
+      },
+    };
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let sleep: () => Promise<void> = () => gate;
+    const { options } = makeCanvas({ getSession: () => session, sleep: () => sleep() });
+    await options.open(ctxFor('panel-1'));
+    await action(options, 'run_review')({});
+    await options.onClose(ctxFor('panel-1'));
+    sleep = () => new Promise((resolve) => setTimeout(resolve, 1));
+    release();
+    for (let i = 0; i < 20; i++) await new Promise((resolve) => setTimeout(resolve, 1));
+    // No longer followed, still running: not pending, never ok.
+    const orphaned = await action(options, 'get_state')();
+    expect(orphaned.status).toBe('incomplete');
+    expect(orphaned.review.runStatus).toBe('running');
+    // The agent asks again with no panel open: the known, unsettled run is
+    // returned, not paid for a second time.
+    expect((await action(options, 'run_review')({})).runId).toBe('run-1');
+    expect(started.length).toBe(1);
+
+    // Re-opening resumes following the same run; asking for a review while it
+    // is still in flight returns it instead of paying for a second.
+    await openPanel(options, 'panel-2');
+    expect((await action(options, 'get_state')(undefined, 'panel-2')).status).toBe('pending');
+    const again = await action(options, 'run_review')({}, 'panel-2');
+    expect(again.runId).toBe('run-1');
+    expect(started.length).toBe(1);
+    terminal = true;
+    const settled = await settle(() => action(options, 'get_state')(undefined, 'panel-2'));
+    expect(settled.status).toBe('ok');
+    expect(settled.review.runStatus).toBe('completed');
+  });
+
+  test('M2: run_review with new input refreshes the check before starting', async () => {
+    const fake = fakeSession([{ runId: 'run-1', status: 'running' }]);
+    const { options, cli } = makeCanvas({ getSession: () => fake.session, sleep: () => new Promise(() => {}) });
+    await openPanel(options);
+    cli.calls.length = 0;
+    await action(options, 'run_review')({ files: ['src/z.ts'] });
+    expect(cli.calls.some((call) => call.args.includes('src/z.ts'))).toBe(true);
+    expect((await action(options, 'get_state')()).files).toEqual(['src/z.ts']);
+  });
+
+  test('M9: re-open with different input applies it and keeps the URL', async () => {
+    const { options, cli, servers } = makeCanvas();
+    const first = await openPanel(options);
+    cli.calls.length = 0;
+    const again = await options.open(ctxFor('panel-1', { input: { files: ['src/y.ts'] } }));
+    expect(again.url).toBe(first.url);
+    expect(servers.length).toBe(1);
+    expect(cli.calls.some((call) => call.args.includes('src/y.ts'))).toBe(true);
+  });
+
+  test('M7: a runtime that rejects canvases still gets the workflow, and the failure is logged', async () => {
+    const joined: Array<Record<string, unknown>> = [];
+    const logged: string[] = [];
+    const session = { log: async (message: string) => void logged.push(message) };
+    await register({
+      defineWorkflow: (definition: unknown) => ({ definition }),
+      createCanvas: (options: unknown) => ({ options }),
+      joinSession: async (config: Record<string, unknown>) => {
+        joined.push(config);
+        if (config['canvases']) throw new Error('unknown field canvases');
+        return session;
+      },
+      workflow: () => ({}),
+      canvas: () => ({}),
+    });
+    expect(joined.length).toBe(2);
+    expect(joined[1]?.['canvases']).toBeUndefined();
+    expect((joined[1]?.['workflows'] as unknown[]).length).toBe(1);
+    expect(logged.join('\n')).toContain('unknown field canvases');
+  });
+
+  test('M7: a rejection with nothing left to retry still surfaces', async () => {
+    await expect(
+      register({
+        defineWorkflow: () => {
+          throw new Error('bad workflow');
+        },
+        createCanvas: (options: unknown) => ({ options }),
+        joinSession: async () => {
+          throw new Error('no canvases here');
+        },
+        workflow: () => ({}),
+        canvas: () => ({}),
+      }),
+    ).rejects.toThrow('no canvases here');
+  });
+
+  test('M5: page lookups keyed by untrusted ids go through Map or own-property checks', () => {
+    expect(PAGE_JS).toContain('new Map(');
+    expect(PAGE_JS).toContain('hasOwnProperty');
+    // No plain-object table indexed by a repository-supplied value.
+    expect(PAGE_JS).not.toMatch(/_TONE\[/);
+    expect(PAGE_JS).not.toMatch(/byId\[|seen\[/);
+  });
+
+  test('M6: an agent-supplied review is labelled apart from a followed run', () => {
+    expect(PAGE_JS).toContain('supplied by the agent');
+    expect(PAGE_JS).toContain('not a run this panel followed');
+  });
+
+  test('I1: inline style is allowed for the app theme, inline script is not', () => {
+    expect(CSP).toContain("style-src 'self' 'unsafe-inline'");
+    expect(CSP).toContain("script-src 'self';");
+    expect(CSP).not.toMatch(/script-src[^;]*unsafe-inline/);
   });
 });

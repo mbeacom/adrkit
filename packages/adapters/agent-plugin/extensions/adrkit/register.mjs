@@ -49,7 +49,16 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
     failures.push(`decision-review canvas: ${messageOf(error)}`);
   }
 
-  joined = await joinSession(config);
+  try {
+    joined = await joinSession(config);
+  } catch (error) {
+    // Isolating the factories is not enough if the runtime itself refuses the
+    // join: one that does not know `canvases` (an older CLI or app runtime)
+    // would take the workflow down with it. Retry once without the canvas.
+    if (!config['canvases'] || !config['workflows']) throw error;
+    failures.push(`decision-review canvas: the session refused it (${messageOf(error)})`);
+    joined = await joinSession({ workflows: config['workflows'] });
+  }
   for (const failure of failures) {
     // Reporting must not become a second way to take the extension down.
     try {

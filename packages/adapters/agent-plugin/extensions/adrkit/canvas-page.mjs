@@ -84,6 +84,14 @@ export const PAGE_JS = `(function () {
 
   function badge(label, tone) { return el('span', 'badge tone-' + (tone || 'neutral'), label); }
 
+  /**
+   * Look up a tone by a value that came from the repository or an agent. Own
+   * properties only, so a key such as "constructor" finds nothing.
+   */
+  function toneOf(table, key) {
+    return typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined;
+  }
+
   function button(label, onClick) {
     var node = el('button', 'secondary', label);
     node.type = 'button';
@@ -105,22 +113,23 @@ export const PAGE_JS = `(function () {
     return text(matcher.type || 'matcher') + (detail ? ': ' + text(detail) : '');
   }
 
+  /** Verdicts keyed by record id in a Map, since the ids are untrusted text. */
   function verdictsById(review) {
-    var byId = {};
+    var verdicts = new Map();
     if (review && review.result) {
-      list(review.result.verdicts).forEach(function (verdict) { byId[verdict.recordId] = verdict; });
+      list(review.result.verdicts).forEach(function (verdict) { verdicts.set(text(verdict.recordId), verdict); });
     }
-    return byId;
+    return verdicts;
   }
 
   /** The check's governing list, plus any the review judged that the check no longer lists. */
   function governingOf(snapshot) {
-    var seen = {};
+    var seen = new Set();
     var out = [];
-    list(snapshot.governing).forEach(function (decision) { seen[decision.recordId] = true; out.push(decision); });
+    list(snapshot.governing).forEach(function (decision) { seen.add(text(decision.recordId)); out.push(decision); });
     if (snapshot.review && snapshot.review.result) {
       list(snapshot.review.result.governing).forEach(function (decision) {
-        if (!seen[decision.recordId]) { seen[decision.recordId] = true; out.push(decision); }
+        if (!seen.has(text(decision.recordId))) { seen.add(text(decision.recordId)); out.push(decision); }
       });
     }
     return out;
@@ -131,7 +140,7 @@ export const PAGE_JS = `(function () {
     var head = el('div', 'decision-head');
     head.appendChild(el('span', 'record-id mono', decision.recordId));
     head.appendChild(el('span', 'record-title', decision.title));
-    if (verdict) head.appendChild(badge(verdict.verdict, VERDICT_TONE[verdict.verdict]));
+    if (verdict) head.appendChild(badge(verdict.verdict, toneOf(VERDICT_TONE, verdict.verdict)));
     if (decision.status) head.appendChild(el('span', 'muted', decision.status));
     item.appendChild(head);
 
@@ -162,7 +171,7 @@ export const PAGE_JS = `(function () {
       return node;
     }
     var items = el('ul', 'decisions');
-    decisions.forEach(function (decision) { items.appendChild(decisionItem(decision, verdicts[decision.recordId], explainable)); });
+    decisions.forEach(function (decision) { items.appendChild(decisionItem(decision, verdicts.get(text(decision.recordId)), explainable)); });
     node.appendChild(items);
     return node;
   }
@@ -170,11 +179,18 @@ export const PAGE_JS = `(function () {
   function reviewSection(review) {
     var node = section('Review');
     var line = el('p', 'review-line');
-    line.appendChild(el('span', null, review.runId ? 'adr-review run ' + text(review.runId) + ': ' : 'adr-review result: '));
-    line.appendChild(badge(review.runStatus, review.runStatus === 'completed' ? 'green' : review.runStatus === 'running' || review.runStatus === 'pending' ? 'blue' : 'yellow'));
+    if (review.runId) {
+      line.appendChild(el('span', null, 'adr-review run ' + text(review.runId) + ': '));
+      line.appendChild(badge(review.runStatus, review.runStatus === 'completed' ? 'green' : review.runStatus === 'running' || review.runStatus === 'pending' ? 'blue' : 'yellow'));
+    } else {
+      // The agent handed this over; it may have read hostile repository text,
+      // so it is never dressed as a run the panel watched.
+      line.appendChild(badge('supplied by the agent', 'neutral'));
+      line.appendChild(el('span', 'muted', ' Result supplied by the agent, not a run this panel followed.'));
+    }
     if (review.result) {
       line.appendChild(el('span', 'muted', ' result '));
-      line.appendChild(badge(review.result.status, STATUS_TONE[review.result.status]));
+      line.appendChild(badge(review.result.status, toneOf(STATUS_TONE, review.result.status)));
     }
     node.appendChild(line);
     if (review.result) {
@@ -197,7 +213,7 @@ export const PAGE_JS = `(function () {
     var items = el('ul', 'findings');
     findings.forEach(function (finding) {
       var item = el('li');
-      item.appendChild(badge(finding.severity || 'finding', SEVERITY_TONE[finding.severity]));
+      item.appendChild(badge(finding.severity || 'finding', toneOf(SEVERITY_TONE, finding.severity)));
       if (finding.rule) item.appendChild(el('span', 'mono', ' ' + text(finding.rule) + ' '));
       item.appendChild(el('span', null, finding.message));
       if (finding.path) item.appendChild(el('span', 'mono muted', ' ' + text(finding.path)));
@@ -212,7 +228,7 @@ export const PAGE_JS = `(function () {
     var status = text(snapshot.status) || 'unknown';
     var statusNode = $('status');
     statusNode.textContent = status;
-    statusNode.className = 'badge tone-' + (STATUS_TONE[status] || 'neutral');
+    statusNode.className = 'badge tone-' + (toneOf(STATUS_TONE, status) || 'neutral');
     $('cwd').textContent = text(snapshot.workingDirectory);
     $('refresh').disabled = busy;
     $('run-review').disabled = busy || status === 'pending';
@@ -225,7 +241,17 @@ export const PAGE_JS = `(function () {
 
     if (snapshot.review) parts.push(reviewSection(snapshot.review));
 
-    var unverified = snapshot.review && snapshot.review.result ? list(snapshot.review.result.unverified) : [];
+    // Governing records the review gave no verdict, plus the ones it reported
+    // as unverified itself: either way they were not judged.
+    var verdicts = verdictsById(snapshot.review);
+    var unverified = [];
+    if (snapshot.review && snapshot.review.result) {
+      list(snapshot.review.result.unverified).forEach(function (id) { if (unverified.indexOf(text(id)) < 0) unverified.push(text(id)); });
+      list(snapshot.governing).forEach(function (decision) {
+        var id = text(decision.recordId);
+        if (!verdicts.has(id) && unverified.indexOf(id) < 0) unverified.push(id);
+      });
+    }
     if (unverified.length > 0) {
       var callout = el('div', 'callout tone-yellow');
       callout.setAttribute('role', 'note');
@@ -234,10 +260,9 @@ export const PAGE_JS = `(function () {
       parts.push(callout);
     }
 
-    var verdicts = verdictsById(snapshot.review);
     parts.push(decisionList('Governing', governingOf(snapshot), verdicts, true, 'No accepted decision governs these files.'));
-    parts.push(decisionList('Active proposals', list(snapshot.activeProposals), {}, true, 'None.'));
-    parts.push(decisionList('History (listed, not judged)', list(snapshot.history), {}, true, 'None.'));
+    parts.push(decisionList('Active proposals', list(snapshot.activeProposals), new Map(), true, 'None.'));
+    parts.push(decisionList('History (listed, not judged)', list(snapshot.history), new Map(), true, 'None.'));
     parts.push(findingsSection(list(snapshot.findings)));
 
     var notes = list(snapshot.notes);

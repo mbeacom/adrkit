@@ -44,9 +44,17 @@ export const CANVAS_ID = 'decision-review';
 export const CANVAS_TITLE = 'Decision review';
 export const REVIEW_WORKFLOW = 'adr-review';
 
-/** `frame-ancestors *` because the host frames the page; no `X-Frame-Options`. */
+/**
+ * `frame-ancestors *` because the host frames the page; no `X-Frame-Options`.
+ *
+ * `style-src` allows inline style on purpose: the app applies its theme by
+ * inserting `<style>` elements that define the documented tokens, and without
+ * this every token falls back to the light-theme default. It costs nothing
+ * here, because the page builds no style from data and has no HTML sink that
+ * could insert one. Script stays `'self'` only. Do not "tighten" the style rule.
+ */
 export const CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
+  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; " +
   "img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors *";
 
 /** Request bodies are tiny (`{ recordId }`); anything past this is refused. */
@@ -82,7 +90,7 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  *   findings: unknown[], notes: string[], review: null | { runId?: string, runStatus: string, result: any },
  *   updatedAt: string,
  * }} Snapshot
- * @typedef {{ runId: string | null, runStatus: string, result: any, watching: boolean, message?: string }} ReviewState
+ * @typedef {{ runId: string | null, runStatus: string, result: any, watching: boolean, message?: string, governingKey?: string }} ReviewState
  * @typedef {{ args: unknown, check: Snapshot | null, review: ReviewState | null, seq: number }} Workspace
  * @typedef {{
  *   instanceId: string, cwd: string, token: string, origin: string, url: string,
@@ -258,7 +266,9 @@ export function sanitizeReviewResult(raw) {
  * and shape the outcome for the panel. Nothing here throws: invalid input, a
  * base that does not resolve, a CLI that cannot start, and an unreadable report
  * all become a `usage-error` snapshot with the message in `notes`, never `ok`.
- * The status comes from `assembleResult`, so the vocabulary is the workflow's.
+ * The status comes from `assembleResult`, so the vocabulary is the workflow's,
+ * and a governing record with no verdict keeps it at `incomplete` at best:
+ * nothing here has been judged, so it never says `ok` over one.
  *
  * @param {{
  *   cwd: string, input: unknown, run: CwdRunner, env: Record<string, string | undefined>,
@@ -266,7 +276,19 @@ export function sanitizeReviewResult(raw) {
  * }} deps
  * @returns {Promise<Snapshot>}
  */
-export async function computeSnapshot({ cwd, input, run, env, exists, now }) {
+export async function computeSnapshot(deps) {
+  const check = await computeCheck(deps);
+  return { ...check, status: combinedStatus(check.status, check.governing, null) };
+}
+
+/**
+ * `computeSnapshot` before the governing-without-verdict rule: the check's own
+ * status, which the canvas combines with whatever review it holds.
+ *
+ * @param {Parameters<typeof computeSnapshot>[0]} deps
+ * @returns {Promise<Snapshot>}
+ */
+async function computeCheck({ cwd, input, run, env, exists, now }) {
   /** @type {string[]} */
   const notes = [];
   /** @param {string} command @param {string[]} args */
@@ -377,20 +399,44 @@ const worse = (a, b) =>
     ? a
     : b;
 
+/** @param {ReviewState | null} review */
+const usableResult = (review) => (review && review.runStatus === 'completed' && review.result ? review.result : null);
+
 /**
- * The status the panel shows. `pending` while a run is in flight; otherwise the
- * worse of the check's status and the review's. A review that settled without
- * a usable result is `incomplete`, never `ok`.
+ * Governing records in view that the review gave no verdict. Before any review
+ * that is every governing record.
  *
- * @param {string} checkStatus
+ * @param {ShownDecision[]} governing
  * @param {ReviewState | null} review
  */
-function effectiveStatus(checkStatus, review) {
-  if (!review) return checkStatus;
-  if (review.watching) return 'pending';
-  const reviewStatus = review.runStatus === 'completed' && review.result ? review.result.status : 'incomplete';
-  return worse(checkStatus, reviewStatus);
+function unjudged(governing, review) {
+  const result = usableResult(review);
+  const judged = new Set(result ? result.verdicts.map((/** @type {{ recordId: string }} */ v) => v.recordId) : []);
+  return governing.map((decision) => decision.recordId).filter((id) => !judged.has(id));
 }
+
+/**
+ * The status the panel shows. `pending` while a run is being followed;
+ * otherwise the worse of the check's status and the review's, and never better
+ * than `incomplete` while a governing record has no verdict. `ok` is the
+ * workflow's word for "judged clean", so a panel that has judged nothing must
+ * not say it. Precedence stays usage-error > findings > incomplete > ok. A
+ * review that settled without a usable result is `incomplete`.
+ *
+ * @param {string} checkStatus
+ * @param {ShownDecision[]} governing
+ * @param {ReviewState | null} review
+ */
+function combinedStatus(checkStatus, governing, review) {
+  if (review?.watching) return 'pending';
+  let status = checkStatus;
+  if (review) status = worse(status, usableResult(review)?.status ?? 'incomplete');
+  if (unjudged(governing, review).length > 0) status = worse(status, 'incomplete');
+  return status;
+}
+
+/** Sorted, joined record ids: what a review is compared against on refresh. @param {ShownDecision[]} governing */
+const governingKey = (governing) => governing.map((decision) => decision.recordId).sort().join(',');
 
 /**
  * @param {Workspace} workspace
@@ -399,10 +445,14 @@ function effectiveStatus(checkStatus, review) {
 function snapshotOf(workspace) {
   const check = /** @type {Snapshot} */ (workspace.check);
   const { review } = workspace;
+  const notes = [...check.notes];
+  if (review?.message) notes.push(review.message);
+  const missing = usableResult(review) ? unjudged(check.governing, review) : [];
+  if (missing.length > 0) notes.push(`The review has no verdict for governing record(s) ${missing.join(', ')}.`);
   return {
     ...check,
-    status: effectiveStatus(check.status, review),
-    notes: review?.message ? [...check.notes, review.message] : check.notes,
+    status: combinedStatus(check.status, check.governing, review),
+    notes,
     review: review
       ? { ...(review.runId ? { runId: review.runId } : {}), runStatus: review.runStatus, result: review.result }
       : null,
@@ -582,8 +632,9 @@ export function createDecisionReviewCanvas({
   /**
    * Recompute the snapshot for `cwd`. `input` replaces the remembered args when
    * given; the page's Refresh reuses them. A review stays only while it still
-   * describes the same file set: otherwise its verdicts would be shown against
-   * files it never read.
+   * describes the same file set and the same governing records: otherwise its
+   * verdicts would be shown against files it never read, or a record added
+   * since would sit unjudged under a clean header.
    *
    * @param {string} cwd
    * @param {unknown} [input]
@@ -592,7 +643,7 @@ export function createDecisionReviewCanvas({
     const workspace = workspaceFor(cwd);
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
-    const snapshot = await computeSnapshot({ cwd, input: workspace.args, run, env, exists, now });
+    const snapshot = await computeCheck({ cwd, input: workspace.args, run, env, exists, now });
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
     // otherwise have the first to finish return a snapshot that does not exist
@@ -602,9 +653,9 @@ export function createDecisionReviewCanvas({
       const review = workspace.review;
       if (review && !review.watching && review.result) {
         const reviewed = [...review.result.files].sort().join('\0');
-        if (reviewed !== [...snapshot.files].sort().join('\0')) {
-          workspace.review = null;
-        }
+        const sameFiles = reviewed === [...snapshot.files].sort().join('\0');
+        const sameGoverning = review.governingKey === undefined || review.governingKey === governingKey(snapshot.governing);
+        if (!sameFiles || !sameGoverning) workspace.review = null;
       }
       broadcast(cwd);
     }
@@ -615,6 +666,7 @@ export function createDecisionReviewCanvas({
   const stateFor = async (cwd) => {
     const workspace = workspaceFor(cwd);
     if (!workspace.check) await refresh(cwd);
+    resume(cwd);
     return snapshotOf(workspace);
   };
 
@@ -674,6 +726,43 @@ export function createDecisionReviewCanvas({
   };
 
   /**
+   * Run `watch` detached; an unexpected failure ends following, never silently.
+   *
+   * @param {string} cwd @param {ReviewState} review @param {any} session
+   * @param {{ runId: string, status: string }} first
+   */
+  const follow = (cwd, review, session, first) => {
+    const workspace = workspaceFor(cwd);
+    watch(cwd, review, session, first).catch((error) => {
+      if (workspace.review === review && review.watching) {
+        review.watching = false;
+        review.message = `Stopped following adr-review run ${first.runId}: ${messageOf(error)}`;
+        broadcast(cwd);
+      }
+    });
+  };
+
+  /**
+   * Pick a known run back up when following stopped before it settled (the
+   * last panel closed mid-run). Without this the panel would show the run as
+   * abandoned and offer a fresh, paid one while the first may have finished.
+   * Only while a panel is open, since `watch` stops without one.
+   *
+   * @param {string} cwd
+   */
+  const resume = (cwd) => {
+    const review = workspaceFor(cwd).review;
+    if (!review || review.watching || !review.runId || TERMINAL_RUN_STATES.has(review.runStatus)) return;
+    if (!panelOpenFor(cwd)) return;
+    const session = getSession();
+    if (!session?.rpc?.workflow) return;
+    review.watching = true;
+    delete review.message;
+    broadcast(cwd);
+    follow(cwd, review, session, { runId: review.runId, status: review.runStatus });
+  };
+
+  /**
    * Start `adr-review` for `cwd`. Only one run per directory is followed at a
    * time; asking again while one is in flight returns it rather than spending
    * twice. A run that cannot start becomes panel state, not a thrown error.
@@ -683,8 +772,12 @@ export function createDecisionReviewCanvas({
    */
   const runReview = async (cwd, input) => {
     const workspace = workspaceFor(cwd);
-    if (workspace.review?.watching) {
-      return { runId: workspace.review.runId, status: workspace.review.runStatus };
+    const known = workspace.review;
+    // A run in flight, or one known to the session and not yet settled, is
+    // returned rather than paid for twice.
+    if (known && (known.watching || (known.runId && !TERMINAL_RUN_STATES.has(known.runStatus)))) {
+      resume(cwd);
+      return { runId: known.runId, status: known.runStatus };
     }
     let args;
     try {
@@ -696,11 +789,14 @@ export function createDecisionReviewCanvas({
     if (!session?.rpc?.workflow) {
       throw makeError('session_unavailable', 'The Copilot session is not available yet; try again.');
     }
-    if (input !== undefined) workspace.args = input;
     /** @type {ReviewState} */
     const review = { runId: null, runStatus: 'pending', result: null, watching: true };
+    // Reserved before any await, so a second request cannot start a second run.
     workspace.review = review;
-    if (!workspace.check) await refresh(cwd);
+    // New input means a new file set: refresh first, so the panel never pairs
+    // a check of one set with a review of another.
+    if (input !== undefined || !workspace.check) await refresh(cwd, input);
+    review.governingKey = governingKey(/** @type {Snapshot} */ (workspace.check).governing);
     broadcast(cwd);
 
     let envelope;
@@ -717,13 +813,7 @@ export function createDecisionReviewCanvas({
     review.runId = envelope.runId;
     review.runStatus = envelope.status;
     broadcast(cwd);
-    watch(cwd, review, session, envelope).catch((error) => {
-      if (workspace.review === review && review.watching) {
-        review.watching = false;
-        review.message = `Stopped following adr-review run ${envelope.runId}: ${messageOf(error)}`;
-        broadcast(cwd);
-      }
-    });
+    follow(cwd, review, session, envelope);
     return { runId: envelope.runId, status: envelope.status };
   };
 
@@ -899,7 +989,13 @@ export function createDecisionReviewCanvas({
             }
             const workspace = workspaceFor(cwd);
             if (!workspace.check) await refresh(cwd);
-            workspace.review = { runId: null, runStatus: 'completed', result, watching: false };
+            workspace.review = {
+              runId: null,
+              runStatus: 'completed',
+              result,
+              watching: false,
+              governingKey: governingKey(/** @type {Snapshot} */ (workspace.check).governing),
+            };
             broadcast(cwd);
             return snapshotOf(workspace);
           }),
@@ -919,6 +1015,7 @@ export function createDecisionReviewCanvas({
     open: async (ctx) => {
       const cwd = workingDirectoryOf(ctx);
       let pending = instances.get(ctx.instanceId);
+      const isNew = !pending;
       if (!pending) {
         const starting = (async () => {
           await refresh(cwd, ctx.input);
@@ -932,7 +1029,13 @@ export function createDecisionReviewCanvas({
         });
       }
       const instance = await pending;
-      return { url: instance.url, title: CANVAS_TITLE, status: statusLine(snapshotOf(workspaceFor(instance.cwd))) };
+      const workspace = workspaceFor(instance.cwd);
+      // A re-open keeps its URL; new input is applied, not silently dropped.
+      if (!isNew && ctx.input !== undefined && JSON.stringify(ctx.input) !== JSON.stringify(workspace.args)) {
+        await refresh(instance.cwd, ctx.input);
+      }
+      resume(instance.cwd);
+      return { url: instance.url, title: CANVAS_TITLE, status: statusLine(snapshotOf(workspace)) };
     },
 
     /** @param {any} ctx */
