@@ -505,6 +505,27 @@ will usually be a regression:
 - **Canvases render only in the Copilot app.** A CLI terminal session has no
   canvas renderer, so the agent gets no canvas tools there. Do not describe the
   canvas as available in the CLI.
+- **Canvas provenance shows only what `adr check` reports**
+  ([ADR-0047](./docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md),
+  **proposed**). Measured on a fixture: `declaredBy` names the changed file and
+  line of an inbound marker, but an `affects` match carries only
+  `{ type, pattern }`, with no file. The page says so instead of matching
+  globs itself; the extension cannot import core, and a homemade matcher could
+  disagree with the CLI and present that as provenance. If core gains per-file
+  attribution, read it.
+- **`judgeCalls` is the governing count, because the Judge is
+  `ctx.pipeline(governing, … ctx.agent(…))`** in `review.mjs`: one
+  `decision-checker` call per governing decision, none at zero. Change the
+  workflow's Judge shape and the button label and `run_review` description go
+  stale. The button is disabled at zero governing decisions.
+- **The canvas queue is an allowlist, and that is what keeps the ratifying
+  command out.** `adr queue`'s terminal view prints that command for a human;
+  the canvas reads only the JSON and keeps nine named item fields, so a field
+  added later is dropped unnamed. A test plants such fields and checks the
+  snapshot, `/api/state`, the rendered page, and the shipped page strings.
+  Queue rows have no control or explain, and their ids are not explainable. A
+  queue failure is a fixed note, never CLI stderr, and never changes the panel's
+  status, governing list, or notes.
 - `copilot plugin install` prints only a skill count. Version 0.5.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.

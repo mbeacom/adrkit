@@ -379,6 +379,34 @@ the app's theme and a `Run review` started from the panel came back as
 `findings`. Details and the "not verified" list are in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
 
+### Provenance, review cost, and the open-proposal queue
+
+Proposed in
+[ADR-0047](../../../docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
+(**proposed**, amends ADR-0046). Three additions, with no new action or route:
+
+- **Why each decision governs.** A decision's evidence section names what tied
+  it to the change. An inbound marker shows the changed file and line that
+  named the record. An `affects` match shows the pattern, and says that
+  `adr check` does not report which changed file matched it; the panel does not
+  guess. `get_state` carries the same data as `declaredBy` and `firedMatchers`.
+- **What a review costs before you start it.** `adr-review` makes one
+  `decision-checker` call per governing decision, so the button reads
+  "Run review: N decision-checker call(s) (uses AI credits)", and `get_state`
+  carries the count as `judgeCalls`. With no governing decision the button is
+  disabled and says there is nothing to judge. Runtime retries are not counted.
+  One measured run judged two decisions for about 0.16 AI credits (Copilot CLI
+  1.0.93); that is one measurement, not a price.
+- **Open proposals, corpus-wide.** `refresh` also runs
+  `adr queue --format json`, which costs no AI credits, and the panel lists
+  every open `proposed` record with its SLA state, deadline, approvals, and
+  routing. It is a list only: no buttons, no explain, and nothing that ratifies.
+  If the queue cannot be read, the section shows a note and the rest of the
+  panel is unaffected.
+
+Measured in a headless Copilot CLI 1.0.93 SDK host; the new UI is unmeasured in
+the Copilot app.
+
 ## Things that are load-bearing and easy to break
 
 Each of these was measured against the real hosts, not inferred from their docs.

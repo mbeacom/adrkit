@@ -11,6 +11,21 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **The `decision-review` canvas shows provenance, review cost, and the
+  open-proposal queue.** Each governing decision's evidence now names what tied
+  it to the change: for an inbound `@adr` marker, the changed file and line (the
+  `declaredBy` that `adr check --json` already reports); for an `affects`
+  match, the pattern, with a note that `adr check` does not say which changed
+  file matched it. The Run review button states how many `decision-checker`
+  calls a run makes (one per governing decision, also `judgeCalls` in
+  `get_state`) and is disabled when there is nothing to judge. `refresh` also
+  runs `adr queue --format json`, at no AI cost, and the panel lists open
+  `proposed` records corpus-wide, read-only and without any ratify control; a
+  queue failure is a note and never touches the governing view. Proposed in
+  [ADR-0047](docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
+  (proposed, amends ADR-0046); rung 1, with a headless Copilot CLI 1.0.93
+  SDK-host smoke. Unmeasured in the Copilot app.
+
 - **The agent plugin ships a read-only `decision-review` canvas for the GitHub
   Copilot app (`adrkit` 0.5.0).** It is a panel showing the changed files, the
   governing decisions, active proposals, history (listed, not judged), the
