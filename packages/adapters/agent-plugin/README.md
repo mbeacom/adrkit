@@ -356,9 +356,10 @@ target (measured), and neither Claude Code nor a native opencode load of it is
 measured.
 
 **Evidence.** Rung 1 of ADR-0014. Unit and contract tests; a headless Copilot
-CLI 1.0.93 SDK-host open, state, refresh, and `run_review` smoke; and a probe
-canvas rendered in one maintainer app session. The shipped panel's in-app render
-is pending. Details and the "not verified" list are in the
+CLI 1.0.93 SDK-host open, state, refresh, and `run_review` smoke; and the
+shipped panel in maintainer sessions in Copilot app 1.1.27, where it rendered in
+the app's theme and a `Run review` started from the panel came back as
+`findings`. Details and the "not verified" list are in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
 
 ## Things that are load-bearing and easy to break
@@ -465,9 +466,10 @@ The v0.4.0 `adr-review` workflow is at rung 1: unit and contract tests plus
 maintainer live smokes on Copilot CLI 1.0.92 and, through the published GitHub
 install, 1.0.93, all recorded in the evidence index. The v0.5.0 `decision-review`
 canvas is also rung 1: unit and contract tests, plus a headless SDK-host smoke on
-Copilot CLI 1.0.93. A probe canvas rendered in one maintainer app session; the
-shipped panel's in-app render, Copilot CLI versions before 1.0.92, and a native
-opencode load of `extensions/` are unverified.
+Copilot CLI 1.0.93, and maintainer sessions in Copilot app 1.1.27 that opened
+the panel, ran a review from it, and recorded two defects fixed before release.
+Other app versions, Copilot CLI versions before 1.0.92, and a native opencode
+load of `extensions/` are unverified.
 
 Authorized by
 [ADR-0028](../../../docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)

@@ -269,11 +269,30 @@ per-session directory has to come from the session. The environment also lists
 `COPILOT_MCP_APPS`. That session rendered one canvas from a probe extension, **not the shipped
 canvas**.
 
-What this record does not claim: the shipped canvas has not run in the app,
-`ADRKIT_CLI` forwarding to the extension was not measured (the CLI strips
-variables it considers sensitive unless an extension requests them, and whether
-`ADRKIT_CLI` counts is unmeasured), and no `run_review` has been started from
-the panel inside the app.
+**The shipped canvas, in three maintainer sessions in app 1.1.27**
+(`docs/reference-verification-agent-plugin.md`, rows 23 to 29). It opened
+through the agent and rendered in the side panel with the app's dark theme
+applied. The first run found two defects, both fixed before this record was
+proposed for ratification:
+- The agent's first `open_canvas` passed `input: null`, which the runtime
+  rejects against an object schema, so the schemas now accept `null` as no
+  input.
+- After a run the panel started had finished, the agent called `show_review`
+  with the same result and relabelled it "supplied by the agent". `show_review`
+  no longer replaces a run the panel started.
+
+A new app session runs in a fresh worktree branched from the default branch, so
+the panel shows only that session's own changes. `Run review` from the panel
+ended as `findings`, with both fixture decisions `conflicts`, when the plugin
+was installed. With only the extension present, the runtime could not resolve
+`adrkit:decision-checker`, and the run ended as `incomplete`, never `ok`.
+
+What this record does not claim: `ADRKIT_CLI` forwarding to the extension was
+not measured (the CLI strips variables it considers sensitive unless an
+extension requests them, and whether `ADRKIT_CLI` counts is unmeasured); the
+0.5.0 install from GitHub has not run, because merging is that install; and how
+the app frames the panel, which decides whether `frame-ancestors *` does
+anything, was not observed.
 
 ## Options considered
 
@@ -419,7 +438,7 @@ named, GitHub-source (copied) plugin installs, and any external validation.
 6. [x] Live smoke, headless: open the shipped canvas through the SDK host, call
    `get_state` and `refresh`, and confirm the response headers and the 403 paths
    against the running server.
-7. [ ] App smoke: install the plugin in the Copilot app, open the shipped
+7. [x] App smoke: install the plugin in the Copilot app, open the shipped
    canvas, confirm the working directory, CLI resolution, and that the theme
    tokens apply, and record the result, with the exact app version, as a rung-1
    measurement.

@@ -515,39 +515,52 @@ close were unchanged.
 | 20 | `refresh` | Returned the snapshot |
 | 21 | After close | The port refused connections |
 | 22 | `run_review` (with `RUN_REVIEW=1`) | Returned `{ runId, status: "running" }`; polling `get_state` reached run status `completed`, panel status `findings`, verdicts 0001 and 0002 both `conflicts`, `unverified` empty; about 0.16 AI credits; the smoke repository was clean afterwards |
-| 23 | Shipped canvas rendered in the Copilot app | **pending** (not yet run) |
 
 Rows 16 to 22 are one run of a non-deterministic agent on a two-record fixture,
 not a pass rate. The status line in row 16 is the wording measured on that
 commit; before a review runs the panel shows what `adr check` found.
 
+### Shipped canvas in the Copilot app (1.1.27)
+
+Three maintainer app sessions on 2026-10-08. The first ran the branch at
+`fd22dac` as a user-scope copy of the extension, with the plugin uninstalled; the
+fixes it prompted landed in `3ffcbb4`. The second ran `3ffcbb4` the same way.
+The third ran `3ffcbb4`'s extension files copied over the installed `adrkit`
+plugin's `extensions/adrkit/`, so the `decision-checker` agent was present. The
+second and third used the two-record fixture from rows 16 to 22.
+
+| # | Probe | Result |
+|---|-------|--------|
+| 23 | Opening it | The agent called `list_canvas_capabilities`, then `open_canvas`. Its first call passed `input: null`, which the runtime rejected (`(root): null is not of type "object"`); it retried with `{}`. Fixed in `3ffcbb4`: the open and action input schemas accept `null` as no input, re-checked headless |
+| 24 | Render and theme | Rendered in the side panel; the maintainer confirmed the app's dark theme applied, so the injected theme styles get through the CSP |
+| 25 | Session working directory | A new app session runs in a fresh worktree branched from the repository's default branch, so the panel showed `0 changed file(s)` from `origin/main...HEAD` and later from `main...HEAD`, correctly. It sees only that session's own changes. A session started on an existing checkout used that checkout |
+| 26 | `Run review` from the panel, at `fd22dac` | The run completed; the runtime then surfaced it to the agent, which called `show_review` with the same result, and the panel relabelled it "supplied by the agent". Fixed in `3ffcbb4`: `show_review` no longer replaces a run the panel started |
+| 27 | `Run review`, extension present but plugin uninstalled | The runtime logged `Unknown agent_type: adrkit:decision-checker` for both judges, so both resolved to null. The panel and the run reported `incomplete` with 0001 and 0002 unverified, never `ok`. This is the first `incomplete` produced by a real host. The panel kept its own run label |
+| 28 | `Run review`, plugin installed with the terminal CLI's `copilot plugin install` | Run `371e206f` completed with `findings`; 0001 and 0002 both `conflicts`, with evidence citing `src/net.ts:1-2` and `package.json:1`; the panel kept its own run label. The agent again called `show_review` with the finished result; the canvas answered `ignored` and the label stayed, which is the row 26 fix working live. The app picked up the agent the CLI installed, so the two share `~/.copilot/installed-plugins` |
+| 29 | Explain button on 0001 | Started an agent turn with the fixed prompt, which names only the record id and says read-only. The agent ran `adr explain` and `adr check` and explained 0001 and its conflict with the change in chat, without editing anything |
+
+Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
+
 ### Not verified
 
-- The shipped `decision-review` panel rendered in the Copilot app (row 23). The
-  page JS, the event stream in the host frame, `frame-ancestors *`, and the
-  theme tokens are exercised only by tests and a headless fetch, never in a live
-  render.
-- `run_review` inside the app. It relies on the extension's `process.cwd()`
-  equalling the session directory, which row 12 measured for a user-scope
-  extension in one app session, and on the app loading the plugin's root
-  `extensions/`, which row 15 measured for the installed 0.4.0 plugin. The
-  shipped canvas's own run in the app is still pending (row 23).
-- The panel's response headers in the app. The Content-Security-Policy now
-  allows `style-src 'self' 'unsafe-inline'` because the app appears to inject
-  its theme tokens as `<style>` elements (from the app binary's strings,
-  `applyExtensionCanvasTheme`); whether the tokens then apply is unobserved. The
-  strings also suggest a dedicated native webview, which would make
-  `frame-ancestors *` a no-op; it stays until the render is measured.
+- Installing the plugin from GitHub with the canvas in place. Row 28 overlaid
+  the branch's extension files on the installed 0.4.0 plugin; the 0.5.0
+  install itself happens when this merges.
+- Whether `frame-ancestors *` matters in the app. The CSP allows
+  `style-src 'self' 'unsafe-inline'` because the app injects its theme as
+  `<style>` elements (`applyExtensionCanvasTheme` in the app binary), and row 24
+  shows that theme applying. The binary's strings also suggest a dedicated
+  native webview, which would make `frame-ancestors *` a no-op; how the app
+  frames the panel was not observed, so the directive stays.
 - Re-measure on app upgrades: the workflow reviews `process.cwd()` while the
   panel uses the session directory (equal in the one app session measured), and
   whether every runtime accepts `canvases` in `joinSession` (`register` retries
   without `canvases` if one rejects it; unmeasured).
-- App version drift: the app's plist now reads 1.1.27, while the app
-  measurements here were made under 1.1.14 with runtime 1.0.93-1. They are
-  recorded as measured and not re-dated.
+- App version drift: rows 8 to 15 were measured under app 1.1.14 with runtime
+  1.0.93-1, and rows 23 to 29 under app 1.1.27. Neither set is re-dated to the
+  other.
 - The `ghapp://plugins/install?source=adrkit@adrkit` deep link.
   The installed 0.4.0 extension loading cleanly (row 15) is the only evidence.
-- Whether the app shares `~/.copilot/installed-plugins` with the CLI.
 - Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI
   strips "sensitive" variables unless an extension requests them; whether this
   one counts is unmeasured. It was null in the app probe because it was not set.

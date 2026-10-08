@@ -29,8 +29,9 @@ Until `1.0.0`, minor releases may include breaking changes
   failure in one does not stop the other. Authorized by
   [ADR-0046](docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
   (proposed); rung 1 of ADR-0014 with a headless Copilot CLI 1.0.93 SDK-host
-  smoke. The shipped panel's in-app render is pending, so the app is unverified
-  for it. The plugin has no tag and ships on merge to `main`.
+  smoke and maintainer sessions in Copilot app 1.1.27, which found two defects
+  fixed before release (a `null` open input, and the agent relabelling a run
+  the panel started). The plugin has no tag and ships on merge to `main`.
 
 - **The agent plugin ships an advisory `adr-review` dynamic workflow for
   GitHub Copilot CLI (`adrkit` 0.4.0).** It collects the changed files, runs

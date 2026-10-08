@@ -346,8 +346,9 @@ extension, authorized by
 [ADR-0046](./docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
 (**proposed**). The canvas is **rung 1**: unit and contract tests plus a
 headless Copilot CLI 1.0.93 SDK-host smoke (open, state, refresh, and one
-`run_review` at about 0.16 AI credits). A probe canvas rendered in one
-maintainer app session, but the shipped panel's in-app render is pending. Earlier
+`run_review` at about 0.16 AI credits), plus maintainer sessions in Copilot app
+1.1.27 where the panel rendered in the app's theme and a review started from it
+came back as `findings`. Earlier
 Copilot CLI versions and a native opencode load are unverified.
 No persistent reference-repository run, no external validation. Scope and
 limitations:
@@ -483,6 +484,13 @@ will usually be a regression:
   therefore `run_review`, reviews the right repository in the app. If a later
   runtime breaks that equality, the workflow must take the session directory
   too.
+- **An app session is a fresh worktree off the default branch.** A new app
+  session showed `0 changed file(s)` because nothing had changed in it yet.
+  That is correct, not a bug: the panel shows the session's own changes.
+- **`show_review` never replaces a run the panel started.** In the app, a
+  finished panel run is surfaced to the agent, which then handed the same
+  result back and relabelled it "supplied by the agent". Measured, then fixed;
+  do not loosen the guard.
 - **Canvases render only in the Copilot app.** A CLI terminal session has no
   canvas renderer, so the agent gets no canvas tools there. Do not describe the
   canvas as available in the CLI.
