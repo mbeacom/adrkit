@@ -367,7 +367,9 @@ the CLI. Five defects were found and fixed along the way.
 
 It has had **no** persistent reference-repository run (rung 2) — the consumer
 repository was ephemeral, there is no CI attached to it, and the public
-marketplace source is unverified until this branch merges — and **no** external
+marketplace source was unverified for these runs (Copilot CLI's GitHub install
+has since been exercised for the v0.4.0 `adr-review` workflow; see below) — and
+**no** external
 validation (rung 3). The full scope, including what these runs do *not*
 establish, is in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
