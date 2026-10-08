@@ -28,7 +28,7 @@ Until `1.0.0`, minor releases may include breaking changes
   workflow and canvas now register in one `joinSession`, each guarded so a
   failure in one does not stop the other. Authorized by
   [ADR-0046](docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
-  (proposed); rung 1 of ADR-0014 with a headless Copilot CLI 1.0.93 SDK-host
+  (accepted); rung 1 of ADR-0014 with a headless Copilot CLI 1.0.93 SDK-host
   smoke and maintainer sessions in Copilot app 1.1.27, which found two defects
   fixed before release (a `null` open input, and the agent relabelling a run
   the panel started). The plugin has no tag and ships on merge to `main`.

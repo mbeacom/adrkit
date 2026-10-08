@@ -315,7 +315,7 @@ governing decisions) used two subagent calls and about 0.16 AI credits.
 architecture decisions governing the current change. It ships in the same
 `extensions/adrkit/` extension as the workflow, and is authorized by
 [ADR-0046](../../../docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
-(**proposed**).
+(**accepted**).
 
 **What it shows.** The status, the working directory, and the changed files;
 the governing decisions; active proposals; history (listed, not judged); the

@@ -90,7 +90,7 @@ dependencies, independent versioning, and `main` as the release channel.
 > and [ADR-0046](./0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md).**
 > The inventory now also includes one read-only, advisory GitHub Copilot CLI
 > dynamic workflow (`adr-review`, in `extensions/adrkit/`), and ADR-0046
-> (proposed) adds one read-only GitHub Copilot app canvas (`decision-review`) to
+> adds one read-only GitHub Copilot app canvas (`decision-review`) to
 > the same extension. They amend only the inventory; the backfill contracts below
 > are unchanged.
 

@@ -457,7 +457,7 @@ I did not re-run the exit-code, invalid-args, or `--result-file` probes on
 
 Measured on 2026-10-08 at **rung 1** of ADR-0014. The canvas is specified by
 [ADR-0046](adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
-(**proposed**). It lives beside the `adr-review` workflow in
+(**accepted**). It lives beside the `adr-review` workflow in
 `extensions/adrkit/` and is registered by the same `joinSession` call. Canvases
 are `@experimental` in the Copilot SDK 1.0.93 typings, so every row below is a
 measurement of one version, not a contract.

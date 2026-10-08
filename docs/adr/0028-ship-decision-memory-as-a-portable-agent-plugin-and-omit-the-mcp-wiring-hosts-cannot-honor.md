@@ -72,7 +72,7 @@ also its own marketplace.
 > The component inventory above is no longer the whole plugin. ADR-0034 adds a
 > second skill (`decision-backfill`) and a fifth command (`/adr-backfill`).
 > ADR-0045 adds one read-only, advisory GitHub Copilot CLI dynamic workflow
-> (`adr-review`, in `extensions/adrkit/`). ADR-0046 (proposed) adds one read-only
+> (`adr-review`, in `extensions/adrkit/`). ADR-0046 adds one read-only
 > GitHub Copilot app canvas (`decision-review`) to that same extension. Each
 > amends only the inventory; every other constraint here remains binding.
 

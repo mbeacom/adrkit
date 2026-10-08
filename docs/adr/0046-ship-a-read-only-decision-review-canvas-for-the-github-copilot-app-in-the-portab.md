@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0046"
 title: "Ship a read-only decision-review canvas for the GitHub Copilot app in the portable agent plugin"
-status: proposed
+status: accepted
 date: 2026-10-08
 deciders:
   - "@mbeacom"
@@ -28,11 +28,14 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-08T20:31:51Z
 ---
 
 # ADR-0046: Ship a read-only decision-review canvas for the GitHub Copilot app in the portable agent plugin
 
-> **Status: proposed.** Agent-drafted; not yet ratified. This record amends the
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-08. This record amends the
 > component inventory of ADR-0028, ADR-0034, and ADR-0045; it supersedes none of
 > them. Their portability, read-only, advisory, and independent-versioning
 > constraints remain binding.
@@ -442,7 +445,7 @@ named, GitHub-source (copied) plugin installs, and any external validation.
    canvas, confirm the working directory, CLI resolution, and that the theme
    tokens apply, and record the result, with the exact app version, as a rung-1
    measurement.
-8. [ ] Add reciprocal notes to ADR-0028, ADR-0034, and ADR-0045 (drafted with this
+8. [x] Add reciprocal notes to ADR-0028, ADR-0034, and ADR-0045 (drafted with this
    record), and ratify this record before the plugin publishes the canvas.
 9. [ ] Tighten `frame-ancestors` once the app render is measured, and correct
    the wording above to what the app does.

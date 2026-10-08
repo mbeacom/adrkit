@@ -344,7 +344,7 @@ published GitHub install on 1.0.93, plus a deletion-only run. Since 0.5.0 it
 also ships one read-only Copilot app canvas, `decision-review`, in the same
 extension, authorized by
 [ADR-0046](./docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
-(**proposed**). The canvas is **rung 1**: unit and contract tests plus a
+(**accepted**). The canvas is **rung 1**: unit and contract tests plus a
 headless Copilot CLI 1.0.93 SDK-host smoke (open, state, refresh, and one
 `run_review` at about 0.16 AI credits), plus maintainer sessions in Copilot app
 1.1.27 where the panel rendered in the app's theme and a review started from it
