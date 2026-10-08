@@ -380,7 +380,7 @@ extensions but predates dynamic workflows may fail to load the extension.
 | 9 | `claude plugin validate` on a plugin containing `extensions/` | Passes |
 | 10 | `adr check --json` exit 0 and exit 1 | Complete CheckOutcome on both; exit 2 is a usage error |
 | 11 | `--output-format json` and `--result-file` output shape (2026-10-08) | stdout is JSONL with warnings on stderr; the final `workflow.result` event has `.data.run` = `{runId, attempt, status, result}`; with `--result-file`, `.data.run` has no `result`, `.data.resultFile` holds the path, and the file holds the bare result object |
-| 12 | Agent Package Manager 0.33.0, `apm install --target claude`, `--target copilot`, and `--target opencode` on the plugin (2026-10-08) | No warning on any target; `extensions/` lands only in `apm_modules` and is deployed to no target |
+| 12 | Agent Package Manager 0.33.0, `apm install --target claude`, `--target copilot`, and `--target opencode` on the plugin (2026-10-08) | One warning on every target, `Unrecognized plugin manifest $schema` (APM classifies the plugin by structure); it comes from the manifest's `$schema` field, present before this release, not from `extensions/`. `extensions/` lands only in `apm_modules` and is deployed to no target |
 
 ### End-to-end run
 

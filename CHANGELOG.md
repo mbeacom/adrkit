@@ -18,7 +18,8 @@ Until `1.0.0`, minor releases may include breaking changes
   read-only and has no exit-code authority: `copilot workflow run` exits `0`
   whatever the run does. The one gating rule is that the run's status is
   `completed` and `result.status` is `"ok"`; `status` is `ok`, `findings`,
-  `incomplete` (a governing decision has no usable verdict), or `usage-error`
+  `incomplete` (a governing decision has no usable verdict, or `origin/main`
+  did not resolve and only uncommitted edits were reviewed), or `usage-error`
   (including an explicit `base` that does not resolve, and an unresolved
   `origin/main` over a clean working tree). The other result fields are detail,
   not the gate. The CLI is chosen by the environment alone (`ADRKIT_CLI`, then
@@ -27,8 +28,9 @@ Until `1.0.0`, minor releases may include breaking changes
   `ADRKIT_CLI` pointing at `@adrkit/cli`'s `dist/index.js`, because the
   repo-local `adr.cmd` cannot run without a shell. Measured on Copilot CLI
   1.0.92 only. `claude plugin validate` passes with the new `extensions/`
-  directory, APM 0.33.0 installs it into `apm_modules` without warning and
-  deploys it to no target, and a native opencode load is unmeasured. Authorized by
+  directory, APM 0.33.0 installs it into `apm_modules` and
+  deploys it to no target (its one `Unrecognized plugin manifest $schema`
+  warning comes from the manifest's existing `$schema` field), and a native opencode load is unmeasured. Authorized by
   [ADR-0045](docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
   (proposed); rung 1 of ADR-0014 with a live Copilot CLI 1.0.92 smoke. The
   plugin has no tag and ships on merge to `main`.

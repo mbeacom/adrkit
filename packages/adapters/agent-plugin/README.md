@@ -167,8 +167,10 @@ CLI dynamic workflow (`extensions/adrkit/`), authorized by
 [ADR-0045](../../../docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md).
 Outside Copilot CLI: `claude plugin validate` passes with the directory present,
 and Agent Package Manager 0.33.0 (`apm install --target claude|copilot|opencode`)
-gives no warning and leaves `extensions/` in `apm_modules` without deploying it
-to any target (measured 2026-10-08). A native opencode load is unmeasured.
+leaves `extensions/` in `apm_modules` without deploying it to any target
+(measured 2026-10-08). APM prints one warning, `Unrecognized plugin manifest
+$schema`, and classifies the plugin by structure; it comes from the manifest's
+`$schema` field, which predates this release, and not from `extensions/`. A native opencode load is unmeasured.
 
 The workflow was measured on Copilot CLI 1.0.92; earlier versions are
 unmeasured, and a CLI that loads plugin extensions but predates dynamic
@@ -177,10 +179,13 @@ workflows may fail to load the extension.
 It runs three phases:
 
 1. **Collect.** The changed files come from the `files` argument, else from
-   `git diff -z` against `<base>...HEAD`. An explicit `base` that does not
+   `git diff -z` against `<base>...HEAD`, deletions included: removing a
+   governed file can break its decision, and `adr check` still matches an
+   absent path. An explicit `base` that does not
    resolve is a `usage-error` naming the ref, with no fallback. When the default
    `origin/main` does not resolve, it falls back to uncommitted changes against
-   `HEAD` and says so in `notes`; if the working tree has no changes either, the
+   `HEAD` and says so in `notes`. Those edits may not be the change, so such a
+   run is `incomplete` at best. If the working tree has no changes either, the
    result is a `usage-error` telling you to pass `files` or `base`, or to fetch
    history (for example `actions/checkout` with `fetch-depth: 0`).
 2. **Check.** `adr check --json` and `adr lint`. No model spend.
@@ -263,7 +268,8 @@ object.
 - `ok`: nothing below fired.
 - `findings`: an `adr` exit `1`, or a `conflicts` verdict.
 - `incomplete`: a governing decision has no usable verdict (`unverified` is
-  non-empty) and nothing above fired.
+  non-empty), or `origin/main` did not resolve and only uncommitted edits were
+  reviewed, and nothing above fired.
 - `usage-error`: the review could not run as asked: invalid arguments, an
   unresolvable `base`, no files to review because `origin/main` did not resolve,
   a missing CLI, or an `adr` exit outside `{0, 1}`. It takes precedence over

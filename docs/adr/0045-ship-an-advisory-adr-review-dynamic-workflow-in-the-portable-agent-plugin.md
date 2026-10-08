@@ -75,9 +75,11 @@ host registration, `review.mjs` for pure logic).
 
 1. **Collect.** Changed files come from the `files` argument, else from
    `git diff -z --name-only <base>...HEAD` (NUL-separated, so unusual paths
-   survive). An explicit `base` that does not resolve yields `usage-error`
+   survive), deletions included: removing a governed file can break its
+   decision, and `adr check` still matches an absent path. An explicit `base` that does not resolve yields `usage-error`
    naming the ref, with no fallback. Only the default `origin/main` falls back,
-   to the working tree against `HEAD` with a note, and that fallback finding no
+   to the working tree against `HEAD` with a note, and the run is then
+   `incomplete` at best, because those edits may not be the change. That fallback finding no
    changes yields `usage-error` rather than an empty, clean-looking review.
 2. **Check.** Run `adr check --json <files>` and `adr lint`. Both exit codes
    are captured as data. Exit `1` is data. A spawn failure, or any exit outside
@@ -103,7 +105,8 @@ The result has exactly these keys, always present: `status`, `checkExitCode`,
   outside `{0, 1}`);
 - `findings`: an `adr` exit `1`, or a `conflicts` verdict;
 - `incomplete`: `unverified` is non-empty, so some governing decision has no
-  usable verdict;
+  usable verdict, or the default base did not resolve and only uncommitted
+  edits were reviewed;
 - `ok`: none of the above.
 
 Precedence is in that order: usage-error > findings > incomplete > ok. The one
@@ -194,8 +197,10 @@ Nothing was written to this repository by the probes.
 
 A seventh observation is not a design input: `claude plugin validate` passes on
 a plugin containing `extensions/`. Agent Package Manager 0.33.0
-(`apm install --target claude|copilot|opencode`) gives no warning and leaves
-`extensions/` in `apm_modules` without deploying it to any target. A native
+(`apm install --target claude|copilot|opencode`) leaves `extensions/` in
+`apm_modules` without deploying it to any target. Its one warning,
+`Unrecognized plugin manifest $schema`, comes from the manifest's existing
+`$schema` field, not from `extensions/`. A native
 opencode load is unmeasured.
 
 ## Options considered
@@ -286,8 +291,8 @@ the content-based recipe prominently, and it is a recurring cost.
   `workflow run` is observed gating a merge by itself; the extension writes to
   the worktree, invokes `adr accept`, `adr new`, or `adr migrate`, runs a
   repo-local CLI without `ADRKIT_ALLOW_REPO_CLI=1`, or accepts a `cli`
-  argument; a run with a missing judgment or an unresolvable base reports
-  `ok`; agent-name resolution changes so `adrkit:decision-checker` no longer
+  argument; a run with a missing judgment, an unresolvable explicit base, or
+  a fallback to uncommitted edits reports `ok`; agent-name resolution changes so `adrkit:decision-checker` no longer
   resolves and judgments arrive `unverified` unnoticed; adrkit moves to an
   Agent Plugins 1.0 manifest and `extensions/` stops loading; or a user on a
   Copilot CLI earlier than 1.0.92 (the only version measured) reports that the

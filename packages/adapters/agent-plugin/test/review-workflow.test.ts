@@ -193,7 +193,7 @@ describe('collectChangedFiles', () => {
       return { stdout: 'a.ts\0b/c.ts\0', stderr: '', exitCode: 0 };
     };
     const result = await collectChangedFiles({}, run);
-    expect(calls).toEqual([['diff', '--name-only', '-z', '--diff-filter=d', 'origin/main...HEAD']]);
+    expect(calls).toEqual([['diff', '--name-only', '-z', 'origin/main...HEAD']]);
     expect(result).toEqual({ files: ['a.ts', 'b/c.ts'], source: 'git:origin/main...HEAD', notes: [] });
   });
 
@@ -207,8 +207,8 @@ describe('collectChangedFiles', () => {
       return { stdout: 'x.ts\0', stderr: '', exitCode: 0 };
     };
     const result = await collectChangedFiles({}, run);
-    // Deletions are excluded on the fallback too: a deleted path has nothing to judge.
-    expect(calls[1]).toEqual(['diff', '--name-only', '-z', '--diff-filter=d', 'HEAD']);
+    // Deletions are included on the fallback too: removing a governed file can break its decision.
+    expect(calls[1]).toEqual(['diff', '--name-only', '-z', 'HEAD']);
     expect(result.files).toEqual(['x.ts']);
     expect(result.source).toBe('git:HEAD');
     expect(result.notes.join('\n')).toMatch(/origin\/main.*fell back/);
@@ -275,6 +275,14 @@ describe('buildJudgePrompt and the verdict contract', () => {
     expect(prompt).toMatch(/read-only/i);
   });
 
+  test('treats a path as one quoted argument and a deletion as evidence', () => {
+    // Paths come from the repository, so a hostile name must not become shell syntax.
+    const prompt = buildJudgePrompt(decision, ['db/$(touch pwned).sql'], { base: 'origin/main' });
+    expect(prompt).toContain(JSON.stringify(['db/$(touch pwned).sql']));
+    expect(prompt).toMatch(/single quoted argument/);
+    expect(prompt).toMatch(/deleted/i);
+  });
+
   test('never names a writing command, even to forbid it', () => {
     // A host model reads an example as an instruction (the same reason the
     // wiring test forbids any mention in a component).
@@ -325,6 +333,12 @@ describe('assembleResult status', () => {
       })),
     });
     expect(result.status).toBe(status);
+  });
+
+  test('a partial file set is incomplete unless something worse fired', () => {
+    expect(assembleResult({ checkExitCode: 0, lintExitCode: 0, partial: true }).status).toBe('incomplete');
+    expect(assembleResult({ checkExitCode: 1, lintExitCode: 0, partial: true }).status).toBe('findings');
+    expect(assembleResult({ checkExitCode: 2, lintExitCode: 0, partial: true }).status).toBe('usage-error');
   });
 
   test('always carries the full key set, even with no inputs', () => {
@@ -613,7 +627,7 @@ describe('reviewWorkflow', () => {
     expect(agentCalls).toEqual([]);
   });
 
-  test('an unresolved origin/main with working-tree changes reviews them and keeps the note', async () => {
+  test('an unresolved origin/main with working-tree changes reviews them but is never ok', async () => {
     const { ctx, agentCalls } = fakeContext({}, { 'judge:0001': { verdict: 'consistent', evidence: 'fine' } });
     const { run, calls } = fakeRunner({
       git: (args) =>
@@ -623,12 +637,14 @@ describe('reviewWorkflow', () => {
       check: { stdout: checkOutcome([governing('0001')]), stderr: '', exitCode: 0 },
     });
     const result = await reviewWorkflow(ctx, deps(run));
-    expect(calls[1]?.args).toEqual(['diff', '--name-only', '-z', '--diff-filter=d', 'HEAD']);
+    expect(calls[1]?.args).toEqual(['diff', '--name-only', '-z', 'HEAD']);
     expect(result.files).toEqual(['src/x.ts']);
     expect(result.filesSource).toBe('git:HEAD');
     expect(result.notes.join('\n')).toMatch(/origin\/main.*fell back/);
     expect(agentCalls[0]?.prompt).toContain('git diff HEAD -- <path>');
-    expect(result.status).toBe('ok');
+    // Incidental working-tree edits are not the change under review, so a
+    // clean judgment of them must not read as a clean review.
+    expect(result.status).toBe('incomplete');
   });
 
   test('check exit 1 is data: the report is still read and judged', async () => {
@@ -760,7 +776,7 @@ describe('reviewWorkflow', () => {
     const { run, calls } = fakeRunner({ git: { stdout: 'src/x.ts\0', stderr: '', exitCode: 0 } });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(calls.map((call) => [call.command, ...call.args])).toEqual([
-      ['git', 'diff', '--name-only', '-z', '--diff-filter=d', 'main...HEAD'],
+      ['git', 'diff', '--name-only', '-z', 'main...HEAD'],
       ['adr', 'check', '--json', '--dir', 'decisions', '--', 'src/x.ts'],
       ['adr', 'lint', '--dir', 'decisions'],
     ]);

@@ -43,9 +43,10 @@ export const ADR_REVIEW_META = {
     'workflow has no exit-code authority (the host exits 0 regardless). Gate on ' +
     'one rule: the run\'s status is completed and result.status is "ok". ' +
     'result.status is ok, findings, incomplete (a governing decision has no ' +
-    'usable verdict), or usage-error; checkExitCode, lintExitCode, verdicts, and ' +
+    'usable verdict, or origin/main did not resolve and only uncommitted edits ' +
+    'were reviewed), or usage-error; checkExitCode, lintExitCode, verdicts, and ' +
     'unverified are detail, not the gate. Read-only. args: { files?: string[] (repo-relative; default ' +
-    'git diff <base>...HEAD), base?: string (default origin/main), dir?: string ' +
+    'git diff <base>...HEAD, deletions included), base?: string (default origin/main), dir?: string ' +
     '(ADR corpus; default $ADRKIT_DIR or docs/adr) }. The CLI is chosen by the ' +
     'environment only: $ADRKIT_CLI, then ./node_modules/.bin/adr when ' +
     'ADRKIT_ALLOW_REPO_CLI=1, then adr on PATH.',
@@ -225,13 +226,15 @@ function nulSeparated(stdout) {
 
 /**
  * The changed files: the `files` argument when given, else the committed
- * difference from `base` (default `origin/main`). Deletions are excluded,
- * because a deleted path has nothing left to judge.
+ * difference from `base` (default `origin/main`). Deletions are included:
+ * removing a governed file can break its decision, `adr check` still matches
+ * an absent path, and the Judge reads the deletion from the diff.
  *
  * An explicit `base` that does not resolve throws naming it: falling back would
  * review something other than what the caller asked for. Only the default
  * `origin/main` falls back — a shallow clone, a repository with no `origin` —
- * to the working tree against `HEAD`, and says so in `notes`. If that fallback
+ * to the working tree against `HEAD`, and says so in `notes`; the run is then
+ * `incomplete` at best, because those edits may not be the change. If that fallback
  * is empty too, it throws rather than return no files, because an empty review
  * reports `ok` and the likeliest cause is a CI checkout with no history.
  *
@@ -244,7 +247,7 @@ export async function collectChangedFiles({ files, base }, run) {
 
   const ref = base ?? 'origin/main';
   const range = `${ref}...HEAD`;
-  const primary = await run('git', ['diff', '--name-only', '-z', '--diff-filter=d', range]);
+  const primary = await run('git', ['diff', '--name-only', '-z', range]);
   if (primary.exitCode === 0) return { files: nulSeparated(primary.stdout), source: `git:${range}`, notes: [] };
   const why = primary.stderr.trim() || `exit ${primary.exitCode}`;
 
@@ -252,7 +255,7 @@ export async function collectChangedFiles({ files, base }, run) {
     throw new Error(`base '${base}' did not resolve (git diff ${range}: ${why}); no fallback was attempted.`);
   }
 
-  const fallback = await run('git', ['diff', '--name-only', '-z', '--diff-filter=d', 'HEAD']);
+  const fallback = await run('git', ['diff', '--name-only', '-z', 'HEAD']);
   if (fallback.exitCode !== 0) {
     throw new Error(
       `git diff failed for ${range} and for HEAD: ${fallback.stderr.trim() || primary.stderr.trim()}`,
@@ -298,7 +301,9 @@ export function buildJudgePrompt(decision, files, { base } = {}) {
     'evidence and stop.',
     '',
     `1. Read record ${decision.recordId} in full (\`adr explain\` on one of the paths shows where it lives).`,
-    `2. Read each changed path's diff with ${diff}.`,
+    `2. Read each changed path's diff with ${diff}, passing each path as a single quoted argument`,
+    '   after `--` so its text never becomes shell syntax. A deleted path is evidence too: removing',
+    '   something the decision requires can conflict with it.',
     '3. Decide one verdict for this decision only:',
     '   - consistent: the change follows the decision.',
     '   - conflicts: the change contradicts something the decision requires or rules out.',
@@ -339,14 +344,17 @@ export const historyDecisions = (/** @type {unknown} */ outcome) => decisionsIn(
  *
  * `status` alone is sufficient to gate on. Precedence is usage-error >
  * findings > incomplete > ok: `incomplete` means a governing decision has no
- * usable verdict (`unverified` is non-empty) and nothing else fired, so a Judge
- * phase that failed outright can never read as a clean `ok`.
+ * usable verdict (`unverified` is non-empty) or the file set is `partial` (the
+ * default base did not resolve, so the files are uncommitted edits rather than
+ * the change), and nothing else fired. A Judge phase that failed outright, or a
+ * review of the wrong files, can never read as a clean `ok`.
  *
  * @param {{
  *   checkExitCode?: number | null, lintExitCode?: number | null,
  *   files?: string[], filesSource?: string | null, notes?: string[],
  *   governing?: Decision[], history?: Decision[], verdicts?: Verdict[],
  *   unverified?: string[], findings?: unknown[], usageError?: boolean,
+ *   partial?: boolean,
  * }} input
  */
 export function assembleResult({
@@ -361,6 +369,7 @@ export function assembleResult({
   unverified = [],
   findings = [],
   usageError = false,
+  partial = false,
 }) {
   const exits = [checkExitCode, lintExitCode];
   // `adr` documents 0, 1, and 2. Anything else — a crash, a signal, a wrapper's
@@ -371,7 +380,7 @@ export function assembleResult({
       ? 'usage-error'
       : exits.includes(1) || verdicts.some((entry) => entry.verdict === 'conflicts')
         ? 'findings'
-        : unverified.length > 0
+        : unverified.length > 0 || partial
           ? 'incomplete'
           : 'ok';
   return {
@@ -431,12 +440,13 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
   }
   notes.push(...collected.notes);
   const { files } = collected;
-  const base = { files, filesSource: collected.source };
+  const partial = collected.source === 'git:HEAD';
+  const base = { files, filesSource: collected.source, partial };
   // The ref the Judge diffs against: the one the files came from, else the one
   // the caller named. A fallback to HEAD means the base did not resolve.
   // Explicit files default to origin/main too: a diff against HEAD is empty
   // for committed work, which would leave the Judge nothing to read.
-  const diffBase = collected.source === 'git:HEAD' ? undefined : args.base ?? 'origin/main';
+  const diffBase = partial ? undefined : args.base ?? 'origin/main';
 
   if (files.length === 0) {
     // Before resolving the CLI on purpose: an empty review spends nothing and

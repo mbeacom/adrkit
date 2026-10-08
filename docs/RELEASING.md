@@ -285,7 +285,7 @@ Three consequences follow, and all three bite at the wrong moment:
    claude plugin validate packages/adapters/agent-plugin
    claude plugin validate .claude-plugin/marketplace.json
    cd "$(mktemp -d)" && git init -q . && printf 'name: probe\nversion: 0.0.1\ndependencies:\n  apm:\n    - path: %s\n' "<repo>/packages/adapters/agent-plugin" > apm.yml
-   for t in claude copilot opencode; do apm install --target "$t"; done   # expect no warnings
+   for t in claude copilot opencode; do apm install --target "$t"; done   # expect only APM 0.33's "Unrecognized plugin manifest $schema" warning
    bun test packages/adapters/agent-plugin/test
    ```
 

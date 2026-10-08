@@ -327,7 +327,8 @@ through the `adr` CLI. Since 0.4.0 it also ships one GitHub Copilot CLI dynamic
 workflow, `adr-review` (`extensions/adrkit/`), authorized by
 [ADR-0045](./docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
 (**proposed**). `claude plugin validate` passes with it present; APM 0.33.0
-installs it into `apm_modules` without warning and deploys it to no target; a
+installs it into `apm_modules` and deploys it to no target (its one warning,
+`Unrecognized plugin manifest $schema`, predates the workflow); a
 native opencode load is unmeasured. Independently versioned per ADR-0007, not
 published to npm, and catalogued from the repository root's
 `.claude-plugin/marketplace.json`. Authorized by
