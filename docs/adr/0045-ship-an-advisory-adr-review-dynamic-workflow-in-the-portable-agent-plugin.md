@@ -39,6 +39,13 @@ review:
 > Their portability, read-only, and independent-versioning constraints remain
 > binding.
 
+> **Amended by [ADR-0046](./0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md).**
+> The extension at `extensions/adrkit/` also registers one read-only GitHub
+> Copilot app canvas (`decision-review`) in the same `joinSession` call, with each
+> registration guarded so a failing one cannot take the other down. It amends only
+> the component inventory; this record's advisory, read-only, CLI-trust, and
+> exit-status contracts are unchanged.
+
 ## Context
 
 GitHub Copilot CLI can load a *dynamic workflow*: a plain ESM module that
