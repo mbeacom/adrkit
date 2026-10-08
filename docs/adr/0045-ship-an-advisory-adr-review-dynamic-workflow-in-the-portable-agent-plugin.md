@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0045"
 title: "Ship an advisory adr-review dynamic workflow in the portable agent plugin"
-status: proposed
+status: accepted
 date: 2026-10-08
 deciders:
   - "@mbeacom"
@@ -27,6 +27,9 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-08T16:10:07Z
 ---
 
 # ADR-0045: Ship an advisory adr-review dynamic workflow in the portable agent plugin
