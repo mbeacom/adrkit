@@ -74,6 +74,7 @@ describe('packaging', () => {
       'opencode/opencode.json',
       'extensions/adrkit/extension.mjs',
       'extensions/adrkit/review.mjs',
+      'extensions/adrkit/register.mjs',
       'extensions/adrkit/canvas.mjs',
       'extensions/adrkit/canvas-page.mjs',
       'README.md',

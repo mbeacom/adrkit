@@ -14,6 +14,7 @@ import {
   tokenMatches,
 } from '../extensions/adrkit/canvas.mjs';
 import { PAGE_CSS, PAGE_HTML, PAGE_JS, renderPage } from '../extensions/adrkit/canvas-page.mjs';
+import { register } from '../extensions/adrkit/register.mjs';
 import { packageRoot } from './harness.ts';
 
 /**
@@ -487,6 +488,7 @@ describe('open and close', () => {
     const script = [
       `await import(${JSON.stringify(join(dir, 'canvas.mjs'))});`,
       `await import(${JSON.stringify(join(dir, 'canvas-page.mjs'))});`,
+      `await import(${JSON.stringify(join(dir, 'register.mjs'))});`,
       `process.stdout.write(JSON.stringify(process.getActiveResourcesInfo()));`,
     ].join('\n');
     const out = execFileSync('node', ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 10_000 });
@@ -803,6 +805,74 @@ describe('actions', () => {
     expect(again).toEqual({ runId: 'run-1', status: 'running' });
     expect(fake.started.length).toBe(1);
     release();
+  });
+});
+
+describe('register', () => {
+  function fakes({ workflowThrows = false, canvasThrows = false } = {}) {
+    const joined: Array<Record<string, unknown>> = [];
+    const logged: Array<[string, unknown]> = [];
+    const session = { log: async (message: string, options?: unknown) => void logged.push([message, options]) };
+    return {
+      joined,
+      logged,
+      deps: {
+        defineWorkflow: (definition: unknown) => {
+          if (workflowThrows) throw new Error('bad workflow');
+          return { kind: 'workflow', definition };
+        },
+        createCanvas: (options: unknown) => {
+          if (canvasThrows) throw new Error('bad canvas');
+          return { kind: 'canvas', options };
+        },
+        joinSession: async (config: Record<string, unknown>) => {
+          joined.push(config);
+          return session;
+        },
+        workflow: () => ({ meta: { name: 'adr-review' } }),
+        canvas: () => ({ id: 'decision-review' }),
+      },
+    };
+  }
+
+  test('joins once with both the workflow and the canvas', async () => {
+    const { deps, joined, logged } = fakes();
+    await register(deps);
+    expect(joined.length).toBe(1);
+    expect((joined[0]?.['workflows'] as unknown[]).length).toBe(1);
+    expect((joined[0]?.['canvases'] as unknown[]).length).toBe(1);
+    expect(logged).toEqual([]);
+  });
+
+  test('a throwing canvas does not stop the workflow from registering, and is reported', async () => {
+    const { deps, joined, logged } = fakes({ canvasThrows: true });
+    await register(deps);
+    expect((joined[0]?.['workflows'] as unknown[]).length).toBe(1);
+    expect(joined[0]?.['canvases']).toBeUndefined();
+    expect(logged.length).toBe(1);
+    expect(logged[0]?.[0]).toContain('bad canvas');
+    expect(logged[0]?.[1]).toEqual({ level: 'error' });
+  });
+
+  test('a throwing workflow does not stop the canvas from registering, and is reported', async () => {
+    const { deps, joined, logged } = fakes({ workflowThrows: true });
+    await register(deps);
+    expect((joined[0]?.['canvases'] as unknown[]).length).toBe(1);
+    expect(joined[0]?.['workflows']).toBeUndefined();
+    expect(logged[0]?.[0]).toContain('bad workflow');
+  });
+
+  test('the canvas factory gets the joined session through a getter', async () => {
+    const { deps } = fakes();
+    let getter: (() => unknown) | undefined;
+    const session = await register({
+      ...deps,
+      canvas: (getSession: () => unknown) => {
+        getter = getSession;
+        return { id: 'decision-review' };
+      },
+    });
+    expect(getter?.()).toBe(session);
   });
 });
 
