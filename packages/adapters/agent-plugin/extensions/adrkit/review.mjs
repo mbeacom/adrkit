@@ -337,6 +337,11 @@ function decisionsIn(outcome, bucket) {
 export const governingDecisions = (/** @type {unknown} */ outcome) => decisionsIn(outcome, 'governing');
 /** `governedBy` entries in the `history` bucket: listed, never judged. */
 export const historyDecisions = (/** @type {unknown} */ outcome) => decisionsIn(outcome, 'history');
+/**
+ * `governedBy` entries in the `activeProposals` bucket (`draft`/`proposed`).
+ * The workflow neither judges nor lists them; the canvas lists them.
+ */
+export const activeProposalDecisions = (/** @type {unknown} */ outcome) => decisionsIn(outcome, 'activeProposals');
 
 /**
  * The result payload. Every key is always present, so a caller can read
