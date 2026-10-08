@@ -477,8 +477,13 @@ function knownRecordIds(snapshot) {
   return ids;
 }
 
+/**
+ * Optional input is declared as object-or-null: the app's agent was measured
+ * sending `input: null` to open_canvas, which the runtime rejected against a
+ * plain `object` schema before `open` ran. Null means "no input" everywhere.
+ */
 const ARGS_SCHEMA = {
-  type: 'object',
+  type: ['object', 'null'],
   properties: {
     files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative paths; default: git diff <base>...HEAD.' },
     base: { type: 'string', description: 'Base ref; default origin/main.' },
@@ -946,8 +951,11 @@ export function createDecisionReviewCanvas({
     return instance;
   };
 
+  /** `null` input is no input: it never replaces the remembered args. @param {any} ctx */
+  const inputOf = (ctx) => (ctx?.input === null ? undefined : ctx?.input);
+
   /** @param {any} ctx @param {(cwd: string, input: unknown) => Promise<unknown>} body */
-  const withCwd = async (ctx, body) => body(await cwdFor(ctx), ctx?.input);
+  const withCwd = async (ctx, body) => body(await cwdFor(ctx), inputOf(ctx));
 
   return {
     id: CANVAS_ID,
@@ -975,8 +983,9 @@ export function createDecisionReviewCanvas({
       {
         name: 'show_review',
         description:
-          'Display an adr-review result you already have: pass the run result object as { result }. ' +
-          'Its shape is validated and unknown keys are dropped. Starts nothing.',
+          'Display an adr-review result the panel did not start itself: pass the run result object as ' +
+          '{ result }. Runs started from the panel or via run_review appear automatically; do not call this ' +
+          'for them. Its shape is validated and unknown keys are dropped. Starts nothing.',
         inputSchema: { type: 'object', required: ['result'], properties: { result: { type: 'object' } } },
         handler: (/** @type {any} */ ctx) =>
           withCwd(ctx, async (cwd, input) => {
@@ -989,6 +998,18 @@ export function createDecisionReviewCanvas({
             }
             const workspace = workspaceFor(cwd);
             if (!workspace.check) await refresh(cwd);
+            // Measured in the app: when a panel-started run finished, the agent
+            // was told about it and handed the same result back, which relabelled
+            // the panel's own run as agent-supplied. A run this panel started is
+            // kept, running or settled, while it describes the same records.
+            const own = workspace.review;
+            const check = /** @type {Snapshot} */ (workspace.check);
+            if (own?.runId && own.governingKey === governingKey(check.governing)) {
+              return {
+                ...snapshotOf(workspace),
+                ignored: `the panel already shows run ${own.runId}, which it started itself`,
+              };
+            }
             workspace.review = {
               runId: null,
               runStatus: 'completed',
@@ -1014,11 +1035,12 @@ export function createDecisionReviewCanvas({
     /** @param {any} ctx */
     open: async (ctx) => {
       const cwd = workingDirectoryOf(ctx);
+      const input = inputOf(ctx);
       let pending = instances.get(ctx.instanceId);
       const isNew = !pending;
       if (!pending) {
         const starting = (async () => {
-          await refresh(cwd, ctx.input);
+          await refresh(cwd, input);
           return startInstance(ctx.instanceId, cwd);
         })();
         pending = starting;
@@ -1031,8 +1053,8 @@ export function createDecisionReviewCanvas({
       const instance = await pending;
       const workspace = workspaceFor(instance.cwd);
       // A re-open keeps its URL; new input is applied, not silently dropped.
-      if (!isNew && ctx.input !== undefined && JSON.stringify(ctx.input) !== JSON.stringify(workspace.args)) {
-        await refresh(instance.cwd, ctx.input);
+      if (!isNew && input !== undefined && JSON.stringify(input) !== JSON.stringify(workspace.args)) {
+        await refresh(instance.cwd, input);
       }
       resume(instance.cwd);
       return { url: instance.url, title: CANVAS_TITLE, status: statusLine(snapshotOf(workspace)) };

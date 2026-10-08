@@ -1133,3 +1133,154 @@ describe('review round', () => {
     expect(CSP).not.toMatch(/script-src[^;]*unsafe-inline/);
   });
 });
+
+/** A minimal DOM, enough to run the shipped page script and read what it built. */
+class FakeNode {
+  children: FakeNode[] = [];
+  textContent = '';
+  className = '';
+  type = '';
+  title = '';
+  disabled = false;
+  attrs: Record<string, string> = {};
+  listeners: Record<string, Array<() => void>> = {};
+  constructor(readonly tag: string) {}
+  appendChild(child: FakeNode) {
+    this.children.push(child);
+    return child;
+  }
+  removeChild(child: FakeNode) {
+    this.children = this.children.filter((node) => node !== child);
+  }
+  get firstChild(): FakeNode | null {
+    return this.children[0] ?? null;
+  }
+  setAttribute(name: string, value: unknown) {
+    this.attrs[name] = String(value);
+  }
+  removeAttribute(name: string) {
+    delete this.attrs[name];
+  }
+  addEventListener(type: string, listener: () => void) {
+    (this.listeners[type] ??= []).push(listener);
+  }
+  allText(): string {
+    return [this.textContent, ...this.children.map((child) => child.allText())].join(' ');
+  }
+}
+
+async function renderPageWith(state: unknown) {
+  const { runInNewContext } = await import('node:vm');
+  const nodes = new Map(['status', 'cwd', 'refresh', 'run-review', 'message', 'app'].map((id) => [id, new FakeNode(id)]));
+  const context = {
+    window: { location: { search: '?token=t' } },
+    document: { getElementById: (id: string) => nodes.get(id) ?? null, createElement: (tag: string) => new FakeNode(tag) },
+    fetch: async () => ({ ok: true, status: 200, json: async () => state }),
+    URLSearchParams,
+  };
+  runInNewContext(PAGE_JS, context);
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  return nodes;
+}
+
+describe('app smoke round', () => {
+  const completed = {
+    status: 'ok',
+    checkExitCode: 0,
+    lintExitCode: 0,
+    files: ['src/a.ts'],
+    filesSource: 'args',
+    notes: [],
+    governing: [governed('0012', 'governing')],
+    history: [],
+    verdicts: [{ recordId: '0012', title: 'T', verdict: 'consistent', evidence: 'panel run' }],
+    unverified: [],
+    findings: [],
+  };
+  const agentCopy = { ...completed, verdicts: [{ ...completed.verdicts[0], evidence: 'agent copy' }] };
+
+  test('show_review leaves a run the panel is following alone', async () => {
+    const fake = fakeSession([{ runId: 'run-1', status: 'running' }]);
+    const { options } = makeCanvas({ getSession: () => fake.session, sleep: () => new Promise(() => {}) });
+    await openPanel(options);
+    await action(options, 'run_review')({});
+    const state = await action(options, 'show_review')({ result: agentCopy });
+    expect(state.ignored).toContain('run-1');
+    expect(state.review.runId).toBe('run-1');
+    expect(state.review.runStatus).toBe('running');
+  });
+
+  test('show_review leaves a completed panel-started run alone', async () => {
+    const fake = fakeSession([{ runId: 'run-1', status: 'completed', result: completed }]);
+    const { options } = makeCanvas({ getSession: () => fake.session });
+    await openPanel(options);
+    await action(options, 'run_review')({});
+    await settle(() => action(options, 'get_state')());
+    const state = await action(options, 'show_review')({ result: agentCopy });
+    expect(state.ignored).toContain('run-1');
+    expect(state.review.runId).toBe('run-1');
+    expect(state.review.result.verdicts[0].evidence).toBe('panel run');
+  });
+
+  test('show_review still displays a result when the panel started no run', async () => {
+    const { options } = makeCanvas();
+    await openPanel(options);
+    const state = await action(options, 'show_review')({ result: agentCopy });
+    expect(state.ignored).toBeUndefined();
+    expect(state.review.result.verdicts[0].evidence).toBe('agent copy');
+  });
+
+  test('the show_review description steers the agent away from panel-started runs', () => {
+    const { options } = makeCanvas();
+    const show = options.actions.find((entry: { name: string }) => entry.name === 'show_review');
+    expect(show?.description).toMatch(/did not start itself/);
+    expect(show?.description).toMatch(/do not call this for them/);
+  });
+
+  test('a null input is accepted by every optional-input schema', () => {
+    const { options } = makeCanvas();
+    const schemas = [
+      options.inputSchema,
+      ...options.actions
+        .filter((entry: { name: string }) => entry.name === 'refresh' || entry.name === 'run_review')
+        .map((entry: { inputSchema?: unknown }) => entry.inputSchema),
+    ];
+    expect(schemas.length).toBe(3);
+    for (const schema of schemas) expect((schema as { type: unknown }).type).toEqual(['object', 'null']);
+  });
+
+  test('null input means "no input": open works and refresh and run_review reuse remembered args', async () => {
+    const fake = fakeSession([{ runId: 'run-1', status: 'running' }]);
+    const { options, cli } = makeCanvas({ getSession: () => fake.session, sleep: () => new Promise(() => {}) });
+    const opened = await openPanel(options, 'panel-1', { input: null });
+    expect(opened.status).not.toContain('usage-error');
+    await action(options, 'refresh')({ files: ['src/k.ts'] });
+    cli.calls.length = 0;
+    const refreshed = await action(options, 'refresh')(null);
+    expect(refreshed.files).toEqual(['src/k.ts']);
+    await action(options, 'run_review')(null);
+    expect(fake.started).toEqual([{ name: 'adr-review', args: { files: ['src/k.ts'] } }]);
+  });
+
+  test('the run button is disabled with a stated reason when there are no changed files', async () => {
+    const base = { workingDirectory: CWD, status: 'ok', governing: [], history: [], activeProposals: [], findings: [], notes: [], review: null };
+    const empty = await renderPageWith({ ...base, files: [] });
+    const button = empty.get('run-review') as FakeNode;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe('No changed files to review');
+    expect(button.attrs['aria-description']).toBe('No changed files to review');
+
+    const some = await renderPageWith({ ...base, files: ['src/a.ts'] });
+    const enabled = some.get('run-review') as FakeNode;
+    expect(enabled.disabled).toBe(false);
+    expect(enabled.attrs['aria-description']).toBeUndefined();
+  });
+
+  test('the page labels an agent-supplied review and not a followed one', async () => {
+    const base = { workingDirectory: CWD, status: 'ok', files: ['src/a.ts'], governing: [], history: [], activeProposals: [], findings: [], notes: [] };
+    const supplied = await renderPageWith({ ...base, review: { runStatus: 'completed', result: completed } });
+    expect((supplied.get('app') as FakeNode).allText()).toContain('not a run this panel followed');
+    const followed = await renderPageWith({ ...base, review: { runId: 'run-1', runStatus: 'completed', result: completed } });
+    expect((followed.get('app') as FakeNode).allText()).not.toContain('not a run this panel followed');
+  });
+});

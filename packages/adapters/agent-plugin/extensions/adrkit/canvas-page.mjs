@@ -231,10 +231,20 @@ export const PAGE_JS = `(function () {
     statusNode.className = 'badge tone-' + (toneOf(STATUS_TONE, status) || 'neutral');
     $('cwd').textContent = text(snapshot.workingDirectory);
     $('refresh').disabled = busy;
-    $('run-review').disabled = busy || status === 'pending';
+    var files = list(snapshot.files);
+    // With no changed files a run would review nothing and still spend.
+    var noFiles = files.length === 0;
+    var runButton = $('run-review');
+    runButton.disabled = busy || status === 'pending' || noFiles;
+    if (noFiles) {
+      runButton.title = 'No changed files to review';
+      runButton.setAttribute('aria-description', 'No changed files to review');
+    } else {
+      runButton.title = '';
+      runButton.removeAttribute('aria-description');
+    }
 
     var parts = [];
-    var files = list(snapshot.files);
     var source = el('p', 'muted', files.length + ' changed file(s) from ' + (text(snapshot.filesSource) || 'nowhere') +
       (snapshot.updatedAt ? ' · updated ' + text(snapshot.updatedAt) : ''));
     parts.push(source);
