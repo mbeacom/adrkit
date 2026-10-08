@@ -66,13 +66,15 @@ providing one skill (`decision-memory`), one read-only subagent
 `.claude-plugin/marketplace.json` at the repository root, so this repository is
 also its own marketplace.
 
-> **Amended by [ADR-0034](./0034-extend-the-portable-agent-plugin-with-decision-backfill.md) and
-> [ADR-0045](./0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md).**
+> **Amended by [ADR-0034](./0034-extend-the-portable-agent-plugin-with-decision-backfill.md),
+> [ADR-0045](./0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md),
+> and [ADR-0046](./0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md).**
 > The component inventory above is no longer the whole plugin. ADR-0034 adds a
 > second skill (`decision-backfill`) and a fifth command (`/adr-backfill`).
 > ADR-0045 adds one read-only, advisory GitHub Copilot CLI dynamic workflow
-> (`adr-review`, in `extensions/adrkit/`). Both amend only the inventory; every
-> other constraint here remains binding.
+> (`adr-review`, in `extensions/adrkit/`). ADR-0046 (proposed) adds one read-only
+> GitHub Copilot app canvas (`decision-review`) to that same extension. Each
+> amends only the inventory; every other constraint here remains binding.
 
 It is independently versioned under
 [ADR-0007](./0007-adapter-isolation-and-public-surface-build.md) — its semver
