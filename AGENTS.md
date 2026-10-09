@@ -569,9 +569,35 @@ will usually be a regression:
   why `run_review` reviews the right repository in the app. If a later runtime
   breaks that equality at fork, the workflow must take the session directory
   too.
-- **An app session is a fresh worktree off the default branch.** A new app
-  session showed `0 changed file(s)` because nothing had changed in it yet.
-  That is correct, not a bug: the panel shows the session's own changes.
+- **The default change is a union, not the committed range.** Through 0.9.0
+  it was `git diff <base>...HEAD` alone whenever that resolved, so an app
+  session (a fresh worktree off the default branch) or any checkout on `main`
+  showed `0 changed file(s)` and status `ok` until its edits were committed:
+  measured on a copy of the dogfood repository, where `adr check` on the same
+  three edited paths found 3 governing records. Since 0.9.1 `collectChangedFiles`
+  unions the branch range, `git diff HEAD` (staged, unstaged, deletions), and
+  `git ls-files --others --exclude-standard --full-name -- :/` (untracked, not
+  ignored). Keep `--full-name -- :/`: plain `ls-files` is cwd-relative and
+  cwd-scoped while `git diff --name-only` is neither, so a subdirectory session
+  would mix two path conventions. The workflow, both review surfaces, the
+  `adr_check` tool, and the session-start hook all go through it.
+- **Read `source` through `review.mjs`'s helpers, never by string.** Labels are
+  `args`, `git:<base>...HEAD+worktree`, and `git:worktree` (the fallback when
+  origin/main does not resolve, and the only partial one). `isPartialSource`,
+  `listCommandsFor`, and `describeSource` keep the workflow, the canvas, the
+  hook summary, and the Judge prompt in agreement; a `source.replace(...)` in
+  the hook printed `git diff origin/main...HEAD+worktree` as prose before the
+  helper existed. The Judge is told to read an uncommitted edit with
+  `git diff HEAD -- <path>` and an untracked file whole, because both have an
+  empty range diff.
+- **`git rev-parse --is-inside-work-tree` runs before any listing.** A
+  directory git does not treat as a work tree makes `git diff` print its
+  `--no-index` usage (the Windows report), and so does git's ownership check
+  (measured with `GIT_TEST_ASSUME_DIFFERENT_OWNER=1`). Exit non-zero or output
+  other than `true` (`.git` prints `false`, exit 0) is `not-work-tree`;
+  "dubious ownership" in stderr is `git-unsafe-directory`. stderr is compared,
+  never shown. A queue that exits 2 where the corpus directory does not exist
+  says so instead of "exited 2". The Windows cause is unconfirmed.
 - **`show_review` never replaces a run the panel started.** In the app, a
   finished panel run is surfaced to the agent, which then handed the same
   result back and relabelled it "supplied by the agent". Measured, then fixed;
@@ -650,7 +676,7 @@ will usually be a regression:
   1.0.93 (SDK host): a plugin extension joins after `session.start`; with no
   prompt no hook fires, even on resume. With a prompt it fires after
   `onUserPromptSubmitted` with `source: "new"`. It races a 5 s deadline, because
-  its sequential calls (up to two `git diff`s, then one `adr check` per
+  its sequential calls (four git calls since 0.9.1, then one `adr check` per
   batch of a wide diff) could otherwise hold the first prompt for 15 s or
   more. When the deadline wins, the hook aborts the call in flight and starts
   no further batch: nobody reads that summary, and a 40,000-path diff would

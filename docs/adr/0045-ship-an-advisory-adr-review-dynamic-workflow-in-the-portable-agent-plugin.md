@@ -53,6 +53,15 @@ review:
 > `adr-review`; this record's advisory, read-only, CLI-trust, and exit-status
 > contracts are unchanged.
 
+> **Amended in plugin 0.9.1 (a correction, no new record).** Collect's
+> default is the union of `git diff <base>...HEAD`, `git diff HEAD`, and the
+> untracked files `git ls-files --others --exclude-standard` lists, not the
+> range alone: the range alone missed every uncommitted edit whenever it
+> resolved. The fallback when `origin/main` does not resolve is the working
+> tree, untracked files included. A directory git does not treat as a work
+> tree is a fixed `usage-error`. This record's status and its advisory,
+> read-only, CLI-trust, and exit-status contracts are unchanged.
+
 ## Context
 
 GitHub Copilot CLI can load a *dynamic workflow*: a plain ESM module that

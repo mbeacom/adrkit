@@ -212,12 +212,17 @@ workflows may fail to load the extension.
 It runs three phases:
 
 1. **Collect.** The changed files come from the `files` argument, else from
-   `git diff -z` against `<base>...HEAD`, deletions included: removing a
+   the union of the committed changes `<base>...HEAD`, your staged and
+   unstaged edits against `HEAD`, and untracked files that are not ignored
+   (since 0.9.1; before it, uncommitted edits were missed whenever the range
+   resolved). Deletions are included: removing a
    governed file can break its decision, and `adr check` still matches an
    absent path. An explicit `base` that does not
    resolve is a `usage-error` naming the ref, with no fallback. When the default
-   `origin/main` does not resolve, it falls back to uncommitted changes against
-   `HEAD` and says so in `notes`. Those edits may not be the change, so such a
+   `origin/main` does not resolve, it falls back to the uncommitted and
+   untracked changes alone and says so in `notes`. A directory git does not
+   treat as a work tree is a `usage-error` saying so (or naming
+   `safe.directory`, when git refused it for its owner). Those edits may not be the change, so such a
    run is `incomplete` at best. If the working tree has no changes either, the
    result is a `usage-error` telling you to pass `files` or `base`, or to fetch
    history (for example `actions/checkout` with `fetch-depth: 0`).
@@ -236,7 +241,7 @@ read-only git, and writes no file. The Judge agent may also run `adr explain`,
 
 | Argument | Default | Meaning |
 | --- | --- | --- |
-| `files` | none | Repo-relative paths to review. Overrides the git diff. |
+| `files` | none | Repo-relative paths to review. Overrides the git listings. |
 | `base` | `origin/main` | Ref to diff `<base>...HEAD` against. Letters, digits, and `. _ / @ { } ~ ^ -` only, no leading `-`, and `..` only inside a `...` range. |
 | `dir` | `$ADRKIT_DIR`, else `docs/adr` | ADR corpus directory. |
 
@@ -252,8 +257,8 @@ The workflow reviews the session's current directory, and follows it after
 caps a command line at about 32 KiB. The result lists at most 200 changed
 paths, counts the rest in `filesOmitted`, and carries `filesDigest`, a SHA-256
 of the full sorted list, when it caps. Each Judge is shown the paths that
-declared its decision first, and told the exact `git diff --name-only` range
-for the rest. An explicit `files` list longer than 200 paths makes the review
+declared its decision first, and told the git listings whose union
+reproduces the rest. An explicit `files` list longer than 200 paths makes the review
 `incomplete` at best, because the Judge cannot see or list the rest. Its
 `notes` are fixed messages that never repeat the CLI's
 stderr or an exception's text: when one says `adr lint` or `adr check` failed,
@@ -360,7 +365,7 @@ canvas". It takes the same optional `files`, `base`, and `dir` as the workflow.
 | Action | Spends AI credits | What it does |
 | --- | --- | --- |
 | `get_state` | no | Returns the panel snapshot. |
-| `refresh` | no | Re-runs Collect and Check (`git diff`, `adr check`, `adr lint`) and `adr queue --format json`, and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
+| `refresh` | no | Re-runs Collect and Check (git, `adr check`, `adr lint`) and `adr queue --format json`, and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
 | `show_review` | no | Displays an `adr-review` result you already have, passed as `{ result }`. The shape is validated and unknown keys are dropped. A result whose status is cleaner than its own payload, or that describes other files or governing records than the panel's, is refused. It never replaces a run the panel started. |
 | `run_review` | **yes** | Starts the `adr-review` workflow and returns `{ runId, status }` at once; the panel follows the run and shows its verdicts. Spend is the workflow's: at most one `decision-checker` call per governing decision. Invalid arguments throw `invalid_input` before anything is spent, and while a run is in flight a second request starts nothing. |
 
@@ -444,7 +449,7 @@ Copilot's model can call directly. They are proposed in
 
 | Tool | Runs | Arguments |
 | --- | --- | --- |
-| `adr_check` | `adr check --json` | `paths` (repository-relative), or `base` (files from `git diff <base>...HEAD`), or neither (`origin/main`); optional `dir` |
+| `adr_check` | `adr check --json` | `paths` (repository-relative), or `base` (files from `git diff <base>...HEAD` plus uncommitted and untracked edits), or neither (the same against `origin/main`); optional `dir` |
 | `adr_explain` | `adr explain --json` | `path` (one, required); optional `dir` |
 | `adr_lint` | `adr lint --json` | optional `dir` |
 
@@ -490,7 +495,7 @@ The same extension registers two session hooks, proposed in
 
 | Hook | When | What it adds | Cost |
 | --- | --- | --- | --- |
-| `onSessionStart` | With the session's first prompt (measured) | A short summary: how many files changed, and the ids of the accepted decisions that govern them and of open proposals that would also govern them | One `git diff` and one `adr check`; no model call |
+| `onSessionStart` | With the session's first prompt (measured) | A short summary: how many files changed, and the ids of the accepted decisions that govern them and of open proposals that would also govern them | Four git calls (a work-tree probe and three listings) and one `adr check`; no model call |
 | `onPostToolUse` | After an edit tool (`edit`, `create`, `str_replace`, `apply_patch`, or a writing `str_replace_editor` command) | A note that the file just edited is governed by the named accepted decision(s), once per file per session; and a debounced refresh of any open `decision-review` panel | One `adr check` per distinct file, cached; the panel's free refresh, never a review; nothing for any other tool |
 
 **There is no pre-tool hook, on purpose.** Measured on Copilot CLI 1.0.93: a
