@@ -14,7 +14,8 @@
 
 import { isMap, isScalar, isSeq, parseDocument, type Pair, type YAMLMap, type YAMLSeq } from 'yaml';
 import { parseFrontmatter } from '../parse/frontmatter.ts';
-import { Identity, type AdrFrontmatter } from '../schema/adr.schema.ts';
+import { type AdrFrontmatter } from '../schema/adr.schema.ts';
+import { distinctIdentityCount, hasInvisibleOrControl, isWritableIdentity, sameIdentity } from '../schema/identity.ts';
 import { validateAdrFrontmatter } from '../validate/contract.ts';
 import type { Finding } from '../validate/findings.ts';
 import {
@@ -24,6 +25,7 @@ import {
   finishSplice,
   keyOf,
   leadAt,
+  lineAfter,
   lineStartOf,
   locateFrontmatter,
   quoted,
@@ -75,14 +77,16 @@ function refuse(code: ReviewRefusalCode, message: string, findings?: Finding[]):
   return findings ? { ok: false, code, message, findings } : { ok: false, code, message };
 }
 
-// C0 and C1 controls (newline, tab, escape, bell, …) and the two Unicode line separators.
-const UNSAFE_SUMMARY = /[\p{Cc}\u2028\u2029]/u;
-
 /** Why `summary` cannot be written, or undefined when it can. */
 export function objectionSummaryProblem(summary: string): string | undefined {
-  if (summary.trim() === '') return 'The objection summary is empty.';
-  if (UNSAFE_SUMMARY.test(summary)) return 'The objection summary must be one line with no control characters.';
-  if ([...summary].length > MAX_OBJECTION_SUMMARY_LENGTH) {
+  const trimmed = summary.trim();
+  if (trimmed === '') return 'The objection summary is empty.';
+  // Control characters (newlines, tabs, escapes), invisible format characters (bidi
+  // overrides, zero-width characters, the BOM), and the Unicode line separators.
+  if (hasInvisibleOrControl(summary)) {
+    return 'The objection summary must be one line with no control or invisible characters.';
+  }
+  if ([...trimmed].length > MAX_OBJECTION_SUMMARY_LENGTH) {
     return `The objection summary is longer than ${MAX_OBJECTION_SUMMARY_LENGTH} characters.`;
   }
   return undefined;
@@ -97,8 +101,11 @@ interface Prepared {
 
 /** Shared preconditions: a valid identity, a valid record, status `proposed`, a block root. */
 function prepare(input: ApproveAdrInput, verb: string): Prepared | ReviewRefusal {
-  if (!Identity.safeParse(input.by).success) {
-    return refuse('invalid-identity', `"${input.by}" is not an identity. Expected @handle, team:slug, or an email address.`);
+  if (!isWritableIdentity(input.by)) {
+    return refuse(
+      'invalid-identity',
+      `${JSON.stringify(input.by)} is not an identity this command writes. Expected @handle, team:slug, or an email address, with no control or invisible characters.`,
+    );
   }
 
   let data: unknown;
@@ -157,8 +164,9 @@ function seqEnd(yaml: string, root: YAMLMap, review: { index: number; map: YAMLM
   const boundary =
     next && isScalar(next.key) && next.key.range
       ? lineStartOf(yaml, next.key.range[0])
-      : blockInsertionPoint(yaml, root, review.index);
-  return backUpOverTrivia(yaml, boundary, true);
+      : blockInsertionPoint(yaml, root, review.index, true);
+  const seq = review.map.items[position]?.value as { range?: [number, number, number] } | null | undefined;
+  return backUpOverTrivia(yaml, boundary, true, seq?.range ? lineAfter(yaml, seq.range[1]) : 0);
 }
 
 /**
@@ -178,7 +186,7 @@ function appendEdit(
   if (typeof review === 'string') return review;
 
   if (review === undefined) {
-    const point = blockInsertionPoint(yaml, root, root.items.length - 1);
+    const point = blockInsertionPoint(yaml, root, root.items.length - 1, true);
     return { start: point, end: point, text: `${leadAt(yaml, point, eol)}review:${eol}  ${key}:${eol}${blockItem('    ')}` };
   }
 
@@ -188,7 +196,7 @@ function appendEdit(
     if (!isScalar(firstKey) || !firstKey.range) return '"review" has a key this command cannot locate; edit this record by hand';
     const indent = yaml.slice(lineStartOf(yaml, firstKey.range[0]), firstKey.range[0]);
     if (!/^ +$/.test(indent)) return '"review" is not an indented block mapping; edit this record by hand';
-    const point = blockInsertionPoint(yaml, root, review.index);
+    const point = blockInsertionPoint(yaml, root, review.index, true);
     return { start: point, end: point, text: `${leadAt(yaml, point, eol)}${indent}${key}:${eol}${blockItem(`${indent}  `)}` };
   }
 
@@ -226,8 +234,8 @@ export function approveAdrSource(input: ApproveAdrInput): ApproveAdrResult {
   const { data, frontmatter, located, root } = prepared;
 
   const approvals = frontmatter.review?.approvals ?? [];
-  if (approvals.includes(input.by)) {
-    return { ok: true, changed: false, content: input.source, approvals: approvals.length };
+  if (approvals.some((approval) => sameIdentity(approval, input.by))) {
+    return { ok: true, changed: false, content: input.source, approvals: distinctIdentityCount(approvals) };
   }
 
   const value = quoted(input.by);
@@ -249,7 +257,7 @@ export function approveAdrSource(input: ApproveAdrInput): ApproveAdrResult {
     id: frontmatter.id,
   });
   if (!finished.ok) return refuse(finished.code, finished.message, finished.findings);
-  return { ok: true, changed: true, content: finished.content, approvals: approvals.length + 1 };
+  return { ok: true, changed: true, content: finished.content, approvals: distinctIdentityCount([...approvals, input.by]) };
 }
 
 export function objectAdrSource(input: ObjectAdrInput): ObjectAdrResult {
@@ -262,7 +270,7 @@ export function objectAdrSource(input: ObjectAdrInput): ObjectAdrResult {
 
   const objections = frontmatter.review?.objections ?? [];
   const existing = objections.findIndex(
-    (objection) => objection.by === input.by && objection.summary === summary && !objection.resolved,
+    (objection) => sameIdentity(objection.by, input.by) && objection.summary === summary && !objection.resolved,
   );
   if (existing !== -1) return { ok: true, changed: false, content: input.source, objection: existing + 1 };
 
@@ -331,8 +339,12 @@ function resolvedEdit(located: Located, root: YAMLMap, position: number): Edit |
   const next = seq.items[position + 1] as { range?: [number, number, number] } | undefined;
   let point: number;
   if (next?.range) {
-    // A block item's range starts after its `- `; the dash line is where it begins.
-    point = backUpOverTrivia(yaml, lineStartOf(yaml, next.range[0]), true);
+    // The next item begins at its `-` indicator, which is usually on the same line as
+    // its first key but may stand alone on the line above (`-` then `  by: …`).
+    let dash = next.range[0] - 1;
+    while (dash >= 0 && /[ \t\r\n]/.test(yaml[dash]!)) dash -= 1;
+    const start = yaml[dash] === '-' ? dash : next.range[0];
+    point = backUpOverTrivia(yaml, lineStartOf(yaml, start), true, lineAfter(yaml, item.range[1]));
   } else {
     point = seqEnd(yaml, root, review, 'objections');
   }
@@ -355,7 +367,7 @@ export function resolveObjectionAdrSource(input: ResolveObjectionAdrInput): Reso
       `ADR-${frontmatter.id} has ${objections.length} objection(s); there is no objection ${input.objection}.`,
     );
   }
-  if (objection.by !== input.by) {
+  if (!sameIdentity(objection.by, input.by)) {
     return refuse(
       'not-objector',
       `Objection ${input.objection} on ADR-${frontmatter.id} was raised by ${objection.by}; only the objector may resolve it.`,

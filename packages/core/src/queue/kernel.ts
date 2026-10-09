@@ -9,6 +9,7 @@
  */
 
 import type { AdrFrontmatter } from '../schema/adr.schema.ts';
+import { distinctIdentityCount } from '../schema/identity.ts';
 import type { Finding } from '../validate/findings.ts';
 import { fingerprintOf } from '../fingerprint/index.ts';
 import { compareCodeUnits, sortFindingsCanonical } from '../ordering/index.ts';
@@ -165,7 +166,8 @@ function buildItem(frontmatter: AdrFrontmatter, sourcePath: string, asOf: string
     deadlineDate,
     routingTargets: [...(frontmatter.deciders ?? [])],
     quorum: review?.quorum ?? null,
-    approvalCount: review?.approvals?.length ?? 0,
+    // Distinct people, matching adr accept's quorum check (ADR-0051).
+    approvalCount: distinctIdentityCount(review?.approvals ?? []),
     unresolvedObjectionCount: objections.filter((o) => o.resolved !== true).length,
     resolvedObjectionCount: objections.filter((o) => o.resolved === true).length,
     escalatedAt: review?.escalatedAt != null ? toUtcInstant(review.escalatedAt) : null,

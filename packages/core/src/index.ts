@@ -55,6 +55,7 @@ export {
   type Tier,
   type TierLabel,
 } from './queue/types.ts';
+export { distinctIdentityCount, identityKey, isWritableIdentity, sameIdentity } from './schema/identity.ts';
 export { acceptAdrSource } from './transition/accept.ts';
 export type { AcceptAdrInput, AcceptAdrResult, AcceptRefusalCode } from './transition/accept.ts';
 export {

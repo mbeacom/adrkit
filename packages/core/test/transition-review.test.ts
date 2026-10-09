@@ -293,14 +293,106 @@ describe('across every record in this corpus', () => {
       if (!resolved.ok) throw new Error(`${file}: ${resolved.code}: ${resolved.message}`);
       const lines = (text: string) => text.split('\n');
       const removed = lines(proposed).filter((line) => !lines(resolved.content).includes(line));
-      // At most one rewritten line per list key, and a body that never moves.
+      // At most one rewritten line per list key.
       expect({ file, removed: removed.length <= 2 }).toEqual({ file, removed: true });
-      expect(resolved.content.slice(resolved.content.lastIndexOf('\n---\n'))).toBe(proposed.slice(proposed.lastIndexOf('\n---\n')));
-      const data = parseFrontmatter(resolved.content).data as Record<string, any>;
-      expect(data.review.approvals.at(-1)).toBe('@zed-reviewer');
-      expect(data.review.objections.at(-1)).toEqual({ by: '@zed-reviewer', summary: 'A concern', resolved: true });
+      // The whole file: the body byte for byte, and the frontmatter equal to the
+      // original plus exactly the approval and the resolved objection.
+      const before = parseFrontmatter(proposed);
+      const after = parseFrontmatter(resolved.content);
+      expect({ file, body: after.body }).toEqual({ file, body: before.body });
+      const expected = structuredClone(before.data) as Record<string, any>;
+      expected.review ??= {};
+      expected.review.approvals = [...(expected.review.approvals ?? []), '@zed-reviewer'];
+      expected.review.objections = [...(expected.review.objections ?? []), { by: '@zed-reviewer', summary: 'A concern', resolved: true }];
+      expect({ file, data: after.data }).toEqual({ file, data: expected });
+      expect(resolved.content.startsWith(proposed.slice(0, proposed.indexOf('\n') + 1))).toBe(true);
       exercised += 1;
     }
     expect(exercised).toBeGreaterThan(20);
+  });
+});
+
+describe('round 1: identities compare case-insensitively (ADR-0051)', () => {
+  test('approve is a no-op for a case variant of an existing approval', () => {
+    const source = record({ review: 'review:\n  approvals: ["@bob", "Eve@Example.com"]' });
+    expect(ok(approve(source, '@Bob'))).toEqual({ ok: true, changed: false, content: source, approvals: 2 });
+    expect(ok(approve(source, 'eve@example.COM'))).toMatchObject({ changed: false });
+    expect(ok(approve(source, '@bobby'))).toMatchObject({ changed: true, approvals: 3 });
+  });
+
+  test('approvals counts distinct identities', () => {
+    const source = record({ review: 'review:\n  approvals: ["@bob", "@Bob"]' });
+    expect(ok(approve(source, '@carol'))).toMatchObject({ changed: true, approvals: 2 });
+  });
+
+  test('object is a no-op for a case variant of the same open objection', () => {
+    const once = ok(object(record(), '@dan')).content;
+    expect(ok(object(once, '@DAN'))).toEqual({ ok: true, changed: false, content: once, objection: 1 });
+  });
+
+  test('the objector may resolve under a case variant of their identity', () => {
+    const source = record({ review: 'review:\n  objections:\n    - by: "@dan"' });
+    expect(ok(resolveObjection(source, 1, '@Dan')).changed).toBe(true);
+    expect(resolveObjection(source, 1, '@danny')).toMatchObject({ ok: false, code: 'not-objector' });
+  });
+});
+
+describe('round 1: invisible and control characters are refused', () => {
+  test('in a summary: bidi overrides, zero-width characters, and the BOM', () => {
+    for (const summary of ['rtl \u202e evil', 'zero\u200bwidth', 'join\u200dme', 'bom\ufeff', 'isolate\u2066x', 'nel\u0085']) {
+      expect({ summary, result: object(record(), '@dan', summary) }).toMatchObject({ summary, result: { ok: false, code: 'invalid-summary' } });
+    }
+  });
+
+  test('in an identity, for all three commands', () => {
+    for (const by of ['x\u001b[31m@c.de', 'x\u202e@c.de', 'x\u200b@c.de', 'x\u0000@c.de']) {
+      expect(approve(record(), by)).toMatchObject({ ok: false, code: 'invalid-identity' });
+      expect(object(record(), by)).toMatchObject({ ok: false, code: 'invalid-identity' });
+      expect(resolveObjection(record(), 1, by)).toMatchObject({ ok: false, code: 'invalid-identity' });
+    }
+  });
+
+  test('the length cap applies after trimming', () => {
+    const result = ok(object(record(), '@dan', `  ${'x'.repeat(MAX_OBJECTION_SUMMARY_LENGTH)}  `));
+    expect(review(result.content).objections[0].summary).toBe('x'.repeat(MAX_OBJECTION_SUMMARY_LENGTH));
+    expect(object(record(), '@dan', 'x'.repeat(MAX_OBJECTION_SUMMARY_LENGTH + 1))).toMatchObject({ ok: false, code: 'invalid-summary' });
+  });
+});
+
+describe('round 1: layouts that used to be refused', () => {
+  const dashNested = 'review:\n  objections:\n    -\n      by: "@dan"\n      summary: a\n    -\n      by: "@eve"\n      summary: b';
+
+  test('resolve finds the dash line of a `-` on its own line', () => {
+    const source = record({ review: dashNested });
+    const first = ok(resolveObjectionAdrSource({ source, by: '@dan', objection: 1, path: PATH }));
+    expect(review(first.content).objections).toEqual([
+      { by: '@dan', summary: 'a', resolved: true },
+      { by: '@eve', summary: 'b' },
+    ]);
+    const second = ok(resolveObjectionAdrSource({ source, by: '@eve', objection: 2, path: PATH }));
+    expect(review(second.content).objections[1]).toEqual({ by: '@eve', summary: 'b', resolved: true });
+    expect(ok(object(source)).changed).toBe(true);
+  });
+
+  test('a literal block whose content has a # line is not split', () => {
+    const source = record({ review: 'review:\n  objections:\n    - by: "@erin"\n      resolved: false\n      summary: |\n        line\n        # not a comment' });
+    const result = ok(object(source));
+    expect(review(result.content).objections[0].summary).toBe('line\n# not a comment\n');
+    expect(ok(resolveObjectionAdrSource({ source, by: '@erin', objection: 1, path: PATH })).changed).toBe(true);
+    const noResolved = record({ review: 'review:\n  objections:\n    - by: "@erin"\n      summary: |\n        line\n        # not a comment' });
+    expect(ok(resolveObjectionAdrSource({ source: noResolved, by: '@erin', objection: 1, path: PATH })).changed).toBe(true);
+  });
+
+  test('a keep-chomped scalar with trailing blank lines keeps them', () => {
+    // A keep scalar as the last key of `review`, and as the last key of the last block.
+    const inReview = record({ review: 'review:\n  tier: async\n  tierReason: |+\n    why\n\n' });
+    const result = ok(approve(inReview));
+    expect(review(inReview).tierReason).toMatch(/^why\n\n+$/);
+    expect(review(result.content).tierReason).toBe(review(inReview).tierReason);
+    expect(review(result.content).approvals).toEqual(['@bob']);
+    const topLevel = record().replace('  authoredBy: agent-drafted\n', '  authoredBy: agent-drafted\n  sourceArtifact: |+\n    line\n\n\n');
+    const top = ok(approve(topLevel));
+    expect((parseFrontmatter(top.content).data as any).provenance.sourceArtifact).toBe('line\n\n\n');
+    expect(ok(object(topLevel)).changed).toBe(true);
   });
 });

@@ -61,8 +61,11 @@ export function lineStartOf(text: string, index: number): number {
  * whatever follows rather than to the block above. With `indentedComments` false only
  * column-0 comments are skipped, which is the rule for top-level blocks.
  */
-export function backUpOverTrivia(yaml: string, point: number, indentedComments: boolean): number {
-  while (point > 0) {
+export function backUpOverTrivia(yaml: string, point: number, indentedComments: boolean, floor = 0): number {
+  // `floor` is the line after the block's last value: never back up into it. Without
+  // it, a keep-chomped scalar's trailing blank lines or a literal block's `# …` line
+  // would be read as trivia and the insertion would land inside the scalar.
+  while (point > floor) {
     const previousLineStart = lineStartOf(yaml, point - 1);
     const line = yaml.slice(previousLineStart, point).replace(/\r?\n$/, '');
     const comment = indentedComments ? line.trimStart().startsWith('#') : line.startsWith('#');
@@ -80,10 +83,19 @@ export function backUpOverTrivia(yaml: string, point: number, indentedComments: 
  * of the next top-level key's line, backed up over blank lines and column-0 comments
  * (which belong to that next key, not to this block). End of the YAML when last.
  */
-export function blockInsertionPoint(yaml: string, root: YAMLMap, index: number): number {
+export function blockInsertionPoint(yaml: string, root: YAMLMap, index: number, keepValue = false): number {
   const next = root.items[index + 1];
   const point = next && isScalar(next.key) && next.key.range ? lineStartOf(yaml, next.key.range[0]) : yaml.length;
-  return backUpOverTrivia(yaml, point, false);
+  const value = root.items[index]?.value as { range?: [number, number, number] } | null | undefined;
+  const floor = keepValue && value?.range ? lineAfter(yaml, value.range[1]) : 0;
+  return backUpOverTrivia(yaml, point, false, floor);
+}
+
+/** `offset` if it starts a line, else the start of the next line (or the end). */
+export function lineAfter(yaml: string, offset: number): number {
+  if (offset <= 0 || yaml[offset - 1] === '\n') return offset;
+  const next = yaml.indexOf('\n', offset);
+  return next === -1 ? yaml.length : next + 1;
 }
 
 /** A newline is owed before `point` when the text before it does not end in one. */

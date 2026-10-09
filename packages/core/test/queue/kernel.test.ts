@@ -248,6 +248,17 @@ describe('buildQueueReport — item findings', () => {
     expect(report.items[0]?.itemFindings.some((f) => f.code === 'item.review-by-before-queued')).toBe(false);
   });
 
+  test('approvalCount counts distinct identities, case-insensitively (ADR-0051)', () => {
+    const report = buildQueueReport({
+      corpus: single({
+        deciders: ['@a'],
+        review: { tier: 'arb', queuedAt: '2026-01-01T00:00:00Z', slaDays: 14, quorum: 2, approvals: ['@bob', '@Bob', 'Eve@Example.com', 'eve@example.com'] },
+      }),
+      asOf: '2026-01-08',
+    });
+    expect(report.items[0]?.approvalCount).toBe(2);
+  });
+
   test('decidedAt + approvalCount < quorum generates no item finding', () => {
     const report = buildQueueReport({
       corpus: single({

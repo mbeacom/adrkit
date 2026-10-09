@@ -13,7 +13,7 @@
 
 import { isMap, isScalar, parseDocument, Scalar, type YAMLMap } from 'yaml';
 import { parseFrontmatter } from '../parse/frontmatter.ts';
-import { Identity } from '../schema/adr.schema.ts';
+import { distinctIdentityCount, isWritableIdentity } from '../schema/identity.ts';
 import { validateAdrFrontmatter } from '../validate/contract.ts';
 import type { Finding } from '../validate/findings.ts';
 import {
@@ -127,8 +127,11 @@ function expectedAfter(data: Record<string, unknown>, by: string, decidedAt: str
 }
 
 export function acceptAdrSource(input: AcceptAdrInput): AcceptAdrResult {
-  if (!Identity.safeParse(input.by).success) {
-    return refuse('invalid-identity', `"${input.by}" is not an identity. Expected @handle, team:slug, or an email address.`);
+  if (!isWritableIdentity(input.by)) {
+    return refuse(
+      'invalid-identity',
+      `${JSON.stringify(input.by)} is not an identity this command writes. Expected @handle, team:slug, or an email address, with no control or invisible characters.`,
+    );
   }
   if (!RFC3339_SECONDS.test(input.decidedAt) || Number.isNaN(Date.parse(input.decidedAt))) {
     return refuse('invalid-decided-at', `"${input.decidedAt}" is not an RFC 3339 date-time with seconds.`);
@@ -165,7 +168,8 @@ export function acceptAdrSource(input: AcceptAdrInput): AcceptAdrResult {
       `ADR-${frontmatter.id} has ${unresolved.length} unresolved objection(s) (${names}); resolve them before accepting.`,
     );
   }
-  const approvals = review?.approvals.length ?? 0;
+  // Distinct people, so one reviewer under two spellings cannot meet quorum (ADR-0051).
+  const approvals = distinctIdentityCount(review?.approvals ?? []);
   if (review?.quorum !== undefined && approvals < review.quorum) {
     return refuse(
       'quorum-not-met',
