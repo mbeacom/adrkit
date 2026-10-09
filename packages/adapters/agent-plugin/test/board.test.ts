@@ -1262,3 +1262,73 @@ describe('fix round 1', () => {
     });
   });
 });
+
+/** Round 2 of the review (R1-L1): per-panel views must not outlive their panel. */
+describe('fix round 2: no view outlives its panel', () => {
+  test('closing a panel during a gated focus leaves no view behind', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const run = async (_command: string, args: string[]) => {
+      if (args.includes('--focus')) await held;
+      return ok(args.includes('graph') ? defaultGraph() : queueReport([]));
+    };
+    const { options } = makeBoard({ run });
+    await options.open(ctxFor('gone'));
+    expect(options.viewCount()).toBe(1);
+    const pending = action(options, 'focus')({ id: '0002' }, 'gone');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await options.onClose(ctxFor('gone'));
+    release();
+    await pending;
+    expect(options.viewCount()).toBe(0);
+  });
+
+  test('closing a panel while its open is still in flight leaves no view behind', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const run = async (_command: string, args: string[]) => {
+      if (args.includes('graph')) await held;
+      return ok(args.includes('graph') ? defaultGraph() : queueReport([]));
+    };
+    const { options } = makeBoard({ run });
+    const opening = options.open(ctxFor('opening'));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const closing = options.onClose(ctxFor('opening'));
+    release();
+    await opening.catch(() => {});
+    await closing;
+    expect(options.viewCount()).toBe(0);
+  });
+
+  test('an action with no open panel stores no view', async () => {
+    const { options } = makeBoard();
+    const state = await action(options, 'get_state')(undefined, 'ghost');
+    expect(state.graph.nodes.length).toBe(3);
+    await action(options, 'focus')({ id: '0002' }, 'ghost');
+    await action(options, 'refresh')(undefined, 'ghost');
+    const handler = options.actions.find((a: any) => a.name === 'get_state').handler;
+    await handler({ session: { workingDirectory: CWD } });
+    expect(options.viewCount()).toBe(0);
+  });
+
+  test('an open that fails leaves no view behind, and a later close is harmless', async () => {
+    const { options } = makeBoard({
+      createServer: () => {
+        throw new Error('no server');
+      },
+    });
+    await expect(options.open(ctxFor('failed'))).rejects.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(options.viewCount()).toBe(0);
+    await options.onClose(ctxFor('failed'));
+    expect(options.viewCount()).toBe(0);
+  });
+
+  test('closing an idle panel removes its view', async () => {
+    const { options } = makeBoard();
+    await options.open(ctxFor('idle'));
+    expect(options.viewCount()).toBe(1);
+    await options.onClose(ctxFor('idle'));
+    expect(options.viewCount()).toBe(0);
+  });
+});

@@ -518,15 +518,27 @@ export function createDecisionBoardCanvas({
   /** The queue, shared by working directory and corpus directory. @type {Map<string, SharedQueue>} */
   const queues = new Map();
 
-  /** @param {string} instanceId */
+  /** @returns {View} */
+  const newView = () => ({ dir: undefined, filter: { id: null, kinds: [] }, graph: null, graphSeq: 0, updatedAt: now() });
+
+  /** Get or create a panel's view. Only `open` stores one. @param {string} instanceId */
   const viewFor = (instanceId) => {
     let view = views.get(instanceId);
     if (!view) {
-      view = { dir: undefined, filter: { id: null, kinds: [] }, graph: null, graphSeq: 0, updatedAt: now() };
+      view = newView();
       views.set(instanceId, view);
     }
     return view;
   };
+
+  /**
+   * The view an action or route works on. A panel that is open (or opening)
+   * has a stored one. An action with no open panel gets a view for this call
+   * only, so nothing is held once it returns (review R1-L1).
+   *
+   * @param {string} instanceId
+   */
+  const viewOf = (instanceId) => views.get(instanceId) ?? (instances.has(instanceId) ? viewFor(instanceId) : newView());
 
   /** @param {string} cwd @param {string | undefined} dir */
   const queueKey = (cwd, dir) => `${cwd}\0${dir ?? ''}`;
@@ -542,9 +554,8 @@ export function createDecisionBoardCanvas({
     return shared;
   };
 
-  /** @param {string} cwd @param {string} instanceId */
-  const snapshotFor = (cwd, instanceId) => {
-    const view = viewFor(instanceId);
+  /** Never creates a view. @param {string} cwd @param {View} view */
+  const snapshotFor = (cwd, view) => {
     return snapshotOf(cwd, view, queues.get(queueKey(cwd, view.dir))?.queue ?? null, bytesLimit);
   };
 
@@ -599,8 +610,9 @@ export function createDecisionBoardCanvas({
 
   /** @param {Instance} instance */
   const push = (instance) => {
-    if (!viewFor(instance.instanceId).graph) return;
-    const message = `event: state\ndata: ${JSON.stringify(snapshotFor(instance.cwd, instance.instanceId))}\n\n`;
+    const view = views.get(instance.instanceId);
+    if (!view?.graph) return;
+    const message = `event: state\ndata: ${JSON.stringify(snapshotFor(instance.cwd, view))}\n\n`;
     for (const client of instance.clients) client.write(message);
   };
 
@@ -612,7 +624,7 @@ export function createDecisionBoardCanvas({
   /** A shared queue changed: tell every panel reading it. @param {string} cwd @param {string | undefined} dir */
   const broadcastQueue = (cwd, dir) => {
     for (const instance of live) {
-      if (instance.cwd === cwd && viewFor(instance.instanceId).dir === dir) push(instance);
+      if (instance.cwd === cwd && views.get(instance.instanceId)?.dir === dir) push(instance);
     }
   };
 
@@ -624,9 +636,9 @@ export function createDecisionBoardCanvas({
    *
    * @param {string} cwd
    * @param {string} instanceId
+   * @param {View} view
    */
-  const refreshGraph = async (cwd, instanceId) => {
-    const view = viewFor(instanceId);
+  const refreshGraph = async (cwd, instanceId, view) => {
     const seq = ++view.graphSeq;
     const graph = await computeGraph({ cwd, dir: view.dir, filter: view.filter, run, env, exists, timeoutMs });
     if (seq !== view.graphSeq && view.graph !== null) return false;
@@ -669,27 +681,27 @@ export function createDecisionBoardCanvas({
    *
    * @param {string} cwd
    * @param {string} instanceId
+   * @param {View} view
    * @param {{ waitForQueue?: boolean }} [opts]
    */
-  const refresh = async (cwd, instanceId, { waitForQueue = true } = {}) => {
-    const queueDone = refreshQueue(cwd, viewFor(instanceId).dir);
-    await refreshGraph(cwd, instanceId);
+  const refresh = async (cwd, instanceId, view, { waitForQueue = true } = {}) => {
+    const queueDone = refreshQueue(cwd, view.dir);
+    await refreshGraph(cwd, instanceId, view);
     if (waitForQueue) await queueDone;
-    return snapshotFor(cwd, instanceId);
+    return snapshotFor(cwd, view);
   };
 
-  /** @param {string} cwd @param {string} instanceId */
-  const stateFor = async (cwd, instanceId, { waitForQueue = true } = {}) => {
-    const view = viewFor(instanceId);
+  /** @param {string} cwd @param {string} instanceId @param {View} view */
+  const stateFor = async (cwd, instanceId, view, { waitForQueue = true } = {}) => {
     const shared = sharedQueueFor(cwd, view.dir);
-    if (!view.graph) await refresh(cwd, instanceId, { waitForQueue });
+    if (!view.graph) await refresh(cwd, instanceId, view, { waitForQueue });
     else if (!shared.queue && !shared.pending) {
       // A panel whose corpus directory has no queue read yet starts one.
       const done = refreshQueue(cwd, view.dir);
       if (waitForQueue) await done;
     }
     else if (waitForQueue && shared.pending) await shared.pending;
-    return snapshotFor(cwd, instanceId);
+    return snapshotFor(cwd, view);
   };
 
   /**
@@ -700,15 +712,15 @@ export function createDecisionBoardCanvas({
    *
    * @param {string} cwd
    * @param {string} instanceId
+   * @param {View} view
    * @param {{ id?: string | null, kinds?: string[] }} focus
    */
-  const applyFocus = async (cwd, instanceId, focus) => {
-    const view = viewFor(instanceId);
+  const applyFocus = async (cwd, instanceId, view, focus) => {
     view.filter = { id: focus.id ?? null, kinds: focus.kinds ?? [] };
-    const applied = await refreshGraph(cwd, instanceId);
+    const applied = await refreshGraph(cwd, instanceId, view);
     const shared = sharedQueueFor(cwd, view.dir);
     if (!shared.queue && shared.pending) await shared.pending;
-    const snapshot = snapshotFor(cwd, instanceId);
+    const snapshot = snapshotFor(cwd, view);
     return applied ? snapshot : { ...snapshot, superseded: true };
   };
 
@@ -730,9 +742,9 @@ export function createDecisionBoardCanvas({
       case 'GET /app.css':
         return reply(res, 200, BOARD_CSS, 'text/css; charset=utf-8');
       case 'GET /api/state':
-        return replyJson(res, 200, await stateFor(cwd, instanceId, { waitForQueue: false }));
+        return replyJson(res, 200, await stateFor(cwd, instanceId, viewOf(instanceId), { waitForQueue: false }));
       case 'GET /events': {
-        const snapshot = await stateFor(cwd, instanceId, { waitForQueue: false });
+        const snapshot = await stateFor(cwd, instanceId, viewOf(instanceId), { waitForQueue: false });
         res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive' });
         res.write(`event: state\ndata: ${JSON.stringify(snapshot)}\n\n`);
         instance.clients.add(res);
@@ -769,7 +781,7 @@ export function createDecisionBoardCanvas({
       }
     }
 
-    if (url.pathname === '/api/refresh') return replyJson(res, 200, await refresh(cwd, instanceId, { waitForQueue: false }));
+    if (url.pathname === '/api/refresh') return replyJson(res, 200, await refresh(cwd, instanceId, viewOf(instanceId), { waitForQueue: false }));
     // POST /api/focus
     /** @type {{ id?: string | null, kinds?: string[] }} */
     let focus;
@@ -779,7 +791,7 @@ export function createDecisionBoardCanvas({
       const kind = error instanceof InputError ? /** @type {keyof typeof INPUT_ERRORS} */ (error.kind) : 'shape';
       return replyJson(res, 400, { error: INPUT_ERRORS[kind] });
     }
-    return replyJson(res, 200, await applyFocus(cwd, instanceId, focus));
+    return replyJson(res, 200, await applyFocus(cwd, instanceId, viewOf(instanceId), focus));
   };
 
   /**
@@ -839,7 +851,10 @@ export function createDecisionBoardCanvas({
           `counts by status past ${NODE_LIMIT} records), and the open proposals from adr queue with their raw review ` +
           'facts (approvals and quorum, objection counts, SLA state, deadline, routing, and finding count). It states ' +
           'no verdict on whether a record could be ratified. Read-only; no model calls.',
-        handler: async (/** @type {any} */ ctx) => stateFor(await cwdFor(ctx), ctx?.instanceId),
+        handler: async (/** @type {any} */ ctx) => {
+          const cwd = await cwdFor(ctx);
+          return stateFor(cwd, ctx?.instanceId, viewOf(ctx?.instanceId));
+        },
       },
       {
         name: 'refresh',
@@ -852,8 +867,9 @@ export function createDecisionBoardCanvas({
           const input = validated(inputOf(ctx), ['dir']);
           const cwd = await cwdFor(ctx);
           confined(cwd, input.dir);
-          if ('dir' in input) viewFor(ctx?.instanceId).dir = input.dir;
-          return refresh(cwd, ctx?.instanceId);
+          const view = viewOf(ctx?.instanceId);
+          if ('dir' in input) view.dir = input.dir;
+          return refresh(cwd, ctx?.instanceId, view);
         },
       },
       {
@@ -868,7 +884,8 @@ export function createDecisionBoardCanvas({
         inputSchema: FOCUS_SCHEMA,
         handler: async (/** @type {any} */ ctx) => {
           const input = validated(inputOf(ctx), ['id', 'kinds']);
-          return applyFocus(await cwdFor(ctx), ctx?.instanceId, input);
+          const cwd = await cwdFor(ctx);
+          return applyFocus(cwd, ctx?.instanceId, viewOf(ctx?.instanceId), input);
         },
       },
     ],
@@ -889,22 +906,33 @@ export function createDecisionBoardCanvas({
       if ('id' in input || 'kinds' in input) view.filter = { id: input.id ?? null, kinds: input.kinds ?? [] };
       if (!pending) {
         const starting = (async () => {
-          await refresh(cwd, ctx.instanceId, { waitForQueue: false });
+          await refresh(cwd, ctx.instanceId, view, { waitForQueue: false });
           return startInstance(ctx.instanceId, cwd);
         })();
         pending = starting;
         instances.set(ctx.instanceId, starting);
         // A failed open must not pin the panel id to a dead promise.
         starting.catch(() => {
-          if (instances.get(ctx.instanceId) === starting) instances.delete(ctx.instanceId);
+          if (instances.get(ctx.instanceId) === starting) {
+            instances.delete(ctx.instanceId);
+            // Nor to a view nothing will ever close (review R1-L1).
+            views.delete(ctx.instanceId);
+          }
         });
       }
       const instance = await pending;
       // A re-open keeps its URL; new input is applied, not silently dropped.
-      if (!isNew && changesDir) await refresh(instance.cwd, ctx.instanceId, { waitForQueue: false });
-      else if (!isNew && changesFilter) await refreshGraph(instance.cwd, ctx.instanceId);
-      return { url: instance.url, title: BOARD_TITLE, status: statusLine(snapshotFor(instance.cwd, ctx.instanceId)) };
+      if (!isNew && changesDir) await refresh(instance.cwd, ctx.instanceId, view, { waitForQueue: false });
+      else if (!isNew && changesFilter) await refreshGraph(instance.cwd, ctx.instanceId, view);
+      return { url: instance.url, title: BOARD_TITLE, status: statusLine(snapshotFor(instance.cwd, view)) };
     },
+
+    /**
+     * How many panel views are held, for the tests that check nothing is left
+     * behind after a close or a panel-less action. Not an SDK field:
+     * `createCanvas` copies only the fields it knows.
+     */
+    viewCount: () => views.size,
 
     /** @param {any} ctx */
     onClose: async (ctx) => {
@@ -917,8 +945,12 @@ export function createDecisionBoardCanvas({
       try {
         instance = await pending;
       } catch {
+        views.delete(ctx.instanceId);
         return;
       }
+      // Again after the await: an open that was still in flight when the close
+      // arrived may have touched the view since (review R1-L1).
+      views.delete(ctx.instanceId);
       live.delete(instance);
       // `close()` waits for open connections, and an event stream never ends
       // on its own, so end the streams first.
