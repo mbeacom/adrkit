@@ -26,7 +26,7 @@
 
 import { realpathSync } from 'node:fs';
 import { isAbsolute, resolve, sep, win32 } from 'node:path';
-import { collectChangedFiles, resolveCli } from './review.mjs';
+import { FILES_ECHO_LIMIT, capFiles, checkInBatches, cliOverhead, collectChangedFiles, resolveCli } from './review.mjs';
 
 /** @import { CommandResult } from './review.mjs' */
 
@@ -291,6 +291,20 @@ const resultOf = (payload, resultType) => ({
 const failure = (tool, code) => resultOf({ tool, error: code, message: MESSAGES[code] }, 'failure');
 
 /**
+ * A report's `changedFiles` echoes every path it was given; over
+ * FILES_ECHO_LIMIT it is capped and the rest counted in `changedFilesOmitted`.
+ *
+ * @param {unknown} report
+ */
+function capChangedFiles(report) {
+  if (report === null || typeof report !== 'object' || Array.isArray(report)) return report;
+  const changed = /** @type {Record<string, unknown>} */ (report)['changedFiles'];
+  if (!Array.isArray(changed) || changed.length <= FILES_ECHO_LIMIT) return report;
+  const shown = capFiles(changed.filter((file) => typeof file === 'string'));
+  return { ...report, changedFiles: shown.files, changedFilesOmitted: changed.length - shown.files.length };
+}
+
+/**
  * @typedef {(command: string, args: string[], options: { cwd: string, signal?: AbortSignal }) => Promise<CommandResult>} ToolRunner
  */
 
@@ -319,8 +333,10 @@ export function createAdrTools({ run, env, exists, getCwd }) {
    * @param {string[]} cliArgs
    * @param {{ cwd: string, signal?: AbortSignal }} options
    * @param {Record<string, unknown>} [extra]
+   * @param {string[]} [files] Paths for `adr check`, appended after `cliArgs`
+   *   in batches that fit the command-line budget (see `checkInBatches`).
    */
-  async function runAdr(tool, cliArgs, options, extra = {}) {
+  async function runAdr(tool, cliArgs, options, extra = {}, files) {
     let cli;
     try {
       cli = resolveCli({ env, cwd: options.cwd, exists });
@@ -330,7 +346,11 @@ export function createAdrTools({ run, env, exists, getCwd }) {
     /** @type {CommandResult} */
     let result;
     try {
-      result = await run(cli.command, [...cli.args, ...cliArgs], options);
+      result = files
+        ? await checkInBatches((batchArgs) => run(cli.command, [...cli.args, ...batchArgs], options), cliArgs, files, {
+            overhead: cliOverhead(cli),
+          })
+        : await run(cli.command, [...cli.args, ...cliArgs], options);
     } catch (error) {
       if (options.signal?.aborted) throw new Error('cancelled');
       return failure(tool, runFailureCode(error));
@@ -338,7 +358,7 @@ export function createAdrTools({ run, env, exists, getCwd }) {
     if (result.exitCode === 0 || result.exitCode === 1) {
       try {
         const report = JSON.parse(result.stdout);
-        return resultOf({ tool, exitCode: result.exitCode, ...extra, report }, 'success');
+        return resultOf({ tool, exitCode: result.exitCode, ...extra, report: capChangedFiles(report) }, 'success');
       } catch {
         // Falls through: a 0 or 1 without JSON is not a report.
       }
@@ -440,14 +460,15 @@ export function createAdrTools({ run, env, exists, getCwd }) {
           return failure('adr_check', args.base === undefined ? 'git-no-changes' : 'git-base-unresolved');
         }
         if (escapes(options.cwd, args.dir)) return failure('adr_check', 'symlink-escape');
-        const extra = { files: collected.files, filesSource: collected.source, notes: collected.notes };
+        const shown = capFiles(collected.files);
+        const extra = { files: shown.files, filesOmitted: shown.omitted, filesSource: collected.source, notes: collected.notes };
         if (collected.files.length === 0) {
           return resultOf(
             { tool: 'adr_check', exitCode: null, ...extra, notes: [...collected.notes, 'No changed files; nothing was checked.'] },
             'success',
           );
         }
-        return runAdr('adr_check', ['check', '--json', ...dirArgs(args.dir), '--', ...collected.files], options, extra);
+        return runAdr('adr_check', ['check', '--json', ...dirArgs(args.dir), '--'], options, extra, collected.files);
       }),
     },
     {

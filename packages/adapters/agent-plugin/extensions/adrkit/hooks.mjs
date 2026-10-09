@@ -34,7 +34,7 @@
  */
 
 import { isAbsolute, posix, relative, resolve, sep } from 'node:path';
-import { collectChangedFiles, resolveCli } from './review.mjs';
+import { checkInBatches, cliOverhead, collectChangedFiles, resolveCli } from './review.mjs';
 
 /**
  * The tools the runtime treats as edits (Copilot CLI 1.0.93 bundle): `edit`
@@ -354,7 +354,14 @@ export function createAdvisoryHooks({
    */
   const check = async (cwd, files) => {
     const cli = resolveCli({ env, cwd, exists });
-    const result = await spawn(cwd, cli.command, [...cli.args, 'check', '--json', ...dirArgs, '--', ...files]);
+    // Batched: a wide session diff would not fit one command line. Each batch
+    // is its own bounded spawn under the concurrency cap.
+    const result = await checkInBatches(
+      (batchArgs) => spawn(cwd, cli.command, [...cli.args, ...batchArgs]),
+      ['check', '--json', ...dirArgs, '--'],
+      files,
+      { overhead: cliOverhead(cli) },
+    );
     if (result.exitCode === 0 || result.exitCode === 1) {
       try {
         return /** @type {unknown} */ (JSON.parse(result.stdout));

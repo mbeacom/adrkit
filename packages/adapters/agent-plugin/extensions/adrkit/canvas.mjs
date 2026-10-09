@@ -34,13 +34,17 @@ import {
   VERDICTS,
   activeProposalDecisions,
   assembleResult,
+  capFiles,
+  checkInBatches,
   checkNote,
+  cliOverhead,
   collectChangedFiles,
   governingDecisions,
   historyDecisions,
   lintNote,
   publicMessage,
   resolveCli,
+  sameFileSet,
   validateArgs,
 } from './review.mjs';
 
@@ -104,7 +108,7 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  *   corpusFindings: number, items: QueueItem[], note: string | null,
  * }} QueueView
  * @typedef {{
- *   workingDirectory: string, base: string | null, files: string[], filesSource: string | null,
+ *   workingDirectory: string, base: string | null, files: string[], filesOmitted?: number, filesSource: string | null,
  *   status: string, checkExitCode: number | null, lintExitCode: number | null,
  *   governing: ShownDecision[], history: ShownDecision[], activeProposals: ShownDecision[],
  *   findings: unknown[], notes: string[], review: null | { runId?: string, runStatus: string, result: any },
@@ -268,6 +272,8 @@ export function sanitizeReviewResult(raw) {
       return shownDecision(/** @type {Record<string, unknown>} */ (value));
     });
 
+  const filesOmitted = raw['filesOmitted'] ?? 0;
+  if (!Number.isInteger(filesOmitted) || /** @type {number} */ (filesOmitted) < 0) fail('filesOmitted must be a non-negative integer');
   const filesSource = raw['filesSource'] ?? null;
   if (filesSource !== null && typeof filesSource !== 'string') fail('filesSource must be a string or null');
 
@@ -295,6 +301,7 @@ export function sanitizeReviewResult(raw) {
     checkExitCode: exitCode('checkExitCode'),
     lintExitCode: exitCode('lintExitCode'),
     files: strings('files'),
+    filesOmitted,
     filesSource,
     notes: strings('notes'),
     governing: decisions('governing'),
@@ -364,7 +371,9 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     return {
       workingDirectory: cwd,
       base,
-      files: result.files,
+      // The full list, held in memory for the fingerprint and the stale-review
+      // checks; `snapshotOf` caps what the page and the agent see.
+      files: fields.files ?? [],
       filesSource: result.filesSource,
       status: result.status,
       checkExitCode: result.checkExitCode,
@@ -415,7 +424,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     const cli = resolveCli({ env, cwd, exists });
     /** @param {string[]} cliArgs */
     const adr = (cliArgs) => runHere(cli.command, [...cli.args, ...cliArgs]);
-    const check = await adr(['check', '--json', ...dirArgs, '--', ...collected.files]);
+    const check = await checkInBatches(adr, ['check', '--json', ...dirArgs, '--'], collected.files, { overhead: cliOverhead(cli) });
     const lint = await adr(['lint', ...dirArgs]);
     checked = { check, lint };
   } catch (error) {
@@ -678,8 +687,11 @@ function snapshotOf(workspace) {
   if (review?.message) notes.push(review.message);
   const missing = usableResult(review) ? unjudged(check.governing, review) : [];
   if (missing.length > 0) notes.push(`The review has no verdict for governing record(s) ${missing.join(', ')}.`);
+  const shown = capFiles(check.files);
   return {
     ...check,
+    files: shown.files,
+    filesOmitted: shown.omitted,
     status: combinedStatus(check.status, check.governing, review),
     notes,
     judgeCalls: judgeCallsOf(check),
@@ -957,8 +969,9 @@ export function createDecisionReviewCanvas({
       workspace.check = snapshot;
       const review = workspace.review;
       if (review && !review.watching && review.result) {
-        const reviewed = [...review.result.files].sort().join('\0');
-        const sameFiles = reviewed === [...snapshot.files].sort().join('\0');
+        // The result lists at most FILES_ECHO_LIMIT paths; the fingerprint below
+        // covers the full list.
+        const sameFiles = sameFileSet(review.result.files, review.result.filesOmitted ?? 0, snapshot.files);
         const sameGoverning = review.governingKey === undefined || review.governingKey === governingKey(snapshot.governing);
         const sameContents = review.fingerprint === fingerprint;
         if (!sameFiles || !sameGoverning || !sameContents) workspace.review = null;
@@ -1342,7 +1355,7 @@ export function createDecisionReviewCanvas({
             // records it never judged, so it must describe this panel's.
             const shownFiles = /** @type {string[]} */ (result['files']);
             const shownGoverning = /** @type {ShownDecision[]} */ (result['governing']);
-            const sameFiles = [...shownFiles].sort().join('\0') === [...current.files].sort().join('\0');
+            const sameFiles = sameFileSet(shownFiles, /** @type {number} */ (result['filesOmitted']), current.files);
             if (!sameFiles || governingKey(shownGoverning) !== governingKey(current.governing)) {
               throw makeError(
                 'stale_result',

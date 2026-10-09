@@ -417,7 +417,9 @@ describe('sanitizeReviewResult', () => {
       verdicts: [{ ...valid.verdicts[0], script: 'dropped' }],
       governing: [{ ...valid.governing[0], injected: 'dropped' }],
     });
-    expect(Object.keys(cleaned).sort()).toEqual(Object.keys(valid).sort());
+    // filesOmitted is a result key the valid fixture leaves out; it defaults to 0.
+    expect(Object.keys(cleaned).sort()).toEqual([...Object.keys(valid), 'filesOmitted'].sort());
+    expect(cleaned.filesOmitted).toBe(0);
     expect(cleaned.verdicts).toEqual(valid.verdicts);
     expect(Object.keys(cleaned.governing[0]).includes('injected')).toBe(false);
   });
@@ -743,6 +745,7 @@ describe('actions', () => {
         'workingDirectory',
         'base',
         'files',
+        'filesOmitted',
         'filesSource',
         'status',
         'checkExitCode',

@@ -532,6 +532,7 @@ describe('assembleResult status', () => {
       [
         'checkExitCode',
         'files',
+        'filesOmitted',
         'filesSource',
         'findings',
         'governing',
