@@ -404,3 +404,44 @@ describe('the Judge prompt for a wide change (round 1, H1)', () => {
     expect(prompts[0]).toContain('git diff --name-only origin/main...HEAD');
   });
 });
+
+describe('the session-start hook stops after its deadline (round 1, M1)', () => {
+  test('no batch starts once the deadline wins, and the one in flight is aborted', async () => {
+    let started = 0;
+    let aborted = 0;
+    const run = (command: string, args: string[], { signal }: { cwd: string; signal?: AbortSignal }) => {
+      if (command === 'git') return Promise.resolve({ stdout: WIDE.map((file) => `${file}\0`).join(''), stderr: '', exitCode: 0 });
+      if (signal?.aborted) return Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      started += 1;
+      return new Promise<Run>((resolve, reject) => {
+        const onAbort = () => {
+          aborted += 1;
+          clearTimeout(timer);
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort);
+          const batch = args.slice(args.indexOf('--') + 1);
+          resolve({ stdout: JSON.stringify({ changedFiles: batch, governedBy: [], findings: [], ok: true }), stderr: '', exitCode: 0 });
+        }, 40);
+        signal?.addEventListener('abort', onAbort);
+      });
+    };
+    const hooks = createAdvisoryHooks({
+      run,
+      env: {},
+      exists: () => false,
+      getSession: () => ({ log: async () => {} }),
+      refreshCanvas: async () => {},
+      sessionStartDeadlineMs: 60,
+    })!;
+    const out = await hooks.onSessionStart({ workingDirectory: CWD, source: 'new' });
+    expect(out).toBeUndefined();
+    const atDeadline = started;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    // About six batches would have run, one after another, without the abort.
+    expect(started).toBe(atDeadline);
+    expect(started).toBeLessThanOrEqual(2);
+    expect(aborted).toBe(1);
+  });
+});

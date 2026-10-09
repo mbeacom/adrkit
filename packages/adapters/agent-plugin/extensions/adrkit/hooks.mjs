@@ -333,32 +333,36 @@ export function createAdvisoryHooks({
    * At most MAX_CONCURRENT hook-spawned processes at once. The timeout starts
    * when the process does, not while it waits for a slot.
    *
-   * @param {string} cwd @param {string} command @param {string[]} args
+   * `abort`, when given, ends the call early too: the session-start hook
+   * passes one that fires when its deadline wins.
+   *
+   * @param {string} cwd @param {string} command @param {string[]} args @param {AbortSignal} [abort]
    */
-  const spawn = async (cwd, command, args) => {
+  const spawn = async (cwd, command, args, abort) => {
     if (active >= MAX_CONCURRENT) await new Promise((resolve) => waiting.push(() => resolve(undefined)));
     active += 1;
     try {
-      return await run(command, args, { cwd, signal: AbortSignal.timeout(timeoutMs) });
+      const limit = AbortSignal.timeout(timeoutMs);
+      return await run(command, args, { cwd, signal: abort ? AbortSignal.any([limit, abort]) : limit });
     } finally {
       active -= 1;
       waiting.shift()?.();
     }
   };
 
-  /** @param {string} cwd */
-  const runner = (cwd) => /** @param {string} command @param {string[]} args */ (command, args) => spawn(cwd, command, args);
+  /** @param {string} cwd @param {AbortSignal} [abort] */
+  const runner = (cwd, abort) => /** @param {string} command @param {string[]} args */ (command, args) => spawn(cwd, command, args, abort);
 
   /**
    * `adr check --json` over `files`, parsed, or a thrown `adr_exit` error.
-   * @param {string} cwd @param {string[]} files
+   * @param {string} cwd @param {string[]} files @param {AbortSignal} [abort]
    */
-  const check = async (cwd, files) => {
+  const check = async (cwd, files, abort) => {
     const cli = resolveCli({ env, cwd, exists });
     // Batched: a wide session diff would not fit one command line. Each batch
     // is its own bounded spawn under the concurrency cap.
     const result = await checkInBatches(
-      (batchArgs) => spawn(cwd, cli.command, [...cli.args, ...batchArgs]),
+      (batchArgs) => spawn(cwd, cli.command, [...cli.args, ...batchArgs], abort),
       ['check', '--json', ...dirArgs, '--'],
       files,
       { overhead: cliOverhead(cli) },
@@ -447,14 +451,20 @@ export function createAdvisoryHooks({
     timer?.unref?.();
   };
 
-  /** @param {any} input */
-  const sessionStart = async (input) => {
+  /**
+   * @param {any} input
+   * @param {AbortSignal} abort Fired when the deadline wins: nothing the
+   *   summary needs is started after that, and the call in flight is ended,
+   *   because nobody reads the result (measured in review: a wide diff kept
+   *   issuing one batch after another for minutes).
+   */
+  const sessionStart = async (input, abort) => {
     const cwd = input?.workingDirectory;
     if (typeof cwd !== 'string' || !isAbsolute(cwd)) return undefined;
     /** @type {{ files: string[], source: string }} */
     let collected;
     try {
-      collected = await collectChangedFiles({}, runner(cwd));
+      collected = await collectChangedFiles({}, runner(cwd, abort));
     } catch (error) {
       // No history and no edits, or not a repository: nothing to say, and
       // not a failure worth a log line. A timeout still is.
@@ -462,8 +472,8 @@ export function createAdvisoryHooks({
       if (name === 'AbortError' || name === 'TimeoutError') fail(error);
       return undefined;
     }
-    if (collected.files.length === 0) return undefined;
-    const outcome = await check(cwd, collected.files);
+    if (collected.files.length === 0 || abort.aborted) return undefined;
+    const outcome = await check(cwd, collected.files, abort);
     const additionalContext = sessionSummary(outcome, { fileCount: collected.files.length, source: collected.source });
     return additionalContext ? { additionalContext } : undefined;
   };
@@ -499,9 +509,11 @@ export function createAdvisoryHooks({
   return {
     /** @param {any} input @param {unknown} [_invocation] */
     onSessionStart: async (input, _invocation) => {
+      const abort = new AbortController();
       try {
-        const out = await withDeadline(sessionStart(input), sessionStartDeadlineMs);
+        const out = await withDeadline(sessionStart(input, abort.signal), sessionStartDeadlineMs);
         if (out === GAVE_UP) {
+          abort.abort();
           fail(GAVE_UP);
           return undefined;
         }
