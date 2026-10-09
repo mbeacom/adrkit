@@ -36,6 +36,15 @@ provenance:
 > it supersedes nothing. ADR-0046's read-only, advisory, security, and
 > process-count boundaries remain binding and are unchanged here.
 
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> One more caller waits for the queue: the advisory hooks' background refresh
+> (`refreshOpen`), so that its single-flight covers the `adr queue` process
+> too. It is not a page route or a tool result, so no person or agent waits on
+> a slow queue through it. It runs under a 15 s signal combined with the
+> queue's own timeout. When that signal fires, the panel keeps its previous
+> governing result and queue, each with a fixed "automatic refresh timed out"
+> note, and never shows the abort's exception text.
+
 ## Context
 
 ADR-0046 shipped the `decision-review` canvas: a panel in the GitHub Copilot app
