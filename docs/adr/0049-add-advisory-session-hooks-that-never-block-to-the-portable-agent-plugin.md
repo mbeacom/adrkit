@@ -135,19 +135,26 @@ blocked nothing"), and tells the agent to check the change it just made.
   key set, and was observed failing when a mutation added
   `permissionDecision: "allow"`.
 - **What reaches the model is ids, not text.** Record ids are validated against
-  the schema's own id grammar (`schema/adr.schema.json`: an optional lowercase
-  namespace, then four or more digits or a 26-character ULID), a closed
-  character class. An id outside that grammar (for example `Payments:0001`,
-  `001`, or anything with whitespace) is dropped, not echoed. Statuses are
+  a record's own id grammar (`adr.schema.ts`, the `id` field: four or more
+  digits or a 26-character ULID), a closed character class. The wider
+  cross-reference grammar, with a `namespace:` prefix, is deliberately not
+  accepted: the namespace is free text a corpus could spell words in, and
+  `adr check` never emits it as a `recordId`. An id outside the grammar (for
+  example `payments:0001`, `001`, or anything with whitespace) is dropped, not
+  echoed. Statuses are
   checked against `accepted`, `proposed`, and `draft`; the rest is counts and
   labels the module writes. No title is included, because a title is
   repository text and hook context is read by the model as instructions.
   Paths are not echoed back either. Titles add little here: the summary tells
   the agent which ids to read, and `adr explain` gives the title with its
   context.
-- **Failure is silent to the model.** Every handler catches. A failed or
-  timed-out call returns nothing to the model and writes one `session.log`
-  warning per process, chosen from fixed messages by explicit comparisons of
+- **Failure is silent to the model, and reporting it never holds a hook.**
+  Every handler catches. A failed or timed-out call returns nothing to the
+  model and writes one `session.log` warning per process, fire-and-forget:
+  `session.log` is an RPC with no deadline, so no hook awaits it, on any path.
+  Review showed that awaiting it let a never-answering log hold
+  `onSessionStart` past its deadline indefinitely; a test now covers a log
+  that never resolves with git hung. The warnings are chosen from fixed messages by explicit comparisons of
   the error's `name` and `code`, never the error's text. An argument list too
   long for the OS (`E2BIG`) gets its own message rather than "install the
   CLI".
@@ -185,10 +192,17 @@ join, as ADR-0046 already does for the other two. If the canvas failed to
 build, the hooks' refresh is a no-op. If the runtime refuses the join itself,
 `register` retries without `hooks` first, then without `canvases` (keeping
 `hooks`), then without both, and logs the field the successful join dropped.
-So a runtime that refuses `hooks` keeps the workflow and the canvas and blames
-the hooks, and one that refuses `canvases` keeps the hooks and blames the
-canvas. Tests cover both, and the case where the canvas already failed to
-build.
+If every rung fails, it rethrows the original error. So a runtime that refuses
+`hooks` keeps the workflow and the canvas, and one that refuses `canvases`
+keeps the hooks and blames the canvas.
+
+Dropping `hooks` first has a side effect we accept: a one-off join failure
+unrelated to any field (an RPC hiccup) is cured by the first retry, which
+leaves the hooks off for the rest of the session. The log line says so
+explicitly ("off for this session … they may not have caused it", with the
+original error) rather than blaming the hooks. Tests cover each rung,
+including the fourth join that drops both, the rethrow, and the case where the
+canvas already failed to build.
 
 ### Measured facts
 
@@ -301,7 +315,7 @@ What this record does not claim:
 | Authority | None, matching ADR-0022: context only, after the edit, no decision, no rewrite |
 | Liveness | A crashed extension fails open (measured); a hung one delays a result by at most about 2 s, and the first prompt by about 5 s |
 | Cost | No model spend; about 0.1 s on session start and after the first edit of each path, measured |
-| Prompt-injection surface | Ids in the schema's grammar, a fixed status set, counts, and module-written labels only |
+| Prompt-injection surface | Ids in the record-id grammar, a fixed status set, counts, and module-written labels only |
 | Failure | Silent to the model; one log line per process |
 | Off switch | `ADRKIT_HOOKS=0` |
 
@@ -436,7 +450,10 @@ external validation.
    the old code were observed failing under mutation: the debounce path with
    a throwing `session.log` (fails without `fail`'s inner `try`), the
    single-flight refresh, the two-process cap, and the hooks-first retry
-   ladder. "Exactly two hooks" is a tripwire.
+   ladder. "Exactly two hooks" is a tripwire. After the re-review, 5 new
+   tests failed first (a never-resolving log on three paths, the narrower id
+   grammar, the explicit hooks-off log line); the drop-both rung and the
+   rethrow tests passed against existing code and failed under mutation.
 3. [x] Measure each hook's added latency per call and the spend, and record
    them (Measured facts 6 to 8).
 4. [x] Measure what a failing pre- and post-tool hook does to the tool call,

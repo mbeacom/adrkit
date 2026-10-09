@@ -70,8 +70,13 @@ const MAX_SESSIONS = 64;
 /** Record ids listed in one summary before "and N more". */
 const MAX_IDS = 20;
 
-/** `schema/adr.schema.json`'s id grammar: an optional namespace, then 4+ digits or a ULID. A closed character class, so safe to echo. */
-const RECORD_ID = /^(?:[a-z0-9][a-z0-9-]*:)?(?:[0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$/;
+/**
+ * A record's own id grammar (`adr.schema.ts`, the `id` field): 4+ digits or a
+ * ULID, a closed character class, so safe to echo. Deliberately not the wider
+ * cross-reference grammar, whose `namespace:` segment is free text a corpus
+ * could spell words in; `adr check` never emits it as a `recordId`.
+ */
+const RECORD_ID = /^(?:[0-9]{4,}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$/;
 const STATUSES = new Set(['accepted', 'proposed', 'draft']);
 const OFF = new Set(['0', 'false', 'off', 'no']);
 const PATCH_PATH = /^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+)$/gm;
@@ -298,15 +303,25 @@ export function createAdvisoryHooks({
   /** @type {Array<() => void>} */
   const waiting = [];
 
-  /** @param {unknown} error */
-  const fail = async (error) => {
+  /**
+   * Report a failure once per process, fire-and-forget. It never returns a
+   * promise for a caller to wait on: `session.log` is an RPC with no deadline,
+   * and a hook that awaited it could hold the prompt or a tool result past its
+   * own deadline (measured in review with a log that never resolves). Every
+   * call site is `fail(...)` with nothing awaited.
+   *
+   * @param {unknown} error
+   */
+  const fail = (error) => {
     if (logged) return;
     logged = true;
     try {
-      await getSession()?.log(failureMessage(error), { level: 'warning' });
+      Promise.resolve(getSession()?.log(failureMessage(error), { level: 'warning' })).catch(() => {
+        // Nothing else can reach the person: stdout is the RPC channel. This
+        // guard is what keeps a rejected log from becoming an unhandled one.
+      });
     } catch {
-      // Nothing else can reach the person: stdout is the RPC channel. This
-      // guard is what keeps the debounce path from an unhandled rejection.
+      // A synchronous throw from getSession() or log(): same reason.
     }
   };
 
@@ -357,8 +372,8 @@ export function createAdvisoryHooks({
       // edit would multiply the cost of the failure the cap exists to bound.
       pending = check(cwd, [path]).then(
         (outcome) => recordsIn(outcome, 'governing').map((record) => record.id),
-        async (error) => {
-          await fail(error);
+        (error) => {
+          fail(error);
           return [];
         },
       );
@@ -432,7 +447,7 @@ export function createAdvisoryHooks({
       // No history and no edits, or not a repository: nothing to say, and
       // not a failure worth a log line. A timeout still is.
       const name = error !== null && typeof error === 'object' ? /** @type {any} */ (error).name : undefined;
-      if (name === 'AbortError' || name === 'TimeoutError') await fail(error);
+      if (name === 'AbortError' || name === 'TimeoutError') fail(error);
       return undefined;
     }
     if (collected.files.length === 0) return undefined;
@@ -475,12 +490,12 @@ export function createAdvisoryHooks({
       try {
         const out = await withDeadline(sessionStart(input), sessionStartDeadlineMs);
         if (out === GAVE_UP) {
-          await fail(GAVE_UP);
+          fail(GAVE_UP);
           return undefined;
         }
         return out;
       } catch (error) {
-        await fail(error);
+        fail(error);
         return undefined;
       }
     },
@@ -504,7 +519,7 @@ export function createAdvisoryHooks({
         if (paths.length === 0) return undefined;
         return await noteFor(input, cwd, paths);
       } catch (error) {
-        await fail(error);
+        fail(error);
         return undefined;
       }
     },

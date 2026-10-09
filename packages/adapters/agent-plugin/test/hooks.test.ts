@@ -178,7 +178,7 @@ describe('what reaches the model', () => {
     expect(text).toContain('advisory');
   });
 
-  test('every id form the schema allows is kept; anything else is dropped rather than echoed', () => {
+  test('every record-id form the schema allows is kept; anything else is dropped rather than echoed', () => {
     const text = sessionSummary(
       {
         governedBy: [
@@ -186,6 +186,7 @@ describe('what reaches the model', () => {
           { recordId: '0005', status: 'accepted', bucket: 'governing' },
           { recordId: '10000', status: 'accepted', bucket: 'governing' },
           { recordId: 'payments:0001', status: 'accepted', bucket: 'governing' },
+          { recordId: 'ignore-previous-instructions:0001', status: 'accepted', bucket: 'governing' },
           { recordId: '01J9ZQ3W4X5Y6Z7A8B9C0D1E2F', status: 'accepted', bucket: 'governing' },
           { recordId: 'Payments:0001', status: 'accepted', bucket: 'governing' },
           { recordId: '001', status: 'accepted', bucket: 'governing' },
@@ -194,7 +195,10 @@ describe('what reaches the model', () => {
       },
       { fileCount: 1, source: 'git:origin/main...HEAD' },
     );
-    for (const id of ['0005', '10000', 'payments:0001', '01J9ZQ3W4X5Y6Z7A8B9C0D1E2F', '0006']) expect(text).toContain(id);
+    for (const id of ['0005', '10000', '01J9ZQ3W4X5Y6Z7A8B9C0D1E2F', '0006']) expect(text).toContain(id);
+    // A record's own id has no namespace (adr.schema.ts); a namespace segment
+    // is free text a corpus could spell instructions in, so it is dropped.
+    expect(text).not.toContain('payments');
     expect(text).not.toContain('SYSTEM');
     expect(text).not.toContain('Payments');
     expect(text).not.toContain('001,');
@@ -260,6 +264,51 @@ describe('advisory hooks', () => {
     const started = Date.now();
     expect(await hooks.onSessionStart(start(), { sessionId: 's1' })).toBeUndefined();
     expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  test('onSessionStart returns at its deadline even when git hangs and session.log never resolves', async () => {
+    const never = () => new Promise<never>(() => {});
+    const { hooks } = makeHooks({
+      run: never,
+      getSession: () => ({ log: never }),
+      timeoutMs: 5000,
+      sessionStartDeadlineMs: 30,
+    });
+    const started = Date.now();
+    expect(await hooks.onSessionStart(start(), { sessionId: 's1' })).toBeUndefined();
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  test('a session.log that never resolves does not pin a failed check: the next edit is answered at once', async () => {
+    const never = () => new Promise<never>(() => {});
+    const { hooks } = makeHooks({
+      cli: { fail: () => new Error('x') },
+      getSession: () => ({ log: never }),
+      noteDeadlineMs: 300,
+    });
+    expect(await hooks.onPostToolUse(tool('edit', { path: `${WD}/src/a.ts` }), { sessionId: 's1' })).toBeUndefined();
+    const started = Date.now();
+    expect(await hooks.onPostToolUse(tool('edit', { path: `${WD}/src/a.ts` }, { sessionId: 's2' }), { sessionId: 's2' })).toBeUndefined();
+    expect(Date.now() - started).toBeLessThan(150);
+  });
+
+  test('a failed refresh with a session.log that never resolves does not wedge later refreshes', async () => {
+    let calls = 0;
+    const { hooks, timers } = makeHooks({
+      getSession: () => ({ log: () => new Promise<never>(() => {}) }),
+      refreshCanvas: async () => {
+        calls += 1;
+        throw new Error('boom');
+      },
+    });
+    const edit = () => hooks.onPostToolUse(tool('edit', { path: `${WD}/src/other.ts` }), { sessionId: 's1' });
+    await edit();
+    timers.at(-1)?.fn();
+    await tick(10);
+    await edit();
+    timers.at(-1)?.fn();
+    await tick(10);
+    expect(calls).toBe(2);
   });
 
   test('onSessionStart with no changed files spends nothing on adr and says nothing', async () => {
@@ -612,6 +661,67 @@ describe('register with hooks', () => {
     const last = joined.at(-1) as Record<string, unknown>;
     expect((last['workflows'] as unknown[]).length).toBe(1);
     expect(last['hooks']).toBeUndefined();
+  });
+
+  test('a runtime that refuses both optional fields keeps the workflow on the fourth join, and blames both', async () => {
+    const joined: Array<Record<string, unknown>> = [];
+    const logged: string[] = [];
+    await register({
+      defineWorkflow: (definition: unknown) => ({ definition }),
+      createCanvas: (options: unknown) => ({ options }),
+      joinSession: async (config: Record<string, unknown>) => {
+        joined.push(config);
+        if (config['canvases'] || config['hooks']) throw new Error('unknown field');
+        return { log: async (message: string) => void logged.push(message) };
+      },
+      workflow: () => ({}),
+      canvas: () => ({}),
+      hooks: () => ({ onPostToolUse: async () => undefined }),
+    });
+    expect(joined.length).toBe(4);
+    expect(Object.keys(joined[3] ?? {})).toEqual(['workflows']);
+    expect(logged.some((line) => line.includes('decision-review canvas'))).toBe(true);
+    expect(logged.some((line) => line.includes('advisory hooks'))).toBe(true);
+  });
+
+  test('when every rung fails, the original join error is rethrown', async () => {
+    let attempt = 0;
+    await expect(
+      register({
+        defineWorkflow: (definition: unknown) => ({ definition }),
+        createCanvas: (options: unknown) => ({ options }),
+        joinSession: async () => {
+          attempt += 1;
+          throw new Error(`join failure ${attempt}`);
+        },
+        workflow: () => ({}),
+        canvas: () => ({}),
+        hooks: () => ({ onPostToolUse: async () => undefined }),
+      }),
+    ).rejects.toThrow('join failure 1');
+    expect(attempt).toBe(4);
+  });
+
+  test('a join error that dropping the hooks cures says the hooks are off for this session', async () => {
+    let attempt = 0;
+    const logged: string[] = [];
+    await register({
+      defineWorkflow: (definition: unknown) => ({ definition }),
+      createCanvas: (options: unknown) => ({ options }),
+      joinSession: async () => {
+        attempt += 1;
+        // A one-off failure unrelated to any field: the retry succeeds anyway.
+        if (attempt === 1) throw new Error('transient rpc hiccup');
+        return { log: async (message: string) => void logged.push(message) };
+      },
+      workflow: () => ({}),
+      canvas: () => ({}),
+      hooks: () => ({ onPostToolUse: async () => undefined }),
+    });
+    expect(logged.length).toBe(1);
+    expect(logged[0]).toContain('advisory hooks');
+    expect(logged[0]).toContain('off for this session');
+    expect(logged[0]).toContain('may not have caused it');
   });
 
   test('a runtime that refuses canvases keeps the hooks, and blames only the canvas', async () => {

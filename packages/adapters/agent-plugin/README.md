@@ -481,8 +481,9 @@ is silent to the agent and logs one warning line for you.
 **They pass ids, not text.** The context names record ids and a status
 (`accepted`, `proposed`, `draft`), never an ADR title or a file path, because
 those are repository content and the agent reads hook context as
-instructions. Ids are accepted in the schema's grammar (`0001`, `10000`,
-`payments:0001`, or a ULID); anything else is skipped silently. `adr explain
+instructions. Ids are accepted in a record's own id grammar (`0001`, `10000`,
+or a ULID); anything else, including a namespaced reference such as
+`payments:0001`, is skipped silently. `adr explain
 <path>` gives the agent the rest.
 
 **Limits.**

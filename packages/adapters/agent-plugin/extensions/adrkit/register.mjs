@@ -94,7 +94,16 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
       } catch {
         continue;
       }
-      for (const key of drop) failures.push(`${LABELS[key]}: the session refused it (${messageOf(error)})`);
+      // Dropping `hooks` first means a one-off join failure unrelated to any
+      // field also turns the hooks off for this session. That is accepted
+      // (ADR-0049), but said plainly rather than blamed on the hooks.
+      for (const key of drop) {
+        failures.push(
+          key === 'hooks'
+            ? `${LABELS[key]}: they are off for this session because the join failed until they were left out (${messageOf(error)}); they may not have caused it`
+            : `${LABELS[key]}: the session refused it (${messageOf(error)})`,
+        );
+      }
       recovered = true;
       break;
     }

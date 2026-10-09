@@ -556,14 +556,19 @@ will usually be a regression:
   override a person's `ask`), no `modifiedArgs`, `modifiedResult`, or
   `suppressOutput`. A test asserts the key set and was observed failing against
   an `"allow"` mutation.
-- **Hook context carries ids, never text.** Record ids are checked against the
-  schema's id grammar (optional lowercase namespace, then 4+ digits or a ULID)
-  and statuses against a fixed set; anything else is skipped silently. Titles,
-  paths, and error messages never reach it, because the model reads hook
-  context as instructions. Failures are silent to the model and log one fixed
-  `session.log` warning per process. The debounce path depends on `fail`'s
-  inner `try`: without it a throwing `session.log` becomes an unhandled
-  rejection that kills the extension, and a Node child-process test fails.
+- **Hook context carries ids, never text.** Record ids are checked against a
+  record's own id grammar (`adr.schema.ts` `id`: 4+ digits or a ULID, no
+  namespace, because a namespace segment is free text) and statuses against a
+  fixed set; anything else is skipped silently. Titles, paths, and error
+  messages never reach it, because the model reads hook context as
+  instructions.
+- **`session.log` is fire-and-forget in hooks; never `await fail(...)`.** It is
+  an RPC with no deadline: awaiting it let a never-answering log hold
+  `onSessionStart` past its 5 s deadline indefinitely (found in review), pin a
+  failed cached check, and wedge the single-flight refresh. `fail` guards both
+  a synchronous throw and a rejected log; removing either guard fails a test
+  (one of them a Node child-process test for an unhandled rejection that would
+  kill the extension).
 - **`onSessionStart` fires with the first prompt, not at load.** Measured on
   1.0.93 (SDK host): a plugin extension joins after `session.start`; with no
   prompt no hook fires, even on resume. With a prompt it fires after
@@ -595,8 +600,11 @@ will usually be a regression:
     version-manager shim. That is a known limit of the shared `runCommand`,
     left as a follow-up.
 - **The join retry ladder drops `hooks` first, then `canvases`, then both**,
-  and blames exactly the field the successful join dropped. A runtime that
-  refuses `hooks` must not cost the workflow or the canvas.
+  rethrows the original error if every rung fails, and logs exactly the field
+  the successful join dropped. A runtime that refuses `hooks` must not cost
+  the workflow or the canvas. Because `hooks` goes first, a one-off unrelated
+  join error turns the hooks off for the session; that is accepted, and the
+  log line says so instead of blaming them.
 - **`ADRKIT_*` variables reach the extension without
   `requestedEnvironmentVariables`.** Measured on 1.0.93 through the SDK host,
   including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
