@@ -33,6 +33,24 @@ Until `1.0.0`, minor releases may include breaking changes
   headless Copilot CLI 1.0.93 SDK-host smoke against this repository (51
   records, 250 relationships) and a fixture, with no model calls. Unmeasured in
   the Copilot app.
+- **The decision board can record review (`adrkit` 0.10.0).** Each open
+  proposal gets approve, object, and resolve controls that run `adr approve`,
+  `adr object`, and `adr resolve`, so they **need `@adrkit/cli` 0.18.0 or
+  later**. An older CLI gets a fixed upgrade message. The identity is
+  `ADRKIT_REVIEWER`, read by the extension; unset or invalid, the controls are
+  disabled with a note, and the page never supplies one. Each write takes two
+  clicks: the second spends a single-use nonce that expires after two minutes,
+  bound to that kind and record. The CLI runs with argv only, results are
+  fixed messages (stderr is never shown), and the board re-reads the queue
+  afterwards. It still shows no readiness verdict, and its actions stay
+  read-only: no action, tool, hook, or workflow can record review. One
+  module, `board-review-write.mjs`, is the only one the plugin's verb guard
+  exempts, and a test pins that.
+
+  Proposed in [ADR-0052](docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md) (proposed; amends ADR-0050); rung 1 of
+  ADR-0014 with an end-to-end test against the built CLI and a headless
+  SDK-host smoke on a fixture, with no model calls. Unmeasured in the Copilot
+  app.
 
 ### Fixed
 

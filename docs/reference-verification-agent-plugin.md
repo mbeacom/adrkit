@@ -1147,6 +1147,90 @@ Windows.**
 - A repository with no commit yet (`HEAD` unborn) still reports `git-failed`
   rather than listing untracked files. Unchanged from 0.9.0.
 
+## Decision board review controls (2026-10-09)
+
+Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipping as plugin 0.10.0),
+for the controls proposed in [ADR-0052](adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md)
+(**proposed**). They need `@adrkit/cli` 0.18.0 or later. Rows are numbered RV1
+onward so they do not collide with other sections. Nothing here made a model
+call, so nothing was spent.
+
+### CLI behavior the controls depend on
+
+Each command was run with Node in a scratch Git repository.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV1 | `@adrkit/cli` 0.17.0 (`npx -y @adrkit/cli@0.17.0`): `approve 0001 --by @x --json`, `object … --summary=hi --json`, `resolve … --objection 1 --by @x --json` | Exit 2 for each, `Error: Unknown command "<verb>"` and the help text on stderr, 0 bytes on stdout. `--version` prints `0.17.0` |
+| RV2 | 0.18.0 (this branch's build): `approve` on a record with lint errors, with `--json` | Exit 1; the reason and the findings on stderr; nothing on stdout. A refusal has no machine-readable code |
+| RV3 | 0.18.0: `approve 0099` (no such record), and `--dir nope` | Exit 2 with a usage message on stderr, for both: the same exit code as RV1 |
+| RV4 | `npx -y @adrkit/cli@0.18.0 --version` | `0.18.0` |
+
+RV1 and RV3 are why an exit 2 is followed by `adr --version`, and RV2 is why a
+refusal is one fixed message.
+
+### Headless SDK host (no model calls)
+
+The client came from the Copilot CLI 1.0.93 SDK package
+(`~/.copilot/pkg/darwin-arm64/1.0.93/copilot-sdk`), and the runtime was the
+installed `copilot` binary, which reported `1.0.94-3`. `createSession` had
+`pluginDirectories` set to this branch's plugin directory at `2759e2c`,
+`requestCanvasRenderer` and `requestExtensions` on, and the working directory
+set to a two-record fixture: 0001 `accepted`, and 0002 `proposed` with
+`review.quorum: 2` and `relatesTo: ["0001"]`. `adr lint` reported 0 errors for
+it. `ADRKIT_CLI` was set in the runtime's environment to the branch's built CLI,
+and `ADRKIT_REVIEWER` to `@fixture-reviewer`. No prompt was sent and no workflow
+was run. Writes went through the page's routes with the URL token, the
+`X-Adrkit-Token` header, and no `Origin`, as the page sends them.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV5 | `canvas.list`, open the board | `decision-review` and `decision-board`; status `2 records · 1 relationship · 1 open`; the board's actions were still `get_state`, `refresh`, `focus` |
+| RV6 | `/api/state` and the `get_state` action | Both carried `review: { enabled: true, reviewer: "@fixture-reviewer", note: null }`; 0002 at `0/2` approvals, 0 objections |
+| RV7 | `POST /api/review/nonce { kind: "approval", id: "0002" }` | 200 with a 64-hex nonce and `expiresInMs: 120000`. A `get_state` result taken afterwards did not contain the nonce |
+| RV8 | `POST /api/review` without the header token, and with `Origin: http://evil.example` | 403 for both; the nonce was not spent (RV9 used it) |
+| RV9 | `POST /api/review { kind: "approval", id: "0002", nonce }` | 200, `outcome: "written"`, the fixed "Recorded an approval of ADR-0002 by @fixture-reviewer…" message; the reply's queue row read `1/2` |
+| RV10 | The same request again (replayed nonce) | 403 with the fixed "This confirmation expired or was already used…" message |
+| RV11 | A fresh nonce, then a body with `by: "@attacker"` | 400 with the fixed shape message; nothing was written |
+| RV12 | Objection with summary `-Needs a load test: "p99" # first` | 200 `written`; the row read 1 unresolved, 0 resolved |
+| RV13 | Resolution of objection 1 | 200 `written`; the row read 0 unresolved, 1 resolved |
+| RV14 | Resolution of objection 5 | 200 `outcome: "refused"` with the fixed exit-1 message |
+| RV15 | The fixture's frontmatter afterwards | `approvals: ["@fixture-reviewer"]` and one objection `{ by: "@fixture-reviewer", summary: "-Needs a load test: \"p99\" # first", resolved: true }` as block lists under the existing `review:`; no other line changed |
+| RV16 | Session events | Four `session.info` events: `adrkit: decision board review approval on ADR-0002 as @fixture-reviewer: written`, then the same for the objection and the resolution, and the refused resolution with `: refused`. None carried the summary |
+| RV17 | The same host with `ADRKIT_REVIEWER` unset | `review.enabled: false` with the fixed "Recording review is off…" note; the nonce route 403 with that note; a write 403 |
+| RV18 | The same host with `ADRKIT_CLI` at `@adrkit/cli` 0.17.0 and the reviewer set | The controls reported enabled; the nonce route answered 409 with "This adr CLI does not support review commands; upgrade @adrkit/cli to 0.18.0 or later." No review subcommand was spawned |
+
+### Tests
+
+`test/board-review.test.ts` (45 tests) and the narrowed guard in
+`test/wiring.test.ts`. All of them failed before the module existed. Then 24
+mutations of the code were run, and each was killed by a named test, with three
+exceptions. Two were equivalent: the key allowlist refuses `by` before it could
+be used, and the review state never holds a nonce. The third, dropping the
+nonce on panel close, survived because the test posted a made-up nonce; the test
+now spends the closed panel's own nonce and fails under that mutation. Written
+into the real files, a review verb in `board.mjs`'s actions or in
+`board-page.mjs`, `accept` in the exempt module, a second exempt entry, and an
+import of the write module from `tools.mjs` each failed the suite. The guard
+test also plants verbs into the sources of `board.mjs`, `board-page.mjs`,
+`tools.mjs`, `hooks.mjs`, and `canvas.mjs` in memory and asserts each is caught. The end-to-end test runs the
+routes against `packages/cli/dist/index.js` on a fixture: approve, a repeated
+approve (`unchanged`), object, resolve, an out-of-range resolve (`refused`),
+and an unknown id (`usage-error`), with the queue counts checked after each.
+
+### Not verified
+
+- **The controls are unmeasured in the Copilot app.** The two-click flow, the
+  confirmation step, the disabled state, keyboard use, and how the controls
+  render in the app's theme have not been seen.
+- Whether the app forwards `ADRKIT_REVIEWER` to the extension. It reached the
+  extension through the SDK host (RV6), as other `ADRKIT_*` variables do.
+- The 30-second write timeout and the `unknown` outcome for an exit other than
+  0, 1, or 2. Unit tests only.
+- Two writes from two boards in different extension processes on one record.
+  Each board allows one write at a time, but separate processes are not
+  serialized, as ADR-0051 accepts for the CLI.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

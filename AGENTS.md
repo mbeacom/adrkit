@@ -355,9 +355,10 @@ and objection counts change with them.
   while an extension spawning `['approve', …]` passed it. The Spec Kit
   extension (plus its `adrkit_cli` wrapper) and the MCP server (plus any import
   of a writing transition) have the same guard. The canvas's `actions` are
-  model-callable, so it stays guarded: the later button track, which takes the
-  identity from `ADRKIT_REVIEWER` and never from the model, adds one narrow,
-  tested exception for a single page-POST handler module under its own record.
+  model-callable, so they stay guarded. The one exception is the decision
+  board's page-POST module, `board-review-write.mjs` (ADR-0052, **proposed**),
+  which takes the identity from `ADRKIT_REVIEWER` and never from the model; see
+  "Recording review from the board" below.
   The extension tools' `redactWritingCommands` scrubs these verbs from tool
   results too, because a record title can carry `adr approve …` to the model.
 - **The read, transition, write window is not locked.** Two of these commands,
@@ -850,10 +851,11 @@ canvases share is in `panel-http.mjs`. **Rung 1**: unit and contract tests plus
 a headless Copilot CLI 1.0.93 SDK-host smoke with no model calls; unmeasured
 in the Copilot app. Load-bearing:
 
-- **It is read-only and has no session.** The factory takes no `getSession`:
-  it writes nothing, starts no workflow, sends no prompt, and spends nothing.
-  There is no approve, object, or ratify control, and the page posts only to
-  `/api/refresh` and `/api/focus`. A test asserts both.
+- **Its actions are read-only; only the page writes.** No action writes,
+  starts a workflow, sends a prompt, or spends anything. The factory's one
+  session use is the review log (ADR-0052), and a test fails on any
+  `rpc.workflow`, `.send(`, or `.rpc` use. The page's only writes are the review
+  controls below; there is no ratify control.
 - **It shows no readiness verdict.** A queue row shows approvals against
   quorum, objection counts, SLA state, deadline, routing, and a finding count,
   and nothing derived from them. Review state misses refusals the
@@ -911,6 +913,60 @@ in the Copilot app. Load-bearing:
   because of the board drops decision-review too (ADR-0050).
 - **The post-edit hook does not refresh boards.** Adding a graph and queue
   read under the hooks' 15 s single-flight signal was left out on purpose.
+
+#### Recording review from the board
+
+Each open-proposal row has approve, object, and resolve controls, proposed in
+[ADR-0052](./docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md)
+(**proposed**; amends ADR-0050, implements the plugin half of ADR-0051). They
+run `adr approve`, `adr object`, and `adr resolve` and **need `@adrkit/cli`
+0.18.0 or later**. **Rung 1**: unit, contract, and mutation tests, an
+end-to-end test against the built CLI, and a headless SDK-host smoke with no
+model calls; the click flow is unmeasured in the Copilot app. Load-bearing:
+
+- **The identity is `ADRKIT_REVIEWER`, read on every request.** It is never
+  taken from the page, the model, or an argument. It must pass the mirror of
+  core's `isWritableIdentity` in `board-review-write.mjs`, which a test compares
+  with core over a table. Unset or invalid, the controls render disabled with a
+  fixed note and both routes return 403. A body with any key beyond the
+  documented ones (`by` among them) is a 400 before anything runs.
+- **Exactly one module is exempt from the verb guard.** `board-review-write.mjs`
+  may name the three review verbs, and never `accept`. `wiring.test.ts` pins the
+  exemption list to that one path. A verb written into `board.mjs`'s actions or
+  `board-page.mjs` was observed failing the suite, and the test plants verbs
+  into `tools.mjs`, `hooks.mjs`, and `canvas.mjs` sources too. Only `board.mjs` imports the module, and only its HTTP route handler
+  calls it: a test reads the import graph and the actions' source. Another
+  drives every action with write-shaped input and asserts nothing was spawned.
+  The page names kinds (`approval`, `objection`, `resolution`), never the
+  subcommands; the write module maps them.
+- **Two clicks and a fresh nonce.** The first click asks
+  `POST /api/review/nonce` for a nonce bound to that kind and record, and the
+  second, a "Confirm … as <reviewer>" button in the page's own DOM, spends it on
+  `POST /api/review`. The nonce is single use, spent first even when the attempt
+  is then refused. A newer one on the same panel replaces it, `onClose` drops
+  it, and it lasts two minutes. Both routes also need the URL token, the header
+  token, and no foreign `Origin`. The nonce is never in a snapshot, so no action
+  result or event-stream frame carries it. Do not use `window.confirm`: a dialog
+  can block the app, and a test fails on it.
+- **argv only, with the summary as one `--summary=<text>` element.** The CLI's
+  `--summary` takes the next argument as its value unless written with `=`, so a
+  summary starting with `-` needs the `=` form. The id, summary, and objection
+  index (an integer from 1) are checked before any spawn, and the shown corpus
+  directory is re-confined right before it. One write runs at a time (409
+  otherwise).
+- **Exit codes map to fixed messages, and stderr is never read.** Measured on
+  0.18.0: with `--json`, a refusal (exit 1) prints nothing on stdout; the reason
+  goes to stderr. So exit 1 is one fixed message and the page cannot say which
+  refusal it was. Measured on 0.17.0: an unknown subcommand also exits 2. So an
+  exit 2 asks `adr --version` afresh, and below 0.18.0 gets the upgrade message.
+  The nonce route asks first too, so normally no write is spawned against an
+  older CLI. A CLI seen new enough is cached for the nonce check only.
+- **A write re-reads the board and the queue** and waits for the queue, so the
+  reply carries the new counts. It never adds a readiness verdict, and neither
+  the page nor the write module names the ratifying command.
+- **Each spawned write is logged fire-and-forget** through `session.log`, with
+  the id, kind, identity, and outcome, never the summary. A log that hangs,
+  rejects, or throws must not hold the reply; a test covers all three.
 
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 
