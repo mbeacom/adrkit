@@ -937,7 +937,7 @@ live.
 
 ## `decision-board` canvas (2026-10-09)
 
-Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipping as plugin 0.9.0), for the
+Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipped as plugin 0.9.0), for the
 canvas proposed in [ADR-0050](adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**). Rows are numbered B1
 onward so they do not collide with other sections.
 
@@ -1043,7 +1043,7 @@ which the token check refuses like every other route.
   ladder rung that drops only the board, so decision-review would be dropped
   with it; this is a stated limit in ADR-0050, not a measurement.
 
-## 0.9.1 changed-file scope (2026-10-09)
+## 0.9.1 changed-file scope (2026-10-09, shipping as plugin 0.9.1)
 
 Two reports drove this release. On the dogfood repository the maintainer had
 uncommitted edits to `src/platform/ledger-client.ts`,

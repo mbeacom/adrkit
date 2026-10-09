@@ -756,7 +756,7 @@ will usually be a regression:
   including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
   app, and hook firing in the app, an interactive CLI session, and subagent
   child sessions, are unmeasured.
-- `copilot plugin install` prints only a skill count. Version 0.9.0 should report
+- `copilot plugin install` prints only a skill count. Version 0.9.1 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
