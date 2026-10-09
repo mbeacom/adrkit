@@ -73,7 +73,7 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.8.1 hardens the extension (fixed error messages, `/cd` for the
+Version 0.9.0 adds the read-only `decision-board` canvas; 0.8.1 hardens the extension (fixed error messages, `/cd` for the
 workflow, batched checks for wide changes, and process-tree cleanup); 0.8.0
 added the advisory session hooks; 0.7.0 added the read-only
 `adr_check`, `adr_explain`, and `adr_lint` extension tools; 0.6.0 added

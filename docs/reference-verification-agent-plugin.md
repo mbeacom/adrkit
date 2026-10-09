@@ -937,7 +937,7 @@ live.
 
 ## `decision-board` canvas (2026-10-09)
 
-Measured on 2026-10-09 at **rung 1** of ADR-0014, before any release, for the
+Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipping as plugin 0.9.0), for the
 canvas proposed in [ADR-0050](adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**). Rows are numbered B1
 onward so they do not collide with other sections.
 
