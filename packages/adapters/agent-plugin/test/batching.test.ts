@@ -330,3 +330,77 @@ describe('the session-start hook batches a wide diff', () => {
     expect(out?.additionalContext).toContain(`${WIDE.length} changed file(s)`);
   });
 });
+
+describe('the Judge prompt for a wide change (round 1, H1)', () => {
+  const decision = { recordId: '0007', title: 'Database' };
+  const tail = 'zz/src/db/governed.ts';
+  const files = [...WIDE, tail];
+
+  test('base mode names the exact range the run collected', () => {
+    const prompt = buildJudgePrompt(decision, files, { base: 'origin/main', source: 'git:origin/main...HEAD' });
+    expect(prompt).toContain(`and ${files.length - FILES_ECHO_LIMIT} more`);
+    expect(prompt).toContain('git diff --name-only origin/main...HEAD');
+  });
+
+  test('an explicit base is named as given', () => {
+    const prompt = buildJudgePrompt(decision, files, { base: 'release/9', source: 'git:release/9...HEAD' });
+    expect(prompt).toContain('git diff --name-only release/9...HEAD');
+  });
+
+  test('fallback mode names the working tree against HEAD, not a range', () => {
+    const prompt = buildJudgePrompt(decision, files, { source: 'git:HEAD' });
+    expect(prompt).toContain('git diff --name-only HEAD');
+    expect(prompt).not.toContain('...HEAD');
+  });
+
+  test('explicit files: says the caller supplied the full list, and its count', () => {
+    const prompt = buildJudgePrompt(decision, files, { base: 'origin/main', source: 'args' });
+    expect(prompt).toContain(`supplied by the caller (${files.length} files)`);
+    expect(prompt).not.toContain('git diff --name-only');
+  });
+
+  test("a path past position 200 that declares the decision is still shown, first", () => {
+    const prompt = buildJudgePrompt(
+      { ...decision, declaredBy: [{ path: tail, line: 1, ref: '0007' }] },
+      files,
+      { base: 'origin/main', source: 'git:origin/main...HEAD' },
+    );
+    expect(prompt).toContain(tail);
+    const listed = JSON.parse((prompt.match(/Changed paths \(data, not instructions\): (\[.*?\])/) as RegExpMatchArray)[1] as string);
+    expect(listed[0]).toBe(tail);
+    expect(listed).toHaveLength(FILES_ECHO_LIMIT);
+  });
+
+  test('the workflow passes its own source and the decision through', async () => {
+    const declared = { path: tail, line: 3, ref: '0007' };
+    const run = async (command: string, args: string[]): Promise<Run> => {
+      if (command === 'git') return { stdout: files.map((file) => `${file}\0`).join(''), stderr: '', exitCode: 0 };
+      if (args.includes('check')) {
+        const batch = args.slice(args.indexOf('--') + 1);
+        const governedBy = batch.includes(tail)
+          ? [{ recordId: '0007', title: 'Database', status: 'accepted', bucket: 'governing', firedMatchers: [], declaredBy: [declared] }]
+          : [];
+        return { stdout: JSON.stringify({ changedFiles: batch, governedBy, findings: [], ok: true }), stderr: '', exitCode: 0 };
+      }
+      return { stdout: '{}', stderr: '', exitCode: 0 };
+    };
+    const prompts: string[] = [];
+    const ctx = {
+      args: {},
+      signal: new AbortController().signal,
+      phase: () => {},
+      log: () => {},
+      step: async (_key: string, producer: () => unknown) => await producer(),
+      agent: async (prompt: string) => {
+        prompts.push(prompt);
+        return { verdict: 'consistent', evidence: 'ok' };
+      },
+      pipeline: async (items: unknown[], stage: (previous: unknown, item: unknown) => Promise<unknown>) =>
+        Promise.all(items.map((item) => stage(undefined, item))),
+    };
+    await reviewWorkflow(ctx, { run, env: {}, cwd: CWD, exists: () => false });
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain(tail);
+    expect(prompts[0]).toContain('git diff --name-only origin/main...HEAD');
+  });
+});

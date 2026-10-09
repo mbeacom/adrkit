@@ -67,7 +67,7 @@ export const ADR_REVIEW_META = {
  * @typedef {{ stdout: string, stderr: string, exitCode: number }} CommandResult
  * @typedef {(command: string, args: string[]) => Promise<CommandResult>} Runner
  * @typedef {{ files?: string[], base?: string, dir?: string }} ReviewArgs
- * @typedef {{ recordId: string, title: string, status?: string, bucket?: string, supersededBy?: string, firedMatchers?: unknown[] }} Decision
+ * @typedef {{ recordId: string, title: string, status?: string, bucket?: string, supersededBy?: string, firedMatchers?: unknown[], declaredBy?: unknown[] }} Decision
  * @typedef {{ recordId: string, title: string, verdict: string, evidence: string }} Verdict
  */
 
@@ -670,18 +670,69 @@ export async function collectChangedFiles({ files, base }, run) {
 }
 
 /**
+ * The paths a Judge prompt lists for `decision`: those its markers declared
+ * first, then the rest sorted, up to FILES_ECHO_LIMIT in all.
+ *
+ * @param {Decision} decision
+ * @param {string[]} files
+ * @returns {{ files: string[], omitted: number }}
+ */
+function judgedPaths(decision, files) {
+  if (files.length <= FILES_ECHO_LIMIT) return { files, omitted: 0 };
+  const present = new Set(files);
+  /** @type {string[]} */
+  const declared = [];
+  for (const entry of Array.isArray(decision.declaredBy) ? decision.declaredBy : []) {
+    const path = entry !== null && typeof entry === 'object' ? /** @type {any} */ (entry).path : undefined;
+    if (typeof path === 'string' && present.has(path) && !declared.includes(path)) declared.push(path);
+    if (declared.length >= FILES_ECHO_LIMIT) break;
+  }
+  const first = new Set(declared);
+  const rest = files.filter((file) => !first.has(file)).sort(byCodeUnits);
+  const listed = [...declared, ...rest.slice(0, FILES_ECHO_LIMIT - declared.length)];
+  return { files: listed, omitted: files.length - listed.length };
+}
+
+/**
+ * How the Judge can see the paths a prompt left out, by the source the run
+ * collected them from.
+ *
+ * @param {number} total
+ * @param {{ base?: string, source?: string }} where
+ */
+function omittedHint(total, { base, source }) {
+  if (source === 'args') {
+    return (
+      `(the full list was supplied by the caller (${total} files) and cannot be listed with git; ` +
+      'say in the evidence that the omitted paths were not seen)'
+    );
+  }
+  const range =
+    typeof source === 'string' && source.startsWith('git:') ? source.slice('git:'.length) : base ? `${base}...HEAD` : 'HEAD';
+  return `(list them all with \`git diff --name-only ${range}\`)`;
+}
+
+/**
  * The prompt for one governing decision. It names the boundary as an
  * allowlist rather than a list of forbidden commands: a host model reads an
  * example as an instruction, which is why the plugin's wiring test rejects any
  * mention of the ratifying command anywhere in the plugin.
  *
+ * A wide change is listed up to FILES_ECHO_LIMIT paths: first the paths whose
+ * inbound `@adr` markers declared this decision (`declaredBy`), then the rest
+ * in code-unit order. The hint for the omitted paths names exactly how the run
+ * collected them, because a bare `git diff --name-only` (working tree against
+ * the index) prints nothing for committed work, and a Judge shown only
+ * unrelated paths would otherwise answer from what it can see.
+ *
  * @param {Decision} decision
  * @param {string[]} files
- * @param {{ base?: string }} [options]
+ * @param {{ base?: string, source?: string }} [options] `source` is
+ *   `collectChangedFiles`' label: `args`, `git:HEAD`, or `git:<base>...HEAD`.
  */
-export function buildJudgePrompt(decision, files, { base } = {}) {
-  const shown = capFiles(files);
-  const more = shown.omitted > 0 ? ` and ${shown.omitted} more (list them all with \`git diff --name-only\`)` : '';
+export function buildJudgePrompt(decision, files, { base, source } = {}) {
+  const shown = judgedPaths(decision, files);
+  const more = shown.omitted > 0 ? ` and ${shown.omitted} more ${omittedHint(files.length, { base, source })}` : '';
   const diff = base
     ? `\`git diff ${base}...HEAD -- <path>\` (falling back to \`git diff HEAD -- <path>\`)`
     : '`git diff HEAD -- <path>`';
@@ -917,7 +968,7 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
 
   ctx.phase('Judge');
   const judged = await ctx.pipeline(governing, async (/** @type {unknown} */ _previous, /** @type {Decision} */ decision) => {
-    const answer = await ctx.agent(buildJudgePrompt(decision, files, { base: diffBase }), {
+    const answer = await ctx.agent(buildJudgePrompt(decision, files, { base: diffBase, source: collected.source }), {
       agent: DECISION_CHECKER_AGENT,
       label: `judge:${decision.recordId}`,
       schema: VERDICT_SCHEMA,
