@@ -167,6 +167,13 @@ joins. The runtime's refusal does not say which piece it objected to, so the
 log names what the successful join left out and quotes each refusal, rather
 than blaming one piece.
 
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> The tools and the advisory hooks share one ladder: without the hooks, without
+> the tools, without both, without the canvas alone (keeping the tools), then
+> the workflow alone. Without hooks that is at most four joins, not three, a
+> runtime that refuses `canvases` now keeps the tools, and a join that never
+> succeeds rethrows the first refusal rather than the last.
+
 **Commands, skills, and agents do not mention the tools.** Those files are shared
 with Claude Code and opencode, which do not load Copilot extensions, and their
 CLI path keeps working unchanged in Copilot. The tools appear in Copilot's tool

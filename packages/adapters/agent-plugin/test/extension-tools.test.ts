@@ -394,22 +394,37 @@ describe('register with tools', () => {
     expect(logged[0]).toContain('refused attempt 1');
   });
 
-  test('when the join without tools is refused too, the workflow alone is registered, and the canvas is not blamed alone', async () => {
+  test('when the join without tools is refused too, the canvas alone is dropped next, keeping the tools', async () => {
+    // One combined ladder with the hooks (ADR-0049): the canvas alone goes
+    // before everything, so a runtime that does not know `canvases` keeps
+    // the tools.
     const { deps, joined, logged } = fakes({ reject: (_config, attempt) => attempt < 3 });
     await register(deps);
     expect(joined.length).toBe(3);
-    expect(Object.keys(joined[2] ?? {}).sort()).toEqual(['onEvent', 'workflows']);
+    expect(Object.keys(joined[2] ?? {}).sort()).toEqual(['onEvent', 'tools', 'workflows']);
+    expect(logged.length).toBe(1);
+    expect(logged[0]).toContain('joined without the decision-review canvas after');
+    expect(logged[0]).not.toContain('adrkit tools');
+  });
+
+  test('when the join without the canvas is refused too, the workflow alone is registered, and the canvas is not blamed alone', async () => {
+    const { deps, joined, logged } = fakes({ reject: (_config, attempt) => attempt < 4 });
+    await register(deps);
+    expect(joined.length).toBe(4);
+    expect(Object.keys(joined[3] ?? {}).sort()).toEqual(['onEvent', 'workflows']);
     expect(logged.length).toBe(1);
     expect(logged[0]).toContain('joined without the adrkit tools and the decision-review canvas');
     expect(logged[0]).not.toContain('failed to register the adrkit tools: the session refused');
     expect(logged[0]).toContain('refused attempt 1');
-    expect(logged[0]).toContain('refused attempt 2');
+    expect(logged[0]).toContain('refused attempt 3');
   });
 
-  test('never more than three joins, and the last refusal surfaces', async () => {
+  test('never more than four joins without hooks, and the original refusal surfaces', async () => {
+    // The first refusal is about the full configuration; ADR-0049's ladder
+    // rethrows it rather than the last, which is about the workflow alone.
     const { deps, joined } = fakes({ reject: () => true });
-    await expect(register(deps)).rejects.toThrow('refused attempt 3');
-    expect(joined.length).toBe(3);
+    await expect(register(deps)).rejects.toThrow('refused attempt 1');
+    expect(joined.length).toBe(4);
   });
 });
 

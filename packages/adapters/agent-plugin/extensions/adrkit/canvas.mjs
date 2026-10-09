@@ -448,6 +448,15 @@ export const QUEUE_TIMEOUT_MS = 30_000;
  * message selected by an explicit check is the rule since CodeQL's
  * stack-trace finding on the first canvas.
  */
+/**
+ * Fixed notes for the governing view. An automatic refresh (the hooks') runs
+ * under a signal; when it fires, the panel keeps its previous result and says
+ * so, rather than showing the abort's exception text as a usage error.
+ */
+export const CANVAS_NOTES = {
+  autoRefreshTimeout: 'Automatic refresh timed out; showing the previous result.',
+};
+
 export const QUEUE_NOTES = {
   args: "The open-proposal list was not computed: the panel's arguments are not valid.",
   start: 'The open-proposal list is unavailable: the adr CLI could not be started.',
@@ -455,6 +464,7 @@ export const QUEUE_NOTES = {
   version: 'The open-proposal list is unavailable: adr queue returned a report version this panel does not read.',
   tooLarge: 'The open-proposal list is unavailable: the adr queue report was too large to read.',
   timeout: 'The open-proposal list is unavailable: adr queue did not finish in time.',
+  autoRefreshTimeout: 'The open-proposal list was not updated: the automatic refresh timed out; showing the previous list.',
   /** @param {number} code */
   exit: (code) => `The open-proposal list is unavailable: adr queue exited ${code}.`,
 };
@@ -891,17 +901,35 @@ export function createDecisionReviewCanvas({
    *
    * @param {string} cwd
    * @param {unknown} [input]
-   * @param {{ waitForQueue?: boolean }} [opts]
+   * @param {{ waitForQueue?: boolean, signal?: AbortSignal }} [opts] `signal`
+   *   bounds every git and adr call, the queue's included (the hooks' refresh
+   *   passes one); the queue keeps its own timeout too.
    */
-  const refresh = async (cwd, input, { waitForQueue = true } = {}) => {
+  const refresh = async (cwd, input, { waitForQueue = true, signal } = {}) => {
     const workspace = workspaceFor(cwd);
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
+    /** @type {CwdRunner} */
+    const bounded = signal
+      ? (command, args, options) =>
+          run(command, args, { ...options, signal: options.signal ? AbortSignal.any([options.signal, signal]) : signal })
+      : run;
     // Beside the check, not inside it: the queue is corpus-wide, so it runs with
     // no changed files too, it can never alter the check's result, and neither
     // its time nor its failure holds the governing view.
-    const queueRun = computeQueue({ cwd, input: workspace.args, run, env, exists, timeoutMs: queueTimeoutMs });
-    const snapshot = await computeCheck({ cwd, input: workspace.args, run, env, exists, now });
+    const queueRun = computeQueue({ cwd, input: workspace.args, run: bounded, env, exists, timeoutMs: queueTimeoutMs });
+    const computed = await computeCheck({ cwd, input: workspace.args, run: bounded, env, exists, now });
+    // An automatic refresh its signal cut short says nothing about the
+    // repository: its snapshot would show the abort's exception text as a
+    // usage error. Keep what the panel had and add a fixed note instead.
+    const timedOut = Boolean(signal?.aborted);
+    const previous = workspace.check;
+    const snapshot =
+      timedOut && previous
+        ? { ...previous, notes: [...previous.notes.filter((note) => note !== CANVAS_NOTES.autoRefreshTimeout), CANVAS_NOTES.autoRefreshTimeout] }
+        : timedOut
+          ? { ...computed, notes: [CANVAS_NOTES.autoRefreshTimeout] }
+          : computed;
     const fingerprint = await fingerprintOf(cwd, snapshot);
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
@@ -920,7 +948,15 @@ export function createDecisionReviewCanvas({
       broadcast(cwd);
     }
     const queueDone = queueRun
-      .then((queue) => {
+      .then((computedQueue) => {
+        // Same rule for the queue: an aborted automatic refresh keeps the
+        // previous list under a fixed note, never "could not be started".
+        const queue =
+          signal?.aborted && !computedQueue.available
+            ? workspace.queue?.available
+              ? { ...workspace.queue, note: QUEUE_NOTES.autoRefreshTimeout }
+              : { ...computedQueue, note: QUEUE_NOTES.autoRefreshTimeout }
+            : computedQueue;
         if (seq === workspace.seq || workspace.queue === null) {
           workspace.queue = queue;
           broadcast(cwd);
@@ -1382,6 +1418,21 @@ export function createDecisionReviewCanvas({
         instance.server.close(() => resolve(undefined));
         instance.server.closeAllConnections?.();
       });
+    },
+
+    /**
+     * The advisory post-edit hook's way in (ADR-0049): the free `refresh` for
+     * each directory with an open panel, and nothing when none is open. Never
+     * starts `run_review`. Not an SDK field: `createCanvas` copies only the
+     * fields it knows, so this stays in process. `signal` bounds the git and
+     * adr calls. Resolves to the number of directories refreshed.
+     *
+     * @param {{ signal?: AbortSignal }} [options]
+     */
+    refreshOpen: async ({ signal } = {}) => {
+      const cwds = new Set([...live].map((instance) => instance.cwd));
+      for (const cwd of cwds) await refresh(cwd, undefined, { signal });
+      return cwds.size;
     },
   };
 }

@@ -565,11 +565,12 @@ Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
 - App version drift: rows 8 to 15 were measured under app 1.1.14 with runtime
   1.0.93-1, and rows 23 to 29 under app 1.1.27. Neither set is re-dated to the
   other.
-- Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI
-  strips "sensitive" variables unless an extension requests them; whether this
-  one counts is unmeasured. It was null in the app probe because it was not set.
-  Measured afterwards in the headless SDK host (row C12): it does reach the
-  extension there. The app remains unmeasured.
+- Whether `ADRKIT_CLI`, when exported, reaches extension processes in the
+  Copilot app. In the headless SDK host on Copilot CLI 1.0.93 it does (rows C12
+  and H6 below): `ADRKIT_*` variables, including one named like a secret,
+  reached the extension without `requestedEnvironmentVariables`. The app builds
+  its extensions' environment from its own launch, and `ADRKIT_CLI` was null in
+  the app probe because it was not set.
 - Copilot app and CLI versions other than those above, and a Windows host.
 - Any persistent reference-repository run or external validation (rungs 2 and
   3).
@@ -792,6 +793,81 @@ results; `base: "no-such-ref"` now returns `git-base-unresolved`.
   CLI host, where the SDK host passed its environment to the runtime).
 - Copilot CLI versions other than 1.0.93, an install from GitHub with the tools
   in place, a Windows host, and any rung-2 or rung-3 evidence.
+
+## v0.8.0 advisory session hooks (2026-10-08)
+
+Measured on 2026-10-08 at **rung 1** of ADR-0014. The hooks are proposed in
+[ADR-0049](adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
+(**proposed**): `onSessionStart` and `onPostToolUse`, registered by the same
+`joinSession` as the workflow and the canvas, returning nothing but
+`additionalContext`. A first design also had an `onPreToolUse` note; rows H12
+to H17 are why it was removed.
+
+All rows: Copilot CLI 1.0.93 through a headless SDK host (`CopilotClient`,
+`createSession({ pluginDirectories, requestExtensions: true,
+requestCanvasRenderer: true, workingDirectory })`), on a fixture repository
+where 0001 (`src/**`) and 0002 (`package.json`) are `accepted` and both files
+differ from `origin/main`. Latencies are the runtime's own `hook.start` to
+`hook.end` event timestamps. "Free" rows made no model call; several drive a
+tool directly with `session.rpc.tools.execute`, which runs it through the
+session's native invocation pipeline and fires the pre- and post-tool hooks.
+
+| # | Probe | Result |
+|---|-------|--------|
+| H1 | A probe extension registering every hook; session created, no prompt (free) | `load` and `joined` only; no hook fired. Resuming the session with no prompt fired none either |
+| H2 | Same probe, one prompt asking for one edit (`gpt-6-luna`) | `onUserPromptSubmitted`, then `onSessionStart` (`source: "new"`, `initialPrompt` set), then the model; `onPreToolUse` and `onPostToolUse` around the edit; then `onAgentStop` and `onSessionEnd` (`reason: "complete"`) |
+| H3 | Did the context reach the model? | The model quoted the session-start, prompt, and pre-tool sentinels verbatim |
+| H4 | Edit tool and arguments, `gpt-6-luna` | `apply_patch`; `toolArgs` is the raw patch string, `*** Update File: src/net.ts`, a relative path; `toolResult.resultType` `success` in the post hook |
+| H5 | Edit tool shapes in 2,424 local Copilot session logs (free) | `edit` `{ path, old_str, new_str }` and `create` `{ path, file_text }` with absolute paths; `apply_patch` with relative and absolute paths. `str_replace_editor` (which the bundle switches on `command`, including a read-only `view`) and `str_replace` appeared in no log |
+| H6 | `ADRKIT_HOOKS=0` and `ADRKIT_PROBE_SECRET_TOKEN` set in the runtime environment via `forStdio({ env })`, no `requestedEnvironmentVariables` (free) | Both present in the extension's `process.env` |
+| H7 | The shipped extension with `ADRKIT_HOOKS=0` (free) | Loaded (`status: "running"`); the `decision-review` canvas still listed |
+| H8 | First design, one turn (`gpt-6-luna`), canvas open, two separate edits of `src/net.ts` | `onSessionStart` **111 ms**, returned the summary naming 0001 and 0002 |
+| H9 | Same turn, the then `onPreToolUse` note | First `apply_patch` of `src/net.ts`: **117 ms** (one uncached `adr check`), note naming 0001. Second edit of the same file: **0 ms**, nothing returned. Six other pre-tool calls (`skill`, `extensions_manage`, `view`): 0 to 1 ms |
+| H10 | Same turn, `onPostToolUse` | 0 to 1 ms every call. The panel's `updatedAt` moved 1.7 s after the last edit's post hook, consistent with the 1.5 s debounce (the two post hooks were 2.3 s apart, so coalescing was not exercised live); `review` stayed `null`, so no review started |
+| H11 | Same turn, outcome | The model quoted both advisories verbatim and read 0001 before editing; both edits landed |
+| H12 | Probe pre-tool hook throws, one `create` via `tools.execute` (free) | Tool ran, file written |
+| H13 | Probe post-tool hook throws (free) | Tool ran |
+| H14 | Extension process exits inside the pre-tool hook (free) | Tool ran; the runtime reported the hook `success: true`; a later call ran too, with the extension listed `failed` |
+| H15 | Extension process exits inside the post-tool hook (free) | Tool ran; a later call ran, extension `failed` |
+| H16 | Probe pre-tool hook never answers (free) | **Tool not run**: no file written, the call still pending when the host gave up at 90 s |
+| H17 | Probe post-tool hook never answers (free) | Tool **ran** (file written); its result still held at 90 s |
+| H18 | Shipped hooks, `create` of `src/hooks-probe.ts` via `tools.execute`, canvas open (free) | `onPostToolUse` **104 ms**, returned "adrkit (advisory; it blocked nothing): the file(s) you just edited are governed by accepted decision(s) 0001. …" |
+| H19 | Same session: a second governed file, an ungoverned file, a `view` | 109 ms with the note; 110 ms (one check, no note); 0 ms. The panel's `updatedAt` moved, `review` stayed `null` |
+| H20 | After rebasing onto the tools (ADR-0048) and the canvas queue (ADR-0047): one session, no prompt sent | The extension `running`; `adr_check`, `adr_explain`, `adr_lint` registered; `decision-review` listed; `adr-review` with an unknown argument `completed` as `usage-error`. Via `tools.execute`: `adr_check` 102 ms naming 0001; `create` of a governed file, post hook 96 ms with the 0001 note; `view` 0 ms; an ungoverned `create`, post hook 95 ms, no note. The panel's `updatedAt` moved, the queue read was `available`, `review` stayed `null`. No `joined without` log line |
+| H21 | Same session, unplanned | The workflow's terminal `system.notification` started a model turn on the session's default model (`claude-sonnet-5.5`), which fired `onSessionStart` (107 ms, summary naming 0001 and 0002) and called `adr_check` itself. Starting `adr-review` in an SDK session with a live model is therefore not free, even when the run spends nothing |
+
+Spend: two paid turns, both `gpt-6-luna`. H2 cost 208,739,500 nano-AIU and H8
+to H11 cost 605,392,000, about 0.81 AI credits together at 10^9 nano-AIU per
+credit. H21 was an unplanned third turn, 6,768,480,000 nano-AIU (about 6.77
+credits), started by the workflow's completion notice rather than by a prompt.
+Every other row was free. H2 and H8 are single runs of a non-deterministic
+agent, not a pass rate.
+
+### Not verified
+
+- Hook firing in the Copilot app: **unmeasured in the Copilot app**. That
+  includes whether `onSessionStart` fires with the first prompt there, as it
+  does for a plugin extension in the SDK host.
+- Hook firing in an interactive Copilot CLI terminal session, and
+  `source: "startup"` or `"resume"`.
+- Hook behavior in subagent child sessions: whether a child's post-tool hook
+  reaches this extension, and whether `onSessionStart` fires per child. The
+  once-per-session note for a second session id is unit-tested only.
+- The shipped post-edit note in a model turn. H18 and H19 used
+  `tools.execute`, not the model's tool loop.
+- Whether the model's tool loop treats a hook error the way `tools.execute`
+  does (H12 to H15). The CLI changelog says 1.0.57 made pre-tool hook errors
+  deny the call; this plugin registers no pre-tool hook.
+- Any live model family other than `gpt-6-luna`. The `edit` and `create`
+  shapes come from session logs, not from a run of these hooks.
+- The off switch end to end with a model turn. H6 shows the variable arrives
+  and H7 that the extension loads without hooks; that no hook then fires is
+  unit-tested, not observed. Its arrival in the Copilot app is unmeasured.
+- Whether the person sees hook context in the CLI or the app transcript.
+- A timeout kills only the process the hook started, not a grandchild (for
+  example `node` behind a version-manager shim for `adr`). This is a known
+  limit of the shared `runCommand`, measured in review and left as a
+  follow-up.
 
 ## Verdict
 

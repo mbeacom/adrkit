@@ -9,14 +9,30 @@
  * other. A failure is reported through `session.log` once the session is
  * joined, because stdout carries the JSON-RPC connection.
  *
+ * The read-only adrkit tools (ADR-0048) and the advisory hooks (ADR-0049) get
+ * the same isolation, and both are optional here so a caller that registers
+ * only the workflow and canvas is unchanged. The hooks reach the canvas only
+ * through its in-process `refreshOpen`, and only if the canvas built.
+ *
  * There is one `joinSession` and one extension directory on purpose: the app
  * starts one extension process per restored session (measured: 181 loads), so
  * a second directory would double that.
- *
- * The read-only adrkit tools (ADR-0048) join the same session. They are
- * optional here so a caller that registers only the workflow and canvas is
- * unchanged.
  */
+
+/** What each optional join field registers, for the failure log. @type {Record<string, string>} */
+const LABELS = { hooks: 'advisory hooks', tools: 'adrkit tools', canvases: 'decision-review canvas' };
+
+/** The fields a join attempt can drop. `workflows` and `onEvent` are always kept. */
+const OPTIONAL = ['hooks', 'tools', 'canvases'];
+
+/**
+ * What a refused join drops next, in order: the optional extras before the
+ * canvas, each alone before both, the canvas alone before everything, and the
+ * workflow never. A rung that names an absent field drops only what is
+ * present; a rung that repeats an earlier one, or would leave nothing but
+ * `onEvent`, is skipped. With all three present that is at most six joins.
+ */
+const LADDER = [['hooks'], ['tools'], ['hooks', 'tools'], ['canvases'], ['hooks', 'tools', 'canvases']];
 
 /** @param {unknown} error */
 const messageOf = (error) => (error instanceof Error ? error.message : String(error));
@@ -31,14 +47,17 @@ const messageOf = (error) => (error instanceof Error ? error.message : String(er
  *   canvas: (getSession: () => S | undefined) => unknown,
  *   tools?: () => unknown[],
  *   onEvent?: (event: unknown) => void,
+ *   hooks?: (deps: { getSession: () => S | undefined, refreshCanvas: (options?: unknown) => Promise<unknown> }) => Record<string, unknown> | undefined,
  * }} deps
  * @returns {Promise<S>}
  */
-export async function register({ defineWorkflow, createCanvas, joinSession, workflow, canvas, tools, onEvent }) {
+export async function register({ defineWorkflow, createCanvas, joinSession, workflow, canvas, tools, onEvent, hooks }) {
   /** @type {string[]} */
   const failures = [];
   /** @type {S | undefined} */
   let joined;
+  /** The built canvas options, for the hooks' refresh. @type {{ refreshOpen?: (options?: unknown) => Promise<unknown> } | undefined} */
+  let canvasOptions;
 
   /** @type {Record<string, unknown>} */
   const config = {};
@@ -50,22 +69,38 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
   try {
     // The canvas is built before the session exists, but needs it later for
     // `send` and `rpc.workflow`; the getter is filled in once joined.
-    config['canvases'] = [createCanvas(canvas(() => joined))];
+    const options = canvas(() => joined);
+    config['canvases'] = [createCanvas(options)];
+    canvasOptions = /** @type {any} */ (options);
   } catch (error) {
-    failures.push(`failed to register the decision-review canvas: ${messageOf(error)}`);
+    failures.push(`failed to register the ${LABELS['canvases']}: ${messageOf(error)}`);
   }
-
   if (tools) {
     try {
       config['tools'] = tools();
     } catch (error) {
-      failures.push(`failed to register the adrkit tools: ${messageOf(error)}`);
+      failures.push(`failed to register the ${LABELS['tools']}: ${messageOf(error)}`);
+    }
+  }
+  if (hooks) {
+    try {
+      const built = hooks({
+        getSession: () => joined,
+        refreshCanvas: async (/** @type {unknown} */ options) => {
+          if (typeof canvasOptions?.refreshOpen === 'function') await canvasOptions.refreshOpen(options);
+        },
+      });
+      // `undefined` is the off switch (ADRKIT_HOOKS=0): nothing is registered.
+      if (built) config['hooks'] = built;
+    } catch (error) {
+      failures.push(`failed to register the ${LABELS['hooks']}: ${messageOf(error)}`);
     }
   }
 
   // Passed as `onEvent`, which the SDK registers before it issues the join
   // RPC, so events delivered while the join is in flight reach the tools'
   // directory tracking. A throwing handler must not reach the SDK's dispatch.
+  // It is not a component, so no rung of the ladder drops it.
   if (onEvent) {
     config['onEvent'] = (/** @type {unknown} */ event) => {
       try {
@@ -77,41 +112,49 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
   }
 
   // Isolating the factories is not enough if the runtime itself refuses the
-  // join, so each refusal drops the newest optional piece and tries again, at
-  // most three joins in all. Measured on Copilot CLI 1.0.93: an invalid tool
-  // definition rejects the whole join, which would take the workflow and the
-  // canvas down with it. A runtime that does not know `canvases` (an older CLI
-  // or app) would do the same, so the last attempt keeps the workflow alone.
-  // The refusal does not say which piece it was about, so the log names what
-  // was dropped and quotes the refusals, rather than blaming one piece.
-  const { tools: _tools, ...withoutTools } = config;
-  /** @type {Array<{ config: Record<string, unknown>, dropped: string[] }>} */
-  const attempts = [{ config, dropped: [] }];
-  if (config['tools']) attempts.push({ config: withoutTools, dropped: ['adrkit tools'] });
-  if (config['canvases'] && config['workflows']) {
-    const workflowOnly = { workflows: config['workflows'], ...(config['onEvent'] ? { onEvent: config['onEvent'] } : {}) };
-    attempts.push({
-      config: workflowOnly,
-      dropped: [...(config['tools'] ? ['adrkit tools'] : []), 'decision-review canvas'],
-    });
+  // join. Measured on Copilot CLI 1.0.93: an invalid tool definition rejects
+  // the whole join, which would take the workflow and the canvas down with it,
+  // and a runtime that does not know `canvases` or `hooks` would do the same.
+  // So each refusal drops the next rung of LADDER and tries again. The refusal
+  // does not say which field it was about, so the log names what the
+  // successful join dropped and quotes the refusals, rather than blaming one.
+  const present = OPTIONAL.filter((key) => key in config);
+  /** @type {string[][]} */
+  const rungs = [];
+  for (const rung of LADDER) {
+    const drop = rung.filter((key) => present.includes(key));
+    if (drop.length === 0 || rungs.some((seen) => seen.join() === drop.join())) continue;
+    const kept = Object.keys(config).filter((key) => key !== 'onEvent' && !drop.includes(key));
+    if (kept.length === 0) continue;
+    rungs.push(drop);
   }
   /** @type {string[]} */
   const refusals = [];
+  /** @type {unknown} */
+  let original;
   for (let index = 0; ; index++) {
-    const attempt = /** @type {{ config: Record<string, unknown>, dropped: string[] }} */ (attempts[index]);
+    const drop = index === 0 ? [] : /** @type {string[]} */ (rungs[index - 1]);
     try {
-      joined = await joinSession(attempt.config);
-      if (refusals.length > 0) {
-        failures.push(
-          `joined without the ${attempt.dropped.join(' and the ')} after the session refused ` +
-            `${refusals.length === 1 ? 'a join' : `${refusals.length} joins`} (${refusals.join('; ')})`,
-        );
-      }
-      break;
+      joined = await joinSession(Object.fromEntries(Object.entries(config).filter(([key]) => !drop.includes(key))));
     } catch (error) {
-      if (!attempts[index + 1]) throw error;
+      if (index === 0) original = error;
       refusals.push(messageOf(error));
+      // The first refusal is about the full configuration, so it is the one
+      // worth surfacing when nothing joins.
+      if (index >= rungs.length) throw original;
+      continue;
     }
+    if (drop.length > 0) {
+      failures.push(
+        `joined without the ${drop.map((key) => LABELS[key]).join(' and the ')} after the session refused ` +
+          `${refusals.length === 1 ? 'a join' : `${refusals.length} joins`} (${refusals.join('; ')})` +
+          // Dropping `hooks` first means a one-off join failure unrelated to
+          // any field also turns them off for this session. That is accepted
+          // (ADR-0049), but said plainly rather than blamed on the hooks.
+          (drop.includes('hooks') ? '; the advisory hooks are off for this session, and they may not have caused it' : ''),
+      );
+    }
+    break;
   }
 
   for (const failure of failures) {
@@ -122,5 +165,5 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
       // Nothing else can reach the user: stdout is the RPC channel.
     }
   }
-  return joined;
+  return /** @type {S} */ (joined);
 }

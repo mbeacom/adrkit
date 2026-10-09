@@ -72,12 +72,12 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.7.0 adds the read-only `adr_check`, `adr_explain`, and `adr_lint`
-extension tools; 0.6.0 added provenance, review cost, and the open-proposal
-queue to the `decision-review` canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review`
-workflow; 0.3.0 added the bootstrap-record offer to backfill; 0.2.0 added the
-second skill and fifth command. Existing installations must refresh and start a
-new host session:
+Version 0.8.0 adds the advisory session hooks; 0.7.0 added the read-only
+`adr_check`, `adr_explain`, and `adr_lint` extension tools; 0.6.0 added
+provenance, review cost, and the open-proposal queue to the `decision-review`
+canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review` workflow; 0.3.0
+added the bootstrap-record offer to backfill; 0.2.0 added the second skill and
+fifth command. Existing installations must refresh and start a new host session:
 
 ```bash
 copilot plugin update adrkit@adrkit
@@ -455,6 +455,68 @@ the extension's own `process.cwd()` does not.
 extensions, and the skill and commands keep using the CLI on every host. The
 tools were measured registering and running in a headless Copilot CLI 1.0.93
 session; they are **unmeasured in the Copilot app**. Details are in the
+[evidence index](../../../docs/reference-verification-agent-plugin.md).
+
+## Advisory session hooks (GitHub Copilot)
+
+The same extension registers two session hooks, proposed in
+[ADR-0049](../../../docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
+(**proposed**). They add context for the agent and never block anything.
+
+| Hook | When | What it adds | Cost |
+| --- | --- | --- | --- |
+| `onSessionStart` | With the session's first prompt (measured) | A short summary: how many files changed, and the ids of the accepted decisions that govern them and of open proposals that would also govern them | One `git diff` and one `adr check`; no model call |
+| `onPostToolUse` | After an edit tool (`edit`, `create`, `str_replace`, `apply_patch`, or a writing `str_replace_editor` command) | A note that the file just edited is governed by the named accepted decision(s), once per file per session; and a debounced refresh of any open `decision-review` panel | One `adr check` per distinct file, cached; the panel's free refresh, never a review; nothing for any other tool |
+
+**There is no pre-tool hook, on purpose.** Measured on Copilot CLI 1.0.93: a
+pre-tool hook that hangs holds the tool call unexecuted, so a slow or wedged
+extension would gate the agent. The note comes after the edit instead, and
+says that it blocked nothing.
+
+**They cannot block.** Every hook returns at most `additionalContext`. None
+returns a permission decision (not even "allow", which would skip a prompt you
+configured), rewrites a tool's arguments or result, or hides output. A failure
+is silent to the agent and logs one warning line for you.
+
+**They pass ids, not text.** The context names record ids and a status
+(`accepted`, `proposed`, `draft`), never an ADR title or a file path, because
+those are repository content and the agent reads hook context as
+instructions. Ids are accepted in a record's own id grammar (`0001`, `10000`,
+or a ULID); anything else, including a namespaced reference such as
+`payments:0001`, is skipped silently. `adr explain
+<path>` gives the agent the rest.
+
+**Limits.**
+
+- Each `git` and `adr` call a hook makes itself has a 5-second limit, and at
+  most two run at once.
+- The session summary adds at most about 5 seconds to the first prompt, and
+  the post-edit note holds a tool result at most about 2 seconds. Past those
+  deadlines the hook says nothing for that turn.
+- The panel refresh a hook triggers runs one at a time, under a 15-second
+  limit that covers the open-proposal queue read as well. If it runs out, the
+  panel keeps showing its previous result, noting that the automatic refresh
+  timed out.
+- A timeout stops the process the hook started, but not a grandchild process
+  that a version-manager shim may start for `adr`.
+
+**Turn them off** with `ADRKIT_HOOKS=0` (or `false`, `off`, `no`) in the
+environment Copilot starts from. In the headless SDK host on Copilot CLI
+1.0.93, the variable reached the extension without being requested. Whether it
+reaches the extension in the Copilot app, which builds its own environment, is
+unmeasured. The CLI is resolved as everywhere else in this plugin.
+
+**Evidence.** Rung 1 of ADR-0014: unit and contract tests, plus headless
+Copilot CLI 1.0.93 SDK-host runs.
+
+- One model turn on `gpt-6-luna` measured the session summary at 111 ms.
+- Free runs through the session's tool pipeline measured the post-edit note
+  at 104 to 110 ms after the first edit of a file, and 0 ms for a non-edit
+  tool.
+- The open panel refreshed after an edit.
+
+Hook firing is unmeasured in the Copilot app, in an interactive CLI session,
+and in subagent child sessions. Details are in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
 
 ## Things that are load-bearing and easy to break

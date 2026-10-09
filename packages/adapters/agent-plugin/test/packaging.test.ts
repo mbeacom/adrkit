@@ -78,6 +78,7 @@ describe('packaging', () => {
       'extensions/adrkit/canvas.mjs',
       'extensions/adrkit/canvas-page.mjs',
       'extensions/adrkit/tools.mjs',
+      'extensions/adrkit/hooks.mjs',
       'README.md',
       'LICENSE',
       'NOTICE',
@@ -144,7 +145,7 @@ describe('workflow extension packaging', () => {
     // importable, and testable, under Bun where the host's module resolver does
     // not exist. Siblings are named, not matched by pattern, so a new module is
     // a deliberate edit here rather than something that slips in.
-    const siblings = new Set(['./review.mjs', './canvas.mjs', './canvas-page.mjs', './register.mjs', './tools.mjs']);
+    const siblings = new Set(['./review.mjs', './canvas.mjs', './canvas-page.mjs', './register.mjs', './tools.mjs', './hooks.mjs']);
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
       const name = relative(packageRoot, file);

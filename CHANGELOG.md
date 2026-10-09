@@ -11,6 +11,31 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
+- **The agent plugin adds advisory session hooks for GitHub Copilot (`adrkit`
+  0.8.0).** The extension now registers two hooks. `onSessionStart` adds a short summary of
+  the decisions governing the session's changed files, from one `git diff` and
+  one `adr check`, with no model call. `onPostToolUse`, after an edit tool,
+  notes the accepted decision(s) governing the file just edited (once per file
+  per session) and refreshes any open `decision-review` panel, debounced and
+  one at a time; it never starts a review. There is deliberately no pre-tool
+  hook: measured on Copilot CLI 1.0.93, a pre-tool hook that hangs holds the
+  tool call, which would make an advisory a gate. Hook context carries record
+  ids and statuses only, never titles or paths. No hook can block, deny,
+  approve, or rewrite anything: each returns at most `additionalContext`.
+  `ADRKIT_HOOKS=0` turns them off.
+  - The session summary adds at most about 5 s to the first prompt, and the
+    post-edit note holds a result at most about 2 s.
+  - Each `git` and `adr` call the hooks start has a 5-second limit, at most
+    two run at once, and the refresh they trigger has a 15-second limit.
+  - A failure is silent to the agent, with one logged warning.
+
+  Proposed in
+  [ADR-0049](docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
+  (proposed); rung 1 of ADR-0014 with headless Copilot CLI 1.0.93 SDK-host
+  runs measuring 111 ms for the session summary and 104 to 110 ms for the
+  first post-edit check of a file. Unmeasured in the Copilot app, in an
+  interactive CLI session, and in subagent child sessions.
+
 - **The `decision-review` canvas shows provenance, review cost, and the
   open-proposal queue (`adrkit` 0.6.0).** Each governing decision's evidence now names what tied
   it to the change: for an inbound `@adr` marker, the changed file and line (the

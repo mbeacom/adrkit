@@ -537,7 +537,90 @@ will usually be a regression:
   pre-run refresh; only agent `get_state`/`refresh` do. Its strings, and
   `declaredBy` paths, are clipped like CLI messages, and the rows share a
   256 KiB (UTF-8 bytes) serialized budget, before every broadcast.
-- `copilot plugin install` prints only a skill count. Version 0.7.0 should report
+- **The extension also registers two advisory session hooks**
+  (`hooks.mjs`, [ADR-0049](./docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md),
+  **proposed**): `onSessionStart` adds a governing-decisions summary;
+  `onPostToolUse`, after an edit, names the accepted decision(s) governing the
+  file just edited and refreshes open `decision-review` panels. Their
+  registration is guarded like the other two, and `ADRKIT_HOOKS=0` makes the
+  factory return `undefined`, so no `hooks` key is joined at all.
+- **There is no `onPreToolUse`, and do not add one.** Measured on Copilot CLI
+  1.0.93 through `session.rpc.tools.execute`: a pre-tool hook that never
+  answers holds the tool call unexecuted (still pending at 90 s), while a
+  post-tool hook that hangs lets the edit land and only holds the result. The
+  CLI changelog also records versions where a pre-tool hook error denies the
+  call. A pre-tool hook makes extension liveness a gate, which ADR-0022 denies
+  to an advisory. A crashed extension failed open in both hooks there.
+- **A hook returns `additionalContext` and nothing else.** No
+  `permissionDecision` (the SDK's own example returns `"allow"`, which would
+  override a person's `ask`), no `modifiedArgs`, `modifiedResult`, or
+  `suppressOutput`. A test asserts the key set and was observed failing against
+  an `"allow"` mutation.
+- **Hook context carries ids, never text.** Record ids are checked against a
+  record's own id grammar (`adr.schema.ts` `id`: 4+ digits or a ULID, no
+  namespace, because a namespace segment is free text) and statuses against a
+  fixed set; anything else is skipped silently. Titles, paths, and error
+  messages never reach it, because the model reads hook context as
+  instructions.
+- **`session.log` is fire-and-forget in hooks; never `await fail(...)`.** It is
+  an RPC with no deadline: awaiting it let a never-answering log hold
+  `onSessionStart` past its 5 s deadline indefinitely (found in review), pin a
+  failed cached check, and wedge the single-flight refresh. `fail` guards both
+  a synchronous throw and a rejected log; removing either guard fails a test
+  (one of them a Node child-process test for an unhandled rejection that would
+  kill the extension).
+- **`onSessionStart` fires with the first prompt, not at load.** Measured on
+  1.0.93 (SDK host): a plugin extension joins after `session.start`; with no
+  prompt no hook fires, even on resume. With a prompt it fires after
+  `onUserPromptSubmitted` with `source: "new"`. It races a 5 s deadline, because
+  its three sequential calls (two `git diff`s and `adr check`) could otherwise
+  hold the first prompt for 15 s.
+- **The edit tools are the ones the runtime classifies as edits**: `edit` and
+  `create` (`{ path }`, absolute in session logs), `str_replace` (`edit`'s
+  shape), `str_replace_editor` only when `command` is `create`, `str_replace`,
+  or `insert` (its `view` reads; both from the bundle, unobserved in logs), and
+  `apply_patch`, whose `toolArgs` is the raw patch **string** (measured with
+  `gpt-6-luna`), parsed for `*** Add/Update/Delete File:` and `*** Move to:`
+  and cut at 20 paths while parsing. A renamed tool turns the note off
+  silently. Paths are made relative to the hook input's `workingDirectory`,
+  never `process.cwd()`.
+- **Hook cost is capped, and the caps are tested.**
+  - Non-edit tools return before any I/O.
+  - At most two hook-spawned processes run at once, each with
+    `AbortSignal.timeout(5000)`.
+  - There is one `adr check` per distinct path per process, shared by
+    concurrent edits and cached even when it fails. The 500-check budget is a
+    monotonic count, not the cache size, because a corpus edit clears the
+    cache and must not re-arm the budget.
+  - The post-edit note gives up after 2 s and the check keeps filling the
+    cache.
+  - The hook-triggered canvas refresh is single-flight: one in flight, at most
+    one queued, under one 15 s abort signal passed through `refreshOpen` into
+    the canvas's `refresh`. That signal bounds the `adr queue` read too,
+    combined with the queue's own timeout rather than replacing it, and the
+    hook's refresh waits for the queue so single-flight stays true. When the
+    signal fires, the panel keeps its previous result and queue under fixed
+    timeout notes; an aborted refresh never commits the abort's exception text
+    as a usage error.
+  - The debounce timer is `unref`'d.
+  - A timeout kills only the direct child, not a grandchild behind a
+    version-manager shim. That is a known limit of the shared `runCommand`,
+    left as a follow-up.
+- **One join retry ladder serves the hooks and the tools**: without `hooks`,
+  without `tools`, without both, without `canvases` alone, then the workflow
+  alone (at most six joins; `onEvent` is never dropped). It rethrows the
+  original error if every rung fails, and logs exactly the fields the
+  successful join dropped. A runtime that refuses `hooks` must not cost the
+  workflow, the canvas, or the tools, and one that refuses the tools must not
+  cost the hooks. Because `hooks` goes first, a one-off unrelated
+  join error turns the hooks off for the session; that is accepted, and the
+  log line says so instead of blaming them.
+- **`ADRKIT_*` variables reach the extension without
+  `requestedEnvironmentVariables`.** Measured on 1.0.93 through the SDK host,
+  including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
+  app, and hook firing in the app, an interactive CLI session, and subagent
+  child sessions, are unmeasured.
+- `copilot plugin install` prints only a skill count. Version 0.8.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
@@ -560,8 +643,8 @@ app. Measured, and easy to break:
   `process.cwd()` and has the same staleness (open in ADR-0048).
 - **A bad tool definition refuses the whole join.** A name outside
   `/^[a-zA-Z0-9_-]+$/` made the runtime reject `joinSession`, workflow and
-  canvas included, so `register.mjs` retries without the tools, then with the
-  workflow alone (at most three joins). A name that collides with a built-in
+  canvas included, so `register.mjs` retries without the tools on the shared
+  ladder described under the hooks above, keeping the workflow always. A name that collides with a built-in
   joins but breaks `tools.initializeAndValidate()` for the **whole session**, so
   never name a tool after a built-in.
 - **The executable is chosen by the environment only**, through the workflow's
