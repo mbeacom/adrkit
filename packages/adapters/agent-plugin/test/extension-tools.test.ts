@@ -526,6 +526,22 @@ describe('fix round 1', () => {
     });
   }
 
+  test('the no-base git message stays true outside a repository and without git', async () => {
+    // One fixed message covers every no-base cause: origin/main unresolved with
+    // a clean tree, a directory that is not a repository, and git missing.
+    const notRepo = toolsWith({ git: { stdout: '', stderr: 'fatal: not a git repository', exitCode: 128 } });
+    const a = JSON.parse((await notRepo.invoke('adr_check', {})).textResultForLlm);
+    const gitMissing = toolsWith({ spawnFails: true });
+    const b = JSON.parse((await gitMissing.invoke('adr_check', {})).textResultForLlm);
+    for (const payload of [a, b]) {
+      expect(payload.error).toBe('git-no-changes');
+      expect(payload.message).toContain('not a git repository');
+      expect(payload.message).toContain('git is not available');
+      expect(payload.message).not.toMatch(/origin\/main did not resolve here, and/);
+      expect(payload.message).not.toContain('fatal');
+    }
+  });
+
   test('the git message is right with and without a base', async () => {
     const withBase = toolsWith({ git: { stdout: '', stderr: 'fatal', exitCode: 128 } });
     const a = JSON.parse((await withBase.invoke('adr_check', { base: 'nope' })).textResultForLlm);

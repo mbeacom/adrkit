@@ -67,8 +67,9 @@ const MESSAGES = Object.freeze({
   'git-base-unresolved':
     'git could not list the changed files against the given base. Pass a base that resolves in this repository, or pass paths.',
   'git-no-changes':
-    'git could not list the changed files: origin/main did not resolve here, and there are no uncommitted changes ' +
-    'against HEAD to fall back to. Pass a base that resolves in this repository, or pass paths.',
+    'git could not list any changed files. Either origin/main did not resolve and there are no uncommitted ' +
+    'changes against HEAD, or this directory is not a git repository, or git is not available. In a ' +
+    'repository, pass a base that resolves or pass paths; otherwise pass paths.',
   'output-too-large': 'adr produced more output than the tool accepts (64 MiB). Narrow the request: fewer paths, or one path at a time.',
   'args-too-long':
     'The command line was too long for this system. Pass fewer or shorter paths per call (a large diff from base can do this too).',
