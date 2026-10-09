@@ -22,6 +22,7 @@ import {
   reviewWorkflow,
 } from '../extensions/adrkit/review.mjs';
 import { createAdrTools } from '../extensions/adrkit/tools.mjs';
+import { sortFindings } from '../../../core/src/validate/findings.ts';
 
 type Run = { stdout: string; stderr: string; exitCode: number };
 
@@ -443,5 +444,37 @@ describe('the session-start hook stops after its deadline (round 1, M1)', () => 
     expect(started).toBe(atDeadline);
     expect(started).toBeLessThanOrEqual(2);
     expect(aborted).toBe(1);
+  });
+});
+
+describe('the merged report marks itself and orders findings as the CLI does (round 1, L6)', () => {
+  const findings = [
+    { rule: 'b-rule', severity: 'warn', message: 'z', path: 'b.ts' },
+    { rule: 'a-rule', severity: 'error', message: 'y', id: '0002' },
+    { rule: 'a-rule', severity: 'error', message: 'x', id: '0001' },
+    { rule: 'a-rule', severity: 'info', message: 'w', id: '0001', path: 'a.ts' },
+  ];
+
+  test('batches counts the reports merged, markerScan stays absent, and findings use the CLI order', () => {
+    const merged = mergeCheckReports([
+      { changedFiles: ['a.ts'], governedBy: [], findings: findings.slice(0, 2), ok: true, markerScan: {} },
+      { changedFiles: ['b.ts'], governedBy: [], findings: findings.slice(2), ok: true },
+    ]);
+    expect(merged.batches).toBe(2);
+    expect('markerScan' in merged).toBe(false);
+    expect(merged.findings).toEqual(sortFindings(findings as any));
+  });
+
+  test('one batch is returned as the CLI wrote it, with no batches field', async () => {
+    const raw = { stdout: JSON.stringify({ changedFiles: ['a.ts'], governedBy: [], findings: [], ok: true }), stderr: '', exitCode: 0 };
+    const result = await checkInBatches(async () => raw, ['check', '--json', '--'], ['a.ts']);
+    expect('batches' in JSON.parse(result.stdout)).toBe(false);
+  });
+
+  test('the adr_check tool description says how a merged report differs', () => {
+    const tools = createAdrTools({ run: async () => ({ stdout: '{}', stderr: '', exitCode: 0 }), env: {}, exists: () => false, getCwd: () => CWD });
+    const description = tools.find((tool: { name: string }) => tool.name === 'adr_check')!.description;
+    expect(description).toContain('batches');
+    expect(description).toContain('markerScan');
   });
 });

@@ -435,7 +435,9 @@ export function createAdrTools({ run, env, exists, getCwd }) {
         'Read-only. Report which architecture decisions (ADRs) govern a set of changed files, using adrkit: ' +
         'runs `adr check --json` in the session repository. Pass repository-relative `paths`, or a git `base` ' +
         '(the change is `git diff <base>...HEAD`); with neither, the change against origin/main. exitCode 1 ' +
-        'with a report means findings, not a failure. Governing records are in report.governing.',
+        'with a report means findings, not a failure. Governing records are in report.governing. A change too ' +
+        'wide for one command line is checked in batches and the reports merged: a merged report carries ' +
+        'batches (the count) and no markerScan, and lists at most 200 changedFiles with changedFilesOmitted.',
       parameters: {
         type: 'object',
         additionalProperties: false,

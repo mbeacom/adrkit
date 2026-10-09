@@ -550,6 +550,30 @@ function distinct(lists) {
   return out;
 }
 
+/**
+ * Findings in the order core's `sortFindings` gives them: rule, then id,
+ * pattern, path, field, and message, each by code units, a missing field as
+ * empty. Restated here because the extension cannot import core; a test pins
+ * it against core's own function.
+ *
+ * @param {unknown[]} findings
+ */
+function sortLikeCli(findings) {
+  /** @param {unknown} finding @param {string} key */
+  const field = (finding, key) => {
+    const value = finding !== null && typeof finding === 'object' ? /** @type {any} */ (finding)[key] : undefined;
+    return typeof value === 'string' ? value : '';
+  };
+  const keys = ['rule', 'id', 'pattern', 'path', 'field', 'message'];
+  return [...findings].sort((a, b) => {
+    for (const key of keys) {
+      const order = byCodeUnits(field(a, key), field(b, key));
+      if (order !== 0) return order;
+    }
+    return 0;
+  });
+}
+
 /** @param {unknown[]} lists */
 const sortedUnion = (lists) =>
   [...new Set(lists.flatMap((list) => (Array.isArray(list) ? list.filter((item) => typeof item === 'string') : [])))].sort(byCodeUnits);
@@ -583,11 +607,15 @@ function mergeDecisionLists(lists) {
 /**
  * Merge `adr check --json` reports from batches of one change. Decisions are
  * unioned by record id and sorted by it; `changedFiles` and `changedRecords`
- * are unioned and sorted as the CLI sorts them; findings are concatenated in
- * batch order with exact duplicates (a corpus-level finding every batch
- * repeats) kept once; `ok` holds only if every batch's did. `markerScan` is a
- * per-call scan report whose caps and counts do not add up across calls, so it
- * is left out rather than faked.
+ * are unioned and sorted as the CLI sorts them; findings are concatenated with
+ * exact duplicates (a corpus-level finding every batch repeats) kept once, then
+ * sorted with the key core's `sortFindings` uses; `ok` holds only if every
+ * batch's did. `markerScan` is a per-call scan report whose caps and counts do
+ * not add up across calls, so it is left out rather than faked. `batches`
+ * (the number of reports merged) marks the merged shape: a single-batch
+ * report is the CLI's own and has neither change. ADR-0022's declaration caps
+ * apply per call, so a merged report can carry more `declaredBy` entries than
+ * one CLI call would.
  *
  * @param {Record<string, any>[]} reports
  */
@@ -600,8 +628,9 @@ export function mergeCheckReports(reports) {
     activeProposals: mergeDecisionLists(all('activeProposals')),
     history: mergeDecisionLists(all('history')),
     changedRecords: sortedUnion(all('changedRecords')),
-    findings: distinct(all('findings')),
+    findings: sortLikeCli(distinct(all('findings'))),
     ok: reports.every((report) => report['ok'] !== false),
+    batches: reports.length,
   };
 }
 
