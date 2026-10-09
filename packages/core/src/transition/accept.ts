@@ -11,11 +11,24 @@
  * semantically unchanged; anything else is refused with nothing written.
  */
 
-import { isMap, isScalar, parseDocument, Scalar, type Pair, type YAMLMap } from 'yaml';
-import { FrontmatterError, parseFrontmatter } from '../parse/frontmatter.ts';
+import { isMap, isScalar, parseDocument, Scalar, type YAMLMap } from 'yaml';
+import { parseFrontmatter } from '../parse/frontmatter.ts';
 import { Identity } from '../schema/adr.schema.ts';
 import { validateAdrFrontmatter } from '../validate/contract.ts';
 import type { Finding } from '../validate/findings.ts';
+import {
+  blockInsertionPoint,
+  errorFindings,
+  finishSplice,
+  keyOf,
+  leadAt,
+  lineStartOf,
+  locateFrontmatter,
+  quoted,
+  renderScalarLike,
+  type Edit,
+  type Located,
+} from './splice.ts';
 
 export interface AcceptAdrInput {
   /** Full record source, frontmatter fences included. */
@@ -48,78 +61,6 @@ function refuse(code: AcceptRefusalCode, message: string, findings?: Finding[]):
   return findings ? { ok: false, code, message, findings } : { ok: false, code, message };
 }
 
-interface Edit {
-  start: number;
-  end: number;
-  text: string;
-  /** A new top-level block; at a shared offset it must follow child lines of the block above. */
-  newBlock?: boolean;
-}
-
-interface Located {
-  yaml: string;
-  /** Offset of `yaml` within the full source. */
-  offset: number;
-  eol: string;
-}
-
-function locateFrontmatter(source: string): Located {
-  const firstLineEnd = source.indexOf('\n');
-  const eol = firstLineEnd > 0 && source[firstLineEnd - 1] === '\r' ? '\r\n' : '\n';
-  const offset = firstLineEnd + 1;
-  let lineStart = offset;
-  while (lineStart <= source.length) {
-    const next = source.indexOf('\n', lineStart);
-    const lineEnd = next === -1 ? source.length : next;
-    const raw = source.slice(lineStart, lineEnd);
-    if ((raw.endsWith('\r') ? raw.slice(0, -1) : raw) === '---') {
-      return { yaml: source.slice(offset, lineStart), offset, eol };
-    }
-    if (next === -1) break;
-    lineStart = next + 1;
-  }
-  // parseFrontmatter already accepted this source, so this is unreachable.
-  throw new FrontmatterError('unterminated-frontmatter', 'ADR frontmatter is missing its closing --- fence');
-}
-
-function keyOf(pair: Pair): unknown {
-  return isScalar(pair.key) ? pair.key.value : pair.key;
-}
-
-function lineStartOf(text: string, index: number): number {
-  return text.lastIndexOf('\n', index - 1) + 1;
-}
-
-/**
- * The offset at which a new last child line of `root.items[index]` belongs: the start
- * of the next top-level key's line, backed up over blank lines and column-0 comments
- * (which belong to that next key, not to this block). End of the YAML when last.
- */
-function blockInsertionPoint(yaml: string, root: YAMLMap, index: number): number {
-  const next = root.items[index + 1];
-  let point = next && isScalar(next.key) && next.key.range ? lineStartOf(yaml, next.key.range[0]) : yaml.length;
-  while (point > 0) {
-    const previousLineStart = lineStartOf(yaml, point - 1);
-    const line = yaml.slice(previousLineStart, point).replace(/\r?\n$/, '');
-    if (line.trim() === '' || line.startsWith('#')) {
-      point = previousLineStart;
-      continue;
-    }
-    break;
-  }
-  return point;
-}
-
-function quoted(value: string): string {
-  return JSON.stringify(value);
-}
-
-function renderScalarLike(original: Scalar, value: string): string {
-  if (original.type === Scalar.QUOTE_DOUBLE) return JSON.stringify(value);
-  if (original.type === Scalar.QUOTE_SINGLE) return `'${value.replace(/'/g, "''")}'`;
-  return value;
-}
-
 /**
  * Set `root[parentKey][childKey] = rendered` by splicing. Returns an edit, or a reason
  * the layout cannot be spliced safely.
@@ -137,7 +78,7 @@ function childEdit(
   const index = root.items.findIndex((pair) => keyOf(pair) === parentKey);
   if (index === -1) {
     const point = blockInsertionPoint(yaml, root, root.items.length - 1);
-    const lead = point > 0 && !yaml.slice(0, point).endsWith('\n') ? eol : '';
+    const lead = leadAt(yaml, point, eol);
     return { start: point, end: point, text: `${lead}${parentKey}:${eol}  ${childKey}: ${rendered}${eol}`, newBlock: true };
   }
 
@@ -179,38 +120,10 @@ function statusEdit(root: YAMLMap): Edit | string {
   return { start: value.range[0], end: value.range[1], text: renderScalarLike(value, 'accepted') };
 }
 
-function applyEdits(yaml: string, edits: Edit[]): string {
-  let output = yaml;
-  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
-    output = output.slice(0, edit.start) + edit.text + output.slice(edit.end);
-  }
-  return output;
-}
-
 function expectedAfter(data: Record<string, unknown>, by: string, decidedAt: string): Record<string, unknown> {
   const provenance = { ...((data.provenance as Record<string, unknown> | undefined) ?? {}), ratifiedBy: by };
   const review = { ...((data.review as Record<string, unknown> | undefined) ?? {}), decidedAt };
   return { ...data, status: 'accepted', provenance, review };
-}
-
-function sameValue(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, i) => sameValue(item, b[i]));
-  }
-  if (a && b && typeof a === 'object' && typeof b === 'object') {
-    const aKeys = Object.keys(a).sort();
-    const bKeys = Object.keys(b).sort();
-    return (
-      sameValue(aKeys, bKeys) &&
-      aKeys.every((key) => sameValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))
-    );
-  }
-  return false;
-}
-
-function errorFindings(findings: Finding[]): Finding[] {
-  return findings.filter((finding) => finding.severity === 'error');
 }
 
 export function acceptAdrSource(input: AcceptAdrInput): AcceptAdrResult {
@@ -275,38 +188,16 @@ export function acceptAdrSource(input: AcceptAdrInput): AcceptAdrResult {
   const problem = edits.find((edit): edit is string => typeof edit === 'string');
   if (problem) return refuse('unsupported-layout', problem);
 
-  // Insertions can share an offset: an absent block is appended at the end, which is
-  // also where a child of an existing last block goes. Child lines come first so they
-  // stay inside their block; new blocks then follow in the order listed.
-  const concrete = [...(edits as Edit[])].sort((a, b) => Number(Boolean(a.newBlock)) - Number(Boolean(b.newBlock)));
-  const merged: Edit[] = [];
-  for (const edit of concrete) {
-    const same = merged.find((other) => other.start === edit.start && other.end === edit.end && other.start === other.end);
-    if (same && edit.start === edit.end) same.text += edit.text;
-    else merged.push({ ...edit });
-  }
-  const yaml = applyEdits(located.yaml, merged);
-  const content = input.source.slice(0, located.offset) + yaml + input.source.slice(located.offset + located.yaml.length);
-
-  let afterData: unknown;
-  try {
-    afterData = parseFrontmatter(content).data;
-  } catch (error) {
-    return refuse('unsupported-layout', `The edited frontmatter no longer parses (${error instanceof Error ? error.message : String(error)}); edit this record by hand.`);
-  }
-  if (!sameValue(afterData, expectedAfter(data as Record<string, unknown>, input.by, input.decidedAt))) {
-    return refuse('unsupported-layout', 'The edit would change a field other than status, ratifiedBy, and decidedAt; edit this record by hand.');
-  }
-
-  const after = validateAdrFrontmatter(afterData, input.path);
-  const afterErrors = errorFindings(after.findings);
-  if (afterErrors.length > 0) {
-    return refuse(
-      'invalid-result',
-      `ADR-${frontmatter.id} would not be a valid accepted record: ${afterErrors.map((finding) => finding.message).join('; ')}`,
-      afterErrors,
-    );
-  }
-
-  return { ok: true, content };
+  const finished = finishSplice({
+    source: input.source,
+    located,
+    edits: edits as Edit[],
+    expected: expectedAfter(data as Record<string, unknown>, input.by, input.decidedAt),
+    path: input.path,
+    owned: 'status, ratifiedBy, and decidedAt',
+    resultNoun: 'a valid accepted record',
+    id: frontmatter.id,
+  });
+  if (!finished.ok) return refuse(finished.code, finished.message, finished.findings);
+  return { ok: true, content: finished.content };
 }
