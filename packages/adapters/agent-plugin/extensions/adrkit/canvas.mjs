@@ -52,6 +52,7 @@ import {
   checkNote,
   cliOverhead,
   collectChangedFiles,
+  isPartialSource,
   governingDecisions,
   historyDecisions,
   lintNote,
@@ -399,7 +400,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     return usage(error);
   }
   notes.push(...collected.notes);
-  const fileFields = { files: collected.files, filesSource: collected.source, partial: collected.source === 'git:HEAD' };
+  const fileFields = { files: collected.files, filesSource: collected.source, partial: isPartialSource(collected.source) };
   if (collected.files.length === 0) {
     notes.push('No changed files; nothing was checked.');
     return shape(fileFields);
@@ -732,7 +733,7 @@ function knownRecordIds(snapshot) {
 const ARGS_SCHEMA = {
   type: ['object', 'null'],
   properties: {
-    files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative paths; default: git diff <base>...HEAD.' },
+    files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative paths; default: git diff <base>...HEAD plus uncommitted and untracked edits.' },
     base: { type: 'string', description: 'Base ref; default origin/main.' },
     dir: { type: 'string', description: 'ADR corpus directory; default $ADRKIT_DIR or docs/adr.' },
   },
@@ -805,7 +806,10 @@ export function createDecisionReviewCanvas({
     if (typeof dir !== 'string' || dir.length === 0 || !isAbsolute(dir)) {
       throw makeError('workspace_unavailable', 'The session has no working directory, so there is no change to review.');
     }
-    return dir;
+    // One normal form, so one directory spelled two ways (a Windows path with
+    // forward slashes, a trailing separator) is one workspace, and the form git
+    // is started in is the form the panel keys on.
+    return resolve(dir);
   };
 
   /** @param {any} ctx */
@@ -1258,7 +1262,7 @@ export function createDecisionReviewCanvas({
       {
         name: 'refresh',
         description:
-          'Re-run Collect and Check (git diff, adr check, adr lint) and the open-proposal list (adr queue) ' +
+          'Re-run Collect and Check (git, adr check, adr lint) and the open-proposal list (adr queue) ' +
           'in the session working directory and update the panel. No model calls. Input replaces the remembered { base, files, dir }; omit it to reuse them.',
         inputSchema: ARGS_SCHEMA,
         handler: (/** @type {any} */ ctx) => withCwd(ctx, (cwd, input) => refresh(cwd, input)),

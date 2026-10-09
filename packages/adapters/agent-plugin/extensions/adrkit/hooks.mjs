@@ -5,7 +5,8 @@
  * Two hooks, and neither can stop anything:
  *
  * - `onSessionStart` adds a one-paragraph summary of the decisions that govern
- *   the session's changed files: up to two `git diff`s and one
+ *   the session's changed files: four git calls (the work-tree probe, the
+ *   branch range, the working tree against HEAD, the untracked files) and one
  *   `adr check --json` per batch of paths (one for any diff that fits a
  *   command line), no model call. Once its deadline wins, the call in flight
  *   is aborted and no further batch starts. Measured on Copilot CLI 1.0.93 (headless SDK host): a plugin
@@ -36,7 +37,7 @@
  */
 
 import { isAbsolute, posix, relative, resolve, sep } from 'node:path';
-import { checkInBatches, cliOverhead, collectChangedFiles, resolveCli } from './review.mjs';
+import { checkInBatches, cliOverhead, collectChangedFiles, describeSource, resolveCli } from './review.mjs';
 
 /**
  * The tools the runtime treats as edits (Copilot CLI 1.0.93 bundle): `edit`
@@ -58,7 +59,7 @@ export const HOOK_TIMEOUT_MS = 5000;
 export const SESSION_START_DEADLINE_MS = 5000;
 /** The most the post-edit note holds a tool result; its check keeps filling the cache. */
 export const NOTE_DEADLINE_MS = 2000;
-/** One hook-triggered canvas refresh (git diff, adr check, adr lint) under one signal. */
+/** One hook-triggered canvas refresh (git, adr check, adr lint) under one signal. */
 export const REFRESH_TIMEOUT_MS = 15000;
 export const REFRESH_DEBOUNCE_MS = 1500;
 /** Hook-spawned `git`/`adr` processes running at once. */
@@ -181,7 +182,7 @@ export function sessionSummary(outcome, { fileCount, source }) {
   const governing = recordsIn(outcome, 'governing').map((record) => record.id);
   const proposals = recordsIn(outcome, 'activeProposals').map((record) => (record.status ? `${record.id} (${record.status})` : record.id));
   if (governing.length === 0 && proposals.length === 0) return undefined;
-  const label = source === 'git:HEAD' ? 'uncommitted changes against HEAD' : source.replace(/^git:/, 'git diff ');
+  const label = describeSource(source);
   const parts = [
     `adrkit decision memory (advisory; record ids only, no authority to block): ${fileCount} changed file(s) in this session (${label}).`,
   ];

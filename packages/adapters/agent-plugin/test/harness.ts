@@ -69,3 +69,13 @@ export function frontmatterOf(text: string): string {
   const end = text.indexOf('\n---', 3);
   return end === -1 ? '' : text.slice(4, end + 1);
 }
+
+/** What `git rev-parse --is-inside-work-tree` prints in a real work tree. */
+export const INSIDE_WORK_TREE = { stdout: 'true\n', stderr: '', exitCode: 0 };
+
+/**
+ * Is this the work-tree probe `collectChangedFiles` runs before it lists the
+ * change (0.9.1)? Fakes that answer every git call alike answer this one with
+ * INSIDE_WORK_TREE, so the listings they script stay what the test reads.
+ */
+export const isWorkTreeProbe = (command: string, args: readonly string[]) => command === 'git' && args[0] === 'rev-parse';

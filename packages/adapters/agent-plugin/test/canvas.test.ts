@@ -19,7 +19,7 @@ import {
 } from '../extensions/adrkit/canvas.mjs';
 import { PAGE_CSS, PAGE_HTML, PAGE_JS, renderPage } from '../extensions/adrkit/canvas-page.mjs';
 import { register } from '../extensions/adrkit/register.mjs';
-import { packageRoot } from './harness.ts';
+import { INSIDE_WORK_TREE, isWorkTreeProbe, packageRoot } from './harness.ts';
 
 /**
  * The read-only `decision-review` canvas for the GitHub Copilot app, exercised
@@ -90,6 +90,7 @@ function fakeCli(script: { diff?: Run | Error; check?: Run | Error; lint?: Run |
   const calls: Call[] = [];
   const run = async (command: string, args: string[], { cwd }: { cwd: string }) => {
     calls.push({ command, args, cwd });
+    if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
     const key =
       command === 'git' ? 'diff' : args.includes('check') ? 'check' : args.includes('queue') ? 'queue' : 'lint';
     const answer =
@@ -314,6 +315,28 @@ describe('tokenMatches', () => {
 });
 
 describe('computeSnapshot', () => {
+  test('a fallback to the working tree (origin/main unresolved) is partial on the panel too, never ok (0.9.1)', async () => {
+    const run = async (command: string, args: string[]) => {
+      if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
+      if (command === 'git') return args.some((arg) => arg.endsWith('...HEAD')) ? { stdout: '', stderr: 'fatal', exitCode: 128 } : ok('src/a.ts\0');
+      return args.includes('check') ? ok(checkReport([])) : ok();
+    };
+    const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
+    expect(snapshot.filesSource).toBe('git:worktree');
+    expect(snapshot.status).toBe('incomplete');
+    expect(snapshot.notes.join('\n')).toMatch(/fell back/);
+  });
+
+  test('a session directory git does not treat as a work tree is a usage error with the fixed message (0.9.1)', async () => {
+    const run = async (command: string, args: string[]) =>
+      isWorkTreeProbe(command, args) ? { stdout: '', stderr: 'fatal: not a git repository', exitCode: 128 } : ok('x\0');
+    const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
+    expect(snapshot.status).toBe('usage-error');
+    expect(snapshot.notes).toEqual([
+      'the session directory is not inside a git work tree as seen by git; open the session in the repository or pass files',
+    ]);
+  });
+
   test('exit 0: everything is listed, and governing records without a verdict make it incomplete', async () => {
     const { run, calls } = fakeCli({
       check: ok(
@@ -325,7 +348,7 @@ describe('computeSnapshot', () => {
     expect(snapshot.status).toBe('incomplete');
     expect(snapshot.workingDirectory).toBe(CWD);
     expect(snapshot.files).toEqual(['src/a.ts']);
-    expect(snapshot.filesSource).toBe('git:origin/main...HEAD');
+    expect(snapshot.filesSource).toBe('git:origin/main...HEAD+worktree');
     expect(snapshot.checkExitCode).toBe(0);
     expect(snapshot.lintExitCode).toBe(0);
     expect(snapshot.governing.map((d: { recordId: string }) => d.recordId)).toEqual(['0012']);
@@ -335,7 +358,7 @@ describe('computeSnapshot', () => {
     expect(snapshot.updatedAt).toBe('T');
     // Every subprocess runs in the session's directory, never process.cwd().
     expect(calls.every((call) => call.cwd === CWD)).toBe(true);
-    expect(calls.map((call) => call.args[0])).toEqual(['diff', 'check', 'lint']);
+    expect(calls.map((call) => call.args[0])).toEqual(['rev-parse', 'diff', 'diff', 'ls-files', 'check', 'lint']);
   });
 
   test('exit 1 is data: the report is kept and the state is findings', async () => {
@@ -562,7 +585,7 @@ describe('open and close', () => {
       const servers = [];
       const { createServer } = await import('node:http');
       const canvas = createDecisionReviewCanvas({
-        run: async (command, args) => ({ stdout: command === 'git' ? 'a.ts\\0' : args.includes('check') ? '{"governedBy":[]}' : '', stderr: '', exitCode: 0 }),
+        run: async (command, args) => ({ stdout: command === 'git' ? (args[0] === 'rev-parse' ? 'true\\n' : 'a.ts\\0') : args.includes('check') ? '{"governedBy":[]}' : '', stderr: '', exitCode: 0 }),
         env: {}, exists: () => false, getSession: () => undefined,
         createServer: (handler) => { const server = createServer(handler); servers.push(server); return server; },
       });
@@ -2133,6 +2156,7 @@ describe('a hook-triggered refresh that its signal aborts', () => {
   function abortable() {
     let hang = false;
     const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+      if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
       const key = command === 'git' ? 'diff' : args.includes('check') ? 'check' : args.includes('queue') ? 'queue' : 'lint';
       if (hang) {
         await new Promise((_resolve, reject) => {

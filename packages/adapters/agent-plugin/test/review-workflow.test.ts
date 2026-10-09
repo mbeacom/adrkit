@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { packageRoot } from './harness.ts';
+import { INSIDE_WORK_TREE, isWorkTreeProbe, packageRoot } from './harness.ts';
 import {
   ADR_REVIEW_META,
   DECISION_CHECKER_AGENT,
@@ -376,21 +376,29 @@ describe('collectChangedFiles', () => {
     });
   });
 
-  test('without files, diffs against origin/main by default', async () => {
+  test('without files, probes the work tree, then unions origin/main...HEAD with the working tree', async () => {
     const calls: string[][] = [];
     const run = async (_command: string, args: string[]): Promise<Run> => {
       calls.push(args);
-      return { stdout: 'a.ts\0b/c.ts\0', stderr: '', exitCode: 0 };
+      if (args[0] === 'rev-parse') return INSIDE_WORK_TREE;
+      if (args[0] === 'ls-files') return { stdout: 'new.ts\0', stderr: '', exitCode: 0 };
+      return { stdout: args.includes('HEAD') ? 'b/c.ts\0z.ts\0' : 'z.ts\0a.ts\0', stderr: '', exitCode: 0 };
     };
     const result = await collectChangedFiles({}, run);
-    expect(calls).toEqual([['diff', '--name-only', '-z', 'origin/main...HEAD']]);
-    expect(result).toEqual({ files: ['a.ts', 'b/c.ts'], source: 'git:origin/main...HEAD', notes: [] });
+    expect(calls).toEqual([
+      ['rev-parse', '--is-inside-work-tree'],
+      ['diff', '--name-only', '-z', 'origin/main...HEAD'],
+      ['diff', '--name-only', '-z', 'HEAD'],
+      ['ls-files', '--others', '--exclude-standard', '--full-name', '-z', '--', ':/'],
+    ]);
+    expect(result).toEqual({ files: ['a.ts', 'b/c.ts', 'new.ts', 'z.ts'], source: 'git:origin/main...HEAD+worktree', notes: [] });
   });
 
   test('an unresolved default base falls back to the working tree and records why', async () => {
     const calls: string[][] = [];
     const run = async (_command: string, args: string[]): Promise<Run> => {
       calls.push(args);
+      if (args[0] === 'rev-parse') return INSIDE_WORK_TREE;
       if (args.includes('origin/main...HEAD')) {
         return { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 };
       }
@@ -398,9 +406,10 @@ describe('collectChangedFiles', () => {
     };
     const result = await collectChangedFiles({}, run);
     // Deletions are included on the fallback too: removing a governed file can break its decision.
-    expect(calls[1]).toEqual(['diff', '--name-only', '-z', 'HEAD']);
+    expect(calls[2]).toEqual(['diff', '--name-only', '-z', 'HEAD']);
+    expect(calls[3]?.[0]).toBe('ls-files');
     expect(result.files).toEqual(['x.ts']);
-    expect(result.source).toBe('git:HEAD');
+    expect(result.source).toBe('git:worktree');
     expect(result.notes.join('\n')).toMatch(/origin\/main.*fell back/);
   });
 
@@ -409,21 +418,24 @@ describe('collectChangedFiles', () => {
     const calls: string[][] = [];
     const run = async (_command: string, args: string[]): Promise<Run> => {
       calls.push(args);
+      if (args[0] === 'rev-parse') return INSIDE_WORK_TREE;
       if (args.includes('feature...HEAD')) {
         return { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 };
       }
       return { stdout: 'x.ts\0', stderr: '', exitCode: 0 };
     };
     await expect(collectChangedFiles({ base: 'feature' }, run)).rejects.toMatchObject({ code: 'base-unresolved' });
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
   });
 
   test('an unresolved default base over a clean working tree throws instead of reviewing nothing', async () => {
     // The shallow-clone CI case: an empty fallback would read as a clean `ok`.
     const run = async (_command: string, args: string[]): Promise<Run> =>
-      args.includes('origin/main...HEAD')
-        ? { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 }
-        : { stdout: '', stderr: '', exitCode: 0 };
+      args[0] === 'rev-parse'
+        ? INSIDE_WORK_TREE
+        : args.includes('origin/main...HEAD')
+          ? { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 }
+          : { stdout: '', stderr: '', exitCode: 0 };
     await expect(collectChangedFiles({}, run)).rejects.toThrow(
       'origin/main did not resolve and the working tree has no changes; pass files or base, ' +
         'or fetch history (e.g. actions/checkout fetch-depth: 0)',
@@ -433,17 +445,31 @@ describe('collectChangedFiles', () => {
   test('keeps non-ASCII and space-bearing paths byte-for-byte', async () => {
     // Without -z, core.quotepath prints "docs/\303\251t\303\251.md" with the
     // quotes, which no affects pattern matches: a silent false-clean.
-    const run = async (): Promise<Run> => ({
-      stdout: 'docs/été.md\0src/日本 語.ts\0',
-      stderr: '',
-      exitCode: 0,
-    });
+    const run = async (_command: string, args: string[]): Promise<Run> =>
+      args[0] === 'rev-parse'
+        ? INSIDE_WORK_TREE
+        : {
+            stdout: 'docs/été.md\0src/日本 語.ts\0',
+            stderr: '',
+            exitCode: 0,
+          };
     expect((await collectChangedFiles({}, run)).files).toEqual(['docs/été.md', 'src/日本 語.ts']);
   });
 
-  test('throws when both diffs fail, so the caller can report it', async () => {
-    const run = async (): Promise<Run> => ({ stdout: '', stderr: 'not a git repository', exitCode: 128 });
+  test('throws when both diffs fail inside a work tree, so the caller can report it', async () => {
+    const run = async (_command: string, args: string[]): Promise<Run> =>
+      args[0] === 'rev-parse' ? INSIDE_WORK_TREE : { stdout: '', stderr: "fatal: bad revision 'HEAD'", exitCode: 128 };
     await expect(collectChangedFiles({}, run)).rejects.toMatchObject({ code: 'git-failed' });
+  });
+
+  test('outside a work tree, nothing is listed and the failure is not-work-tree', async () => {
+    const calls: string[][] = [];
+    const run = async (_command: string, args: string[]): Promise<Run> => {
+      calls.push(args);
+      return { stdout: '', stderr: 'fatal: not a git repository (or any of the parent directories): .git', exitCode: 128 };
+    };
+    await expect(collectChangedFiles({}, run)).rejects.toMatchObject({ code: 'not-work-tree' });
+    expect(calls).toEqual([['rev-parse', '--is-inside-work-tree']]);
   });
 });
 
@@ -661,6 +687,7 @@ function fakeRunner(responses: { check?: Run; lint?: Run; git?: Run | ((args: st
   const calls: Array<{ command: string; args: string[] }> = [];
   const run = async (command: string, args: string[]): Promise<Run> => {
     calls.push({ command, args });
+    if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
     if (command === 'git') {
       const git = responses.git;
       return (typeof git === 'function' ? git(args) : git) ?? { stdout: '', stderr: '', exitCode: 0 };
@@ -798,7 +825,7 @@ describe('reviewWorkflow', () => {
     expect(result.status).toBe('usage-error');
     expect(result.notes.join('\n')).toContain('The given base did not resolve');
     expect(result.files).toEqual([]);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
     expect(agentCalls).toEqual([]);
   });
 
@@ -830,9 +857,9 @@ describe('reviewWorkflow', () => {
       check: { stdout: checkOutcome([governing('0001')]), stderr: '', exitCode: 0 },
     });
     const result = await reviewWorkflow(ctx, deps(run));
-    expect(calls[1]?.args).toEqual(['diff', '--name-only', '-z', 'HEAD']);
+    expect(calls[2]?.args).toEqual(['diff', '--name-only', '-z', 'HEAD']);
     expect(result.files).toEqual(['src/x.ts']);
-    expect(result.filesSource).toBe('git:HEAD');
+    expect(result.filesSource).toBe('git:worktree');
     expect(result.notes.join('\n')).toMatch(/origin\/main.*fell back/);
     expect(agentCalls[0]?.prompt).toContain('git diff HEAD -- <path>');
     // Incidental working-tree edits are not the change under review, so a
@@ -973,12 +1000,15 @@ describe('reviewWorkflow', () => {
     const { run, calls } = fakeRunner({ git: { stdout: 'src/x.ts\0', stderr: '', exitCode: 0 } });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(calls.map((call) => [call.command, ...call.args])).toEqual([
+      ['git', 'rev-parse', '--is-inside-work-tree'],
       ['git', 'diff', '--name-only', '-z', 'main...HEAD'],
+      ['git', 'diff', '--name-only', '-z', 'HEAD'],
+      ['git', 'ls-files', '--others', '--exclude-standard', '--full-name', '-z', '--', ':/'],
       ['adr', 'check', '--json', '--dir', 'decisions', '--', 'src/x.ts'],
       ['adr', 'lint', '--dir', 'decisions'],
     ]);
     expect(result.files).toEqual(['src/x.ts']);
-    expect(result.filesSource).toBe('git:main...HEAD');
+    expect(result.filesSource).toBe('git:main...HEAD+worktree');
   });
 });
 
@@ -993,6 +1023,7 @@ describe('createReviewWorkflow follows the session directory', () => {
     const definition = createReviewWorkflow({
       run: async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
         calls.push({ command, args, cwd: options.cwd });
+        if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
         if (command === 'git') return { stdout: 'a.ts\0', stderr: '', exitCode: 0 };
         if (args.includes('check')) return { stdout: checkOutcome([]), stderr: '', exitCode: 0 };
         return { stdout: '', stderr: '', exitCode: 0 };
