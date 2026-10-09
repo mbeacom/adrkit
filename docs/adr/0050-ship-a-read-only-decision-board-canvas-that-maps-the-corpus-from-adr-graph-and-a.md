@@ -135,7 +135,8 @@ in `board.mjs` (server and actions), `board-page.mjs` (page), and
    64 characters is refused, not clipped. The action schemas carry the same
    pattern so the runtime refuses a bad id first.
    A model-chosen `dir` must resolve inside the session repository, lexically
-   and after symbolic links are followed (the read-only tools' rule, ADR-0048);
+   and after symbolic links are followed (the read-only tools' rule, ADR-0048),
+   when it is supplied and again right before every graph and queue spawn;
    `ADRKIT_DIR` from the environment is the user's own choice and is trusted.
 4. **Allowlists and budgets, as in ADR-0047.** A node keeps `id`, `title`,
    `status`; an edge keeps `from`, `to`, `kind`; a queue row keeps the nine

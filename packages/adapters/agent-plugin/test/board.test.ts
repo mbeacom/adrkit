@@ -1410,3 +1410,33 @@ describe('PR #274 review', () => {
     stream.destroy();
   });
 });
+
+describe('PR #274 re-review', () => {
+  test('a stored dir swapped for an outside symlink is re-checked before every graph and queue spawn', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'board-swap-'));
+    const outside = mkdtempSync(join(tmpdir(), 'board-swap-out-'));
+    try {
+      mkdirSync(join(root, 'docs', 'adr'), { recursive: true });
+      const { options, cli } = makeBoard();
+      const ctx = (input?: unknown) => ({ ...ctxFor('swap'), session: { workingDirectory: root }, input });
+      await options.open(ctx({ dir: 'docs/adr' }));
+      opened.push({ onClose: options.onClose, instanceId: 'swap' });
+      expect(cli.calls.some((call) => call.args.includes('docs/adr'))).toBe(true);
+      // The directory the panel remembered is replaced by a link out of the repository.
+      rmSync(join(root, 'docs', 'adr'), { recursive: true, force: true });
+      symlinkSync(outside, join(root, 'docs', 'adr'));
+      const before = cli.calls.length;
+      const handler = (name: string) => options.actions.find((a: any) => a.name === name).handler;
+      const focused = await handler('focus')(ctx({ id: '0002' }));
+      expect(focused.graph.available).toBe(false);
+      expect(focused.graph.notes).toEqual([BOARD_NOTES.dirEscape]);
+      const refreshed = await handler('refresh')(ctx());
+      expect(refreshed.queue.available).toBe(false);
+      expect(refreshed.queue.note).toBe(BOARD_NOTES.queueDirEscape);
+      expect(cli.calls.length).toBe(before);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});

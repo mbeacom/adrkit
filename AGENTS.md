@@ -854,7 +854,9 @@ in the Copilot app. Load-bearing:
 - **A model-chosen `dir` is confined.** It must resolve inside the panel's own
   repository (on a re-open, the panel's, not the session's current directory)
   lexically and through `staysInside` (tools.mjs), or the action is refused
-  with a fixed message before any spawn. `ADRKIT_DIR` is trusted.
+  with a fixed message before any spawn. A remembered `dir` is re-checked right
+  before every graph and queue spawn; one that now escapes gets a fixed note
+  and nothing runs. `ADRKIT_DIR` is trusted.
   decision-review's `dir` is not confined; that predates the board.
 - **Allowlists and budgets, as in ADR-0047.** Node `id`/`title`/`status`, edge
   `from`/`to`/`kind`, and the queue row's nine fields plus

@@ -65,6 +65,8 @@ const DIR_LIMIT = 1024;
  */
 export const BOARD_NOTES = {
   start: 'The decision graph is unavailable: the adr CLI could not be started.',
+  dirEscape: 'The decision graph was not read: its corpus directory now resolves outside the repository. Nothing was run.',
+  queueDirEscape: 'The open-proposal list was not read: its corpus directory now resolves outside the repository. Nothing was run.',
   cwdMissing: 'The decision graph is unavailable: the session directory no longer exists, so adr graph could not run there.',
   unreadable: 'The decision graph is unavailable: adr graph did not return a readable graph.',
   tooLarge: 'The decision graph is unavailable: the adr graph output was too large to read.',
@@ -598,11 +600,24 @@ export function createDecisionBoardCanvas({
    * @param {string | undefined} dir
    */
   const confined = (cwd, dir) => {
-    if (dir === undefined) return;
+    if (escapes(cwd, dir)) throw makeError('invalid_input', INPUT_ERRORS.dirEscape);
+  };
+
+  /**
+   * Whether a model-chosen `dir` resolves outside `cwd`. Checked when the dir
+   * is supplied and again right before every graph and queue spawn, because a
+   * remembered directory can be replaced by a link out of the repository
+   * between calls (Copilot re-review of #274).
+   *
+   * @param {string} cwd
+   * @param {string | undefined} dir
+   */
+  const escapes = (cwd, dir) => {
+    if (dir === undefined) return false;
     const root = resolve(cwd);
     const target = resolve(cwd, dir);
     const inside = target === root || target.startsWith(root.endsWith(sep) ? root : root + sep);
-    if (!inside || !staysInside(cwd, dir)) throw makeError('invalid_input', INPUT_ERRORS.dirEscape);
+    return !inside || !staysInside(cwd, dir);
   };
 
   /** @param {any} ctx */
@@ -657,7 +672,9 @@ export function createDecisionBoardCanvas({
   const refreshGraph = async (cwd, instanceId, view) => {
     const seq = ++view.graphSeq;
     const dir = view.dir;
-    const graph = await computeGraph({ cwd, dir, filter: view.filter, run, env, exists, timeoutMs });
+    const graph = escapes(cwd, dir)
+      ? { ...unavailableGraph([BOARD_NOTES.dirEscape]), filter: { id: view.filter.id, kinds: [...view.filter.kinds] } }
+      : await computeGraph({ cwd, dir, filter: view.filter, run, env, exists, timeoutMs });
     if (seq !== view.graphSeq && view.graph !== null) return false;
     view.graph = graph;
     view.graphDir = dir;
@@ -670,15 +687,19 @@ export function createDecisionBoardCanvas({
   const refreshQueue = (cwd, dir) => {
     const shared = sharedQueueFor(cwd, dir);
     const seq = ++shared.seq;
-    const done = computeQueue({
-      cwd,
-      input: dir === undefined ? {} : { dir },
-      run,
-      env,
-      exists,
-      timeoutMs,
-      shownItem: boardQueueItem,
-    })
+    /** @type {Promise<QueueView>} */
+    const read = escapes(cwd, dir)
+      ? Promise.resolve({ available: false, asOf: null, exitCode: null, totalItems: 0, corpusFindings: 0, items: [], note: BOARD_NOTES.queueDirEscape })
+      : computeQueue({
+          cwd,
+          input: dir === undefined ? {} : { dir },
+          run,
+          env,
+          exists,
+          timeoutMs,
+          shownItem: boardQueueItem,
+        });
+    const done = read
       .then((queue) => {
         if (seq === shared.seq || shared.queue === null) {
           shared.queue = queue;
