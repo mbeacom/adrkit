@@ -11,13 +11,14 @@
  *
  * Location is manifest-coupled: for a `.claude-plugin/plugin.json` plugin,
  * Copilot loads `<plugin-root>/extensions/<dir>/extension.mjs` (measured). The
- * workflow runs in the process's working directory, measured to be the
- * workspace repository under the CLI; the canvas takes its directory from each
- * request's session context instead, because the app's runtime runs from `/`.
- * The tools start from `process.cwd()` and follow `session.context_changed`
- * (through `onEvent`, registered before the join RPC),
- * because a tool invocation carries no directory and `process.cwd()` does not
- * move when the session's does (measured on 1.0.93).
+ * workflow and the tools start from `process.cwd()`, measured to be the
+ * session's directory at fork, and follow `session.context_changed` through
+ * one shared tracker (`session-dir.mjs`, observed via `onEvent`, which is
+ * registered before the join RPC), because a tool invocation carries no
+ * directory and `process.cwd()` does not move when the session's does
+ * (measured on 1.0.93). The canvas takes its directory from each request's
+ * session context instead, because the app's runtime runs from `/`; the hooks
+ * take it from each hook input.
  * Never write to stdout here: it carries the JSON-RPC connection, so progress
  * goes through `ctx.log` and `session.log`.
  */
@@ -28,27 +29,23 @@ import { existsSync } from 'node:fs';
 import { createDecisionReviewCanvas } from './canvas.mjs';
 import { createAdvisoryHooks } from './hooks.mjs';
 import { register } from './register.mjs';
-import { ADR_REVIEW_META, reviewWorkflow, runCommand } from './review.mjs';
-import { createAdrTools, trackWorkingDirectory } from './tools.mjs';
+import { createReviewWorkflow, runCommand } from './review.mjs';
+import { trackWorkingDirectory } from './session-dir.mjs';
+import { createAdrTools } from './tools.mjs';
 
-const toolsCwd = trackWorkingDirectory(process.cwd());
+const sessionDir = trackWorkingDirectory(process.cwd());
 
 await register({
   defineWorkflow,
   createCanvas,
   joinSession,
-  workflow: () => ({
-    meta: ADR_REVIEW_META,
-    run: async (/** @type {any} */ ctx) => {
-      const cwd = process.cwd();
-      return reviewWorkflow(ctx, {
-        run: (command, args) => runCommand(command, args, { cwd, signal: ctx.signal, execFile }),
-        env: process.env,
-        cwd,
-        exists: existsSync,
-      });
-    },
-  }),
+  workflow: () =>
+    createReviewWorkflow({
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      env: process.env,
+      exists: existsSync,
+      getCwd: sessionDir.get,
+    }),
   canvas: (getSession) =>
     createDecisionReviewCanvas({
       run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
@@ -62,9 +59,9 @@ await register({
       run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
       env: process.env,
       exists: existsSync,
-      getCwd: toolsCwd.get,
+      getCwd: sessionDir.get,
     }),
-  onEvent: toolsCwd.observe,
+  onEvent: sessionDir.observe,
   // Hooks take their directory from each hook input, like the canvas, and
   // return undefined (registering nothing) when ADRKIT_HOOKS=0.
   hooks: ({ getSession, refreshCanvas }) =>

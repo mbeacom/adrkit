@@ -6,11 +6,13 @@ import {
   assembleResult,
   buildJudgePrompt,
   collectChangedFiles,
+  createReviewWorkflow,
   resolveCli,
   reviewWorkflow,
   runCommand,
   validateArgs,
 } from '../extensions/adrkit/review.mjs';
+import { trackWorkingDirectory } from '../extensions/adrkit/session-dir.mjs';
 
 /**
  * The `adr-review` workflow's logic, exercised without the Copilot SDK.
@@ -782,5 +784,36 @@ describe('reviewWorkflow', () => {
     ]);
     expect(result.files).toEqual(['src/x.ts']);
     expect(result.filesSource).toBe('git:main...HEAD');
+  });
+});
+
+describe('createReviewWorkflow follows the session directory', () => {
+  // Measured on Copilot CLI 1.0.93: after `metadata.setWorkingDirectory` (what
+  // `/cd` uses) the extension is not restarted and its `process.cwd()` does not
+  // move, but it receives `session.context_changed`. The workflow reads the
+  // tracked directory on each run, so a review after `/cd` reviews the new one.
+  test('every git and adr call of a run uses the directory tracked at run time', async () => {
+    const tracker = trackWorkingDirectory('/start');
+    const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+    const definition = createReviewWorkflow({
+      run: async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+        calls.push({ command, args, cwd: options.cwd });
+        if (command === 'git') return { stdout: 'a.ts\0', stderr: '', exitCode: 0 };
+        if (args.includes('check')) return { stdout: checkOutcome([]), stderr: '', exitCode: 0 };
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+      env: { ADRKIT_CLI: 'bin/adr' },
+      exists: () => true,
+      getCwd: tracker.get,
+    });
+    expect(definition.meta).toBe(ADR_REVIEW_META);
+    tracker.observe({ type: 'session.context_changed', data: { cwd: '/moved' } });
+    const { ctx } = fakeContext({});
+    const result = await definition.run(ctx);
+    expect(result.status).toBe('ok');
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) expect(call.cwd).toBe('/moved');
+    // $ADRKIT_CLI is resolved against the tracked directory too.
+    expect(calls.find((call) => call.command !== 'git')?.command).toBe('/moved/bin/adr');
   });
 });

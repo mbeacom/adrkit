@@ -291,39 +291,6 @@ const resultOf = (payload, resultType) => ({
 const failure = (tool, code) => resultOf({ tool, error: code, message: MESSAGES[code] }, 'failure');
 
 /**
- * Follow the session's working directory.
- *
- * Measured on Copilot CLI 1.0.93 with a headless SDK host: a tool invocation
- * carries no directory (its keys are sessionId, toolCallId, toolName,
- * arguments, availableTools, traceparent, tracestate, signal), and the
- * extension's `process.cwd()` is the session directory at start but does not
- * move when the session's directory changes (`metadata.setWorkingDirectory`,
- * what `/cd` uses). The extension does receive `session.context_changed` with
- * the new `cwd`, so that event is the live source.
- *
- * `observe` is passed to `joinSession` as `onEvent`, which the SDK registers
- * before it issues the join RPC, so a change delivered while the join is in
- * flight is not lost. A change before the extension process was forked is
- * already in `process.cwd()`, the initial value.
- *
- * @param {string} initial
- */
-export function trackWorkingDirectory(initial) {
-  let current = initial;
-  return {
-    get: () => current,
-    /** @param {any} event */
-    observe: (event) => {
-      if (event?.type !== 'session.context_changed') return;
-      const cwd = event?.data?.cwd;
-      // The runtime validates the target as an existing absolute path; a value
-      // that is not one is ignored rather than trusted.
-      if (typeof cwd === 'string' && isAbsolute(cwd)) current = cwd;
-    },
-  };
-}
-
-/**
  * @typedef {(command: string, args: string[], options: { cwd: string, signal?: AbortSignal }) => Promise<CommandResult>} ToolRunner
  */
 
@@ -340,7 +307,9 @@ export function trackWorkingDirectory(initial) {
  *   env: Record<string, string | undefined>,
  *   exists: (path: string) => boolean,
  *   getCwd: () => string,
- * }} deps
+ * }} deps `getCwd` is the session directory tracker's `get`
+ *   (`session-dir.mjs`): a tool invocation carries no directory, and
+ *   `process.cwd()` does not follow `/cd`.
  */
 export function createAdrTools({ run, env, exists, getCwd }) {
   /**

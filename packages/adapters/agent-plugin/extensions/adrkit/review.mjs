@@ -557,3 +557,32 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
 
   return assembleResult({ ...base, ...exits, notes, governing, history, verdicts, unverified, findings });
 }
+
+/**
+ * The workflow definition `extension.mjs` registers. The directory is read
+ * from `getCwd` when each run starts, never captured at load: after `/cd`
+ * (`metadata.setWorkingDirectory`) the extension process is not restarted and
+ * its `process.cwd()` does not move (measured on Copilot CLI 1.0.93), so
+ * `getCwd` is the session directory tracker's `get` (`session-dir.mjs`).
+ *
+ * @param {{
+ *   run: (command: string, args: string[], options: { cwd: string, signal?: AbortSignal }) => Promise<CommandResult>,
+ *   env: Record<string, string | undefined>,
+ *   exists: (path: string) => boolean,
+ *   getCwd: () => string,
+ * }} deps
+ */
+export function createReviewWorkflow({ run, env, exists, getCwd }) {
+  return {
+    meta: ADR_REVIEW_META,
+    run: async (/** @type {any} */ ctx) => {
+      const cwd = getCwd();
+      return reviewWorkflow(ctx, {
+        run: (command, args) => run(command, args, { cwd, signal: ctx.signal }),
+        env,
+        cwd,
+        exists,
+      });
+    },
+  };
+}
