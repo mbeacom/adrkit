@@ -94,10 +94,11 @@ docker run --rm --read-only --network none -i \
 The MCP command keeps stdin open because MCP uses stdio. Its repository mount is
 read-only, matching the server contract; use an absolute host path in MCP client
 configuration. For CLI commands that intentionally write (`new`, `accept`,
-or `migrate` without `--dry-run`), omit `--read-only` and the mount's `:ro`
-suffix. The image runs as the non-root `node` user; on a host with a different
-UID/GID, add `--user "$(id -u):$(id -g)"`. On SELinux hosts, add the
-appropriate bind-mount label (for example, `:Z`).
+`approve`, `object`, `resolve`, or `migrate` without `--dry-run`), omit
+`--read-only` and the mount's `:ro` suffix. The image runs as the non-root
+`node` user; on a host with a different UID/GID, add
+`--user "$(id -u):$(id -g)"`. On SELinux hosts, add the appropriate
+bind-mount label (for example, `:Z`).
 
 The default image treats an unrecognized selector as an `adr` subcommand.
 Explicit selectors are `cli`/`adr`/`adrkit`, `mcp`/`adrkit-mcp`,
@@ -372,7 +373,7 @@ answer where the next decision is actually being made.
 It never approves anything. It routes, and humans decide.
 
 The root Marketplace entry point has shipped with every release since
-`v0.13.0`. Pin its immutable root reference — currently `v0.17.0` — for the
+`v0.13.0`. Pin its immutable root reference — currently `v0.18.0` — for the
 complete governing-decisions workflow (see
 [Use in CI](https://adrkit.dev/ci/)):
 
@@ -391,7 +392,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mbeacom/adrkit@v0.17.0
+      - uses: mbeacom/adrkit@v0.18.0
 ```
 
 Existing consumers of the nested form can stay on
@@ -427,7 +428,7 @@ table is the short version:
 |---|---|---|
 | Available now | `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, `@adrkit/mcp` | Published on npm for Node 22+ |
 | Available now | `@adrkit/spec-kit` | Published separately for current Spec Kit releases |
-| Available now | `adr queue`, `adr accept`, and the governing-decisions GitHub Action | Queue reporting, ratification from the queue, and PR comments are part of the shipped workflow |
+| Available now | `adr queue`, `adr approve`, `adr object`, `adr resolve`, `adr accept`, and the governing-decisions GitHub Action | Queue reporting, recorded review state, ratification from the queue, and PR comments are part of the shipped workflow |
 | Available now | `adrkit` agent plugin | Install from this repository or marketplace; shells out to `adr` |
 | In development | Later evaluator passes | Passes 1–3 and calibration remain design targets; Pass 0 is the implemented evaluator surface |
 | In development | Catalog packages | `@adrkit/catalog-envelope` and `@adrkit/catalog-backstage` exist in the workspace at `0.0.0` and are not released |

@@ -9,7 +9,64 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-09
+
+This release adds `adr approve`, `adr object`, and `adr resolve`, so review
+state can be recorded from the CLI instead of by hand-editing frontmatter, and
+the pure transitions behind them in `@adrkit/core`. It also carries the agent
+plugin's work since 0.17.0 (`adrkit` 0.4.0 through 0.8.1), which already
+shipped on merge to `main` and is listed here for the record; the plugin and
+`@adrkit/spec-kit` are versioned independently and do not move with this
+release.
+
+**Behavior changes.** Three existing behaviors change, which is why this is a
+minor release rather than a patch:
+
+- **`adr accept` and `adr queue` count approvals as distinct identities,
+  compared by an ASCII casefold.** A record whose `review.approvals` lists one
+  person under two spellings (`@bob` and `@Bob`) used to meet
+  `review.quorum: 2`; `adr accept` now refuses it with exit `1`, and
+  `adr queue`'s `approvalCount` (in `--format json` and the Markdown and
+  terminal views) can be lower than before for the same corpus. The queue
+  Action's bundle carries the same count, so `packages/ci/queue@v0` consumers
+  pick it up when `v0` moves to this release.
+- **`adr accept` refuses `--by` given more than once** with exit `2`. It used
+  to keep the last value silently.
+- **`adr accept` refuses a `--by` containing control or invisible
+  characters** with exit `2`, where the schema's email form would previously
+  have admitted one.
+
+`@adrkit/core` adds nine runtime exports: the review transitions
+(`approveAdrSource`, `objectAdrSource`, `resolveObjectionAdrSource`,
+`objectionSummaryProblem`, and `MAX_OBJECTION_SUMMARY_LENGTH`) and the identity
+helpers they share with `adr accept` and the queue (`identityKey`,
+`sameIdentity`, `distinctIdentityCount`, and `isWritableIdentity`). None is
+removed or renamed.
+
 ### Added
+
+- **`adr approve`, `adr object`, and `adr resolve` record review state.**
+  `adr approve <id> --by <identity>` adds an approval, `adr object <id> --by
+  <identity> --summary <text>` raises an objection, and `adr resolve <id>
+  --objection <n> --by <identity>` resolves one. Only the objector may resolve
+  an objection. Each acts only on a `proposed` record, changes only the list it
+  owns, commits nothing, and treats a repeat as a no-op. `--by` is required and
+  never inferred. Exit codes match `adr accept`: `0` written or unchanged, `1`
+  refused with the file untouched, `2` usage error; all three take `--json`.
+  `adr queue`'s approval and objection counts follow the writes, so a record
+  can go from objection to `adr accept` without a hand edit. No agent surface
+  runs these commands. Proposed in
+  [ADR-0051](docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md)
+  (proposed).
+- **`approveAdrSource`, `objectAdrSource`, and `resolveObjectionAdrSource` in
+  `@adrkit/core`**, the pure transitions behind them, with
+  `objectionSummaryProblem` and `MAX_OBJECTION_SUMMARY_LENGTH` (500). Like
+  `acceptAdrSource` they splice lines and refuse unless the re-parsed
+  frontmatter changed only the field they own; that re-check is now shared by
+  all four transitions.
+- **The agent plugin's extension tools scrub the review commands from results.**
+  `redactWritingCommands` now also redacts `adr approve`, `adr object`, and
+  `adr resolve` when repository text such as a record title carries one.
 
 - **The agent plugin adds advisory session hooks for GitHub Copilot (`adrkit`
   0.8.0).** The extension now registers two hooks. `onSessionStart` adds a short summary of
@@ -115,28 +172,12 @@ Until `1.0.0`, minor releases may include breaking changes
   [ADR-0045](docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
   (accepted); rung 1 of ADR-0014 with a live Copilot CLI 1.0.92 smoke. The
   plugin has no tag and ships on merge to `main`.
-- **`adr approve`, `adr object`, and `adr resolve` record review state.**
-  `adr approve <id> --by <identity>` adds an approval, `adr object <id> --by
-  <identity> --summary <text>` raises an objection, and `adr resolve <id>
-  --objection <n> --by <identity>` resolves one. Only the objector may resolve
-  an objection. Each acts only on a `proposed` record, changes only the list it
-  owns, commits nothing, and treats a repeat as a no-op. `--by` is required and
-  never inferred. Exit codes match `adr accept`: `0` written or unchanged, `1`
-  refused with the file untouched, `2` usage error; all three take `--json`.
-  `adr queue`'s approval and objection counts follow the writes, so a record
-  can go from objection to `adr accept` without a hand edit. No agent surface
-  runs these commands. Proposed in
-  [ADR-0051](docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md)
-  (proposed).
-- **`approveAdrSource`, `objectAdrSource`, and `resolveObjectionAdrSource` in
-  `@adrkit/core`**, the pure transitions behind them, with
-  `objectionSummaryProblem` and `MAX_OBJECTION_SUMMARY_LENGTH` (500). Like
-  `acceptAdrSource` they splice lines and refuse unless the re-parsed
-  frontmatter changed only the field they own; that re-check is now shared by
-  all four transitions.
-- **The agent plugin's extension tools scrub the review commands from results.**
-  `redactWritingCommands` now also redacts `adr approve`, `adr object`, and
-  `adr resolve` when repository text such as a record title carries one.
+
+### Changed
+
+- **`adr accept` refuses `--by` given more than once** (exit `2`), as the review
+  commands do. It used to keep the last value silently, and `--by` names the
+  one person ratifying the record.
 
 ### Fixed
 
@@ -154,25 +195,6 @@ Until `1.0.0`, minor releases may include breaking changes
   them writes one into a record or echoes it to a terminal. ZWNJ and ZWJ
   (U+200C, U+200D) stay allowed inside an email address, where some scripts
   need them.
-
-### Changed
-
-- **`adr accept` refuses `--by` given more than once** (exit `2`), as the review
-  commands do. It used to keep the last value silently, and `--by` names the
-  one person ratifying the record.
-
-### Documentation
-
-- **Recorded why the agent plugin declares no Agent Plugins 1.0 `extensions` logo.**
-  On Copilot CLI 1.0.93 an `extensions` object in `.claude-plugin/plugin.json` stops
-  the plugin's extension (workflow and canvas) from loading, although `claude plugin
-  validate` only warns and APM accepts it. The manifest is unchanged. The README
-  launcher links were checked to round-trip exactly and the launcher returns HTTP 200;
-  I followed both in Copilot app 1.1.27 (2026-10-08): each opened its onboarding,
-  and after installing, the app showed the extension and recognized the
-  `decision-review` canvas.
-
-### Fixed
 
 - **The agent plugin's Copilot extension closes the review follow-ups from
   0.6.0 to 0.8.0 (`adrkit` 0.8.1).** No new surface and no new ADR; ADR-0048
@@ -217,6 +239,17 @@ Until `1.0.0`, minor releases may include breaking changes
   which used to echo the refused value. A run's own error text is no longer
   shown on the panel. The tools' capped, stack-stripped stderr on exit 2 is
   unchanged.
+
+### Documentation
+
+- **Recorded why the agent plugin declares no Agent Plugins 1.0 `extensions` logo.**
+  On Copilot CLI 1.0.93 an `extensions` object in `.claude-plugin/plugin.json` stops
+  the plugin's extension (workflow and canvas) from loading, although `claude plugin
+  validate` only warns and APM accepts it. The manifest is unchanged. The README
+  launcher links were checked to round-trip exactly and the launcher returns HTTP 200;
+  I followed both in Copilot app 1.1.27 (2026-10-08): each opened its onboarding,
+  and after installing, the app showed the extension and recognized the
+  `decision-review` canvas.
 
 ## [0.17.0] - 2026-10-03
 
@@ -1967,7 +2000,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/mbeacom/adrkit/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mbeacom/adrkit/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/mbeacom/adrkit/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/mbeacom/adrkit/compare/v0.14.0...v0.15.0
