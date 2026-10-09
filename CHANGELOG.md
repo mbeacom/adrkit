@@ -134,6 +134,9 @@ Until `1.0.0`, minor releases may include breaking changes
   `acceptAdrSource` they splice lines and refuse unless the re-parsed
   frontmatter changed only the field they own; that re-check is now shared by
   all four transitions.
+- **The agent plugin's extension tools scrub the review commands from results.**
+  `redactWritingCommands` now also redacts `adr approve`, `adr object`, and
+  `adr resolve` when repository text such as a record title carries one.
 
 ### Fixed
 

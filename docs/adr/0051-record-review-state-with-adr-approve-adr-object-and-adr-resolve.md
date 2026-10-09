@@ -234,11 +234,20 @@ safely.
 - **A BOM-prefixed record is refused.** `parseFrontmatter` requires the file to
   begin with `---`, so `adr lint` already reports such a record as invalid, and
   these commands, like `adr accept`, refuse it rather than strip the BOM.
-- **The extension tools' writing-command scrub does not yet name these verbs.**
-  `redactWritingCommands` in the plugin's `tools.mjs` redacts `adr accept`,
-  `adr new`, and `adr migrate` from tool results. Repository text naming
-  `adr approve` passes through as data. That module belongs to the extension
-  track; extending the scrub is a follow-up.
+- **The extension tools' scrub names these verbs.** `redactWritingCommands` in
+  the plugin's `tools.mjs` now redacts `adr approve`, `adr object`, and
+  `adr resolve` from tool results, alongside `accept`, `new`, and `migrate`,
+  because a record title is repository text and can carry one to the model.
+- **Concurrent runs are not serialized.** Each command reads the record,
+  computes the new text, and writes it, with no cross-process lock, and
+  `adr accept` has the same window. Two commands run at the same instant on the
+  same file can lose one update: an objection written between `adr accept`'s
+  read and write would be overwritten. I accept that rather than add lock files
+  to a CLI that has none. These are commands a person runs in a working tree,
+  nothing is committed, and the result reaches `main` only as a reviewed pull
+  request diff, where a lost objection is visible. If concurrent automation
+  ever drives them, that would argue for a compare-and-swap re-read before the
+  write.
 
 ## Consequences
 
@@ -282,5 +291,5 @@ No reference-repository or external run.
        check and `adr queue`'s `approvalCount`.
 5. [x] Update `AGENTS.md`, the CLI README, `site/src/content/docs/commands.mdx`,
        and `CHANGELOG.md`, including every statement of the write surface.
-6. [ ] Extend the extension tools' writing-command scrub to the three verbs.
+6. [x] Extend the extension tools' writing-command scrub to the three verbs.
 7. [ ] Ratify this record with `adr accept 0051 --by <maintainer>`.

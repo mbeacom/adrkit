@@ -357,8 +357,12 @@ and objection counts change with them.
   model-callable, so it stays guarded: the later button track, which takes the
   identity from `ADRKIT_REVIEWER` and never from the model, adds one narrow,
   tested exception for a single page-POST handler module under its own record.
-  The extension tools' `redactWritingCommands` does not yet name these verbs;
-  extending it is open in ADR-0051.
+  The extension tools' `redactWritingCommands` scrubs these verbs from tool
+  results too, because a record title can carry `adr approve …` to the model.
+- **The read, transition, write window is not locked.** Two of these commands,
+  or one and `adr accept`, run at the same instant on the same file can lose
+  an update. That is accepted in ADR-0051: they are human-run edits to a
+  working tree, and the pull request diff is where the result is checked.
 
 ## Moving Action tag recovery
 
