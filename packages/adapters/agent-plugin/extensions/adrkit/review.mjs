@@ -15,6 +15,7 @@
  */
 
 import { Buffer } from 'node:buffer';
+import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve, win32 } from 'node:path';
 
 /** Plugin-namespaced. Measured: the bare `decision-checker` resolves to null. */
@@ -105,9 +106,14 @@ export const REVIEW_MESSAGES = Object.freeze({
   'cli-unavailable':
     'The adr CLI could not be started. Install @adrkit/cli on PATH, or set ADRKIT_CLI ' +
     '(or ADRKIT_ALLOW_REPO_CLI=1 to use ./node_modules/.bin/adr) in the environment Copilot was started from.',
+  'cwd-missing': 'The session directory no longer exists, so nothing could be run there.',
   'output-too-large': 'adr produced more output than the extension accepts (64 MiB). Narrow the change with files.',
+  'git-output-too-large': 'git produced more output than the extension accepts (64 MiB). Pass files to name the change explicitly.',
   'args-too-long': 'The command line was too long for this system. Narrow the change with files.',
-  'cli-killed': 'A git or adr process was ended by a signal before it exited.',
+  'cli-killed': 'The adr process was ended by a signal before it exited.',
+  'git-killed': 'The git process was ended by a signal before it exited.',
+  'cli-timeout': 'The adr CLI did not finish within its time limit (120 s).',
+  'git-timeout': 'git did not finish within its time limit (120 s).',
   unexpected: 'The review stopped on an unexpected error. Run adr check and adr lint directly to see why.',
 });
 
@@ -134,15 +140,24 @@ export class ReviewError extends Error {
  * @returns {string}
  */
 export function publicMessage(error) {
-  const fields = /** @type {{ code?: unknown, signal?: unknown }} */ (error !== null && typeof error === 'object' ? error : {});
+  const fields = /** @type {{ code?: unknown, signal?: unknown, tool?: unknown, missing?: unknown }} */ (
+    error !== null && typeof error === 'object' ? error : {}
+  );
   const code = fields.code;
   if (error instanceof ReviewError && typeof code === 'string' && Object.hasOwn(REVIEW_MESSAGES, code)) {
     return REVIEW_MESSAGES[/** @type {ReviewCode} */ (code)];
   }
-  if (code === 'ENOENT') return REVIEW_MESSAGES['cli-unavailable'];
-  if (code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return REVIEW_MESSAGES['output-too-large'];
+  // `tool` and `missing` are set by runCommand to fixed values; they are
+  // compared, never echoed.
+  const git = fields.tool === 'git';
+  if (code === 'ENOENT') {
+    if (fields.missing === 'cwd') return REVIEW_MESSAGES['cwd-missing'];
+    return REVIEW_MESSAGES[git ? 'git-unavailable' : 'cli-unavailable'];
+  }
+  if (code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return REVIEW_MESSAGES[git ? 'git-output-too-large' : 'output-too-large'];
   if (code === 'E2BIG' || code === 'ENAMETOOLONG') return REVIEW_MESSAGES['args-too-long'];
-  if (typeof fields.signal === 'string' && fields.signal.length > 0) return REVIEW_MESSAGES['cli-killed'];
+  if (code === 'ETIMEDOUT') return REVIEW_MESSAGES[git ? 'git-timeout' : 'cli-timeout'];
+  if (typeof fields.signal === 'string' && fields.signal.length > 0) return REVIEW_MESSAGES[git ? 'git-killed' : 'cli-killed'];
   return REVIEW_MESSAGES.unexpected;
 }
 
@@ -205,49 +220,114 @@ export function resolveCli({ env, cwd, exists }) {
 export const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 /** How long a signalled process group gets between SIGTERM and SIGKILL. */
 export const KILL_GRACE_MS = 1000;
+/**
+ * The longest any one command may run, whatever its caller set. Callers'
+ * own limits are all shorter (the hooks' 5 s, the hooks' refresh 15 s, the
+ * queue 30 s), so this only bounds calls that had none: the workflow (only
+ * `ctx.signal`), the page's own refresh, and the tools.
+ */
+export const COMMAND_CEILING_MS = 120_000;
+/** How often a group whose leader closed is probed until it is gone. */
+const PROBE_MS = 1000;
+/** Signals whose default disposition ends the extension process. */
+const STOP_SIGNALS = /** @type {const} */ (['SIGTERM', 'SIGINT', 'SIGHUP']);
 
-/** Process groups started by `runCommand` that have not closed yet. @type {Set<number>} */
-const liveGroups = new Set();
-let sweepInstalled = false;
+/**
+ * Process groups started by `runCommand` that may still have a member, each
+ * with the `kill` that signals it. A group stays here until a signal-0 probe
+ * says it is gone, not merely until its leader closes: a member that
+ * redirected its stdio away from our pipes outlives the leader's `close`.
+ *
+ * @type {Map<number, (pid: number, signal: string | number) => unknown>}
+ */
+const liveGroups = new Map();
+let exitSweepInstalled = false;
+/** @type {Map<string, () => void>} */
+const signalHandlers = new Map();
+
+/** Whether a process group is still tracked. For tests. @param {number} pid */
+export const isTrackedGroup = (pid) => liveGroups.has(pid);
+
+/** SIGKILL every tracked group. Synchronous, as `exit` listeners must be. */
+function sweep() {
+  for (const [pid, kill] of liveGroups) {
+    try {
+      kill(-pid, 'SIGKILL');
+    } catch {
+      // ESRCH: already gone.
+    }
+  }
+  liveGroups.clear();
+}
+
+function removeSignalHandlers() {
+  for (const [sig, handler] of signalHandlers) process.removeListener(sig, handler);
+  signalHandlers.clear();
+}
 
 /**
  * Detached children are in their own process group, so nothing ends them when
- * the extension exits. On a normal exit, every group still running is killed;
- * `kill` is synchronous, which is what an `exit` listener may do.
+ * the extension stops. A normal exit or `process.exit()` runs the `exit`
+ * sweep. A stop by SIGTERM, SIGINT, or SIGHUP skips `exit`, so while any group
+ * is tracked a listener for each sweeps the groups, removes itself, and
+ * re-raises the signal, which then takes its default action. If the process
+ * has other listeners for that signal, they ran in the same dispatch and the
+ * signal is not re-raised, so their behavior is unchanged. With no group
+ * tracked no listener is installed, so the extension's own signal behavior is
+ * exactly what it was.
+ *
+ * @param {number} pid
+ * @param {(pid: number, signal: string | number) => unknown} kill
  */
-function installExitSweep() {
-  if (sweepInstalled) return;
-  sweepInstalled = true;
-  process.once('exit', () => {
-    for (const pid of liveGroups) {
-      try {
-        process.kill(-pid, 'SIGKILL');
-      } catch {
-        // ESRCH: already gone.
-      }
-    }
-  });
+function track(pid, kill) {
+  liveGroups.set(pid, kill);
+  if (!exitSweepInstalled) {
+    exitSweepInstalled = true;
+    process.once('exit', sweep);
+  }
+  if (signalHandlers.size > 0) return;
+  for (const sig of STOP_SIGNALS) {
+    const handler = () => {
+      sweep();
+      removeSignalHandlers();
+      if (process.listenerCount(sig) === 0) process.kill(process.pid, sig);
+    };
+    signalHandlers.set(sig, handler);
+    process.on(sig, handler);
+  }
+}
+
+/** @param {number} pid */
+function untrack(pid) {
+  liveGroups.delete(pid);
+  if (liveGroups.size === 0) removeSignalHandlers();
 }
 
 /** @param {AbortSignal | undefined} signal */
 const abortError = (signal) =>
   Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR', cause: signal?.reason });
 
+/** `git` or `adr`: which program a failure came from, for its fixed message. @param {string} command */
+const toolOf = (command) => (/(^|[\\/])git(\.exe)?$/i.test(command) ? 'git' : 'adr');
+
 /**
  * Run one process and collect its output. Any numeric exit resolves: `adr`
  * uses 1 for "found something" with a complete report on stdout, and that is
- * data. A spawn failure, a cancellation, a signal, or output past the cap
- * rejects, because there is no result to report. Rejections carry the same
- * `code`/`name`/`signal` fields `execFile` used, and callers select their
- * fixed messages by those fields, never by the text.
+ * data. A spawn failure, a cancellation, a signal, the ceiling, or output past
+ * the cap rejects, because there is no result to report. Rejections carry the
+ * `code`/`name`/`signal` fields `execFile` used, plus `tool` (`git` or `adr`)
+ * and, for ENOENT, `missing` (`cwd` or `command`); callers select their fixed
+ * messages by those fields, never by the text.
  *
  * On POSIX the child gets its own process group (`detached`), and a
- * cancellation or timeout signals the whole group: SIGTERM, then SIGKILL after
- * `graceMs`. Signalling only the direct child left a grandchild behind a
- * version-manager shim (a shell script that starts node) running. A group
- * still alive when the extension exits normally is killed then. On Windows
- * the signal is passed to `spawn`, which ends the direct child only: a
- * grandchild there can outlive a timeout, a stated limit.
+ * cancellation, the ceiling, or an overflow signals the whole group once:
+ * SIGTERM, then SIGKILL after `graceMs` if the group is still tracked.
+ * Signalling only the direct child left a grandchild behind a version-manager
+ * shim running. Descendants that leave the group themselves (`setsid`) are
+ * out of reach. Groups still tracked when the extension exits normally, or is
+ * stopped by SIGTERM, SIGINT, or SIGHUP, are killed then. On Windows the
+ * signal is passed to `spawn`, which ends the direct child only: a grandchild
+ * there can outlive a timeout, a stated limit.
  *
  * stdin is never opened. The returned promise settles at once on abort; the
  * group's SIGKILL follows on an unref'd timer, so nothing waits on it.
@@ -256,8 +336,8 @@ const abortError = (signal) =>
  * @param {string[]} args
  * @param {{
  *   cwd: string, signal?: AbortSignal, spawn: Function,
- *   platform?: string, kill?: (pid: number, signal: string) => unknown,
- *   graceMs?: number, maxBuffer?: number,
+ *   platform?: string, kill?: (pid: number, signal: string | number) => unknown,
+ *   graceMs?: number, maxBuffer?: number, ceilingMs?: number, probeMs?: number,
  * }} options
  * @returns {Promise<CommandResult>}
  */
@@ -269,11 +349,14 @@ export function runCommand(
     signal,
     spawn,
     platform = process.platform,
-    kill = (pid, sig) => process.kill(pid, /** @type {NodeJS.Signals} */ (sig)),
+    kill = (pid, sig) => process.kill(pid, /** @type {any} */ (sig)),
     graceMs = KILL_GRACE_MS,
     maxBuffer = MAX_OUTPUT_BYTES,
+    ceilingMs = COMMAND_CEILING_MS,
+    probeMs = PROBE_MS,
   },
 ) {
+  const tool = toolOf(command);
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(abortError(signal));
     const group = platform !== 'win32';
@@ -287,38 +370,69 @@ export function runCommand(
         ...(group ? { detached: true } : { signal }),
       });
     } catch (error) {
-      return reject(error);
+      return reject(Object.assign(error instanceof Error ? error : new Error(String(error)), { tool }));
     }
-    const pid = typeof child.pid === 'number' ? child.pid : undefined;
-    if (group && pid !== undefined) {
-      liveGroups.add(pid);
-      installExitSweep();
-    }
+    const pid = group && typeof child.pid === 'number' ? child.pid : undefined;
+    if (pid !== undefined) track(pid, kill);
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let killTimer;
+    let ended = false;
     let settled = false;
+    const ceiling = setTimeout(() => {
+      endTree();
+      finish(() => reject(Object.assign(new Error('The command ran past its time limit'), { name: 'TimeoutError', code: 'ETIMEDOUT', tool })));
+    }, ceilingMs);
+    ceiling.unref?.();
     /** @param {() => void} settle */
     const finish = (settle) => {
       if (settled) return;
       settled = true;
+      clearTimeout(ceiling);
       signal?.removeEventListener('abort', onAbort);
       settle();
     };
     /** @param {string} sig */
     const signalGroup = (sig) => {
-      if (pid === undefined) return;
+      if (pid === undefined || !liveGroups.has(pid)) return;
       try {
         kill(-pid, sig);
       } catch {
         // ESRCH: the group has already gone.
       }
     };
+    /** Signal the tree once, however many times it is asked. */
     const endTree = () => {
+      if (ended) return;
+      ended = true;
       if (!group) {
         child.kill?.();
         return;
       }
       signalGroup('SIGTERM');
-      const timer = setTimeout(() => signalGroup('SIGKILL'), graceMs);
-      timer.unref?.();
+      killTimer = setTimeout(() => signalGroup('SIGKILL'), graceMs);
+      killTimer.unref?.();
+    };
+    /**
+     * After the leader closes: untrack the group once a signal-0 probe says it
+     * is gone, and cancel a pending SIGKILL then, so it cannot reach a reused
+     * id. A member still alive keeps the group tracked, re-probed on an
+     * unref'd timer.
+     */
+    const retire = () => {
+      if (pid === undefined || !liveGroups.has(pid)) return;
+      let alive = true;
+      try {
+        kill(-pid, 0);
+      } catch (error) {
+        alive = /** @type {any} */ (error)?.code === 'EPERM';
+      }
+      if (!alive) {
+        clearTimeout(killTimer);
+        untrack(pid);
+        return;
+      }
+      const again = setTimeout(retire, probeMs);
+      again.unref?.();
     };
     const onAbort = () => {
       // Windows: spawn holds the signal and ends the child itself.
@@ -336,7 +450,9 @@ export function runCommand(
     const overflow = () => {
       endTree();
       finish(() =>
-        reject(Object.assign(new Error('stdout or stderr exceeded the output limit'), { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })),
+        reject(
+          Object.assign(new Error('stdout or stderr exceeded the output limit'), { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', tool }),
+        ),
       );
     };
     child.stdout?.on('data', (/** @type {Buffer} */ chunk) => {
@@ -350,19 +466,22 @@ export function runCommand(
       err.push(Buffer.from(chunk));
     });
     child.on('error', (/** @type {any} */ error) => {
-      if (pid !== undefined) liveGroups.delete(pid);
+      retire();
       if (error?.code === 'ENOENT') {
-        return finish(() => reject(Object.assign(new Error(`could not start "${command}": not found`), { code: 'ENOENT' })));
+        const missing = existsSync(cwd) ? 'command' : 'cwd';
+        return finish(() =>
+          reject(Object.assign(new Error(`could not start "${command}": not found`), { code: 'ENOENT', tool, missing })),
+        );
       }
       if (error?.name === 'AbortError') return finish(() => reject(abortError(signal)));
-      finish(() => reject(error instanceof Error ? error : new Error(String(error))));
+      finish(() => reject(Object.assign(error instanceof Error ? error : new Error(String(error)), { tool })));
     });
     child.on('close', (/** @type {number | null} */ code, /** @type {string | null} */ sig) => {
-      if (pid !== undefined) liveGroups.delete(pid);
+      retire();
       const stdout = Buffer.concat(out).toString('utf8');
       const stderr = Buffer.concat(err).toString('utf8');
       if (typeof code === 'number') return finish(() => resolve({ stdout, stderr, exitCode: code }));
-      finish(() => reject(Object.assign(new Error(`"${command}" was ended by a signal`), { code: null, signal: sig })));
+      finish(() => reject(Object.assign(new Error(`"${command}" was ended by a signal`), { code: null, signal: sig, tool })));
     });
   });
 }
@@ -649,7 +768,8 @@ export async function collectChangedFiles({ files, base }, run) {
     try {
       return await run('git', args);
     } catch (error) {
-      if (/** @type {any} */ (error)?.code === 'ENOENT') throw new ReviewError('git-unavailable');
+      const fields = /** @type {any} */ (error);
+      if (fields?.code === 'ENOENT' && fields?.missing !== 'cwd') throw new ReviewError('git-unavailable');
       throw error;
     }
   };

@@ -75,6 +75,8 @@ const MESSAGES = Object.freeze({
   'args-too-long':
     'The command line was too long for this system. Pass fewer or shorter paths per call (a large diff from base can do this too).',
   'cli-killed': 'The adr process was ended by a signal before it exited.',
+  'cli-timeout': 'The adr process did not finish within its time limit (120 s), and was ended.',
+  'cwd-missing': 'The session directory no longer exists, so nothing was run.',
   'symlink-escape':
     'The corpus directory resolves, through a symbolic link, outside the session repository. Nothing was run.',
   'no-report': 'adr exited without a readable report.',
@@ -271,9 +273,11 @@ const usageText = (stderr) => {
  * @returns {MessageCode}
  */
 function runFailureCode(error) {
-  const fields = /** @type {{ code?: unknown, signal?: unknown }} */ (error ?? {});
+  const fields = /** @type {{ code?: unknown, signal?: unknown, missing?: unknown }} */ (error ?? {});
   if (fields.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return 'output-too-large';
   if (fields.code === 'E2BIG' || fields.code === 'ENAMETOOLONG') return 'args-too-long';
+  if (fields.code === 'ETIMEDOUT') return 'cli-timeout';
+  if (fields.code === 'ENOENT' && fields.missing === 'cwd') return 'cwd-missing';
   if (typeof fields.signal === 'string' && fields.signal.length > 0) return 'cli-killed';
   return 'cli-unavailable';
 }

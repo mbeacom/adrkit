@@ -131,7 +131,11 @@ describe('runCommand', () => {
     return Object.assign(emitter(), { pid, stdout: emitter(), stderr: emitter(), kill: () => true });
   }
 
-  const posix = { platform: 'darwin' as const, kill: () => {} };
+  // A group probe (signal 0) reports the group gone, so nothing stays tracked.
+  const gone = (_pid: number, sig: string) => {
+    if (sig === '0' || (sig as unknown) === 0) throw Object.assign(new Error('kill ESRCH'), { code: 'ESRCH' });
+  };
+  const posix = { platform: 'darwin' as const, kill: gone };
 
   test('exit 0 resolves with the output, with stdin closed and its own process group on POSIX', async () => {
     const { spawn, calls } = fakeSpawn((child) => {
