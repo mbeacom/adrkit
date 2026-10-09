@@ -46,6 +46,13 @@ review:
 > of open proposals. No action, route, registration, or extension directory is
 > added; this record's read-only, advisory, and security boundaries are unchanged.
 
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> A post-edit hook would refresh any open panel through a new in-process
+> `refreshOpen()` (Collect, Check, and the free queue read; debounced, single-flight, under a
+> 15 s abort signal). It never starts a review and adds no action, route, or
+> extension directory; this record's read-only, advisory, and security
+> boundaries are unchanged.
+
 ## Context
 
 The GitHub Copilot app can render a *canvas*: a panel beside the conversation
