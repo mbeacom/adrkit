@@ -402,9 +402,11 @@ Proposed in
   1.0.93); that is one measurement, not a price.
 - **Open proposals, corpus-wide.** `refresh` also runs
   `adr queue --format json`, which costs no AI credits, and the panel lists
-  every open `proposed` record with its SLA state, deadline, approvals, and
-  routing. It is a list only: no buttons, no explain, and nothing that ratifies.
-  It runs alongside the check with its own 30-second limit. If the queue cannot
+  up to 200 open `proposed` records (fewer if their text exceeds a 256 KiB
+  budget; a note says how many of the total are shown) with their SLA state,
+  deadline, approvals, and routing. It is a list only: no buttons, no explain, and nothing that ratifies.
+  It runs alongside the check with its own 30-second limit, and the governing
+  view appears without waiting for it. If the queue cannot
   be read, is too large, or does not finish in time, the section shows a note
   and the rest of the panel is unaffected.
 

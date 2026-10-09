@@ -157,17 +157,25 @@ each item reduced by allowlist to `id`, `title`, `sourcePath`, `slaState`,
 `routingTargets`, and at most 200 items with a note saying how many were left
 out. Each string in an item (and each `declaredBy` path and ref) is clipped to
 4000 characters, as CLI messages already are, and at most 50 routing targets are
-kept, because the snapshot is broadcast to every panel and returned to the agent
-on each refresh. The queue has its own timeout (30 seconds); past it, its
+kept. Per-value caps alone still allow tens of megabytes (200 items of 50
+targets of 4000 characters), so the rows also share a budget of 256 KiB
+serialized; the same "first N of M" note covers either cut. The snapshot is
+broadcast to every panel and returned to the agent on each refresh. The queue has its own timeout (30 seconds); past it, its
 process is signalled and the panel shows a note, so a hung `adr queue` never
-holds the governing view. The page shows the items in a section headed "Open
+holds the governing view: the check is committed and broadcast when it
+settles, and the queue follows in a second update under the same sequence
+guard. Opening a panel and serving the page do not wait for the queue; an agent
+`get_state` or `refresh` does, so its result is complete. The page shows the items in a section headed "Open
 proposals, corpus-wide", labelled "Listed, not judged".
 
-- **No ratify control and no ratifying text.** Queue rows have no button, no
+- **No ratify control and no ratifying field.** Queue rows have no button, no
   action, and no explain. Their ids are not added to the set explain accepts,
   so the prompt surface is unchanged. The allowlist is the mechanism that keeps
   any ratifying field out: a field the JSON gains later is dropped without
-  anyone having to name it. A test plants such fields and asserts that neither
+  anyone having to name it. It selects fields, not text. A kept string such as
+  `title` is untrusted repository text, shown as data and not vetted for what it
+  says, so a record titled like a command shows that title (as the governing
+  records' titles already do). A test plants such fields and asserts that neither
   the snapshot, the served `/api/state`, the rendered page, nor the shipped
   HTML, JavaScript, and CSS contain the command.
 - **Failures are notes, never breakage.** Exit `0` and `1` both carry a complete
@@ -190,7 +198,7 @@ proposals, corpus-wide", labelled "Listed, not judged".
 |---|---|
 | Provenance | What the CLI reports, and a stated limit where it reports less |
 | Cost | Stated before the click, from the code that spends it |
-| Queue | Visible, free, read-only, and unable to carry a ratifying command |
+| Queue | Visible, free, read-only, and unable to carry a ratifying field |
 | Surface | No new action, route, registration, process, or dependency |
 | Cost to us | One more CLI call per refresh, and two more snapshot fields to keep in step |
 
@@ -236,8 +244,8 @@ input re-checks first, and the repository can change between the check and the
 run, so the count is a statement about now, not a quote. Runtime retries are not
 counted.
 
-Each refresh runs one more CLI process. It runs alongside the check, so it adds
-latency only when it is the slower of the two, and never more than its timeout;
+Each refresh runs one more CLI process. It runs alongside the check and never holds it: a slow queue delays only the
+second update, and never by more than its timeout;
 on a large corpus `adr queue` reads every record.
 
 The queue is corpus-wide while the rest of the panel is change-scoped. The

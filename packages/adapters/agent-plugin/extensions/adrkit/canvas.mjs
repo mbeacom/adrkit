@@ -108,7 +108,7 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  *   updatedAt: string, judgeCalls?: number, queue?: QueueView | null,
  * }} Snapshot
  * @typedef {{ runId: string | null, runStatus: string, result: any, watching: boolean, message?: string, governingKey?: string, fingerprint?: string }} ReviewState
- * @typedef {{ args: unknown, check: Snapshot | null, queue: QueueView | null, review: ReviewState | null, seq: number }} Workspace
+ * @typedef {{ args: unknown, check: Snapshot | null, queue: QueueView | null, queuePending: Promise<void> | null, review: ReviewState | null, seq: number }} Workspace
  * @typedef {{
  *   instanceId: string, cwd: string, token: string, origin: string, url: string,
  *   server: Server, clients: Set<ServerResponse>,
@@ -435,6 +435,8 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
 
 /** The most queue rows a snapshot carries; the count of the rest is kept. */
 export const QUEUE_LIMIT = 200;
+/** The most serialized bytes the queue rows may add to a snapshot. */
+export const QUEUE_BYTES_LIMIT = 256 * 1024;
 /** The most routing targets kept per queue row. */
 const ROUTING_LIMIT = 50;
 /** How long the queue may take before the panel shows a note instead. */
@@ -464,9 +466,12 @@ const stringOrNull = (value) => (typeof value === 'string' ? value : null);
 
 /**
  * Keep the queue fields the page renders, by allowlist. The allowlist is the
- * mechanism that keeps a ratifying command out of the panel: the queue's
+ * mechanism that keeps a ratifying command field out of the panel: the queue's
  * terminal view prints one for a human, and any such field the JSON gains
- * later is dropped here without anyone having to name it.
+ * later is dropped here without anyone having to name it. It selects fields,
+ * not text: `title` and the other kept strings are untrusted repository text,
+ * bounded and shown as data (textContent only), and are not vetted for what
+ * they say.
  *
  * @param {Record<string, unknown>} item
  * @returns {QueueItem}
@@ -570,7 +575,17 @@ export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = Q
   if (!isRecord(report) || !Array.isArray(report['items'])) return unavailable(QUEUE_NOTES.unreadable, result.exitCode);
   if (report['version'] !== '1') return unavailable(QUEUE_NOTES.version, result.exitCode);
   const all = report['items'].filter(isRecord).filter((item) => typeof item['id'] === 'string');
-  const items = all.slice(0, QUEUE_LIMIT).map(shownQueueItem);
+  // Capped by count, then by serialized size: per-string caps alone still let a
+  // few hundred rows carry tens of megabytes into every broadcast.
+  /** @type {QueueItem[]} */
+  const items = [];
+  let bytes = 0;
+  for (const item of all.slice(0, QUEUE_LIMIT)) {
+    const shown = shownQueueItem(item);
+    bytes += JSON.stringify(shown).length;
+    if (bytes > QUEUE_BYTES_LIMIT) break;
+    items.push(shown);
+  }
   return {
     available: true,
     asOf: stringOrNull(report['asOf']),
@@ -801,7 +816,7 @@ export function createDecisionReviewCanvas({
   const workspaceFor = (cwd) => {
     let workspace = workspaces.get(cwd);
     if (!workspace) {
-      workspace = { args: undefined, check: null, queue: null, review: null, seq: 0 };
+      workspace = { args: undefined, check: null, queue: null, queuePending: null, review: null, seq: 0 };
       workspaces.set(cwd, workspace);
     }
     return workspace;
@@ -869,20 +884,24 @@ export function createDecisionReviewCanvas({
    * records: otherwise its verdicts would be shown against files it never read,
    * or a record added since would sit unjudged under a clean header.
    *
+   * The check commits and broadcasts as soon as it settles; the queue lands in
+   * a second update under the same sequence guard. `waitForQueue: false` lets a
+   * caller that must not wait (opening a panel, serving the page) return with
+   * the governing view while a slow queue is still running.
+   *
    * @param {string} cwd
    * @param {unknown} [input]
+   * @param {{ waitForQueue?: boolean }} [opts]
    */
-  const refresh = async (cwd, input) => {
+  const refresh = async (cwd, input, { waitForQueue = true } = {}) => {
     const workspace = workspaceFor(cwd);
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
     // Beside the check, not inside it: the queue is corpus-wide, so it runs with
-    // no changed files too, it can never alter the check's result, and its own
-    // timeout keeps a slow queue from holding the governing view.
-    const [snapshot, queue] = await Promise.all([
-      computeCheck({ cwd, input: workspace.args, run, env, exists, now }),
-      computeQueue({ cwd, input: workspace.args, run, env, exists, timeoutMs: queueTimeoutMs }),
-    ]);
+    // no changed files too, it can never alter the check's result, and neither
+    // its time nor its failure holds the governing view.
+    const queueRun = computeQueue({ cwd, input: workspace.args, run, env, exists, timeoutMs: queueTimeoutMs });
+    const snapshot = await computeCheck({ cwd, input: workspace.args, run, env, exists, now });
     const fingerprint = await fingerprintOf(cwd, snapshot);
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
@@ -890,7 +909,6 @@ export function createDecisionReviewCanvas({
     // yet. The newer refresh overwrites it when it lands.
     if (seq === workspace.seq || workspace.check === null) {
       workspace.check = snapshot;
-      workspace.queue = queue;
       const review = workspace.review;
       if (review && !review.watching && review.result) {
         const reviewed = [...review.result.files].sort().join('\0');
@@ -901,13 +919,27 @@ export function createDecisionReviewCanvas({
       }
       broadcast(cwd);
     }
+    const queueDone = queueRun
+      .then((queue) => {
+        if (seq === workspace.seq || workspace.queue === null) {
+          workspace.queue = queue;
+          broadcast(cwd);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (workspace.queuePending === queueDone) workspace.queuePending = null;
+      });
+    workspace.queuePending = queueDone;
+    if (waitForQueue) await queueDone;
     return snapshotOf(workspace);
   };
 
   /** @param {string} cwd */
-  const stateFor = async (cwd) => {
+  const stateFor = async (cwd, { waitForQueue = true } = {}) => {
     const workspace = workspaceFor(cwd);
-    if (!workspace.check) await refresh(cwd);
+    if (!workspace.check) await refresh(cwd, undefined, { waitForQueue });
+    else if (waitForQueue && workspace.queuePending) await workspace.queuePending;
     resume(cwd);
     return snapshotOf(workspace);
   };
@@ -1078,9 +1110,9 @@ export function createDecisionReviewCanvas({
       case 'GET /app.css':
         return reply(res, 200, PAGE_CSS, 'text/css; charset=utf-8');
       case 'GET /api/state':
-        return replyJson(res, 200, await stateFor(cwd));
+        return replyJson(res, 200, await stateFor(cwd, { waitForQueue: false }));
       case 'GET /events': {
-        const snapshot = await stateFor(cwd);
+        const snapshot = await stateFor(cwd, { waitForQueue: false });
         res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive' });
         res.write(`event: state\ndata: ${JSON.stringify(snapshot)}\n\n`);
         instance.clients.add(res);
@@ -1307,7 +1339,7 @@ export function createDecisionReviewCanvas({
       const isNew = !pending;
       if (!pending) {
         const starting = (async () => {
-          await refresh(cwd, input);
+          await refresh(cwd, input, { waitForQueue: false });
           return startInstance(ctx.instanceId, cwd);
         })();
         pending = starting;
@@ -1321,7 +1353,7 @@ export function createDecisionReviewCanvas({
       const workspace = workspaceFor(instance.cwd);
       // A re-open keeps its URL; new input is applied, not silently dropped.
       if (!isNew && input !== undefined && JSON.stringify(input) !== JSON.stringify(workspace.args)) {
-        await refresh(instance.cwd, input);
+        await refresh(instance.cwd, input, { waitForQueue: false });
       }
       resume(instance.cwd);
       return { url: instance.url, title: CANVAS_TITLE, status: statusLine(snapshotOf(workspace)) };

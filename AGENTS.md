@@ -523,14 +523,19 @@ will usually be a regression:
 - **The canvas queue is an allowlist, and that is what keeps the ratifying
   command out.** `adr queue`'s terminal view prints that command for a human;
   the canvas reads only the JSON and keeps nine named item fields, so a field
-  added later is dropped unnamed. A test plants such fields and checks the
+  added later is dropped unnamed. That selects fields, not text: a kept string
+  such as `title` is untrusted repository text shown as data, and is not
+  sanitized for command-like wording. A test plants such fields and checks the
   snapshot, `/api/state`, the rendered page, and the shipped page strings.
   Queue rows have no control or explain, and their ids are not explainable. A
   queue failure is a fixed note, never CLI stderr, and never changes the panel's
-  status, governing list, or notes. The queue runs in `Promise.all` beside the
-  check with its own timeout (30 s, then its process is signalled), so a hung
-  `adr queue` cannot hold the governing view; its strings, and `declaredBy`
-  paths, are clipped like CLI messages before every broadcast.
+  status, governing list, or notes. The queue starts beside the check with
+  its own timeout (30 s, then its process is signalled). The check commits and
+  broadcasts when it settles and the queue follows in a second update, so a
+  hung `adr queue` cannot hold the governing view; opening a panel and serving
+  the page do not wait for it, while agent `get_state`/`refresh` do. Its
+  strings, and `declaredBy` paths, are clipped like CLI messages, and the rows
+  share a 256 KiB serialized budget, before every broadcast.
 - `copilot plugin install` prints only a skill count. Version 0.6.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
