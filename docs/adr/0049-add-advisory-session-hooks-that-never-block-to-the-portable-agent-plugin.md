@@ -175,8 +175,10 @@ blocked nothing"), and tells the agent to check the change it just made.
     about 2 s.
   - The hook-triggered refresh runs its three calls under one 15 s abort
     signal, and never more than one at a time.
-  - The check runs at most once per distinct path per process (500 paths at
-    most, 20 per tool call, cut while the patch is parsed), and concurrent
+  - The check runs at most once per distinct path per process (20 paths per
+    tool call, cut while the patch is parsed). A process starts at most 500
+    checks in all, and re-checks after a corpus edit count against that
+    budget, so dropping the cache never re-arms it. Concurrent
     edits of one path share one check and one note. A failed check is cached
     as "nothing", so a missing CLI is not retried on every edit.
 - **An off switch.** `ADRKIT_HOOKS=0` (also `false`, `off`, or `no`) makes the
@@ -386,7 +388,7 @@ cache nor triggers a refresh.
 The single log line is spent by the first failure for the life of the
 process. A transient first timeout therefore hides a later, different
 failure, a failed check stays cached as "nothing" until the corpus is edited,
-and the 500-path cap is reached silently.
+and the 500-check budget is reached silently.
 
 A timeout kills the direct child process only. The shared `runCommand` (used
 by the workflow and the canvas too) passes the signal to `execFile`, which
@@ -465,4 +467,6 @@ external validation.
    post-edit note in a model turn.
 7. [ ] Kill the process group, not only the direct child, on a timeout in the
    shared `runCommand` (follow-up; it affects the workflow and canvas too).
-8. [ ] Ratify or reject this record before the plugin publishes the hooks.
+8. [x] Add reciprocal "Amended by ADR-0049 (proposed)" notes to ADR-0028,
+   ADR-0045, and ADR-0046, drafted with this record.
+9. [ ] Ratify or reject this record before the plugin publishes the hooks.

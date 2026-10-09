@@ -588,8 +588,10 @@ will usually be a regression:
   - Non-edit tools return before any I/O.
   - At most two hook-spawned processes run at once, each with
     `AbortSignal.timeout(5000)`.
-  - There is one `adr check` per distinct path per process (500 at most),
-    shared by concurrent edits and cached even when it fails.
+  - There is one `adr check` per distinct path per process, shared by
+    concurrent edits and cached even when it fails. The 500-check budget is a
+    monotonic count, not the cache size, because a corpus edit clears the
+    cache and must not re-arm the budget.
   - The post-edit note gives up after 2 s and the check keeps filling the
     cache.
   - The hook-triggered canvas refresh is single-flight: one in flight, at most

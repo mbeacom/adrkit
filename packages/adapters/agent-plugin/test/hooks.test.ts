@@ -507,6 +507,17 @@ describe('advisory hooks', () => {
     expect(cli.adrCalls().length).toBe(3);
   });
 
+  test('a corpus edit drops cached answers but never re-arms the per-process check budget', async () => {
+    const { hooks, cli } = makeHooks({ maxPaths: 3 });
+    for (let round = 0; round < 4; round += 1) {
+      for (let i = 0; i < 3; i += 1) {
+        await hooks.onPostToolUse(tool('edit', { path: `${WD}/r${round}f${i}.ts` }), { sessionId: 's1' });
+      }
+      await hooks.onPostToolUse(tool('edit', { path: `${WD}/docs/adr/0001-x.md` }), { sessionId: 's1' });
+    }
+    expect(cli.adrCalls().length).toBe(3);
+  });
+
   test('a refresh that throws is logged, not raised', async () => {
     const { hooks, timers, logged } = makeHooks({
       refreshCanvas: async () => {

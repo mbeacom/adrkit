@@ -61,7 +61,7 @@ export const REFRESH_TIMEOUT_MS = 15000;
 export const REFRESH_DEBOUNCE_MS = 1500;
 /** Hook-spawned `git`/`adr` processes running at once. */
 export const MAX_CONCURRENT = 2;
-/** Distinct paths checked per process; past this, edits are not checked. */
+/** `adr check` runs per process, re-checks after a corpus edit included; past this, edits are not checked. */
 export const MAX_CHECKED_PATHS = 500;
 /** Paths read from one tool call. */
 const MAX_PATHS_PER_CALL = 20;
@@ -292,6 +292,9 @@ export function createAdvisoryHooks({
 
   /** Governing ids by `cwd\0path`, as a promise so concurrent edits share one check. @type {Map<string, Promise<string[]>>} */
   const checks = new Map();
+  // Checks started by this process. Monotonic on purpose: a corpus edit
+  // clears `checks`, and a budget read from `checks.size` would re-arm with it.
+  let checksStarted = 0;
   /** Paths already noted (or being noted), by session. @type {Map<string, Set<string>>} */
   const noted = new Map();
   let logged = false;
@@ -367,7 +370,8 @@ export function createAdvisoryHooks({
     const key = `${cwd}\0${path}`;
     let pending = checks.get(key);
     if (!pending) {
-      if (checks.size >= maxPaths) return Promise.resolve([]);
+      if (checksStarted >= maxPaths) return Promise.resolve([]);
+      checksStarted += 1;
       // A failure is cached as "nothing" too: retrying a missing CLI on every
       // edit would multiply the cost of the failure the cap exists to bound.
       pending = check(cwd, [path]).then(
