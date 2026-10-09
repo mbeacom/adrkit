@@ -12,20 +12,29 @@ Until `1.0.0`, minor releases may include breaking changes
 ### Added
 
 - **The agent plugin adds advisory session hooks for GitHub Copilot.** The
-  extension now registers three hooks. `onSessionStart` adds a short summary of
+  extension now registers two hooks. `onSessionStart` adds a short summary of
   the decisions governing the session's changed files, from one `git diff` and
-  one `adr check`, with no model call. `onPreToolUse` names the accepted
-  decision(s) governing a file an edit tool targets, once per file per session.
-  `onPostToolUse` refreshes any open `decision-review` panel, debounced, and
-  never starts a review. Hook context carries record ids and statuses only,
-  never titles or paths. No hook can block, deny, approve, or rewrite anything:
-  each returns at most `additionalContext`. `ADRKIT_HOOKS=0` turns them off;
-  each `git` and `adr` call has a 5-second limit, and a failure is silent to the
-  agent with one logged warning. Proposed in
+  one `adr check`, with no model call. `onPostToolUse`, after an edit tool,
+  notes the accepted decision(s) governing the file just edited (once per file
+  per session) and refreshes any open `decision-review` panel, debounced and
+  one at a time; it never starts a review. There is deliberately no pre-tool
+  hook: measured on Copilot CLI 1.0.93, a pre-tool hook that hangs holds the
+  tool call, which would make an advisory a gate. Hook context carries record
+  ids and statuses only, never titles or paths. No hook can block, deny,
+  approve, or rewrite anything: each returns at most `additionalContext`.
+  `ADRKIT_HOOKS=0` turns them off.
+  - The session summary adds at most about 5 s to the first prompt, and the
+    post-edit note holds a result at most about 2 s.
+  - Each `git` and `adr` call the hooks start has a 5-second limit, at most
+    two run at once, and the refresh they trigger has a 15-second limit.
+  - A failure is silent to the agent, with one logged warning.
+
+  Proposed in
   [ADR-0049](docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
-  (proposed); rung 1 of ADR-0014 with a headless Copilot CLI 1.0.93 SDK-host
-  run measuring 111 ms for the session summary and 117 ms for the first check
-  of a governed file. Unmeasured in the Copilot app.
+  (proposed); rung 1 of ADR-0014 with headless Copilot CLI 1.0.93 SDK-host
+  runs measuring 111 ms for the session summary and 104 to 110 ms for the
+  first post-edit check of a file. Unmeasured in the Copilot app, in an
+  interactive CLI session, and in subagent child sessions.
 
 - **The `decision-review` canvas shows provenance, review cost, and the
   open-proposal queue (`adrkit` 0.6.0).** Each governing decision's evidence now names what tied

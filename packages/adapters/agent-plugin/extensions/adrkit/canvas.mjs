@@ -891,17 +891,24 @@ export function createDecisionReviewCanvas({
    *
    * @param {string} cwd
    * @param {unknown} [input]
-   * @param {{ waitForQueue?: boolean }} [opts]
+   * @param {{ waitForQueue?: boolean, signal?: AbortSignal }} [opts] `signal`
+   *   bounds every git and adr call, the queue's included (the hooks' refresh
+   *   passes one); the queue keeps its own timeout too.
    */
-  const refresh = async (cwd, input, { waitForQueue = true } = {}) => {
+  const refresh = async (cwd, input, { waitForQueue = true, signal } = {}) => {
     const workspace = workspaceFor(cwd);
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
+    /** @type {CwdRunner} */
+    const bounded = signal
+      ? (command, args, options) =>
+          run(command, args, { ...options, signal: options.signal ? AbortSignal.any([options.signal, signal]) : signal })
+      : run;
     // Beside the check, not inside it: the queue is corpus-wide, so it runs with
     // no changed files too, it can never alter the check's result, and neither
     // its time nor its failure holds the governing view.
-    const queueRun = computeQueue({ cwd, input: workspace.args, run, env, exists, timeoutMs: queueTimeoutMs });
-    const snapshot = await computeCheck({ cwd, input: workspace.args, run, env, exists, now });
+    const queueRun = computeQueue({ cwd, input: workspace.args, run: bounded, env, exists, timeoutMs: queueTimeoutMs });
+    const snapshot = await computeCheck({ cwd, input: workspace.args, run: bounded, env, exists, now });
     const fingerprint = await fingerprintOf(cwd, snapshot);
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
@@ -1388,12 +1395,14 @@ export function createDecisionReviewCanvas({
      * The advisory post-edit hook's way in (ADR-0049): the free `refresh` for
      * each directory with an open panel, and nothing when none is open. Never
      * starts `run_review`. Not an SDK field: `createCanvas` copies only the
-     * fields it knows, so this stays in process. Resolves to the number of
-     * directories refreshed.
+     * fields it knows, so this stays in process. `signal` bounds the git and
+     * adr calls. Resolves to the number of directories refreshed.
+     *
+     * @param {{ signal?: AbortSignal }} [options]
      */
-    refreshOpen: async () => {
+    refreshOpen: async ({ signal } = {}) => {
       const cwds = new Set([...live].map((instance) => instance.cwd));
-      for (const cwd of cwds) await refresh(cwd);
+      for (const cwd of cwds) await refresh(cwd, undefined, { signal });
       return cwds.size;
     },
   };

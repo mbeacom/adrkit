@@ -19,6 +19,9 @@
  * a second directory would double that.
  */
 
+/** What each optional join field registers, for the failure log. @type {Record<string, string>} */
+const LABELS = { canvases: 'decision-review canvas', hooks: 'advisory hooks' };
+
 /** @param {unknown} error */
 const messageOf = (error) => (error instanceof Error ? error.message : String(error));
 
@@ -39,7 +42,7 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
   const failures = [];
   /** @type {S | undefined} */
   let joined;
-  /** The built canvas options, for the hooks' refresh. @type {{ refreshOpen?: () => Promise<unknown> } | undefined} */
+  /** The built canvas options, for the hooks' refresh. @type {{ refreshOpen?: (options?: unknown) => Promise<unknown> } | undefined} */
   let canvasOptions;
 
   /** @type {Record<string, unknown>} */
@@ -62,8 +65,8 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
     try {
       const built = hooks({
         getSession: () => joined,
-        refreshCanvas: async () => {
-          if (typeof canvasOptions?.refreshOpen === 'function') await canvasOptions.refreshOpen();
+        refreshCanvas: async (options) => {
+          if (typeof canvasOptions?.refreshOpen === 'function') await canvasOptions.refreshOpen(options);
         },
       });
       // `undefined` is the off switch (ADRKIT_HOOKS=0): nothing is registered.
@@ -77,14 +80,25 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
     joined = await joinSession(config);
   } catch (error) {
     // Isolating the factories is not enough if the runtime itself refuses the
-    // join: one that does not know `canvases` (an older CLI or app runtime)
-    // would take the workflow down with it. Retry once without the canvas.
-    if (!config['canvases'] || !config['workflows']) throw error;
-    failures.push(`decision-review canvas: the session refused it (${messageOf(error)})`);
-    // The hooks are kept: `hooks` is a long-standing join field, unlike
-    // `canvases`, and no runtime has been seen to refuse it.
-    const retry = { workflows: config['workflows'], ...(config['hooks'] ? { hooks: config['hooks'] } : {}) };
-    joined = await joinSession(retry);
+    // join: one that does not know `canvases` or `hooks` would take the rest
+    // down with it. Retry without the newest optional field first, then the
+    // other, then both, and blame exactly what the successful join dropped.
+    const ladder = [['hooks'], ['canvases'], ['hooks', 'canvases']].filter(
+      (drop) => drop.every((key) => key in config) && Object.keys(config).some((key) => !drop.includes(key)),
+    );
+    let recovered = false;
+    for (const drop of ladder) {
+      const retry = Object.fromEntries(Object.entries(config).filter(([key]) => !drop.includes(key)));
+      try {
+        joined = await joinSession(retry);
+      } catch {
+        continue;
+      }
+      for (const key of drop) failures.push(`${LABELS[key]}: the session refused it (${messageOf(error)})`);
+      recovered = true;
+      break;
+    }
+    if (!recovered) throw error;
   }
   for (const failure of failures) {
     // Reporting must not become a second way to take the extension down.

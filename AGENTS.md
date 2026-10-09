@@ -537,52 +537,71 @@ will usually be a regression:
   pre-run refresh; only agent `get_state`/`refresh` do. Its strings, and
   `declaredBy` paths, are clipped like CLI messages, and the rows share a
   256 KiB (UTF-8 bytes) serialized budget, before every broadcast.
-- **The extension also registers three advisory session hooks**
+- **The extension also registers two advisory session hooks**
   (`hooks.mjs`, [ADR-0049](./docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md),
-  **proposed**): `onSessionStart` adds a governing-decisions summary,
-  `onPreToolUse` names the accepted decision(s) governing an edit's target,
-  and `onPostToolUse` refreshes open `decision-review` panels, debounced. Their
+  **proposed**): `onSessionStart` adds a governing-decisions summary;
+  `onPostToolUse`, after an edit, names the accepted decision(s) governing the
+  file just edited and refreshes open `decision-review` panels. Their
   registration is guarded like the other two, and `ADRKIT_HOOKS=0` makes the
   factory return `undefined`, so no `hooks` key is joined at all.
+- **There is no `onPreToolUse`, and do not add one.** Measured on Copilot CLI
+  1.0.93 through `session.rpc.tools.execute`: a pre-tool hook that never
+  answers holds the tool call unexecuted (still pending at 90 s), while a
+  post-tool hook that hangs lets the edit land and only holds the result. The
+  CLI changelog also records versions where a pre-tool hook error denies the
+  call. A pre-tool hook makes extension liveness a gate, which ADR-0022 denies
+  to an advisory. A crashed extension failed open in both hooks there.
 - **A hook returns `additionalContext` and nothing else.** No
   `permissionDecision` (the SDK's own example returns `"allow"`, which would
   override a person's `ask`), no `modifiedArgs`, `modifiedResult`, or
-  `suppressOutput`. That is ADR-0022's stance: advisories never gain
-  authority. A test asserts the key set and was observed failing against an
-  `"allow"` mutation; do not add a decision "just for governed files".
-- **Hook context carries ids, never text.** Record ids are checked against
-  `^[0-9]{4}$` and statuses against a fixed set; titles, paths, and error
-  messages never reach it, because the model reads hook context as
-  instructions. Failures are silent to the model and log one fixed
-  `session.log` warning per process.
+  `suppressOutput`. A test asserts the key set and was observed failing against
+  an `"allow"` mutation.
+- **Hook context carries ids, never text.** Record ids are checked against the
+  schema's id grammar (optional lowercase namespace, then 4+ digits or a ULID)
+  and statuses against a fixed set; anything else is skipped silently. Titles,
+  paths, and error messages never reach it, because the model reads hook
+  context as instructions. Failures are silent to the model and log one fixed
+  `session.log` warning per process. The debounce path depends on `fail`'s
+  inner `try`: without it a throwing `session.log` becomes an unhandled
+  rejection that kills the extension, and a Node child-process test fails.
 - **`onSessionStart` fires with the first prompt, not at load.** Measured on
-  Copilot CLI 1.0.93 (SDK host): a plugin extension joins after
-  `session.start`; with no prompt no hook fires, even on resume. With a prompt
-  it fires after `onUserPromptSubmitted` with `source: "new"`. Its summary
-  therefore adds latency to the first turn (111 ms measured).
+  1.0.93 (SDK host): a plugin extension joins after `session.start`; with no
+  prompt no hook fires, even on resume. With a prompt it fires after
+  `onUserPromptSubmitted` with `source: "new"`. It races a 5 s deadline, because
+  its three sequential calls (two `git diff`s and `adr check`) could otherwise
+  hold the first prompt for 15 s.
 - **The edit tools are the ones the runtime classifies as edits**: `edit` and
   `create` (`{ path }`, absolute in session logs), `str_replace` (`edit`'s
   shape), `str_replace_editor` only when `command` is `create`, `str_replace`,
   or `insert` (its `view` reads; both from the bundle, unobserved in logs), and
-  `apply_patch`, whose `toolArgs` is the
-  raw patch **string** (measured with `gpt-6-luna`), parsed for
-  `*** Add/Update/Delete File:` and `*** Move to:`. A renamed tool turns the
-  note off silently. Paths are made relative to the hook input's
-  `workingDirectory`, never `process.cwd()`.
-- **Hook cost is capped.** Non-edit tools return before any I/O; one
-  `adr check` per distinct path per process (500 at most), cached even when it
-  fails; `AbortSignal.timeout(5000)` on every `git` and `adr` call; the
-  refresh debounce timer is `unref`'d (a test fails if the process lingers).
-  Measured: 117 ms for a first governed edit, 0 to 1 ms otherwise. An edit
-  inside the corpus directory drops the cache.
+  `apply_patch`, whose `toolArgs` is the raw patch **string** (measured with
+  `gpt-6-luna`), parsed for `*** Add/Update/Delete File:` and `*** Move to:`
+  and cut at 20 paths while parsing. A renamed tool turns the note off
+  silently. Paths are made relative to the hook input's `workingDirectory`,
+  never `process.cwd()`.
+- **Hook cost is capped, and the caps are tested.**
+  - Non-edit tools return before any I/O.
+  - At most two hook-spawned processes run at once, each with
+    `AbortSignal.timeout(5000)`.
+  - There is one `adr check` per distinct path per process (500 at most),
+    shared by concurrent edits and cached even when it fails.
+  - The post-edit note gives up after 2 s and the check keeps filling the
+    cache.
+  - The hook-triggered canvas refresh is single-flight: one in flight, at most
+    one queued, under one 15 s abort signal passed through `refreshOpen` into
+    the canvas's `refresh`.
+  - The debounce timer is `unref`'d.
+  - A timeout kills only the direct child, not a grandchild behind a
+    version-manager shim. That is a known limit of the shared `runCommand`,
+    left as a follow-up.
+- **The join retry ladder drops `hooks` first, then `canvases`, then both**,
+  and blames exactly the field the successful join dropped. A runtime that
+  refuses `hooks` must not cost the workflow or the canvas.
 - **`ADRKIT_*` variables reach the extension without
   `requestedEnvironmentVariables`.** Measured on 1.0.93 through the SDK host,
-  including a variable whose name ends in `_SECRET_TOKEN`. Hook firing is
-  unmeasured in the Copilot app and in an interactive CLI session.
-- **The canvas's `refreshOpen` is the hooks' only way in.** It is an
-  in-process method on the canvas options (`createCanvas` copies only the
-  fields it knows) that runs the free `refresh` for directories with an open
-  panel. Nothing in the hooks starts `run_review`.
+  including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
+  app, and hook firing in the app, an interactive CLI session, and subagent
+  child sessions, are unmeasured.
 - `copilot plugin install` prints only a skill count. Version 0.7.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
