@@ -648,6 +648,27 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     expect(runners).toEqual([]);
   });
 
+  test('no component runs adr approve, adr object, or adr resolve', () => {
+    // These record human review state under a person's identity (ADR-0051). No
+    // skill, agent, command, or extension module may run them on a model's
+    // initiative, and, as with `adr accept`, any mention counts, because a host
+    // model reads an example as an instruction. The canvas modules (canvas*.mjs)
+    // are left out on purpose: ADR-0051 names a person clicking a canvas button,
+    // with the identity read from ADRKIT_REVIEWER, as the one planned path, and
+    // the later track that builds it governs those files.
+    const components = [
+      ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
+      ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
+      ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
+      ...extensionFiles().filter((path) => !/(?:^|[\\/])canvas[^\\/]*\.mjs$/.test(path)),
+    ];
+    for (const module of ['tools.mjs', 'hooks.mjs']) {
+      expect({ module, covered: components.some((path) => path.endsWith(module)) }).toEqual({ module, covered: true });
+    }
+    const runners = components.filter((path) => /\badr\s+(?:approve|object|resolve)\b/.test(readFileSync(path, 'utf8')));
+    expect(runners).toEqual([]);
+  });
+
   test('the workflow extension names no writing command at all', () => {
     // `adr-draft` may run `adr new`; the workflow is read-only (ADR-0045) and
     // writes nothing, so neither creating nor migrating a record may appear.
