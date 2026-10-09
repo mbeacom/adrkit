@@ -81,6 +81,8 @@ const MESSAGES = Object.freeze({
     'uncommitted or untracked changes, or git is not available or could not list them. In a repository, ' +
     'pass a base that resolves or pass paths; otherwise pass paths.',
   'not-work-tree': REVIEW_MESSAGES['not-work-tree'],
+  'git-failed': REVIEW_MESSAGES['git-failed'],
+  'git-unavailable': REVIEW_MESSAGES['git-unavailable'],
   'git-unsafe-directory': REVIEW_MESSAGES['git-unsafe-directory'],
   'output-too-large': 'adr produced more output than the tool accepts (64 MiB). Narrow the request: fewer paths, or one path at a time.',
   'args-too-long':
@@ -475,7 +477,10 @@ export function createAdrTools({ run, env, exists, getCwd }) {
           if (options.signal?.aborted) throw new Error('cancelled');
           // Compared, never echoed: the code is one collectChangedFiles set.
           const code = /** @type {any} */ (error)?.code;
-          if (code === 'not-work-tree' || code === 'git-unsafe-directory') return failure('adr_check', code);
+          if (code === 'not-work-tree' || code === 'git-unsafe-directory' || code === 'git-failed' || code === 'git-unavailable') {
+            return failure('adr_check', code);
+          }
+          if (code === 'base-unresolved') return failure('adr_check', 'git-base-unresolved');
           return failure('adr_check', args.base === undefined ? 'git-no-changes' : 'git-base-unresolved');
         }
         if (escapes(options.cwd, args.dir)) return failure('adr_check', 'symlink-escape');
