@@ -728,6 +728,71 @@ provoked in the SDK host.
 - Per-file attribution of `affects` matches. `adr check --json` does not report
   it (C1), and the canvas does not compute it.
 
+## Read-only extension tools: `adr_check`, `adr_explain`, `adr_lint` (2026-10-08)
+
+Measured on 2026-10-08 at **rung 1** of ADR-0014, before any release. The tools
+are proposed in
+[ADR-0048](adr/0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md)
+(**proposed**, not ratified). They are registered by the same `joinSession` as
+the workflow and the canvas. Every row was measured on Copilot CLI 1.0.93
+through a headless SDK host (`CopilotClient`,
+`createSession({ pluginDirectories, requestExtensions: true, workingDirectory })`)
+with **no model calls and no AI credits**: `session.rpc.tools.getCurrentMetadata()`
+lists a session's tools, and `session.rpc.tools.execute({ name, arguments })`
+runs one without a model turn.
+
+### Probe extension (throwaway, removed afterwards)
+
+| # | Probe | Result |
+|---|-------|--------|
+| T1 | A tool from `joinSession({ tools })` in a `.claude-plugin` plugin's root `extensions/<dir>/extension.mjs` | Listed by `getCurrentMetadata` and executed by `tools.execute` |
+| T2 | The handler's invocation | Keys `sessionId`, `toolCallId`, `toolName`, `arguments`, `availableTools`, `traceparent`, `tracestate`, `signal`; no directory. `process.cwd()` was the session directory |
+| T3 | `session.rpc.metadata.setWorkingDirectory` to a second repository (what `/cd` calls) | The extension was not restarted; `process.cwd()` stayed at the first repository; the extension received `session.context_changed` with the new `cwd`. The tool list read empty until `tools.initializeAndValidate()` ran again |
+| T4 | An unknown key in `joinSession` | Joined |
+| T5 | A tool named `bad name!` | The runtime refused the whole join (`session resume failed: … Tool names may only contain ASCII letters, digits, underscores, and hyphens`); a second `joinSession` from the same process succeeded |
+| T6 | A tool named `bash` without `overridesBuiltInTool` | Joined, then `tools.initializeAndValidate()` failed for the session (`External tool "bash" conflicts with a built-in tool of the same name`) |
+| T7 | Two tools with the same name in one join | Joined |
+| T7a | A handler passed as `joinSession({ onEvent })` | Received events (`session.tools_updated`, `permission.completed`, `session.extensions_loaded`) from before the join resolved, and `session.context_changed` after `setWorkingDirectory`. The shipped tools use it for directory tracking |
+
+### Shipped tools (the plugin directory of this change)
+
+A scratch repository with two `accepted` records whose `affects` is `src/**`,
+one commit changing `src/x.ts`, and `ADRKIT_CLI` set to the worktree's built
+`@adrkit/cli` 0.17.0. A second scratch repository held one record.
+
+| # | Probe | Result |
+|---|-------|--------|
+| T8 | Registration | `adr_check`, `adr_explain`, and `adr_lint` listed among 215 tools, none with `deferLoading`; the `decision-review` canvas listed beside them |
+| T9 | Permission prompts | Session creation raised one `extension-permission-access` request; no tool call raised one |
+| T10 | `adr_check { paths: ["src/x.ts"] }` | `success`, `exitCode` 0, governing 0001 and 0002 |
+| T11 | `adr_check { base: "HEAD~1" }` | `success`, files `src/x.ts` from `git:HEAD~1...HEAD`, governing 0001 and 0002 |
+| T12 | `adr_explain { path: "src/x.ts" }` | `success`, governing 0001 and 0002 |
+| T13 | `adr_lint {}` | `success`, 2 records checked |
+| T14 | `adr_lint { dir: "bad" }` (one malformed record) | `success`, `exitCode` 1, 2 findings: a non-zero exit with a report is data |
+| T15 | `adr_lint { dir: "nope" }` | `failure`, `exitCode` 2, carrying the CLI's `Corpus directory not found` |
+| T16 | An absolute path, a `..` path, an unknown `cli` key, and `base: "no-such-ref"` | `failure`, each with its fixed message and no echo of the input |
+| T17 | `ADRKIT_CLI` set to a missing path | Every tool returned the fixed `cli-unresolved` message, so the variable reached the extension process under the CLI host |
+| T18 | `setWorkingDirectory` to the second repository, then `adr_lint {}` | 1 record checked: the tools followed the session |
+| T19 | `adr-review` started in the same session with an unknown argument | `completed` with `usage-error`: the workflow still registered beside the tools |
+
+Rows T8 to T19 were re-run after the review fixes (directory tracking through
+`onEvent`, stderr only on exit 2, the split git messages), with the same
+results; `base: "no-such-ref"` now returns `git-base-unresolved`.
+
+### Not verified
+
+- **The tools in the Copilot app: unmeasured in the Copilot app.** Whether they
+  register there, whether an app session's model calls them, and which
+  directory they see. The canvas's app measurements (rows 12 and 25) suggest
+  the extension starts in the session's worktree, but that is the canvas's
+  evidence, not the tools'.
+- A model choosing and calling the tools in a real turn. Every invocation above
+  went through `tools.execute`, which bypasses the model.
+- Whether `ADRKIT_CLI` reaches extension processes in the app (row T17 is the
+  CLI host, where the SDK host passed its environment to the runtime).
+- Copilot CLI versions other than 1.0.93, an install from GitHub with the tools
+  in place, a Windows host, and any rung-2 or rung-3 evidence.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a
