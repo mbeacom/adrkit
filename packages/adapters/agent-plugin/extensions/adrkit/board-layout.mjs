@@ -15,9 +15,10 @@
  *   relaxes at most once per record and is capped below the record count.
  * - Every tie breaks by id, compared by code unit, so the same graph in any
  *   order lays out identically.
- * - Past `maxNodes` it returns counts by status instead of positions, as the
- *   terminal view of `adr graph` (ADR-0033) summarizes a dense corpus and asks
- *   for a focus rather than drawing an unreadable network.
+ * - Past `maxNodes`, or past `MAX_EXTENT` px a side, it returns counts by
+ *   status instead of positions, as the terminal view of `adr graph`
+ *   (ADR-0033) summarizes a dense corpus and asks for a focus rather than
+ *   drawing an unreadable network. `reason` says which limit it hit.
  */
 
 /** The most records the board draws; past it, the board shows a summary. */
@@ -29,13 +30,19 @@ export const ROW_GAP = 20;
 export const MARGIN = 16;
 /** Columns for records outside any supersession chain, when chains are narrower. */
 export const LOOSE_COLUMNS = 4;
+/**
+ * The widest or tallest drawing the board makes, in px. A malformed cycle
+ * climbs to one column per record (a 300-record cycle measured 81,560 px wide),
+ * and so does a very long chain; past this the board shows the summary instead.
+ */
+export const MAX_EXTENT = 20_000;
 
 /**
  * @typedef {{ id: string, title?: string, status?: string }} LayoutNode
  * @typedef {{ from: string, to: string, kind: string }} LayoutEdge
  * @typedef {{ id: string, x: number, y: number, layer: number }} Position
  * @typedef {{ mode: 'graph', width: number, height: number, positions: Position[] }} GraphLayout
- * @typedef {{ mode: 'summary', totalNodes: number, totalEdges: number, byStatus: Array<{ status: string, count: number }> }} SummaryLayout
+ * @typedef {{ mode: 'summary', reason: 'nodes' | 'extent', totalNodes: number, totalEdges: number, byStatus: Array<{ status: string, count: number }> }} SummaryLayout
  */
 
 /** Code-unit order, independent of locale. @param {string} a @param {string} b */
@@ -49,7 +56,8 @@ const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 export function layoutBoard({ nodes, edges }, { maxNodes = NODE_LIMIT } = {}) {
   const ids = [...new Set(nodes.map((node) => node.id))].sort(byCodeUnit);
 
-  if (ids.length > maxNodes) {
+  /** @param {'nodes' | 'extent'} reason @returns {SummaryLayout} */
+  const summary = (reason) => {
     /** @type {Map<string, number>} */
     const counts = new Map();
     const seen = new Set();
@@ -61,13 +69,15 @@ export function layoutBoard({ nodes, edges }, { maxNodes = NODE_LIMIT } = {}) {
     }
     return {
       mode: 'summary',
+      reason,
       totalNodes: ids.length,
       totalEdges: edges.length,
       byStatus: [...counts.entries()]
         .sort(([a], [b]) => byCodeUnit(a, b))
         .map(([status, count]) => ({ status, count })),
     };
-  }
+  };
+  if (ids.length > maxNodes) return summary('nodes');
 
   const known = new Set(ids);
   /** Successor → replaced, deduplicated and sorted. */
@@ -166,10 +176,8 @@ export function layoutBoard({ nodes, edges }, { maxNodes = NODE_LIMIT } = {}) {
   });
   const span = (/** @type {number} */ count, /** @type {number} */ size, /** @type {number} */ gap) =>
     count === 0 ? 0 : count * size + (count - 1) * gap;
-  return {
-    mode: 'graph',
-    width: MARGIN * 2 + span(cols, NODE_WIDTH, COLUMN_GAP),
-    height: MARGIN * 2 + span(rowsUsed, NODE_HEIGHT, ROW_GAP),
-    positions,
-  };
+  const width = MARGIN * 2 + span(cols, NODE_WIDTH, COLUMN_GAP);
+  const height = MARGIN * 2 + span(rowsUsed, NODE_HEIGHT, ROW_GAP);
+  if (width > MAX_EXTENT || height > MAX_EXTENT) return summary('extent');
+  return { mode: 'graph', width, height, positions };
 }

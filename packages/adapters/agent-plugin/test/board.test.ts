@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { execFileSync } from 'node:child_process';
 import { createServer, request as httpRequest, type IncomingHttpHeaders } from 'node:http';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   BOARD_BYTES_LIMIT,
@@ -8,6 +10,7 @@ import {
   BOARD_NOTES,
   EDGE_LIMIT,
   INPUT_ERRORS,
+  RECORD_ID,
   createDecisionBoardCanvas,
   graphArgs,
 } from '../extensions/adrkit/board.mjs';
@@ -854,7 +857,9 @@ describe('page', () => {
   });
 
   test('the page has no control that writes, starts a workflow, or reaches the agent', () => {
-    for (const route of ['/api/run-review', '/api/explain', 'session', 'workflow']) expect(BOARD_JS).not.toContain(route);
+    for (const route of ['/api/run-review', '/api/explain']) expect(BOARD_JS).not.toContain(route);
+    // Word-bounded: "supersession" is a word the page uses.
+    expect(BOARD_JS).not.toMatch(/\bsession\b|\bworkflow\b/);
     const posted = [...BOARD_JS.matchAll(/act\('([^']+)'/g)].map((match) => match[1]);
     expect([...new Set(posted)].sort()).toEqual(['/api/focus', '/api/refresh']);
   });
@@ -951,5 +956,309 @@ describe('register with the board', () => {
       },
     });
     expect(logged[0]).toContain('joined without the decision-review and decision-board canvases after');
+  });
+});
+
+/**
+ * Fix round 1 of the review of #G (CHANGES_REQUESTED): a focus result that
+ * could report another call's neighborhood (M1), panels that shared one filter
+ * (M2), guards no test covered (M3), and the Lows.
+ */
+describe('fix round 1', () => {
+  type Gate = { promise: Promise<void>; release: () => void };
+  const gate = (): Gate => {
+    let release = () => {};
+    const promise = new Promise<void>((resolve) => (release = resolve));
+    return { promise, release };
+  };
+  const focusedGraph = (args: string[]) => {
+    const i = args.indexOf('--focus');
+    if (i < 0) return defaultGraph();
+    return graphJson([graphNode(args[i + 1] as string)], []);
+  };
+  /** A CLI whose `--focus <id>` reads wait on that id's gate, if it has one. */
+  function gatedCli(gates: Record<string, Gate> = {}, queueAnswers: Array<{ gate?: Gate; stdout: string }> = []) {
+    const calls: Call[] = [];
+    let queueCalls = 0;
+    const run = async (command: string, args: string[], { cwd, signal }: { cwd: string; signal?: AbortSignal }) => {
+      calls.push({ command, args, cwd, signal });
+      if (args.includes('graph')) {
+        const i = args.indexOf('--focus');
+        const id = i >= 0 ? (args[i + 1] as string) : '';
+        if (gates[id]) await gates[id].promise;
+        return ok(focusedGraph(args));
+      }
+      const answer = queueAnswers[queueCalls++];
+      if (answer?.gate) await answer.gate.promise;
+      return ok(answer?.stdout ?? queueReport([queueItem('0003')]));
+    };
+    return { run, calls };
+  }
+  const ids = (state: any) => state.graph.nodes.map((node: { id: string }) => node.id);
+
+  test('M1: overlapping focus calls, slow first: the slow one is dropped, and every result reports the filter its own graph was computed with', async () => {
+    const slow = gate();
+    const cli = gatedCli({ '0001': slow });
+    const { options } = makeBoard({ run: cli.run });
+    await openBoard(options);
+    const first = action(options, 'focus')({ id: '0001' });
+    const second = await action(options, 'focus')({ id: '0002' });
+    expect(second.superseded).toBeUndefined();
+    expect(second.filter).toEqual({ id: '0002', kinds: [] });
+    expect(ids(second)).toEqual(['0002']);
+    slow.release();
+    const late = await first;
+    expect(late.superseded).toBe(true);
+    // The late call is told it was superseded, and what it is shown is a consistent pair.
+    expect(late.filter).toEqual(late.graph.filter);
+    expect(late.filter.id).toBe('0002');
+    expect(ids(late)).toEqual(['0002']);
+    const now = await action(options, 'get_state')();
+    expect(now.filter.id).toBe('0002');
+    expect(ids(now)).toEqual(['0002']);
+  });
+
+  test('M1: get_state while a focus is pending reports the graph it has and that graph\'s own filter', async () => {
+    const slow = gate();
+    const cli = gatedCli({ '0001': slow });
+    const { options } = makeBoard({ run: cli.run });
+    await openBoard(options);
+    const pending = action(options, 'focus')({ id: '0001' });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const mid = await action(options, 'get_state')();
+    expect(mid.filter).toEqual({ id: null, kinds: [] });
+    expect(ids(mid)).toEqual(['0001', '0002', '0003']);
+    slow.release();
+    const done = await pending;
+    expect(done.filter.id).toBe('0001');
+    expect(ids(done)).toEqual(['0001']);
+  });
+
+  test('M2: opening panel B with a focus leaves panel A\'s filter, graph, and page unchanged', async () => {
+    const cli = gatedCli();
+    const { options } = makeBoard({ run: cli.run });
+    const a = await openBoard(options, 'A');
+    const frames: string[] = [];
+    const stream = httpRequest(withPath(a.url, '/events'), (res) => {
+      res.setEncoding('utf8');
+      res.on('data', (chunk: string) => frames.push(chunk));
+    });
+    stream.on('error', () => {});
+    stream.end();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const b = await openBoard(options, 'B', { input: { id: '0002' } });
+    expect(b.status).toContain('focus 0002');
+    await action(options, 'focus')({ id: '0003' }, 'B');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    stream.destroy();
+    const stateA = await action(options, 'get_state')(undefined, 'A');
+    expect(stateA.filter).toEqual({ id: null, kinds: [] });
+    expect(ids(stateA)).toEqual(['0001', '0002', '0003']);
+    expect(JSON.parse((await send(withPath(a.url, '/api/state'))).body).filter.id).toBeNull();
+    const pushed = frames.join('');
+    expect(pushed).toContain('event: state');
+    expect(pushed).not.toContain('"id":"0002","kinds"');
+    expect(pushed).not.toContain('"id":"0003","kinds"');
+    const stateB = await action(options, 'get_state')(undefined, 'B');
+    expect(stateB.filter.id).toBe('0003');
+  });
+
+  test('M3: every event-stream frame is held to the byte budget', async () => {
+    const { options } = makeBoard({ bytesLimit: 900 });
+    const { url } = await openBoard(options);
+    const frames: string[] = [];
+    let buffer = '';
+    const stream = httpRequest(withPath(url, '/events'), (res) => {
+      res.setEncoding('utf8');
+      res.on('data', (chunk: string) => {
+        buffer += chunk;
+        let end = buffer.indexOf('\n\n');
+        while (end >= 0) {
+          frames.push(buffer.slice(0, end));
+          buffer = buffer.slice(end + 2);
+          end = buffer.indexOf('\n\n');
+        }
+      });
+    });
+    stream.on('error', () => {});
+    stream.end();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await postJson(url, '/api/refresh', {});
+    await postJson(url, '/api/focus', { id: '0002' });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    stream.destroy();
+    expect(frames.length).toBeGreaterThan(2);
+    for (const frame of frames) {
+      const data = frame.slice(frame.indexOf('data: ') + 'data: '.length);
+      expect(Buffer.byteLength(data)).toBeLessThanOrEqual(900);
+    }
+  });
+
+  test('M3: a slower, older queue read does not overwrite a newer one', async () => {
+    const slow = gate();
+    const cli = gatedCli({}, [
+      { stdout: queueReport([queueItem('0003')]) },
+      { gate: slow, stdout: queueReport([queueItem('0010')]) },
+      { stdout: queueReport([queueItem('0011')]) },
+    ]);
+    const { options } = makeBoard({ run: cli.run });
+    await openBoard(options);
+    const older = action(options, 'refresh')();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const newer = await action(options, 'refresh')();
+    expect(newer.queue.items.map((item: { id: string }) => item.id)).toEqual(['0011']);
+    slow.release();
+    await older;
+    const final = await action(options, 'get_state')();
+    expect(final.queue.items.map((item: { id: string }) => item.id)).toEqual(['0011']);
+  });
+
+  test('L1: decision-review uses the shared postAllowed, so there is one copy of the POST check', () => {
+    const source = readFileSync(join(packageRoot, 'extensions', 'adrkit', 'canvas.mjs'), 'utf8');
+    expect(source).toContain('postAllowed(instance, req)');
+    expect(source).not.toContain("req.headers['x-adrkit-token']");
+    expect(source).not.toContain("req.headers['origin']");
+  });
+
+  test('L2: only supersedes edges carry an arrowhead', async () => {
+    const graph = graphJson([graphNode('0001'), graphNode('0002'), graphNode('0003')], [
+      { from: '0002', to: '0001', kind: 'supersedes' },
+      { from: '0003', to: '0002', kind: 'relatesTo' },
+      { from: '0003', to: '0001', kind: 'conflictsWith' },
+    ]);
+    const { options } = makeBoard({ run: fakeCli({ graph: ok(graph) }).run });
+    await openBoard(options);
+    const state = await action(options, 'get_state')();
+    const board = (await renderBoardWith(state)).get('board') as FakeNode;
+    const lines = board.all().filter((node) => node.tag === 'line');
+    const marker = (kind: string) => lines.find((line) => line.attrs['class']?.includes(`edge-${kind}`))?.attrs['marker-end'];
+    expect(marker('supersedes')).toBe('url(#arrow-supersedes)');
+    expect(marker('relatesTo')).toBeUndefined();
+    expect(marker('conflictsWith')).toBeUndefined();
+    expect(board.all().filter((node) => node.tag === 'marker').map((node) => node.attrs['id'])).toEqual(['arrow-supersedes']);
+  });
+
+  test('L3: a broadcast keeps unapplied kind checkboxes, and a changed filter resyncs them', async () => {
+    const { runInNewContext } = await import('node:vm');
+    const base = { workingDirectory: CWD, graph: null, queue: null, notes: [], updatedAt: 'x' };
+    const states = [
+      { ...base, filter: { id: null, kinds: [] } },
+      { ...base, filter: { id: null, kinds: [] } },
+      { ...base, filter: { id: null, kinds: ['supersedes'] } },
+    ];
+    const nodes = new Map(PAGE_IDS.map((id) => [id, new FakeNode(id)]));
+    let listener: ((event: { data: string }) => void) | undefined;
+    class FakeEventSource {
+      addEventListener(_type: string, fn: (event: { data: string }) => void) {
+        listener = fn;
+      }
+    }
+    runInNewContext(BOARD_JS, {
+      window: { location: { search: '?token=t' } },
+      document: {
+        getElementById: (id: string) => nodes.get(id) ?? null,
+        createElement: (tag: string) => new FakeNode(tag),
+        createElementNS: (ns: string, tag: string) => new FakeNode(tag, ns),
+      },
+      fetch: async () => ({ ok: true, status: 200, json: async () => states[0] }),
+      EventSource: FakeEventSource,
+      URLSearchParams,
+      Map,
+      Set,
+    });
+    for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+    const box = nodes.get('kind-relatesTo') as FakeNode;
+    box.checked = true; // the user ticks a box and has not pressed Apply
+    listener?.({ data: JSON.stringify(states[1]) });
+    expect(box.checked).toBe(true);
+    listener?.({ data: JSON.stringify(states[2]) });
+    expect(box.checked).toBe(false);
+    expect((nodes.get('kind-supersedes') as FakeNode).checked).toBe(true);
+  });
+
+  test('L4: the action schemas give id the record-id pattern', () => {
+    const { options } = makeBoard();
+    const schemas = [options.inputSchema, options.actions.find((a: any) => a.name === 'focus').inputSchema];
+    for (const schema of schemas) {
+      expect(schema.properties.id.pattern).toBe(RECORD_ID.source);
+      expect(new RegExp(schema.properties.id.pattern).test('0046')).toBe(true);
+      expect(new RegExp(schema.properties.id.pattern).test('12')).toBe(false);
+    }
+  });
+
+  test('L5: an id over 64 characters is refused, and one from the CLI is not drawn but counted', async () => {
+    const long = '1'.repeat(65);
+    const { options, cli } = makeBoard();
+    await openBoard(options);
+    const before = cli.calls.length;
+    const error = await action(options, 'focus')({ id: long }).catch((e: unknown) => e);
+    expect((error as { code?: string }).code).toBe('invalid_input');
+    expect((error as Error).message).toBe(INPUT_ERRORS.id);
+    expect(cli.calls.length).toBe(before);
+
+    const graph = graphJson([graphNode('0001'), graphNode(long)], [{ from: long, to: '0001', kind: 'supersedes' }]);
+    const other = makeBoard({ run: fakeCli({ graph: ok(graph) }).run });
+    await openBoard(other.options, 'long');
+    const state = await action(other.options, 'get_state')(undefined, 'long');
+    expect(ids(state)).toEqual(['0001']);
+    expect(state.graph.edges).toEqual([]);
+    expect(state.graph.notes).toContain(BOARD_NOTES.longIds(1));
+    expect(JSON.stringify(state)).not.toContain(long.slice(0, 64));
+  });
+
+  test('L6: a layout past the extent cap is shown as a summary with a fixed note', async () => {
+    const nodes = Array.from({ length: 120 }, (_, i) => graphNode(String(i + 1).padStart(4, '0')));
+    // A 120-record cycle climbs to 119 columns, far past the extent cap.
+    const edges = nodes.map((node, i) => ({ from: node.id, to: (nodes[(i + 1) % nodes.length] as { id: string }).id, kind: 'supersedes' }));
+    const { options } = makeBoard({ run: fakeCli({ graph: ok(graphJson(nodes, edges)) }).run });
+    await openBoard(options);
+    const state = await action(options, 'get_state')();
+    expect(state.graph.mode).toBe('summary');
+    expect(state.graph.nodes).toEqual([]);
+    expect(state.graph.notes).toContain(BOARD_NOTES.overExtent);
+  });
+
+  describe('L8: a model-chosen dir is confined to the session root', () => {
+    for (const dir of ['../outside', '/etc', 'docs/../../x']) {
+      test(`refresh({ dir: ${JSON.stringify(dir)} }) is refused before any spawn`, async () => {
+        const { options, cli } = makeBoard();
+        await openBoard(options);
+        const before = cli.calls.length;
+        const error = await action(options, 'refresh')({ dir }).catch((e: unknown) => e);
+        expect((error as { code?: string }).code).toBe('invalid_input');
+        expect((error as Error).message).toBe(INPUT_ERRORS.dirEscape);
+        expect(cli.calls.length).toBe(before);
+      });
+    }
+
+    test('open with an escaping dir starts no server and no process', async () => {
+      const { options, cli, servers } = makeBoard();
+      const error = await options.open(ctxFor('bad', { input: { dir: '..' } })).catch((e: unknown) => e);
+      expect((error as Error).message).toBe(INPUT_ERRORS.dirEscape);
+      expect(servers.length).toBe(0);
+      expect(cli.calls.length).toBe(0);
+    });
+
+    test('a committed symlink out of the root is refused; a real directory inside is used', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'board-root-'));
+      const outside = mkdtempSync(join(tmpdir(), 'board-out-'));
+      try {
+        mkdirSync(join(root, 'docs', 'adr'), { recursive: true });
+        symlinkSync(outside, join(root, 'linked'));
+        const { options, cli } = makeBoard();
+        await options.open(ctxFor('real', { session: { workingDirectory: root } }));
+        opened.push({ onClose: options.onClose, instanceId: 'real' });
+        const handler = options.actions.find((a: any) => a.name === 'refresh').handler;
+        const call = (input: unknown) =>
+          handler({ ...ctxFor('real'), session: { workingDirectory: root }, input }).catch((e: unknown) => e);
+        expect(((await call({ dir: 'linked' })) as Error).message).toBe(INPUT_ERRORS.dirEscape);
+        const fine = await call({ dir: 'docs/adr' });
+        expect(fine.workingDirectory).toBe(root);
+        expect(cli.calls.at(-1)?.args).toContain('docs/adr');
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
+      }
+    });
   });
 });

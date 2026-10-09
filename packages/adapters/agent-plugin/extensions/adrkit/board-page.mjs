@@ -90,6 +90,7 @@ export const BOARD_JS = `(function () {
   var state = null;
   var selected = null;
   var refocus = false;
+  var shownFilterKey = null;
   var busy = false;
 
   function $(id) { return document.getElementById(id); }
@@ -233,12 +234,12 @@ export const BOARD_JS = `(function () {
       width: graph.width, height: graph.height, viewBox: '0 0 ' + text(graph.width) + ' ' + text(graph.height),
       role: 'group', 'aria-label': 'Decision graph: ' + nodes.length + ' records', class: 'board-svg',
     });
+    // Only supersession has a direction worth an arrowhead; relatesTo and
+    // conflictsWith are drawn as plain lines, as the legend says.
     var defs = svg('defs');
-    KINDS.forEach(function (kind) {
-      var marker = svg('marker', { id: 'arrow-' + kind, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
-      marker.appendChild(svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow arrow-' + kind }));
-      defs.appendChild(marker);
-    });
+    var marker = svg('marker', { id: 'arrow-supersedes', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+    marker.appendChild(svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow arrow-supersedes' }));
+    defs.appendChild(marker);
     root.appendChild(defs);
 
     var edges = svg('g', { class: 'edges' });
@@ -247,11 +248,9 @@ export const BOARD_JS = `(function () {
       if (!from || !to || !known(KINDS, edge.kind)) return;
       var start = edgePoint(from, to), end = edgePoint(to, from);
       var near = selected !== null && (text(edge.from) === selected || text(edge.to) === selected);
-      var line = svg('line', {
-        x1: start.x, y1: start.y, x2: end.x, y2: end.y,
-        class: 'edge edge-' + edge.kind + (near ? ' edge-near' : ''),
-        'marker-end': 'url(#arrow-' + edge.kind + ')',
-      });
+      var attrs = { x1: start.x, y1: start.y, x2: end.x, y2: end.y, class: 'edge edge-' + edge.kind + (near ? ' edge-near' : '') };
+      if (edge.kind === 'supersedes') attrs['marker-end'] = 'url(#arrow-supersedes)';
+      var line = svg('line', attrs);
       line.appendChild(svg('title', {}, text(edge.from) + ' ' + KIND_TEXT[edge.kind] + ' ' + text(edge.to)));
       edges.appendChild(line);
     });
@@ -396,7 +395,13 @@ export const BOARD_JS = `(function () {
     $('refresh').disabled = busy;
     $('show-all').disabled = busy || (!filter.id && list(filter.kinds).length === 0);
     $('apply-kinds').disabled = busy;
-    KINDS.forEach(function (kind) { var box = $('kind-' + kind); if (box) box.checked = list(filter.kinds).indexOf(kind) >= 0; });
+    // Sync the checkboxes only when the shown filter changed, so a broadcast
+    // (a queue read landing) does not discard boxes the user has not applied.
+    var filterKey = JSON.stringify([filter.id || null, list(filter.kinds)]);
+    if (filterKey !== shownFilterKey) {
+      shownFilterKey = filterKey;
+      KINDS.forEach(function (kind) { var box = $('kind-' + kind); if (box) box.checked = list(filter.kinds).indexOf(kind) >= 0; });
+    }
     if (selected !== null && graph && !nodesById(graph).has(selected)) selected = null;
     drawGraph(graph);
     detail();
@@ -494,7 +499,6 @@ button.link { border: none; padding: 0 2px; text-decoration: underline; font-fam
 .edge-conflictsWith { stroke: var(--true-color-red, #d1242f); stroke-dasharray: 2 3; }
 .edge-near { stroke-width: 3; }
 .arrow { fill: var(--text-color-muted, #59636e); }
-.arrow-conflictsWith { fill: var(--true-color-red, #d1242f); }
 `;
 
 /** Stylesheet: decision-review's (the same app tokens) plus the board's rules. */

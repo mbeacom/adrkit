@@ -20,7 +20,8 @@
  * server and a 32-byte token that every route checks in constant time; a
  * state-changing POST must also carry the token in a header (which a foreign
  * page cannot set without a CORS preflight this server never answers) and must
- * not come from a foreign `Origin`. Repository text never reaches a prompt.
+ * not come from a foreign `Origin`; `postAllowed` in panel-http.mjs is the one copy
+ * of that check. Repository text never reaches a prompt.
  */
 
 import { Buffer } from 'node:buffer';
@@ -35,10 +36,10 @@ import {
   BODY_LIMIT,
   CSP,
   SECURITY_HEADERS,
+  postAllowed,
   readBody,
   reply,
   replyJson,
-  singleHeader,
   tokenMatches,
 } from './panel-http.mjs';
 import {
@@ -1135,9 +1136,7 @@ export function createDecisionReviewCanvas({
     // State-changing requests: the URL token alone is not enough, because a
     // URL can leak (history, a screenshot). The header cannot be set by another
     // origin without a preflight, and a present Origin must be this server's.
-    if (!tokenMatches(instance.token, singleHeader(req.headers['x-adrkit-token']))) return reply(res, 403, 'Forbidden');
-    const origin = req.headers['origin'];
-    if (origin !== undefined && origin !== instance.origin) return reply(res, 403, 'Forbidden');
+    if (!postAllowed(instance, req)) return reply(res, 403, 'Forbidden');
 
     /** @type {string} */
     let raw;

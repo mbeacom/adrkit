@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   COLUMN_GAP,
+  MAX_EXTENT,
   NODE_LIMIT,
   NODE_WIDTH,
   layoutBoard,
@@ -117,5 +118,17 @@ describe('layoutBoard', () => {
     const result = layoutBoard({ nodes: [], edges: [] });
     expect(result.mode).toBe('graph');
     if (result.mode === 'graph') expect(result.positions).toEqual([]);
+  });
+
+  test('a layout past the extent cap becomes a summary with reason extent (review L6)', () => {
+    const n = 300;
+    const nodes = Array.from({ length: n }, (_, i) => node(String(i).padStart(4, '0')));
+    const edges = nodes.map((x, i) => supersedes(x.id, (nodes[(i + 1) % n] as { id: string }).id));
+    const result = layoutBoard({ nodes, edges });
+    expect(result.mode).toBe('summary');
+    if (result.mode === 'summary') expect(result.reason).toBe('extent');
+    expect(MAX_EXTENT).toBe(20_000);
+    // A short chain stays drawn.
+    expect(layoutBoard({ nodes: nodes.slice(0, 3), edges: [supersedes('0001', '0000')] }).mode).toBe('graph');
   });
 });

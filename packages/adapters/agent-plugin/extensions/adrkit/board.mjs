@@ -31,12 +31,13 @@
 import { Buffer } from 'node:buffer';
 import { randomBytes as nodeRandomBytes } from 'node:crypto';
 import { createServer as nodeCreateServer } from 'node:http';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, resolve, sep } from 'node:path';
 import { BOARD_CSS, BOARD_JS, renderBoardPage } from './board-page.mjs';
 import { NODE_LIMIT, layoutBoard } from './board-layout.mjs';
 import { computeQueue, shownQueueItem } from './canvas.mjs';
 import { BODY_LIMIT, BodyTooLarge, SECURITY_HEADERS, postAllowed, readBody, reply, replyJson, tokenMatches } from './panel-http.mjs';
 import { resolveCli } from './review.mjs';
+import { staysInside } from './tools.mjs';
 
 export const BOARD_ID = 'decision-board';
 export const BOARD_TITLE = 'Decision board';
@@ -74,6 +75,11 @@ export const BOARD_NOTES = {
   exit: (code) => `The decision graph is unavailable: adr graph exited ${code}.`,
   corpusErrors: 'adr graph reported corpus errors (exit 1); records that failed validation are not drawn. adr lint shows them.',
   overNodes: `This graph has more records than the board draws (${NODE_LIMIT}). Counts by status are shown instead; focus on a record to see its neighborhood.`,
+  overExtent:
+    'This graph would be too wide or tall to draw (a very long supersession chain, or a supersession cycle in a malformed ' +
+    'corpus). Counts by status are shown instead; focus on a record, or filter by kind, to see part of it.',
+  /** @param {number} n */
+  longIds: (n) => `${n} record(s) with an id longer than 64 characters are not drawn, and neither are their relationships.`,
   /** @param {number} shown @param {number} total */
   edges: (shown, total) => `Showing the first ${shown} of ${total} relationships.`,
   overBytes: 'The decision graph was too large to send to the page; counts by status are shown instead. Focus on a record to see its neighborhood.',
@@ -86,6 +92,7 @@ export const INPUT_ERRORS = {
   id: 'id must be a record id: four or more digits, or a 26-character ULID.',
   kinds: 'kinds must be an array of distinct values from supersedes, relatesTo, conflictsWith.',
   dir: "dir must be a relative or absolute path of at most 1024 characters, not starting with '-', with no control characters.",
+  dirEscape: 'dir must resolve inside the session repository, also after following symbolic links. Nothing was run.',
 };
 
 /**
@@ -103,15 +110,18 @@ export const INPUT_ERRORS = {
  *   available: boolean, exitCode: number | null, mode: 'graph' | 'summary' | null,
  *   totalNodes: number, totalEdges: number, nodes: BoardNode[], edges: BoardEdge[],
  *   width: number, height: number, byStatus: Array<{ status: string, count: number }>, notes: string[],
+ *   filter: Filter,
  * }} GraphView
  * @typedef {{
  *   workingDirectory: string, filter: Filter, graph: GraphView | null, queue: QueueView | null,
  *   notes: string[], updatedAt: string,
  * }} BoardSnapshot
  * @typedef {{
- *   dir: string | undefined, filter: Filter, graph: GraphView | null, queue: QueueView | null,
- *   graphSeq: number, queueSeq: number, queuePending: Promise<void> | null, updatedAt: string,
- * }} Workspace
+ *   dir: string | undefined, filter: Filter, graph: GraphView | null, graphSeq: number, updatedAt: string,
+ * }} View One panel's own state: its corpus directory, the filter last asked
+ *   for, and the graph last applied, which carries the filter it was read with.
+ * @typedef {{ queue: QueueView | null, seq: number, pending: Promise<void> | null }} SharedQueue
+ *   The queue, shared by every panel on one working directory and corpus directory.
  * @typedef {{
  *   instanceId: string, cwd: string, token: string, origin: string, url: string,
  *   server: Server, clients: Set<ServerResponse>,
@@ -155,7 +165,8 @@ function checkDir(value) {
 /** @param {unknown} value @returns {string | null} */
 function checkId(value) {
   if (value === undefined || value === null) return null;
-  if (typeof value !== 'string' || !RECORD_ID.test(value)) throw new InputError('id');
+  // Refused rather than clipped: a clipped id would name a record that does not exist.
+  if (typeof value !== 'string' || value.length > ID_LIMIT || !RECORD_ID.test(value)) throw new InputError('id');
   return value;
 }
 
@@ -228,7 +239,7 @@ export function boardQueueItem(item) {
   };
 }
 
-/** @param {string[]} notes @returns {GraphView} */
+/** @param {string[]} notes @returns {Omit<GraphView, 'filter'>} */
 const unavailableGraph = (notes, exitCode = /** @type {number | null} */ (null)) => ({
   available: false,
   exitCode,
@@ -255,7 +266,21 @@ const unavailableGraph = (notes, exitCode = /** @type {number | null} */ (null))
  * }} deps
  * @returns {Promise<GraphView>}
  */
-export async function computeGraph({ cwd, dir, filter, run, env, exists, timeoutMs = GRAPH_TIMEOUT_MS, signal }) {
+export async function computeGraph(deps) {
+  const graph = await readGraph(deps);
+  // The filter this read used, so a snapshot can never pair one filter with
+  // another filter's graph (review M1).
+  return { ...graph, filter: { id: deps.filter.id, kinds: [...deps.filter.kinds] } };
+}
+
+/**
+ * @param {{
+ *   cwd: string, dir?: string, filter: Filter, run: CwdRunner, env: Record<string, string | undefined>,
+ *   exists: (path: string) => boolean, timeoutMs?: number, signal?: AbortSignal,
+ * }} deps
+ * @returns {Promise<Omit<GraphView, 'filter'>>}
+ */
+async function readGraph({ cwd, dir, filter, run, env, exists, timeoutMs = GRAPH_TIMEOUT_MS, signal }) {
   const corpus = dir ?? env['ADRKIT_DIR'];
   /** @type {CommandResult} */
   let result;
@@ -306,11 +331,15 @@ export async function computeGraph({ cwd, dir, filter, run, env, exists, timeout
   // The allowlist: id, title, and status on a node; from, to, and kind on an
   // edge. Anything else the JSON carries never reaches the page.
   const seen = new Set();
-  const nodes = parsed['nodes']
-    .filter(isRecord)
-    .filter((node) => typeof node['id'] === 'string' && node['id'].length > 0)
+  const named = parsed['nodes'].filter(isRecord).filter((node) => typeof node['id'] === 'string' && node['id'].length > 0);
+  // An id is never clipped: a clipped id names no record, so its edges and its
+  // focus would silently fail. A longer one is left out and counted instead.
+  const longIds = named.filter((node) => /** @type {string} */ (node['id']).length > ID_LIMIT).length;
+  if (longIds > 0) notes.push(BOARD_NOTES.longIds(longIds));
+  const nodes = named
+    .filter((node) => /** @type {string} */ (node['id']).length <= ID_LIMIT)
     .map((node) => ({
-      id: clipTo(/** @type {string} */ (node['id']), ID_LIMIT),
+      id: /** @type {string} */ (node['id']),
       title: typeof node['title'] === 'string' ? clipTo(node['title'], TITLE_LIMIT) : '',
       status: typeof node['status'] === 'string' ? clipTo(node['status'], STATUS_LIMIT) : 'unknown',
     }))
@@ -330,7 +359,7 @@ export async function computeGraph({ cwd, dir, filter, run, env, exists, timeout
   const layout = layoutBoard({ nodes, edges: allEdges });
   if (layout.mode === 'summary') {
     return {
-      ...unavailableGraph([...notes, BOARD_NOTES.overNodes], result.exitCode),
+      ...unavailableGraph([...notes, layout.reason === 'extent' ? BOARD_NOTES.overExtent : BOARD_NOTES.overNodes], result.exitCode),
       available: true,
       mode: 'summary',
       totalNodes: layout.totalNodes,
@@ -381,23 +410,26 @@ function summarized(graph) {
 /**
  * The snapshot a page or the agent receives, held to `limit` serialized bytes.
  * Per-string caps and the count budgets keep it far below that by
- * construction; this is the backstop. The graph goes to a summary first, then
- * the queue rows go.
+ * construction; this is the backstop, and every route, action, and broadcast
+ * goes through it. The graph goes to a summary first, then the queue rows go.
+ * `filter` is the one the shown graph was read with, never a pending request.
  *
  * @param {string} cwd
- * @param {Workspace} workspace
+ * @param {View} view
+ * @param {QueueView | null} queue
  * @param {number} limit
  * @returns {BoardSnapshot}
  */
-function snapshotOf(cwd, workspace, limit) {
+function snapshotOf(cwd, view, queue, limit) {
+  const filter = view.graph?.filter ?? { id: null, kinds: [] };
   /** @type {BoardSnapshot} */
   let snapshot = {
     workingDirectory: cwd,
-    filter: { id: workspace.filter.id, kinds: [...workspace.filter.kinds] },
-    graph: workspace.graph,
-    queue: workspace.queue,
+    filter: { id: filter.id, kinds: [...filter.kinds] },
+    graph: view.graph,
+    queue,
     notes: [],
-    updatedAt: workspace.updatedAt,
+    updatedAt: view.updatedAt,
   };
   const size = () => Buffer.byteLength(JSON.stringify(snapshot));
   if (size() > limit && snapshot.graph?.mode === 'graph') snapshot = { ...snapshot, graph: summarized(snapshot.graph) };
@@ -429,7 +461,13 @@ const OPEN_SCHEMA = {
   type: ['object', 'null'],
   properties: {
     dir: { type: 'string', description: 'ADR corpus directory; default $ADRKIT_DIR or docs/adr.' },
-    id: { type: ['string', 'null'], description: 'Focus record id (adr graph --focus); omit or null for the whole corpus.' },
+    id: {
+      type: ['string', 'null'],
+      // The runtime checks this before the handler runs; the extension's own check stays the authority.
+      pattern: RECORD_ID.source,
+      maxLength: ID_LIMIT,
+      description: 'Focus record id (adr graph --focus): four or more digits, or a ULID; omit or null for the whole corpus.',
+    },
     kinds: {
       type: ['array', 'null'],
       items: { type: 'string', enum: [...EDGE_KINDS] },
@@ -471,26 +509,43 @@ export function createDecisionBoardCanvas({
   const instances = new Map();
   /** Started panels, for broadcasting. @type {Set<Instance>} */
   const live = new Set();
-  /** Derived state by working directory, in memory only. @type {Map<string, Workspace>} */
-  const workspaces = new Map();
+  /**
+   * Each panel's own filter and graph, by `instanceId` (review M2): a focus in
+   * one board must not move another board on the same repository. In memory only.
+   * @type {Map<string, View>}
+   */
+  const views = new Map();
+  /** The queue, shared by working directory and corpus directory. @type {Map<string, SharedQueue>} */
+  const queues = new Map();
 
-  /** @param {string} cwd */
-  const workspaceFor = (cwd) => {
-    let workspace = workspaces.get(cwd);
-    if (!workspace) {
-      workspace = {
-        dir: undefined,
-        filter: { id: null, kinds: [] },
-        graph: null,
-        queue: null,
-        graphSeq: 0,
-        queueSeq: 0,
-        queuePending: null,
-        updatedAt: now(),
-      };
-      workspaces.set(cwd, workspace);
+  /** @param {string} instanceId */
+  const viewFor = (instanceId) => {
+    let view = views.get(instanceId);
+    if (!view) {
+      view = { dir: undefined, filter: { id: null, kinds: [] }, graph: null, graphSeq: 0, updatedAt: now() };
+      views.set(instanceId, view);
     }
-    return workspace;
+    return view;
+  };
+
+  /** @param {string} cwd @param {string | undefined} dir */
+  const queueKey = (cwd, dir) => `${cwd}\0${dir ?? ''}`;
+
+  /** @param {string} cwd @param {string | undefined} dir */
+  const sharedQueueFor = (cwd, dir) => {
+    const key = queueKey(cwd, dir);
+    let shared = queues.get(key);
+    if (!shared) {
+      shared = { queue: null, seq: 0, pending: null };
+      queues.set(key, shared);
+    }
+    return shared;
+  };
+
+  /** @param {string} cwd @param {string} instanceId */
+  const snapshotFor = (cwd, instanceId) => {
+    const view = viewFor(instanceId);
+    return snapshotOf(cwd, view, queues.get(queueKey(cwd, view.dir))?.queue ?? null, bytesLimit);
   };
 
   /**
@@ -505,6 +560,24 @@ export function createDecisionBoardCanvas({
       if (error instanceof InputError) throw makeError('invalid_input', INPUT_ERRORS[/** @type {keyof typeof INPUT_ERRORS} */ (error.kind)]);
       throw makeError('invalid_input', INPUT_ERRORS.shape);
     }
+  };
+
+  /**
+   * A model-chosen corpus directory must stay inside the session repository,
+   * lexically and after symbolic links are followed, the same rule the
+   * read-only tools apply (ADR-0048, review L8): its titles come back in the
+   * action result.
+   * `ADRKIT_DIR` from the environment is the user's own choice and is trusted.
+   *
+   * @param {string} cwd
+   * @param {string | undefined} dir
+   */
+  const confined = (cwd, dir) => {
+    if (dir === undefined) return;
+    const root = resolve(cwd);
+    const target = resolve(cwd, dir);
+    const inside = target === root || target.startsWith(root.endsWith(sep) ? root : root + sep);
+    if (!inside || !staysInside(cwd, dir)) throw makeError('invalid_input', INPUT_ERRORS.dirEscape);
   };
 
   /** @param {any} ctx */
@@ -524,36 +597,52 @@ export function createDecisionBoardCanvas({
     return workingDirectoryOf(ctx);
   };
 
-  /** @param {string} cwd */
-  const broadcast = (cwd) => {
-    const workspace = workspaces.get(cwd);
-    if (!workspace?.graph) return;
-    const message = `event: state\ndata: ${JSON.stringify(snapshotOf(cwd, workspace, bytesLimit))}\n\n`;
+  /** @param {Instance} instance */
+  const push = (instance) => {
+    if (!viewFor(instance.instanceId).graph) return;
+    const message = `event: state\ndata: ${JSON.stringify(snapshotFor(instance.cwd, instance.instanceId))}\n\n`;
+    for (const client of instance.clients) client.write(message);
+  };
+
+  /** A panel's own graph changed: tell that panel only. @param {string} instanceId */
+  const broadcastView = (instanceId) => {
+    for (const instance of live) if (instance.instanceId === instanceId) push(instance);
+  };
+
+  /** A shared queue changed: tell every panel reading it. @param {string} cwd @param {string | undefined} dir */
+  const broadcastQueue = (cwd, dir) => {
     for (const instance of live) {
-      if (instance.cwd !== cwd) continue;
-      for (const client of instance.clients) client.write(message);
+      if (instance.cwd === cwd && viewFor(instance.instanceId).dir === dir) push(instance);
     }
   };
 
-  /** Re-run the graph with the workspace's filter. A newer read wins. @param {string} cwd @param {AbortSignal} [signal] */
-  const refreshGraph = async (cwd, signal) => {
-    const workspace = workspaceFor(cwd);
-    const seq = ++workspace.graphSeq;
-    const graph = await computeGraph({ cwd, dir: workspace.dir, filter: workspace.filter, run, env, exists, timeoutMs, signal });
-    if (seq === workspace.graphSeq || workspace.graph === null) {
-      workspace.graph = graph;
-      workspace.updatedAt = now();
-      broadcast(cwd);
-    }
+  /**
+   * Re-read one panel's graph with the filter it last asked for. Only the
+   * newest read is applied; an older one that lands later is dropped. The
+   * first read still fills an empty panel. Resolves to whether this read was
+   * applied.
+   *
+   * @param {string} cwd
+   * @param {string} instanceId
+   */
+  const refreshGraph = async (cwd, instanceId) => {
+    const view = viewFor(instanceId);
+    const seq = ++view.graphSeq;
+    const graph = await computeGraph({ cwd, dir: view.dir, filter: view.filter, run, env, exists, timeoutMs });
+    if (seq !== view.graphSeq && view.graph !== null) return false;
+    view.graph = graph;
+    view.updatedAt = now();
+    broadcastView(instanceId);
+    return true;
   };
 
-  /** Re-run the queue. A newer read wins. @param {string} cwd */
-  const refreshQueue = (cwd) => {
-    const workspace = workspaceFor(cwd);
-    const seq = ++workspace.queueSeq;
+  /** Re-read the shared queue. A newer read wins. @param {string} cwd @param {string | undefined} dir */
+  const refreshQueue = (cwd, dir) => {
+    const shared = sharedQueueFor(cwd, dir);
+    const seq = ++shared.seq;
     const done = computeQueue({
       cwd,
-      input: workspace.dir === undefined ? {} : { dir: workspace.dir },
+      input: dir === undefined ? {} : { dir },
       run,
       env,
       exists,
@@ -561,16 +650,16 @@ export function createDecisionBoardCanvas({
       shownItem: boardQueueItem,
     })
       .then((queue) => {
-        if (seq === workspace.queueSeq || workspace.queue === null) {
-          workspace.queue = queue;
-          broadcast(cwd);
+        if (seq === shared.seq || shared.queue === null) {
+          shared.queue = queue;
+          broadcastQueue(cwd, dir);
         }
       })
       .catch(() => {})
       .finally(() => {
-        if (workspace.queuePending === done) workspace.queuePending = null;
+        if (shared.pending === done) shared.pending = null;
       });
-    workspace.queuePending = done;
+    shared.pending = done;
     return done;
   };
 
@@ -579,36 +668,48 @@ export function createDecisionBoardCanvas({
    * so opening a panel or serving the page never waits on a slow queue.
    *
    * @param {string} cwd
+   * @param {string} instanceId
    * @param {{ waitForQueue?: boolean }} [opts]
    */
-  const refresh = async (cwd, { waitForQueue = true } = {}) => {
-    const queueDone = refreshQueue(cwd);
-    await refreshGraph(cwd);
+  const refresh = async (cwd, instanceId, { waitForQueue = true } = {}) => {
+    const queueDone = refreshQueue(cwd, viewFor(instanceId).dir);
+    await refreshGraph(cwd, instanceId);
     if (waitForQueue) await queueDone;
-    return snapshotOf(cwd, workspaceFor(cwd), bytesLimit);
+    return snapshotFor(cwd, instanceId);
   };
 
-  /** @param {string} cwd */
-  const stateFor = async (cwd, { waitForQueue = true } = {}) => {
-    const workspace = workspaceFor(cwd);
-    if (!workspace.graph) await refresh(cwd, { waitForQueue });
-    else if (waitForQueue && workspace.queuePending) await workspace.queuePending;
-    return snapshotOf(cwd, workspace, bytesLimit);
+  /** @param {string} cwd @param {string} instanceId */
+  const stateFor = async (cwd, instanceId, { waitForQueue = true } = {}) => {
+    const view = viewFor(instanceId);
+    const shared = sharedQueueFor(cwd, view.dir);
+    if (!view.graph) await refresh(cwd, instanceId, { waitForQueue });
+    else if (!shared.queue && !shared.pending) {
+      // A panel whose corpus directory has no queue read yet starts one.
+      const done = refreshQueue(cwd, view.dir);
+      if (waitForQueue) await done;
+    }
+    else if (waitForQueue && shared.pending) await shared.pending;
+    return snapshotFor(cwd, instanceId);
   };
 
   /**
-   * Apply a validated focus and re-run only the graph: the queue is corpus-wide
-   * and a focus does not change it.
+   * Apply a validated focus to one panel and re-read only its graph: the queue
+   * is corpus-wide and a focus does not change it. A call whose read a later
+   * focus overtook gets the panel's current, consistent state and
+   * `superseded: true`, never another call's neighborhood under its own name.
    *
    * @param {string} cwd
+   * @param {string} instanceId
    * @param {{ id?: string | null, kinds?: string[] }} focus
    */
-  const applyFocus = async (cwd, focus) => {
-    const workspace = workspaceFor(cwd);
-    workspace.filter = { id: focus.id ?? null, kinds: focus.kinds ?? [] };
-    await refreshGraph(cwd);
-    if (!workspace.queue && workspace.queuePending) await workspace.queuePending;
-    return snapshotOf(cwd, workspace, bytesLimit);
+  const applyFocus = async (cwd, instanceId, focus) => {
+    const view = viewFor(instanceId);
+    view.filter = { id: focus.id ?? null, kinds: focus.kinds ?? [] };
+    const applied = await refreshGraph(cwd, instanceId);
+    const shared = sharedQueueFor(cwd, view.dir);
+    if (!shared.queue && shared.pending) await shared.pending;
+    const snapshot = snapshotFor(cwd, instanceId);
+    return applied ? snapshot : { ...snapshot, superseded: true };
   };
 
   /**
@@ -619,7 +720,7 @@ export function createDecisionBoardCanvas({
   const handle = async (instance, req, res) => {
     const url = new URL(req.url ?? '/', instance.origin);
     if (!tokenMatches(instance.token, url.searchParams.get('token'))) return reply(res, 403, 'Forbidden');
-    const { cwd } = instance;
+    const { cwd, instanceId } = instance;
 
     switch (`${req.method} ${url.pathname}`) {
       case 'GET /':
@@ -629,9 +730,9 @@ export function createDecisionBoardCanvas({
       case 'GET /app.css':
         return reply(res, 200, BOARD_CSS, 'text/css; charset=utf-8');
       case 'GET /api/state':
-        return replyJson(res, 200, await stateFor(cwd, { waitForQueue: false }));
+        return replyJson(res, 200, await stateFor(cwd, instanceId, { waitForQueue: false }));
       case 'GET /events': {
-        const snapshot = await stateFor(cwd, { waitForQueue: false });
+        const snapshot = await stateFor(cwd, instanceId, { waitForQueue: false });
         res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive' });
         res.write(`event: state\ndata: ${JSON.stringify(snapshot)}\n\n`);
         instance.clients.add(res);
@@ -668,7 +769,7 @@ export function createDecisionBoardCanvas({
       }
     }
 
-    if (url.pathname === '/api/refresh') return replyJson(res, 200, await refresh(cwd, { waitForQueue: false }));
+    if (url.pathname === '/api/refresh') return replyJson(res, 200, await refresh(cwd, instanceId, { waitForQueue: false }));
     // POST /api/focus
     /** @type {{ id?: string | null, kinds?: string[] }} */
     let focus;
@@ -678,7 +779,7 @@ export function createDecisionBoardCanvas({
       const kind = error instanceof InputError ? /** @type {keyof typeof INPUT_ERRORS} */ (error.kind) : 'shape';
       return replyJson(res, 400, { error: INPUT_ERRORS[kind] });
     }
-    return replyJson(res, 200, await applyFocus(cwd, focus));
+    return replyJson(res, 200, await applyFocus(cwd, instanceId, focus));
   };
 
   /**
@@ -733,38 +834,41 @@ export function createDecisionBoardCanvas({
       {
         name: 'get_state',
         description:
-          'Return the board snapshot: the current filter, the relationship graph as adr graph --format json reports it ' +
-          '(records with id, title, and status; relationships with from, to, and kind; or counts by status past ' +
-          `${NODE_LIMIT} records), and the open proposals from adr queue with their raw review facts (approvals and ` +
-          'quorum, objection counts, SLA state, deadline, routing, and finding count). It states no verdict on whether ' +
-          'a record could be ratified. Read-only; no model calls.',
-        handler: async (/** @type {any} */ ctx) => stateFor(await cwdFor(ctx)),
+          "Return this board's snapshot: the filter its graph was read with, the relationship graph as adr graph " +
+          '--format json reports it (records with id, title, and status; relationships with from, to, and kind; or ' +
+          `counts by status past ${NODE_LIMIT} records), and the open proposals from adr queue with their raw review ` +
+          'facts (approvals and quorum, objection counts, SLA state, deadline, routing, and finding count). It states ' +
+          'no verdict on whether a record could be ratified. Read-only; no model calls.',
+        handler: async (/** @type {any} */ ctx) => stateFor(await cwdFor(ctx), ctx?.instanceId),
       },
       {
         name: 'refresh',
         description:
-          'Re-run adr graph (with the current filter) and adr queue in the session working directory and update the ' +
-          'board. Input { dir } replaces the remembered corpus directory; omit it to reuse it. Read-only; no model calls.',
+          "Re-run adr graph (with this board's filter) and adr queue in the session working directory and update the " +
+          "board. Input { dir } replaces this board's corpus directory, which must be inside the session repository; " +
+          'omit it to reuse it. Read-only; no model calls.',
         inputSchema: REFRESH_SCHEMA,
         handler: async (/** @type {any} */ ctx) => {
           const input = validated(inputOf(ctx), ['dir']);
           const cwd = await cwdFor(ctx);
-          if ('dir' in input) workspaceFor(cwd).dir = input.dir;
-          return refresh(cwd);
+          confined(cwd, input.dir);
+          if ('dir' in input) viewFor(ctx?.instanceId).dir = input.dir;
+          return refresh(cwd, ctx?.instanceId);
         },
       },
       {
         name: 'focus',
         description:
-          'Re-run adr graph --format json with --focus <id> and a --kind per kind, and show that on the board. ' +
-          '{ id } keeps one record and its direct neighbors; { kinds } keeps only those relationship kinds; omit both ' +
-          '(or pass null) to show the whole corpus again. id must be a record id (four or more digits, or a ULID) and ' +
-          'kinds must come from supersedes, relatesTo, conflictsWith; anything else is refused before the CLI runs. ' +
-          'Read-only; no model calls.',
+          'Re-run adr graph --format json with --focus <id> and a --kind per kind, and show that on this board ' +
+          '(other open boards keep their own view). { id } keeps one record and its direct neighbors; { kinds } keeps ' +
+          'only those relationship kinds; omit both (or pass null) to show the whole corpus again. id must be a record ' +
+          'id (four or more digits, or a ULID) and kinds must come from supersedes, relatesTo, conflictsWith; anything ' +
+          'else is refused before the CLI runs. If a later focus overtakes this one, the result says superseded: true ' +
+          "and shows the board's current state. Read-only; no model calls.",
         inputSchema: FOCUS_SCHEMA,
         handler: async (/** @type {any} */ ctx) => {
           const input = validated(inputOf(ctx), ['id', 'kinds']);
-          return applyFocus(await cwdFor(ctx), input);
+          return applyFocus(await cwdFor(ctx), ctx?.instanceId, input);
         },
       },
     ],
@@ -773,18 +877,19 @@ export function createDecisionBoardCanvas({
     open: async (ctx) => {
       const cwd = workingDirectoryOf(ctx);
       const input = validated(inputOf(ctx), ['dir', 'id', 'kinds']);
+      confined(cwd, input.dir);
       let pending = instances.get(ctx.instanceId);
       const isNew = !pending;
-      const workspace = workspaceFor(cwd);
-      const changesDir = 'dir' in input && input.dir !== workspace.dir;
+      const view = viewFor(ctx.instanceId);
+      const changesDir = 'dir' in input && input.dir !== view.dir;
       const changesFilter =
         ('id' in input || 'kinds' in input) &&
-        JSON.stringify({ id: input.id ?? null, kinds: input.kinds ?? [] }) !== JSON.stringify(workspace.filter);
-      if ('dir' in input) workspace.dir = input.dir;
-      if ('id' in input || 'kinds' in input) workspace.filter = { id: input.id ?? null, kinds: input.kinds ?? [] };
+        JSON.stringify({ id: input.id ?? null, kinds: input.kinds ?? [] }) !== JSON.stringify(view.filter);
+      if ('dir' in input) view.dir = input.dir;
+      if ('id' in input || 'kinds' in input) view.filter = { id: input.id ?? null, kinds: input.kinds ?? [] };
       if (!pending) {
         const starting = (async () => {
-          await refresh(cwd, { waitForQueue: false });
+          await refresh(cwd, ctx.instanceId, { waitForQueue: false });
           return startInstance(ctx.instanceId, cwd);
         })();
         pending = starting;
@@ -796,15 +901,15 @@ export function createDecisionBoardCanvas({
       }
       const instance = await pending;
       // A re-open keeps its URL; new input is applied, not silently dropped.
-      if (!isNew && changesDir) await refresh(instance.cwd, { waitForQueue: false });
-      else if (!isNew && changesFilter) await refreshGraph(instance.cwd);
-      const snapshot = snapshotOf(instance.cwd, workspaceFor(instance.cwd), bytesLimit);
-      return { url: instance.url, title: BOARD_TITLE, status: statusLine(snapshot) };
+      if (!isNew && changesDir) await refresh(instance.cwd, ctx.instanceId, { waitForQueue: false });
+      else if (!isNew && changesFilter) await refreshGraph(instance.cwd, ctx.instanceId);
+      return { url: instance.url, title: BOARD_TITLE, status: statusLine(snapshotFor(instance.cwd, ctx.instanceId)) };
     },
 
     /** @param {any} ctx */
     onClose: async (ctx) => {
       const pending = instances.get(ctx.instanceId);
+      views.delete(ctx.instanceId);
       if (!pending) return;
       instances.delete(ctx.instanceId);
       /** @type {Instance} */
