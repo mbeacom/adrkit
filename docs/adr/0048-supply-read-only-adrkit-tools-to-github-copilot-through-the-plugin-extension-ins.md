@@ -39,6 +39,14 @@ provenance:
 > `.mcp.json`. It amends the inventory of ADR-0045 and ADR-0046 (one more
 > registration in the same extension) and supersedes none of them.
 
+> **Amended in plugin 0.9.1 (a correction, no new record).** `adr_check`
+> with `base` or with neither lists the union of `git diff <base>...HEAD`,
+> `git diff HEAD`, and untracked files that are not ignored, not the range
+> alone, and a directory git does not treat as a work tree is its own fixed
+> failure (`not-work-tree`, or `git-unsafe-directory` for git's ownership
+> check). The table below states the 0.7.0 default. This record's status and
+> its read-only and argument-validation boundaries are unchanged.
+
 ## Context
 
 ADR-0028 omitted the plugin's MCP wiring for a measured reason. Copilot CLI

@@ -1045,7 +1045,7 @@ export function buildJudgePrompt(decision, files, { base, source } = {}) {
     '',
     `1. Read record ${decision.recordId} in full (\`adr explain\` on one of the paths shows where it lives).`,
     `2. Read each changed path's diff with ${diff}, passing each path as a single quoted argument`,
-    '   after `--` so its text never becomes shell syntax. A path with no diff from either is untracked',
+    '   after `--` so its text never becomes shell syntax. A path that shows no diff is untracked',
     '   (new and not yet added): read the file itself. A deleted path is evidence too: removing',
     '   something the decision requires can conflict with it.',
     '3. Decide one verdict for this decision only:',
