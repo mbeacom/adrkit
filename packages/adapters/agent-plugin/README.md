@@ -466,7 +466,7 @@ The same extension registers three session hooks, proposed in
 | Hook | When | What it adds | Cost |
 | --- | --- | --- | --- |
 | `onSessionStart` | With the session's first prompt (measured) | A short summary: how many files changed, and the ids of the accepted decisions that govern them and of open proposals that bind them | One `git diff` and one `adr check`; no model call |
-| `onPreToolUse` | Before an edit tool (`edit`, `create`, `str_replace_editor`, `apply_patch`) | A note naming the accepted decision(s) that govern the target file, once per file per session | One `adr check` per distinct file, cached; nothing for any other tool |
+| `onPreToolUse` | Before an edit tool (`edit`, `create`, `str_replace`, `apply_patch`, or a writing `str_replace_editor` command) | A note naming the accepted decision(s) that govern the target file, once per file per session | One `adr check` per distinct file, cached; nothing for any other tool |
 | `onPostToolUse` | After an edit tool | Nothing for the agent; refreshes any open `decision-review` panel, debounced | The panel's free refresh; never a review |
 
 **They cannot block.** Every hook returns at most `additionalContext`. None

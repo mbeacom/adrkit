@@ -32,12 +32,15 @@ import { isAbsolute, posix, relative, resolve, sep } from 'node:path';
 import { collectChangedFiles, resolveCli } from './review.mjs';
 
 /**
- * The runtime's own edit category (Copilot CLI 1.0.93 bundle): `edit` and
- * `create` take `{ path }` (measured absolute in local session logs),
- * `str_replace_editor` takes `{ path, … }`, and `apply_patch` takes the raw
- * patch text (measured: a string, with paths relative or absolute).
+ * The tools the runtime treats as edits (Copilot CLI 1.0.93 bundle): `edit`
+ * and `create` take `{ path }` (measured absolute in local session logs),
+ * `str_replace` takes `edit`'s shape, `str_replace_editor` takes
+ * `{ command, path }` and edits only for `create`, `str_replace`, and
+ * `insert` (its `view` reads), and `apply_patch` takes the raw patch text
+ * (measured: a string, with paths relative or absolute).
  */
-export const EDIT_TOOLS = new Set(['edit', 'create', 'str_replace_editor', 'apply_patch']);
+export const EDIT_TOOLS = new Set(['edit', 'create', 'str_replace', 'str_replace_editor', 'apply_patch']);
+const EDITOR_WRITES = new Set(['create', 'str_replace', 'insert']);
 
 /** Every key a hook here may return. Asserted by test. */
 export const ADVISORY_OUTPUT_KEYS = new Set(['additionalContext']);
@@ -90,8 +93,10 @@ export function editTargets(toolName, toolArgs) {
     if (text === null) return [];
     return [...text.matchAll(PATCH_PATH)].map((match) => /** @type {string} */ (match[1]).trim()).filter((path) => path.length > 0);
   }
-  const path = toolArgs !== null && typeof toolArgs === 'object' ? /** @type {any} */ (toolArgs).path : undefined;
-  return typeof path === 'string' && path.length > 0 ? [path] : [];
+  if (toolArgs === null || typeof toolArgs !== 'object') return [];
+  const args = /** @type {any} */ (toolArgs);
+  if (toolName === 'str_replace_editor' && !EDITOR_WRITES.has(args.command)) return [];
+  return typeof args.path === 'string' && args.path.length > 0 ? [args.path] : [];
 }
 
 /**
@@ -222,7 +227,6 @@ export function createAdvisoryHooks({
 
   const dir = env['ADRKIT_DIR'];
   const dirArgs = dir ? ['--dir', dir] : [];
-  const corpusDir = posix.normalize((dir ?? 'docs/adr').split(sep).join(posix.sep)).replace(/\/+$/, '');
 
   /** Governing ids by `cwd\0path`, as a promise so concurrent edits share one check. @type {Map<string, Promise<string[]>>} */
   const checks = new Map();
@@ -374,10 +378,12 @@ export function createAdvisoryHooks({
     onPostToolUse: async (input, _invocation) => {
       if (!EDIT_TOOLS.has(input?.toolName)) return undefined;
       try {
-        const { paths } = targetsOf(input);
+        const { cwd, paths } = targetsOf(input);
         // A record edited mid-session can change what governs anything, so
-        // every cached answer and note is dropped.
-        if (paths.some((path) => path === corpusDir || path.startsWith(`${corpusDir}/`))) {
+        // every cached answer and note is dropped. The corpus is resolved
+        // against this input's directory, so an absolute ADRKIT_DIR works.
+        const corpusDir = repoRelative(dir ?? 'docs/adr', cwd);
+        if (corpusDir !== null && paths.some((path) => path === corpusDir || path.startsWith(`${corpusDir}/`))) {
           checks.clear();
           noted.clear();
         }

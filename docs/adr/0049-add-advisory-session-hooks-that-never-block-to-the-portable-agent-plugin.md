@@ -85,8 +85,9 @@ governed by accepted decisions or bound by open proposals, it returns
 nothing governs them it returns nothing.
 
 **`onPreToolUse`: a note on a governed edit.** When the tool is in the
-runtime's edit category (`edit`, `create`, `str_replace_editor`,
-`apply_patch`), it reads the target path(s), makes each relative to the hook
+runtime classifies as an edit (`edit`, `create`, `str_replace`,
+`apply_patch`, and `str_replace_editor` only for its `create`, `str_replace`,
+and `insert` commands, never `view`), it reads the target path(s), makes each relative to the hook
 input's `workingDirectory`, and drops anything outside the worktree. It runs
 one `adr check --json -- <path>` per distinct path, cached for the process,
 and returns `additionalContext` naming the accepted decision(s) that govern
@@ -161,11 +162,14 @@ both `accepted`, with both files changed against `origin/main`.
    `apply_patch`, and `toolArgs` was the raw patch string
    (`*** Begin Patch\n*** Update File: src/net.ts\n…`), with a relative path.
    The runtime bundle lists the edit category as `edit`, `create`,
-   `str_replace_editor`, and `apply_patch`. 2,424 local Copilot session logs
-   showed `edit` with `{ path, old_str, new_str }` and `create` with
-   `{ path, file_text }`, the paths absolute, and `apply_patch` with relative
-   and absolute paths. `str_replace_editor` appeared in none of them, so its
-   `{ path }` shape is read from the bundle's schema, not observed.
+   `str_replace_editor`, and `apply_patch`; its argument classifier also
+   treats a `str_replace` tool as an edit, and switches `str_replace_editor`
+   on `command` (`view`, `create`, `str_replace`, `insert`), so that tool
+   reads as well as writes. 2,424 local Copilot session logs showed `edit`
+   with `{ path, old_str, new_str }` and `create` with `{ path, file_text }`,
+   the paths absolute, and `apply_patch` with relative and absolute paths.
+   Neither `str_replace_editor` nor `str_replace` appeared in any of them, so
+   their shapes are read from the bundle, not observed.
 3. **`onPostToolUse` fired after a successful edit** with `toolResult`
    carrying `resultType: "success"`.
 4. **`ADRKIT_*` variables reach the extension without
@@ -187,8 +191,10 @@ both `accepted`, with both files changed against `origin/main`.
      `view`) it took 0 to 1 ms.
    - `onPostToolUse` took 0 to 1 ms on every call. The open panel's
      `updatedAt` moved from 23:51:27.357 to 23:52:04.607, 1.7 s after the
-     last edit's post hook, which is the 1.5 s debounce plus one refresh. No
-     review was started (`review: null`).
+     last edit's post hook, consistent with the 1.5 s debounce. The two
+     edits' post hooks were 2.3 s apart, so coalescing was not exercised
+     live; the unit test is the evidence for it. No review was started
+     (`review: null`).
    - The model quoted both advisories verbatim and said it read decision 0001
      before editing. The edits landed: the hooks blocked nothing.
 6. **Spend.** Two paid turns, both `gpt-6-luna`: the probe turn
@@ -308,7 +314,10 @@ with any other model family live; and any external validation.
    no-hooks join, the zero-cost non-edit path, and the no-changed-files path
    were then observed failing under targeted mutations. The remaining two
    (exactly three hooks registered, and a throwing `session.log` staying
-   silent) are property checks that no mutation tried has broken.
+   silent) are property checks that no mutation tried has broken. Two tests
+   added after review (the `str_replace_editor` command filter and an
+   absolute `ADRKIT_DIR`) and the widened tool-list assertion failed before
+   the fix.
 3. [x] Measure each hook's added latency per call and the spend, and record them
    (Measured facts 5 and 6).
 4. [x] Document the hooks, the off switch, and their limits in the plugin

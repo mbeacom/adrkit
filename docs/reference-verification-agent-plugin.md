@@ -813,12 +813,12 @@ differ from `origin/main`. Latencies are the runtime's own `hook.start` to
 | H2 | Same probe, one prompt asking for one edit (`gpt-6-luna`) | `onUserPromptSubmitted`, then `onSessionStart` (`source: "new"`, `initialPrompt` set), then the model; `onPreToolUse` and `onPostToolUse` around the edit; then `onAgentStop` and `onSessionEnd` (`reason: "complete"`) |
 | H3 | Did the context reach the model? | The model quoted the session-start, prompt, and pre-tool sentinels verbatim |
 | H4 | Edit tool and arguments, `gpt-6-luna` | `apply_patch`; `toolArgs` is the raw patch string, `*** Update File: src/net.ts`, a relative path; `toolResult.resultType` `success` in the post hook |
-| H5 | Edit tool shapes in 2,424 local Copilot session logs (free) | `edit` `{ path, old_str, new_str }` and `create` `{ path, file_text }` with absolute paths; `apply_patch` with relative and absolute paths. `str_replace_editor` is in the runtime's edit category but appeared in no log |
+| H5 | Edit tool shapes in 2,424 local Copilot session logs (free) | `edit` `{ path, old_str, new_str }` and `create` `{ path, file_text }` with absolute paths; `apply_patch` with relative and absolute paths. `str_replace_editor` (which the bundle switches on `command`, including a read-only `view`) and `str_replace` appeared in no log |
 | H6 | `ADRKIT_HOOKS=0` and `ADRKIT_PROBE_SECRET_TOKEN` set in the runtime environment via `forStdio({ env })`, no `requestedEnvironmentVariables` (free) | Both present in the extension's `process.env` |
 | H7 | The shipped extension with `ADRKIT_HOOKS=0` (free) | Loaded (`status: "running"`); the `decision-review` canvas still listed |
 | H8 | Shipped hooks, one turn (`gpt-6-luna`), canvas open, two separate edits of `src/net.ts` | `onSessionStart` **111 ms**, returned the summary naming 0001 and 0002 |
 | H9 | Same turn, `onPreToolUse` | First `apply_patch` of `src/net.ts`: **117 ms** (one uncached `adr check`), note naming 0001. Second edit of the same file: **0 ms**, nothing returned. Six other pre-tool calls (`skill`, `extensions_manage`, `view`): 0 to 1 ms |
-| H10 | Same turn, `onPostToolUse` | 0 to 1 ms every call. The panel's `updatedAt` moved 1.7 s after the last edit's post hook (1.5 s debounce plus one refresh); `review` stayed `null`, so no review started |
+| H10 | Same turn, `onPostToolUse` | 0 to 1 ms every call. The panel's `updatedAt` moved 1.7 s after the last edit's post hook, consistent with the 1.5 s debounce (the two post hooks were 2.3 s apart, so coalescing was not exercised live); `review` stayed `null`, so no review started |
 | H11 | Same turn, outcome | The model quoted both advisories verbatim and read 0001 before editing; both edits landed |
 
 Spend: two paid turns, both `gpt-6-luna`. H2 cost 208,739,500 nano-AIU and H8

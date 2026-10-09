@@ -80,7 +80,7 @@ const pre = (toolName: string, toolArgs: unknown, extra: Record<string, unknown>
 
 describe('edit targets (shapes measured on Copilot CLI 1.0.93)', () => {
   test('the edit-category tool names are the runtime\'s own list', () => {
-    expect([...EDIT_TOOLS].sort()).toEqual(['apply_patch', 'create', 'edit', 'str_replace_editor']);
+    expect([...EDIT_TOOLS].sort()).toEqual(['apply_patch', 'create', 'edit', 'str_replace', 'str_replace_editor']);
   });
 
   test('edit and create carry an absolute path', () => {
@@ -104,6 +104,17 @@ describe('edit targets (shapes measured on Copilot CLI 1.0.93)', () => {
     ].join('\n');
     expect(editTargets('apply_patch', patch)).toEqual(['src/net.ts', `${WD}/src/new.ts`, 'old.ts', 'a.ts', 'b.ts']);
     expect(editTargets('apply_patch', { input: patch })).toContain('src/net.ts');
+  });
+
+  test('str_replace_editor is an edit only for its writing commands, never view', () => {
+    // The 1.0.93 bundle's classifier switches on `command`: view, create,
+    // str_replace, insert. A view must not trigger a note or a refresh.
+    expect(editTargets('str_replace_editor', { command: 'view', path: `${WD}/src/a.ts` })).toEqual([]);
+    expect(editTargets('str_replace_editor', { path: `${WD}/src/a.ts` })).toEqual([]);
+    for (const command of ['create', 'str_replace', 'insert']) {
+      expect(editTargets('str_replace_editor', { command, path: `${WD}/src/a.ts` })).toEqual([`${WD}/src/a.ts`]);
+    }
+    expect(editTargets('str_replace', { path: `${WD}/src/a.ts`, old_str: 'a', new_str: 'b' })).toEqual([`${WD}/src/a.ts`]);
   });
 
   test('a non-edit tool yields nothing, and so does a malformed argument', () => {
@@ -335,6 +346,17 @@ describe('advisory hooks', () => {
     );
     const again = await hooks.onPreToolUse(pre('edit', { path: `${WD}/src/net.ts` }), { sessionId: 's1' });
     expect(again?.additionalContext).toContain('0001');
+    expect(cli.adrCalls().filter((call) => call.args.at(-1) === 'src/net.ts').length).toBe(2);
+  });
+
+  test('an absolute ADRKIT_DIR inside the worktree still drops the cache on a corpus edit', async () => {
+    const { hooks, cli } = makeHooks({ env: { ADRKIT_DIR: `${WD}/decisions` } });
+    await hooks.onPreToolUse(pre('edit', { path: `${WD}/src/net.ts` }), { sessionId: 's1' });
+    await hooks.onPostToolUse(
+      { ...pre('edit', { path: `${WD}/decisions/0001-x.md` }), toolResult: { resultType: 'success' } },
+      { sessionId: 's1' },
+    );
+    await hooks.onPreToolUse(pre('edit', { path: `${WD}/src/net.ts` }), { sessionId: 's1' });
     expect(cli.adrCalls().filter((call) => call.args.at(-1) === 'src/net.ts').length).toBe(2);
   });
 

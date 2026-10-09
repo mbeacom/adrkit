@@ -560,9 +560,11 @@ will usually be a regression:
   `session.start`; with no prompt no hook fires, even on resume. With a prompt
   it fires after `onUserPromptSubmitted` with `source: "new"`. Its summary
   therefore adds latency to the first turn (111 ms measured).
-- **The edit tools are the runtime's edit category**: `edit` and `create`
-  (`{ path }`, absolute in session logs), `str_replace_editor` (`{ path }`,
-  from the bundle's schema only), and `apply_patch`, whose `toolArgs` is the
+- **The edit tools are the ones the runtime classifies as edits**: `edit` and
+  `create` (`{ path }`, absolute in session logs), `str_replace` (`edit`'s
+  shape), `str_replace_editor` only when `command` is `create`, `str_replace`,
+  or `insert` (its `view` reads; both from the bundle, unobserved in logs), and
+  `apply_patch`, whose `toolArgs` is the
   raw patch **string** (measured with `gpt-6-luna`), parsed for
   `*** Add/Update/Delete File:` and `*** Move to:`. A renamed tool turns the
   note off silently. Paths are made relative to the hook input's
