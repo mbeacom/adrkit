@@ -55,7 +55,8 @@ provenance:
 >
 > **Revised again (round 2).** The dialog now leads with the record and the
 > action, a write that arrives while another is pending is told which one,
-> each panel may ask at most once per 10 seconds and five times per 10 minutes,
+> the board may ask at most once per 10 seconds and five times per 10 minutes
+> across all its panels,
 > and an unreadable agent mode is refused. The record was retitled from "…
 > with a confirmed, single-use nonce", which named a control that is not the
 > boundary.
@@ -135,9 +136,13 @@ the decision board, behind this boundary:
      Copilot is already asking you to confirm an approval of ADR-0042. Decline
      it unless you started it, then try again."), and the page shows it as a
      warning.
-   - **Dialogs are rate-limited per panel**: at most one per 10 seconds and
-     five per sliding 10 minutes. Over either limit the route answers 429 with
-     a fixed message, asks nothing, spawns nothing, and logs the refusal.
+   - **Dialogs are rate-limited across the whole extension**: at most one per
+     10 seconds and five per sliding 10 minutes, counted over every board panel
+     in the extension process, so opening, closing, or reopening a panel does
+     not reset the budget. A Copilot session belongs to one person, so a
+     shared budget throttles nobody else. Over either limit the route answers
+     429 with a fixed message, asks nothing, spawns nothing, and logs the
+     refusal.
 2. **The identity is the environment's.** The extension reads
    `ADRKIT_REVIEWER` on every request. It must pass core's
    `isWritableIdentity` rule, mirrored in the extension (an extension cannot
@@ -252,11 +257,12 @@ and only fixed messages reach a page (CodeQL `js/stack-trace-exposure` on #267).
   pending, and the one dialog on screen is the model's, just when they expect
   one. Three things narrow this. The dialog's first line names the record and
   the action. The person's 409 says which confirmation is pending and to
-  decline it unless they started it. And a panel cannot keep a dialog up
-  continuously (one per 10 s, five per 10 minutes). The limits are per panel,
-  and the model can open new panels, so they slow the model rather than stop
-  it. A person who answers yes without reading the first line can still
-  approve the wrong record.
+  decline it unless they started it. And the board cannot keep a dialog up
+  continuously: one per 10 s and five per 10 minutes, across every board
+  panel, so a model that opens fresh panels gets no fresh budget. Within the
+  budget a model can still stage a dialog now and then, and a person who
+  answers yes without reading the first line can still approve the wrong
+  record.
 - **A person can still be talked into "yes".** A prompt-injected model can
   start a write and the dialog will appear; a person who accepts without
   reading has approved it. The dialog names the record, the kind, and the

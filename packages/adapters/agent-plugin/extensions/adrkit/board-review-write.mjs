@@ -60,9 +60,12 @@ export const WRITE_TIMEOUT_MS = 30_000;
 /** How long the host's confirmation may stay unanswered before it counts as declined. */
 export const CONFIRM_TIMEOUT_MS = 2 * 60 * 1000;
 /**
- * How often one panel may put a confirmation in front of the person (review
- * R1-M1): at most one per 10 s, and five per sliding 10 minutes. A model that
- * holds the token could otherwise keep a dialog permanently pending.
+ * How often the board may put a confirmation in front of the person (review
+ * R1-M1): at most one per 10 s, and five per sliding 10 minutes, across every
+ * board panel in this extension process. A model that holds a token could
+ * otherwise keep a dialog permanently pending, and a per-panel budget would
+ * reset each time it opened a new panel. A session belongs to one person, so a
+ * shared budget throttles nobody else.
  */
 export const DIALOG_SPACING_MS = 10_000;
 export const DIALOG_WINDOW_MS = 10 * 60 * 1000;
@@ -330,21 +333,20 @@ export function createReviewWriter({
   let writing = false;
   /** The write that holds `writing`, validated, for the 409 message. @type {{ kind: string, id: string } | null} */
   let pendingWrite = null;
-  /** When each panel last asked the host, for the dialog limits. @type {Map<string, number[]>} */
-  const dialogs = new Map();
+  /** When the board asked the host, across all panels, for the dialog limits. @type {number[]} */
+  let dialogTimes = [];
   const spacingMs = dialogLimits.spacingMs ?? DIALOG_SPACING_MS;
   const windowMs = dialogLimits.windowMs ?? DIALOG_WINDOW_MS;
   const windowMax = dialogLimits.windowMax ?? DIALOG_WINDOW_MAX;
 
   /**
-   * Whether this panel may ask the host now: `null` if so, or the refusal code.
-   * @param {string} instanceId
+   * Whether any board panel may ask the host now: `null` if so, or the refusal code.
    * @returns {'tooSoon' | 'tooMany' | null}
    */
-  const dialogRefusal = (instanceId) => {
+  const dialogRefusal = () => {
     const now = clock();
-    const recent = (dialogs.get(instanceId) ?? []).filter((at) => now - at < windowMs);
-    dialogs.set(instanceId, recent);
+    const recent = dialogTimes.filter((at) => now - at < windowMs);
+    dialogTimes = recent;
     const last = recent[recent.length - 1];
     if (last !== undefined && now - last < spacingMs) return 'tooSoon';
     if (recent.length >= windowMax) return 'tooMany';
@@ -667,7 +669,7 @@ export function createReviewWriter({
       // right before the spawn, as every graph and queue read does.
       if (escapes(cwd, dir())) return replyJson(res, 200, { outcome: 'not-run', message: REVIEW_MESSAGES.dirEscape });
       const who = /** @type {string} */ (current.reviewer);
-      const limited = dialogRefusal(instanceId);
+      const limited = dialogRefusal();
       if (limited) {
         note(`adrkit: decision board review ${request.kind} on ADR-${request.id} as ${who}: rate-limited`);
         throw new Refusal(429, limited);
@@ -684,7 +686,7 @@ export function createReviewWriter({
         if (mode !== 'ok') {
           result = { outcome: 'not-confirmed', message: mode === 'autopilot' ? REVIEW_MESSAGES.autopilot : REVIEW_MESSAGES.modeUnknown };
         } else {
-          /** @type {number[]} */ (dialogs.get(instanceId)).push(clock());
+          dialogTimes.push(clock());
           result = (await confirmedByHost(confirmText(request, who)))
             ? await perform(request, who, cwd, corpus)
             : { outcome: 'not-confirmed', message: REVIEW_MESSAGES.notConfirmed };
@@ -720,10 +722,7 @@ export function createReviewWriter({
   return {
     state,
     handle,
-    /** A closed panel's nonce is dropped. @param {string} instanceId */
-    forget: (instanceId) => {
-      issued.delete(instanceId);
-      dialogs.delete(instanceId);
-    },
+    /** A closed panel's nonce is dropped; the dialog budget is not reset. @param {string} instanceId */
+    forget: (instanceId) => void issued.delete(instanceId),
   };
 }

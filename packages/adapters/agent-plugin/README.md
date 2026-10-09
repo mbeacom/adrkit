@@ -630,7 +630,8 @@ Without any one of these the controls are disabled, with a note saying why.
 
 If the board says GitHub Copilot is **already asking you to confirm** a
 review write, it names that record: decline it unless you started it. A board
-asks at most once every 10 seconds and five times in 10 minutes.
+asks at most once every 10 seconds and five times in 10 minutes, across all
+its panels.
 
 Nothing is committed: review the diff and open a pull request, as with the CLI.
 After a write the board re-reads the graph and the queue, so the counts change.

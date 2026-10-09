@@ -954,10 +954,12 @@ no model calls; **unmeasured in the Copilot app**. Load-bearing:
   The dialog's first line is the record and the action
   (`ADR-0042 · approve as @x`). A write that arrives while one is pending gets
   a 409 naming the pending kind and record and saying to decline it unless the
-  person started it, shown on the page as a warning. Each panel may ask at
-  most once per 10 s and five times per sliding 10 minutes; over that it is a
-  429 with nothing asked or spawned, and the refusal is logged. The limits are
-  per panel and the model can open panels, so they slow it, not stop it.
+  person started it, shown on the page as a warning. The board may ask at
+  most once per 10 s and five times per sliding 10 minutes, counted across
+  every board panel in the extension process; over that it is a 429 with
+  nothing asked or spawned, and the refusal is logged. Do not make the budget
+  per panel again: the model can open panels, and each would get a fresh
+  budget (a test opens a second panel and reopens one).
 - **The identity is `ADRKIT_REVIEWER`, read on every request,** never taken
   from the page, the model, or an argument, and checked by a mirror of core's
   `isWritableIdentity` that a test compares with core. A body with any extra

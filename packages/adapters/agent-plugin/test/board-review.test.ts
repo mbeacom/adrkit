@@ -829,7 +829,7 @@ describe('host confirmation (round 1, C1)', () => {
     expect(cli.writes()).toEqual([]);
   });
 
-  test('R1-M1: at most one dialog per panel per 10 s and five per 10 minutes; over either, nothing is asked or spawned, and it is logged', async () => {
+  test('R1-M1: at most one dialog per 10 s and five per 10 minutes across every board panel; over either, nothing is asked or spawned, and it is logged', async () => {
     const logged: Array<{ message: string; options: unknown }> = [];
     const { options, cli, asked, clock } = makeBoard({ answer: false, dialogLimits: 'default', logged });
     const { url } = await openBoard(options);
@@ -849,16 +849,26 @@ describe('host confirmation (round 1, C1)', () => {
     const many = await attempt();
     expect({ status: many.status, data: many.data }).toEqual({ status: 429, data: { error: REVIEW_REFUSALS.tooMany } });
     expect(asked.length).toBe(5);
-    // Another panel has its own budget.
+    // The budget is the whole extension's: a second panel, or closing and
+    // reopening one, does not reset it.
+    clock.now += 10_000;
     const { url: other } = await openBoard(options, 'board-2');
-    expect((await write(other, { kind: 'approval', id: '0003', nonce: await nonceFor(other, 'approval') })).data.outcome).toBe('not-confirmed');
-    expect(asked.length).toBe(6);
+    const fresh = await write(other, { kind: 'approval', id: '0003', nonce: await nonceFor(other, 'approval') });
+    expect({ status: fresh.status, data: fresh.data }).toEqual({ status: 429, data: { error: REVIEW_REFUSALS.tooMany } });
+    await options.onClose(ctxFor('board-1'));
+    const { url: reopened } = await openBoard(options, 'board-1');
+    const again = await write(reopened, { kind: 'approval', id: '0003', nonce: await nonceFor(reopened, 'approval') });
+    expect(again.status).toBe(429);
+    expect(asked.length).toBe(5);
     // The window slides.
     clock.now += 600_000;
-    expect((await attempt()).data.outcome).toBe('not-confirmed');
-    expect(asked.length).toBe(7);
+    expect((await write(other, { kind: 'approval', id: '0003', nonce: await nonceFor(other, 'approval') })).data.outcome).toBe('not-confirmed');
+    expect(asked.length).toBe(6);
+    // One dialog per 10 s across panels too.
+    clock.now += 1_000;
+    expect((await write(reopened, { kind: 'approval', id: '0003', nonce: await nonceFor(reopened, 'approval') })).status).toBe(429);
     expect(cli.writes()).toEqual([]);
-    expect(logged.filter((entry) => /: rate-limited$/.test(entry.message)).length).toBe(2);
+    expect(logged.filter((entry) => /: rate-limited$/.test(entry.message)).length).toBe(5);
   });
 
   test('M1: the review routes need the exact same-origin Origin, and Sec-Fetch-Site same-origin when sent', async () => {

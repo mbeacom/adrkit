@@ -46,7 +46,8 @@ Until `1.0.0`, minor releases may include breaking changes
     defence in depth only.
   - The dialog's first line names the record and the action. A write that
     arrives while another is pending is told which record it is for. Each
-    board asks at most once per 10 seconds and five times per 10 minutes.
+    board asks at most once per 10 seconds and five times per 10 minutes,
+    across all its panels.
     The dialog guards the board's write path only; the pull request diff
     remains the check on review state.
   - The identity is `ADRKIT_REVIEWER`, read by the extension. Unset or invalid,
