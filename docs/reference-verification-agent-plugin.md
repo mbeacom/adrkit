@@ -882,7 +882,7 @@ workflow was not run live.
 | E1 | No CLI stderr, exception text, or echoed argument in the workflow result, the canvas's notes, `/api/state`, the event stream, agent canvas results, tool results, or hook context | `test/error-text.test.ts` plants `ZZ-SENTINEL-7f3a` in git and `adr` stderr, in thrown errors, in an unknown argument key, and in refused file and base values, then asserts it is absent from every one of those outputs. Before the fix, 37 of its 44 cases failed. The 7 that already passed are the tools' and hooks' existing rules and one canvas case, kept as regression guards. The tools' capped, stack-stripped stderr on exit 2 is unchanged. |
 | E2 | The `adr-review` workflow follows the session directory after `/cd` | Unit test: `createReviewWorkflow` reads the shared `session-dir.mjs` tracker when each run starts, so every git and adr call and `$ADRKIT_CLI` resolution uses the moved directory. Live, for the tools that share the tracker: see the table below. The workflow was not run live. |
 | E4 | `adr check` over a wide change fits the command line, and echoed file lists are capped | `test/batching.test.ts`: 2,000 paths (about 120 KiB of argv) become several `adr check` calls of at most 24 KiB each, through the workflow, the canvas, `adr_check` base mode, and the session-start hook. The merged report unions decisions by id. Results list 200 paths and count the rest. A panel-started review of the same wide change survives a refresh. `packages/cli/src` has no stdin or file-list input for `adr check`, so batching was the only option. |
-| E5 | A timeout or abort ends the whole process tree on POSIX | Shown first against the 0.8.0 runner under Node 22.22.2. A `/bin/sh` wrapper that backgrounds `sleep 300` and records its pid was run with a 400 ms `AbortSignal.timeout`. The runner rejected with `AbortError`, and the grandchild was still alive 1.5 s later. The new tests run the same wrapper through the 0.8.1 runner (the grandchild is gone within 5 s), and a Node child process that exits mid-command leaves no grandchild behind. Windows keeps the direct-child behavior, a documented limit. |
+| E5 | A timeout or abort ends the whole process tree on POSIX (descendants that stay in the group, within the 1 s grace) | Shown first against the 0.8.0 runner under Node 22.22.2. A `/bin/sh` wrapper that backgrounds `sleep 300` and records its pid was run with a 400 ms `AbortSignal.timeout`. The runner rejected with `AbortError`, and the grandchild was still alive 1.5 s later. The new tests run the same wrapper through the 0.8.1 runner (the grandchild is gone within 5 s), and a Node child process that exits mid-command leaves no grandchild behind. Windows keeps the direct-child behavior, a documented limit. |
 
 ### Headless SDK host: the tracker after `/cd` (Copilot CLI 1.0.93, no model calls)
 
@@ -906,12 +906,32 @@ with `ADRKIT_CLI` set to the worktree's built `packages/cli/dist/index.js`
   only there.
 - A wide change against a real Windows command line. The 24 KiB budget is
   reasoned from Windows' 32,767-character limit and a UTF-8 byte count, never
-  smaller than the UTF-16 count, not measured on Windows.
-- How Copilot ends the extension process (closing its stdio, or a signal).
-  The exit sweep runs on a normal exit or `process.exit()`; a stop by an
-  unhandled signal skips Node's `exit` event, so a process group still running
-  then would not be swept. Unmeasured.
+  smaller than the UTF-16 count, not measured on Windows. The 8 KiB of slack
+  covers Windows quoting unless a batch holds more than about 4,000 paths that
+  each contain a space or quote (each adds at least two characters). Very
+  short space-bearing paths could exceed the limit; the result is an
+  `args-too-long` usage error, not a silent miss.
+- Which mechanism Copilot uses to end an extension on `disconnect` and
+  `client.stop()` (closing its stdio or a signal). Round 1 (below) measured
+  the outcome, that running groups end either way, not the mechanism.
 - All four changes in the Copilot app: unmeasured in the Copilot app.
+
+### Round 1 fixes (2026-10-09, after review)
+
+Spend: **0 AI credits**. No prompt was sent, and the workflow was not run
+live.
+
+| # | Finding | Evidence |
+| --- | --- | --- |
+| R1 | The capped Judge prompt named a bare `git diff --name-only`, which prints nothing for committed work | `test/batching.test.ts` pins the hint per mode: `git diff --name-only <base>...HEAD`, `git diff --name-only HEAD` in the fallback, and "supplied by the caller (N files)" for explicit `files`. A path that declared the decision is listed first even when it sorts past position 200, directly and through the workflow. All six failed before the fix. |
+| R2 | Session-start batches kept running after the deadline | A counting fake with about six 40 ms batches and a 60 ms deadline. Five calls started before the fix; now no call starts after the deadline and the one in flight is aborted. |
+| R3 | `detached` groups survived a stop of the extension | Headless SDK host on Copilot CLI 1.0.93 (`scratchpad/expand/E-probe/m2/host-stop.mjs`). `ADRKIT_CLI` was a shell script that records its pid, backgrounds `sleep 300`, and waits. `adr_lint` was started, then the extension process (the `copilot … extension_bootstrap.mjs` parent of the script) was sent SIGTERM, or the host ran `session.disconnect()` and `client.stop()`. With the pre-fix plugin (e82b372) the script and its `sleep` were both alive afterwards, in both modes. With the fix, both were gone, in both modes. A Node-run test (`test/run-command.test.ts`) self-signals SIGTERM with a group running: the grandchild ends and the process still dies of SIGTERM. A second asserts that no signal listener remains once no group is tracked. |
+| R4 | Unbounded calls | Every command now has a 120 s ceiling (`COMMAND_CEILING_MS`), unit-tested with a short ceiling. |
+| R5 | Bookkeeping: SIGKILL after the group was gone, a group untracked while a member lived, repeated SIGTERM on overflow | Unit tests with a fake `kill` whose signal-0 probe is scripted. |
+| R6 | The timeout test ran under Bun, not Node | `test/run-command.test.ts` runs the timeout through `node` against a node shim that starts a node grandchild. The same shim against the 0.8.0 runner left the grandchild alive (`scratchpad/expand/E-red/round1/l4-old.log`). |
+| R7 | Fixed messages named the wrong program | Rejections carry `tool` (`git` or `adr`) and, for ENOENT, `missing` (`cwd` or `command`); messages are chosen by those codes. Unit-tested, including a real spawn into a missing directory. |
+| R8 | Merged reports were unmarked, with findings in batch order | `batches: N` on merged reports only. Findings are sorted with core's `sortFindings` key, and a test compares against core's own function. |
+| R9 | `show_review` matched a capped result on its first 200 paths and count | Workflow results carry `filesDigest`. A result that shares the first 200 paths and the total but differs later is refused, and the matching digest is accepted. |
 
 ## Verdict
 

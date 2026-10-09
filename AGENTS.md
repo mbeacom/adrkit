@@ -576,8 +576,10 @@ will usually be a regression:
   `onUserPromptSubmitted` with `source: "new"`. It races a 5 s deadline, because
   its sequential calls (up to two `git diff`s, then one `adr check` per
   batch of a wide diff) could otherwise hold the first prompt for 15 s or
-  more; a wide diff's later batches keep running after the deadline, each
-  still under its own 5 s limit and the two-at-a-time cap.
+  more. When the deadline wins, the hook aborts the call in flight and starts
+  no further batch: nobody reads that summary, and a 40,000-path diff would
+  otherwise keep one hook slot busy for minutes (found in review; a counting
+  test pins it).
 - **The edit tools are the ones the runtime classifies as edits**: `edit` and
   `create` (`{ path }`, absolute in session logs), `str_replace` (`edit`'s
   shape), `str_replace_editor` only when `command` is `create`, `str_replace`,
@@ -609,13 +611,30 @@ will usually be a regression:
   - A timeout or abort ends the whole process tree on POSIX. The shared
     `runCommand` in `review.mjs` (the one runner the workflow, canvas, tools,
     and hooks all use; there are no copies) spawns with stdin ignored and
-    `detached`, then signals the group: SIGTERM, then SIGKILL after an
-    unref'd 1 s grace, ESRCH ignored. Signalling only the child left a
-    grandchild behind a version-manager shim running (shown by running the
-    0.8.0 runner against a shell wrapper; a test now asserts the grandchild is
-    gone). Groups still running at a normal extension exit are killed from an
-    `exit` listener. On Windows the signal goes to `spawn`, which ends the
-    direct child only: a stated limit, not fixed.
+    `detached`, then signals the group once: SIGTERM, then SIGKILL after an
+    unref'd 1 s grace, skipped if a signal-0 probe already shows the group
+    gone. Signalling only the child left a grandchild behind a
+    version-manager shim running (shown against the 0.8.0 runner with a shell
+    wrapper and with a node shim; Node-run tests now assert the grandchild is
+    gone). A descendant that calls `setsid` itself leaves the group and is
+    out of reach.
+  - Detached groups must not outlive the extension, and `detached` alone made
+    them do so: measured on 1.0.93 in a headless SDK host, both a SIGTERM to
+    the extension process and a plain `disconnect` + `client.stop()` left the
+    child and its grandchild running before the fix, and ended both after it.
+    So a group stays tracked until a probe says it is gone (not merely until
+    its leader closes), an `exit` listener SIGKILLs tracked groups, and while
+    any group is tracked, listeners for SIGTERM, SIGINT, and SIGHUP do the
+    same, remove themselves, and re-raise the signal so its default action
+    still ends the process. With no group tracked no listener exists, so the
+    extension's own signal behavior is unchanged; if the host added its own
+    listener for that signal, the signal is not re-raised.
+  - Every command has a 120 s ceiling (`COMMAND_CEILING_MS`). The callers'
+    own limits are shorter, so it only bounds calls that had none: the
+    workflow, the page's own refresh, and the tools. It ends the group and
+    rejects with a `TimeoutError`.
+  - On Windows the signal goes to `spawn`, which ends the direct child only:
+    a stated limit, not fixed.
 - **One join retry ladder serves the hooks and the tools**: without `hooks`,
   without `tools`, without both, without `canvases` alone, then the workflow
   alone (at most six joins; `onEvent` is never dropped). It rethrows the
@@ -672,13 +691,23 @@ app. Measured, and easy to break:
   CLI takes paths as arguments only (no stdin or file list), so a wide diff
   can exceed Windows' ~32 KiB command line. `checkInBatches` splits paths at
   about 24 KiB of argv and merges the reports (decisions by record id, sorted;
-  findings concatenated with exact duplicates dropped; highest exit;
-  `markerScan` dropped, because per-call scan counts do not add up). One batch
-  returns the CLI's result untouched. Echoed lists stop at 200 paths with a
-  `filesOmitted` count. The canvas keeps the **full** list in memory for its
-  fingerprint and compares a capped review result against it with
-  `sameFileSet`; comparing a capped result with the full list would drop every
+  findings deduplicated and sorted with core's `sortFindings` key, restated
+  and pinned against core by a test; highest exit; `markerScan` dropped,
+  because per-call scan counts do not add up; `batches: N` added). One batch
+  returns the CLI's result untouched, so `batches` marks the merged shape.
+  ADR-0022's declaration caps apply per call. Echoed lists stop at 200 paths
+  with a `filesOmitted` count and, in the workflow result, a `filesDigest`
+  (SHA-256 of the full sorted list). The canvas keeps the **full** list in
+  memory and compares a capped result with `sameFileSet`, by digest when
+  there is one; comparing a capped result with the full list would drop every
   wide-change review as stale (pinned in `test/batching.test.ts`).
+- **A capped Judge prompt must say how to see the rest.** A bare
+  `git diff --name-only` prints nothing for committed work, so a Judge shown
+  200 unrelated paths answered from what it could see (found in review). The
+  prompt lists the paths whose markers declared the decision first, then
+  names the range the run collected (`git diff --name-only <base>...HEAD`, or
+  `HEAD` in the fallback); for explicit `files` it says the caller supplied
+  the list, with its count. One test per mode pins the hint.
 - **Results never carry exception text or a writing command.** Rejections and
   spawn failures return fixed messages chosen by code (CodeQL
   `js/stack-trace-exposure`). CLI stderr is returned only on exit `2`, capped

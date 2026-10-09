@@ -7,7 +7,8 @@
  * - `onSessionStart` adds a one-paragraph summary of the decisions that govern
  *   the session's changed files: up to two `git diff`s and one
  *   `adr check --json` per batch of paths (one for any diff that fits a
- *   command line), no model call. Measured on Copilot CLI 1.0.93 (headless SDK host): a plugin
+ *   command line), no model call. Once its deadline wins, the call in flight
+ *   is aborted and no further batch starts. Measured on Copilot CLI 1.0.93 (headless SDK host): a plugin
  *   extension joins after `session.start`, and the hook fires with the first
  *   prompt (`source: "new"`, after `userPromptSubmitted`), not at load.
  * - `onPostToolUse`, after an edit tool, adds a note naming the accepted

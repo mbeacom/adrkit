@@ -173,8 +173,8 @@ blocked nothing"), and tells the agent to check the change it just made.
     deadline continues in the background, each call still bounded by its own
     5 s timeout, so it ends within about 15 s. (Since plugin 0.8.1, a diff too
     wide for one command line runs one `adr check` per batch of about 24 KiB
-    of paths, each bounded the same way, so a wide diff's background work can
-    run 5 s longer per extra batch.)
+    of paths, and once the deadline wins the hook aborts the call in flight
+    and starts no further batch.)
   - The post-edit note races its checks against a 2 s deadline. Past it the
     note is skipped for that edit, and the checks keep running and fill the
     cache, so the next edit of the file is told. A tool result is held at most
@@ -412,10 +412,12 @@ shared `runCommand` passed the signal to `execFile`, and an `adr` behind a
 version-manager shim that spawns the real `node` as a grandchild kept running
 after the hook had given up. Since plugin 0.8.1 the shared runner spawns the
 child in its own process group on POSIX and signals the group (SIGTERM, then
-SIGKILL after a one-second grace), so the time bounds above hold for every
-descendant there; a group still running when the extension exits normally is
-killed then. On Windows the runner still ends the direct child only, so there
-the bounds remain on the hook's wait, not on every descendant process.
+SIGKILL after a one-second grace), so the time bounds above hold, within that
+grace, for descendants that stay in the group; one that calls `setsid` itself
+leaves it. A group still running when the extension exits normally, or is
+stopped by SIGTERM, SIGINT, or SIGHUP, is killed then. On Windows the runner
+still ends the direct child only, so there the bounds remain on the hook's
+wait, not on every descendant process.
 
 `onSessionStart` runs before the first model call, so its 0.1 s is added to
 the first prompt's latency, and each first edit of a path waits for one

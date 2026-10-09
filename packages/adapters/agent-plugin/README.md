@@ -246,9 +246,13 @@ The workflow reviews the session's current directory, and follows it after
 `/cd`. A wide change is checked in batches of about 24 KiB of arguments per
 `adr check` call, because the CLI takes paths only as arguments and Windows
 caps a command line at about 32 KiB. The result lists at most 200 changed
-paths and counts the rest in `filesOmitted`. Its `notes` are fixed messages
-that never repeat the CLI's stderr or an exception's text: when one says
-`adr lint` or `adr check` failed, run that command to see why.
+paths, counts the rest in `filesOmitted`, and carries `filesDigest`, a SHA-256
+of the full sorted list, when it caps. Each Judge is shown the paths that
+declared its decision first, and told the exact `git diff --name-only` range
+for the rest. Its `notes` are fixed messages that never repeat the CLI's
+stderr or an exception's text: when one says `adr lint` or `adr check` failed,
+run that command to see why. Any single `git` or `adr` call it makes is ended
+after 120 seconds.
 
 ### Run it
 
@@ -460,9 +464,11 @@ read-only.
 **Working directory.** A tool call carries no directory, so the tools start in
 the extension's directory and follow the session when it moves (`/cd`), which
 the extension's own `process.cwd()` does not. The `adr-review` workflow follows
-the same tracker. In `base` mode, `adr_check` checks a wide diff in batches and
-lists at most 200 changed paths, counting the rest in `filesOmitted` (and in
-`report.changedFilesOmitted`).
+the same tracker. `adr_check` checks a wide change in batches, from `paths` or
+from `base`, and lists at most 200 changed paths, counting the rest in
+`filesOmitted` (and in `report.changedFilesOmitted`). A report merged from
+several batches carries `batches` and no `markerScan`. A call is ended after
+120 seconds.
 
 **Where they exist.** Copilot only: Claude Code and opencode do not load Copilot
 extensions, and the skill and commands keep using the CLI on every host. The
@@ -512,7 +518,8 @@ or a ULID); anything else, including a namespaced reference such as
   timed out.
 - On macOS and Linux, a timeout stops the whole process group the hook
   started, including a grandchild that a version-manager shim may start for
-  `adr`. On Windows it stops only the process the hook started.
+  `adr`, and the session-start summary stops starting work once its deadline
+  passes. On Windows a timeout stops only the process the hook started.
 
 **Turn them off** with `ADRKIT_HOOKS=0` (or `false`, `off`, `no`) in the
 environment Copilot starts from. In the headless SDK host on Copilot CLI
