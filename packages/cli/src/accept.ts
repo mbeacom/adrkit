@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { acceptAdrSource, Identity, type Finding } from '@adrkit/core';
+import { acceptAdrSource, isWritableIdentity, type Finding } from '@adrkit/core';
 import { commandOptions, renderGlobalColorUsageLine, withGlobalColorOption } from './command-registry.ts';
 import { formatUsageError } from './errors.ts';
 import { getPresentation, type StreamStyle } from './presentation.ts';
@@ -104,8 +104,10 @@ export async function runAccept(args: string[]): Promise<number> {
   if (by === '') {
     return usageError('adr accept requires --by <identity>: the human ratifying this decision. It is never inferred.');
   }
-  if (!Identity.safeParse(by).success) {
-    return usageError(`Invalid --by value "${by}". Expected @handle, team:slug, or an email address.`);
+  if (!isWritableIdentity(by)) {
+    return usageError(
+      `Invalid --by value ${JSON.stringify(by)}. Expected @handle, team:slug, or an email address. It may contain no control or invisible characters.`,
+    );
   }
 
   const target = await resolveWriteTarget(rawId, String(parsed.values.dir), { usageError, refusal });

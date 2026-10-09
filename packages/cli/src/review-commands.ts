@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import {
   approveAdrSource,
-  Identity,
+  isWritableIdentity,
   MAX_OBJECTION_SUMMARY_LENGTH,
   objectAdrSource,
   objectionSummaryProblem,
@@ -60,7 +60,8 @@ Arguments:
 
 Options:
   --by <identity>     Required. The objector: @handle, team:slug, or email
-  --summary <text>    Required. One line, at most ${MAX_OBJECTION_SUMMARY_LENGTH} characters
+  --summary <text>    Required. One line, at most ${MAX_OBJECTION_SUMMARY_LENGTH} characters;
+                      write --summary=-text for a summary that starts with -
   --dir <path>        ADR corpus directory (default: docs/adr)
   --json              Emit { id, path, by, changed, objection } as JSON
 ${renderGlobalColorUsageLine()}
@@ -163,7 +164,7 @@ async function run(command: Command, args: string[]): Promise<number> {
       allowPositionals: true,
       strict: true,
       options: {
-        by: { type: 'string' },
+        by: { type: 'string', multiple: true },
         dir: { type: 'string', default: 'docs/adr' },
         json: { type: 'boolean', default: false },
         ...command.options,
@@ -185,12 +186,18 @@ async function run(command: Command, args: string[]): Promise<number> {
     );
   }
   const rawId = String(parsed.positionals[0]);
-  const by = parsed.values.by === undefined ? '' : String(parsed.values.by);
+  const byValues = (parsed.values.by as string[] | undefined) ?? [];
+  if (byValues.length > 1) {
+    return usageError(`--by was given more than once; adr ${command.name} records one person's review.`);
+  }
+  const by = byValues[0] ?? '';
   if (by === '') {
     return usageError(`adr ${command.name} requires --by <identity>: the person whose review this is. It is never inferred.`);
   }
-  if (!Identity.safeParse(by).success) {
-    return usageError(`Invalid --by value "${by}". Expected @handle, team:slug, or an email address.`);
+  if (!isWritableIdentity(by)) {
+    return usageError(
+      `Invalid --by value ${JSON.stringify(by)}. Expected @handle, team:slug, or an email address. It may contain no control or invisible characters.`,
+    );
   }
   const invalid = command.validate(parsed.values);
   if (invalid) return usageError(invalid);
@@ -243,8 +250,8 @@ const APPROVE: Command = {
         content: result.content,
         extra: { approvals: result.approvals },
         verb: 'approved',
-        detail: `by ${by}; ${result.approvals} approval(s) recorded`,
-        noop: `The record already has an approval from ${by}.`,
+        detail: `by ${cleanText(by)}; ${result.approvals} approval(s) recorded`,
+        noop: `The record already has an approval from ${cleanText(by)}.`,
       },
     };
   },
@@ -267,8 +274,8 @@ const OBJECT: Command = {
         content: result.content,
         extra: { objection: result.objection },
         verb: 'objected',
-        detail: `objection ${result.objection} raised by ${by}; adr accept refuses until it is resolved`,
-        noop: `The record already has this open objection from ${by} (objection ${result.objection}).`,
+        detail: `objection ${result.objection} raised by ${cleanText(by)}; adr accept refuses until it is resolved`,
+        noop: `The record already has this open objection from ${cleanText(by)} (objection ${result.objection}).`,
       },
     };
   },
@@ -298,7 +305,7 @@ const RESOLVE: Command = {
         content: result.content,
         extra: { objection },
         verb: 'resolved',
-        detail: `objection ${objection}, by its objector ${by}`,
+        detail: `objection ${objection}, by its objector ${cleanText(by)}`,
         noop: `Objection ${objection} is already resolved.`,
       },
     };

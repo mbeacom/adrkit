@@ -130,7 +130,7 @@ export function acceptAdrSource(input: AcceptAdrInput): AcceptAdrResult {
   if (!isWritableIdentity(input.by)) {
     return refuse(
       'invalid-identity',
-      `${JSON.stringify(input.by)} is not an identity this command writes. Expected @handle, team:slug, or an email address, with no control or invisible characters.`,
+      `${JSON.stringify(input.by)} is not an identity this command writes. Expected @handle, team:slug, or an email address. It may contain no control or invisible characters.`,
     );
   }
   if (!RFC3339_SECONDS.test(input.decidedAt) || Number.isNaN(Date.parse(input.decidedAt))) {

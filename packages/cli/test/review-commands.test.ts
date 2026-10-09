@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -93,6 +93,9 @@ describe('adr approve, adr object, adr resolve', () => {
     const path = recordFile(root, '0005');
     const before = readFileSync(path, 'utf8');
 
+    // Backdate the file, so a rewrite of identical bytes would still show.
+    utimesSync(path, new Date('2020-01-01T00:00:00Z'), new Date('2020-01-01T00:00:00Z'));
+    const mtime = statSync(path).mtimeMs;
     const approved = await runAdr(['approve', '0005', '--by', '@alice'], root);
     expect(approved.exitCode).toBe(0);
     expect(approved.stdout).toContain('already has an approval from @alice');
@@ -100,13 +103,17 @@ describe('adr approve, adr object, adr resolve', () => {
     expect(resolved.exitCode).toBe(0);
     expect(JSON.parse(resolved.stdout)).toMatchObject({ changed: false });
     expect(readFileSync(path, 'utf8')).toBe(before);
+    expect(statSync(path).mtimeMs).toBe(mtime);
 
     expect((await runAdr(['object', '0005', '--by', '@erin', '--summary', 'Same concern'], root)).exitCode).toBe(0);
     const once = readFileSync(path, 'utf8');
+    utimesSync(path, new Date('2020-01-01T00:00:00Z'), new Date('2020-01-01T00:00:00Z'));
+    const objectedAt = statSync(path).mtimeMs;
     const again = await runAdr(['object', '0005', '--by', '@erin', '--summary', 'Same concern'], root);
     expect(again.exitCode).toBe(0);
     expect(again.stdout).toContain('already has this open objection');
     expect(readFileSync(path, 'utf8')).toBe(once);
+    expect(statSync(path).mtimeMs).toBe(objectedAt);
   });
 
   test('refusals exit 1 and leave the file untouched', async () => {
@@ -168,6 +175,9 @@ describe('adr approve, adr object, adr resolve', () => {
       [['resolve', '0005', '--objection', '1e0', '--by', '@dave'], 'positive whole number'],
       [['resolve', '0005', '--objection', '2'], 'It is never inferred.'],
       [['resolve', '0005', '0006', '--objection', '2', '--by', '@dave'], 'exactly one ADR id'],
+      [['approve', '0005', '--by', '@bob', '--by', '@carol'], 'more than once'],
+      [['approve', '0005', '--by', 'x\u001b[31m@c.de'], 'no control or invisible characters'],
+      [['object', '0005', '--by', '@bob', '--summary', 'rtl \u202e evil'], 'no control or invisible characters'],
     ];
     for (const [args, message] of cases) {
       const result = await runAdr(args, root);
@@ -199,5 +209,25 @@ describe('adr approve, adr object, adr resolve', () => {
     expect(result.stdout).toContain('Evil');
     expect(result.stdout).not.toContain('\u001b');
     expect(result.stdout).not.toContain('\u0007');
+  });
+
+  test('one reviewer under two spellings is one approval, and does not meet quorum', async () => {
+    const root = sandbox();
+    const path = recordFile(root, '0008');
+    writeFileSync(path, readFileSync(path, 'utf8').replace('deciders: ["@alice"]\n', 'deciders: ["@alice"]\nreview:\n  quorum: 2\n'));
+    expect((await runAdr(['approve', '0008', '--by', '@bob'], root)).exitCode).toBe(0);
+    const after = readFileSync(path, 'utf8');
+    const again = await runAdr(['approve', '0008', '--by', '@Bob', '--json'], root);
+    expect(again.exitCode).toBe(0);
+    expect(JSON.parse(again.stdout)).toMatchObject({ changed: false, approvals: 1 });
+    expect(readFileSync(path, 'utf8')).toBe(after);
+    expect((await queueItem(root, '0008')).approvalCount).toBe(1);
+
+    // Even a hand-edited second spelling counts once, in the queue and in accept.
+    writeFileSync(path, after.replace('    - "@bob"\n', '    - "@bob"\n    - "@Bob"\n'));
+    expect((await queueItem(root, '0008')).approvalCount).toBe(1);
+    const accept = await runAdr(['accept', '0008', '--by', '@alice'], root);
+    expect(accept.exitCode).toBe(1);
+    expect(accept.stderr).toContain('1 of 2 required approval(s)');
   });
 });
