@@ -36,9 +36,12 @@ minor release rather than a patch:
   characters** with exit `2`, where the schema's email form would previously
   have admitted one.
 
-`@adrkit/core` adds runtime exports (`approveAdrSource`, `objectAdrSource`,
-`resolveObjectionAdrSource`, `objectionSummaryProblem`, and
-`MAX_OBJECTION_SUMMARY_LENGTH`); none is removed or renamed.
+`@adrkit/core` adds nine runtime exports: the review transitions
+(`approveAdrSource`, `objectAdrSource`, `resolveObjectionAdrSource`,
+`objectionSummaryProblem`, and `MAX_OBJECTION_SUMMARY_LENGTH`) and the identity
+helpers they share with `adr accept` and the queue (`identityKey`,
+`sameIdentity`, `distinctIdentityCount`, and `isWritableIdentity`). None is
+removed or renamed.
 
 ### Added
 
