@@ -270,27 +270,22 @@ describe('running the CLI', () => {
 
 describe('working directory', () => {
   test('starts at the initial directory and follows session.context_changed', () => {
-    const handlers: Array<[string, (event: unknown) => void]> = [];
-    const session = { on: (type: string, handler: (event: unknown) => void) => void handlers.push([type, handler]) };
     const tracker = trackWorkingDirectory('/start');
     expect(tracker.get()).toBe('/start');
-    tracker.attach(session);
-    expect(handlers.map(([type]) => type)).toEqual(['session.context_changed']);
-    handlers[0]?.[1]({ type: 'session.context_changed', data: { cwd: '/moved' } });
+    tracker.observe({ type: 'session.context_changed', data: { cwd: '/moved' } });
     expect(tracker.get()).toBe('/moved');
   });
 
-  test('ignores a malformed or relative cwd', () => {
-    const handlers: Array<(event: unknown) => void> = [];
+  test('ignores other events and a malformed or relative cwd', () => {
     const tracker = trackWorkingDirectory('/start');
-    tracker.attach({ on: (_type: string, handler: (event: unknown) => void) => void handlers.push(handler) });
-    handlers[0]?.({ data: { cwd: 42 } });
-    handlers[0]?.({ data: { cwd: 'relative/dir' } });
-    handlers[0]?.({ data: null });
-    handlers[0]?.(undefined);
+    tracker.observe({ type: 'session.tools_updated', data: { cwd: '/elsewhere' } });
+    tracker.observe({ type: 'session.context_changed', data: { cwd: 42 } });
+    tracker.observe({ type: 'session.context_changed', data: { cwd: 'relative/dir' } });
+    tracker.observe({ type: 'session.context_changed', data: null });
+    tracker.observe(undefined);
     expect(tracker.get()).toBe('/start');
     // Still live: a well-formed event after the bad ones is followed.
-    handlers[0]?.({ data: { cwd: '/after' } });
+    tracker.observe({ type: 'session.context_changed', data: { cwd: '/after' } });
     expect(tracker.get()).toBe('/after');
   });
 });
@@ -298,16 +293,25 @@ describe('working directory', () => {
 describe('register with tools', () => {
   type Reject = (config: Record<string, unknown>, attempt: number) => boolean;
   const never: Reject = () => false;
-  function fakes({ toolsThrow = false, reject = never }: { toolsThrow?: boolean; reject?: Reject } = {}) {
+  function fakes({
+    toolsThrow = false,
+    workflowThrows = false,
+    reject = never,
+    duringJoin,
+  }: { toolsThrow?: boolean; workflowThrows?: boolean; reject?: Reject; duringJoin?: (config: Record<string, unknown>) => void } = {}) {
     const joined: Array<Record<string, unknown>> = [];
     const logged: string[] = [];
-    const attached: unknown[] = [];
+    const observed: unknown[] = [];
     const session = { log: async (message: string) => void logged.push(message) };
     const deps = {
-      defineWorkflow: (definition: unknown) => ({ kind: 'workflow', definition }),
+      defineWorkflow: (definition: unknown) => {
+        if (workflowThrows) throw new Error('bad workflow');
+        return { kind: 'workflow', definition };
+      },
       createCanvas: (options: unknown) => ({ kind: 'canvas', options }),
       joinSession: async (config: Record<string, unknown>) => {
         joined.push(config);
+        duringJoin?.(config);
         if (reject(config, joined.length)) throw new Error(`refused attempt ${joined.length}`);
         return session;
       },
@@ -317,20 +321,44 @@ describe('register with tools', () => {
         if (toolsThrow) throw new Error('bad tools');
         return [{ name: 'adr_check' }];
       },
-      onJoined: (joinedSession: unknown) => void attached.push(joinedSession),
+      onEvent: (event: unknown) => void observed.push(event),
     };
-    return { deps, joined, logged, attached, session };
+    return { deps, joined, logged, observed, session };
   }
 
-  test('joins once with the workflow, the canvas, and the tools', async () => {
-    const { deps, joined, logged, attached, session } = fakes();
+  test('joins once with the workflow, the canvas, the tools, and an event handler', async () => {
+    const { deps, joined, logged } = fakes();
     await register(deps);
     expect(joined.length).toBe(1);
     expect((joined[0]?.['workflows'] as unknown[]).length).toBe(1);
     expect((joined[0]?.['canvases'] as unknown[]).length).toBe(1);
     expect(joined[0]?.['tools']).toEqual([{ name: 'adr_check' }]);
-    expect(attached).toEqual([session]);
+    expect(typeof joined[0]?.['onEvent']).toBe('function');
     expect(logged).toEqual([]);
+  });
+
+  test('a directory change delivered during the join is not lost', async () => {
+    // The SDK registers `onEvent` before it issues the join RPC (measured on
+    // 1.0.93: events such as session.tools_updated arrive through it before
+    // joinSession resolves), so nothing between the RPC and the join is dropped.
+    const tracker = trackWorkingDirectory('/start');
+    const { deps } = fakes({
+      duringJoin: (config) =>
+        (config['onEvent'] as (event: unknown) => void)({ type: 'session.context_changed', data: { cwd: '/moved-early' } }),
+    });
+    await register({ ...deps, onEvent: tracker.observe });
+    expect(tracker.get()).toBe('/moved-early');
+  });
+
+  test('a throwing event handler never reaches the SDK', async () => {
+    const { deps, joined } = fakes();
+    await register({
+      ...deps,
+      onEvent: () => {
+        throw new Error('handler bug');
+      },
+    });
+    expect(() => (joined[0]?.['onEvent'] as (event: unknown) => void)({ type: 'x' })).not.toThrow();
   });
 
   test('a throwing tools factory leaves the workflow and the canvas registered, and is reported', async () => {
@@ -343,7 +371,16 @@ describe('register with tools', () => {
     expect(logged.join('\n')).toContain('adrkit tools');
   });
 
-  test('a join the runtime refuses because of the tools is retried without them', async () => {
+  test('a throwing workflow factory still joins with the canvas and the tools', async () => {
+    const { deps, joined, logged } = fakes({ workflowThrows: true });
+    await register(deps);
+    expect(joined.length).toBe(1);
+    expect(joined[0]?.['workflows']).toBeUndefined();
+    expect(joined[0]?.['tools']).toEqual([{ name: 'adr_check' }]);
+    expect(logged.join('\n')).toContain('bad workflow');
+  });
+
+  test('a join the runtime refuses is retried without the tools, and the log says what was dropped', async () => {
     // Measured: an invalid tool definition rejects the whole join.
     const { deps, joined, logged } = fakes({ reject: (config) => Boolean(config['tools']) });
     await register(deps);
@@ -351,15 +388,21 @@ describe('register with tools', () => {
     expect(joined[1]?.['tools']).toBeUndefined();
     expect((joined[1]?.['workflows'] as unknown[]).length).toBe(1);
     expect((joined[1]?.['canvases'] as unknown[]).length).toBe(1);
-    expect(logged.join('\n')).toContain('adrkit tools');
+    expect(logged.length).toBe(1);
+    expect(logged[0]).toContain('joined without the adrkit tools');
+    expect(logged[0]).toContain('refused attempt 1');
   });
 
-  test('when the join without tools is refused too, the workflow alone is registered', async () => {
+  test('when the join without tools is refused too, the workflow alone is registered, and the canvas is not blamed alone', async () => {
     const { deps, joined, logged } = fakes({ reject: (_config, attempt) => attempt < 3 });
     await register(deps);
     expect(joined.length).toBe(3);
-    expect(Object.keys(joined[2] ?? {})).toEqual(['workflows']);
-    expect(logged.join('\n')).toContain('decision-review canvas');
+    expect(Object.keys(joined[2] ?? {}).sort()).toEqual(['onEvent', 'workflows']);
+    expect(logged.length).toBe(1);
+    expect(logged[0]).toContain('joined without the adrkit tools and the decision-review canvas');
+    expect(logged[0]).not.toContain('failed to register the adrkit tools: the session refused');
+    expect(logged[0]).toContain('refused attempt 1');
+    expect(logged[0]).toContain('refused attempt 2');
   });
 
   test('never more than three joins, and the last refusal surfaces', async () => {
@@ -367,16 +410,131 @@ describe('register with tools', () => {
     await expect(register(deps)).rejects.toThrow('refused attempt 3');
     expect(joined.length).toBe(3);
   });
+});
 
-  test('a throwing onJoined does not take the session down, and is reported', async () => {
-    const { deps, logged, session } = fakes();
-    const result = await register({
-      ...deps,
-      onJoined: () => {
-        throw new Error('no events');
-      },
+describe('fix round 1', () => {
+  test('the scrub catches a newline, a tab, and format characters between adr and the subcommand', async () => {
+    for (const title of ['run adr\naccept 0001', 'run adr\taccept 0001', 'run adr​accept 0001', 'adr ⁠﻿ new X', 'adr\r\n migrate', 'adr‍­migrate']) {
+      const report = { governedBy: [{ recordId: '0001', title }] };
+      const { invoke } = toolsWith({ answers: { explain: { stdout: JSON.stringify(report), exitCode: 0 } } });
+      const result = await invoke('adr_explain', { path: 'src/x.ts' });
+      const decoded = JSON.stringify(JSON.parse(result.textResultForLlm));
+      const plain = (JSON.parse(result.textResultForLlm).report.governedBy[0].title as string).replace(/[\p{Cf}]/gu, '');
+      expect({ title, hit: /\badr\s+(?:accept|new|migrate)\b/i.test(plain) }).toEqual({ title, hit: false });
+      expect(decoded).not.toMatch(/adr(?:\\[nrt]|\s|\\u[0-9a-f]{4})+(?:accept|new|migrate)/i);
+    }
+  });
+
+  test('redactWritingCommands handles the tolerant forms directly', () => {
+    expect(redactWritingCommands('adr\naccept')).not.toMatch(/accept/);
+    expect(redactWritingCommands('adr​new')).not.toMatch(/\bnew\b/);
+  });
+
+  test('a crashing CLI returns a fixed message and its exit code, never its stack', async () => {
+    const { invoke } = toolsWith({
+      answers: { lint: { stdout: '', stderr: 'Error: boom\n    at /Users/me/x.js:1:1\n    at node:internal/main', exitCode: 1 } },
     });
-    expect(result).toBe(session);
-    expect(logged.join('\n')).toContain('working-directory tracking');
+    const result = await invoke('adr_lint', {});
+    expect(result.resultType).toBe('failure');
+    const payload = JSON.parse(result.textResultForLlm);
+    expect(payload.exitCode).toBe(1);
+    expect(payload.stderr).toBeUndefined();
+    expect(result.textResultForLlm).not.toContain('boom');
+    expect(result.textResultForLlm).not.toContain('/Users/me');
+  });
+
+  test('another exit code (a signal-like 134) is a fixed failure without stderr', async () => {
+    const { invoke } = toolsWith({ answers: { lint: { stdout: '', stderr: 'Abort trap /secret', exitCode: 134 } } });
+    const result = await invoke('adr_lint', {});
+    expect(result.resultType).toBe('failure');
+    expect(JSON.parse(result.textResultForLlm)).toMatchObject({ exitCode: 134 });
+    expect(result.textResultForLlm).not.toContain('/secret');
+  });
+
+  test('exit 2 stderr is capped at about 2 KB and loses stack-frame lines', async () => {
+    const stderr = `Error: usage\n    at /Users/me/cli.js:9:9\n${'x'.repeat(5000)}`;
+    const { invoke } = toolsWith({ answers: { lint: { stdout: '', stderr, exitCode: 2 } } });
+    const payload = JSON.parse((await invoke('adr_lint', {})).textResultForLlm);
+    expect(payload.stderr).toContain('Error: usage');
+    expect(payload.stderr).not.toContain('/Users/me');
+    expect(payload.stderr.length).toBeLessThanOrEqual(2049);
+  });
+
+  test('exit 0 with non-JSON output is a fixed no-report failure', async () => {
+    const { invoke } = toolsWith({ answers: { lint: { stdout: 'checked 2 records', stderr: 'warn /home/x', exitCode: 0 } } });
+    const result = await invoke('adr_lint', {});
+    expect(result.resultType).toBe('failure');
+    const payload = JSON.parse(result.textResultForLlm);
+    expect(payload).toMatchObject({ tool: 'adr_lint', exitCode: 0, error: 'no-report' });
+    expect(result.textResultForLlm).not.toContain('/home/x');
+  });
+
+  const rejectedR1: Array<[string, unknown, string]> = [
+    ['drive-relative C:foo', { path: 'C:foo' }, 'path-absolute'],
+    ['drive-relative C:Users\\x', { path: 'C:Users\\x' }, 'path-absolute'],
+    ['C1 control', { path: 'a\u0085b' }, 'path-control'],
+    ['bidi override', { path: 'a‮b' }, 'path-control'],
+    ['bidi isolate', { path: 'a⁦b' }, 'path-control'],
+    ['line separator', { path: 'a b' }, 'path-control'],
+  ];
+  for (const [name, args, code] of rejectedR1) {
+    test(`rejects ${name}`, () => {
+      const result = validateToolArgs('adr_explain', args);
+      expect({ ok: result.ok, code: (result as { code?: string }).code }).toEqual({ ok: false, code });
+    });
+  }
+
+  test('an aborted call throws a fixed cancellation, from the CLI step and from the git step', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const failing = async () => {
+      throw new Error('The operation was aborted /secret');
+    };
+    const tools = createAdrTools({ run: failing, env: {}, exists: () => true, getCwd: () => '/repo' }) as any[];
+    const lint = tools.find((tool) => tool.name === 'adr_lint');
+    const check = tools.find((tool) => tool.name === 'adr_check');
+    await expect(lint.handler({}, { signal: controller.signal })).rejects.toThrow(/^cancelled$/);
+    await expect(check.handler({ base: 'main' }, { signal: controller.signal })).rejects.toThrow(/^cancelled$/);
+  });
+
+  test('a rejection while the signal is not aborted is a fixed failure, not a cancellation', async () => {
+    const controller = new AbortController();
+    const failing = async () => {
+      throw new Error('spawn failed');
+    };
+    const [, , lint] = createAdrTools({ run: failing, env: {}, exists: () => true, getCwd: () => '/repo' }) as any[];
+    const result = await lint.handler({}, { signal: controller.signal });
+    expect(JSON.parse(result.textResultForLlm).error).toBe('cli-unavailable');
+  });
+
+  const runErrors: Array<[string, Record<string, unknown>, string]> = [
+    ['an output buffer overflow', { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' }, 'output-too-large'],
+    ['E2BIG', { code: 'E2BIG' }, 'args-too-long'],
+    ['ENAMETOOLONG', { code: 'ENAMETOOLONG' }, 'args-too-long'],
+    ['a kill by signal', { code: null, signal: 'SIGKILL', killed: true }, 'cli-killed'],
+  ];
+  for (const [name, fields, code] of runErrors) {
+    test(`${name} gets its own fixed message`, async () => {
+      const failing = async () => {
+        throw Object.assign(new Error('detail /secret'), fields);
+      };
+      const [, , lint] = createAdrTools({ run: failing, env: {}, exists: () => true, getCwd: () => '/repo' }) as any[];
+      const result = await lint.handler({}, {});
+      const payload = JSON.parse(result.textResultForLlm);
+      expect(payload.error).toBe(code);
+      expect(result.textResultForLlm).not.toContain('/secret');
+    });
+  }
+
+  test('the git message is right with and without a base', async () => {
+    const withBase = toolsWith({ git: { stdout: '', stderr: 'fatal', exitCode: 128 } });
+    const a = JSON.parse((await withBase.invoke('adr_check', { base: 'nope' })).textResultForLlm);
+    expect(a.error).toBe('git-base-unresolved');
+    expect(a.message).toContain('base');
+    const noBase = toolsWith({ git: { stdout: '', stderr: 'fatal', exitCode: 128 } });
+    const b = JSON.parse((await noBase.invoke('adr_check', {})).textResultForLlm);
+    expect(b.error).toBe('git-no-changes');
+    expect(b.message).toContain('origin/main');
+    expect(b.message).not.toContain('that base');
   });
 });

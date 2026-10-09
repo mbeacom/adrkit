@@ -14,7 +14,8 @@
  * workflow runs in the process's working directory, measured to be the
  * workspace repository under the CLI; the canvas takes its directory from each
  * request's session context instead, because the app's runtime runs from `/`.
- * The tools start from `process.cwd()` and follow `session.context_changed`,
+ * The tools start from `process.cwd()` and follow `session.context_changed`
+ * (through `onEvent`, registered before the join RPC),
  * because a tool invocation carries no directory and `process.cwd()` does not
  * move when the session's does (measured on 1.0.93).
  * Never write to stdout here: it carries the JSON-RPC connection, so progress
@@ -62,5 +63,5 @@ await register({
       exists: existsSync,
       getCwd: toolsCwd.get,
     }),
-  onJoined: (session) => toolsCwd.attach(/** @type {any} */ (session)),
+  onEvent: toolsCwd.observe,
 });

@@ -30,37 +30,50 @@ const messageOf = (error) => (error instanceof Error ? error.message : String(er
  *   workflow: () => unknown,
  *   canvas: (getSession: () => S | undefined) => unknown,
  *   tools?: () => unknown[],
- *   onJoined?: (session: S) => void,
+ *   onEvent?: (event: unknown) => void,
  * }} deps
  * @returns {Promise<S>}
  */
-export async function register({ defineWorkflow, createCanvas, joinSession, workflow, canvas, tools, onJoined }) {
+export async function register({ defineWorkflow, createCanvas, joinSession, workflow, canvas, tools, onEvent }) {
   /** @type {string[]} */
   const failures = [];
   /** @type {S | undefined} */
   let joined;
 
-  /** @type {Record<string, unknown[]>} */
+  /** @type {Record<string, unknown>} */
   const config = {};
   try {
     config['workflows'] = [defineWorkflow(workflow())];
   } catch (error) {
-    failures.push(`adr-review workflow: ${messageOf(error)}`);
+    failures.push(`failed to register the adr-review workflow: ${messageOf(error)}`);
   }
   try {
     // The canvas is built before the session exists, but needs it later for
     // `send` and `rpc.workflow`; the getter is filled in once joined.
     config['canvases'] = [createCanvas(canvas(() => joined))];
   } catch (error) {
-    failures.push(`decision-review canvas: ${messageOf(error)}`);
+    failures.push(`failed to register the decision-review canvas: ${messageOf(error)}`);
   }
 
   if (tools) {
     try {
       config['tools'] = tools();
     } catch (error) {
-      failures.push(`adrkit tools: ${messageOf(error)}`);
+      failures.push(`failed to register the adrkit tools: ${messageOf(error)}`);
     }
+  }
+
+  // Passed as `onEvent`, which the SDK registers before it issues the join
+  // RPC, so events delivered while the join is in flight reach the tools'
+  // directory tracking. A throwing handler must not reach the SDK's dispatch.
+  if (onEvent) {
+    config['onEvent'] = (/** @type {unknown} */ event) => {
+      try {
+        onEvent(event);
+      } catch {
+        // Nothing to report it through that could not itself throw here.
+      }
+    };
   }
 
   // Isolating the factories is not enough if the runtime itself refuses the
@@ -69,38 +82,42 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
   // definition rejects the whole join, which would take the workflow and the
   // canvas down with it. A runtime that does not know `canvases` (an older CLI
   // or app) would do the same, so the last attempt keeps the workflow alone.
-  /** @type {Array<{ config: Record<string, unknown[]>, dropped: string }>} */
-  const attempts = [{ config, dropped: '' }];
-  if (config['tools']) {
-    const { tools: _tools, ...withoutTools } = config;
-    attempts.push({ config: withoutTools, dropped: 'adrkit tools' });
-  }
+  // The refusal does not say which piece it was about, so the log names what
+  // was dropped and quotes the refusals, rather than blaming one piece.
+  const { tools: _tools, ...withoutTools } = config;
+  /** @type {Array<{ config: Record<string, unknown>, dropped: string[] }>} */
+  const attempts = [{ config, dropped: [] }];
+  if (config['tools']) attempts.push({ config: withoutTools, dropped: ['adrkit tools'] });
   if (config['canvases'] && config['workflows']) {
-    attempts.push({ config: { workflows: config['workflows'] }, dropped: 'decision-review canvas' });
+    const workflowOnly = { workflows: config['workflows'], ...(config['onEvent'] ? { onEvent: config['onEvent'] } : {}) };
+    attempts.push({
+      config: workflowOnly,
+      dropped: [...(config['tools'] ? ['adrkit tools'] : []), 'decision-review canvas'],
+    });
   }
+  /** @type {string[]} */
+  const refusals = [];
   for (let index = 0; ; index++) {
-    const attempt = /** @type {{ config: Record<string, unknown[]>, dropped: string }} */ (attempts[index]);
+    const attempt = /** @type {{ config: Record<string, unknown>, dropped: string[] }} */ (attempts[index]);
     try {
       joined = await joinSession(attempt.config);
+      if (refusals.length > 0) {
+        failures.push(
+          `joined without the ${attempt.dropped.join(' and the ')} after the session refused ` +
+            `${refusals.length === 1 ? 'a join' : `${refusals.length} joins`} (${refusals.join('; ')})`,
+        );
+      }
       break;
     } catch (error) {
-      const next = attempts[index + 1];
-      if (!next) throw error;
-      failures.push(`${next.dropped}: the session refused it (${messageOf(error)})`);
+      if (!attempts[index + 1]) throw error;
+      refusals.push(messageOf(error));
     }
   }
 
-  if (onJoined) {
-    try {
-      onJoined(/** @type {S} */ (joined));
-    } catch (error) {
-      failures.push(`adrkit tools' working-directory tracking: ${messageOf(error)}`);
-    }
-  }
   for (const failure of failures) {
     // Reporting must not become a second way to take the extension down.
     try {
-      await /** @type {any} */ (joined).log(`adrkit: failed to register the ${failure}`, { level: 'error' });
+      await /** @type {any} */ (joined).log(`adrkit: ${failure}`, { level: 'error' });
     } catch {
       // Nothing else can reach the user: stdout is the RPC channel.
     }

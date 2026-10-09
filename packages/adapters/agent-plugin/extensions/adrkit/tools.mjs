@@ -64,9 +64,17 @@ const MESSAGES = Object.freeze({
   'cli-unavailable':
     'The adr CLI could not be started. Install @adrkit/cli on PATH, or set ADRKIT_CLI ' +
     '(or ADRKIT_ALLOW_REPO_CLI=1 to use ./node_modules/.bin/adr) in the environment Copilot was started from.',
-  'git-unavailable':
-    'git could not list the changed files for that base. Pass paths explicitly, or a base that resolves in this repository.',
+  'git-base-unresolved':
+    'git could not list the changed files against the given base. Pass a base that resolves in this repository, or pass paths.',
+  'git-no-changes':
+    'git could not list the changed files: origin/main did not resolve here, and there are no uncommitted changes ' +
+    'against HEAD to fall back to. Pass a base that resolves in this repository, or pass paths.',
+  'output-too-large': 'adr produced more output than the tool accepts (64 MiB). Narrow the request: fewer paths, or one path at a time.',
+  'args-too-long':
+    'The command line was too long for this system. Pass fewer or shorter paths per call (a large diff from base can do this too).',
+  'cli-killed': 'The adr process was ended by a signal before it exited.',
   'no-report': 'adr exited without a readable report.',
+  'cli-failed': 'adr exited with an unexpected code and no readable report.',
 });
 
 /** @typedef {keyof typeof MESSAGES} MessageCode */
@@ -80,8 +88,13 @@ const TOOL_KEYS = Object.freeze({
   adr_lint: new Set(['dir']),
 });
 
+// C0, DEL, C1, the line and paragraph separators, and the bidi embedding,
+// override, and isolate controls: none belongs in a path, and a bidi control
+// makes a path in a report display as something it is not.
 // eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u001f\u007f]/;
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
+/** `C:foo` is drive-relative on Windows: neither absolute nor inside the repository. */
+const DRIVE = /^[A-Za-z]:/;
 const REF = /^[A-Za-z0-9._/@{}~^-]+$/;
 
 /**
@@ -96,7 +109,7 @@ function pathProblem(value) {
   if (typeof value !== 'string' || value.length === 0) return 'path-type';
   if (value.length > TOOL_LIMITS.maxPathLength) return 'path-length';
   if (CONTROL.test(value)) return 'path-control';
-  if (isAbsolute(value) || win32.isAbsolute(value) || value.startsWith('\\')) return 'path-absolute';
+  if (isAbsolute(value) || win32.isAbsolute(value) || value.startsWith('\\') || DRIVE.test(value)) return 'path-absolute';
   if (value.split(/[\\/]/).includes('..')) return 'path-escape';
   // After `--` a leading `-` is safe for adr, but `--dir` is not behind `--`,
   // and no real repository path needs one.
@@ -169,24 +182,77 @@ export function validateToolArgs(tool, raw) {
 /**
  * Tool results must never name a command that writes or ratifies a record: a
  * host model reads an example as an instruction (see the plugin's wiring test).
- * A record's own title or text can contain one, so the result is scrubbed.
- * The replacement contains no quote or backslash, so JSON stays valid.
+ * A record's own title or text can contain one, so every string in a result is
+ * scrubbed before it is serialized. Matching is tolerant: the separator is any
+ * run of whitespace (newlines and tabs included) and format characters
+ * (`\p{Cf}`: zero-width spaces and joiners, word joiner, BOM, soft hyphen,
+ * bidi marks). Scrubbing the serialized JSON instead would miss a newline,
+ * which JSON writes as the two characters `\n`.
  *
  * @param {string} text
  */
 export function redactWritingCommands(text) {
-  return text.replace(/\badr(\s+)(accept|new|migrate)\b/gi, 'adr$1[a writing command, omitted]');
+  return text.replace(/\badr[\s\p{Cf}]+(?:accept|new|migrate)\b/giu, 'adr [a writing command, omitted]');
 }
 
-/** @param {string} text */
-const clip = (text) => (text.length > 4000 ? `${text.slice(0, 4000)}…` : text);
+/**
+ * Scrub every string in a value, keys included.
+ *
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+function scrub(value) {
+  if (typeof value === 'string') return redactWritingCommands(value);
+  if (Array.isArray(value)) return value.map(scrub);
+  if (value !== null && typeof value === 'object') {
+    /** @type {Record<string, unknown>} */
+    const out = {};
+    for (const [key, entry] of Object.entries(value)) out[redactWritingCommands(key)] = scrub(entry);
+    return out;
+  }
+  return value;
+}
+
+/** Cap on the CLI stderr returned for a usage error. */
+const STDERR_LIMIT = 2048;
+
+/**
+ * The CLI's own usage-error text, without stack-frame lines and capped. Only
+ * an exit of 2 (the CLI's usage-error path) returns it; any other exit could be
+ * a crash, whose stderr is a stack with install paths.
+ *
+ * @param {string} stderr
+ */
+const usageText = (stderr) => {
+  const text = stderr
+    .split(/\r?\n/)
+    .filter((line) => !/^\s+at /.test(line))
+    .join('\n')
+    .trim();
+  return text.length > STDERR_LIMIT ? `${text.slice(0, STDERR_LIMIT)}…` : text;
+};
+
+/**
+ * Map a runner rejection to a fixed code. Only the error's `code` and
+ * `signal` fields are read, never its message.
+ *
+ * @param {unknown} error
+ * @returns {MessageCode}
+ */
+function runFailureCode(error) {
+  const fields = /** @type {{ code?: unknown, signal?: unknown }} */ (error ?? {});
+  if (fields.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return 'output-too-large';
+  if (fields.code === 'E2BIG' || fields.code === 'ENAMETOOLONG') return 'args-too-long';
+  if (typeof fields.signal === 'string' && fields.signal.length > 0) return 'cli-killed';
+  return 'cli-unavailable';
+}
 
 /**
  * @param {Record<string, unknown>} payload
  * @param {'success' | 'failure'} resultType
  */
 const resultOf = (payload, resultType) => ({
-  textResultForLlm: redactWritingCommands(JSON.stringify(payload)),
+  textResultForLlm: JSON.stringify(scrub(payload)),
   resultType,
 });
 
@@ -204,20 +270,24 @@ const failure = (tool, code) => resultOf({ tool, error: code, message: MESSAGES[
  * what `/cd` uses). The extension does receive `session.context_changed` with
  * the new `cwd`, so that event is the live source.
  *
+ * `observe` is passed to `joinSession` as `onEvent`, which the SDK registers
+ * before it issues the join RPC, so a change delivered while the join is in
+ * flight is not lost. A change before the extension process was forked is
+ * already in `process.cwd()`, the initial value.
+ *
  * @param {string} initial
  */
 export function trackWorkingDirectory(initial) {
   let current = initial;
   return {
     get: () => current,
-    /** @param {{ on: (type: string, handler: (event: any) => void) => unknown }} session */
-    attach(session) {
-      session.on('session.context_changed', (event) => {
-        const cwd = event?.data?.cwd;
-        // The runtime validates the target as an existing absolute path; a value
-        // that is not one is ignored rather than trusted.
-        if (typeof cwd === 'string' && isAbsolute(cwd)) current = cwd;
-      });
+    /** @param {any} event */
+    observe: (event) => {
+      if (event?.type !== 'session.context_changed') return;
+      const cwd = event?.data?.cwd;
+      // The runtime validates the target as an existing absolute path; a value
+      // that is not one is ignored rather than trusted.
+      if (typeof cwd === 'string' && isAbsolute(cwd)) current = cwd;
     },
   };
 }
@@ -261,9 +331,9 @@ export function createAdrTools({ run, env, exists, getCwd }) {
     let result;
     try {
       result = await run(cli.command, [...cli.args, ...cliArgs], options);
-    } catch {
+    } catch (error) {
       if (options.signal?.aborted) throw new Error('cancelled');
-      return failure(tool, 'cli-unavailable');
+      return failure(tool, runFailureCode(error));
     }
     if (result.exitCode === 0 || result.exitCode === 1) {
       try {
@@ -273,12 +343,17 @@ export function createAdrTools({ run, env, exists, getCwd }) {
         // Falls through: a 0 or 1 without JSON is not a report.
       }
     }
-    // The CLI's own stderr (usage errors, a missing corpus directory) is
-    // subprocess output, not exception text, and tells the caller what to fix.
-    return resultOf(
-      { tool, exitCode: result.exitCode, ...extra, message: MESSAGES['no-report'], stderr: clip(result.stderr.trim()) },
-      'failure',
-    );
+    if (result.exitCode === 2) {
+      // The CLI's usage-error path: its own message (a missing corpus
+      // directory, a bad flag) tells the caller what to fix.
+      return resultOf(
+        { tool, exitCode: 2, ...extra, error: 'no-report', message: MESSAGES['no-report'], stderr: usageText(result.stderr) },
+        'failure',
+      );
+    }
+    // Anything else may be a crash: a fixed message and the exit code only.
+    const code = result.exitCode === 0 || result.exitCode === 1 ? 'no-report' : 'cli-failed';
+    return resultOf({ tool, exitCode: result.exitCode, ...extra, error: code, message: MESSAGES[code] }, 'failure');
   }
 
   /** @param {string | undefined} dir */
@@ -337,7 +412,7 @@ export function createAdrTools({ run, env, exists, getCwd }) {
           );
         } catch {
           if (options.signal?.aborted) throw new Error('cancelled');
-          return failure('adr_check', 'git-unavailable');
+          return failure('adr_check', args.base === undefined ? 'git-no-changes' : 'git-base-unresolved');
         }
         const extra = { files: collected.files, filesSource: collected.source, notes: collected.notes };
         if (collected.files.length === 0) {
