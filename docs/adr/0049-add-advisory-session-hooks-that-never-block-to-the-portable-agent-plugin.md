@@ -21,6 +21,7 @@ relatesTo:
   - "0028"
   - "0045"
   - "0046"
+  - "0048"
 affects:
   - type: path
     pattern: "packages/adapters/agent-plugin/extensions/**"
@@ -33,8 +34,8 @@ provenance:
 # ADR-0049: Add advisory session hooks that never block to the portable agent plugin
 
 > **Status: proposed.** Agent-drafted and not ratified. This record amends the
-> component inventory of ADR-0028, ADR-0045, and ADR-0046; it supersedes none
-> of them. Their portability, read-only, advisory, and independent-versioning
+> component inventory of ADR-0028, ADR-0045, and ADR-0046, and the join retry
+> ladder of ADR-0048; it supersedes none of them. Their portability, read-only, advisory, and independent-versioning
 > constraints remain binding.
 
 ## Context
@@ -195,11 +196,17 @@ blocked nothing"), and tells the agent to check the change it just made.
 workflow and the canvas still register, and the failure is logged after the
 join, as ADR-0046 already does for the other two. If the canvas failed to
 build, the hooks' refresh is a no-op. If the runtime refuses the join itself,
-`register` retries without `hooks` first, then without `canvases` (keeping
-`hooks`), then without both, and logs the field the successful join dropped.
-If every rung fails, it rethrows the original error. So a runtime that refuses
-`hooks` keeps the workflow and the canvas, and one that refuses `canvases`
-keeps the hooks and blames the canvas.
+`register` keeps one retry ladder for every optional field, shared with
+ADR-0048's tools: without `hooks`, then without `tools`, then without both,
+then without `canvases` alone (keeping the hooks and the tools), then with the
+workflow alone. `onEvent` is never dropped, and a rung naming an absent field
+is skipped, so with all three present that is at most six joins (four with
+hooks and no tools). It logs the fields the successful join dropped and quotes
+each refusal. If every rung fails, it rethrows the original error, the one
+about the full configuration. So a runtime that refuses `hooks` keeps the
+workflow, the canvas, and the tools; one that refuses the tools keeps the
+hooks; and one that refuses `canvases` keeps the hooks and the tools and
+blames only the canvas.
 
 Dropping `hooks` first has a side effect we accept: a one-off join failure
 unrelated to any field (an RPC hiccup) is cured by the first retry, which
@@ -471,5 +478,5 @@ external validation.
 7. [ ] Kill the process group, not only the direct child, on a timeout in the
    shared `runCommand` (follow-up; it affects the workflow and canvas too).
 8. [x] Add reciprocal "Amended by ADR-0049 (proposed)" notes to ADR-0028,
-   ADR-0045, and ADR-0046, drafted with this record.
+   ADR-0045, ADR-0046, and ADR-0048, drafted with this record.
 9. [ ] Ratify or reject this record before the plugin publishes the hooks.

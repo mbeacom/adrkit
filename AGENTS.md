@@ -603,10 +603,13 @@ will usually be a regression:
   - A timeout kills only the direct child, not a grandchild behind a
     version-manager shim. That is a known limit of the shared `runCommand`,
     left as a follow-up.
-- **The join retry ladder drops `hooks` first, then `canvases`, then both**,
-  rethrows the original error if every rung fails, and logs exactly the field
-  the successful join dropped. A runtime that refuses `hooks` must not cost
-  the workflow or the canvas. Because `hooks` goes first, a one-off unrelated
+- **One join retry ladder serves the hooks and the tools**: without `hooks`,
+  without `tools`, without both, without `canvases` alone, then the workflow
+  alone (at most six joins; `onEvent` is never dropped). It rethrows the
+  original error if every rung fails, and logs exactly the fields the
+  successful join dropped. A runtime that refuses `hooks` must not cost the
+  workflow, the canvas, or the tools, and one that refuses the tools must not
+  cost the hooks. Because `hooks` goes first, a one-off unrelated
   join error turns the hooks off for the session; that is accepted, and the
   log line says so instead of blaming them.
 - **`ADRKIT_*` variables reach the extension without
@@ -637,8 +640,8 @@ app. Measured, and easy to break:
   `process.cwd()` and has the same staleness (open in ADR-0048).
 - **A bad tool definition refuses the whole join.** A name outside
   `/^[a-zA-Z0-9_-]+$/` made the runtime reject `joinSession`, workflow and
-  canvas included, so `register.mjs` retries without the tools, then with the
-  workflow alone (at most three joins). A name that collides with a built-in
+  canvas included, so `register.mjs` retries without the tools on the shared
+  ladder described under the hooks above, keeping the workflow always. A name that collides with a built-in
   joins but breaks `tools.initializeAndValidate()` for the **whole session**, so
   never name a tool after a built-in.
 - **The executable is chosen by the environment only**, through the workflow's

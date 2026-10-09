@@ -793,6 +793,99 @@ describe('register with hooks', () => {
   });
 });
 
+describe('register with hooks and tools: one join ladder', () => {
+  // ADR-0048's tools and ADR-0049's hooks share one ladder: the optional
+  // extras (hooks, then tools, each alone, then both) go before the canvas,
+  // the canvas alone goes before everything, and the workflow always stays.
+  function all(refuse: (config: Record<string, unknown>) => boolean) {
+    const joined: Array<Record<string, unknown>> = [];
+    const logged: string[] = [];
+    const deps = {
+      defineWorkflow: (definition: unknown) => ({ definition }),
+      createCanvas: (options: unknown) => ({ options }),
+      joinSession: async (config: Record<string, unknown>) => {
+        joined.push(config);
+        if (refuse(config)) throw new Error(`refused join ${joined.length}`);
+        return { log: async (message: string) => void logged.push(message) };
+      },
+      workflow: () => ({}),
+      canvas: () => ({}),
+      tools: () => [{ name: 'adr_check' }],
+      onEvent: () => {},
+      hooks: () => ({ onPostToolUse: async () => undefined }),
+    };
+    return { deps, joined, logged };
+  }
+  const keys = (config: Record<string, unknown> | undefined) => Object.keys(config ?? {}).sort();
+
+  test('joins once with all five fields when nothing is refused', async () => {
+    const { deps, joined, logged } = all(() => false);
+    await register(deps);
+    expect(joined.length).toBe(1);
+    expect(keys(joined[0])).toEqual(['canvases', 'hooks', 'onEvent', 'tools', 'workflows']);
+    expect(logged).toEqual([]);
+  });
+
+  test('a runtime that refuses the tools keeps the hooks and the canvas, and blames only the tools', async () => {
+    const { deps, joined, logged } = all((config) => 'tools' in config);
+    await register(deps);
+    expect(joined.length).toBe(3);
+    expect(keys(joined[2])).toEqual(['canvases', 'hooks', 'onEvent', 'workflows']);
+    expect(logged.length).toBe(1);
+    expect(logged[0]).toContain('joined without the adrkit tools after');
+    expect(logged[0]).not.toContain('advisory hooks');
+    expect(logged[0]).not.toContain('canvas');
+  });
+
+  test('a runtime that refuses the hooks keeps the tools and the canvas, and blames the hooks', async () => {
+    const { deps, joined, logged } = all((config) => 'hooks' in config);
+    await register(deps);
+    expect(joined.length).toBe(2);
+    expect(keys(joined[1])).toEqual(['canvases', 'onEvent', 'tools', 'workflows']);
+    expect(logged[0]).toContain('joined without the advisory hooks after');
+    expect(logged[0]).not.toContain('adrkit tools');
+  });
+
+  test('a runtime that refuses canvases keeps the hooks and the tools, and blames only the canvas', async () => {
+    const { deps, joined, logged } = all((config) => 'canvases' in config);
+    await register(deps);
+    expect(joined.length).toBe(5);
+    expect(keys(joined[4])).toEqual(['hooks', 'onEvent', 'tools', 'workflows']);
+    expect(logged.length).toBe(1);
+    expect(logged[0]).toContain('joined without the decision-review canvas after the session refused 4 joins');
+    expect(logged[0]).not.toContain('advisory hooks');
+    expect(logged[0]).not.toContain('adrkit tools');
+  });
+
+  test('a runtime that refuses every optional field keeps the workflow and onEvent on the sixth join, and blames all three', async () => {
+    const { deps, joined, logged } = all((config) => 'canvases' in config || 'hooks' in config || 'tools' in config);
+    await register(deps);
+    expect(joined.length).toBe(6);
+    expect(keys(joined[5])).toEqual(['onEvent', 'workflows']);
+    expect(logged[0]).toContain('joined without the advisory hooks and the adrkit tools and the decision-review canvas');
+    expect(logged[0]).toContain('may not have caused it');
+  });
+
+  test('when every rung fails, six joins are made and the original error is rethrown', async () => {
+    const { deps, joined } = all(() => true);
+    await expect(register(deps)).rejects.toThrow('refused join 1');
+    expect(joined.length).toBe(6);
+  });
+
+  test('a throwing tools factory costs only the tools; the hooks still join', async () => {
+    const { deps, joined, logged } = all(() => false);
+    await register({
+      ...deps,
+      tools: () => {
+        throw new Error('bad tools');
+      },
+    });
+    expect(joined.length).toBe(1);
+    expect(keys(joined[0])).toEqual(['canvases', 'hooks', 'onEvent', 'workflows']);
+    expect(logged[0]).toContain('failed to register the adrkit tools: bad tools');
+  });
+});
+
 describe('hooks under Node', () => {
   test('a pending debounce never keeps the Node process alive', () => {
     // The host stops an extension with SIGTERM; a ref'd timer would also keep
