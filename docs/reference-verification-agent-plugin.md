@@ -935,6 +935,74 @@ live.
 | R11 | Copilot review on #272 | A capped result must list exactly the canonical 200-path prefix, checked even when its digest matches, and any result is refused above 200 paths. An explicit `files` list over 200 paths makes the run `incomplete` with a fixed note. Four tests in `test/round2.test.ts`, observed failing first. |
 | R10 | Re-review Lows (optional, fixed before the PR) | `test/round2.test.ts`, all observed failing first (15 cases). A capped result without `filesDigest` is refused. A hook check ended by a signal, a timeout, or an abort is not cached, and the next edit checks again; a CLI that cannot start stays cached. Probing a group that still looks alive stops after 10 probes. `base` is held to `^[A-Za-z0-9._/@{}~^-]+$`, with no leading `-` and `..` only in a `...` range, in both the workflow and the tools. |
 
+## `decision-board` canvas (2026-10-09)
+
+Measured on 2026-10-09 at **rung 1** of ADR-0014, before any release, for the
+canvas proposed in [ADR-0050](adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**). Rows are numbered B1
+onward so they do not collide with other sections.
+
+### CLI output shapes (this repository)
+
+The CLI was built from the branch (`bun run build`) and run with Node.
+
+| # | Probe | Result |
+|---|-------|--------|
+| B1 | `adr graph --format json` | `{ nodes, edges }`; each node `{ id, title, status }`, each edge `{ from, to, kind }`. 49 nodes, 238 edges. Exit 0 |
+| B2 | `adr graph --format json --focus 0046 --kind supersedes --kind relatesTo` | 10 nodes and 9 `relatesTo` edges, every edge touching 0046. Exit 0 |
+| B3 | `adr graph --format json --focus 9999` and `--kind bogus` | Exit 2 with a usage message on stderr, for both |
+
+### Headless SDK host (Copilot CLI 1.0.93, no model calls)
+
+The ADR-0046 smoke host (`CopilotClient`,
+`createSession({ pluginDirectories, requestCanvasRenderer: true, requestExtensions: true, workingDirectory })`),
+with `pluginDirectories` set to this branch's plugin directory at `28da95e` and
+`ADRKIT_CLI` set in the runtime's environment to the branch's built CLI. No
+prompt was sent and no workflow was run, so nothing was spent. Actions were
+called through `session.rpc.canvas.action.invoke`, whose result is
+`{ result }`.
+
+| # | Probe | Result |
+|---|-------|--------|
+| B4 | `canvas.list` | `decision-review` and `decision-board`, both from `plugin:adrkit:adrkit` |
+| B5 | Open on this repository | Status `49 records · 238 relationships`; URL on `127.0.0.1` |
+| B6 | Page headers | `GET /` 200 `text/html`, the ADR-0046 CSP, `nosniff`, `no-store`. `/app.js` 200, uses `createElementNS`, contains no `innerHTML`, no ratifying command, and no "ready" |
+| B7 | State | `mode: "graph"`, 49 nodes, 238 edges (236 `relatesTo`, 2 `supersedes`), 3 queue rows (0047, 0048, 0049) with exactly the eleven allowlisted fields, 19,618 bytes serialized |
+| B8 | Ratifying command | Present in `/api/state` only inside ADR-0044's own title; absent with titles blanked, and absent from `/app.js` |
+| B9 | `focus { id: "0046" }` | 10 records (0007, 0014, 0022, 0028, 0034, 0045, 0046, 0047, 0048, 0049) and 9 relationships, matching B2 |
+| B10 | `focus { kinds: ["supersedes"] }` | 4 records and 2 relationships |
+| B11 | `focus { id: "9999" }` | `available: false` with the fixed exit-2 note; the queue was unaffected |
+| B12 | `focus { id: "12" }` | Refused by the board's handler: `id must be a record id: four or more digits, or a 26-character ULID.` |
+| B13 | `focus { kinds: ["approves"] }` | Refused by the runtime before the handler ran, with its own schema message (`/kinds/0: "approves" is not one of …`). The id has no schema pattern, so B12 reached the handler |
+| B14 | `focus null`, then `refresh null` | Back to 49 records and 238 relationships |
+| B15 | Open a second panel with `{ id: "0046" }` | Status `10 records · 9 relationships · focus 0046 · 3 open` |
+| B16 | Boundaries | No token or a wrong token: 403 on `/` and `/api/state`. `POST /api/refresh` without the header: 403. `POST /api/focus` with the header and a foreign `Origin`: 403. `POST /api/focus` with a bad id: 400 with the fixed message. After close, both panels' ports refused connections |
+| B17 | Open on a four-record fixture (no relationships, two proposals) | Status `4 records · 0 relationships`; 2 queue rows; `focus { id: "0004" }` gave 1 record; `{ kinds: ["supersedes"] }` gave 0 |
+
+The fixture run first showed `1 records`; the status line now counts in the
+singular, covered by a unit test.
+
+### Local browser render (not the Copilot app)
+
+The board was served by a Node script against this repository and opened in
+Chromium through Playwright. The SVG nodes carried their status classes
+(`node status-accepted` computed a green fill and stroke), `relatesTo` edges
+computed a `6px, 4px` dash, the legend named every status and kind in text,
+and focusing a record and pressing Enter selected it, filled the detail pane
+with its neighbors, and returned keyboard focus to the redrawn record with
+`aria-pressed="true"`. The only console error was a 403 for `/favicon.ico`,
+which the token check refuses like every other route.
+
+### Not verified
+
+- **The board is unmeasured in the Copilot app.** Its rendering, theme,
+  keyboard behavior, and layout in an app session are unverified.
+- A corpus past the 300-record budget, the 1000-relationship cap, or the
+  512 KiB snapshot budget, and how long `adr graph` takes on one. These are
+  covered by unit tests only.
+- The 30-second graph timeout and the oversized-output note. Unit tests only.
+- Whether the app forwards `ADRKIT_CLI` and `ADRKIT_DIR` to the extension (the
+  ADR-0046 open question).
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

@@ -144,6 +144,7 @@ your project config - see
 | Command | `/adr-backfill [files-or-directories...]` | no |
 | Dynamic workflow (Copilot CLI only) | `adr-review` | no |
 | Canvas (Copilot app only) | `decision-review` | no |
+| Canvas (Copilot app only) | `decision-board` | no |
 | Tools (Copilot only) | `adr_check`, `adr_explain`, `adr_lint` | no |
 
 The skill is the part that works without being asked for: it teaches the
@@ -544,6 +545,43 @@ Hook firing is unmeasured in the Copilot app, in an interactive CLI session,
 and in subagent child sessions. Details are in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
 
+## Canvas: `decision-board` (GitHub Copilot app)
+
+A second canvas in the same extension shows the **whole corpus** rather than
+one change: how the decisions relate and what is waiting for review. Proposed
+in [ADR-0050](../../../docs/adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**, amends ADR-0046 and
+ADR-0047). It renders what the CLI computed and derives nothing of its own:
+
+- **The graph** comes from `adr graph --format json`: each record with its id,
+  title, and status, and each `supersedes`, `relatesTo`, or `conflictsWith`
+  relationship. A supersession chain reads left to right, oldest first. Status
+  is shown by color and by a text label, and a relationship kind by line style
+  and a legend. Records are focusable; Enter selects one, and the detail pane
+  shows its fields, its neighbors, and its queue row if it has one.
+- **Focus and kind filters re-run the CLI.** Focusing on a record runs
+  `adr graph --focus <id>`, and the kind checkboxes add `--kind`, so the board
+  and `adr graph` cannot disagree. The id must be a record id (four or more
+  digits, or a ULID) and each kind one of the three; anything else is refused
+  before the CLI runs.
+- **The queue** comes from `adr queue --format json` and shows each open
+  proposal's raw review facts: approvals against quorum, unresolved and
+  resolved objections, SLA state, deadline, routing, and how many findings it
+  carries. **The board never says a proposal is ready.** Review state alone
+  misses refusals such as an empty `deciders`, so a verdict would be a claim the
+  board cannot back. There is no approve, object, or ratify control.
+
+It is read-only and free: it writes nothing, starts no workflow, sends no
+prompt, and spends no AI credits. Its actions are `get_state`, `refresh`, and
+`focus({ id?, kinds? })`. It draws at most 300 records (past that it shows
+counts by status and asks for a focus), 1000 relationships, and 200 queue rows,
+and one snapshot is held to 512 KiB. Each CLI call has a 30-second limit, and a
+failure is a fixed note. The post-edit hook does not refresh it; use Refresh.
+
+Measured in a headless Copilot CLI 1.0.93 SDK host against this repository (49
+records, 238 relationships) and a four-record fixture, with no model calls. The
+board is **unmeasured in the Copilot app**. Details are in the
+[evidence index](../../../docs/reference-verification-agent-plugin.md).
+
 ## Things that are load-bearing and easy to break
 
 Each of these was measured against the real hosts, not inferred from their docs.
@@ -652,6 +690,10 @@ Copilot CLI 1.0.93, and maintainer sessions in Copilot app 1.1.27 that opened
 the panel, ran a review from it, and recorded two defects fixed before release.
 Other app versions, Copilot CLI versions before 1.0.92, and a native opencode
 load of `extensions/` are unverified.
+
+The `decision-board` canvas (ADR-0050, **proposed**) is rung 1: unit and
+contract tests plus a headless Copilot CLI 1.0.93 SDK-host smoke with no model
+calls. It is unmeasured in the Copilot app.
 
 The extension tools (`adr_check`, `adr_explain`, `adr_lint`; ADR-0048,
 **proposed**) are rung 1: unit and contract tests plus a headless Copilot CLI
