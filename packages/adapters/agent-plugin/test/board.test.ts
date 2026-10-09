@@ -1351,3 +1351,62 @@ describe('rebase onto the hardened runCommand', () => {
     expect(board.slice(0, board.indexOf('makeError'))).toContain('runCommand(command, args, { cwd, signal, spawn })');
   });
 });
+
+/** Copilot review of #274: re-open confinement and a corpus-dir race. */
+describe('PR #274 review', () => {
+  test('a re-open confines dir against the panel\'s own repository, not the new session directory', async () => {
+    const first = mkdtempSync(join(tmpdir(), 'board-first-'));
+    const second = mkdtempSync(join(tmpdir(), 'board-second-'));
+    try {
+      mkdirSync(join(second, 'docs', 'adr'), { recursive: true });
+      const { options, cli } = makeBoard();
+      await options.open(ctxFor('moved', { session: { workingDirectory: first } }));
+      opened.push({ onClose: options.onClose, instanceId: 'moved' });
+      const before = cli.calls.length;
+      const elsewhere = join(second, 'docs', 'adr');
+      const error = await options
+        .open(ctxFor('moved', { session: { workingDirectory: second }, input: { dir: elsewhere } }))
+        .catch((e: unknown) => e);
+      expect((error as { code?: string }).code).toBe('invalid_input');
+      expect((error as Error).message).toBe(INPUT_ERRORS.dirEscape);
+      expect(cli.calls.length).toBe(before);
+    } finally {
+      rmSync(first, { recursive: true, force: true });
+      rmSync(second, { recursive: true, force: true });
+    }
+  });
+
+  test('a new corpus dir is committed with its graph: a faster queue never pairs with the old graph', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const run = async (_command: string, args: string[]) => {
+      const inB = args.includes('docs/b');
+      if (args.includes('graph')) {
+        if (inB) await held;
+        return ok(inB ? graphJson([graphNode('0099')], []) : defaultGraph());
+      }
+      return ok(queueReport([queueItem(inB ? '0099' : '0003')]));
+    };
+    const { options } = makeBoard({ run });
+    const { url } = await openBoard(options);
+    const frames: string[] = [];
+    const stream = httpRequest(withPath(url, '/events'), (res) => {
+      res.setEncoding('utf8');
+      res.on('data', (chunk: string) => frames.push(chunk));
+    });
+    stream.on('error', () => {});
+    stream.end();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const pending = action(options, 'refresh')({ dir: 'docs/b' });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const mid = await action(options, 'get_state')();
+    expect(mid.graph.nodes.map((n: { id: string }) => n.id)).toEqual(['0001', '0002', '0003']);
+    expect(mid.queue.items.map((i: { id: string }) => i.id)).toEqual(['0003']);
+    expect(frames.join('')).not.toContain('0099');
+    release();
+    const done = await pending;
+    expect(done.graph.nodes.map((n: { id: string }) => n.id)).toEqual(['0099']);
+    expect(done.queue.items.map((i: { id: string }) => i.id)).toEqual(['0099']);
+    stream.destroy();
+  });
+});

@@ -171,7 +171,10 @@ in `board.mjs` (server and actions), `board-page.mjs` (page), and
    id, so a focus in one board does not move another on the same repository.
    The queue is shared by working directory and corpus directory. A graph read
    carries the filter it was made with, and every snapshot reports that pair,
-   never a pending request. Only the newest read is applied; a focus that a
+   never a pending request. A new corpus directory takes effect with its graph,
+   and the queue shown is the one for the graph's directory, so a faster queue
+   read never pairs with the previous corpus's graph. A re-open confines `dir`
+   against the panel's own repository, not the session's current directory. Only the newest read is applied; a focus that a
    later one overtakes is dropped and answers with `superseded: true` and the
    board's current state. Every snapshot, including each event-stream frame,
    goes through the byte budget.

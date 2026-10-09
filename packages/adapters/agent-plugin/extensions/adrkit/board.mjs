@@ -118,9 +118,11 @@ export const INPUT_ERRORS = {
  *   notes: string[], updatedAt: string,
  * }} BoardSnapshot
  * @typedef {{
- *   dir: string | undefined, filter: Filter, graph: GraphView | null, graphSeq: number, updatedAt: string,
- * }} View One panel's own state: its corpus directory, the filter last asked
- *   for, and the graph last applied, which carries the filter it was read with.
+ *   dir: string | undefined, graphDir: string | undefined, filter: Filter, graph: GraphView | null, graphSeq: number, updatedAt: string,
+ * }} View One panel's own state: the corpus directory and filter last asked
+ *   for, and the graph last applied, which carries the filter it was read with;
+ *   `graphDir` is the corpus directory that graph was read from, committed
+ *   with it, so the queue shown beside it is from the same corpus.
  * @typedef {{ queue: QueueView | null, seq: number, pending: Promise<void> | null }} SharedQueue
  *   The queue, shared by every panel on one working directory and corpus directory.
  * @typedef {{
@@ -521,7 +523,7 @@ export function createDecisionBoardCanvas({
   const queues = new Map();
 
   /** @returns {View} */
-  const newView = () => ({ dir: undefined, filter: { id: null, kinds: [] }, graph: null, graphSeq: 0, updatedAt: now() });
+  const newView = () => ({ dir: undefined, graphDir: undefined, filter: { id: null, kinds: [] }, graph: null, graphSeq: 0, updatedAt: now() });
 
   /** Get or create a panel's view. Only `open` stores one. @param {string} instanceId */
   const viewFor = (instanceId) => {
@@ -556,9 +558,19 @@ export function createDecisionBoardCanvas({
     return shared;
   };
 
+  /**
+   * The corpus directory a panel is showing: the one its graph was read from,
+   * or the requested one before any graph. A new `dir` takes effect when its
+   * graph lands, so a faster queue for it never pairs with the old graph
+   * (Copilot review of #274).
+   *
+   * @param {View} view
+   */
+  const shownDir = (view) => (view.graph ? view.graphDir : view.dir);
+
   /** Never creates a view. @param {string} cwd @param {View} view */
   const snapshotFor = (cwd, view) => {
-    return snapshotOf(cwd, view, queues.get(queueKey(cwd, view.dir))?.queue ?? null, bytesLimit);
+    return snapshotOf(cwd, view, queues.get(queueKey(cwd, shownDir(view)))?.queue ?? null, bytesLimit);
   };
 
   /**
@@ -626,7 +638,9 @@ export function createDecisionBoardCanvas({
   /** A shared queue changed: tell every panel reading it. @param {string} cwd @param {string | undefined} dir */
   const broadcastQueue = (cwd, dir) => {
     for (const instance of live) {
-      if (instance.cwd === cwd && views.get(instance.instanceId)?.dir === dir) push(instance);
+      if (instance.cwd !== cwd) continue;
+      const view = views.get(instance.instanceId);
+      if (view && shownDir(view) === dir) push(instance);
     }
   };
 
@@ -642,9 +656,11 @@ export function createDecisionBoardCanvas({
    */
   const refreshGraph = async (cwd, instanceId, view) => {
     const seq = ++view.graphSeq;
-    const graph = await computeGraph({ cwd, dir: view.dir, filter: view.filter, run, env, exists, timeoutMs });
+    const dir = view.dir;
+    const graph = await computeGraph({ cwd, dir, filter: view.filter, run, env, exists, timeoutMs });
     if (seq !== view.graphSeq && view.graph !== null) return false;
     view.graph = graph;
+    view.graphDir = dir;
     view.updatedAt = now();
     broadcastView(instanceId);
     return true;
@@ -695,11 +711,11 @@ export function createDecisionBoardCanvas({
 
   /** @param {string} cwd @param {string} instanceId @param {View} view */
   const stateFor = async (cwd, instanceId, view, { waitForQueue = true } = {}) => {
-    const shared = sharedQueueFor(cwd, view.dir);
+    const shared = sharedQueueFor(cwd, shownDir(view));
     if (!view.graph) await refresh(cwd, instanceId, view, { waitForQueue });
     else if (!shared.queue && !shared.pending) {
       // A panel whose corpus directory has no queue read yet starts one.
-      const done = refreshQueue(cwd, view.dir);
+      const done = refreshQueue(cwd, shownDir(view));
       if (waitForQueue) await done;
     }
     else if (waitForQueue && shared.pending) await shared.pending;
@@ -720,7 +736,7 @@ export function createDecisionBoardCanvas({
   const applyFocus = async (cwd, instanceId, view, focus) => {
     view.filter = { id: focus.id ?? null, kinds: focus.kinds ?? [] };
     const applied = await refreshGraph(cwd, instanceId, view);
-    const shared = sharedQueueFor(cwd, view.dir);
+    const shared = sharedQueueFor(cwd, shownDir(view));
     if (!shared.queue && shared.pending) await shared.pending;
     const snapshot = snapshotFor(cwd, view);
     return applied ? snapshot : { ...snapshot, superseded: true };
@@ -896,8 +912,11 @@ export function createDecisionBoardCanvas({
     open: async (ctx) => {
       const cwd = workingDirectoryOf(ctx);
       const input = validated(inputOf(ctx), ['dir', 'id', 'kinds']);
-      confined(cwd, input.dir);
       let pending = instances.get(ctx.instanceId);
+      // A re-open runs in the panel's own repository, not in whatever the
+      // session directory is now, so confine against that (review of #274).
+      const panelCwd = pending ? (await pending).cwd : cwd;
+      confined(panelCwd, input.dir);
       const isNew = !pending;
       const view = viewFor(ctx.instanceId);
       const changesDir = 'dir' in input && input.dir !== view.dir;

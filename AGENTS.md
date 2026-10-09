@@ -843,13 +843,16 @@ in the Copilot app. Load-bearing:
 - **State is per panel; the queue is shared.** Filter, corpus directory, and
   graph are keyed by panel id, so a focus in one board never moves another
   (review M2, measured both ways). The queue is keyed by working directory and
-  corpus directory. Do not move the filter back to the working directory.
+  corpus directory. Do not move the filter back to the working directory. A
+  new `dir` is committed with its graph (`graphDir`), and the queue shown is
+  the graph's directory's, so a faster queue never pairs with the old graph.
 - **A snapshot reports the filter its graph was read with.** `computeGraph`
   stamps `graph.filter`, and `snapshotOf` reads it, never the pending request
   (review M1). Only the newest graph read is applied; an overtaken focus
   returns `superseded: true` with the current, consistent state. Tests with a
   gated fake CLI fail if either sequence guard (graph or queue) is removed.
-- **A model-chosen `dir` is confined.** It must resolve inside the session root
+- **A model-chosen `dir` is confined.** It must resolve inside the panel's own
+  repository (on a re-open, the panel's, not the session's current directory)
   lexically and through `staysInside` (tools.mjs), or the action is refused
   with a fixed message before any spawn. `ADRKIT_DIR` is trusted.
   decision-review's `dir` is not confined; that predates the board.
