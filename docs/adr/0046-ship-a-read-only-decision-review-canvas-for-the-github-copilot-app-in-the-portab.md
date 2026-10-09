@@ -53,6 +53,13 @@ review:
 > extension directory; this record's read-only, advisory, and security
 > boundaries are unchanged.
 
+> **Amended by [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (proposed).**
+> A second, corpus-wide canvas, `decision-board`, would render `adr graph` and
+> `adr queue` read-only, with no readiness verdict and no control that writes.
+> It shares this canvas's HTTP hardening, now in `panel-http.mjs`, and
+> registers in its own guarded `try`. This record's read-only, advisory, and
+> security boundaries are unchanged and apply to the board too.
+
 ## Context
 
 The GitHub Copilot app can render a *canvas*: a panel beside the conversation
