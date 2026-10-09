@@ -369,11 +369,12 @@ describe('token, Origin, and nonce', () => {
   test('closing a panel forgets its nonce', async () => {
     const { options, cli } = makeBoard();
     const { url } = await openBoard(options);
-    await nonceFor(url, 'approval');
+    const nonce = await nonceFor(url, 'approval');
     await options.onClose(ctxFor('board-1'));
     opened.splice(0);
+    // The same panel id, reopened: the nonce issued before the close is gone.
     const { url: reopened } = await openBoard(options);
-    expect((await write(reopened, { kind: 'approval', id: '0003', nonce: 'a'.repeat(64) })).status).toBe(403);
+    expect((await write(reopened, { kind: 'approval', id: '0003', nonce })).status).toBe(403);
     expect(cli.writes()).toEqual([]);
   });
 });
