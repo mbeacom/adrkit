@@ -17,6 +17,13 @@
  * Status is shown by color and by a text label, and a relationship kind by
  * line style and the legend, because color alone is not accessible. The page
  * shows a queue row's counts and never a verdict on them.
+ *
+ * Each open proposal has review controls (ADR-0052). They take two clicks: the
+ * first asks the server for a single-use nonce bound to that kind and record,
+ * and the second, a "Confirm … as <reviewer>" button in the page's own DOM,
+ * posts it. No browser dialog: one can block the app. The identity shown is
+ * the server's `ADRKIT_REVIEWER`; the page sends none. The page names kinds
+ * (approval, objection, resolution), never the CLI's subcommands.
  */
 
 import { PAGE_CSS } from './canvas-page.mjs';
@@ -61,7 +68,7 @@ export const BOARD_HTML = `<!doctype html>
   <aside id="detail" class="board-detail" aria-live="polite"></aside>
 </main>
 <section id="queue" class="section"></section>
-<footer class="muted">Read-only: this board writes nothing, starts nothing, and spends no AI credits. It shows the CLI's facts, not a verdict on them.</footer>
+<footer class="muted">This board writes only when you confirm a review control, as ADRKIT_REVIEWER, through the adr CLI; nothing is committed. It starts no workflow, spends no AI credits, and shows the CLI's facts, not a verdict on them.</footer>
 </body>
 </html>
 `;
@@ -92,6 +99,11 @@ export const BOARD_JS = `(function () {
   var refocus = false;
   var shownFilterKey = null;
   var busy = false;
+  /** The control waiting for its confirming click: { kind, id, nonce, summary?, objection? }. */
+  var armed = null;
+  /** What a person has typed into a row's inputs, kept across re-renders. */
+  var drafts = new Map();
+  var REVIEW_TEXT = { approval: 'approval', objection: 'objection', resolution: 'resolution' };
 
   function $(id) { return document.getElementById(id); }
   function list(value) { return Array.isArray(value) ? value : []; }
@@ -349,6 +361,144 @@ export const BOARD_JS = `(function () {
     }
   }
 
+  function reviewInfo() {
+    var review = state && state.review;
+    if (review && typeof review === 'object' && review.enabled === true && typeof review.reviewer === 'string') return review;
+    return { enabled: false, reviewer: null, note: review && typeof review.note === 'string' ? review.note : 'Recording review is unavailable on this board.' };
+  }
+
+  function draftFor(id) {
+    if (!drafts.has(id)) drafts.set(id, { summary: '', objection: '' });
+    return drafts.get(id);
+  }
+
+  function whole(value) { return typeof value === 'number' && isFinite(value) ? Math.max(0, Math.floor(value)) : 0; }
+
+  /** What the confirming click will record, in words. */
+  function describe(request, who) {
+    if (request.kind === 'approval') return 'Record an approval of ADR-' + request.id + ' by ' + who + '?';
+    if (request.kind === 'objection') return 'Record an objection on ADR-' + request.id + ' by ' + who + ': ' + request.summary;
+    return 'Mark objection ' + text(request.objection) + ' on ADR-' + request.id + ' as resolved by ' + who + '? Only its objector can.';
+  }
+
+  /** The approve, object, and resolve controls for one open proposal. */
+  function reviewControls(item) {
+    var id = text(item.id);
+    var info = reviewInfo();
+    var box = el('div', 'review-controls');
+    box.appendChild(el('h3', null, 'Record review'));
+    if (!info.enabled) {
+      ['Approve', 'Raise objection', 'Resolve objection'].forEach(function (label) {
+        var off = button(label, function () {});
+        off.disabled = true;
+        box.appendChild(off);
+      });
+      box.appendChild(el('p', 'muted note', info.note));
+      return box;
+    }
+    var who = text(info.reviewer);
+    if (armed && armed.id === id) {
+      box.appendChild(el('p', 'confirm-text', describe(armed, who)));
+      var yes = button('Confirm ' + REVIEW_TEXT[armed.kind] + ' as ' + who, submit, 'primary');
+      yes.disabled = busy;
+      box.appendChild(yes);
+      box.appendChild(button('Cancel', function () { armed = null; setMessage(''); render(state); }));
+      return box;
+    }
+    var draft = draftFor(id);
+    var approve = button('Approve as ' + who, function () { arm({ kind: 'approval', id: id }); });
+    approve.disabled = busy;
+    box.appendChild(approve);
+
+    var objectRow = el('div', 'review-row');
+    var summary = el('input', null);
+    summary.type = 'text';
+    summary.value = draft.summary;
+    summary.maxLength = 500;
+    summary.setAttribute('aria-label', 'One-line objection summary for ' + id);
+    summary.addEventListener('input', function () { draft.summary = text(summary.value); });
+    objectRow.appendChild(summary);
+    var raise = button('Raise objection', function () {
+      var line = text(draft.summary).trim();
+      if (line === '') { setMessage('Write a one-line objection first.'); return; }
+      arm({ kind: 'objection', id: id, summary: line });
+    });
+    raise.disabled = busy;
+    objectRow.appendChild(raise);
+    box.appendChild(objectRow);
+
+    var total = whole(item.unresolvedObjectionCount) + whole(item.resolvedObjectionCount);
+    if (total > 0) {
+      var resolveRow = el('div', 'review-row');
+      var index = el('input', 'mono');
+      index.type = 'number';
+      index.value = draft.objection;
+      index.setAttribute('min', '1');
+      index.setAttribute('max', String(total));
+      index.setAttribute('aria-label', 'Your objection number (1 to ' + total + ') on ' + id);
+      index.addEventListener('input', function () { draft.objection = text(index.value); });
+      resolveRow.appendChild(index);
+      var settle = button('Resolve objection', function () {
+        var n = Number(text(draft.objection).trim());
+        if (!(n >= 1 && n <= total && Math.floor(n) === n)) { setMessage('Choose an objection number from 1 to ' + total + '.'); return; }
+        arm({ kind: 'resolution', id: id, objection: n });
+      });
+      settle.disabled = busy;
+      resolveRow.appendChild(settle);
+      box.appendChild(resolveRow);
+    }
+    return box;
+  }
+
+  /** First click: ask for a nonce bound to this kind and record. */
+  function arm(request) {
+    if (busy) return;
+    busy = true;
+    armed = null;
+    setMessage('Preparing the confirmation…');
+    render(state);
+    post('/api/review/nonce', { kind: request.kind, id: request.id }).then(function (data) {
+      busy = false;
+      if (!data || typeof data.nonce !== 'string') throw new Error('No confirmation was issued.');
+      armed = { kind: request.kind, id: request.id, nonce: data.nonce, summary: request.summary, objection: request.objection };
+      setMessage('');
+      render(state);
+    }).catch(function (error) {
+      busy = false;
+      armed = null;
+      setMessage(error && error.message ? error.message : 'Request failed');
+      render(state);
+    });
+  }
+
+  /** Second click: spend the nonce. The server chooses the identity. */
+  function submit() {
+    if (!armed || busy) return;
+    var request = armed;
+    armed = null;
+    var body = { kind: request.kind, id: request.id, nonce: request.nonce };
+    if (request.kind === 'objection') body.summary = request.summary;
+    if (request.kind === 'resolution') body.objection = request.objection;
+    busy = true;
+    setMessage('Recording…');
+    render(state);
+    post('/api/review', body).then(function (data) {
+      busy = false;
+      if (data && data.outcome === 'written') {
+        var draft = draftFor(request.id);
+        if (request.kind === 'objection') draft.summary = '';
+        if (request.kind === 'resolution') draft.objection = '';
+      }
+      if (data && data.state && typeof data.state === 'object' && 'workingDirectory' in data.state) render(data.state);
+      else render(state);
+      setMessage(data && typeof data.message === 'string' ? data.message : 'Done.');
+    }, function (error) {
+      busy = false;
+      setMessage(error && error.message ? error.message : 'Request failed');
+      render(state);
+    });
+  }
+
   function queueSection() {
     var node = $('queue');
     clear(node);
@@ -371,6 +521,7 @@ export const BOARD_JS = `(function () {
       row.appendChild(el('p', 'muted', queueFacts(item).join(' · ')));
       var id = text(item.id);
       if (state.graph && nodesById(state.graph).has(id)) row.appendChild(button('Show ' + id + ' on the board', function () { select(id); }));
+      row.appendChild(reviewControls(item));
       rows.appendChild(row);
     });
     if (items.length > 0) node.appendChild(rows);
@@ -501,6 +652,12 @@ button.link { border: none; padding: 0 2px; text-decoration: underline; font-fam
 .edge-conflictsWith { stroke: var(--true-color-red, #d1242f); stroke-dasharray: 2 3; }
 .edge-near { stroke-width: 3; }
 .arrow { fill: var(--text-color-muted, #59636e); }
+.review-controls { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.review-controls h3 { font-size: 0.95em; margin: 0; flex-basis: 100%; }
+.review-controls .note, .review-controls .confirm-text { flex-basis: 100%; margin: 0; }
+.review-row { display: inline-flex; gap: 6px; align-items: center; }
+.review-row input { font: inherit; color: inherit; background: transparent; border: 1px solid var(--border-color-default, #d1d9e0); border-radius: 6px; padding: 2px 6px; }
+.review-row input[type="number"] { width: 5em; }
 `;
 
 /** Stylesheet: decision-review's (the same app tokens) plus the board's rules. */

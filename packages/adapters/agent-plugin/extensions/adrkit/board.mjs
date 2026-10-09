@@ -14,9 +14,12 @@
  *   field check can say a record would pass ratification: review state alone
  *   misses refusals such as an empty `deciders` (ADR-0044), so a "ready" label
  *   would be a claim the board cannot back.
- * - It writes nothing, starts no workflow, sends no prompt, and spends no
- *   credits. There is no approve, object, or ratify control, and the row
- *   allowlists keep any such field the CLI's JSON might gain off the page.
+ * - Its actions write nothing, start no workflow, send no prompt, and spend
+ *   no credits, and the row allowlists keep any field the CLI's JSON might
+ *   gain off the page. The one write is a person's: a review control on the
+ *   page, confirmed in two clicks, posts to a route that only the page can
+ *   reach and that `board-review-write.mjs` handles (ADR-0052). No action
+ *   reaches that module, and there is still no ratify control.
  *
  * Every process, server, and clock is passed in, so this runs under Bun's test
  * runner as well as in the Node process the host forks. Nothing runs at import:
@@ -35,6 +38,7 @@ import { isAbsolute, resolve, sep } from 'node:path';
 import { BOARD_CSS, BOARD_JS, renderBoardPage } from './board-page.mjs';
 import { NODE_LIMIT, layoutBoard } from './board-layout.mjs';
 import { computeQueue, shownQueueItem } from './canvas.mjs';
+import { createReviewWriter, REVIEW_NOTES } from './board-review-write.mjs';
 import { BODY_LIMIT, BodyTooLarge, SECURITY_HEADERS, postAllowed, readBody, reply, replyJson, tokenMatches } from './panel-http.mjs';
 import { resolveCli } from './review.mjs';
 import { staysInside } from './tools.mjs';
@@ -115,9 +119,10 @@ export const INPUT_ERRORS = {
  *   width: number, height: number, byStatus: Array<{ status: string, count: number }>, notes: string[],
  *   filter: Filter,
  * }} GraphView
+ * @typedef {{ enabled: boolean, reviewer: string | null, note: string | null }} ReviewState
  * @typedef {{
  *   workingDirectory: string, filter: Filter, graph: GraphView | null, queue: QueueView | null,
- *   notes: string[], updatedAt: string,
+ *   review: ReviewState, notes: string[], updatedAt: string,
  * }} BoardSnapshot
  * @typedef {{
  *   dir: string | undefined, graphDir: string | undefined, filter: Filter, graph: GraphView | null, graphSeq: number, updatedAt: string,
@@ -425,10 +430,11 @@ function summarized(graph) {
  * @param {string} cwd
  * @param {View} view
  * @param {QueueView | null} queue
+ * @param {ReviewState} review whether the page's review controls are on, and as whom; never a nonce
  * @param {number} limit
  * @returns {BoardSnapshot}
  */
-function snapshotOf(cwd, view, queue, limit) {
+function snapshotOf(cwd, view, queue, review, limit) {
   const filter = view.graph?.filter ?? { id: null, kinds: [] };
   /** @type {BoardSnapshot} */
   let snapshot = {
@@ -436,6 +442,7 @@ function snapshotOf(cwd, view, queue, limit) {
     filter: { id: filter.id, kinds: [...filter.kinds] },
     graph: view.graph,
     queue,
+    review: { enabled: review.enabled, reviewer: review.reviewer, note: review.note },
     notes: [],
     updatedAt: view.updatedAt,
   };
@@ -500,7 +507,10 @@ const FOCUS_SCHEMA = { type: ['object', 'null'], properties: { id: OPEN_SCHEMA.p
  *   now?: () => string,
  *   timeoutMs?: number,
  *   bytesLimit?: number,
- * }} deps
+ *   getSession?: () => { log?: (message: string, options?: unknown) => unknown } | undefined,
+ *   clock?: () => number,
+ * }} deps `getSession` is used for the review activity log only, fire-and-forget;
+ *   the board never sends to the session or starts a workflow.
  */
 export function createDecisionBoardCanvas({
   run,
@@ -512,6 +522,8 @@ export function createDecisionBoardCanvas({
   now = () => new Date().toISOString(),
   timeoutMs = GRAPH_TIMEOUT_MS,
   bytesLimit = BOARD_BYTES_LIMIT,
+  getSession = () => undefined,
+  clock = Date.now,
 }) {
   /** Panels by `instanceId`; a promise, so two concurrent opens share one server. @type {Map<string, Promise<Instance>>} */
   const instances = new Map();
@@ -525,6 +537,29 @@ export function createDecisionBoardCanvas({
   const views = new Map();
   /** The queue, shared by working directory and corpus directory. @type {Map<string, SharedQueue>} */
   const queues = new Map();
+
+  /**
+   * The page's review controls (ADR-0052), built in their own `try` so a
+   * failure turns them off with a fixed note rather than costing the board.
+   * Reached from the HTTP route handler only: no action below uses it.
+   * @type {ReturnType<typeof createReviewWriter> | null}
+   */
+  let reviewWriter = null;
+  try {
+    reviewWriter = createReviewWriter({
+      run,
+      env,
+      exists,
+      isRecordId: (id) => RECORD_ID.test(id),
+      clock,
+      randomBytes,
+      log: (message) => getSession()?.log?.(message, { level: 'info' }),
+    });
+  } catch {
+    // Left off: reviewState() below reports that with a fixed note.
+  }
+  /** @returns {ReviewState} */
+  const reviewState = () => reviewWriter?.state() ?? { enabled: false, reviewer: null, note: REVIEW_NOTES.unavailable };
 
   /** @returns {View} */
   const newView = () => ({ dir: undefined, graphDir: undefined, filter: { id: null, kinds: [] }, graph: null, graphSeq: 0, updatedAt: now() });
@@ -574,7 +609,7 @@ export function createDecisionBoardCanvas({
 
   /** Never creates a view. @param {string} cwd @param {View} view */
   const snapshotFor = (cwd, view) => {
-    return snapshotOf(cwd, view, queues.get(queueKey(cwd, shownDir(view)))?.queue ?? null, bytesLimit);
+    return snapshotOf(cwd, view, queues.get(queueKey(cwd, shownDir(view)))?.queue ?? null, reviewState(), bytesLimit);
   };
 
   /**
@@ -794,12 +829,32 @@ export function createDecisionBoardCanvas({
       }
       case 'POST /api/refresh':
       case 'POST /api/focus':
+      case 'POST /api/review/nonce':
+      case 'POST /api/review':
         break;
       default:
         return reply(res, 404, 'Not found');
     }
 
     if (!postAllowed(instance, req)) return reply(res, 403, 'Forbidden');
+
+    if (url.pathname === '/api/review/nonce' || url.pathname === '/api/review') {
+      // The page's review controls, and nothing else, reach the write path.
+      if (!reviewWriter) return replyJson(res, 403, { error: REVIEW_NOTES.unavailable });
+      const view = viewOf(instanceId);
+      return reviewWriter.handle({
+        instanceId,
+        cwd,
+        path: url.pathname,
+        req,
+        res,
+        dir: () => shownDir(view),
+        escapes,
+        // A write changes the queue's counts; re-read both, and wait for the
+        // queue so the reply carries the new rows.
+        afterWrite: () => refresh(cwd, instanceId, view, { waitForQueue: true }),
+      });
+    }
 
     /** @type {string} */
     let raw;
@@ -880,8 +935,9 @@ export function createDecisionBoardCanvas({
     id: BOARD_ID,
     displayName: BOARD_TITLE,
     description:
-      'Read-only map of the whole decision corpus: how the records relate (adr graph) and what is waiting for review ' +
-      '(adr queue), with raw review facts only. Writes nothing and spends no AI credits.',
+      'Map of the whole decision corpus: how the records relate (adr graph) and what is waiting for review ' +
+      '(adr queue), with raw review facts only. Its actions are read-only and spend no AI credits. A person can ' +
+      'record review on the page itself, under the ADRKIT_REVIEWER identity; no action can.',
     inputSchema: OPEN_SCHEMA,
     actions: [
       {
@@ -982,6 +1038,7 @@ export function createDecisionBoardCanvas({
     onClose: async (ctx) => {
       const pending = instances.get(ctx.instanceId);
       views.delete(ctx.instanceId);
+      reviewWriter?.forget(ctx.instanceId);
       if (!pending) return;
       instances.delete(ctx.instanceId);
       /** @type {Instance} */

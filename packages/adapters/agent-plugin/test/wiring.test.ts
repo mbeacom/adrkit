@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import {
   AGENTS,
   COMMANDS,
@@ -621,6 +621,13 @@ describe('claims match the artifact', () => {
 
 const REVIEW_VERBS = ['approve', 'object', 'resolve'] as const;
 
+/**
+ * The one module allowed to name the review verbs (ADR-0052): the decision
+ * board's page-POST handler. It is never imported by anything a model can call.
+ */
+const REVIEW_WRITE_MODULE = 'board-review-write.mjs';
+const REVIEW_VERB_EXCEPTIONS = [join('extensions', 'adrkit', REVIEW_WRITE_MODULE)];
+
 function components(): string[] {
   return [
     ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
@@ -678,7 +685,9 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     // decision-checker, and it runs code outside Copilot's permission prompts.
     const all = components();
     expect(all.some((path) => path.endsWith('extension.mjs'))).toBe(true);
-    for (const module of ['tools.mjs', 'hooks.mjs', 'canvas.mjs']) {
+    // The review-write module is covered here too: its exception is for the
+    // three review verbs only, never for ratification.
+    for (const module of ['tools.mjs', 'hooks.mjs', 'canvas.mjs', 'board.mjs', 'board-page.mjs', REVIEW_WRITE_MODULE]) {
       expect({ module, covered: all.some((path) => path.endsWith(module)) }).toEqual({ module, covered: true });
     }
     const runners = all.filter((path) => mentionsVerb(readFileSync(path, 'utf8'), ['accept']));
@@ -690,12 +699,43 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     // skill, agent, command, or extension module may run them on a model's
     // initiative, and, as with `adr accept`, any mention counts, because a host
     // model reads an example as an instruction. Every extension module is
-    // guarded, the canvas included: its `actions` are model-callable. The later
-    // canvas-button track will add one narrowly scoped, tested exception for a
-    // single module that handles the page's POST, under its own record; until
-    // then nothing in the plugin names these verbs.
+    // guarded, the canvas included: its `actions` are model-callable. There is
+    // exactly one exception (ADR-0052): the decision board's review-write
+    // module, which holds the page's POST handler and nothing a model can call.
     const runners = components().filter((path) => mentionsVerb(readFileSync(path, 'utf8'), REVIEW_VERBS));
-    expect(runners).toEqual([]);
+    expect(runners.map((path) => relative(packageRoot, path))).toEqual(REVIEW_VERB_EXCEPTIONS);
+  });
+
+  test('the review-verb exception covers exactly one module, which exists and names the verbs', () => {
+    // An exception for a file that no longer names the verbs, or a second
+    // exempt file, would be a guard that quietly widened.
+    expect(REVIEW_VERB_EXCEPTIONS).toEqual([join('extensions', 'adrkit', REVIEW_WRITE_MODULE)]);
+    const exempt = join(packageRoot, 'extensions', 'adrkit', REVIEW_WRITE_MODULE);
+    expect(extensionFiles()).toContain(exempt);
+    expect(mentionsVerb(readFileSync(exempt, 'utf8'), REVIEW_VERBS)).toBe(true);
+  });
+
+  test('a review verb planted anywhere else is still caught, the board and its actions included', () => {
+    // The exception is by path, so the same text in any other module fails.
+    // Planted into the real sources, as an action handler would hold it.
+    const plants = [
+      ["board.mjs", "    actions: [\n      { name: 'record', handler: (ctx) => run(cli, ['approve', ctx.input.id, '--by', who]) },"],
+      ['board.mjs', "const verb = 'resolve';"],
+      ['board-page.mjs', "post('/api/review', { verb: 'x' }); run([`object`, id])"],
+      ['tools.mjs', "{ name: 'adr_approve' }"],
+      ['hooks.mjs', '"$ADRKIT_CLI" approve 0007 --by @me'],
+      ['canvas.mjs', "args.push('resolve', id)"],
+    ] as const;
+    for (const [module, plant] of plants) {
+      const source = readFileSync(join(packageRoot, 'extensions', 'adrkit', module), 'utf8');
+      expect({ module, clean: mentionsVerb(source, REVIEW_VERBS) }).toEqual({ module, clean: false });
+      const planted = source.replace('    actions: [', plant) === source ? `${source}\n${plant}\n` : source.replace('    actions: [', plant);
+      expect({ module, plant, caught: mentionsVerb(planted, REVIEW_VERBS) }).toEqual({ module, plant, caught: true });
+    }
+    // Ratification gets no exception, even in the exempt module.
+    const exempt = readFileSync(join(packageRoot, 'extensions', 'adrkit', REVIEW_WRITE_MODULE), 'utf8');
+    expect(mentionsVerb(exempt, ['accept'])).toBe(false);
+    expect(mentionsVerb(`${exempt}\nconst sub = 'accept';\n`, ['accept'])).toBe(true);
   });
 
   test('the type-list filter runs in linear time (CodeQL js/redos)', () => {

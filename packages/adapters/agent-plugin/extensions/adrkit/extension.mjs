@@ -1,7 +1,7 @@
 /**
  * Registers the advisory `adr-review` dynamic workflow (ADR-0045), the
- * read-only `decision-review` canvas (ADR-0046), the read-only
- * `decision-board` canvas (ADR-0050), the read-only `adr_check`,
+ * read-only `decision-review` canvas (ADR-0046), the `decision-board` canvas
+ * (ADR-0050; its page records review as a person, ADR-0052), the read-only `adr_check`,
  * `adr_explain`, and `adr_lint` tools (ADR-0048), and the advisory session
  * hooks (ADR-0049) with GitHub Copilot.
  *
@@ -56,13 +56,16 @@ await register({
       getSession,
       makeError: (code, message) => new CanvasError(code, message),
     }),
-  // Read-only and free: two CLI reads, no session, no model.
-  board: () =>
+  // Free: two CLI reads, no model. Its actions are read-only; the page's
+  // review controls write through the CLI as ADRKIT_REVIEWER (ADR-0052), and
+  // the session is used only to log those writes.
+  board: (getSession) =>
     createDecisionBoardCanvas({
       run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, spawn }),
       env: process.env,
       exists: existsSync,
       makeError: (code, message) => new CanvasError(code, message),
+      getSession,
     }),
   tools: () =>
     createAdrTools({
