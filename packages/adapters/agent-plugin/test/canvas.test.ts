@@ -348,19 +348,20 @@ describe('computeSnapshot', () => {
     expect(snapshot.findings).toEqual([finding]);
   });
 
-  test('exit 2 is a usage error carrying the CLI message', async () => {
+  test('exit 2 is a usage error with a fixed note, never the CLI stderr', async () => {
     const { run } = fakeCli({ check: { stdout: '', stderr: 'no corpus at docs/adr', exitCode: 2 } });
     const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
     expect(snapshot.status).toBe('usage-error');
     expect(snapshot.checkExitCode).toBe(2);
-    expect(snapshot.notes.join('\n')).toContain('no corpus at docs/adr');
+    expect(snapshot.notes.join('\n')).toContain('adr check exited 2 without a readable report');
+    expect(snapshot.notes.join('\n')).not.toContain('no corpus at docs/adr');
   });
 
   test('a CLI that cannot be started is a usage error, never a crash and never ok', async () => {
-    const { run } = fakeCli({ check: new Error('could not start "adr": not found') });
+    const { run } = fakeCli({ check: Object.assign(new Error('could not start "adr": not found'), { code: 'ENOENT' }) });
     const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
     expect(snapshot.status).toBe('usage-error');
-    expect(snapshot.notes.join('\n')).toContain('could not start "adr"');
+    expect(snapshot.notes.join('\n')).toContain('The adr CLI could not be started');
   });
 
   test('invalid input is a usage error, and nothing runs', async () => {
@@ -374,7 +375,7 @@ describe('computeSnapshot', () => {
       now: () => 'T',
     });
     expect(snapshot.status).toBe('usage-error');
-    expect(snapshot.notes.join('\n')).toContain('unknown argument: cli');
+    expect(snapshot.notes.join('\n')).toContain('an argument the workflow does not take was passed');
     expect(calls).toEqual([]);
   });
 
@@ -416,7 +417,10 @@ describe('sanitizeReviewResult', () => {
       verdicts: [{ ...valid.verdicts[0], script: 'dropped' }],
       governing: [{ ...valid.governing[0], injected: 'dropped' }],
     });
-    expect(Object.keys(cleaned).sort()).toEqual(Object.keys(valid).sort());
+    // filesOmitted is a result key the valid fixture leaves out; it defaults to 0.
+    expect(Object.keys(cleaned).sort()).toEqual([...Object.keys(valid), 'filesOmitted', 'filesDigest'].sort());
+    expect(cleaned.filesOmitted).toBe(0);
+    expect(cleaned.filesDigest).toBeNull();
     expect(cleaned.verdicts).toEqual(valid.verdicts);
     expect(Object.keys(cleaned.governing[0]).includes('injected')).toBe(false);
   });
@@ -742,6 +746,7 @@ describe('actions', () => {
         'workingDirectory',
         'base',
         'files',
+        'filesOmitted',
         'filesSource',
         'status',
         'checkExitCode',
@@ -835,7 +840,7 @@ describe('actions', () => {
     const fake = fakeSession();
     const { options } = makeCanvas({ getSession: () => fake.session });
     await openPanel(options);
-    await expect(Promise.resolve().then(() => action(options, 'run_review')({ cli: 'x' }))).rejects.toThrow(/unknown argument/);
+    await expect(Promise.resolve().then(() => action(options, 'run_review')({ cli: 'x' }))).rejects.toThrow(/an argument the workflow does not take/);
     expect(fake.started).toEqual([]);
   });
 
@@ -846,7 +851,9 @@ describe('actions', () => {
     await action(options, 'run_review')({});
     const state = await settle(() => action(options, 'get_state')());
     expect(state.status).not.toBe('ok');
-    expect(state.notes.join('\n')).toContain('boom');
+    // The run's own error text is not shown; the status it ended in is.
+    expect(state.notes.join('\n')).toContain('adr-review run run-1 ended error');
+    expect(state.notes.join('\n')).not.toContain('boom');
   });
 
   test('while a run is in flight the state is pending and a second request starts nothing', async () => {

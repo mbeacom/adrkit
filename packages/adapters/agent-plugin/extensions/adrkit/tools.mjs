@@ -26,7 +26,7 @@
 
 import { realpathSync } from 'node:fs';
 import { isAbsolute, resolve, sep, win32 } from 'node:path';
-import { collectChangedFiles, resolveCli } from './review.mjs';
+import { FILES_ECHO_LIMIT, capFiles, checkInBatches, cliOverhead, collectChangedFiles, isSafeBaseRef, resolveCli } from './review.mjs';
 
 /** @import { CommandResult } from './review.mjs' */
 
@@ -58,7 +58,7 @@ const MESSAGES = Object.freeze({
   'path-length': `Invalid arguments: a path must be at most ${TOOL_LIMITS.maxPathLength} characters.`,
   'base-invalid':
     `Invalid arguments: base must be a git revision of at most ${TOOL_LIMITS.maxRefLength} characters ` +
-    "using letters, digits, and . _ / @ { } ~ ^ -, and must not start with '-'.",
+    "using letters, digits, and . _ / @ { } ~ ^ -, must not start with '-', and may use '..' only as part of a '...' range.",
   'cli-unresolved':
     'The adr CLI could not be resolved: ADRKIT_CLI is set but nothing exists at that path. ' +
     'Fix ADRKIT_CLI in the environment Copilot was started from.',
@@ -75,6 +75,8 @@ const MESSAGES = Object.freeze({
   'args-too-long':
     'The command line was too long for this system. Pass fewer or shorter paths per call (a large diff from base can do this too).',
   'cli-killed': 'The adr process was ended by a signal before it exited.',
+  'cli-timeout': 'The adr process did not finish within its time limit (120 s), and was ended.',
+  'cwd-missing': 'The session directory no longer exists, so nothing was run.',
   'symlink-escape':
     'The corpus directory resolves, through a symbolic link, outside the session repository. Nothing was run.',
   'no-report': 'adr exited without a readable report.',
@@ -126,7 +128,6 @@ const TOOL_KEYS = Object.freeze({
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
 /** `C:foo` is drive-relative on Windows: neither absolute nor inside the repository. */
 const DRIVE = /^[A-Za-z]:/;
-const REF = /^[A-Za-z0-9._/@{}~^-]+$/;
 
 /**
  * Validate one repository-relative path. Lexical on purpose: the CLI matches
@@ -193,8 +194,7 @@ export function validateToolArgs(tool, raw) {
       typeof base !== 'string' ||
       base.length === 0 ||
       base.length > TOOL_LIMITS.maxRefLength ||
-      base.startsWith('-') ||
-      !REF.test(base)
+      !isSafeBaseRef(base)
     ) {
       return { ok: false, code: 'base-invalid' };
     }
@@ -271,9 +271,11 @@ const usageText = (stderr) => {
  * @returns {MessageCode}
  */
 function runFailureCode(error) {
-  const fields = /** @type {{ code?: unknown, signal?: unknown }} */ (error ?? {});
+  const fields = /** @type {{ code?: unknown, signal?: unknown, missing?: unknown }} */ (error ?? {});
   if (fields.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return 'output-too-large';
   if (fields.code === 'E2BIG' || fields.code === 'ENAMETOOLONG') return 'args-too-long';
+  if (fields.code === 'ETIMEDOUT') return 'cli-timeout';
+  if (fields.code === 'ENOENT' && fields.missing === 'cwd') return 'cwd-missing';
   if (typeof fields.signal === 'string' && fields.signal.length > 0) return 'cli-killed';
   return 'cli-unavailable';
 }
@@ -291,36 +293,17 @@ const resultOf = (payload, resultType) => ({
 const failure = (tool, code) => resultOf({ tool, error: code, message: MESSAGES[code] }, 'failure');
 
 /**
- * Follow the session's working directory.
+ * A report's `changedFiles` echoes every path it was given; over
+ * FILES_ECHO_LIMIT it is capped and the rest counted in `changedFilesOmitted`.
  *
- * Measured on Copilot CLI 1.0.93 with a headless SDK host: a tool invocation
- * carries no directory (its keys are sessionId, toolCallId, toolName,
- * arguments, availableTools, traceparent, tracestate, signal), and the
- * extension's `process.cwd()` is the session directory at start but does not
- * move when the session's directory changes (`metadata.setWorkingDirectory`,
- * what `/cd` uses). The extension does receive `session.context_changed` with
- * the new `cwd`, so that event is the live source.
- *
- * `observe` is passed to `joinSession` as `onEvent`, which the SDK registers
- * before it issues the join RPC, so a change delivered while the join is in
- * flight is not lost. A change before the extension process was forked is
- * already in `process.cwd()`, the initial value.
- *
- * @param {string} initial
+ * @param {unknown} report
  */
-export function trackWorkingDirectory(initial) {
-  let current = initial;
-  return {
-    get: () => current,
-    /** @param {any} event */
-    observe: (event) => {
-      if (event?.type !== 'session.context_changed') return;
-      const cwd = event?.data?.cwd;
-      // The runtime validates the target as an existing absolute path; a value
-      // that is not one is ignored rather than trusted.
-      if (typeof cwd === 'string' && isAbsolute(cwd)) current = cwd;
-    },
-  };
+function capChangedFiles(report) {
+  if (report === null || typeof report !== 'object' || Array.isArray(report)) return report;
+  const changed = /** @type {Record<string, unknown>} */ (report)['changedFiles'];
+  if (!Array.isArray(changed) || changed.length <= FILES_ECHO_LIMIT) return report;
+  const shown = capFiles(changed.filter((file) => typeof file === 'string'));
+  return { ...report, changedFiles: shown.files, changedFilesOmitted: changed.length - shown.files.length };
 }
 
 /**
@@ -340,7 +323,9 @@ export function trackWorkingDirectory(initial) {
  *   env: Record<string, string | undefined>,
  *   exists: (path: string) => boolean,
  *   getCwd: () => string,
- * }} deps
+ * }} deps `getCwd` is the session directory tracker's `get`
+ *   (`session-dir.mjs`): a tool invocation carries no directory, and
+ *   `process.cwd()` does not follow `/cd`.
  */
 export function createAdrTools({ run, env, exists, getCwd }) {
   /**
@@ -350,8 +335,10 @@ export function createAdrTools({ run, env, exists, getCwd }) {
    * @param {string[]} cliArgs
    * @param {{ cwd: string, signal?: AbortSignal }} options
    * @param {Record<string, unknown>} [extra]
+   * @param {string[]} [files] Paths for `adr check`, appended after `cliArgs`
+   *   in batches that fit the command-line budget (see `checkInBatches`).
    */
-  async function runAdr(tool, cliArgs, options, extra = {}) {
+  async function runAdr(tool, cliArgs, options, extra = {}, files) {
     let cli;
     try {
       cli = resolveCli({ env, cwd: options.cwd, exists });
@@ -361,7 +348,11 @@ export function createAdrTools({ run, env, exists, getCwd }) {
     /** @type {CommandResult} */
     let result;
     try {
-      result = await run(cli.command, [...cli.args, ...cliArgs], options);
+      result = files
+        ? await checkInBatches((batchArgs) => run(cli.command, [...cli.args, ...batchArgs], options), cliArgs, files, {
+            overhead: cliOverhead(cli),
+          })
+        : await run(cli.command, [...cli.args, ...cliArgs], options);
     } catch (error) {
       if (options.signal?.aborted) throw new Error('cancelled');
       return failure(tool, runFailureCode(error));
@@ -369,7 +360,7 @@ export function createAdrTools({ run, env, exists, getCwd }) {
     if (result.exitCode === 0 || result.exitCode === 1) {
       try {
         const report = JSON.parse(result.stdout);
-        return resultOf({ tool, exitCode: result.exitCode, ...extra, report }, 'success');
+        return resultOf({ tool, exitCode: result.exitCode, ...extra, report: capChangedFiles(report) }, 'success');
       } catch {
         // Falls through: a 0 or 1 without JSON is not a report.
       }
@@ -442,7 +433,9 @@ export function createAdrTools({ run, env, exists, getCwd }) {
         'Read-only. Report which architecture decisions (ADRs) govern a set of changed files, using adrkit: ' +
         'runs `adr check --json` in the session repository. Pass repository-relative `paths`, or a git `base` ' +
         '(the change is `git diff <base>...HEAD`); with neither, the change against origin/main. exitCode 1 ' +
-        'with a report means findings, not a failure. Governing records are in report.governing.',
+        'with a report means findings, not a failure. Governing records are in report.governing. A change too ' +
+        'wide for one command line is checked in batches and the reports merged: a merged report carries ' +
+        'batches (the count) and no markerScan, and lists at most 200 changedFiles with changedFilesOmitted.',
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -471,14 +464,15 @@ export function createAdrTools({ run, env, exists, getCwd }) {
           return failure('adr_check', args.base === undefined ? 'git-no-changes' : 'git-base-unresolved');
         }
         if (escapes(options.cwd, args.dir)) return failure('adr_check', 'symlink-escape');
-        const extra = { files: collected.files, filesSource: collected.source, notes: collected.notes };
+        const shown = capFiles(collected.files);
+        const extra = { files: shown.files, filesOmitted: shown.omitted, filesSource: collected.source, notes: collected.notes };
         if (collected.files.length === 0) {
           return resultOf(
             { tool: 'adr_check', exitCode: null, ...extra, notes: [...collected.notes, 'No changed files; nothing was checked.'] },
             'success',
           );
         }
-        return runAdr('adr_check', ['check', '--json', ...dirArgs(args.dir), '--', ...collected.files], options, extra);
+        return runAdr('adr_check', ['check', '--json', ...dirArgs(args.dir), '--'], options, extra, collected.files);
       }),
     },
     {

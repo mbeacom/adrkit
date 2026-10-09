@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Requires repository read access and git for history-backed evidence. Existing ADR reconciliation uses the `adr` CLI (@adrkit/cli), resolved from $ADRKIT_CLI, then ./node_modules/.bin/adr, then PATH. The optional adrkit MCP server may replace read-only corpus retrieval, but is not bundled."
 metadata:
   author: Mark Beacom
-  version: "0.8.0"
+  version: "0.8.1"
   homepage: https://adrkit.dev/backfill/
 ---
 

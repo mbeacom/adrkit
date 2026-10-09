@@ -13,9 +13,9 @@ import {
   TOOL_LIMITS,
   createAdrTools,
   redactWritingCommands,
-  trackWorkingDirectory,
   validateToolArgs,
 } from '../extensions/adrkit/tools.mjs';
+import { trackWorkingDirectory } from '../extensions/adrkit/session-dir.mjs';
 import { packageRoot } from './harness.ts';
 
 type Call = { command: string; args: string[]; cwd: string; signal?: AbortSignal };

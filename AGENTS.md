@@ -562,9 +562,10 @@ will usually be a regression:
   is the documented source. The app's *runtime* process runs from `/`, but each
   extension process it forks starts in its session's directory: a probe in an
   app session measured `process.cwd()` equal to `sessionWorkingDirectory`, both
-  the app's session worktree. That is why the workflow's `process.cwd()`, and
-  therefore `run_review`, reviews the right repository in the app. If a later
-  runtime breaks that equality, the workflow must take the session directory
+  the app's session worktree. The workflow starts from that `process.cwd()` and
+  then follows `session.context_changed` (`session-dir.mjs`, below), which is
+  why `run_review` reviews the right repository in the app. If a later runtime
+  breaks that equality at fork, the workflow must take the session directory
   too.
 - **An app session is a fresh worktree off the default branch.** A new app
   session showed `0 changed file(s)` because nothing had changed in it yet.
@@ -647,8 +648,12 @@ will usually be a regression:
   1.0.93 (SDK host): a plugin extension joins after `session.start`; with no
   prompt no hook fires, even on resume. With a prompt it fires after
   `onUserPromptSubmitted` with `source: "new"`. It races a 5 s deadline, because
-  its three sequential calls (two `git diff`s and `adr check`) could otherwise
-  hold the first prompt for 15 s.
+  its sequential calls (up to two `git diff`s, then one `adr check` per
+  batch of a wide diff) could otherwise hold the first prompt for 15 s or
+  more. When the deadline wins, the hook aborts the call in flight and starts
+  no further batch: nobody reads that summary, and a 40,000-path diff would
+  otherwise keep one hook slot busy for minutes (found in review; a counting
+  test pins it).
 - **The edit tools are the ones the runtime classifies as edits**: `edit` and
   `create` (`{ path }`, absolute in session logs), `str_replace` (`edit`'s
   shape), `str_replace_editor` only when `command` is `create`, `str_replace`,
@@ -663,7 +668,10 @@ will usually be a regression:
   - At most two hook-spawned processes run at once, each with
     `AbortSignal.timeout(5000)`.
   - There is one `adr check` per distinct path per process, shared by
-    concurrent edits and cached even when it fails. The 500-check budget is a
+    concurrent edits and cached even when it fails, except when a signal, a
+    timeout, or an abort ended it: that says nothing about the file, so the
+    next edit checks again (a CLI that cannot start stays cached, so it is not
+    retried on every edit). The 500-check budget is a
     monotonic count, not the cache size, because a corpus edit clears the
     cache and must not re-arm the budget.
   - The post-edit note gives up after 2 s and the check keeps filling the
@@ -677,9 +685,35 @@ will usually be a regression:
     timeout notes; an aborted refresh never commits the abort's exception text
     as a usage error.
   - The debounce timer is `unref`'d.
-  - A timeout kills only the direct child, not a grandchild behind a
-    version-manager shim. That is a known limit of the shared `runCommand`,
-    left as a follow-up.
+  - A timeout or abort ends the whole process tree on POSIX. The shared
+    `runCommand` in `review.mjs` (the one runner the workflow, canvas, tools,
+    and hooks all use; there are no copies) spawns with stdin ignored and
+    `detached`, then signals the group once: SIGTERM, then SIGKILL after an
+    unref'd 1 s grace, skipped if a signal-0 probe already shows the group
+    gone. Signalling only the child left a grandchild behind a
+    version-manager shim running (shown against the 0.8.0 runner with a shell
+    wrapper and with a node shim; Node-run tests now assert the grandchild is
+    gone). A descendant that calls `setsid` itself leaves the group and is
+    out of reach.
+  - Detached groups must not outlive the extension, and `detached` alone made
+    them do so: measured on 1.0.93 in a headless SDK host, both a SIGTERM to
+    the extension process and a plain `disconnect` + `client.stop()` left the
+    child and its grandchild running before the fix, and ended both after it.
+    So a group stays tracked until a probe says it is gone (not merely until
+    its leader closes; at most 10 probes, 1 s apart, then it is dropped so a
+    lingering member or an EPERM probe cannot keep the listeners forever), an
+    `exit` listener SIGKILLs tracked groups, and while
+    any group is tracked, listeners for SIGTERM, SIGINT, and SIGHUP do the
+    same, remove themselves, and re-raise the signal so its default action
+    still ends the process. With no group tracked no listener exists, so the
+    extension's own signal behavior is unchanged; if the host added its own
+    listener for that signal, the signal is not re-raised.
+  - Every command has a 120 s ceiling (`COMMAND_CEILING_MS`). The callers'
+    own limits are shorter, so it only bounds calls that had none: the
+    workflow, the page's own refresh, and the tools. It ends the group and
+    rejects with a `TimeoutError`.
+  - On Windows the signal goes to `spawn`, which ends the direct child only:
+    a stated limit, not fixed.
 - **One join retry ladder serves the hooks and the tools**: without `hooks`,
   without `tools`, without both, without `canvases` alone, then the workflow
   alone (at most six joins; `onEvent` is never dropped). It rethrows the
@@ -694,7 +728,7 @@ will usually be a regression:
   including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
   app, and hook firing in the app, an interactive CLI session, and subagent
   child sessions, are unmeasured.
-- `copilot plugin install` prints only a skill count. Version 0.8.0 should report
+- `copilot plugin install` prints only a skill count. Version 0.8.1 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
@@ -713,8 +747,10 @@ app. Measured, and easy to break:
   restarted and its `process.cwd()` does not move, but it receives
   `session.context_changed` with the new `cwd`. The tools track that event,
   through `joinSession`'s `onEvent` so a change during the join is kept; do
-  not "simplify" them back to `process.cwd()`. The workflow still uses
-  `process.cwd()` and has the same staleness (open in ADR-0048).
+  not "simplify" them back to `process.cwd()`. The workflow reads the same
+  tracker (`session-dir.mjs`) when each run starts, through
+  `createReviewWorkflow`, so a review after `/cd` reviews the new directory;
+  a tracker value captured at load would be stale too.
 - **A bad tool definition refuses the whole join.** A name outside
   `/^[a-zA-Z0-9_-]+$/` made the runtime reject `joinSession`, workflow and
   canvas included, so `register.mjs` retries without the tools on the shared
@@ -725,15 +761,50 @@ app. Measured, and easy to break:
   `resolveCli`. No tool argument selects it, and unknown keys are refused.
 - **Arguments are validated in the extension**, because the host does not enforce
   the schema: relative paths only, no `..`, no leading `-`, no control
-  characters, at most 200 paths of 1024 characters, a conservative `base`. The
+  characters, at most 200 paths of 1024 characters, and a conservative `base`
+  (`isSafeBaseRef`: `^[A-Za-z0-9._/@{}~^-]+$`, no leading `-`, `..` only in a
+  `...` range), shared with the workflow's `validateArgs` because `base` is
+  repeated in the Judge prompt's commands. The
   corpus directory taken from the argument or the default `docs/adr` is
   `realpath`-checked against the session root before spawning, so a committed
   symlink out of the worktree is refused (`symlink-escape`); a user-set
   `ADRKIT_DIR` is trusted, and the checked value is the value passed as `--dir`.
+- **Every `adr check` is batched, and every echoed file list is capped.** The
+  CLI takes paths as arguments only (no stdin or file list), so a wide diff
+  can exceed Windows' ~32 KiB command line. `checkInBatches` splits paths at
+  about 24 KiB of argv and merges the reports (decisions by record id, sorted;
+  findings deduplicated and sorted with core's `sortFindings` key, restated
+  and pinned against core by a test; highest exit; `markerScan` dropped,
+  because per-call scan counts do not add up; `batches: N` added). One batch
+  returns the CLI's result untouched, so `batches` marks the merged shape.
+  ADR-0022's declaration caps apply per call. Echoed lists stop at 200 paths
+  with a `filesOmitted` count and, in the workflow result, a `filesDigest`
+  (SHA-256 of the full sorted list). The canvas keeps the **full** list in
+  memory and compares a capped result with `sameFileSet`, by digest;
+  `sanitizeReviewResult` refuses a capped result with no digest or with other
+  than exactly 200 paths, and `sameFileSet` requires the canonical capped
+  prefix even when the digest matches; comparing a capped result with the full list would drop every
+  wide-change review as stale (pinned in `test/batching.test.ts`).
+- **A capped Judge prompt must say how to see the rest.** A bare
+  `git diff --name-only` prints nothing for committed work, so a Judge shown
+  200 unrelated paths answered from what it could see (found in review). The
+  prompt lists the paths whose markers declared the decision first, then
+  names the range the run collected (`git diff --name-only <base>...HEAD`, or
+  `HEAD` in the fallback); for explicit `files` it says the caller supplied
+  the list, with its count, and the run is `incomplete` at best, because no
+  git command reproduces an explicit list and a clean verdict would cover
+  files nobody inspected (found by Copilot review on #272). One test per mode
+  pins the hint.
 - **Results never carry exception text or a writing command.** Rejections and
   spawn failures return fixed messages chosen by code (CodeQL
   `js/stack-trace-exposure`). CLI stderr is returned only on exit `2`, capped
-  and without stack-frame lines, because a crash's stderr is a stack. Every
+  and without stack-frame lines, because a crash's stderr is a stack. The
+  workflow result, the canvas's notes, `/api/state`, and its agent results
+  follow the same rule since 0.8.1: every error is a `ReviewError` or is
+  mapped by `publicMessage` from its `code` and `signal` alone, `validateArgs`
+  no longer echoes the value it refused, and a run's own `error`/`reason` is
+  never shown. `test/error-text.test.ts` plants a sentinel in stderr and in
+  thrown errors and asserts it reaches none of those outputs. Every
   string is scrubbed **before** serialization, matching any whitespace or
   format character between `adr` and the subcommand: scrubbing the JSON text
   missed `adr\naccept` (found in review). A non-zero `adr` exit with a report

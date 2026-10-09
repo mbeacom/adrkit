@@ -33,11 +33,19 @@ import { PAGE_CSS, PAGE_JS, renderPage } from './canvas-page.mjs';
 import {
   VERDICTS,
   activeProposalDecisions,
+  FILES_ECHO_LIMIT,
   assembleResult,
+  capFiles,
+  checkInBatches,
+  checkNote,
+  cliOverhead,
   collectChangedFiles,
   governingDecisions,
   historyDecisions,
+  lintNote,
+  publicMessage,
   resolveCli,
+  sameFileSet,
   validateArgs,
 } from './review.mjs';
 
@@ -101,7 +109,7 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  *   corpusFindings: number, items: QueueItem[], note: string | null,
  * }} QueueView
  * @typedef {{
- *   workingDirectory: string, base: string | null, files: string[], filesSource: string | null,
+ *   workingDirectory: string, base: string | null, files: string[], filesOmitted?: number, filesSource: string | null,
  *   status: string, checkExitCode: number | null, lintExitCode: number | null,
  *   governing: ShownDecision[], history: ShownDecision[], activeProposals: ShownDecision[],
  *   findings: unknown[], notes: string[], review: null | { runId?: string, runStatus: string, result: any },
@@ -115,8 +123,25 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  * }} Instance
  */
 
-/** @param {unknown} error */
-const messageOf = (error) => (error instanceof Error ? error.message : String(error));
+/**
+ * Fixed notes for a review the panel follows. A run's own `error` or `reason`
+ * and any exception's text are never shown: they reach the page and the agent.
+ */
+export const REVIEW_NOTES = {
+  /** @param {string} runId */
+  unreadable: (runId) => `Could not read adr-review run ${runId}; it may still be running. Refresh to try again.`,
+  /** @param {string} runId */
+  noResult: (runId) => `adr-review run ${runId} completed without a readable result.`,
+  /** @param {string} runId @param {string} status */
+  ended: (runId, status) => `adr-review run ${runId} ended ${status}; see the run's own log for why.`,
+  /** @param {string} runId */
+  stopped: (runId) => `Stopped following adr-review run ${runId} after an unexpected error.`,
+  notStarted: 'adr-review did not start; check that the plugin is loaded in this session, then try again.',
+  invalidResult: 'The result is not a valid adr-review result.',
+};
+
+/** A `sanitizeReviewResult` refusal: its message is built from this file's own text only. */
+class InvalidResult extends Error {}
 
 /** @param {string} text */
 const clip = (text) => (text.length > 4000 ? `${text.slice(0, 4000)}…` : text);
@@ -215,10 +240,10 @@ function shownFinding(finding) {
  * @param {unknown} raw
  */
 export function sanitizeReviewResult(raw) {
-  if (!isRecord(raw)) throw new Error('result must be an adr-review result object');
+  if (!isRecord(raw)) throw new InvalidResult('result must be an adr-review result object');
   /** @param {string} message */
   const fail = (message) => {
-    throw new Error(`result.${message}`);
+    throw new InvalidResult(`result.${message}`);
   };
   if (!RESULT_STATUSES.includes(/** @type {string} */ (raw['status']))) {
     fail(`status must be one of ${RESULT_STATUSES.join(', ')}`);
@@ -248,6 +273,20 @@ export function sanitizeReviewResult(raw) {
       return shownDecision(/** @type {Record<string, unknown>} */ (value));
     });
 
+  const filesOmitted = raw['filesOmitted'] ?? 0;
+  if (!Number.isInteger(filesOmitted) || /** @type {number} */ (filesOmitted) < 0) fail('filesOmitted must be a non-negative integer');
+  const filesDigest = raw['filesDigest'] ?? null;
+  if (filesDigest !== null && (typeof filesDigest !== 'string' || !/^[0-9a-f]{64}$/.test(filesDigest))) {
+    fail('filesDigest must be null or a SHA-256 hex digest');
+  }
+  // A capped list is compared by its digest; without one, a result from
+  // another change that shares the first 200 paths and the total would pass.
+  if (/** @type {number} */ (filesOmitted) > 0 && filesDigest === null) fail('filesDigest is required when filesOmitted is above 0');
+  const fileCount = Array.isArray(raw['files']) ? raw['files'].length : 0;
+  if (fileCount > FILES_ECHO_LIMIT) fail(`files must list at most ${FILES_ECHO_LIMIT} paths`);
+  if (/** @type {number} */ (filesOmitted) > 0 && fileCount !== FILES_ECHO_LIMIT) {
+    fail(`files must list exactly ${FILES_ECHO_LIMIT} paths when filesOmitted is above 0`);
+  }
   const filesSource = raw['filesSource'] ?? null;
   if (filesSource !== null && typeof filesSource !== 'string') fail('filesSource must be a string or null');
 
@@ -275,6 +314,8 @@ export function sanitizeReviewResult(raw) {
     checkExitCode: exitCode('checkExitCode'),
     lintExitCode: exitCode('lintExitCode'),
     files: strings('files'),
+    filesOmitted,
+    filesDigest,
     filesSource,
     notes: strings('notes'),
     governing: decisions('governing'),
@@ -344,7 +385,9 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     return {
       workingDirectory: cwd,
       base,
-      files: result.files,
+      // The full list, held in memory for the fingerprint and the stale-review
+      // checks; `snapshotOf` caps what the page and the agent see.
+      files: fields.files ?? [],
       filesSource: result.filesSource,
       status: result.status,
       checkExitCode: result.checkExitCode,
@@ -360,7 +403,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
   };
   /** @param {unknown} error */
   const usage = (error, fields = {}) => {
-    notes.push(messageOf(error));
+    notes.push(publicMessage(error));
     return shape({ ...fields, usageError: true });
   };
 
@@ -395,7 +438,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     const cli = resolveCli({ env, cwd, exists });
     /** @param {string[]} cliArgs */
     const adr = (cliArgs) => runHere(cli.command, [...cli.args, ...cliArgs]);
-    const check = await adr(['check', '--json', ...dirArgs, '--', ...collected.files]);
+    const check = await checkInBatches(adr, ['check', '--json', ...dirArgs, '--'], collected.files, { overhead: cliOverhead(cli) });
     const lint = await adr(['lint', ...dirArgs]);
     checked = { check, lint };
   } catch (error) {
@@ -405,7 +448,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
   const { check, lint } = checked;
   const exits = { checkExitCode: check.exitCode, lintExitCode: lint.exitCode };
   if (lint.exitCode !== 0) {
-    notes.push(`adr lint exited ${lint.exitCode}: ${clip((lint.stderr || lint.stdout).trim())}`);
+    notes.push(lintNote(lint.exitCode));
   }
   /** @type {unknown} */
   let outcome = null;
@@ -417,9 +460,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     }
   }
   if (outcome === null || typeof outcome !== 'object') {
-    notes.push(
-      `adr check exited ${check.exitCode} without a readable report: ${clip(check.stderr.trim() || check.stdout.trim())}`,
-    );
+    notes.push(checkNote(check.exitCode));
     return shape({ ...fileFields, ...exits, usageError: true });
   }
   proposals = { activeProposals: activeProposalDecisions(outcome) };
@@ -660,8 +701,11 @@ function snapshotOf(workspace) {
   if (review?.message) notes.push(review.message);
   const missing = usableResult(review) ? unjudged(check.governing, review) : [];
   if (missing.length > 0) notes.push(`The review has no verdict for governing record(s) ${missing.join(', ')}.`);
+  const shown = capFiles(check.files);
   return {
     ...check,
+    files: shown.files,
+    filesOmitted: shown.omitted,
     status: combinedStatus(check.status, check.governing, review),
     notes,
     judgeCalls: judgeCallsOf(check),
@@ -939,8 +983,9 @@ export function createDecisionReviewCanvas({
       workspace.check = snapshot;
       const review = workspace.review;
       if (review && !review.watching && review.result) {
-        const reviewed = [...review.result.files].sort().join('\0');
-        const sameFiles = reviewed === [...snapshot.files].sort().join('\0');
+        // The result lists at most FILES_ECHO_LIMIT paths; the fingerprint below
+        // covers the full list.
+        const sameFiles = sameFileSet(review.result.files, review.result.filesOmitted ?? 0, snapshot.files, review.result.filesDigest ?? null);
         const sameGoverning = review.governingKey === undefined || review.governingKey === governingKey(snapshot.governing);
         const sameContents = review.fingerprint === fingerprint;
         if (!sameFiles || !sameGoverning || !sameContents) workspace.review = null;
@@ -1014,7 +1059,7 @@ export function createDecisionReviewCanvas({
         failures = 0;
       } catch (error) {
         failures += 1;
-        if (failures >= 3) return stop(`Could not read adr-review run ${runId}: ${messageOf(error)}`);
+        if (failures >= 3) return stop(REVIEW_NOTES.unreadable(runId));
         continue;
       }
       if (review.runStatus !== current.status) {
@@ -1028,11 +1073,13 @@ export function createDecisionReviewCanvas({
     if (current.status === 'completed') {
       try {
         review.result = sanitizeReviewResult(current.result);
-      } catch (error) {
-        review.message = `adr-review run ${runId} completed without a readable result: ${messageOf(error)}`;
+      } catch {
+        review.message = REVIEW_NOTES.noResult(runId);
       }
     } else {
-      review.message = `adr-review run ${runId} ended ${current.status}: ${current.error ?? current.reason ?? 'no reason given'}`;
+      // `current.status` is one of TERMINAL_RUN_STATES here; its `error` and
+      // `reason` are the run's own text and are not repeated.
+      review.message = REVIEW_NOTES.ended(runId, current.status);
     }
     broadcast(cwd);
   };
@@ -1045,10 +1092,10 @@ export function createDecisionReviewCanvas({
    */
   const follow = (cwd, review, session, first) => {
     const workspace = workspaceFor(cwd);
-    watch(cwd, review, session, first).catch((error) => {
+    watch(cwd, review, session, first).catch(() => {
       if (workspace.review === review && review.watching) {
         review.watching = false;
-        review.message = `Stopped following adr-review run ${first.runId}: ${messageOf(error)}`;
+        review.message = REVIEW_NOTES.stopped(first.runId);
         broadcast(cwd);
       }
     });
@@ -1095,7 +1142,7 @@ export function createDecisionReviewCanvas({
     try {
       args = validateArgs(input === undefined ? workspace.args : input);
     } catch (error) {
-      throw makeError('invalid_input', messageOf(error));
+      throw makeError('invalid_input', publicMessage(error));
     }
     const session = getSession();
     if (!session?.rpc?.workflow) {
@@ -1116,10 +1163,10 @@ export function createDecisionReviewCanvas({
     try {
       // `args` is required on the wire even when empty.
       envelope = await session.rpc.workflow.run({ name: REVIEW_WORKFLOW, args });
-    } catch (error) {
+    } catch {
       review.watching = false;
       review.runStatus = 'error';
-      review.message = `adr-review did not start: ${messageOf(error)}`;
+      review.message = REVIEW_NOTES.notStarted;
       broadcast(cwd);
       return { runId: null, status: 'error' };
     }
@@ -1309,10 +1356,11 @@ export function createDecisionReviewCanvas({
           withCwd(ctx, async (cwd, input) => {
             let result;
             try {
-              if (!isRecord(input)) throw new Error('input must be { result }');
+              if (!isRecord(input)) throw new InvalidResult('input must be { result }');
               result = sanitizeReviewResult(input['result']);
             } catch (error) {
-              throw makeError('invalid_input', messageOf(error));
+              // Only this file's own refusal text is passed on, chosen by type.
+              throw makeError('invalid_input', error instanceof InvalidResult ? error.message : REVIEW_NOTES.invalidResult);
             }
             const workspace = workspaceFor(cwd);
             if (!workspace.check) await refresh(cwd, undefined, { waitForQueue: false });
@@ -1321,7 +1369,12 @@ export function createDecisionReviewCanvas({
             // records it never judged, so it must describe this panel's.
             const shownFiles = /** @type {string[]} */ (result['files']);
             const shownGoverning = /** @type {ShownDecision[]} */ (result['governing']);
-            const sameFiles = [...shownFiles].sort().join('\0') === [...current.files].sort().join('\0');
+            const sameFiles = sameFileSet(
+              shownFiles,
+              /** @type {number} */ (result['filesOmitted']),
+              current.files,
+              /** @type {string | null} */ (result['filesDigest']),
+            );
             if (!sameFiles || governingKey(shownGoverning) !== governingKey(current.governing)) {
               throw makeError(
                 'stale_result',

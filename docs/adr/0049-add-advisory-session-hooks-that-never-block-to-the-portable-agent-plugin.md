@@ -171,7 +171,10 @@ blocked nothing"), and tells the agent to check the change it just made.
     fallback, `adr check`), so without the deadline the first prompt could wait
     15 s. With it, the first prompt waits at most about 5 s. Work past the
     deadline continues in the background, each call still bounded by its own
-    5 s timeout, so it ends within about 15 s.
+    5 s timeout, so it ends within about 15 s. (Since plugin 0.8.1, a diff too
+    wide for one command line runs one `adr check` per batch of about 24 KiB
+    of paths, and once the deadline wins the hook aborts the call in flight
+    and starts no further batch.)
   - The post-edit note races its checks against a 2 s deadline. Past it the
     note is skipped for that edit, and the checks keep running and fill the
     cache, so the next edit of the file is told. A tool result is held at most
@@ -401,16 +404,22 @@ cache nor triggers a refresh.
 
 The single log line is spent by the first failure for the life of the
 process. A transient first timeout therefore hides a later, different
-failure, a failed check stays cached as "nothing" until the corpus is edited,
+failure, a failed check stays cached as "nothing" until the corpus is edited
+(since plugin 0.8.1, except a check that a signal, a timeout, or an abort
+ended, which the next edit retries),
 and the 500-check budget is reached silently.
 
-A timeout kills the direct child process only. The shared `runCommand` (used
-by the workflow and the canvas too) passes the signal to `execFile`, which
-signals that child; an `adr` behind a version-manager shim that spawns the
-real `node` as a grandchild can keep running after the hook has given up.
-That is a known limit of the shared runner, tracked as a follow-up rather than
-fixed here, so the time bounds above are on the hook's wait, not on every
-descendant process.
+As first shipped (0.8.0), a timeout killed the direct child process only: the
+shared `runCommand` passed the signal to `execFile`, and an `adr` behind a
+version-manager shim that spawns the real `node` as a grandchild kept running
+after the hook had given up. Since plugin 0.8.1 the shared runner spawns the
+child in its own process group on POSIX and signals the group (SIGTERM, then
+SIGKILL after a one-second grace), so the time bounds above hold, within that
+grace, for descendants that stay in the group; one that calls `setsid` itself
+leaves it. A group still running when the extension exits normally, or is
+stopped by SIGTERM, SIGINT, or SIGHUP, is killed then. On Windows the runner
+still ends the direct child only, so there the bounds remain on the hook's
+wait, not on every descendant process.
 
 `onSessionStart` runs before the first model call, so its 0.1 s is added to
 the first prompt's latency, and each first edit of a path waits for one
@@ -479,8 +488,9 @@ external validation.
 6. [ ] Measure hook firing in the Copilot app, in an interactive Copilot CLI
    session (`startup` and `resume`), in subagent child sessions, and the
    post-edit note in a model turn.
-7. [ ] Kill the process group, not only the direct child, on a timeout in the
-   shared `runCommand` (follow-up; it affects the workflow and canvas too).
+7. [x] Kill the process group, not only the direct child, on a timeout in the
+   shared `runCommand` (done in plugin 0.8.1 for POSIX; Windows still ends the
+   direct child only).
 8. [x] Add reciprocal "Amended by ADR-0049 (proposed)" notes to ADR-0028,
    ADR-0045, ADR-0046, ADR-0047, and ADR-0048, drafted with this record.
 9. [ ] Ratify or reject this record before the plugin publishes the hooks.
