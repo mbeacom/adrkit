@@ -24,7 +24,8 @@
  *   something", with a complete report on stdout.
  */
 
-import { isAbsolute, win32 } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { isAbsolute, resolve, sep, win32 } from 'node:path';
 import { collectChangedFiles, resolveCli } from './review.mjs';
 
 /** @import { CommandResult } from './review.mjs' */
@@ -74,9 +75,38 @@ const MESSAGES = Object.freeze({
   'args-too-long':
     'The command line was too long for this system. Pass fewer or shorter paths per call (a large diff from base can do this too).',
   'cli-killed': 'The adr process was ended by a signal before it exited.',
+  'symlink-escape':
+    'A requested path or the corpus directory resolves, through a symbolic link, outside the session repository. Nothing was run.',
   'no-report': 'adr exited without a readable report.',
   'cli-failed': 'adr exited with an unexpected code and no readable report.',
 });
+
+/**
+ * Does `relative`, resolved against `cwd`, stay inside the session root once
+ * symbolic links are followed? The lexical checks cannot see a committed
+ * symlink (`docs/adr` -> an outside directory), and the tools run without a
+ * permission prompt. A target that does not exist yet reads nothing, so it
+ * passes; any other failure to resolve is refused. An unresolvable root
+ * leaves nothing to compare against, and the CLI then fails on its own.
+ *
+ * @param {string} cwd
+ * @param {string} relative
+ */
+export function staysInside(cwd, relative) {
+  let root;
+  try {
+    root = realpathSync.native(cwd);
+  } catch {
+    return true;
+  }
+  let real;
+  try {
+    real = realpathSync.native(resolve(cwd, relative));
+  } catch (error) {
+    return /** @type {any} */ (error)?.code === 'ENOENT';
+  }
+  return real === root || real.startsWith(root.endsWith(sep) ? root : root + sep);
+}
 
 /** @typedef {keyof typeof MESSAGES} MessageCode */
 /** @typedef {{ paths?: string[], base?: string, path?: string, dir?: string }} ToolArgs */
@@ -364,6 +394,15 @@ export function createAdrTools({ run, env, exists, getCwd }) {
   };
 
   /**
+   * The corpus directory the CLI will read (its default is docs/adr) and every
+   * file it will be pointed at must stay inside the session root.
+   *
+   * @param {string} cwd @param {string | undefined} dir @param {string[]} files
+   */
+  const escapes = (cwd, dir, files) =>
+    ![dir ?? env['ADRKIT_DIR'] ?? 'docs/adr', ...files].every((relative) => staysInside(cwd, relative));
+
+  /**
    * @param {string} tool
    * @param {(args: ToolArgs, options: { cwd: string, signal?: AbortSignal }) => Promise<{ textResultForLlm: string, resultType: string }>} body
    */
@@ -415,6 +454,7 @@ export function createAdrTools({ run, env, exists, getCwd }) {
           if (options.signal?.aborted) throw new Error('cancelled');
           return failure('adr_check', args.base === undefined ? 'git-no-changes' : 'git-base-unresolved');
         }
+        if (escapes(options.cwd, args.dir, collected.files)) return failure('adr_check', 'symlink-escape');
         const extra = { files: collected.files, filesSource: collected.source, notes: collected.notes };
         if (collected.files.length === 0) {
           return resultOf(
@@ -441,8 +481,10 @@ export function createAdrTools({ run, env, exists, getCwd }) {
         },
       },
       skipPermission: true,
-      handler: handlerFor('adr_explain', (args, options) =>
-        runAdr('adr_explain', ['explain', '--json', ...dirArgs(args.dir), '--', /** @type {string} */ (args.path)], options),
+      handler: handlerFor('adr_explain', async (args, options) =>
+        escapes(options.cwd, args.dir, [/** @type {string} */ (args.path)])
+          ? failure('adr_explain', 'symlink-escape')
+          : runAdr('adr_explain', ['explain', '--json', ...dirArgs(args.dir), '--', /** @type {string} */ (args.path)], options),
       ),
     },
     {
@@ -457,7 +499,9 @@ export function createAdrTools({ run, env, exists, getCwd }) {
         properties: { dir: dirSchema },
       },
       skipPermission: true,
-      handler: handlerFor('adr_lint', (args, options) => runAdr('adr_lint', ['lint', '--json', ...dirArgs(args.dir)], options)),
+      handler: handlerFor('adr_lint', async (args, options) =>
+        escapes(options.cwd, args.dir, []) ? failure('adr_lint', 'symlink-escape') : runAdr('adr_lint', ['lint', '--json', ...dirArgs(args.dir)], options),
+      ),
     },
   ];
 }

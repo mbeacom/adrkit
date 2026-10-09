@@ -568,7 +568,10 @@ app. Measured, and easy to break:
   `resolveCli`. No tool argument selects it, and unknown keys are refused.
 - **Arguments are validated in the extension**, because the host does not enforce
   the schema: relative paths only, no `..`, no leading `-`, no control
-  characters, at most 200 paths of 1024 characters, a conservative `base`.
+  characters, at most 200 paths of 1024 characters, a conservative `base`. The
+  corpus directory (including the default `docs/adr`) and every path are
+  `realpath`-checked against the session root before spawning, so a committed
+  symlink out of the worktree is refused (`symlink-escape`).
 - **Results never carry exception text or a writing command.** Rejections and
   spawn failures return fixed messages chosen by code (CodeQL
   `js/stack-trace-exposure`). CLI stderr is returned only on exit `2`, capped

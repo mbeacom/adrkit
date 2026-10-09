@@ -4,7 +4,8 @@
  * workflow does, chosen by the environment only, in the session's directory.
  */
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { register } from '../extensions/adrkit/register.mjs';
 import {
@@ -552,5 +553,114 @@ describe('fix round 1', () => {
     expect(b.error).toBe('git-no-changes');
     expect(b.message).toContain('origin/main');
     expect(b.message).not.toContain('that base');
+  });
+});
+
+describe('symlink confinement (review of #270)', () => {
+  // A repository can commit docs/adr (or any relative path) as a symlink to a
+  // directory outside the worktree. The lexical checks cannot see that, and
+  // the tools run without a permission prompt, so the real path must be
+  // checked against the real session root before anything is spawned.
+  function repoWithEscapes() {
+    const base = mkdtempSync(join(tmpdir(), 'adrkit-confine-'));
+    const root = join(base, 'repo');
+    const outside = join(base, 'outside');
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    mkdirSync(join(root, 'inside-corpus'), { recursive: true });
+    mkdirSync(outside, { recursive: true });
+    writeFileSync(join(outside, 'private-salary.md'), 'x');
+    writeFileSync(join(root, 'ok.ts'), 'x');
+    symlinkSync(outside, join(root, 'docs', 'adr'));
+    symlinkSync(outside, join(root, 'linked-corpus'));
+    symlinkSync(join(outside, 'private-salary.md'), join(root, 'leak.md'));
+    symlinkSync(join(root, 'inside-corpus'), join(root, 'alias-corpus'));
+    return { base, root };
+  }
+
+  const cleanup = (base: string) => rmSync(base, { recursive: true, force: true });
+
+  test('the default corpus directory committed as a symlink out of the repository is refused', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({}, { cwd: root });
+      const result = await invoke('adr_lint', {});
+      expect(result.resultType).toBe('failure');
+      expect(JSON.parse(result.textResultForLlm).error).toBe('symlink-escape');
+      expect(result.textResultForLlm).not.toContain(base);
+      expect(calls).toEqual([]);
+    } finally {
+      cleanup(base);
+    }
+  });
+
+  test('an explicit dir that is a symlink out of the repository is refused by every tool', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({}, { cwd: root });
+      for (const [name, args] of [
+        ['adr_lint', { dir: 'linked-corpus' }],
+        ['adr_check', { paths: ['ok.ts'], dir: 'linked-corpus' }],
+        ['adr_explain', { path: 'ok.ts', dir: 'linked-corpus' }],
+      ] as const) {
+        const result = await invoke(name, args);
+        expect(result.resultType).toBe('failure');
+        expect(JSON.parse(result.textResultForLlm).error).toBe('symlink-escape');
+      }
+      expect(calls).toEqual([]);
+    } finally {
+      cleanup(base);
+    }
+  });
+
+  test('an ADRKIT_DIR that resolves outside the repository is refused too', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: 'linked-corpus' } });
+      const result = await invoke('adr_lint', {});
+      expect(JSON.parse(result.textResultForLlm).error).toBe('symlink-escape');
+      expect(calls).toEqual([]);
+    } finally {
+      cleanup(base);
+    }
+  });
+
+  test('a path that is a symlink out of the repository is refused', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: 'inside-corpus' } });
+      const explain = await invoke('adr_explain', { path: 'leak.md' });
+      expect(JSON.parse(explain.textResultForLlm).error).toBe('symlink-escape');
+      const check = await invoke('adr_check', { paths: ['ok.ts', 'leak.md'] });
+      expect(JSON.parse(check.textResultForLlm).error).toBe('symlink-escape');
+      expect(calls).toEqual([]);
+    } finally {
+      cleanup(base);
+    }
+  });
+
+  test('a git-collected file that is a symlink out of the repository is refused', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({ git: { stdout: 'ok.ts\0leak.md\0', stderr: '', exitCode: 0 } }, { cwd: root, env: { ADRKIT_DIR: 'inside-corpus' } });
+      const result = await invoke('adr_check', { base: 'HEAD~1' });
+      expect(JSON.parse(result.textResultForLlm).error).toBe('symlink-escape');
+      expect(calls.every((call) => call.command === 'git')).toBe(true);
+    } finally {
+      cleanup(base);
+    }
+  });
+
+  test('symlinks that stay inside the repository, and paths that do not exist yet, still run', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: 'alias-corpus' } });
+      const lint = await invoke('adr_lint', {});
+      expect(lint.resultType).toBe('success');
+      const explain = await invoke('adr_explain', { path: 'not/yet/written.ts' });
+      expect(explain.resultType).toBe('success');
+      expect(calls.filter((call) => call.command !== 'git').length).toBe(2);
+    } finally {
+      cleanup(base);
+    }
   });
 });

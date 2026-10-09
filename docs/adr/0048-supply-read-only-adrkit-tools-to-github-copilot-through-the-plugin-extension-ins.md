@@ -104,8 +104,11 @@ commands already document.
   characters; `paths` holds 1 to 200 entries; `base` is a revision
   of at most 256 characters from a conservative character set that cannot start
   with `-`; `dir` follows the path rules; `paths` and `base` are exclusive. Paths
-  reach `adr` after `--`. The check is lexical; a symlink inside the worktree is
-  not resolved.
+  reach `adr` after `--`. Before anything is spawned, the effective corpus
+  directory (the argument, `$ADRKIT_DIR`, or the default `docs/adr`) and every
+  path, including each file git collects, are resolved with `realpath`, and
+  one that leaves the session root through a symlink is refused with the fixed
+  `symlink-escape` message. A target that does not exist yet passes.
 - **Results never carry exception text.** A rejected argument, an unresolvable
   `$ADRKIT_CLI`, a process that cannot start, an output larger than the 64 MiB
   buffer, a command line too long for the system, a process killed by a signal,
@@ -250,15 +253,14 @@ shells out through a generic tool and parses CLI text, and a repository-local
 `skipPermission` means a model can run these commands without a prompt. They
 are read-only and the executable is environment-chosen, but they do read the
 repository, including the first 8 KiB of each named file for `@adr` markers.
-Path validation is lexical, and a symlink inside the worktree that points
-outside it is followed by the CLI. Through `path` or `paths`, the CLI reads at
-most the first 8 KiB of the target for `@adr` markers and reports only record
-ids that resolve against the corpus. Through `dir` (or a committed symlink at
-the default `docs/adr`), `adr lint` lists the names of the `.md` files in the
-outside directory and field-level findings for files that look like records,
-but not their contents (measured in review). Exploiting it needs a committed
-symlink, and the gain is file names reaching the model without a location
-prompt.
+A committed symlink (`docs/adr`, or any
+relative path) could otherwise point outside the worktree, and `adr lint` would
+list the names of the `.md` files there (measured in review). The Copilot review
+of the pull request raised it again, so the tools now resolve the real path of
+the corpus directory and of every path and refuse an escape before spawning
+(`symlink-escape`). The check and the spawn are separate steps, so a symlink
+swapped between them is not covered; that needs write access to the worktree,
+which the model already has through its own tools.
 
 The directory tracking depends on an event the runtime emits today. If a later
 runtime stops emitting `session.context_changed`, or starts restarting the
