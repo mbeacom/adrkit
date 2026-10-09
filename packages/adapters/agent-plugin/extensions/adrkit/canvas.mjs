@@ -474,6 +474,9 @@ export const CANVAS_NOTES = {
   autoRefreshTimeout: 'Automatic refresh timed out; showing the previous result.',
 };
 
+/** The corpus directory `adr` reads when neither `dir` nor `$ADRKIT_DIR` names one. */
+const DEFAULT_CORPUS_DIR = 'docs/adr';
+
 export const QUEUE_NOTES = {
   args: "The open-proposal list was not computed: the panel's arguments are not valid.",
   start: 'The open-proposal list is unavailable: the adr CLI could not be started.',
@@ -481,6 +484,9 @@ export const QUEUE_NOTES = {
   version: 'The open-proposal list is unavailable: adr queue returned a report version this panel does not read.',
   tooLarge: 'The open-proposal list is unavailable: the adr queue report was too large to read.',
   timeout: 'The open-proposal list is unavailable: adr queue did not finish in time.',
+  noCorpus:
+    'The open-proposal list is unavailable: the ADR corpus directory was not found in the session directory. ' +
+    'Open the session in the repository, or set the corpus directory.',
   autoRefreshTimeout: 'The open-proposal list was not updated: the automatic refresh timed out; showing the previous list.',
   /** @param {number} code */
   exit: (code) => `The open-proposal list is unavailable: adr queue exited ${code}.`,
@@ -593,6 +599,10 @@ export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = Q
   } finally {
     clearTimeout(timer);
   }
+  // Exit 2 is a usage error, and the likeliest one is a corpus directory that
+  // is not there: a session opened outside the repository (reported on
+  // Windows). That cause is checked on disk and named; stderr is never read.
+  if (result.exitCode === 2 && !exists(resolve(cwd, dir ?? DEFAULT_CORPUS_DIR))) return unavailable(QUEUE_NOTES.noCorpus, 2);
   if (result.exitCode !== 0 && result.exitCode !== 1) return unavailable(QUEUE_NOTES.exit(result.exitCode), result.exitCode);
   /** @type {unknown} */
   let report;

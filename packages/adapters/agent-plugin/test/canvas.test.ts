@@ -12,6 +12,7 @@ import {
   QUEUE_LIMIT,
   QUEUE_NOTES,
   CANVAS_NOTES,
+  computeQueue,
   computeSnapshot,
   createDecisionReviewCanvas,
   sanitizeReviewResult,
@@ -311,6 +312,30 @@ describe('tokenMatches', () => {
     expect(tokenMatches(token, 'short', compare)).toBe(false);
     expect(seen.length).toBe(2);
     for (const [a, b] of seen) expect(a).toBe(b);
+  });
+});
+
+describe('computeQueue when the corpus directory is not there (0.9.1)', () => {
+  // Reported on Windows: a session outside the repository showed "adr queue
+  // exited 2" beside the git note. Exit 2 with no corpus directory says why.
+  const exit2 = async () => ({ stdout: '', stderr: 'adr: cannot read docs/adr: ENOENT /secret/path', exitCode: 2 });
+  test('exit 2 with no corpus directory says the directory was not found, never the stderr or the path', async () => {
+    const seen: string[] = [];
+    const exists = (path: string) => {
+      seen.push(path);
+      return false;
+    };
+    const queue = await computeQueue({ cwd: CWD, input: {}, run: exit2, env: {}, exists });
+    expect(queue.available).toBe(false);
+    expect(queue.note).toBe(QUEUE_NOTES.noCorpus);
+    expect(queue.note).not.toMatch(/exited|secret|docs\/adr/);
+    expect(seen).toContain(join(CWD, 'docs/adr'));
+  });
+
+  test('exit 2 with the corpus directory present still reports the exit code', async () => {
+    const exists = (path: string) => path === join(CWD, 'records');
+    const queue = await computeQueue({ cwd: CWD, input: { dir: 'records' }, run: exit2, env: {}, exists });
+    expect(queue.note).toBe(QUEUE_NOTES.exit(2));
   });
 });
 
