@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COMMAND_CEILING_MS, publicMessage, REVIEW_MESSAGES, runCommand, isTrackedGroup } from '../extensions/adrkit/review.mjs';
 import { packageRoot } from './harness.ts';
@@ -302,5 +302,21 @@ describe('the tools name a timeout and a missing directory (L5, M2)', () => {
     const lint = tools.find((tool: { name: string }) => tool.name === 'adr_lint')!;
     const result = JSON.parse((await lint.handler({}, {})).textResultForLlm);
     expect(result.error).toBe(code);
+  });
+});
+
+describe('runCommand normalises the directory it starts a process in (0.9.1)', () => {
+  test('the cwd is passed through path.resolve, and windowsHide stays on', async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    const spawn = (_command: string, _args: string[], options: Record<string, unknown>) => {
+      seen.push(options);
+      const child = makeChild(4242);
+      queueMicrotask(() => child.emit('close', 0, null));
+      return child;
+    };
+    await runCommand('git', ['status'], { cwd: '/work/repo/./sub/../', spawn, kill: () => {}, platform: 'win32' });
+    expect(seen[0]?.['cwd']).toBe(resolve('/work/repo/./sub/../'));
+    expect(seen[0]?.['cwd']).toBe(resolve('/work/repo'));
+    expect(seen[0]?.['windowsHide']).toBe(true);
   });
 });

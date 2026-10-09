@@ -16,7 +16,7 @@ import {
   validateToolArgs,
 } from '../extensions/adrkit/tools.mjs';
 import { trackWorkingDirectory } from '../extensions/adrkit/session-dir.mjs';
-import { packageRoot } from './harness.ts';
+import { INSIDE_WORK_TREE, isWorkTreeProbe, packageRoot } from './harness.ts';
 
 type Call = { command: string; args: string[]; cwd: string; signal?: AbortSignal };
 type Result = { textResultForLlm: string; resultType: string };
@@ -24,14 +24,23 @@ type Result = { textResultForLlm: string; resultType: string };
 /** A fake runner: `adr` answers from `answers`, keyed by subcommand; git from `git`. */
 function fakeRun({
   answers = {} as Record<string, { stdout?: string; stderr?: string; exitCode: number }>,
-  git = { stdout: '', stderr: '', exitCode: 0 },
+  git = { stdout: '', stderr: '', exitCode: 0 } as
+    | { stdout?: string; stderr?: string; exitCode: number }
+    | ((args: string[]) => { stdout?: string; stderr?: string; exitCode: number }),
+  probe = INSIDE_WORK_TREE,
   spawnFails = false,
+  gitMissing = false,
 } = {}) {
   const calls: Call[] = [];
   const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
     calls.push({ command, args, cwd: options.cwd, signal: options.signal });
     if (spawnFails) throw new Error('spawn /secret/path/adr ENOENT at Object.<anonymous> (internal.js:1:1)');
-    if (command === 'git') return { stdout: git.stdout ?? '', stderr: git.stderr ?? '', exitCode: git.exitCode };
+    if (gitMissing && command === 'git') throw Object.assign(new Error('spawn git ENOENT'), { code: 'ENOENT', tool: 'git', missing: 'command' });
+    if (isWorkTreeProbe(command, args)) return probe;
+    if (command === 'git') {
+      const answer = typeof git === 'function' ? git(args) : git;
+      return { stdout: answer.stdout ?? '', stderr: answer.stderr ?? '', exitCode: answer.exitCode };
+    }
     const sub = args.find((arg) => ['check', 'explain', 'lint'].includes(arg)) ?? '';
     const answer = answers[sub] ?? { stdout: '{}', exitCode: 0 };
     return { stdout: answer.stdout ?? '', stderr: answer.stderr ?? '', exitCode: answer.exitCode };
@@ -158,17 +167,72 @@ describe('running the CLI', () => {
   test('adr_check with base collects changed files with git first', async () => {
     const { calls, invoke } = toolsWith({ git: { stdout: 'src/a.ts\0src/b.ts\0', stderr: '', exitCode: 0 } });
     const result = await invoke('adr_check', { base: 'main' });
-    expect(calls[0]).toMatchObject({ command: 'git', args: ['diff', '--name-only', '-z', 'main...HEAD'] });
-    expect(calls[1]).toMatchObject({ command: 'adr', args: ['check', '--json', '--dir', 'docs/adr', '--', 'src/a.ts', 'src/b.ts'] });
-    expect(JSON.parse(result.textResultForLlm)).toMatchObject({ files: ['src/a.ts', 'src/b.ts'], filesSource: 'git:main...HEAD' });
+    expect(calls[0]).toMatchObject({ command: 'git', args: ['rev-parse', '--is-inside-work-tree'] });
+    expect(calls[1]).toMatchObject({ command: 'git', args: ['diff', '--name-only', '-z', 'main...HEAD'] });
+    expect(calls[2]).toMatchObject({ command: 'git', args: ['diff', '--name-only', '-z', 'HEAD'] });
+    expect(calls[3]).toMatchObject({ command: 'git', args: ['ls-files', '--others', '--exclude-standard', '--full-name', '-z', '--', ':/'] });
+    expect(calls[4]).toMatchObject({ command: 'adr', args: ['check', '--json', '--dir', 'docs/adr', '--', 'src/a.ts', 'src/b.ts'] });
+    expect(JSON.parse(result.textResultForLlm)).toMatchObject({ files: ['src/a.ts', 'src/b.ts'], filesSource: 'git:main...HEAD+worktree' });
   });
 
   test('adr_check with no changed files runs nothing and says so', async () => {
     const { calls, invoke } = toolsWith({ git: { stdout: '', stderr: '', exitCode: 0 } });
     const result = await invoke('adr_check', {});
-    expect(calls.map((call) => call.command)).toEqual(['git']);
+    expect(calls.map((call) => call.command)).toEqual(['git', 'git', 'git', 'git']);
     expect(result.resultType).toBe('success');
     expect(JSON.parse(result.textResultForLlm)).toMatchObject({ exitCode: null, files: [] });
+  });
+
+  test('outside a git work tree, adr_check says so distinctly, with no git text or path', async () => {
+    // The Windows report: git printed its `--no-index` usage because the
+    // directory was not a work tree to git. That cause gets its own message.
+    const { calls, invoke } = toolsWith(
+      { probe: { stdout: '', stderr: 'fatal: not a git repository (or any of the parent directories): .git', exitCode: 128 } },
+      { cwd: '/work/not-a-repo' },
+    );
+    const result = await invoke('adr_check', {});
+    expect(result.resultType).toBe('failure');
+    expect(result.textResultForLlm).toContain('not inside a git work tree as seen by git');
+    expect(result.textResultForLlm).not.toMatch(/fatal|no-index|not-a-repo/);
+    expect(calls).toHaveLength(1);
+  });
+
+  test("git's ownership refusal is reported as safe.directory, distinctly, with no git text or path", async () => {
+    const { invoke } = toolsWith(
+      {
+        probe: {
+          stdout: '',
+          stderr: "fatal: detected dubious ownership in repository at '/work/repo'\nTo add an exception for this directory, call:",
+          exitCode: 128,
+        },
+      },
+      { cwd: '/work/repo' },
+    );
+    const result = await invoke('adr_check', {});
+    expect(result.resultType).toBe('failure');
+    expect(result.textResultForLlm).toContain('safe.directory');
+    expect(result.textResultForLlm).not.toMatch(/fatal|\/work\/repo/);
+  });
+
+  test('a base that resolves, with a working-tree listing that fails, is git-failed, not an unresolved base (PR #277 review)', async () => {
+    const { invoke } = toolsWith({
+      git: (args: string[]) =>
+        args.some((arg) => arg.endsWith('...HEAD'))
+          ? { stdout: 'src/a.ts\0', stderr: '', exitCode: 0 }
+          : { stdout: '', stderr: 'fatal: index file corrupt', exitCode: 128 },
+    });
+    const payload = JSON.parse((await invoke('adr_check', { base: 'main' })).textResultForLlm);
+    expect(payload.error).toBe('git-failed');
+    expect(payload.message).not.toMatch(/did not resolve|against the given base|fatal/);
+  });
+
+  test('git that cannot be started is git-unavailable, with or without a base (PR #277 review)', async () => {
+    for (const args of [{ base: 'main' }, {}]) {
+      const { invoke } = toolsWith({ gitMissing: true });
+      const payload = JSON.parse((await invoke('adr_check', args)).textResultForLlm);
+      expect(payload.error).toBe('git-unavailable');
+      expect(payload.message).toContain('git could not be started');
+    }
   });
 
   test('an unresolvable base is a fixed failure, never git text', async () => {
@@ -554,16 +618,26 @@ describe('fix round 1', () => {
     });
   }
 
-  test('the no-base git message stays true outside a repository and without git', async () => {
-    // One fixed message covers every no-base cause: origin/main unresolved with
-    // a clean tree, a directory that is not a repository, and git missing.
-    const notRepo = toolsWith({ git: { stdout: '', stderr: 'fatal: not a git repository', exitCode: 128 } });
-    const a = JSON.parse((await notRepo.invoke('adr_check', {})).textResultForLlm);
+  test('the no-base git message stays true for no changes and an unknown failure; outside a repository and a failed listing are their own', async () => {
+    // Since 0.9.1 a directory git does not treat as a work tree is caught by
+    // the probe and named on its own; the no-base message covers the rest.
+    const notRepo = toolsWith({ probe: { stdout: '', stderr: 'fatal: not a git repository', exitCode: 128 } });
+    const outside = JSON.parse((await notRepo.invoke('adr_check', {})).textResultForLlm);
+    expect(outside.error).toBe('not-work-tree');
+    expect(outside.message).not.toContain('fatal');
+    const cannotList = toolsWith({ git: { stdout: '', stderr: "fatal: bad revision 'HEAD'", exitCode: 128 } });
+    const a = JSON.parse((await cannotList.invoke('adr_check', {})).textResultForLlm);
+    expect(a.error).toBe('git-failed');
+    expect(a.message).not.toContain('fatal');
+    const noChanges = toolsWith({
+      git: (args: string[]) => (args.some((arg) => arg.endsWith('...HEAD')) ? { stdout: '', stderr: 'fatal', exitCode: 128 } : { stdout: '', stderr: '', exitCode: 0 }),
+    });
+    const c = JSON.parse((await noChanges.invoke('adr_check', {})).textResultForLlm);
     const gitMissing = toolsWith({ spawnFails: true });
     const b = JSON.parse((await gitMissing.invoke('adr_check', {})).textResultForLlm);
-    for (const payload of [a, b]) {
+    for (const payload of [c, b]) {
       expect(payload.error).toBe('git-no-changes');
-      expect(payload.message).toContain('not a git repository');
+      expect(payload.message).toContain('could not list them');
       expect(payload.message).toContain('git is not available');
       expect(payload.message).not.toMatch(/origin\/main did not resolve here, and/);
       expect(payload.message).not.toContain('fatal');
@@ -577,7 +651,8 @@ describe('fix round 1', () => {
     expect(a.message).toContain('base');
     const noBase = toolsWith({ git: { stdout: '', stderr: 'fatal', exitCode: 128 } });
     const b = JSON.parse((await noBase.invoke('adr_check', {})).textResultForLlm);
-    expect(b.error).toBe('git-no-changes');
+    // Inside a work tree, every listing failing is git's own failure (PR #277 review).
+    expect(b.error).toBe('git-failed');
     expect(b.message).toContain('origin/main');
     expect(b.message).not.toContain('that base');
   });

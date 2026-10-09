@@ -13,7 +13,7 @@ import {
   sessionSummary,
 } from '../extensions/adrkit/hooks.mjs';
 import { register } from '../extensions/adrkit/register.mjs';
-import { packageRoot } from './harness';
+import { INSIDE_WORK_TREE, isWorkTreeProbe, packageRoot } from './harness';
 
 const WD = '/work/repo';
 
@@ -46,6 +46,7 @@ function fakeCli({
       }
       if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
       if (fail) throw fail();
+      if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
       if (command === 'git') return { stdout: changed.map((file) => `${file}\0`).join(''), stderr: '', exitCode: 0 };
       const files = args.slice(args.indexOf('--') + 1);
       const governedBy = files.flatMap((file) => governed[file] ?? []);
@@ -205,6 +206,16 @@ describe('what reaches the model', () => {
     expect(text).not.toContain('rm');
   });
 
+  test('the summary describes the union the change was collected from, never a raw source label (0.9.1)', () => {
+    const governedBy = [{ recordId: '0001', status: 'accepted', bucket: 'governing' }];
+    const union = sessionSummary({ governedBy }, { fileCount: 3, source: 'git:origin/main...HEAD+worktree' }) ?? '';
+    expect(union).toContain('3 changed file(s) in this session (committed changes since origin/main, plus uncommitted and untracked edits)');
+    expect(union).not.toContain('+worktree');
+    const fallback = sessionSummary({ governedBy }, { fileCount: 1, source: 'git:worktree' }) ?? '';
+    expect(fallback).toContain('uncommitted and untracked edits only; origin/main did not resolve');
+    expect(fallback).not.toContain('git:');
+  });
+
   test('nothing governing and nothing proposed means no summary at all', () => {
     expect(sessionSummary({ governedBy: [] }, { fileCount: 3, source: 'git:origin/main...HEAD' })).toBeUndefined();
     expect(sessionSummary(null, { fileCount: 3, source: 'x' })).toBeUndefined();
@@ -245,13 +256,19 @@ describe('advisory hooks', () => {
     expect(Object.keys(hooks).sort()).toEqual(['onPostToolUse', 'onSessionStart']);
   });
 
-  test('onSessionStart adds a summary from one git diff and one adr check, with timeouts', async () => {
+  test('onSessionStart adds a summary from the work-tree probe, the three git listings, and one adr check, with timeouts', async () => {
     const { hooks, cli } = makeHooks();
     const out = await hooks.onSessionStart(start(), { sessionId: 's1' });
     expect(Object.keys(out ?? {})).toEqual(['additionalContext']);
     expect(out?.additionalContext).toContain('0001');
     expect(out?.additionalContext).not.toContain('Ignore previous');
-    expect(cli.calls.map((call) => call.command)).toEqual(['git', 'adr']);
+    expect(cli.calls.map((call) => [call.command, call.args[0]])).toEqual([
+      ['git', 'rev-parse'],
+      ['git', 'diff'],
+      ['git', 'diff'],
+      ['git', 'ls-files'],
+      ['adr', 'check'],
+    ]);
     expect(cli.adrCalls()[0]?.args).toEqual(['check', '--json', '--', 'src/net.ts']);
     for (const call of cli.calls) {
       expect(call.cwd).toBe(WD);
@@ -541,6 +558,7 @@ describe('canvas refreshOpen', () => {
       run: async (command: string, args: string[], options: { signal?: AbortSignal }) => {
         calls.push(`${command} ${args[0]}`);
         signals.push(options.signal);
+        if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
         return { stdout: command === 'git' ? 'a.ts\0' : args.includes('check') ? '{"governedBy":[]}' : '', stderr: '', exitCode: 0 };
       },
       env: {},
@@ -559,7 +577,7 @@ describe('canvas refreshOpen', () => {
     signals.length = 0;
     const controller = new AbortController();
     expect(await canvas.refreshOpen({ signal: controller.signal })).toBe(1);
-    expect([...calls].sort()).toEqual(['adr check', 'adr lint', 'adr queue', 'git diff']);
+    expect([...calls].sort()).toEqual(['adr check', 'adr lint', 'adr queue', 'git diff', 'git diff', 'git ls-files', 'git rev-parse']);
     // The queue keeps its own timeout, so its signal is combined with ours,
     // not replaced: every call must abort when the hooks' signal does.
     expect(signals.length).toBe(calls.length);
@@ -582,6 +600,7 @@ describe('canvas refreshOpen', () => {
           if (queueStarted > 1) await queueGate;
           return { stdout: '{}', stderr: '', exitCode: 0 };
         }
+        if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
         return { stdout: command === 'git' ? 'a.ts\0' : args.includes('check') ? '{"governedBy":[]}' : '', stderr: '', exitCode: 0 };
       },
       env: {},

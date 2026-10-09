@@ -26,7 +26,16 @@
 
 import { realpathSync } from 'node:fs';
 import { isAbsolute, resolve, sep, win32 } from 'node:path';
-import { FILES_ECHO_LIMIT, capFiles, checkInBatches, cliOverhead, collectChangedFiles, isSafeBaseRef, resolveCli } from './review.mjs';
+import {
+  FILES_ECHO_LIMIT,
+  REVIEW_MESSAGES,
+  capFiles,
+  checkInBatches,
+  cliOverhead,
+  collectChangedFiles,
+  isSafeBaseRef,
+  resolveCli,
+} from './review.mjs';
 
 /** @import { CommandResult } from './review.mjs' */
 
@@ -68,9 +77,13 @@ const MESSAGES = Object.freeze({
   'git-base-unresolved':
     'git could not list the changed files against the given base. Pass a base that resolves in this repository, or pass paths.',
   'git-no-changes':
-    'git could not list any changed files. Either origin/main did not resolve and there are no uncommitted ' +
-    'changes against HEAD, or this directory is not a git repository, or git is not available. In a ' +
-    'repository, pass a base that resolves or pass paths; otherwise pass paths.',
+    'git could not list any changed files. Either origin/main did not resolve and the working tree has no ' +
+    'uncommitted or untracked changes, or git is not available or could not list them. In a repository, ' +
+    'pass a base that resolves or pass paths; otherwise pass paths.',
+  'not-work-tree': REVIEW_MESSAGES['not-work-tree'],
+  'git-failed': REVIEW_MESSAGES['git-failed'],
+  'git-unavailable': REVIEW_MESSAGES['git-unavailable'],
+  'git-unsafe-directory': REVIEW_MESSAGES['git-unsafe-directory'],
   'output-too-large': 'adr produced more output than the tool accepts (64 MiB). Narrow the request: fewer paths, or one path at a time.',
   'args-too-long':
     'The command line was too long for this system. Pass fewer or shorter paths per call (a large diff from base can do this too).',
@@ -432,7 +445,8 @@ export function createAdrTools({ run, env, exists, getCwd }) {
       description:
         'Read-only. Report which architecture decisions (ADRs) govern a set of changed files, using adrkit: ' +
         'runs `adr check --json` in the session repository. Pass repository-relative `paths`, or a git `base` ' +
-        '(the change is `git diff <base>...HEAD`); with neither, the change against origin/main. exitCode 1 ' +
+        '(the change is `git diff <base>...HEAD` plus uncommitted and untracked edits); with neither, the same ' +
+        'against origin/main. exitCode 1 ' +
         'with a report means findings, not a failure. Governing records are in report.governing. A change too ' +
         'wide for one command line is checked in batches and the reports merged: a merged report carries ' +
         'batches (the count) and no markerScan, and lists at most 200 changedFiles with changedFilesOmitted.',
@@ -459,8 +473,14 @@ export function createAdrTools({ run, env, exists, getCwd }) {
             { files: args.paths, base: args.base },
             (command, gitArgs) => run(command, gitArgs, options),
           );
-        } catch {
+        } catch (error) {
           if (options.signal?.aborted) throw new Error('cancelled');
+          // Compared, never echoed: the code is one collectChangedFiles set.
+          const code = /** @type {any} */ (error)?.code;
+          if (code === 'not-work-tree' || code === 'git-unsafe-directory' || code === 'git-failed' || code === 'git-unavailable') {
+            return failure('adr_check', code);
+          }
+          if (code === 'base-unresolved') return failure('adr_check', 'git-base-unresolved');
           return failure('adr_check', args.base === undefined ? 'git-no-changes' : 'git-base-unresolved');
         }
         if (escapes(options.cwd, args.dir)) return failure('adr_check', 'symlink-escape');

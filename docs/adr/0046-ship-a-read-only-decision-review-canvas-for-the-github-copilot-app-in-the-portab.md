@@ -60,6 +60,14 @@ review:
 > registers in its own guarded `try`. This record's read-only, advisory, and
 > security boundaries are unchanged and apply to the board too.
 
+> **Amended in plugin 0.9.1 (a correction, no new record).** The panel's
+> change is the same union as the workflow's (branch range, uncommitted edits,
+> untracked files). The statement below that a fresh app session's panel
+> "shows only that session's own changes" held only for committed changes:
+> through 0.9.0 an uncommitted edit in the session never showed. This
+> record's status and its read-only, advisory, and security boundaries are
+> unchanged.
+
 ## Context
 
 The GitHub Copilot app can render a *canvas*: a panel beside the conversation

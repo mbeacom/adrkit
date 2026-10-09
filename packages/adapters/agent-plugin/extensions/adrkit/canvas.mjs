@@ -52,6 +52,7 @@ import {
   checkNote,
   cliOverhead,
   collectChangedFiles,
+  isPartialSource,
   governingDecisions,
   historyDecisions,
   lintNote,
@@ -399,7 +400,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     return usage(error);
   }
   notes.push(...collected.notes);
-  const fileFields = { files: collected.files, filesSource: collected.source, partial: collected.source === 'git:HEAD' };
+  const fileFields = { files: collected.files, filesSource: collected.source, partial: isPartialSource(collected.source) };
   if (collected.files.length === 0) {
     notes.push('No changed files; nothing was checked.');
     return shape(fileFields);
@@ -473,6 +474,9 @@ export const CANVAS_NOTES = {
   autoRefreshTimeout: 'Automatic refresh timed out; showing the previous result.',
 };
 
+/** The corpus directory `adr` reads when neither `dir` nor `$ADRKIT_DIR` names one. */
+const DEFAULT_CORPUS_DIR = 'docs/adr';
+
 export const QUEUE_NOTES = {
   args: "The open-proposal list was not computed: the panel's arguments are not valid.",
   start: 'The open-proposal list is unavailable: the adr CLI could not be started.',
@@ -480,6 +484,9 @@ export const QUEUE_NOTES = {
   version: 'The open-proposal list is unavailable: adr queue returned a report version this panel does not read.',
   tooLarge: 'The open-proposal list is unavailable: the adr queue report was too large to read.',
   timeout: 'The open-proposal list is unavailable: adr queue did not finish in time.',
+  noCorpus:
+    'The open-proposal list is unavailable: the ADR corpus directory was not found in the session directory. ' +
+    'Open the session in the repository, or set the corpus directory.',
   autoRefreshTimeout: 'The open-proposal list was not updated: the automatic refresh timed out; showing the previous list.',
   /** @param {number} code */
   exit: (code) => `The open-proposal list is unavailable: adr queue exited ${code}.`,
@@ -592,6 +599,10 @@ export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = Q
   } finally {
     clearTimeout(timer);
   }
+  // Exit 2 is a usage error, and the likeliest one is a corpus directory that
+  // is not there: a session opened outside the repository (reported on
+  // Windows). That cause is checked on disk and named; stderr is never read.
+  if (result.exitCode === 2 && !exists(resolve(cwd, dir ?? DEFAULT_CORPUS_DIR))) return unavailable(QUEUE_NOTES.noCorpus, 2);
   if (result.exitCode !== 0 && result.exitCode !== 1) return unavailable(QUEUE_NOTES.exit(result.exitCode), result.exitCode);
   /** @type {unknown} */
   let report;
@@ -732,7 +743,7 @@ function knownRecordIds(snapshot) {
 const ARGS_SCHEMA = {
   type: ['object', 'null'],
   properties: {
-    files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative paths; default: git diff <base>...HEAD.' },
+    files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative paths; default: git diff <base>...HEAD plus uncommitted and untracked edits.' },
     base: { type: 'string', description: 'Base ref; default origin/main.' },
     dir: { type: 'string', description: 'ADR corpus directory; default $ADRKIT_DIR or docs/adr.' },
   },
@@ -805,7 +816,10 @@ export function createDecisionReviewCanvas({
     if (typeof dir !== 'string' || dir.length === 0 || !isAbsolute(dir)) {
       throw makeError('workspace_unavailable', 'The session has no working directory, so there is no change to review.');
     }
-    return dir;
+    // One normal form, so one directory spelled two ways (a Windows path with
+    // forward slashes, a trailing separator) is one workspace, and the form git
+    // is started in is the form the panel keys on.
+    return resolve(dir);
   };
 
   /** @param {any} ctx */
@@ -1258,7 +1272,7 @@ export function createDecisionReviewCanvas({
       {
         name: 'refresh',
         description:
-          'Re-run Collect and Check (git diff, adr check, adr lint) and the open-proposal list (adr queue) ' +
+          'Re-run Collect and Check (git, adr check, adr lint) and the open-proposal list (adr queue) ' +
           'in the session working directory and update the panel. No model calls. Input replaces the remembered { base, files, dir }; omit it to reuse them.',
         inputSchema: ARGS_SCHEMA,
         handler: (/** @type {any} */ ctx) => withCwd(ctx, (cwd, input) => refresh(cwd, input)),

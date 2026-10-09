@@ -39,6 +39,13 @@ provenance:
 > ladder of ADR-0048; it supersedes none of them. Their portability, read-only, advisory, and independent-versioning
 > constraints remain binding.
 
+> **Amended in plugin 0.9.1 (a correction, no new record).** `onSessionStart`
+> collects the same union as the workflow (branch range, `git diff HEAD`,
+> untracked files), so it makes four git calls (a work-tree probe and three
+> listings) before `adr check`, not the "one `git diff`" or "up to three
+> sequential calls" stated below. The 5 s deadline and the two-process cap are
+> unchanged, as are this record's status and its advisory boundaries.
+
 ## Context
 
 The plugin's Copilot extension registers the `adr-review` workflow

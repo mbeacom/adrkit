@@ -46,10 +46,11 @@ export const ADR_REVIEW_META = {
     'workflow has no exit-code authority (the host exits 0 regardless). Gate on ' +
     'one rule: the run\'s status is completed and result.status is "ok". ' +
     'result.status is ok, findings, incomplete (a governing decision has no ' +
-    'usable verdict, or origin/main did not resolve and only uncommitted edits ' +
+    'usable verdict, or origin/main did not resolve and only working-tree edits ' +
     'were reviewed), or usage-error; checkExitCode, lintExitCode, verdicts, and ' +
     'unverified are detail, not the gate. Read-only. args: { files?: string[] (repo-relative; default ' +
-    'git diff <base>...HEAD, deletions included), base?: string (default origin/main), dir?: string ' +
+    'git diff <base>...HEAD plus uncommitted and untracked edits, deletions included), ' +
+    'base?: string (default origin/main), dir?: string ' +
     '(ADR corpus; default $ADRKIT_DIR or docs/adr) }. The CLI is chosen by the ' +
     'environment only: $ADRKIT_CLI, then ./node_modules/.bin/adr when ' +
     'ADRKIT_ALLOW_REPO_CLI=1, then adr on PATH.',
@@ -99,9 +100,14 @@ export const REVIEW_MESSAGES = Object.freeze({
     'The given base did not resolve in this repository (git diff <base>...HEAD failed); no fallback was attempted. ' +
     'Pass a base that resolves, or pass files.',
   'git-failed':
-    'git could not list the changed files against origin/main or against HEAD. Is this a git repository? ' +
-    'Pass files to name the change explicitly.',
+    'git could not list the changed files against origin/main or in the working tree (a repository with no commit yet ' +
+    'has no HEAD). Pass files to name the change explicitly.',
   'git-unavailable': 'git could not be started. Install git, or pass files to name the change explicitly.',
+  'not-work-tree':
+    'the session directory is not inside a git work tree as seen by git; open the session in the repository or pass files',
+  'git-unsafe-directory':
+    'git refused the session directory because it is owned by another user (dubious ownership), so it did not treat it as a ' +
+    'repository. If you trust the directory, add it with git config --global --add safe.directory, or pass files.',
   'no-changes':
     'origin/main did not resolve and the working tree has no changes; pass files or base, ' +
     'or fetch history (e.g. actions/checkout fetch-depth: 0)',
@@ -122,7 +128,69 @@ export const REVIEW_MESSAGES = Object.freeze({
 });
 
 /** The note for a default base that did not resolve. Fixed: git's stderr is not repeated. */
-export const FALLBACK_NOTE = 'git diff origin/main...HEAD failed; fell back to uncommitted changes against HEAD.';
+export const FALLBACK_NOTE =
+  'git diff origin/main...HEAD failed; fell back to the uncommitted and untracked changes in the working tree.';
+
+/**
+ * `collectChangedFiles`' label for the fallback: the working tree alone,
+ * because the default base did not resolve. A review of it is partial.
+ */
+export const WORKTREE_SOURCE = 'git:worktree';
+
+/** The suffix on `git:<base>...HEAD` that says the working tree is included. */
+const WORKTREE_SUFFIX = '+worktree';
+
+/** The untracked-file listing, repository-relative and whole-repository from any subdirectory. */
+const UNTRACKED_ARGS = ['ls-files', '--others', '--exclude-standard', '--full-name', '-z', '--', ':/'];
+
+/**
+ * Is a file set with this `source` partial, so a clean review of it can only
+ * be `incomplete`? Only the fallback is: it lacks the committed branch work.
+ *
+ * @param {string | null | undefined} source
+ */
+export const isPartialSource = (source) => source === WORKTREE_SOURCE;
+
+/**
+ * The base a `git:<base>...HEAD+worktree` label was collected against, or
+ * undefined for any other label.
+ *
+ * @param {string | null | undefined} source
+ */
+export function baseOfSource(source) {
+  if (typeof source !== 'string' || !source.startsWith('git:') || !source.endsWith(`...HEAD${WORKTREE_SUFFIX}`)) return undefined;
+  const base = source.slice('git:'.length, -`...HEAD${WORKTREE_SUFFIX}`.length);
+  return base.length > 0 ? base : undefined;
+}
+
+/**
+ * The git commands whose union reproduces a `source`'s file list, or an empty
+ * list for `args` (nothing in git reproduces a caller's list) and for any
+ * label this version did not write.
+ *
+ * @param {string | null | undefined} source
+ * @returns {string[]}
+ */
+export function listCommandsFor(source) {
+  const worktree = ['git diff --name-only HEAD', `git ${UNTRACKED_ARGS.filter((arg) => arg !== '-z').join(' ')}`];
+  if (source === WORKTREE_SOURCE) return worktree;
+  const base = baseOfSource(source);
+  return base === undefined ? [] : [`git diff --name-only ${base}...HEAD`, ...worktree];
+}
+
+/**
+ * A short phrase for a `source`, for prose a model reads (the session-start
+ * hook). Fixed text plus, at most, the base the caller or the default chose.
+ *
+ * @param {string} source
+ */
+export function describeSource(source) {
+  if (source === WORKTREE_SOURCE) return 'uncommitted and untracked edits only; origin/main did not resolve';
+  const base = baseOfSource(source);
+  if (base !== undefined) return `committed changes since ${base}, plus uncommitted and untracked edits`;
+  if (source === 'args') return 'files named by the caller';
+  return 'changed files';
+}
 
 /** @typedef {keyof typeof REVIEW_MESSAGES} ReviewCode */
 
@@ -367,6 +435,10 @@ export function runCommand(
   },
 ) {
   const tool = toolOf(command);
+  // One normal form for the directory: on Windows, `path.resolve` turns a
+  // forward-slash or mixed-separator session path into the drive-letter
+  // backslash form; on POSIX it only drops a trailing separator or `.`/`..`.
+  const workDir = resolve(cwd);
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(abortError(signal));
     const group = platform !== 'win32';
@@ -374,7 +446,7 @@ export function runCommand(
     let child;
     try {
       child = spawn(command, args, {
-        cwd,
+        cwd: workDir,
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         ...(group ? { detached: true } : { signal }),
@@ -482,7 +554,7 @@ export function runCommand(
     child.on('error', (/** @type {any} */ error) => {
       retire();
       if (error?.code === 'ENOENT') {
-        const missing = existsSync(cwd) ? 'command' : 'cwd';
+        const missing = existsSync(workDir) ? 'command' : 'cwd';
         return finish(() =>
           reject(Object.assign(new Error(`could not start "${command}": not found`), { code: 'ENOENT', tool, missing })),
         );
@@ -820,16 +892,29 @@ function nulSeparated(stdout) {
 }
 
 /**
- * The changed files: the `files` argument when given, else the committed
- * difference from `base` (default `origin/main`). Deletions are included:
- * removing a governed file can break its decision, `adr check` still matches
- * an absent path, and the Judge reads the deletion from the diff.
+ * The changed files: the `files` argument when given, else the union of the
+ * committed difference from `base` (default `origin/main`), staged and
+ * unstaged edits against `HEAD`, and untracked files that are not ignored,
+ * deduplicated and sorted by code units. Before 0.9.1 the committed range
+ * alone was used whenever it resolved, so an app session's own edits stayed
+ * invisible until they were committed (measured on the dogfood repository:
+ * 0 files, where `adr check` on the same paths found 3 governing records).
+ * Deletions are included: removing a governed file can break its decision,
+ * `adr check` still matches an absent path, and the Judge reads the deletion
+ * from the diff.
+ *
+ * `git rev-parse --is-inside-work-tree` runs first. A directory git does not
+ * treat as a work tree makes `git diff` print its `--no-index` usage, which is
+ * what a Windows report showed; it is reported as `not-work-tree`, or as
+ * `git-unsafe-directory` when git said the cause was the owner check
+ * (`safe.directory`). Neither repeats git's stderr: it is compared, never
+ * echoed.
  *
  * An explicit `base` that does not resolve throws (`base-unresolved`): falling
  * back would review something other than what the caller asked for. Only the default
  * `origin/main` falls back — a shallow clone, a repository with no `origin` —
- * to the working tree against `HEAD`, and says so in `notes`; the run is then
- * `incomplete` at best, because those edits may not be the change. If that fallback
+ * to the working tree alone (`git:worktree`), and says so in `notes`; the run is then
+ * `incomplete` at best, because those edits may not be the whole change. If that fallback
  * is empty too, it throws rather than return no files, because an empty review
  * reports `ok` and the likeliest cause is a CI checkout with no history.
  *
@@ -851,19 +936,31 @@ export async function collectChangedFiles({ files, base }, run) {
     }
   };
 
+  // git's stderr is not repeated anywhere below: it reaches a model or a page.
+  // It is only compared, to pick a fixed message.
+  const inside = await git(['rev-parse', '--is-inside-work-tree']);
+  if (inside.exitCode !== 0 || inside.stdout.trim() !== 'true') {
+    throw new ReviewError(/dubious ownership/i.test(inside.stderr) ? 'git-unsafe-directory' : 'not-work-tree');
+  }
+
   const ref = base ?? 'origin/main';
   const range = `${ref}...HEAD`;
-  const primary = await git(['diff', '--name-only', '-z', range]);
-  if (primary.exitCode === 0) return { files: nulSeparated(primary.stdout), source: `git:${range}`, notes: [] };
+  const committed = await git(['diff', '--name-only', '-z', range]);
+  if (committed.exitCode !== 0 && base !== undefined) throw new ReviewError('base-unresolved');
 
-  // git's stderr is not repeated anywhere below: it reaches a model or a page.
-  if (base !== undefined) throw new ReviewError('base-unresolved');
+  const tracked = await git(['diff', '--name-only', '-z', 'HEAD']);
+  if (tracked.exitCode !== 0) throw new ReviewError('git-failed');
+  const untracked = await git(UNTRACKED_ARGS);
+  if (untracked.exitCode !== 0) throw new ReviewError('git-failed');
+  const worktree = [...nulSeparated(tracked.stdout), ...nulSeparated(untracked.stdout)];
 
-  const fallback = await git(['diff', '--name-only', '-z', 'HEAD']);
-  if (fallback.exitCode !== 0) throw new ReviewError('git-failed');
-  const changed = nulSeparated(fallback.stdout);
+  if (committed.exitCode === 0) {
+    const all = [...new Set([...nulSeparated(committed.stdout), ...worktree])].sort(byCodeUnits);
+    return { files: all, source: `git:${range}${WORKTREE_SUFFIX}`, notes: [] };
+  }
+  const changed = [...new Set(worktree)].sort(byCodeUnits);
   if (changed.length === 0) throw new ReviewError('no-changes');
-  return { files: changed, source: 'git:HEAD', notes: [FALLBACK_NOTE] };
+  return { files: changed, source: WORKTREE_SOURCE, notes: [FALLBACK_NOTE] };
 }
 
 /**
@@ -904,9 +1001,9 @@ function omittedHint(total, { base, source }) {
       'say in the evidence that the omitted paths were not seen)'
     );
   }
-  const range =
-    typeof source === 'string' && source.startsWith('git:') ? source.slice('git:'.length) : base ? `${base}...HEAD` : 'HEAD';
-  return `(list them all with \`git diff --name-only ${range}\`)`;
+  const commands = listCommandsFor(source);
+  const listed = commands.length > 0 ? commands : listCommandsFor(base ? `git:${base}...HEAD${WORKTREE_SUFFIX}` : WORKTREE_SOURCE);
+  return `(list them all with the union of ${listed.map((command) => `\`${command}\``).join(', ')})`;
 }
 
 /**
@@ -920,18 +1017,23 @@ function omittedHint(total, { base, source }) {
  * in code-unit order. The hint for the omitted paths names exactly how the run
  * collected them, because a bare `git diff --name-only` (working tree against
  * the index) prints nothing for committed work, and a Judge shown only
- * unrelated paths would otherwise answer from what it can see.
+ * unrelated paths would otherwise answer from what it can see. The change is a
+ * union (0.9.1), so the Judge is told how to read each kind of path: a
+ * committed change from the range, an uncommitted edit against `HEAD`, and an
+ * untracked file, which has no diff at all, by reading it whole. Without that,
+ * a Judge shown an empty range diff for an edit answers over nothing.
  *
  * @param {Decision} decision
  * @param {string[]} files
  * @param {{ base?: string, source?: string }} [options] `source` is
- *   `collectChangedFiles`' label: `args`, `git:HEAD`, or `git:<base>...HEAD`.
+ *   `collectChangedFiles`' label: `args`, `git:worktree`, or
+ *   `git:<base>...HEAD+worktree`.
  */
 export function buildJudgePrompt(decision, files, { base, source } = {}) {
   const shown = judgedPaths(decision, files);
   const more = shown.omitted > 0 ? ` and ${shown.omitted} more ${omittedHint(files.length, { base, source })}` : '';
   const diff = base
-    ? `\`git diff ${base}...HEAD -- <path>\` (falling back to \`git diff HEAD -- <path>\`)`
+    ? `\`git diff ${base}...HEAD -- <path>\` for committed work and \`git diff HEAD -- <path>\` for uncommitted edits`
     : '`git diff HEAD -- <path>`';
   return [
     `Judge whether the changed files are consistent with architecture decision ${decision.recordId} ("${decision.title}").`,
@@ -943,7 +1045,8 @@ export function buildJudgePrompt(decision, files, { base, source } = {}) {
     '',
     `1. Read record ${decision.recordId} in full (\`adr explain\` on one of the paths shows where it lives).`,
     `2. Read each changed path's diff with ${diff}, passing each path as a single quoted argument`,
-    '   after `--` so its text never becomes shell syntax. A deleted path is evidence too: removing',
+    '   after `--` so its text never becomes shell syntax. A path that shows no diff is untracked',
+    '   (new and not yet added): read the file itself. A deleted path is evidence too: removing',
     '   something the decision requires can conflict with it.',
     '3. Decide one verdict for this decision only:',
     '   - consistent: the change follows the decision.',
@@ -1096,10 +1199,10 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
         'pass at most 200 files, or use base, to have every file judged.',
     );
   }
-  const partial = collected.source === 'git:HEAD' || unseen;
+  const partial = isPartialSource(collected.source) || unseen;
   const base = { files, filesSource: collected.source, partial };
   // The ref the Judge diffs against: the one the files came from, else the one
-  // the caller named. A fallback to HEAD means the base did not resolve.
+  // the caller named. A fallback to the working tree means the base did not resolve.
   // Explicit files default to origin/main too: a diff against HEAD is empty
   // for committed work, which would leave the Judge nothing to read.
   const diffBase = partial ? undefined : args.base ?? 'origin/main';

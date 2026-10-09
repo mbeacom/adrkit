@@ -16,6 +16,7 @@ import { CANVAS_ID, computeSnapshot, createDecisionReviewCanvas } from '../exten
 import { createAdvisoryHooks } from '../extensions/adrkit/hooks.mjs';
 import { reviewWorkflow } from '../extensions/adrkit/review.mjs';
 import { createAdrTools } from '../extensions/adrkit/tools.mjs';
+import { INSIDE_WORK_TREE, isWorkTreeProbe } from './harness.ts';
 
 const SENTINEL = 'ZZ-SENTINEL-7f3a';
 const STACK = `Error: ${SENTINEL}\n    at Object.<anonymous> (/Users/someone/.nvm/${SENTINEL}/adr.js:1:1)`;
@@ -32,6 +33,8 @@ const report = (entries: unknown[] = []) => JSON.stringify({ changedFiles: ['src
 /** git diff `<base>...HEAD` is `primary`, `git diff HEAD` is `fallback`. */
 function scripted(script: Script) {
   return async (command: string, args: string[]): Promise<Run> => {
+    if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
+    if (command === 'git' && args[0] === 'ls-files') return ok('');
     const key =
       command === 'git'
         ? args.includes('HEAD') && !args.some((arg) => arg.endsWith('...HEAD'))

@@ -34,6 +34,27 @@ Until `1.0.0`, minor releases may include breaking changes
   records, 250 relationships) and a fixture, with no model calls. Unmeasured in
   the Copilot app.
 
+### Fixed
+
+- **The agent plugin reviews uncommitted and untracked edits (`adrkit` 0.9.1).**
+  The `adr-review` workflow, the `decision-review` panel, the `adr_check` tool
+  with no paths, and the session-start hook took the change from
+  `git diff <base>...HEAD` alone whenever that range resolved, so edits not yet
+  committed never showed: on a copy of the dogfood repository with three
+  uncommitted edits, the panel reported 0 files and `ok` while `adr check` on
+  the same paths found 3 governing records, and the `@adr` markers in them
+  never reached the governing list. The default change is now the union of the
+  committed range, staged and unstaged edits against `HEAD`, and untracked
+  files that are not ignored. Thanks to the dogfood report that found it.
+- **A session directory git does not treat as a work tree is named as such.**
+  A `git rev-parse --is-inside-work-tree` probe runs first; outside a work tree
+  the panel, tools, and workflow say so with a fixed message (or name
+  `safe.directory` when git's ownership check refused the directory), instead
+  of "git could not list the changed files ... Is this a git repository?". When
+  `adr queue` exits 2 because the corpus directory is not there, the panel says
+  that instead of "exited 2". This follows a Windows report (git
+  2.55.0.vfs.0.10) whose cause is not reproduced here.
+
 ## [0.18.0] - 2026-10-09
 
 This release adds `adr approve`, `adr object`, and `adr resolve`, so review

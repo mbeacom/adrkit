@@ -539,7 +539,7 @@ second and third used the two-record fixture from rows 16 to 22.
 |---|-------|--------|
 | 23 | Opening it | The agent called `list_canvas_capabilities`, then `open_canvas`. Its first call passed `input: null`, which the runtime rejected (`(root): null is not of type "object"`); it retried with `{}`. Fixed in `3ffcbb4`: the open and action input schemas accept `null` as no input, re-checked headless |
 | 24 | Render and theme | Rendered in the side panel; the maintainer confirmed the app's dark theme applied, so the injected theme styles get through the CSP |
-| 25 | Session working directory | A new app session runs in a fresh worktree branched from the repository's default branch, so the panel showed `0 changed file(s)` from `origin/main...HEAD` and later from `main...HEAD`, correctly. It sees only that session's own changes. A session started on an existing checkout used that checkout |
+| 25 | Session working directory | A new app session runs in a fresh worktree branched from the repository's default branch, so the panel showed `0 changed file(s)` from `origin/main...HEAD` and later from `main...HEAD`, correctly. It sees only that session's own changes. (Corrected in 0.9.1: `0` was not correct for a session with uncommitted edits, which 0.9.0 and earlier never listed; see "0.9.1 changed-file scope".) A session started on an existing checkout used that checkout |
 | 26 | `Run review` from the panel, at `fd22dac` | The run completed; the runtime then surfaced it to the agent, which called `show_review` with the same result, and the panel relabelled it "supplied by the agent". Fixed in `3ffcbb4`: `show_review` no longer replaces a run the panel started |
 | 27 | `Run review`, extension present but plugin uninstalled | The runtime logged `Unknown agent_type: adrkit:decision-checker` for both judges, so both resolved to null. The panel and the run reported `incomplete` with 0001 and 0002 unverified, never `ok`. This is the first `incomplete` produced by a real host. The panel kept its own run label |
 | 28 | `Run review`, plugin installed with the terminal CLI's `copilot plugin install` | Run `371e206f` completed with `findings`; 0001 and 0002 both `conflicts`, with evidence citing `src/net.ts:1-2` and `package.json:1`; the panel kept its own run label. The agent again called `show_review` with the finished result; the canvas answered `ignored` and the label stayed, which is the row 26 fix working live. The app picked up the agent the CLI installed, so the two share `~/.copilot/installed-plugins` |
@@ -937,7 +937,7 @@ live.
 
 ## `decision-board` canvas (2026-10-09)
 
-Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipping as plugin 0.9.0), for the
+Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipped as plugin 0.9.0), for the
 canvas proposed in [ADR-0050](adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**). Rows are numbered B1
 onward so they do not collide with other sections.
 
@@ -1042,6 +1042,110 @@ which the token check refuses like every other route.
 - A join the runtime refuses because of the board's definition. There is no
   ladder rung that drops only the board, so decision-review would be dropped
   with it; this is a stated limit in ADR-0050, not a measurement.
+
+## 0.9.1 changed-file scope (2026-10-09, shipping as plugin 0.9.1)
+
+Two reports drove this release. On the dogfood repository the maintainer had
+uncommitted edits to `src/platform/ledger-client.ts`,
+`src/temporal/legacy/restart.ts`, and `src/temporal/pool/worker-pool.ts` on
+`main`, and `@adr` markers in them never reached the governing list. On Windows
+a session showed git's `--no-index` usage text.
+
+### Cause (Bug 1)
+
+`collectChangedFiles` returned `git diff --name-only <base>...HEAD` alone
+whenever that command exited 0, and used `git diff HEAD` only when the range
+failed. On `main` with `origin/main` equal to `HEAD`, the range is empty with
+exit 0, so the panel, the workflow, the tools, and the session-start hook saw
+no files. This was true from 0.4.0. Row 25 of the 0.5.0 app table read the
+resulting `0 changed file(s)` as correct; it was not, because edits made in a
+session never showed until they were committed.
+
+The default change is now the union, deduplicated and sorted by code units, of:
+
+- `git diff --name-only -z <base>...HEAD` (committed branch work);
+- `git diff --name-only -z HEAD` (staged and unstaged edits, deletions
+  included);
+- `git ls-files --others --exclude-standard --full-name -z -- :/` (untracked
+  files that are not ignored). `--full-name -- :/` matters: plain
+  `git ls-files` is relative to, and limited to, the current directory, while
+  `git diff --name-only` is repository-relative and whole-repository. Measured
+  from a subdirectory with git 2.50.1.
+
+`source` is `git:<base>...HEAD+worktree` for the union and `git:worktree` for
+the fallback when the default `origin/main` does not resolve; only the
+fallback is partial. An explicit `base` that does not resolve is still a
+`base-unresolved` usage error, and an empty fallback is still `no-changes`.
+
+### Headless SDK host (Copilot CLI 1.0.93, no model calls, 0 AI credits)
+
+A copy of the dogfood repository (`cp -R`, so the three uncommitted edits came
+along; `core.fsmonitor` turned off in the copy) with one added untracked file,
+`src/marker-probe.ts`, whose first line is `// @adr 0012`. The host created a
+session with this branch's plugin directory and `ADRKIT_CLI` pointing at this
+branch's built CLI, opened `decision-review` with `input: null`, read
+`get_state`, closed it, and called `adr_check` with no arguments through
+`session.rpc.tools.execute`. No prompt was sent and nothing started a review.
+
+| # | Run | Observed |
+| --- | --- | --- |
+| W1 | Plugin from `origin/main` (0.9.0), same copy | `0` files from `git:origin/main...HEAD`, status **`ok`**, note "No changed files; nothing was checked." `adr_check`: `files: []`. A false clean. |
+| W2 | This branch, same copy | 4 files (the three edits and the untracked `src/marker-probe.ts`) from `git:origin/main...HEAD+worktree`; status `incomplete` (3 governing records without a verdict); `judgeCalls: 3` |
+| W3 | W2 buckets | governing `0005`, `0012`, `0018`; active proposal `0015`; history `0016`, `0017`, `0019`, `0020` (the same buckets `adr check` gives on the three paths directly) |
+| W4 | W2 provenance | `0005` and `0015` declared by `src/platform/ledger-client.ts:1`; `0012` declared by the untracked `src/marker-probe.ts:1`; `0016` declared by `src/temporal/pool/worker-pool.ts:1` |
+| W5 | W2 findings | one `stale-marker` warning: `@adr 0016` in `src/temporal/pool/worker-pool.ts:1` names superseded 0016, update it to 0018 |
+| W6 | W2 `adr_check` with no arguments | the same 4 files and source; governing `0005`, `0012`, `0018` |
+| W7 | This branch, an empty directory outside any repository | panel `usage-error` with the single note "the session directory is not inside a git work tree as seen by git; open the session in the repository or pass files"; queue note "the ADR corpus directory was not found in the session directory"; `adr_check` failure `not-work-tree` with the same message |
+
+### Windows "no-index" report (Bug 2)
+
+adrkit passes no `--no-index` anywhere. git prints
+`usage: git diff --no-index ...` when `git diff` runs in a directory it does
+not treat as a work tree. Measured with git 2.50.1 on macOS:
+
+- outside any repository, `git diff --name-only HEAD` prints that usage and
+  exits 129, and `git rev-parse --is-inside-work-tree` exits 128;
+- inside `.git`, `rev-parse --is-inside-work-tree` prints `false` with exit 0;
+- under `GIT_TEST_ASSUME_DIFFERENT_OWNER=1` (git's test switch for its
+  `safe.directory` ownership check), `git diff --name-only HEAD` prints the same
+  `--no-index` usage, and `rev-parse` exits 128 with "detected dubious
+  ownership".
+
+The extension now runs `git rev-parse --is-inside-work-tree` before listing
+anything. Exit non-zero or output other than `true` is `not-work-tree`, with
+the fixed message above. When git's stderr contains "dubious ownership" it is
+`git-unsafe-directory`, whose fixed message names `safe.directory`. stderr is
+only compared, never shown. The canvas and `runCommand` pass the session
+directory through `path.resolve` (`windowsHide: true` was already set). When
+`adr queue` exits 2 and the corpus directory does not exist in the session
+directory, the panel says the corpus directory was not found instead of
+"adr queue exited 2".
+
+Maintainer report, Windows, `git version 2.55.0.vfs.0.10`: with the session
+outside a repository, the panel showed "The open-proposal list is unavailable:
+adr queue exited 2" and "git could not list the changed files against
+origin/main or against HEAD. Is this a git repository?". The maintainer
+believes that session was not in a repository directory. W7 is the same
+situation on macOS and now shows the two messages above. **Not reproduced on
+Windows.**
+
+### Not verified
+
+- **The Windows report's cause.** Leading hypotheses, in order: the session
+  directory was outside the repository (the maintainer's own reading); git's
+  ownership check refused the repository (a directory owned by another
+  account or SID, a network share, or a OneDrive or VFS-for-Git location;
+  measured above to give the identical `--no-index` text); a session-directory
+  path form git did not resolve to the work tree. What would settle it: the git
+  version (`2.55.0.vfs.0.10`, reported), the session directory as Copilot
+  reported it, and the output of `git -C <dir> rev-parse --show-toplevel` and
+  `git config --global --get-all safe.directory` there. 0.9.1's messages now
+  separate the first two causes.
+- **Unmeasured in the Copilot app.** The union in an app session, the new
+  messages on the panel, and the session-start hook summary's new wording.
+- `path.resolve` on a Windows session directory: unit-tested on POSIX only.
+- A repository with no commit yet (`HEAD` unborn) still reports `git-failed`
+  rather than listing untracked files. Unchanged from 0.9.0.
 
 ## Verdict
 

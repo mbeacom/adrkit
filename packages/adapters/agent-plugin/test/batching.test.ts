@@ -10,6 +10,7 @@
  */
 import { afterEach, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
+import { INSIDE_WORK_TREE, isWorkTreeProbe } from './harness.ts';
 import { createServer } from 'node:http';
 import { CANVAS_ID, createDecisionReviewCanvas } from '../extensions/adrkit/canvas.mjs';
 import { createAdvisoryHooks } from '../extensions/adrkit/hooks.mjs';
@@ -51,6 +52,7 @@ function governedBy(files: string[]) {
 function wideCli({ files = WIDE, exitFor }: { files?: string[]; exitFor?: (batch: string[]) => number } = {}) {
   const checks: string[][] = [];
   const run = async (command: string, args: string[]): Promise<Run> => {
+    if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
     if (command === 'git') return { stdout: files.map((file) => `${file}\0`).join(''), stderr: '', exitCode: 0 };
     if (args.includes('check')) {
       checks.push([command, ...args]);
@@ -350,10 +352,30 @@ describe('the Judge prompt for a wide change (round 1, H1)', () => {
     expect(prompt).toContain('git diff --name-only release/9...HEAD');
   });
 
-  test('fallback mode names the working tree against HEAD, not a range', () => {
-    const prompt = buildJudgePrompt(decision, files, { source: 'git:HEAD' });
+  test('fallback mode names the working tree against HEAD and the untracked files, not a range', () => {
+    const prompt = buildJudgePrompt(decision, files, { source: 'git:worktree' });
     expect(prompt).toContain('git diff --name-only HEAD');
+    expect(prompt).toContain('git ls-files --others --exclude-standard --full-name -- :/');
     expect(prompt).not.toContain('...HEAD');
+  });
+
+  test('union mode names every listing whose union reproduces the change (0.9.1)', () => {
+    const prompt = buildJudgePrompt(decision, files, { base: 'origin/main', source: 'git:origin/main...HEAD+worktree' });
+    expect(prompt).toContain(
+      'list them all with the union of `git diff --name-only origin/main...HEAD`, `git diff --name-only HEAD`, ' +
+        '`git ls-files --others --exclude-standard --full-name -- :/`',
+    );
+    expect(prompt).not.toContain('+worktree');
+  });
+
+  test('the Judge is told how to read an uncommitted edit and an untracked file, not only a committed range (0.9.1)', () => {
+    // An edit has an empty range diff and an untracked file has no diff at
+    // all; a Judge told only the range would answer over nothing.
+    const prompt = buildJudgePrompt(decision, ['src/a.ts'], { base: 'origin/main', source: 'git:origin/main...HEAD+worktree' });
+    expect(prompt).toContain('`git diff origin/main...HEAD -- <path>` for committed work');
+    expect(prompt).toContain('`git diff HEAD -- <path>` for uncommitted edits');
+    expect(prompt).toContain('untracked');
+    expect(prompt).toContain('read the file itself');
   });
 
   test('explicit files: says the caller supplied the full list, and its count', () => {
@@ -377,6 +399,7 @@ describe('the Judge prompt for a wide change (round 1, H1)', () => {
   test('the workflow passes its own source and the decision through', async () => {
     const declared = { path: tail, line: 3, ref: '0007' };
     const run = async (command: string, args: string[]): Promise<Run> => {
+      if (isWorkTreeProbe(command, args)) return INSIDE_WORK_TREE;
       if (command === 'git') return { stdout: files.map((file) => `${file}\0`).join(''), stderr: '', exitCode: 0 };
       if (args.includes('check')) {
         const batch = args.slice(args.indexOf('--') + 1);
@@ -413,6 +436,7 @@ describe('the session-start hook stops after its deadline (round 1, M1)', () => 
     let started = 0;
     let aborted = 0;
     const run = (command: string, args: string[], { signal }: { cwd: string; signal?: AbortSignal }) => {
+      if (isWorkTreeProbe(command, args)) return Promise.resolve(INSIDE_WORK_TREE);
       if (command === 'git') return Promise.resolve({ stdout: WIDE.map((file) => `${file}\0`).join(''), stderr: '', exitCode: 0 });
       if (signal?.aborted) return Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
       started += 1;
