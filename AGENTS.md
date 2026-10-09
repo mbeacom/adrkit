@@ -505,7 +505,39 @@ will usually be a regression:
 - **Canvases render only in the Copilot app.** A CLI terminal session has no
   canvas renderer, so the agent gets no canvas tools there. Do not describe the
   canvas as available in the CLI.
-- `copilot plugin install` prints only a skill count. Version 0.5.0 should report
+- **Canvas provenance shows only what `adr check` reports**
+  ([ADR-0047](./docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md),
+  **proposed**). Measured on a fixture: `declaredBy` names the changed file and
+  line of an inbound marker, but an `affects` match carries only
+  `{ type, pattern }`, with no file. The page says so instead of matching
+  globs itself; the extension cannot import core, and a homemade matcher could
+  disagree with the CLI and present that as provenance. If core gains per-file
+  attribution, read it.
+- **`judgeCalls` follows the Judge, which is
+  `ctx.pipeline(governing, … ctx.agent(…))`** in `review.mjs`: at most one
+  `decision-checker` call per governing decision. It is the governing count when
+  `adr check` and `adr lint` exit 0 or 1, and 0 otherwise, because the workflow
+  then skips the Judge. Change the workflow's Judge shape and the button label
+  and `run_review` description go stale. The button is disabled whenever
+  `judgeCalls` is 0, and says why.
+- **The canvas queue is an allowlist, and that is what keeps a ratifying
+  field out.** `adr queue`'s terminal view prints that command for a human;
+  the canvas reads only the JSON and keeps nine named item fields, so a field
+  added later is dropped unnamed. That selects fields, not text: a kept string
+  such as `title` is untrusted repository text shown as data, and is not
+  sanitized for command-like wording. A test plants such fields and checks the
+  snapshot, `/api/state`, the rendered page, and the shipped page strings.
+  Queue rows have no control or explain, and their ids are not explainable. A
+  queue failure is a fixed note, never CLI stderr, and never changes the panel's
+  status, governing list, or notes. The queue starts beside the check with
+  its own timeout (30 s, then its process is signalled). The check commits and
+  broadcasts when it settles and the queue follows in a second update, so a
+  hung `adr queue` cannot hold the governing view; opening a panel and the
+  page's routes (GET and POST) do not wait for it, nor does `run_review`'s
+  pre-run refresh; only agent `get_state`/`refresh` do. Its strings, and
+  `declaredBy` paths, are clipped like CLI messages, and the rows share a
+  256 KiB (UTF-8 bytes) serialized budget, before every broadcast.
+- `copilot plugin install` prints only a skill count. Version 0.6.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 

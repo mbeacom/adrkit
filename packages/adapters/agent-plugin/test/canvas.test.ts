@@ -8,6 +8,9 @@ import {
   CANVAS_ID,
   CSP,
   buildExplainPrompt,
+  QUEUE_BYTES_LIMIT,
+  QUEUE_LIMIT,
+  QUEUE_NOTES,
   computeSnapshot,
   createDecisionReviewCanvas,
   sanitizeReviewResult,
@@ -46,19 +49,57 @@ const governed = (recordId: string, bucket: string, title = `Decision ${recordId
 const checkReport = (entries: unknown[], findings: unknown[] = []) =>
   JSON.stringify({ changedFiles: ['src/a.ts'], governedBy: entries, findings });
 
-/** A scripted `run`: git diff, adr check, and adr lint answer from `script`. */
-function fakeCli(script: { diff?: Run | Error; check?: Run | Error; lint?: Run | Error } = {}) {
+/** One QueueReport v1 item, shaped as `adr queue --format json` emits it (measured on a fixture). */
+const queueItem = (id: string, title = `Proposal ${id}`, extra: Record<string, unknown> = {}) => ({
+  id,
+  title,
+  sourcePath: `docs/adr/${id}-proposal.md`,
+  tier: null,
+  tierLabel: null,
+  queuedAt: null,
+  slaDays: null,
+  reviewBy: null,
+  slaState: 'not-queued',
+  deadlineDate: null,
+  routingTargets: ['@fixture'],
+  quorum: null,
+  approvalCount: 0,
+  unresolvedObjectionCount: 0,
+  resolvedObjectionCount: 0,
+  escalatedAt: null,
+  decidedAt: null,
+  itemFindings: [],
+  ...extra,
+});
+
+const queueReport = (items: unknown[], corpusFindings: unknown[] = []) =>
+  JSON.stringify({
+    version: '1',
+    asOf: '2026-10-08',
+    corpusFingerprint: 'f'.repeat(64),
+    totalItems: items.length,
+    totalCorpusFindings: corpusFindings.length,
+    itemsWithFindings: 0,
+    items,
+    corpusFindings,
+  });
+
+/** A scripted `run`: git diff, adr check, adr lint, and adr queue answer from `script`. */
+function fakeCli(script: { diff?: Run | Error; check?: Run | Error; lint?: Run | Error; queue?: Run | Error } = {}) {
   const calls: Call[] = [];
   const run = async (command: string, args: string[], { cwd }: { cwd: string }) => {
     calls.push({ command, args, cwd });
-    const key = command === 'git' ? 'diff' : args.includes('check') ? 'check' : 'lint';
+    const key =
+      command === 'git' ? 'diff' : args.includes('check') ? 'check' : args.includes('queue') ? 'queue' : 'lint';
     const answer =
       script[key] ??
       (key === 'diff'
         ? ok('src/a.ts\0')
         : key === 'check'
           ? ok(checkReport([governed('0012', 'governing', TITLE)]))
-          : ok());
+          : key === 'queue'
+            ? ok(queueReport([queueItem('0020')]))
+            : ok());
     if (answer instanceof Error) throw answer;
     return answer;
   };
@@ -711,6 +752,8 @@ describe('actions', () => {
         'notes',
         'review',
         'updatedAt',
+        'judgeCalls',
+        'queue',
       ].sort(),
     );
   });
@@ -721,7 +764,8 @@ describe('actions', () => {
     cli.calls.length = 0;
     const state = await action(options, 'refresh')({ files: ['src/c.ts'] });
     expect(state.files).toEqual(['src/c.ts']);
-    expect(cli.calls.map((call) => call.args[0])).toEqual(['check', 'lint']);
+    // The queue runs beside the check, so only the set is fixed, not the order.
+    expect(cli.calls.map((call) => call.args[0]).sort()).toEqual(['check', 'lint', 'queue']);
     expect(fake.started).toEqual([]);
     expect(fake.sent).toEqual([]);
   });
@@ -1272,7 +1316,7 @@ describe('app smoke round', () => {
     expect(button.title).toBe('No changed files to review');
     expect(button.attrs['aria-description']).toBe('No changed files to review');
 
-    const some = await renderPageWith({ ...base, files: ['src/a.ts'] });
+    const some = await renderPageWith({ ...base, files: ['src/a.ts'], governing: [governed('0012', 'governing')], judgeCalls: 1 });
     const enabled = some.get('run-review') as FakeNode;
     expect(enabled.disabled).toBe(false);
     expect(enabled.attrs['aria-description']).toBeUndefined();
@@ -1450,5 +1494,626 @@ describe('PR review round', () => {
     });
     expect(response.status).toBe(502);
     expect(response.body).not.toContain('internal detail');
+  });
+});
+
+/**
+ * ADR-0047 (proposed): provenance, cost before spend, and a read-only queue.
+ * The shapes below are the ones `adr check --json` and `adr queue --format
+ * json` emitted on a fixture repository, not guesses.
+ */
+describe('ADR-0047: provenance', () => {
+  const markerOnly = {
+    recordId: '0002',
+    title: 'Load config from one module',
+    status: 'accepted',
+    bucket: 'governing',
+    firedMatchers: [],
+    declaredBy: [{ path: 'src/net/client.ts', line: 1, ref: '0002' }],
+  };
+
+  test('declaredBy reaches the snapshot, keeping only path, line, and ref', async () => {
+    const planted = {
+      ...markerOnly,
+      declaredBy: [
+        { path: 'src/net/client.ts', line: 1, ref: '0002', extra: 'dropped' },
+        { path: 'src/net/bad.ts', line: 'one', ref: '0002' },
+        'not an object',
+      ],
+    };
+    const { run } = fakeCli({ check: ok(checkReport([governed('0001', 'governing'), planted])) });
+    const snapshot = await computeSnapshot({ cwd: CWD, input: {}, run, env: {}, exists: () => false, now: () => 'T' });
+    const marker = snapshot.governing.find((entry: { recordId: string }) => entry.recordId === '0002');
+    expect(marker?.declaredBy).toEqual([{ path: 'src/net/client.ts', line: 1, ref: '0002' }]);
+    const pattern = snapshot.governing.find((entry: { recordId: string }) => entry.recordId === '0001');
+    expect(pattern?.declaredBy).toBeUndefined();
+    expect(pattern?.firedMatchers).toEqual([{ type: 'path', pattern: 'src/**' }]);
+  });
+
+  test('a review result handed over keeps declaredBy too', () => {
+    const result = sanitizeReviewResult({
+      status: 'incomplete',
+      checkExitCode: 0,
+      lintExitCode: 0,
+      files: ['src/net/client.ts'],
+      governing: [markerOnly],
+      unverified: ['0002'],
+    });
+    expect((result['governing'] as Array<Record<string, unknown>>)[0]?.['declaredBy']).toEqual(markerOnly.declaredBy);
+  });
+
+  test('the page names the marker file and line, and the pattern, as text', async () => {
+    const base = { workingDirectory: CWD, status: 'incomplete', files: ['src/net/client.ts'], history: [], activeProposals: [], findings: [], notes: [], review: null };
+    const nodes = await renderPageWith({ ...base, governing: [governed('0001', 'governing'), markerOnly] });
+    const text = (nodes.get('app') as FakeNode).allText();
+    expect(text).toContain('src/net/client.ts:1');
+    expect(text).toContain('inbound marker');
+    expect(text).toContain('affects pattern');
+    expect(text).toContain('src/**');
+    // The CLI reports the pattern, not the file it matched; the page says so
+    // rather than imply a file it does not know.
+    expect(text).toContain('does not report which changed file');
+    // A marker-only record has evidence: it must not read "No evidence recorded."
+    expect(text).not.toContain('No evidence recorded.');
+  });
+});
+
+describe('ADR-0047: cost before spend', () => {
+  test('the snapshot carries judgeCalls, one per governing decision', async () => {
+    const { options } = makeCanvas({
+      run: fakeCli({ check: ok(checkReport([governed('0001', 'governing'), governed('0002', 'governing'), governed('0003', 'history')])) }).run,
+    });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.governing.length).toBe(2);
+    expect(state.judgeCalls).toBe(2);
+  });
+
+  test('no changed files means zero calls', async () => {
+    const { options } = makeCanvas({ run: fakeCli({ diff: ok('') }).run });
+    await openPanel(options);
+    expect((await action(options, 'get_state')()).judgeCalls).toBe(0);
+  });
+
+  test('run_review says it makes one decision-checker call per governing decision', () => {
+    const { options } = makeCanvas();
+    const runReview = options.actions.find((entry: { name: string }) => entry.name === 'run_review');
+    expect(runReview?.description).toMatch(/one decision-checker call per governing decision/);
+    expect(runReview?.description).toContain('judgeCalls');
+    expect(runReview?.description).toMatch(/0 governing/);
+  });
+
+  test('the button states the call count, and is disabled with a reason when nothing would be judged', async () => {
+    const base = { workingDirectory: CWD, status: 'incomplete', files: ['src/a.ts'], history: [], activeProposals: [], findings: [], notes: [], review: null };
+    const two = await renderPageWith({ ...base, governing: [governed('0001', 'governing'), governed('0002', 'governing')], judgeCalls: 2 });
+    const enabled = two.get('run-review') as FakeNode;
+    expect(enabled.disabled).toBe(false);
+    expect(enabled.textContent).toBe('Run review: 2 decision-checker calls (uses AI credits)');
+
+    const one = await renderPageWith({ ...base, governing: [governed('0001', 'governing')], judgeCalls: 1 });
+    expect((one.get('run-review') as FakeNode).textContent).toBe('Run review: 1 decision-checker call (uses AI credits)');
+
+    const none = await renderPageWith({ ...base, status: 'ok', governing: [], judgeCalls: 0 });
+    const disabled = none.get('run-review') as FakeNode;
+    expect(disabled.disabled).toBe(true);
+    expect(disabled.title).toBe('No governing decision, so there is nothing to judge');
+    expect(disabled.attrs['aria-description']).toBe('No governing decision, so there is nothing to judge');
+  });
+});
+
+describe('ADR-0047: read-only queue', () => {
+  // Built by concatenation so this file never spells the ratifying command.
+  const RATIFY = ['adr', 'accept'].join(' ');
+
+  test('refresh runs adr queue --format json with the same dir, and spends nothing', async () => {
+    const { options, cli, fake } = makeCanvas();
+    await openPanel(options, 'panel-1', { input: { dir: 'decisions' } });
+    const queueCall = cli.calls.find((call) => call.args.includes('queue'));
+    expect(queueCall?.args).toEqual(['queue', '--format', 'json', '--dir', 'decisions']);
+    expect(queueCall?.cwd).toBe(CWD);
+    expect(fake.started).toEqual([]);
+    expect(fake.sent).toEqual([]);
+  });
+
+  test('the queue is in the state, with only the allowlisted fields', async () => {
+    const { options } = makeCanvas();
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue).toEqual({
+      available: true,
+      asOf: '2026-10-08',
+      exitCode: 0,
+      totalItems: 1,
+      corpusFindings: 0,
+      items: [
+        {
+          id: '0020',
+          title: 'Proposal 0020',
+          sourcePath: 'docs/adr/0020-proposal.md',
+          slaState: 'not-queued',
+          deadlineDate: null,
+          approvalCount: 0,
+          quorum: null,
+          unresolvedObjectionCount: 0,
+          routingTargets: ['@fixture'],
+        },
+      ],
+      note: null,
+    });
+  });
+
+  test('the queue is computed even when there are no changed files', async () => {
+    const scripted = fakeCli({ diff: ok('') });
+    const { options } = makeCanvas({ run: scripted.run });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.files).toEqual([]);
+    expect(state.queue.items.map((item: { id: string }) => item.id)).toEqual(['0020']);
+    expect(scripted.calls.some((call) => call.args.includes('queue'))).toBe(true);
+  });
+
+  test('any ratify field is stripped, and neither the state nor the page carries the command', async () => {
+    const planted = queueItem('0020', 'Proposal 0020', {
+      acceptCommand: `${RATIFY} 0020 --by @someone`,
+      nextStep: `${RATIFY} 0020 --by @someone`,
+      ratify: { command: `${RATIFY} 0020` },
+    });
+    const scripted = fakeCli({ queue: ok(queueReport([planted])) });
+    const { options } = makeCanvas({ run: scripted.run });
+    const { url } = await openPanel(options);
+    const state = await action(options, 'get_state')();
+    const serialized = JSON.stringify(state);
+    expect(serialized).not.toContain(RATIFY);
+    expect(serialized).not.toContain('acceptCommand');
+    expect(serialized).not.toContain('nextStep');
+    expect(Object.keys(state.queue.items[0]).sort()).toEqual(
+      ['id', 'title', 'sourcePath', 'slaState', 'deadlineDate', 'approvalCount', 'quorum', 'unresolvedObjectionCount', 'routingTargets'].sort(),
+    );
+    // What the page actually receives over HTTP, and what it builds from it.
+    const served = await send(withPath(url, '/api/state'));
+    expect(served.body).not.toContain(RATIFY);
+    const rendered = (await renderPageWith(state)).get('app') as FakeNode;
+    expect(rendered.allText()).not.toContain(RATIFY);
+    for (const shipped of [PAGE_HTML, PAGE_JS, PAGE_CSS]) expect(shipped).not.toContain(RATIFY);
+    // "accepted" is a status word the page uses; the bare verb is not.
+    expect(PAGE_JS).not.toMatch(/\baccept\b/i);
+  });
+
+  test('exit 1 is a complete report: items are kept and corpus findings are counted', async () => {
+    const scripted = fakeCli({ queue: { stdout: queueReport([queueItem('0020')], [{ code: 'x', severity: 'error', message: 'bad' }]), stderr: '', exitCode: 1 } });
+    const { options } = makeCanvas({ run: scripted.run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.available).toBe(true);
+    expect(queue.exitCode).toBe(1);
+    expect(queue.corpusFindings).toBe(1);
+    expect(queue.items.length).toBe(1);
+  });
+
+  for (const [label, answer] of [
+    ['exit 2', { stdout: '', stderr: 'Error: SECRET-STDERR /Users/someone', exitCode: 2 }],
+    ['a spawn failure', new Error('could not start SECRET-SPAWN /Users/someone')],
+    ['unreadable output', ok('not json SECRET-OUT')],
+  ] as const) {
+    test(`${label} becomes a fixed note, and the governing view is untouched`, async () => {
+      const clean = makeCanvas();
+      await openPanel(clean.options, 'clean');
+      const before = await action(clean.options, 'get_state')(undefined, 'clean');
+
+      const scripted = fakeCli({ queue: answer as Run | Error });
+      const { options } = makeCanvas({ run: scripted.run });
+      const { url } = await openPanel(options);
+      const state = await action(options, 'get_state')();
+      expect(state.queue.available).toBe(false);
+      expect(state.queue.items).toEqual([]);
+      expect(typeof state.queue.note).toBe('string');
+      expect(JSON.stringify(state)).not.toContain('SECRET');
+      expect(state.governing).toEqual(before.governing);
+      expect(state.status).toBe(before.status);
+      expect(state.notes).toEqual(before.notes);
+      const page = (await renderPageWith(state)).get('app') as FakeNode;
+      expect(page.allText()).toContain(state.queue.note);
+      expect((await send(withPath(url, '/api/state'))).status).toBe(200);
+    });
+  }
+
+  test('a CLI that cannot be resolved leaves a note, not a crash', async () => {
+    const { options } = makeCanvas({ env: { ADRKIT_CLI: '/nowhere/adr' }, exists: () => false });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue.available).toBe(false);
+    expect(JSON.stringify(state.queue)).not.toContain('/nowhere');
+  });
+
+  test('queue rows offer no explain, and a queue-only id cannot be explained', async () => {
+    const { options, fake } = makeCanvas();
+    const { url } = await openPanel(options);
+    const response = await send(withPath(url, '/api/explain'), {
+      method: 'POST',
+      headers: { 'X-Adrkit-Token': tokenOf(url), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordId: '0020' }),
+    });
+    expect(response.status).toBe(404);
+    expect(fake.sent).toEqual([]);
+  });
+
+  test('the page lists open proposals as untrusted text under its own heading, with no button', async () => {
+    const base = { workingDirectory: CWD, status: 'ok', files: [], governing: [], history: [], activeProposals: [], findings: [], notes: [], review: null, judgeCalls: 0 };
+    const queue = {
+      available: true, asOf: '2026-10-08', exitCode: 0, totalItems: 1, corpusFindings: 0, note: null,
+      items: [{ id: '0020', title: TITLE, sourcePath: 'docs/adr/0020-x.md', slaState: 'on-track', deadlineDate: '2026-10-20', approvalCount: 1, quorum: 2, unresolvedObjectionCount: 0, routingTargets: ['@a'] }],
+    };
+    const nodes = await renderPageWith({ ...base, queue });
+    const app = nodes.get('app') as FakeNode;
+    const text = app.allText();
+    expect(text).toContain('Open proposals, corpus-wide (1)');
+    expect(text).toContain(TITLE);
+    expect(text).toContain('on-track');
+    expect(text).toContain('1/2');
+    const find = (node: FakeNode, predicate: (node: FakeNode) => boolean): FakeNode[] =>
+      [...(predicate(node) ? [node] : []), ...node.children.flatMap((child) => find(child, predicate))];
+    const queueSection = find(app, (node) => node.tag === 'section' && node.allText().includes('Open proposals, corpus-wide'));
+    expect(queueSection.length).toBe(1);
+    expect(find(queueSection[0] as FakeNode, (node) => node.tag === 'button')).toEqual([]);
+  });
+});
+
+/** Fix round 1 of the Track C review: surviving mutations (M1) and L1 to L4. */
+describe('ADR-0047: review fix round 1', () => {
+  const pageBase = { workingDirectory: CWD, status: 'ok', files: [], governing: [], history: [], activeProposals: [], findings: [], notes: [], review: null, judgeCalls: 0 };
+  const shownItem = { id: '0020', title: 'P', sourcePath: 'docs/adr/0020-p.md', slaState: 'not-queued', deadlineDate: null, approvalCount: 0, quorum: null, unresolvedObjectionCount: 0, routingTargets: [] };
+
+  test('M1: a report version other than 1 is not read', async () => {
+    const report = JSON.stringify({ ...JSON.parse(queueReport([queueItem('0020')])), version: '2' });
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(report) }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.available).toBe(false);
+    expect(queue.items).toEqual([]);
+    expect(queue.note).toBe(QUEUE_NOTES.version);
+  });
+
+  test('M1: more than QUEUE_LIMIT items are capped, and the state and page say so', async () => {
+    const items = Array.from({ length: QUEUE_LIMIT + 1 }, (_, i) => queueItem(String(1000 + i)));
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport(items)) }).run });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue.items.length).toBe(QUEUE_LIMIT);
+    expect(state.queue.totalItems).toBe(QUEUE_LIMIT + 1);
+    expect(state.queue.note).toBe(`Showing the first ${QUEUE_LIMIT} of ${QUEUE_LIMIT + 1} open proposals.`);
+    const text = ((await renderPageWith(state)).get('app') as FakeNode).allText();
+    expect(text).toContain(`Open proposals, corpus-wide (${QUEUE_LIMIT})`);
+    expect(text).toContain(state.queue.note);
+  });
+
+  test('M1: invalid arguments leave the queue uncomputed with its own note', async () => {
+    const scripted = fakeCli();
+    const { options } = makeCanvas({ run: scripted.run });
+    await openPanel(options, 'panel-1', { input: { base: '-x' } });
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.available).toBe(false);
+    expect(queue.note).toBe(QUEUE_NOTES.args);
+    expect(scripted.calls.some((call) => call.args.includes('queue'))).toBe(false);
+  });
+
+  test('M1: an older refresh landing late does not overwrite the newer queue', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const base = fakeCli();
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      if (args.includes('queue') && args.includes('old')) {
+        await gate;
+        return ok(queueReport([queueItem('0001', 'old corpus')]));
+      }
+      if (args.includes('queue') && args.includes('new')) return ok(queueReport([queueItem('0002', 'new corpus')]));
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    await openPanel(options);
+    const older = action(options, 'refresh')({ dir: 'old' });
+    await action(options, 'refresh')({ dir: 'new' });
+    release();
+    await older;
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.items.map((item: { id: string }) => item.id)).toEqual(['0002']);
+  });
+
+  test('M1: the page shows the corpus-findings count and a note on an available queue', async () => {
+    const queue = { available: true, asOf: '2026-10-08', exitCode: 1, totalItems: 1, corpusFindings: 3, items: [shownItem], note: 'Showing the first 1 of 9 open proposals.' };
+    const text = ((await renderPageWith({ ...pageBase, queue })).get('app') as FakeNode).allText();
+    expect(text).toContain('adr queue reported 3 corpus finding(s)');
+    expect(text).toContain('Showing the first 1 of 9 open proposals.');
+  });
+
+  test('L1: a hung queue times out to a fixed note and does not hold the governing view', async () => {
+    const base = fakeCli();
+    let queueSignal: AbortSignal | undefined;
+    const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+      if (args.includes('queue')) {
+        queueSignal = options.signal;
+        return new Promise<Run>((_, reject) => options.signal?.addEventListener('abort', () => reject(new Error('aborted SECRET'))));
+      }
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run, queueTimeoutMs: 20 });
+    const opened = await openPanel(options);
+    expect(opened.status).toBe('1 governing · incomplete');
+    const state = await action(options, 'get_state')();
+    expect(state.governing.map((d: { recordId: string }) => d.recordId)).toEqual(['0012']);
+    expect(state.queue.available).toBe(false);
+    expect(state.queue.note).toBe(QUEUE_NOTES.timeout);
+    expect(JSON.stringify(state)).not.toContain('SECRET');
+    // The abandoned queue process is signalled, not left running.
+    expect(queueSignal?.aborted).toBe(true);
+  });
+
+  test('L1: the check and the queue start together', async () => {
+    const started: string[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const base = fakeCli();
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      started.push(command === 'git' ? 'diff' : String(args[0]));
+      if (args.includes('check')) await gate;
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    const opening = openPanel(options);
+    for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+    // The check is still held, and the queue has already run.
+    expect(started).toContain('queue');
+    release();
+    await opening;
+  });
+
+  test('R3: a hung queue does not hold the check, the open, or the page state', async () => {
+    const base = fakeCli();
+    let queueSettled = false;
+    const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+      if (args.includes('queue')) {
+        return new Promise<Run>((_, reject) =>
+          options.signal?.addEventListener('abort', () => {
+            queueSettled = true;
+            reject(new Error('aborted'));
+          }),
+        );
+      }
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run, queueTimeoutMs: 300 });
+    const opened = await openPanel(options);
+    // The open returned with the governing view while the queue is still running.
+    expect(queueSettled).toBe(false);
+    expect(opened.status).toBe('1 governing · incomplete');
+    const served = JSON.parse((await send(withPath(opened.url, '/api/state'))).body);
+    expect(served.governing.map((d: { recordId: string }) => d.recordId)).toEqual(['0012']);
+    expect(served.queue ?? null).toBeNull();
+    expect(queueSettled).toBe(false);
+    // An agent call waits for the in-flight queue and sees its fixed note.
+    const state = await action(options, 'get_state')();
+    expect(state.queue.note).toBe(QUEUE_NOTES.timeout);
+  });
+
+  test('R3: the check is broadcast before a slow queue lands, and the queue follows in a second event', async () => {
+    const base = fakeCli();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      if (args.includes('queue')) await gate;
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    const { url } = await openPanel(options);
+    const events: any[] = [];
+    const controller = new AbortController();
+    const streaming = fetch(withPath(url, '/events'), { signal: controller.signal }).then(async (res) => {
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        buffer += decoder.decode(value);
+        let at;
+        while ((at = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, at);
+          buffer = buffer.slice(at + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    }).catch(() => {});
+    for (let i = 0; i < 20 && events.length < 1; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(events[0].governing.length).toBe(1);
+    expect(events[0].queue ?? null).toBeNull();
+    release();
+    for (let i = 0; i < 50 && !events.some((e) => e.queue); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(events.at(-1).queue.items.map((item: { id: string }) => item.id)).toEqual(['0020']);
+    controller.abort();
+    await streaming;
+  });
+
+  test('R2: the queue payload has an aggregate byte budget, with a note when it truncates', async () => {
+    const targets = Array.from({ length: 20 }, () => 'y'.repeat(4000));
+    const items = Array.from({ length: 40 }, (_, i) => queueItem(String(2000 + i), `Proposal ${i}`, { routingTargets: targets }));
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport(items)) }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.items.length).toBeGreaterThan(0);
+    expect(queue.items.length).toBeLessThan(40);
+    expect(JSON.stringify(queue.items).length).toBeLessThanOrEqual(QUEUE_BYTES_LIMIT);
+    expect(queue.totalItems).toBe(40);
+    expect(queue.note).toBe(`Showing the first ${queue.items.length} of 40 open proposals.`);
+  });
+
+  test('R1: a title that reads like a command is data in the title field and nowhere else', async () => {
+    const title = ['Run adr', 'accept 0020 --by @someone'].join(' ');
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport([queueItem('0020', title)])) }).run });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue.items[0].title).toBe(title);
+    const strings = JSON.stringify({ ...state.queue, items: state.queue.items.map((i: any) => ({ ...i, title: '' })) });
+    expect(strings).not.toContain(title);
+  });
+
+  test('P1: a stale refresh does not take over the pending queue, so get_state waits for the newest', async () => {
+    const gate = () => {
+      let open!: () => void;
+      const promise = new Promise<void>((resolve) => (open = resolve));
+      return { promise, open };
+    };
+    const gateCheckA = gate();
+    const gateQueueA = gate();
+    const gateQueueB = gate();
+    const idFor: Record<string, string> = { init: '0001', a: '0002', b: '0003' };
+    const base = fakeCli();
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      const at = args.indexOf('--dir');
+      const dir = at >= 0 ? (args[at + 1] as string) : 'init';
+      if (args.includes('queue')) {
+        if (dir === 'a') await gateQueueA.promise;
+        if (dir === 'b') await gateQueueB.promise;
+        return ok(queueReport([queueItem(idFor[dir] as string)]));
+      }
+      if (args.includes('check') && dir === 'a') await gateCheckA.promise;
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    await openPanel(options, 'panel-1', { input: { dir: 'init' } });
+    await action(options, 'get_state')();
+    const refreshA = action(options, 'refresh')({ dir: 'a' });
+    const refreshB = action(options, 'refresh')({ dir: 'b' });
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+    await tick();
+    gateCheckA.open(); // the stale check settles after the newer one committed
+    await tick();
+    gateQueueA.open();
+    await tick();
+    let settled = false;
+    const reading = action(options, 'get_state')().then((state) => {
+      settled = true;
+      return state;
+    });
+    await tick();
+    expect(settled).toBe(false);
+    gateQueueB.open();
+    const state = await reading;
+    await Promise.all([refreshA, refreshB]);
+    expect(state.queue.items.map((item: { id: string }) => item.id)).toEqual(['0003']);
+  });
+
+  test('P3: the refresh action waits for its own queue', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const base = fakeCli();
+    let hold = false;
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      if (args.includes('queue') && hold) await gate;
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    await openPanel(options);
+    await action(options, 'get_state')();
+    hold = true;
+    let settled = false;
+    const refreshing = action(options, 'refresh')().then((state) => {
+      settled = true;
+      return state;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(settled).toBe(false);
+    release();
+    expect((await refreshing).queue.items.map((item: { id: string }) => item.id)).toEqual(['0020']);
+  });
+
+  test('P2: the page POST routes do not wait for a hung queue', async () => {
+    const base = fakeCli();
+    let hang = false;
+    const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+      if (args.includes('queue') && hang) {
+        return new Promise<Run>((_, reject) => options.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
+      }
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run, queueTimeoutMs: 600 });
+    const { url } = await openPanel(options);
+    hang = true;
+    const headers = { 'X-Adrkit-Token': tokenOf(url) };
+    const timed = async (path: string, body?: string) => {
+      const started = Date.now();
+      const response = await send(withPath(url, path), { method: 'POST', headers, ...(body ? { body } : {}) });
+      return { response, ms: Date.now() - started };
+    };
+    const refreshed = await timed('/api/refresh');
+    expect(refreshed.response.status).toBe(200);
+    expect(refreshed.ms).toBeLessThan(400);
+    const explained = await timed('/api/explain', JSON.stringify({ recordId: '9999' }));
+    expect(explained.response.status).toBe(404);
+    expect(explained.ms).toBeLessThan(400);
+    const reviewing = await timed('/api/run-review', '{}');
+    expect(reviewing.ms).toBeLessThan(400);
+  });
+
+  test('P4: the queue budget counts UTF-8 bytes, not characters', async () => {
+    const wide = '\u20ac'.repeat(4000); // 3 bytes each
+    const targets = Array.from({ length: 6 }, () => wide);
+    const items = Array.from({ length: 30 }, (_, i) => queueItem(String(3000 + i), `Proposal ${i}`, { routingTargets: targets }));
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport(items)) }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(Buffer.byteLength(JSON.stringify(queue.items))).toBeLessThanOrEqual(QUEUE_BYTES_LIMIT + 4096);
+    expect(queue.items.length).toBeLessThan(30);
+  });
+
+  test('L2: when adr lint exits 2 the Judge is skipped, so judgeCalls is 0 and the button says so', async () => {
+    const { options } = makeCanvas({ run: fakeCli({ lint: { stdout: '', stderr: 'boom', exitCode: 2 } }).run });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.governing.length).toBe(1);
+    expect(state.judgeCalls).toBe(0);
+    const button = (await renderPageWith(state)).get('run-review') as FakeNode;
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toBe('Run review: no decision-checker calls (adr check or adr lint failed)');
+    expect(button.title).toBe('adr check or adr lint did not succeed, so the review would make no decision-checker calls');
+  });
+
+  test('L2: the run_review description says the Judge is skipped when check or lint fail', () => {
+    const { options } = makeCanvas();
+    const runReview = options.actions.find((entry: { name: string }) => entry.name === 'run_review');
+    expect(runReview?.description).toMatch(/at most one decision-checker call per governing decision/);
+    expect(runReview?.description).toMatch(/adr check or adr lint exits 2 or more/);
+  });
+
+  test('L3: an oversized queue report gets its own note', async () => {
+    const tooBig = Object.assign(new Error('stdout maxBuffer length exceeded SECRET'), { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' });
+    const { options } = makeCanvas({ run: fakeCli({ queue: tooBig }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.note).toBe(QUEUE_NOTES.tooLarge);
+    expect(JSON.stringify(queue)).not.toContain('SECRET');
+  });
+
+  test('L4: long queue strings and declaredBy paths are clipped', async () => {
+    const long = 'x'.repeat(10_000);
+    const item = queueItem('0020', long, { sourcePath: long, routingTargets: [long, '@ok'] });
+    const marker = { ...governed('0002', 'governing'), firedMatchers: [], declaredBy: [{ path: long, line: 1, ref: long }] };
+    const { options } = makeCanvas({
+      run: fakeCli({ queue: ok(queueReport([item])), check: ok(checkReport([marker])) }).run,
+    });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    const shown = state.queue.items[0];
+    for (const value of [shown.title, shown.sourcePath, shown.routingTargets[0], state.governing[0].declaredBy[0].path, state.governing[0].declaredBy[0].ref]) {
+      expect(value.length).toBeLessThanOrEqual(4001);
+    }
+    expect(shown.routingTargets[1]).toBe('@ok');
+  });
+
+  test('L4: routing targets are capped at 50 per row', async () => {
+    const targets = Array.from({ length: 51 }, (_, i) => `@t${i}`);
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport([queueItem('0020', 'P', { routingTargets: targets })])) }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.items[0].routingTargets).toEqual(targets.slice(0, 50));
   });
 });

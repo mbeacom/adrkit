@@ -568,6 +568,8 @@ Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
 - Whether `ADRKIT_CLI`, when exported, reaches extension processes. The CLI
   strips "sensitive" variables unless an extension requests them; whether this
   one counts is unmeasured. It was null in the app probe because it was not set.
+  Measured afterwards in the headless SDK host (row C12): it does reach the
+  extension there. The app remains unmeasured.
 - Copilot app and CLI versions other than those above, and a Windows host.
 - Any persistent reference-repository run or external validation (rungs 2 and
   3).
@@ -659,6 +661,72 @@ without a measured gain.
 - Whether the app's runtime (cached 1.0.93-1) treats `extensions` as the CLI does.
   Unmeasured in the Copilot app.
 - Behaviour on Copilot CLI versions other than 1.0.93.
+
+## Canvas provenance, review cost, and proposal queue (2026-10-08)
+
+Measured on 2026-10-08 at **rung 1** of ADR-0014 (shipping as plugin 0.6.0), for the additions proposed in
+[ADR-0047](adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
+(**proposed**). Rows are numbered C1 onward so they do not collide with other
+sections.
+
+### CLI output shapes (fixture repository)
+
+A four-record fixture: `0001` accepted with `affects: src/net/**`, `0002`
+accepted with an `affects` pattern that matches nothing and named by an inbound
+marker on line 1 of `src/net/client.ts`, and `0003` and `0004` proposed. The
+change adds `src/net/client.ts` and `src/net/other.ts` on a branch off `main`.
+The CLI was built from the branch (`bun run build`).
+
+| # | Probe | Result |
+|---|-------|--------|
+| C1 | `adr check --json -- src/net/client.ts src/net/other.ts` | `0001`: `firedMatchers: [{ type: "path", pattern: "src/net/**" }]`, no `declaredBy`, and no field naming which of the two files matched. `0002`: `firedMatchers: []`, `declaredBy: [{ path: "src/net/client.ts", line: 1, ref: "0002" }]`. `0003` in `activeProposals` |
+| C2 | `adr queue --format json` | QueueReport `version: "1"` with `asOf`, `totalItems: 2`, `totalCorpusFindings`, `items` (`0003`, `0004`, each with `id`, `title`, `sourcePath`, tier and SLA fields, `routingTargets`, `quorum`, approval and objection counts, `itemFindings`), and `corpusFindings`. No field carries a ratifying command |
+| C3 | `adr queue --format json --dir nope` | Exit 2, usage message on stderr |
+
+### Headless SDK host (Copilot CLI 1.0.93, no model calls)
+
+The ADR-0046 smoke host, with `pluginDirectories` set to this branch's plugin
+directory at commit `7689837`, `ADRKIT_CLI` set in the runtime's environment to
+the branch's built CLI, and the fixture above. No prompt was sent and
+`run_review` was not invoked, so nothing was spent.
+
+| # | Probe | Result |
+|---|-------|--------|
+| C4 | Open with `{ base: "main" }` | extensionId `plugin:adrkit:adrkit`; status line `2 governing · incomplete` |
+| C5 | Page headers | `GET /` 200 `text/html`, the ADR-0046 CSP unchanged, `nosniff`, `no-store`; `/app.js` and `/api/state` carry the same CSP |
+| C6 | State provenance | `0001` with its pattern and no `declaredBy`; `0002` with `declaredBy` `src/net/client.ts`, line 1, ref `0002` |
+| C7 | State cost | `judgeCalls: 2`. A `refresh` with `{ files: ["src/base.ts"] }`, which nothing governs, gave status `ok` and `judgeCalls: 0` |
+| C8 | State queue | `available: true`, `exitCode: 0`, `totalItems: 2`, items `0003` and `0004` with exactly the nine allowlisted fields |
+| C9 | Ratifying command | Absent from the `/api/state` body and from `/app.js` |
+| C10 | `refresh` with `{ dir: "nope" }` | Queue `available: false`, `exitCode: 2`, note "The open-proposal list is unavailable: adr queue exited 2."; the check reported its own `usage-error`; no CLI stderr in the queue block |
+| C11 | Boundaries | `/api/state` without the token 403; `POST /api/refresh` without the header 403; with the header and a foreign `Origin` 403; `POST /api/explain` for queue-only id `0004` 404; after close the port refused connections |
+| C12 | `ADRKIT_CLI` pointed at a missing file in the runtime's environment | Status `0 governing · usage-error` naming the configured path, and the queue note "the adr CLI could not be started". So in this headless host the variable reaches the extension, and C4 to C11 ran the branch's CLI rather than the `adr` on `PATH` |
+
+C12 is the SDK host only. Whether the app forwards `ADRKIT_CLI` stays in the
+ADR-0046 "Not verified" list.
+
+After review, the queue was moved to run concurrently with the check, with a
+30-second timeout and a separate note for an oversized report; `judgeCalls`
+became 0 when `adr check` or `adr lint` exits 2 or more; and queue strings and
+`declaredBy` paths are now clipped. Rows C4 to C11 were re-run at `fa4e664`
+with the same results. The timeout, the oversized-report note, the clipping, and
+the check-or-lint-failed button state are covered by unit tests only; none was
+provoked in the SDK host.
+
+### Not verified
+
+- **The new UI is unmeasured in the Copilot app.** The provenance lines, the
+  call-count button label and its disabled state at zero governing decisions,
+  and the "Open proposals, corpus-wide" section have been run under the fake
+  DOM in the unit tests and served by the headless host, but not rendered in an
+  app session.
+- That `judgeCalls` equals the `decision-checker` calls a completed run makes.
+  It is read from `review.mjs`; no run was made for this section, so runtime
+  retries and their cost are unmeasured.
+- A corpus large enough for the 200-item queue cap, and how long `adr queue`
+  adds to a refresh on a large corpus.
+- Per-file attribution of `affects` matches. `adr check --json` does not report
+  it (C1), and the canvas does not compute it.
 
 ## Verdict
 

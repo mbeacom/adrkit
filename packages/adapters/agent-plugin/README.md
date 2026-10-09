@@ -72,7 +72,8 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.5.0 adds the `decision-review` canvas; 0.4.0 added the `adr-review`
+Version 0.6.0 adds provenance, review cost, and the open-proposal queue to the
+`decision-review` canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review`
 workflow; 0.3.0 added the bootstrap-record offer to backfill; 0.2.0 added the
 second skill and fifth command. Existing installations must refresh and start a
 new host session:
@@ -337,9 +338,9 @@ canvas". It takes the same optional `files`, `base`, and `dir` as the workflow.
 | Action | Spends AI credits | What it does |
 | --- | --- | --- |
 | `get_state` | no | Returns the panel snapshot. |
-| `refresh` | no | Re-runs Collect and Check (`git diff`, `adr check`, `adr lint`) and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
+| `refresh` | no | Re-runs Collect and Check (`git diff`, `adr check`, `adr lint`) and `adr queue --format json`, and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
 | `show_review` | no | Displays an `adr-review` result you already have, passed as `{ result }`. The shape is validated and unknown keys are dropped. A result whose status is cleaner than its own payload, or that describes other files or governing records than the panel's, is refused. It never replaces a run the panel started. |
-| `run_review` | **yes** | Starts the `adr-review` workflow and returns `{ runId, status }` at once; the panel follows the run and shows its verdicts. Spend is the workflow's: one `decision-checker` call per governing decision. Invalid arguments throw `invalid_input` before anything is spent, and while a run is in flight a second request starts nothing. |
+| `run_review` | **yes** | Starts the `adr-review` workflow and returns `{ runId, status }` at once; the panel follows the run and shows its verdicts. Spend is the workflow's: at most one `decision-checker` call per governing decision. Invalid arguments throw `invalid_input` before anything is spent, and while a run is in flight a second request starts nothing. |
 
 Explain is not an agent action. It is an HTTP route the page uses when you
 click a decision, and it sends the agent one fixed prompt naming only the
@@ -378,6 +379,39 @@ shipped panel in maintainer sessions in Copilot app 1.1.27, where it rendered in
 the app's theme and a `Run review` started from the panel came back as
 `findings`. Details and the "not verified" list are in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
+
+### Provenance, review cost, and the open-proposal queue
+
+Proposed in
+[ADR-0047](../../../docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
+(**proposed**, amends ADR-0046). Three additions, with no new action or route:
+
+- **Why each decision governs.** A decision's evidence section names what tied
+  it to the change. An inbound marker shows the changed file and line that
+  named the record. An `affects` match shows the pattern, and says that
+  `adr check` does not report which changed file matched it; the panel does not
+  guess. `get_state` carries the same data as `declaredBy` and `firedMatchers`.
+- **What a review costs before you start it.** `adr-review` makes at most one
+  `decision-checker` call per governing decision, so the button reads
+  "Run review: N decision-checker call(s) (uses AI credits)", and `get_state`
+  carries the count as `judgeCalls`. With no governing decision the button is
+  disabled and says there is nothing to judge. When `adr check` or `adr lint`
+  exits 2 or more, the workflow skips its Judge, so `judgeCalls` is 0 and the
+  button says no checker calls will be made. Runtime retries are not counted.
+  One measured run judged two decisions for about 0.16 AI credits (Copilot CLI
+  1.0.93); that is one measurement, not a price.
+- **Open proposals, corpus-wide.** `refresh` also runs
+  `adr queue --format json`, which costs no AI credits, and the panel lists
+  up to 200 open `proposed` records (fewer if their text exceeds a 256 KiB
+  budget; a note says how many of the total are shown) with their SLA state,
+  deadline, approvals, and routing. It is a list only: no buttons, no explain, and nothing that ratifies.
+  It runs alongside the check with its own 30-second limit, and the governing
+  view appears without waiting for it. If the queue cannot
+  be read, is too large, or does not finish in time, the section shows a note
+  and the rest of the panel is unaffected.
+
+Measured in a headless Copilot CLI 1.0.93 SDK host; the new UI is unmeasured in
+the Copilot app.
 
 ## Things that are load-bearing and easy to break
 

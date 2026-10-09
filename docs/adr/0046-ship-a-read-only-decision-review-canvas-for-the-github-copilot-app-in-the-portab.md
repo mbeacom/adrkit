@@ -40,6 +40,12 @@ review:
 > them. Their portability, read-only, advisory, and independent-versioning
 > constraints remain binding.
 
+> **Amended by [ADR-0047](./0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md) (proposed).**
+> The canvas would also show each governing decision's provenance, the number of
+> `decision-checker` calls a review would make, and a read-only, corpus-wide list
+> of open proposals. No action, route, registration, or extension directory is
+> added; this record's read-only, advisory, and security boundaries are unchanged.
+
 ## Context
 
 The GitHub Copilot app can render a *canvas*: a panel beside the conversation
