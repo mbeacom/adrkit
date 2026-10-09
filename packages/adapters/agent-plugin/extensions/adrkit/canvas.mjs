@@ -33,6 +33,7 @@ import { PAGE_CSS, PAGE_JS, renderPage } from './canvas-page.mjs';
 import {
   VERDICTS,
   activeProposalDecisions,
+  FILES_ECHO_LIMIT,
   assembleResult,
   capFiles,
   checkInBatches,
@@ -281,6 +282,11 @@ export function sanitizeReviewResult(raw) {
   // A capped list is compared by its digest; without one, a result from
   // another change that shares the first 200 paths and the total would pass.
   if (/** @type {number} */ (filesOmitted) > 0 && filesDigest === null) fail('filesDigest is required when filesOmitted is above 0');
+  const fileCount = Array.isArray(raw['files']) ? raw['files'].length : 0;
+  if (fileCount > FILES_ECHO_LIMIT) fail(`files must list at most ${FILES_ECHO_LIMIT} paths`);
+  if (/** @type {number} */ (filesOmitted) > 0 && fileCount !== FILES_ECHO_LIMIT) {
+    fail(`files must list exactly ${FILES_ECHO_LIMIT} paths when filesOmitted is above 0`);
+  }
   const filesSource = raw['filesSource'] ?? null;
   if (filesSource !== null && typeof filesSource !== 'string') fail('filesSource must be a string or null');
 

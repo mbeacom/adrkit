@@ -146,3 +146,64 @@ describe('base: a conservative ref grammar wherever it is accepted', () => {
     expect(ran).toBe(0);
   });
 });
+
+describe('PR #272 review: capped lists are canonical, and a wide explicit list is never clean', () => {
+  const many = Array.from({ length: 250 }, (_, index) => `src/f${String(index).padStart(3, '0')}.ts`);
+  const capped = [...many].sort().slice(0, 200);
+  const digest = (files: string[]) => require('node:crypto').createHash('sha256').update([...files].sort().join('\0')).digest('hex');
+  const result = (files: string[], extra: Record<string, unknown> = {}) => ({
+    status: 'ok',
+    checkExitCode: 0,
+    lintExitCode: 0,
+    files,
+    filesOmitted: 50,
+    filesDigest: digest(many),
+    filesSource: 'args',
+    notes: [],
+    governing: [],
+    history: [],
+    verdicts: [],
+    unverified: [],
+    findings: [],
+    ...extra,
+  });
+
+  test('a result listing more than 200 files is refused', () => {
+    expect(() => sanitizeReviewResult(result(many, { filesOmitted: 0, filesDigest: null }))).toThrow(/files/);
+  });
+
+  test('a capped result must list exactly 200 files', () => {
+    expect(() => sanitizeReviewResult(result(capped.slice(0, 10)))).toThrow(/files/);
+  });
+
+  test('the right digest with a replaced list does not match the panel', async () => {
+    const { sameFileSet } = await import('../extensions/adrkit/review.mjs');
+    const swapped = [...capped.slice(0, 199), 'src/not-in-the-change.ts'];
+    expect(sameFileSet(swapped, 50, many, digest(many))).toBe(false);
+    expect(sameFileSet(capped, 50, many, digest(many))).toBe(true);
+  });
+
+  test('more than 200 explicit files: the review is incomplete at best, and says why', async () => {
+    const { reviewWorkflow } = await import('../extensions/adrkit/review.mjs');
+    const run = async (_command: string, args: string[]) => ({
+      stdout: args.includes('check')
+        ? JSON.stringify({ changedFiles: [], governedBy: [{ recordId: '0001', title: 'One', status: 'accepted', bucket: 'governing' }], findings: [] })
+        : '',
+      stderr: '',
+      exitCode: 0,
+    });
+    const ctx = {
+      args: { files: many },
+      signal: new AbortController().signal,
+      phase: () => {},
+      log: () => {},
+      step: async (_key: string, producer: () => unknown) => await producer(),
+      agent: async () => ({ verdict: 'consistent', evidence: 'fine' }),
+      pipeline: async (items: unknown[], stage: (previous: unknown, item: unknown) => Promise<unknown>) =>
+        Promise.all(items.map((item) => stage(undefined, item))),
+    };
+    const out = await reviewWorkflow(ctx, { run, env: {}, cwd: '/r', exists: () => false });
+    expect(out.status).toBe('incomplete');
+    expect(out.notes.join('\n')).toContain('the Judge was shown 200 of the 250 files supplied');
+  });
+});

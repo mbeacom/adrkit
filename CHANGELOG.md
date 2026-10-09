@@ -144,7 +144,8 @@ Until `1.0.0`, minor releases may include breaking changes
     `filesDigest`, so the canvas compares a capped result by its full list.
   - **A wide review's Judge sees what matters.** It is shown the paths that
     declared its decision first, and the exact `git diff --name-only` range
-    for the rest (or that the caller supplied the list).
+    for the rest. An explicit `files` list longer than 200 paths makes the
+    review `incomplete` at best, because the rest cannot be shown or listed.
   - **Commands cannot outlive their limits or the extension.** On macOS and
     Linux a timeout ends the whole process group, including a grandchild
     behind a version-manager shim. Groups still running are killed when the

@@ -707,7 +707,9 @@ app. Measured, and easy to break:
   with a `filesOmitted` count and, in the workflow result, a `filesDigest`
   (SHA-256 of the full sorted list). The canvas keeps the **full** list in
   memory and compares a capped result with `sameFileSet`, by digest;
-  `sanitizeReviewResult` refuses a capped result with no digest; comparing a capped result with the full list would drop every
+  `sanitizeReviewResult` refuses a capped result with no digest or with other
+  than exactly 200 paths, and `sameFileSet` requires the canonical capped
+  prefix even when the digest matches; comparing a capped result with the full list would drop every
   wide-change review as stale (pinned in `test/batching.test.ts`).
 - **A capped Judge prompt must say how to see the rest.** A bare
   `git diff --name-only` prints nothing for committed work, so a Judge shown
@@ -715,7 +717,10 @@ app. Measured, and easy to break:
   prompt lists the paths whose markers declared the decision first, then
   names the range the run collected (`git diff --name-only <base>...HEAD`, or
   `HEAD` in the fallback); for explicit `files` it says the caller supplied
-  the list, with its count. One test per mode pins the hint.
+  the list, with its count, and the run is `incomplete` at best, because no
+  git command reproduces an explicit list and a clean verdict would cover
+  files nobody inspected (found by Copilot review on #272). One test per mode
+  pins the hint.
 - **Results never carry exception text or a writing command.** Rejections and
   spawn failures return fixed messages chosen by code (CodeQL
   `js/stack-trace-exposure`). CLI stderr is returned only on exit `2`, capped

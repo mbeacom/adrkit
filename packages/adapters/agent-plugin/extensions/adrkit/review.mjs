@@ -716,9 +716,8 @@ export function filesDigestOf(files) {
 
 /**
  * Does a capped list (`shown`, plus `omitted` more, and `digest` of the
- * whole) describe the full `files`? With a digest the whole list is compared;
- * without one (an older or agent-built result) the paths beyond the cap are
- * compared by count only.
+ * whole) describe the full `files`? `shown` must be the canonical capped
+ * prefix, and a capped list must carry the digest of the whole.
  *
  * @param {string[]} shown
  * @param {number} omitted
@@ -728,8 +727,10 @@ export function filesDigestOf(files) {
 export function sameFileSet(shown, omitted, files, digest = null) {
   const capped = capFiles(files);
   if (capped.omitted !== omitted) return false;
-  if (omitted > 0 && typeof digest === 'string') return digest === filesDigestOf(files);
-  return [...capped.files].sort().join('\0') === [...shown].sort().join('\0');
+  // The shown paths must be the canonical capped prefix in every case, so a
+  // right digest cannot carry a replaced list; the digest then covers the rest.
+  if ([...capped.files].sort().join('\0') !== [...shown].sort().join('\0')) return false;
+  return omitted > 0 ? digest === filesDigestOf(files) : true;
 }
 
 // `cli` and `allowRepoCli` are deliberately absent: what runs is chosen by the
@@ -1085,7 +1086,17 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
   }
   notes.push(...collected.notes);
   const { files } = collected;
-  const partial = collected.source === 'git:HEAD';
+  // An explicit list wider than the prompt cap cannot be shown to the Judge
+  // whole, and no git command reproduces it, so a clean verdict would cover
+  // files nobody inspected: the review is incomplete at best.
+  const unseen = collected.source === 'args' && files.length > FILES_ECHO_LIMIT;
+  if (unseen) {
+    notes.push(
+      `Explicit files: the Judge was shown ${FILES_ECHO_LIMIT} of the ${files.length} files supplied, so the review is incomplete; ` +
+        'pass at most 200 files, or use base, to have every file judged.',
+    );
+  }
+  const partial = collected.source === 'git:HEAD' || unseen;
   const base = { files, filesSource: collected.source, partial };
   // The ref the Judge diffs against: the one the files came from, else the one
   // the caller named. A fallback to HEAD means the base did not resolve.

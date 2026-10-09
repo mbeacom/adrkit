@@ -251,7 +251,9 @@ caps a command line at about 32 KiB. The result lists at most 200 changed
 paths, counts the rest in `filesOmitted`, and carries `filesDigest`, a SHA-256
 of the full sorted list, when it caps. Each Judge is shown the paths that
 declared its decision first, and told the exact `git diff --name-only` range
-for the rest. Its `notes` are fixed messages that never repeat the CLI's
+for the rest. An explicit `files` list longer than 200 paths makes the review
+`incomplete` at best, because the Judge cannot see or list the rest. Its
+`notes` are fixed messages that never repeat the CLI's
 stderr or an exception's text: when one says `adr lint` or `adr check` failed,
 run that command to see why. Any single `git` or `adr` call it makes is ended
 after 120 seconds.
