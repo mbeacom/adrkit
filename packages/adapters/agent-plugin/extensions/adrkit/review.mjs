@@ -15,6 +15,7 @@
  */
 
 import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve, win32 } from 'node:path';
 
@@ -689,17 +690,33 @@ export function capFiles(files) {
 }
 
 /**
- * Does a capped list (`shown`, plus `omitted` more) describe the full `files`?
- * The paths beyond the cap are compared by count only; callers that must know
- * the contents too compare a fingerprint of the full list as well.
+ * SHA-256 over the code-unit-sorted, NUL-joined full list, or null when the
+ * list is not capped (the list itself is then present).
+ *
+ * @param {string[]} files
+ * @returns {string | null}
+ */
+export function filesDigestOf(files) {
+  if (files.length <= FILES_ECHO_LIMIT) return null;
+  return createHash('sha256').update([...files].sort(byCodeUnits).join('\0')).digest('hex');
+}
+
+/**
+ * Does a capped list (`shown`, plus `omitted` more, and `digest` of the
+ * whole) describe the full `files`? With a digest the whole list is compared;
+ * without one (an older or agent-built result) the paths beyond the cap are
+ * compared by count only.
  *
  * @param {string[]} shown
  * @param {number} omitted
  * @param {string[]} files
+ * @param {string | null} [digest]
  */
-export function sameFileSet(shown, omitted, files) {
+export function sameFileSet(shown, omitted, files, digest = null) {
   const capped = capFiles(files);
-  return capped.omitted === omitted && [...capped.files].sort().join('\0') === [...shown].sort().join('\0');
+  if (capped.omitted !== omitted) return false;
+  if (omitted > 0 && typeof digest === 'string') return digest === filesDigestOf(files);
+  return [...capped.files].sort().join('\0') === [...shown].sort().join('\0');
 }
 
 // `cli` and `allowRepoCli` are deliberately absent: what runs is chosen by the
@@ -939,7 +956,8 @@ export const activeProposalDecisions = (/** @type {unknown} */ outcome) => decis
 /**
  * The result payload. Every key is always present, so a caller can read
  * `checkExitCode` without first proving the run got that far. `files` lists at
- * most FILES_ECHO_LIMIT paths and `filesOmitted` counts the rest.
+ * most FILES_ECHO_LIMIT paths, `filesOmitted` counts the rest, and
+ * `filesDigest` (null unless capped) is a SHA-256 of the full sorted list.
  *
  * `status` alone is sufficient to gate on. Precedence is usage-error >
  * findings > incomplete > ok: `incomplete` means a governing decision has no
@@ -990,6 +1008,7 @@ export function assembleResult({
     lintExitCode,
     files: shown.files,
     filesOmitted: shown.omitted,
+    filesDigest: filesDigestOf(files),
     filesSource,
     notes,
     governing,

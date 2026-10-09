@@ -274,6 +274,10 @@ export function sanitizeReviewResult(raw) {
 
   const filesOmitted = raw['filesOmitted'] ?? 0;
   if (!Number.isInteger(filesOmitted) || /** @type {number} */ (filesOmitted) < 0) fail('filesOmitted must be a non-negative integer');
+  const filesDigest = raw['filesDigest'] ?? null;
+  if (filesDigest !== null && (typeof filesDigest !== 'string' || !/^[0-9a-f]{64}$/.test(filesDigest))) {
+    fail('filesDigest must be null or a SHA-256 hex digest');
+  }
   const filesSource = raw['filesSource'] ?? null;
   if (filesSource !== null && typeof filesSource !== 'string') fail('filesSource must be a string or null');
 
@@ -302,6 +306,7 @@ export function sanitizeReviewResult(raw) {
     lintExitCode: exitCode('lintExitCode'),
     files: strings('files'),
     filesOmitted,
+    filesDigest,
     filesSource,
     notes: strings('notes'),
     governing: decisions('governing'),
@@ -971,7 +976,7 @@ export function createDecisionReviewCanvas({
       if (review && !review.watching && review.result) {
         // The result lists at most FILES_ECHO_LIMIT paths; the fingerprint below
         // covers the full list.
-        const sameFiles = sameFileSet(review.result.files, review.result.filesOmitted ?? 0, snapshot.files);
+        const sameFiles = sameFileSet(review.result.files, review.result.filesOmitted ?? 0, snapshot.files, review.result.filesDigest ?? null);
         const sameGoverning = review.governingKey === undefined || review.governingKey === governingKey(snapshot.governing);
         const sameContents = review.fingerprint === fingerprint;
         if (!sameFiles || !sameGoverning || !sameContents) workspace.review = null;
@@ -1355,7 +1360,12 @@ export function createDecisionReviewCanvas({
             // records it never judged, so it must describe this panel's.
             const shownFiles = /** @type {string[]} */ (result['files']);
             const shownGoverning = /** @type {ShownDecision[]} */ (result['governing']);
-            const sameFiles = sameFileSet(shownFiles, /** @type {number} */ (result['filesOmitted']), current.files);
+            const sameFiles = sameFileSet(
+              shownFiles,
+              /** @type {number} */ (result['filesOmitted']),
+              current.files,
+              /** @type {string | null} */ (result['filesDigest']),
+            );
             if (!sameFiles || governingKey(shownGoverning) !== governingKey(current.governing)) {
               throw makeError(
                 'stale_result',

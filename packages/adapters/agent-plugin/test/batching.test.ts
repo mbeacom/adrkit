@@ -9,6 +9,7 @@
  * list each result echoes is capped, with an explicit count of the rest.
  */
 import { afterEach, describe, expect, test } from 'bun:test';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { CANVAS_ID, createDecisionReviewCanvas } from '../extensions/adrkit/canvas.mjs';
 import { createAdvisoryHooks } from '../extensions/adrkit/hooks.mjs';
@@ -476,5 +477,70 @@ describe('the merged report marks itself and orders findings as the CLI does (ro
     const description = tools.find((tool: { name: string }) => tool.name === 'adr_check')!.description;
     expect(description).toContain('batches');
     expect(description).toContain('markerScan');
+  });
+});
+
+describe('show_review checks a capped result against the full file list (round 1, L8)', () => {
+  const digest = (files: string[]) => createHash('sha256').update([...files].sort().join('\0')).digest('hex');
+  const resultFor = (files: string[], extra: Record<string, unknown> = {}) => ({
+    status: 'ok',
+    checkExitCode: 0,
+    lintExitCode: 0,
+    files: [...files].sort().slice(0, FILES_ECHO_LIMIT),
+    filesOmitted: files.length - FILES_ECHO_LIMIT,
+    filesSource: 'git:origin/main...HEAD',
+    notes: [],
+    governing: [{ recordId: '0001', title: 'One' }, { recordId: '0002', title: 'Two' }],
+    history: [],
+    verdicts: [
+      { recordId: '0001', title: 'One', verdict: 'consistent', evidence: 'ok' },
+      { recordId: '0002', title: 'Two', verdict: 'consistent', evidence: 'ok' },
+    ],
+    unverified: [],
+    findings: [],
+    ...extra,
+  });
+
+  async function panel() {
+    const { run } = wideCli();
+    const options = createDecisionReviewCanvas({
+      run: (command: string, args: string[]) => run(command, args),
+      env: {},
+      exists: () => false,
+      getSession: () => ({ send: async () => 'm', log: async () => {}, rpc: { workflow: { run: async () => ({}), getRun: async () => ({}) } } }),
+      createServer: (handler: any) => createServer(handler),
+      sleep: async () => {},
+      now: () => 'now',
+      stat: async () => ({ size: 1, mtimeMs: 1 }),
+    });
+    const ctx = { sessionId: 's', canvasId: CANVAS_ID, instanceId: 'panel-l8', session: { workingDirectory: CWD } };
+    await options.open(ctx);
+    open.push(() => options.onClose(ctx));
+    return (input: unknown): Promise<any> =>
+      Promise.resolve(options.actions.find((entry: { name: string }) => entry.name === 'show_review')!.handler({ ...ctx, actionName: 'show_review', input }));
+  }
+
+  test('the workflow result carries a digest of the full list when it is capped, and none otherwise', async () => {
+    const { assembleResult } = await import('../extensions/adrkit/review.mjs');
+    expect(assembleResult({ files: WIDE }).filesDigest).toBe(digest(WIDE));
+    expect(assembleResult({ files: ['a.ts'] }).filesDigest).toBeNull();
+  });
+
+  test('same first 200 and same count, different list: refused', async () => {
+    const show = await panel();
+    // Same 200 smallest paths and the same total, but one later path differs.
+    const other = [...WIDE.slice(0, -1), 'zz/not-in-this-change.ts'];
+    await expect(show({ result: resultFor(other, { filesDigest: digest(other) }) })).rejects.toThrow(/different change/);
+  });
+
+  test('the matching digest: accepted', async () => {
+    const show = await panel();
+    const state = await show({ result: resultFor(WIDE, { filesDigest: digest(WIDE) }) });
+    expect(state.review?.result?.status).toBe('ok');
+  });
+
+  test('a capped result with no digest and a different count: refused', async () => {
+    const show = await panel();
+    await expect(show({ result: resultFor(WIDE, { filesOmitted: WIDE.length }) })).rejects.toThrow(/different change/);
   });
 });
