@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { acceptAdrSource, Identity, lintCorpus, type Finding } from '@adrkit/core';
+import { acceptAdrSource, isWritableIdentity, type Finding } from '@adrkit/core';
 import { commandOptions, renderGlobalColorUsageLine, withGlobalColorOption } from './command-registry.ts';
-import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
+import { formatUsageError } from './errors.ts';
 import { getPresentation, type StreamStyle } from './presentation.ts';
+import { resolveWriteTarget } from './record-target.ts';
 import { closestCandidate } from './recovery.ts';
 import { cleanText } from './terminal-text.ts';
 
@@ -57,27 +57,6 @@ function refusal(message: string, findings: readonly Finding[] = []): number {
   return 1;
 }
 
-/** `ADR-0044`, `adr-0044`, and `44` all name `0044`; an exact id always wins. */
-function candidateIds(raw: string): string[] {
-  const stripped = raw.replace(/^adr-/i, '');
-  const padded = /^[0-9]+$/.test(stripped) ? stripped.padStart(4, '0') : stripped;
-  return [...new Set([raw, stripped, padded])];
-}
-
-function belongsTo(finding: Finding, id: string, path: string): boolean {
-  return finding.id === id || finding.path === path;
-}
-
-/**
- * A record whose YAML does not parse yields findings with a `path` and no `id`, so
- * the file name is the only place its id can be read from.
- */
-function namesRecord(finding: Finding, id: string): boolean {
-  if (finding.id === id) return true;
-  const file = finding.path?.split(/[\\/]/).pop() ?? '';
-  return file.startsWith(`${id}-`);
-}
-
 function renderAccepted(
   result: { id: string; title: string; path: string; ratifiedBy: string; decidedAt: string },
   style: StreamStyle,
@@ -100,7 +79,7 @@ export async function runAccept(args: string[]): Promise<number> {
       allowPositionals: true,
       strict: true,
       options: {
-        by: { type: 'string' },
+        by: { type: 'string', multiple: true },
         dir: { type: 'string', default: 'docs/adr' },
         json: { type: 'boolean', default: false },
       },
@@ -121,46 +100,24 @@ export async function runAccept(args: string[]): Promise<number> {
     );
   }
   const rawId = String(parsed.positionals[0]);
-  const by = parsed.values.by === undefined ? '' : String(parsed.values.by);
+  const byValues = (parsed.values.by as string[] | undefined) ?? [];
+  if (byValues.length > 1) {
+    return usageError('--by was given more than once; adr accept records one ratifier.');
+  }
+  const by = byValues[0] ?? '';
   if (by === '') {
     return usageError('adr accept requires --by <identity>: the human ratifying this decision. It is never inferred.');
   }
-  if (!Identity.safeParse(by).success) {
-    return usageError(`Invalid --by value "${by}". Expected @handle, team:slug, or an email address.`);
+  if (!isWritableIdentity(by)) {
+    return usageError(
+      `Invalid --by value ${JSON.stringify(by)}. Expected @handle, team:slug, or an email address. It may contain no control or invisible characters.`,
+    );
   }
 
-  const dir = String(parsed.values.dir);
-  let corpus: Awaited<ReturnType<typeof lintCorpus>>;
-  try {
-    corpus = await lintCorpus({ dir });
-  } catch (error) {
-    const kind = corpusDirectoryErrorKind(error, dir);
-    if (kind) return usageError(corpusDirectoryErrorMessage(dir, kind));
-    throw error;
-  }
+  const target = await resolveWriteTarget(rawId, String(parsed.values.dir), { usageError, refusal });
+  if (typeof target === 'number') return target;
+  const { id, record, absolutePath } = target;
 
-  const errors = corpus.findings.filter((finding) => finding.severity === 'error');
-  let id: string | undefined;
-  let matches: typeof corpus.records = [];
-  for (const candidate of candidateIds(rawId)) {
-    matches = corpus.records.filter((record) => record.frontmatter.id === candidate);
-    const invalid = errors.filter((finding) => namesRecord(finding, candidate));
-    if (matches.length > 0 || invalid.length > 0) {
-      id = candidate;
-      if (matches.length === 0) return refusal(`ADR "${candidate}" exists but is invalid; fix it first.`, invalid);
-      break;
-    }
-  }
-  if (id === undefined) return usageError(`No ADR with id "${rawId}" exists in "${dir}".`);
-  if (matches.length > 1) {
-    return refusal(`more than one record declares id "${id}": ${matches.map((record) => record.path).join(', ')}.`);
-  }
-
-  const record = matches[0]!;
-  const recordErrors = errors.filter((finding) => belongsTo(finding, id!, record.path));
-  if (recordErrors.length > 0) return refusal(`ADR-${id} has lint errors; fix them first.`, recordErrors);
-
-  const absolutePath = resolve(process.cwd(), record.path);
   const source = await readFile(absolutePath, 'utf8');
   // The clock is read here, at the boundary; the transition itself is pure.
   const decidedAt = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');

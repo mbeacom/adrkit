@@ -290,6 +290,80 @@ not change the exit code and do not fail the managed-issue Action.
   prints that refusal. Review state alone misses refusals such as an empty
   `deciders`, so do not replace the dry run with a field check.
 
+## `adr approve` / `adr object` / `adr resolve`
+
+`adr approve <id> --by <identity>`, `adr object <id> --by <identity> --summary
+<text>`, and `adr resolve <id> --objection <n> --by <identity>` record review
+state on a `proposed` record, under
+[ADR-0051](./docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md)
+(**proposed**). They follow `adr accept`'s design, and `adr queue`'s approval
+and objection counts change with them.
+
+- **They share accept's splice-and-verify kernel; do not fork it.**
+  `packages/core/src/transition/splice.ts` holds the line-splice helpers and
+  `finishSplice`, the re-parse guard that refuses unless the new frontmatter
+  equals exactly the intended data and still validates. `review.ts` and
+  `accept.ts` both end in it. A copy of the guard in a fourth transition is how
+  one of them would quietly lose it.
+- **A flow list stays flow and a block list stays block.** `approvals: []`
+  becomes `approvals: ["@bob"]`; `objections: []` grows a flow mapping. Turning
+  either into a block would be a second, unowned layout change. A layout that
+  cannot be spliced, such as `review: {…}`, is refused with exit `1`.
+- **Identities compare by ASCII casefold of the whole identity**
+  (`packages/core/src/schema/identity.ts`): `@bob` and `@Bob` are one person.
+  That governs the approve and object no-ops and the objector check, and it is
+  why `acceptAdrSource`'s quorum check and the queue kernel's `approvalCount`
+  count **distinct** identities, a fix to ADR-0044's entry count. Before it, one
+  reviewer approving under two spellings met a quorum of two. Do not go back
+  to `approvals.length` or `includes` anywhere approvals are counted or matched.
+- **Only the objector may resolve.** `--by` must be the objection's `by` under
+  that fold. There is no `resolvedBy` field and no chair override; both need a
+  schema change and are future work in ADR-0051. Do not add either here.
+- **Repeats are no-ops**, exit `0` with no write: an identity that already
+  approved, the same open objection (same `by` and summary), an objection that
+  is already resolved. The core result says `changed: false` and the CLI skips
+  `writeFile`.
+- **A summary is one line, written double-quoted.** Trimmed, non-empty, at most
+  500 code points after trimming, no control character (`\p{Cc}`), no invisible
+  format character (`\p{Cf}`: bidi overrides, zero-width characters, the BOM),
+  no U+2028 or U+2029. `--by` gets the same control and format check in all
+  four ratifying and review commands, because the schema's email branch admits
+  both, except ZWNJ and ZWJ inside an email. The CLI checks these as usage
+  errors (exit `2`) and core refuses them independently; a repeated `--by` is a
+  usage error too, in `adr accept` as well.
+- **An insertion never backs up into the value above it.** `backUpOverTrivia`
+  takes a floor at the end of that value, so a literal block's `# …` line and a
+  keep-chomped scalar's trailing blank lines stay inside their scalar, and
+  `resolve` scans back to an item's `-` when it stands alone on its line.
+- **The record must be `proposed`**, for all three. `--by` is mandatory and
+  never inferred. A BOM-prefixed record is already invalid to `adr lint`
+  (`parseFrontmatter` requires a leading `---`), so these refuse it, as
+  `adr accept` does.
+- **`adr accept` and the three review commands find their record through
+  `packages/cli/src/record-target.ts`**, which accept's lookup moved into with
+  its messages unchanged.
+- **No agent surface runs them, and the guard checks code, not only prose.**
+  The agent plugin's wiring test fails if a command, skill, agent, or any
+  extension module, the canvas included, names `accept`, `approve`, `object`,
+  or `resolve` as a CLI call: as any quoted array element or call argument
+  (`[cli, 'approve', id]`, `args.push('approve')`), as a quoted value assigned
+  to a name, as a tool name (`adr_approve`), or after `adr`, `$ADRKIT_CLI`,
+  `@adrkit/cli`, or a `${…}` placeholder, in any case and across invisible
+  characters. JSON-schema type lists such as `['object', 'null']` are dropped
+  first, so they never match. A prose-only pattern was green
+  while an extension spawning `['approve', …]` passed it. The Spec Kit
+  extension (plus its `adrkit_cli` wrapper) and the MCP server (plus any import
+  of a writing transition) have the same guard. The canvas's `actions` are
+  model-callable, so it stays guarded: the later button track, which takes the
+  identity from `ADRKIT_REVIEWER` and never from the model, adds one narrow,
+  tested exception for a single page-POST handler module under its own record.
+  The extension tools' `redactWritingCommands` scrubs these verbs from tool
+  results too, because a record title can carry `adr approve …` to the model.
+- **The read, transition, write window is not locked.** Two of these commands,
+  or one and `adr accept`, run at the same instant on the same file can lose
+  an update. That is accepted in ADR-0051: they are human-run edits to a
+  working tree, and the pull request diff is where the result is checked.
+
 ## Moving Action tag recovery
 
 Normal lockstep releases publish npm and create a draft GitHub release. A human
@@ -817,7 +891,8 @@ Two boundaries are load-bearing:
 Both guards are repo-local scripts, not CLI surface: `adr graph --format json`
 already emits every node's `status` and every `supersedes` edge, and the public
 CLI is a semver commitment (ADR-0031) whose write surface is deliberately
-small: `new`, `migrate`, and `accept` (ADR-0044, **accepted**). A public
+small: `new`, `migrate`, `accept` (ADR-0044, **accepted**), and the review
+commands `approve`, `object`, and `resolve` (ADR-0051, **proposed**). A public
 Markdown inventory formatter waits for adopter demand.
 
 ## Toolchain

@@ -223,7 +223,7 @@ export function validateToolArgs(tool, raw) {
  * @param {string} text
  */
 export function redactWritingCommands(text) {
-  return text.replace(/\badr[\s\p{Cf}]+(?:accept|new|migrate)\b/giu, 'adr [a writing command, omitted]');
+  return text.replace(/\badr[\s\p{Cf}]+(?:accept|new|migrate|approve|object|resolve)\b/giu, 'adr [a writing command, omitted]');
 }
 
 /**

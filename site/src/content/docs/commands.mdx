@@ -21,6 +21,9 @@ adr explain <path> [--dir docs/adr] [--json] [--as-of <date|ref>]
 adr check <files...> [--dir docs/adr] [--json]
 adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [--json] [--dir docs/adr]
 adr queue [--dir docs/adr] [--as-of YYYY-MM-DD] [--format auto|terminal|markdown|json]
+adr approve <id> --by <identity> [--dir docs/adr] [--json]
+adr object <id> --by <identity> --summary <text> [--dir docs/adr] [--json]
+adr resolve <id> --objection <n> --by <identity> [--dir docs/adr] [--json]
 adr accept <id> --by <identity> [--dir docs/adr] [--json]
 adr completion <bash|zsh|fish>
 
@@ -435,8 +438,8 @@ for byte, so CI, the managed-issue Action, and agents see no change. Pass
 
 ## adr accept
 
-Accept a `proposed` record as its named ratifier. This is one of three commands
-that write, alongside `new` and `migrate`
+Accept a `proposed` record as its named ratifier. It writes, as do `new`,
+`migrate`, and the review commands below
 ([ADR-0044](/adr/0044-ratify-a-proposed-record-with-adr-accept-and-present-the-queue-for-terminals/), accepted).
 
 ```bash
@@ -451,8 +454,8 @@ any record. `--by` is required and is never inferred from git or the
 environment, because naming who ratified the decision is the point.
 
 It refuses, exits `1`, and leaves the file untouched when the record is not
-`proposed`, has an unresolved objection, has fewer approvals than its
-`review.quorum`, already has lint errors, or would not be a valid accepted
+`proposed`, has an unresolved objection, has fewer distinct approvers than its
+`review.quorum` (`@bob` and `@Bob` count once), already has lint errors, or would not be a valid accepted
 record — for example, one with no `deciders`. `--by` never counts as an
 approval.
 
@@ -471,6 +474,55 @@ approval.
 	The adrkit agent plugin, the Spec Kit extension, and the MCP server never run
 	`adr accept`. An agent can tell you it is the next step; accepting a decision
 	stays a human act.
+</Aside>
+
+## adr approve, adr object, adr resolve
+
+Record review state on a `proposed` record under your identity
+([ADR-0051](/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve/), proposed).
+`adr queue` shows the resulting approval and objection counts, and
+`adr accept` reads them.
+
+```bash
+adr approve 0044 --by @octocat                                  # add an approval
+adr object 0044 --by @hubot --summary "Needs a load test first" # raise an objection
+adr resolve 0044 --objection 1 --by @hubot                      # resolve your own objection
+```
+
+- `adr approve` adds `--by` to `review.approvals`.
+- `adr object` appends `{ by, summary, resolved: false }` to
+  `review.objections`. The summary is one line of at most 500 characters, with
+  no control characters, and is always written quoted.
+- `adr resolve` sets `resolved: true` on objection `n`, counting from 1 in file
+  order. Only the objector may resolve an objection: `--by` must equal its
+  `by`.
+
+Each changes only the list it owns and no other line, keeps a flow list
+(`[...]`) a flow list, and commits nothing. A repeat writes nothing and exits
+`0`: approving twice, raising the same open objection twice, or resolving a
+resolved objection. `--by` is required and is never inferred, and identities
+compare case-insensitively: `@Bob` after `@bob` is the same approval, and the
+objector may resolve under either spelling.
+
+| Option | Meaning |
+|---|---|
+| `<id>` | ADR id as shown by `adr queue`; `44` and `ADR-0044` also resolve to `0044` |
+| `--by <identity>` | Required. `@handle`, `team:slug`, or an email address |
+| `--summary <text>` | `adr object` only. Required, one line, at most 500 characters, no control or invisible characters |
+| `--objection <n>` | `adr resolve` only. Required, a whole number from 1 |
+| `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
+| `--json` | Emit `{ id, path, by, changed, approvals }` (approve) or `{ id, path, by, changed, objection }` (object, resolve) |
+| `--help` | Show help and exit |
+
+**Exit codes:** `0` written, or already in that state · `1` refused, record
+unchanged (not `proposed`, lint errors, no such objection, not the objector,
+or a layout it cannot edit safely) · `2` usage error (missing or malformed
+`--by`, `--summary`, or `--objection`, unknown id, or unreachable corpus
+directory).
+
+<Aside type="note" title="Agents do not review">
+	No agent surface runs these commands: they record a person's review. An agent
+	can tell you that one is the next step.
 </Aside>
 
 ## adr completion

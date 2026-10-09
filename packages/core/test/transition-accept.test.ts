@@ -105,6 +105,21 @@ describe('acceptAdrSource', () => {
     expect(accept(record({ review: 'review:\n  quorum: 1\n  approvals: ["@erin"]\n  objections:\n    - by: "@dan"\n      resolved: true' })).ok).toBe(true);
   });
 
+  test('one person approving under two spellings does not meet quorum (ADR-0051)', () => {
+    expect(accept(record({ review: 'review:\n  quorum: 2\n  approvals: ["@bob", "@Bob"]' }))).toMatchObject({
+      ok: false,
+      code: 'quorum-not-met',
+      message: expect.stringContaining('1 of 2'),
+    });
+    expect(accept(record({ review: 'review:\n  quorum: 2\n  approvals: ["@bob", "@carol"]' })).ok).toBe(true);
+  });
+
+  test('refuses a ratifier with control or invisible format characters', () => {
+    for (const by of ['x\u001b[31m@c.de', 'x\u202e@c.de', 'x\u200b@c.de']) {
+      expect(accept(record(), by)).toMatchObject({ ok: false, code: 'invalid-identity' });
+    }
+  });
+
   test('refuses a result the schema rejects, such as an accepted record with no deciders', () => {
     const source = record().replace('deciders: ["@alice"]', 'deciders: []');
     expect(accept(source)).toMatchObject({ ok: false, code: 'invalid-result' });

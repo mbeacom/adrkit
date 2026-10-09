@@ -619,6 +619,45 @@ describe('claims match the artifact', () => {
   });
 });
 
+const REVIEW_VERBS = ['approve', 'object', 'resolve'] as const;
+
+function components(): string[] {
+  return [
+    ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
+    ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
+    ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
+    ...extensionFiles(),
+  ];
+}
+
+/**
+ * Whether `text` names one of `verbs` as a CLI invocation: in an argument array
+ * (`['approve', …]`, but not a JSON-schema type list), as a tool name
+ * (`adr_approve`), or after `adr`, `$ADRKIT_CLI`, or `@adrkit/cli` across any
+ * whitespace or invisible format character, in any case.
+ */
+function mentionsVerb(text: string, verbs: readonly string[]): boolean {
+  const alt = verbs.join('|');
+  // A JSON-schema type list such as `['object', 'null']` is a type, not a call; drop
+  // lists made only of type words before looking for a quoted verb.
+  // Items are separated by a required comma, so the match cannot backtrack
+  // exponentially (CodeQL js/redos).
+  const type = `['"\`](?:null|string|array|number|boolean|integer|object)['"\`]`;
+  const code = text.replace(new RegExp(`\\[\\s*${type}(?:\\s*,\\s*${type})*(?:\\s*,)?\\s*\\]`, 'g'), '');
+  return [
+    // The verb as a quoted array element or call argument: `['approve']`,
+    // `[cli, 'approve', id]`, `args.push('approve')`, `` [`resolve`, id] ``.
+    new RegExp(`[\\[,(]\\s*['"\`](?:${alt})['"\`]\\s*[,\\])]`),
+    // The verb assigned to a name a template then interpolates: `const verb = 'approve'`.
+    new RegExp(`(?<![=!<>])=\\s*['"\`](?:${alt})['"\`]`),
+    // A tool named after the verb: `adr_approve`.
+    new RegExp(`\\badr_(?:${alt})\\b`, 'i'),
+    // A shell or template call: after `adr`, `$ADRKIT_CLI`, `@adrkit/cli`, or a
+    // `${…}` placeholder, across whitespace and invisible characters, in any case.
+    new RegExp(`(?:\\badr|ADRKIT_CLI\\}?"?|@adrkit\\/cli|\\$\\{[^}]*\\})[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
+  ].some((pattern) => pattern.test(code));
+}
+
 describe('write boundary', () => {  test('exactly one command writes, and it is adr-draft', () => {
     // The same rule the Spec Kit adapter enforces: a governance tool that
     // writes as a side effect of being consulted is a governance tool people
@@ -637,15 +676,77 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     // violation, because a host model reads an example as an instruction. The
     // workflow extension is covered too: it builds prompts for the
     // decision-checker, and it runs code outside Copilot's permission prompts.
-    const components = [
-      ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
-      ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
-      ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
-      ...extensionFiles(),
-    ];
-    expect(components.some((path) => path.endsWith('extension.mjs'))).toBe(true);
-    const runners = components.filter((path) => /\badr accept\b/.test(readFileSync(path, 'utf8')));
+    const all = components();
+    expect(all.some((path) => path.endsWith('extension.mjs'))).toBe(true);
+    for (const module of ['tools.mjs', 'hooks.mjs', 'canvas.mjs']) {
+      expect({ module, covered: all.some((path) => path.endsWith(module)) }).toEqual({ module, covered: true });
+    }
+    const runners = all.filter((path) => mentionsVerb(readFileSync(path, 'utf8'), ['accept']));
     expect(runners).toEqual([]);
+  });
+
+  test('no component runs adr approve, adr object, or adr resolve', () => {
+    // These record human review state under a person's identity (ADR-0051). No
+    // skill, agent, command, or extension module may run them on a model's
+    // initiative, and, as with `adr accept`, any mention counts, because a host
+    // model reads an example as an instruction. Every extension module is
+    // guarded, the canvas included: its `actions` are model-callable. The later
+    // canvas-button track will add one narrowly scoped, tested exception for a
+    // single module that handles the page's POST, under its own record; until
+    // then nothing in the plugin names these verbs.
+    const runners = components().filter((path) => mentionsVerb(readFileSync(path, 'utf8'), REVIEW_VERBS));
+    expect(runners).toEqual([]);
+  });
+
+  test('the type-list filter runs in linear time (CodeQL js/redos)', () => {
+    // `["null"` then many tab-separated `"null"`s with no closing bracket made the
+    // first type-list filter backtrack exponentially: about 4x per two more items.
+    const adversarial = `["null"${'\t"null"'.repeat(28)}`;
+    const started = performance.now();
+    expect(mentionsVerb(adversarial, REVIEW_VERBS)).toBe(false);
+    expect(performance.now() - started).toBeLessThan(250);
+  });
+
+  test('the writing-verb guard catches every spelling a component would use', () => {
+    // A prose-only pattern is green while checking nothing for the forms that
+    // matter: an extension spawns the CLI with an argument array, names a tool
+    // after the verb, or calls it through $ADRKIT_CLI or the package name.
+    const plants = [
+      "runAdr('adr_approve', ['approve', id, '--by', by], options)",
+      "spawn(cli, ['object', id, '--by', by, '--summary', s])",
+      'adr_resolve',
+      '"$ADRKIT_CLI" approve 0007 --by @me',
+      '${ADRKIT_CLI} resolve 0007 --objection 1 --by @me',
+      'bunx @adrkit/cli approve 0007 --by @me',
+      'adr\u200bapprove 0007',
+      'adr Approve 0007',
+      'adr resolve 0007',
+      "runAdr(['approve'])",
+      "spawn(node, [cli, 'approve', id, '--by', by])",
+      "args.push('resolve', id)",
+      'run([`object`, id])',
+      'run(`${cli} approve ${id}`)',
+      "const verb = 'approve'; run(`adr ${verb} ${id}`)",
+    ];
+    for (const plant of plants) {
+      expect({ plant, caught: mentionsVerb(plant, REVIEW_VERBS) }).toEqual({ plant, caught: true });
+    }
+    expect(mentionsVerb("['accept', id, '--by', by]", ['accept'])).toBe(true);
+    // Idioms the plugin really uses must not trip it.
+    for (const idiom of [
+      "typeof value === 'object'",
+      "type: ['object', 'null']",
+      "type: ['null', 'object']",
+      "{ type: 'object', properties: {} }",
+      "if (kind !== 'object') return",
+      "case 'object':",
+      "runAdr('adr_check', ['check', '--json'])",
+      'resolve the path',
+      'new Promise((resolve) => setTimeout(resolve, 10))',
+      '`${count} objects`',
+    ]) {
+      expect({ idiom, caught: mentionsVerb(idiom, REVIEW_VERBS) }).toEqual({ idiom, caught: false });
+    }
   });
 
   test('the workflow extension names no writing command at all', () => {

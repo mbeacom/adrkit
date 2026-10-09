@@ -1,7 +1,7 @@
 import type { GraphEdge } from '@adrkit/core';
 import type { StreamStyle } from './presentation.ts';
 
-export const COMMAND_ORDER = ['new', 'lint', 'check', 'explain', 'graph', 'queue', 'accept', 'evaluate', 'migrate', 'completion', 'help'] as const;
+export const COMMAND_ORDER = ['new', 'lint', 'check', 'explain', 'graph', 'queue', 'approve', 'object', 'resolve', 'accept', 'evaluate', 'migrate', 'completion', 'help'] as const;
 
 export type CommandName = (typeof COMMAND_ORDER)[number];
 
@@ -12,6 +12,9 @@ export const COMMAND_SUMMARIES: Record<CommandName, string> = {
   explain: 'Explain which decisions govern a path',
   graph: 'Render decision relationships',
   queue: 'Show the architecture review board queue',
+  approve: 'Approve a proposed decision under your identity',
+  object: 'Raise an objection on a proposed decision',
+  resolve: 'Resolve your own objection on a proposed decision',
   accept: 'Accept a proposed decision as its named ratifier',
   evaluate: 'Evaluate a proposal from an offline snapshot',
   migrate: 'Import a MADR corpus into adrkit',
@@ -47,6 +50,9 @@ export const COMMAND_OPTIONS = {
   explain: ['--json', '--dir', '--as-of', '--help'],
   graph: ['--dir', '--format', '--focus', '--kind', '--help'],
   queue: ['--dir', '--as-of', '--format', '--help'],
+  approve: ['--by', '--dir', '--json', '--help'],
+  object: ['--by', '--summary', '--dir', '--json', '--help'],
+  resolve: ['--objection', '--by', '--dir', '--json', '--help'],
   accept: ['--by', '--dir', '--json', '--help'],
   evaluate: ['--snapshot', '--date', '--json', '--dir', '--help'],
   migrate: ['--from', '--dir', '--dry-run', '--rename', '--json', '--help'],
@@ -61,6 +67,9 @@ export const COMMAND_COMPLETION_OPTIONS = {
   explain: ['-h', '--help', '--json', '--dir', '--as-of'],
   graph: ['-h', '--help', '--dir', '--format', '--focus', '--kind'],
   queue: ['-h', '--help', '--dir', '--as-of', '--format'],
+  approve: ['-h', '--help', '--by', '--dir', '--json'],
+  object: ['-h', '--help', '--by', '--summary', '--dir', '--json'],
+  resolve: ['-h', '--help', '--objection', '--by', '--dir', '--json'],
   accept: ['-h', '--help', '--by', '--dir', '--json'],
   evaluate: ['-h', '--help', '--snapshot', '--date', '--json', '--dir'],
   migrate: ['-h', '--help', '--from', '--dir', '--dry-run', '--rename', '--json'],

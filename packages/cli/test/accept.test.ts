@@ -99,6 +99,9 @@ describe('adr accept', () => {
     const unknown = await runAdr(['accept', '4242', '--by', '@carol'], root);
     expect(unknown.exitCode).toBe(2);
     expect(unknown.stderr).toContain('No ADR with id "4242"');
+    const twice = await runAdr(['accept', '0001', '--by', '@carol', '--by', '@dave'], root);
+    expect(twice.exitCode).toBe(2);
+    expect(twice.stderr).toContain('--by was given more than once');
     const typo = await runAdr(['accept', '0001', '--bye', '@carol'], root);
     expect(typo.exitCode).toBe(2);
     expect(typo.stderr).toContain('Did you mean "--by"?');

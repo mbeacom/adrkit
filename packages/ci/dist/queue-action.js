@@ -37901,6 +37901,14 @@ function fingerprintOf(records, corpusFindings, recordCount, excludedCount) {
   };
   return createHash("sha256").update(canonicalStringify(projection), "utf8").digest("hex");
 }
+// ../core/src/schema/identity.ts
+function identityKey(identity) {
+  return identity.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
+function distinctIdentityCount(identities) {
+  return new Set(identities.map(identityKey)).size;
+}
+
 // ../core/src/queue/findings.ts
 var ONE_WAY_DOOR_AUTO_MESSAGE = "one-way-door decisions may not take the auto-approve fast path (reversibility: one-way-door, review.tier: auto)";
 var RULE_TO_CORPUS_CODE = {
@@ -38083,7 +38091,7 @@ function buildItem(frontmatter, sourcePath, asOf) {
     deadlineDate,
     routingTargets: [...frontmatter.deciders ?? []],
     quorum: review?.quorum ?? null,
-    approvalCount: review?.approvals?.length ?? 0,
+    approvalCount: distinctIdentityCount(review?.approvals ?? []),
     unresolvedObjectionCount: objections.filter((o) => o.resolved !== true).length,
     resolvedObjectionCount: objections.filter((o) => o.resolved === true).length,
     escalatedAt: review?.escalatedAt != null ? toUtcInstant(review.escalatedAt) : null,
