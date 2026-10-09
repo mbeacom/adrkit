@@ -554,7 +554,8 @@ app. Measured, and easy to break:
 - **A tool invocation carries no directory, and `process.cwd()` goes stale.**
   After `metadata.setWorkingDirectory` (what `/cd` uses) the extension is not
   restarted and its `process.cwd()` does not move, but it receives
-  `session.context_changed` with the new `cwd`. The tools track that event; do
+  `session.context_changed` with the new `cwd`. The tools track that event,
+  through `joinSession`'s `onEvent` so a change during the join is kept; do
   not "simplify" them back to `process.cwd()`. The workflow still uses
   `process.cwd()` and has the same staleness (open in ADR-0048).
 - **A bad tool definition refuses the whole join.** A name outside
@@ -570,9 +571,12 @@ app. Measured, and easy to break:
   characters, at most 200 paths of 1024 characters, a conservative `base`.
 - **Results never carry exception text or a writing command.** Rejections and
   spawn failures return fixed messages chosen by code (CodeQL
-  `js/stack-trace-exposure`); results are scrubbed because a record's own text
-  can name a writing command. A non-zero `adr` exit with a report is
-  `success` with its `exitCode`.
+  `js/stack-trace-exposure`). CLI stderr is returned only on exit `2`, capped
+  and without stack-frame lines, because a crash's stderr is a stack. Every
+  string is scrubbed **before** serialization, matching any whitespace or
+  format character between `adr` and the subcommand: scrubbing the JSON text
+  missed `adr\naccept` (found in review). A non-zero `adr` exit with a report
+  is `success` with its `exitCode`.
 - **Commands and skills do not mention the tools.** Claude Code and opencode
   never load extensions; the CLI path stays the portable one.
 

@@ -752,6 +752,7 @@ runs one without a model turn.
 | T5 | A tool named `bad name!` | The runtime refused the whole join (`session resume failed: … Tool names may only contain ASCII letters, digits, underscores, and hyphens`); a second `joinSession` from the same process succeeded |
 | T6 | A tool named `bash` without `overridesBuiltInTool` | Joined, then `tools.initializeAndValidate()` failed for the session (`External tool "bash" conflicts with a built-in tool of the same name`) |
 | T7 | Two tools with the same name in one join | Joined |
+| T7a | A handler passed as `joinSession({ onEvent })` | Received events (`session.tools_updated`, `permission.completed`, `session.extensions_loaded`) from before the join resolved, and `session.context_changed` after `setWorkingDirectory`. The shipped tools use it for directory tracking |
 
 ### Shipped tools (the plugin directory of this change)
 
@@ -773,6 +774,10 @@ one commit changing `src/x.ts`, and `ADRKIT_CLI` set to the worktree's built
 | T17 | `ADRKIT_CLI` set to a missing path | Every tool returned the fixed `cli-unresolved` message, so the variable reached the extension process under the CLI host |
 | T18 | `setWorkingDirectory` to the second repository, then `adr_lint {}` | 1 record checked: the tools followed the session |
 | T19 | `adr-review` started in the same session with an unknown argument | `completed` with `usage-error`: the workflow still registered beside the tools |
+
+Rows T8 to T19 were re-run after the review fixes (directory tracking through
+`onEvent`, stderr only on exit 2, the split git messages), with the same
+results; `base: "no-such-ref"` now returns `git-base-unresolved`.
 
 ### Not verified
 

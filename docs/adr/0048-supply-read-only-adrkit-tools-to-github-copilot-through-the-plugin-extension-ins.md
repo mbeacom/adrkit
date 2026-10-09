@@ -97,27 +97,39 @@ commands already document.
   key such as `cli` is refused.
 - **Arguments are validated in the extension**, because the host hands the
   schema to the model but does not enforce it. A path must be a non-empty
-  string, relative (POSIX, Windows, and UNC absolute forms are refused), free of
-  any `..` segment and of control characters, must not start with `-`, and is
-  at most 1024 characters; `paths` holds 1 to 200 entries; `base` is a revision
+  string, relative (POSIX, Windows, UNC, and Windows drive-relative `C:foo`
+  forms are refused), free of any `..` segment and of control characters (C0,
+  DEL, C1, the line and paragraph separators, and the bidi embedding, override,
+  and isolate controls), must not start with `-`, and is at most 1024
+  characters; `paths` holds 1 to 200 entries; `base` is a revision
   of at most 256 characters from a conservative character set that cannot start
   with `-`; `dir` follows the path rules; `paths` and `base` are exclusive. Paths
   reach `adr` after `--`. The check is lexical; a symlink inside the worktree is
   not resolved.
 - **Results never carry exception text.** A rejected argument, an unresolvable
-  `$ADRKIT_CLI`, a process that cannot start, and a base git cannot diff each
-  return a fixed message selected by code (`resultType: "failure"`), never the
-  input or an exception's message. That follows the CodeQL
+  `$ADRKIT_CLI`, a process that cannot start, an output larger than the 64 MiB
+  buffer, a command line too long for the system, a process killed by a signal,
+  and a base git cannot diff (worded differently with and without a `base`) each
+  return a fixed message selected by code (`resultType: "failure"`). A
+  rejected argument is never echoed back; a CLI failure after validation may
+  carry the validated `files` for context, never an exception's message. That follows the CodeQL
   `js/stack-trace-exposure` finding on ADR-0046's canvas.
 - **A non-zero `adr` exit with a report is data.** Exit 0 or 1 with JSON on
   stdout is `resultType: "success"` with `{ exitCode, report }`; `adr` uses 1
-  for "found something". Anything else is a failure that carries the exit code
-  and the CLI's own clipped stderr (for example `Corpus directory not found`),
-  which is subprocess output rather than exception text.
+  for "found something". Exit 2, the CLI's usage-error path, is a failure that
+  carries the CLI's own message (for example `Corpus directory not found`),
+  capped at 2 KiB with any stack-frame line (`^\s+at `) removed. Every other
+  exit without a report, including exit 0 or 1 with non-JSON output and a crash,
+  is a failure with a fixed message and the exit code only, because a crashed
+  CLI's stderr is a stack with install paths.
 - **No result names a writing command.** A record's own text can contain one,
-  so results are scrubbed of the record-creating, ratifying, and migrating
-  `adr` subcommands, the same rule the plugin's wiring test applies to every
-  component.
+  so every string in a result is scrubbed of the record-creating, ratifying,
+  and migrating `adr` subcommands before it is serialized, the same rule the
+  plugin's wiring test applies to every component. The separator is matched
+  tolerantly: any run of whitespace (newline and tab included) and format
+  characters (`\p{Cf}`, which includes U+200B to U+200D, U+2060, and U+FEFF).
+  Scrubbing the serialized JSON would miss a newline, which JSON writes as `\n`
+  (found in review).
 - **No permission prompt per call (`skipPermission: true`).** The workflow and
   the canvas's `refresh` already spawn the same environment-chosen CLI on a
   model-initiated path without one. The trust posture is identical: the
@@ -130,15 +142,23 @@ commands already document.
 **Working directory.** The tools start from the extension's `process.cwd()`
 and then follow the `session.context_changed` event's `cwd`, accepting only an
 absolute path. The invocation carries no directory, and `process.cwd()` does
-not move when the session's directory does (measured below).
+not move when the session's directory does (measured below). The handler is
+passed to `joinSession` as `onEvent`, which the SDK registers before it issues
+the join RPC (measured: events such as `session.tools_updated` arrived through
+it before the join resolved), so a change that arrives while the join is in
+flight is kept. A change made before the extension process was forked is
+already its `process.cwd()`. What remains is the window between the fork and
+the join RPC, while the module loads; a change there is not replayed, and is
+unmeasured.
 
 **Registration.** `register.mjs` builds the tools in their own `try`, so a
 throwing factory leaves the workflow and the canvas registered and is logged.
 Because the runtime can refuse the whole join over a tool definition, a refused
 join is retried without the tools, and then with the workflow alone (the
 ADR-0046 fallback for a runtime that does not know `canvases`); at most three
-joins. The working-directory subscription is attached after joining, in its own
-`try`.
+joins. The runtime's refusal does not say which piece it objected to, so the
+log names what the successful join left out and quotes each refusal, rather
+than blaming one piece.
 
 **Commands, skills, and agents do not mention the tools.** Those files are shared
 with Claude Code and opencode, which do not load Copilot extensions, and their
@@ -230,8 +250,15 @@ shells out through a generic tool and parses CLI text, and a repository-local
 `skipPermission` means a model can run these commands without a prompt. They
 are read-only and the executable is environment-chosen, but they do read the
 repository, including the first 8 KiB of each named file for `@adr` markers.
-Path validation is lexical: a symlink inside the worktree that points outside it
-is followed by the CLI, which reports only record ids it finds there.
+Path validation is lexical, and a symlink inside the worktree that points
+outside it is followed by the CLI. Through `path` or `paths`, the CLI reads at
+most the first 8 KiB of the target for `@adr` markers and reports only record
+ids that resolve against the corpus. Through `dir` (or a committed symlink at
+the default `docs/adr`), `adr lint` lists the names of the `.md` files in the
+outside directory and field-level findings for files that look like records,
+but not their contents (measured in review). Exploiting it needs a committed
+symlink, and the gain is file names reaching the model without a location
+prompt.
 
 The directory tracking depends on an event the runtime emits today. If a later
 runtime stops emitting `session.context_changed`, or starts restarting the

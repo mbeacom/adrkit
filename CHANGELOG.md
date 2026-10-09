@@ -33,8 +33,10 @@ Until `1.0.0`, minor releases may include breaking changes
   session's repository and returns `{ tool, exitCode, report }`, where an exit
   of `1` with a report is a finding, not a failure. The CLI is chosen by the
   environment alone, in the workflow's order. Arguments are validated in the
-  extension (relative paths inside the repository, no leading `-`, capped), and
-  failures return fixed messages that never echo the input or exception text.
+  extension (relative paths inside the repository, no leading `-`, capped). A
+  rejected argument is never echoed back, and failures return fixed messages
+  rather than exception text; only a usage error (exit `2`) carries the CLI's
+  own message.
   The tools follow the session's directory when it moves, which the extension's
   own `process.cwd()` was measured not to do. A tool definition the runtime
   refuses no longer takes the workflow and canvas down with it. The plugin still
