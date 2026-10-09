@@ -67,7 +67,7 @@ describe('resolveCli', () => {
     // Falling through to PATH would run a different CLI than the one the user
     // named, and report its answer as theirs.
     expect(() => resolveCli({ env: { ADRKIT_CLI: '/nope' }, cwd: '/r', exists: missing })).toThrow(
-      /ADRKIT_CLI.*\/nope/,
+      /ADRKIT_CLI is set, but nothing exists at that path/,
     );
   });
 
@@ -400,7 +400,7 @@ describe('collectChangedFiles', () => {
     expect(result.notes.join('\n')).toMatch(/origin\/main.*fell back/);
   });
 
-  test('an explicit base that does not resolve throws naming it, with no fallback', async () => {
+  test('an explicit base that does not resolve throws base-unresolved, with no fallback', async () => {
     // Falling back would review something other than what the caller asked for.
     const calls: string[][] = [];
     const run = async (_command: string, args: string[]): Promise<Run> => {
@@ -410,7 +410,7 @@ describe('collectChangedFiles', () => {
       }
       return { stdout: 'x.ts\0', stderr: '', exitCode: 0 };
     };
-    await expect(collectChangedFiles({ base: 'feature' }, run)).rejects.toThrow(/'feature'/);
+    await expect(collectChangedFiles({ base: 'feature' }, run)).rejects.toMatchObject({ code: 'base-unresolved' });
     expect(calls).toHaveLength(1);
   });
 
@@ -439,7 +439,7 @@ describe('collectChangedFiles', () => {
 
   test('throws when both diffs fail, so the caller can report it', async () => {
     const run = async (): Promise<Run> => ({ stdout: '', stderr: 'not a git repository', exitCode: 128 });
-    await expect(collectChangedFiles({}, run)).rejects.toThrow(/not a git repository/);
+    await expect(collectChangedFiles({}, run)).rejects.toMatchObject({ code: 'git-failed' });
   });
 });
 
@@ -775,11 +775,12 @@ describe('reviewWorkflow', () => {
     expect(agentCalls).toHaveLength(1);
     expect(result.lintExitCode).toBe(1);
     expect(result.verdicts.map((entry: { verdict: string }) => entry.verdict)).toEqual(['consistent']);
-    expect(result.notes.join('\n')).toContain('0007: invalid frontmatter');
+    expect(result.notes.join('\n')).toContain('adr lint exited 1');
+    expect(result.notes.join('\n')).not.toContain('0007: invalid frontmatter');
     expect(result.status).toBe('findings');
   });
 
-  test('an explicit base that does not resolve is a usage-error naming it', async () => {
+  test('an explicit base that does not resolve is a usage-error with a fixed note', async () => {
     const { ctx, agentCalls } = fakeContext({ base: 'release/9' });
     const { run, calls } = fakeRunner({
       git: (args) =>
@@ -789,7 +790,7 @@ describe('reviewWorkflow', () => {
     });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(result.status).toBe('usage-error');
-    expect(result.notes.join('\n')).toContain("'release/9'");
+    expect(result.notes.join('\n')).toContain('The given base did not resolve');
     expect(result.files).toEqual([]);
     expect(calls).toHaveLength(1);
     expect(agentCalls).toEqual([]);
@@ -847,12 +848,13 @@ describe('reviewWorkflow', () => {
     expect(agentCalls).toHaveLength(1);
   });
 
-  test('check exit 2 skips Judge and returns usage-error with stderr', async () => {
+  test('check exit 2 skips Judge and returns usage-error with a fixed note', async () => {
     const { ctx, agentCalls } = fakeContext({ files: ['a.ts'] });
     const { run } = fakeRunner({ check: { stdout: '', stderr: 'no ADR corpus at docs/adr', exitCode: 2 } });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(result.status).toBe('usage-error');
-    expect(result.notes.join('\n')).toContain('no ADR corpus at docs/adr');
+    expect(result.notes.join('\n')).toContain('adr check exited 2 without a readable report');
+    expect(result.notes.join('\n')).not.toContain('no ADR corpus at docs/adr');
     expect(agentCalls).toEqual([]);
   });
 
@@ -864,7 +866,8 @@ describe('reviewWorkflow', () => {
     });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(result.status).toBe('usage-error');
-    expect(result.notes.join('\n')).toContain('bad flag');
+    expect(result.notes.join('\n')).toContain('adr lint exited 2');
+    expect(result.notes.join('\n')).not.toContain('bad flag');
     expect(agentCalls).toEqual([]);
   });
 
@@ -897,7 +900,8 @@ describe('reviewWorkflow', () => {
     });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(result.status).toBe('usage-error');
-    expect(result.notes.join('\n')).toContain('segfault');
+    expect(result.notes.join('\n')).toContain('adr lint exited 13');
+    expect(result.notes.join('\n')).not.toContain('segfault');
     expect(agentCalls).toEqual([]);
   });
 
@@ -916,7 +920,7 @@ describe('reviewWorkflow', () => {
     const { run, calls } = fakeRunner({});
     const result = await reviewWorkflow(ctx, { ...deps(run), exists: () => true });
     expect(result.status).toBe('usage-error');
-    expect(result.notes.join('\n')).toMatch(/unknown argument: allowRepoCli/);
+    expect(result.notes.join('\n')).toMatch(/an argument the workflow does not take was passed/);
     expect(calls).toEqual([]);
   });
 
@@ -933,7 +937,8 @@ describe('reviewWorkflow', () => {
     const { run } = fakeRunner({ check: { stdout: 'not json', stderr: 'odd', exitCode: 0 } });
     const result = await reviewWorkflow(ctx, deps(run));
     expect(result.status).toBe('usage-error');
-    expect(result.notes.join('\n')).toContain('odd');
+    expect(result.notes.join('\n')).toContain('adr check exited 0 without a readable report');
+    expect(result.notes.join('\n')).not.toContain('odd');
     expect(agentCalls).toEqual([]);
   });
 
@@ -947,14 +952,14 @@ describe('reviewWorkflow', () => {
     expect(calls).toEqual([]);
   });
 
-  test('a missing CLI returns a usage-error naming it', async () => {
+  test('a missing CLI returns a usage-error with a fixed note', async () => {
     const { ctx } = fakeContext({ files: ['a.ts'] });
     const run = async (command: string): Promise<Run> => {
-      throw new Error(`could not start "${command}": not found`);
+      throw Object.assign(new Error(`could not start "${command}": not found`), { code: 'ENOENT' });
     };
     const result = await reviewWorkflow(ctx, deps(run));
     expect(result.status).toBe('usage-error');
-    expect(result.notes.join('\n')).toContain('"adr"');
+    expect(result.notes.join('\n')).toContain('The adr CLI could not be started');
   });
 
   test('passes --dir to both commands and collects files from git when none are given', async () => {

@@ -34,9 +34,12 @@ import {
   VERDICTS,
   activeProposalDecisions,
   assembleResult,
+  checkNote,
   collectChangedFiles,
   governingDecisions,
   historyDecisions,
+  lintNote,
+  publicMessage,
   resolveCli,
   validateArgs,
 } from './review.mjs';
@@ -115,8 +118,25 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  * }} Instance
  */
 
-/** @param {unknown} error */
-const messageOf = (error) => (error instanceof Error ? error.message : String(error));
+/**
+ * Fixed notes for a review the panel follows. A run's own `error` or `reason`
+ * and any exception's text are never shown: they reach the page and the agent.
+ */
+export const REVIEW_NOTES = {
+  /** @param {string} runId */
+  unreadable: (runId) => `Could not read adr-review run ${runId}; it may still be running. Refresh to try again.`,
+  /** @param {string} runId */
+  noResult: (runId) => `adr-review run ${runId} completed without a readable result.`,
+  /** @param {string} runId @param {string} status */
+  ended: (runId, status) => `adr-review run ${runId} ended ${status}; see the run's own log for why.`,
+  /** @param {string} runId */
+  stopped: (runId) => `Stopped following adr-review run ${runId} after an unexpected error.`,
+  notStarted: 'adr-review did not start; check that the plugin is loaded in this session, then try again.',
+  invalidResult: 'The result is not a valid adr-review result.',
+};
+
+/** A `sanitizeReviewResult` refusal: its message is built from this file's own text only. */
+class InvalidResult extends Error {}
 
 /** @param {string} text */
 const clip = (text) => (text.length > 4000 ? `${text.slice(0, 4000)}…` : text);
@@ -215,10 +235,10 @@ function shownFinding(finding) {
  * @param {unknown} raw
  */
 export function sanitizeReviewResult(raw) {
-  if (!isRecord(raw)) throw new Error('result must be an adr-review result object');
+  if (!isRecord(raw)) throw new InvalidResult('result must be an adr-review result object');
   /** @param {string} message */
   const fail = (message) => {
-    throw new Error(`result.${message}`);
+    throw new InvalidResult(`result.${message}`);
   };
   if (!RESULT_STATUSES.includes(/** @type {string} */ (raw['status']))) {
     fail(`status must be one of ${RESULT_STATUSES.join(', ')}`);
@@ -360,7 +380,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
   };
   /** @param {unknown} error */
   const usage = (error, fields = {}) => {
-    notes.push(messageOf(error));
+    notes.push(publicMessage(error));
     return shape({ ...fields, usageError: true });
   };
 
@@ -405,7 +425,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
   const { check, lint } = checked;
   const exits = { checkExitCode: check.exitCode, lintExitCode: lint.exitCode };
   if (lint.exitCode !== 0) {
-    notes.push(`adr lint exited ${lint.exitCode}: ${clip((lint.stderr || lint.stdout).trim())}`);
+    notes.push(lintNote(lint.exitCode));
   }
   /** @type {unknown} */
   let outcome = null;
@@ -417,9 +437,7 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
     }
   }
   if (outcome === null || typeof outcome !== 'object') {
-    notes.push(
-      `adr check exited ${check.exitCode} without a readable report: ${clip(check.stderr.trim() || check.stdout.trim())}`,
-    );
+    notes.push(checkNote(check.exitCode));
     return shape({ ...fileFields, ...exits, usageError: true });
   }
   proposals = { activeProposals: activeProposalDecisions(outcome) };
@@ -1014,7 +1032,7 @@ export function createDecisionReviewCanvas({
         failures = 0;
       } catch (error) {
         failures += 1;
-        if (failures >= 3) return stop(`Could not read adr-review run ${runId}: ${messageOf(error)}`);
+        if (failures >= 3) return stop(REVIEW_NOTES.unreadable(runId));
         continue;
       }
       if (review.runStatus !== current.status) {
@@ -1028,11 +1046,13 @@ export function createDecisionReviewCanvas({
     if (current.status === 'completed') {
       try {
         review.result = sanitizeReviewResult(current.result);
-      } catch (error) {
-        review.message = `adr-review run ${runId} completed without a readable result: ${messageOf(error)}`;
+      } catch {
+        review.message = REVIEW_NOTES.noResult(runId);
       }
     } else {
-      review.message = `adr-review run ${runId} ended ${current.status}: ${current.error ?? current.reason ?? 'no reason given'}`;
+      // `current.status` is one of TERMINAL_RUN_STATES here; its `error` and
+      // `reason` are the run's own text and are not repeated.
+      review.message = REVIEW_NOTES.ended(runId, current.status);
     }
     broadcast(cwd);
   };
@@ -1045,10 +1065,10 @@ export function createDecisionReviewCanvas({
    */
   const follow = (cwd, review, session, first) => {
     const workspace = workspaceFor(cwd);
-    watch(cwd, review, session, first).catch((error) => {
+    watch(cwd, review, session, first).catch(() => {
       if (workspace.review === review && review.watching) {
         review.watching = false;
-        review.message = `Stopped following adr-review run ${first.runId}: ${messageOf(error)}`;
+        review.message = REVIEW_NOTES.stopped(first.runId);
         broadcast(cwd);
       }
     });
@@ -1095,7 +1115,7 @@ export function createDecisionReviewCanvas({
     try {
       args = validateArgs(input === undefined ? workspace.args : input);
     } catch (error) {
-      throw makeError('invalid_input', messageOf(error));
+      throw makeError('invalid_input', publicMessage(error));
     }
     const session = getSession();
     if (!session?.rpc?.workflow) {
@@ -1116,10 +1136,10 @@ export function createDecisionReviewCanvas({
     try {
       // `args` is required on the wire even when empty.
       envelope = await session.rpc.workflow.run({ name: REVIEW_WORKFLOW, args });
-    } catch (error) {
+    } catch {
       review.watching = false;
       review.runStatus = 'error';
-      review.message = `adr-review did not start: ${messageOf(error)}`;
+      review.message = REVIEW_NOTES.notStarted;
       broadcast(cwd);
       return { runId: null, status: 'error' };
     }
@@ -1309,10 +1329,11 @@ export function createDecisionReviewCanvas({
           withCwd(ctx, async (cwd, input) => {
             let result;
             try {
-              if (!isRecord(input)) throw new Error('input must be { result }');
+              if (!isRecord(input)) throw new InvalidResult('input must be { result }');
               result = sanitizeReviewResult(input['result']);
             } catch (error) {
-              throw makeError('invalid_input', messageOf(error));
+              // Only this file's own refusal text is passed on, chosen by type.
+              throw makeError('invalid_input', error instanceof InvalidResult ? error.message : REVIEW_NOTES.invalidResult);
             }
             const workspace = workspaceFor(cwd);
             if (!workspace.check) await refresh(cwd, undefined, { waitForQueue: false });

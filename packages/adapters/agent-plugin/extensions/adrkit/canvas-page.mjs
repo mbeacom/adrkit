@@ -379,7 +379,9 @@ export const PAGE_JS = `(function () {
       body: JSON.stringify(body || {}),
     }).then(function (response) {
       return response.json().catch(function () { return null; }).then(function (data) {
-        if (!response.ok) throw new Error((data && data.error) || 'Request failed (' + response.status + ')');
+        // The server's own fixed message, carried on a field of its own so a
+        // browser exception's text is never what the page shows.
+        if (!response.ok) throw { shown: (data && typeof data.error === 'string' && data.error) || 'Request failed (' + response.status + ')' };
         return data;
       });
     });
@@ -397,7 +399,7 @@ export const PAGE_JS = `(function () {
       return data;
     }, function (error) {
       busy = false;
-      setMessage(error && error.message ? error.message : 'Request failed');
+      setMessage(error && typeof error.shown === 'string' ? error.shown : 'Request failed');
       if (state) render(state);
       return null;
     });

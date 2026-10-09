@@ -73,6 +73,92 @@ export const ADR_REVIEW_META = {
 const JS_ENTRY = /\.(?:c|m)?js$/;
 
 /**
+ * Fixed messages, selected by code. These reach the workflow result, the
+ * canvas page and its agent results, and tool results, all read by a model or
+ * shown on a page, so no CLI stderr, no exception text, and no echo of an
+ * argument is ever interpolated into one (CodeQL `js/stack-trace-exposure`).
+ */
+export const REVIEW_MESSAGES = Object.freeze({
+  'args-type': 'Invalid arguments: pass an object.',
+  'unknown-key': 'Invalid arguments: an argument the workflow does not take was passed. It takes files, base, and dir.',
+  'files-type': 'Invalid arguments: files must be an array of strings.',
+  'file-type': 'Invalid arguments: each file must be a non-empty string.',
+  'file-absolute': 'Invalid arguments: files must be repository-relative, not absolute.',
+  'file-escape': "Invalid arguments: files must not contain a '..' segment.",
+  'base-type': 'Invalid arguments: base must be a non-empty string.',
+  'base-option': "Invalid arguments: base must not start with '-'.",
+  'dir-type': 'Invalid arguments: dir must be a non-empty string.',
+  'dir-option': "Invalid arguments: dir must not start with '-'.",
+  'base-unresolved':
+    'The given base did not resolve in this repository (git diff <base>...HEAD failed); no fallback was attempted. ' +
+    'Pass a base that resolves, or pass files.',
+  'git-failed':
+    'git could not list the changed files against origin/main or against HEAD. Is this a git repository? ' +
+    'Pass files to name the change explicitly.',
+  'git-unavailable': 'git could not be started. Install git, or pass files to name the change explicitly.',
+  'no-changes':
+    'origin/main did not resolve and the working tree has no changes; pass files or base, ' +
+    'or fetch history (e.g. actions/checkout fetch-depth: 0)',
+  'cli-unresolved':
+    'ADRKIT_CLI is set, but nothing exists at that path. Fix ADRKIT_CLI in the environment Copilot was started from.',
+  'cli-unavailable':
+    'The adr CLI could not be started. Install @adrkit/cli on PATH, or set ADRKIT_CLI ' +
+    '(or ADRKIT_ALLOW_REPO_CLI=1 to use ./node_modules/.bin/adr) in the environment Copilot was started from.',
+  'output-too-large': 'adr produced more output than the extension accepts (64 MiB). Narrow the change with files.',
+  'args-too-long': 'The command line was too long for this system. Narrow the change with files.',
+  'cli-killed': 'A git or adr process was ended by a signal before it exited.',
+  unexpected: 'The review stopped on an unexpected error. Run adr check and adr lint directly to see why.',
+});
+
+/** The note for a default base that did not resolve. Fixed: git's stderr is not repeated. */
+export const FALLBACK_NOTE = 'git diff origin/main...HEAD failed; fell back to uncommitted changes against HEAD.';
+
+/** @typedef {keyof typeof REVIEW_MESSAGES} ReviewCode */
+
+/** An error whose message is one of REVIEW_MESSAGES, chosen by its code. */
+export class ReviewError extends Error {
+  /** @param {ReviewCode} code */
+  constructor(code) {
+    super(REVIEW_MESSAGES[code]);
+    this.name = 'ReviewError';
+    this.code = code;
+  }
+}
+
+/**
+ * The fixed message for any failure, chosen by explicit comparisons of its
+ * `code` and `signal` fields. The error's own text is never read.
+ *
+ * @param {unknown} error
+ * @returns {string}
+ */
+export function publicMessage(error) {
+  const fields = /** @type {{ code?: unknown, signal?: unknown }} */ (error !== null && typeof error === 'object' ? error : {});
+  const code = fields.code;
+  if (error instanceof ReviewError && typeof code === 'string' && Object.hasOwn(REVIEW_MESSAGES, code)) {
+    return REVIEW_MESSAGES[/** @type {ReviewCode} */ (code)];
+  }
+  if (code === 'ENOENT') return REVIEW_MESSAGES['cli-unavailable'];
+  if (code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return REVIEW_MESSAGES['output-too-large'];
+  if (code === 'E2BIG' || code === 'ENAMETOOLONG') return REVIEW_MESSAGES['args-too-long'];
+  if (typeof fields.signal === 'string' && fields.signal.length > 0) return REVIEW_MESSAGES['cli-killed'];
+  return REVIEW_MESSAGES.unexpected;
+}
+
+/**
+ * The note for an `adr lint` that did not exit 0. Its findings are not
+ * repeated: lint's output and stderr are repository text and exception detail.
+ *
+ * @param {number} exitCode
+ */
+export const lintNote = (exitCode) =>
+  `adr lint exited ${exitCode}; run adr lint for its findings. A record that fails to parse is invisible to adr check.`;
+
+/** @param {number} exitCode */
+export const checkNote = (exitCode) =>
+  `adr check exited ${exitCode} without a readable report; run adr check directly to see why.`;
+
+/**
  * Resolve the `adr` CLI in the order every other plugin component documents —
  * `$ADRKIT_CLI`, `./node_modules/.bin/adr`, then `PATH` — with the
  * repository-local step gated behind `ADRKIT_ALLOW_REPO_CLI=1`.
@@ -97,9 +183,9 @@ export function resolveCli({ env, cwd, exists }) {
   const fromEnv = env['ADRKIT_CLI'];
   if (fromEnv) {
     const path = resolve(cwd, fromEnv);
-    if (!exists(path)) {
-      throw new Error(`ADRKIT_CLI is set to '${fromEnv}', but nothing exists at ${path}`);
-    }
+    // The path is not repeated in the error: it is the user's own setting,
+    // and the message reaches a model.
+    if (!exists(path)) throw new ReviewError('cli-unresolved');
     // Same rule as the Spec Kit adapter's helper: a JavaScript entry point is
     // run by node rather than relying on its executable bit.
     return JS_ENTRY.test(path)
@@ -284,20 +370,18 @@ export function runCommand(
 // environment only (see resolveCli), so either key is rejected as unknown.
 const ARG_KEYS = new Set(['files', 'base', 'dir']);
 
-/** @param {unknown} value @param {string} name */
-function optionalString(value, name) {
+/** @param {unknown} value @param {ReviewCode} code */
+function optionalString(value, code) {
   if (value === undefined) return undefined;
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`${name} must be a non-empty string`);
-  }
+  if (typeof value !== 'string' || value.length === 0) throw new ReviewError(code);
   return value;
 }
 
-/** @param {string} value @param {string} name */
-function notOptionShaped(value, name) {
+/** @param {string} value @param {ReviewCode} code */
+function notOptionShaped(value, code) {
   // Both values reach argv. A leading `-` would be read as a flag by git or
   // adr, which is argument injection even without a shell.
-  if (value.startsWith('-')) throw new Error(`${name} must not start with '-': ${value}`);
+  if (value.startsWith('-')) throw new ReviewError(code);
   return value;
 }
 
@@ -305,42 +389,38 @@ function notOptionShaped(value, name) {
  * Validate and normalize `ctx.args`. The host enforces `argsSchema` types only,
  * and SDK callers are not validated at all, so the real checks live here.
  * Unknown keys are rejected, so a misspelled key fails loudly instead of being
- * silently ignored, and an attempt to choose the executable is refused.
+ * silently ignored, and an attempt to choose the executable is refused. Each
+ * rejection is a ReviewError with a fixed message; the offending value is not
+ * echoed, because it can come from a model that read repository text.
  *
  * @param {unknown} raw
  * @returns {ReviewArgs}
  */
 export function validateArgs(raw) {
   if (raw === undefined || raw === null) return {};
-  if (typeof raw !== 'object' || Array.isArray(raw)) throw new Error('args must be an object');
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new ReviewError('args-type');
   const input = /** @type {Record<string, unknown>} */ (raw);
   for (const key of Object.keys(input)) {
-    if (!ARG_KEYS.has(key)) throw new Error(`unknown argument: ${key}`);
+    if (!ARG_KEYS.has(key)) throw new ReviewError('unknown-key');
   }
 
   /** @type {ReviewArgs} */
   const out = {};
 
   if (input['files'] !== undefined) {
-    if (!Array.isArray(input['files'])) throw new Error('files must be an array of strings');
-    out.files = input['files'].map((file, index) => {
-      if (typeof file !== 'string' || file.length === 0) {
-        throw new Error(`files[${index}] must be a non-empty string`);
-      }
-      if (isAbsolute(file) || win32.isAbsolute(file)) {
-        throw new Error(`files[${index}] must be repo-relative, not absolute: ${file}`);
-      }
-      if (file.split(/[\\/]/).includes('..')) {
-        throw new Error(`files[${index}] must not contain a '..' segment: ${file}`);
-      }
+    if (!Array.isArray(input['files'])) throw new ReviewError('files-type');
+    out.files = input['files'].map((file) => {
+      if (typeof file !== 'string' || file.length === 0) throw new ReviewError('file-type');
+      if (isAbsolute(file) || win32.isAbsolute(file)) throw new ReviewError('file-absolute');
+      if (file.split(/[\\/]/).includes('..')) throw new ReviewError('file-escape');
       return file;
     });
   }
 
-  const base = optionalString(input['base'], 'base');
-  if (base !== undefined) out.base = notOptionShaped(base, 'base');
-  const dir = optionalString(input['dir'], 'dir');
-  if (dir !== undefined) out.dir = notOptionShaped(dir, 'dir');
+  const base = optionalString(input['base'], 'base-type');
+  if (base !== undefined) out.base = notOptionShaped(base, 'base-option');
+  const dir = optionalString(input['dir'], 'dir-type');
+  if (dir !== undefined) out.dir = notOptionShaped(dir, 'dir-option');
   return out;
 }
 
@@ -361,8 +441,8 @@ function nulSeparated(stdout) {
  * removing a governed file can break its decision, `adr check` still matches
  * an absent path, and the Judge reads the deletion from the diff.
  *
- * An explicit `base` that does not resolve throws naming it: falling back would
- * review something other than what the caller asked for. Only the default
+ * An explicit `base` that does not resolve throws (`base-unresolved`): falling
+ * back would review something other than what the caller asked for. Only the default
  * `origin/main` falls back — a shallow clone, a repository with no `origin` —
  * to the working tree against `HEAD`, and says so in `notes`; the run is then
  * `incomplete` at best, because those edits may not be the change. If that fallback
@@ -376,37 +456,29 @@ function nulSeparated(stdout) {
 export async function collectChangedFiles({ files, base }, run) {
   if (files) return { files, source: 'args', notes: [] };
 
+  /** git that cannot be started is named as git; a cancellation is passed on. @param {string[]} args */
+  const git = async (args) => {
+    try {
+      return await run('git', args);
+    } catch (error) {
+      if (/** @type {any} */ (error)?.code === 'ENOENT') throw new ReviewError('git-unavailable');
+      throw error;
+    }
+  };
+
   const ref = base ?? 'origin/main';
   const range = `${ref}...HEAD`;
-  const primary = await run('git', ['diff', '--name-only', '-z', range]);
+  const primary = await git(['diff', '--name-only', '-z', range]);
   if (primary.exitCode === 0) return { files: nulSeparated(primary.stdout), source: `git:${range}`, notes: [] };
-  const why = primary.stderr.trim() || `exit ${primary.exitCode}`;
 
-  if (base !== undefined) {
-    throw new Error(`base '${base}' did not resolve (git diff ${range}: ${why}); no fallback was attempted.`);
-  }
+  // git's stderr is not repeated anywhere below: it reaches a model or a page.
+  if (base !== undefined) throw new ReviewError('base-unresolved');
 
-  const fallback = await run('git', ['diff', '--name-only', '-z', 'HEAD']);
-  if (fallback.exitCode !== 0) {
-    throw new Error(
-      `git diff failed for ${range} and for HEAD: ${fallback.stderr.trim() || primary.stderr.trim()}`,
-    );
-  }
+  const fallback = await git(['diff', '--name-only', '-z', 'HEAD']);
+  if (fallback.exitCode !== 0) throw new ReviewError('git-failed');
   const changed = nulSeparated(fallback.stdout);
-  if (changed.length === 0) {
-    throw new Error(
-      'origin/main did not resolve and the working tree has no changes; pass files or base, ' +
-        'or fetch history (e.g. actions/checkout fetch-depth: 0)',
-    );
-  }
-  return {
-    files: changed,
-    source: 'git:HEAD',
-    notes: [
-      `git diff ${range} failed (${why}); ` +
-        'fell back to uncommitted changes against HEAD.',
-    ],
-  };
+  if (changed.length === 0) throw new ReviewError('no-changes');
+  return { files: changed, source: 'git:HEAD', notes: [FALLBACK_NOTE] };
 }
 
 /**
@@ -534,12 +606,6 @@ export function assembleResult({
   };
 }
 
-/** @param {unknown} error */
-const messageOf = (error) => (error instanceof Error ? error.message : String(error));
-
-/** @param {string} text */
-const clip = (text) => (text.length > 4000 ? `${text.slice(0, 4000)}…` : text);
-
 /**
  * The workflow body: Collect, Check, Judge. `extension.mjs` registers it; the
  * tests drive it with a fake context.
@@ -554,7 +620,7 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
   /** @param {unknown} error */
   const usage = (error, extra = {}) => {
     if (ctx.signal?.aborted) throw error;
-    notes.push(messageOf(error));
+    notes.push(publicMessage(error));
     return assembleResult({ ...extra, notes, usageError: true });
   };
 
@@ -613,7 +679,7 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
   if (lint.exitCode !== 0) {
     // A record that fails to parse is dropped from the corpus, so a clean
     // check over a broken corpus can be a false "nothing governs this".
-    notes.push(`adr lint exited ${lint.exitCode}: ${clip((lint.stderr || lint.stdout).trim())}`);
+    notes.push(lintNote(lint.exitCode));
   }
 
   /** @type {unknown} */
@@ -626,9 +692,7 @@ export async function reviewWorkflow(ctx, { run, env, cwd, exists }) {
     }
   }
   if (outcome === null || typeof outcome !== 'object') {
-    notes.push(
-      `adr check exited ${check.exitCode} without a readable report: ${clip(check.stderr.trim() || check.stdout.trim())}`,
-    );
+    notes.push(checkNote(check.exitCode));
     ctx.log('adr check produced no report; skipped Judge.');
     return assembleResult({ ...base, ...exits, notes, usageError: true });
   }
