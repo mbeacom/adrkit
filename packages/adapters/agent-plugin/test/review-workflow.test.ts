@@ -132,8 +132,8 @@ describe('runCommand', () => {
   }
 
   // A group probe (signal 0) reports the group gone, so nothing stays tracked.
-  const gone = (_pid: number, sig: string) => {
-    if (sig === '0' || (sig as unknown) === 0) throw Object.assign(new Error('kill ESRCH'), { code: 'ESRCH' });
+  const gone = (_pid: number, sig: string | number) => {
+    if (sig === '0' || sig === 0) throw Object.assign(new Error('kill ESRCH'), { code: 'ESRCH' });
   };
   const posix = { platform: 'darwin' as const, kill: gone };
 
@@ -191,7 +191,7 @@ describe('runCommand', () => {
       signal: controller.signal,
       spawn,
       platform: 'linux',
-      kill: (pid: number, sig: string) => void kills.push([pid, sig]),
+      kill: (pid: number, sig: string | number) => void kills.push([pid, String(sig)]),
       graceMs: 5,
     });
     await new Promise((resolve) => setTimeout(resolve, 1));
@@ -241,7 +241,7 @@ describe('runCommand', () => {
       cwd: '/repo',
       spawn,
       platform: 'linux',
-      kill: (pid: number, sig: string) => void kills.push([pid, sig]),
+      kill: (pid: number, sig: string | number) => void kills.push([pid, String(sig)]),
       maxBuffer: 10,
       graceMs: 1,
     });
