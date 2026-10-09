@@ -582,7 +582,7 @@ export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = Q
   let bytes = 0;
   for (const item of all.slice(0, QUEUE_LIMIT)) {
     const shown = shownQueueItem(item);
-    bytes += JSON.stringify(shown).length;
+    bytes += Buffer.byteLength(JSON.stringify(shown));
     if (bytes > QUEUE_BYTES_LIMIT) break;
     items.push(shown);
   }
@@ -930,7 +930,9 @@ export function createDecisionReviewCanvas({
       .finally(() => {
         if (workspace.queuePending === queueDone) workspace.queuePending = null;
       });
-    workspace.queuePending = queueDone;
+    // Only the newest refresh owns the hand-off: a stale one finishing late
+    // must not make a waiting caller return before the newest queue lands.
+    if (seq === workspace.seq) workspace.queuePending = queueDone;
     if (waitForQueue) await queueDone;
     return snapshotOf(workspace);
   };
@@ -1069,7 +1071,7 @@ export function createDecisionReviewCanvas({
     workspace.review = review;
     // New input means a new file set: refresh first, so the panel never pairs
     // a check of one set with a review of another.
-    if (input !== undefined || !workspace.check) await refresh(cwd, input);
+    if (input !== undefined || !workspace.check) await refresh(cwd, input, { waitForQueue: false });
     review.governingKey = governingKey(/** @type {Snapshot} */ (workspace.check).governing);
     review.fingerprint = await fingerprintOf(cwd, /** @type {Snapshot} */ (workspace.check));
     broadcast(cwd);
@@ -1155,7 +1157,7 @@ export function createDecisionReviewCanvas({
       }
     }
 
-    if (url.pathname === '/api/refresh') return replyJson(res, 200, await refresh(cwd));
+    if (url.pathname === '/api/refresh') return replyJson(res, 200, await refresh(cwd, undefined, { waitForQueue: false }));
     if (url.pathname === '/api/run-review') {
       try {
         await runReview(cwd);
@@ -1168,7 +1170,7 @@ export function createDecisionReviewCanvas({
         if (code === 'invalid_input') return replyJson(res, 400, { error: INVALID_REVIEW_ARGS });
         return replyJson(res, 500, { error: 'The review could not be started.' });
       }
-      return replyJson(res, 200, await stateFor(cwd));
+      return replyJson(res, 200, await stateFor(cwd, { waitForQueue: false }));
     }
 
     // POST /api/explain
@@ -1176,7 +1178,7 @@ export function createDecisionReviewCanvas({
     if (typeof recordId !== 'string' || !RECORD_ID.test(recordId)) {
       return replyJson(res, 400, { error: 'recordId must be a four-digit record id.' });
     }
-    if (!knownRecordIds(await stateFor(cwd)).has(recordId)) {
+    if (!knownRecordIds(await stateFor(cwd, { waitForQueue: false })).has(recordId)) {
       return replyJson(res, 404, { error: `Record ${recordId} is not in this view.` });
     }
     const session = getSession();
@@ -1277,7 +1279,7 @@ export function createDecisionReviewCanvas({
               throw makeError('invalid_input', messageOf(error));
             }
             const workspace = workspaceFor(cwd);
-            if (!workspace.check) await refresh(cwd);
+            if (!workspace.check) await refresh(cwd, undefined, { waitForQueue: false });
             const current = /** @type {Snapshot} */ (workspace.check);
             // A result for another change would put its verdicts over files and
             // records it never judged, so it must describe this panel's.

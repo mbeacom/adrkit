@@ -159,13 +159,14 @@ out. Each string in an item (and each `declaredBy` path and ref) is clipped to
 4000 characters, as CLI messages already are, and at most 50 routing targets are
 kept. Per-value caps alone still allow tens of megabytes (200 items of 50
 targets of 4000 characters), so the rows also share a budget of 256 KiB
-serialized; the same "first N of M" note covers either cut. The snapshot is
+serialized (UTF-8 bytes); the same "first N of M" note covers either cut. The snapshot is
 broadcast to every panel and returned to the agent on each refresh. The queue has its own timeout (30 seconds); past it, its
 process is signalled and the panel shows a note, so a hung `adr queue` never
 holds the governing view: the check is committed and broadcast when it
 settles, and the queue follows in a second update under the same sequence
-guard. Opening a panel and serving the page do not wait for the queue; an agent
-`get_state` or `refresh` does, so its result is complete. The page shows the items in a section headed "Open
+guard. Opening a panel, the page's GET and POST routes (refresh, run-review, explain),
+and `run_review`'s own pre-run refresh do not wait for the queue; only an
+agent's `get_state` and `refresh` actions do, so their results are complete. The page shows the items in a section headed "Open
 proposals, corpus-wide", labelled "Listed, not judged".
 
 - **No ratify control and no ratifying field.** Queue rows have no button, no
@@ -260,14 +261,16 @@ does.
   review across the corpus, without leaving the panel and without spending.
 - Harder: two more snapshot fields (`judgeCalls`, `queue`) and one more CLI
   output shape (QueueReport v1) to track, and one more test that must keep the
-  ratifying command out of a surface that now reads queue data.
+  ratifying field out of a surface that now reads queue data.
 - **How we would know this was wrong:** the panel shows a file for a pattern
   match that `adr check` would not attribute to it; a marker-governed record
   reads "No evidence recorded."; `judgeCalls` differs from the number of
   `decision-checker` calls a completed run made (the workflow changed shape, or
   the runtime retries in a way users pay for); the Run review button is enabled
-  with nothing to judge; the ratifying command appears in the snapshot, the
-  served state, the page, or an action result; a queue row gains a control or an
+  with nothing to judge; a ratifying field (or text the panel itself generates)
+  carries the command into the snapshot, the served state, the page, or an
+  action result (a record whose own title reads like the command is data, not a
+  failure); a queue row gains a control or an
   explain; a queue failure changes the panel's status, its governing list, or
   its notes, or puts CLI stderr or exception text on the page; a slow or hung
   `adr queue` delays the governing view; refresh starts a

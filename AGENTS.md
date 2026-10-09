@@ -520,8 +520,8 @@ will usually be a regression:
   then skips the Judge. Change the workflow's Judge shape and the button label
   and `run_review` description go stale. The button is disabled whenever
   `judgeCalls` is 0, and says why.
-- **The canvas queue is an allowlist, and that is what keeps the ratifying
-  command out.** `adr queue`'s terminal view prints that command for a human;
+- **The canvas queue is an allowlist, and that is what keeps a ratifying
+  field out.** `adr queue`'s terminal view prints that command for a human;
   the canvas reads only the JSON and keeps nine named item fields, so a field
   added later is dropped unnamed. That selects fields, not text: a kept string
   such as `title` is untrusted repository text shown as data, and is not
@@ -532,10 +532,11 @@ will usually be a regression:
   status, governing list, or notes. The queue starts beside the check with
   its own timeout (30 s, then its process is signalled). The check commits and
   broadcasts when it settles and the queue follows in a second update, so a
-  hung `adr queue` cannot hold the governing view; opening a panel and serving
-  the page do not wait for it, while agent `get_state`/`refresh` do. Its
-  strings, and `declaredBy` paths, are clipped like CLI messages, and the rows
-  share a 256 KiB serialized budget, before every broadcast.
+  hung `adr queue` cannot hold the governing view; opening a panel and the
+  page's routes (GET and POST) do not wait for it, nor does `run_review`'s
+  pre-run refresh; only agent `get_state`/`refresh` do. Its strings, and
+  `declaredBy` paths, are clipped like CLI messages, and the rows share a
+  256 KiB (UTF-8 bytes) serialized budget, before every broadcast.
 - `copilot plugin install` prints only a skill count. Version 0.6.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.

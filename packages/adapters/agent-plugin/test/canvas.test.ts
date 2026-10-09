@@ -1956,6 +1956,115 @@ describe('ADR-0047: review fix round 1', () => {
     expect(strings).not.toContain(title);
   });
 
+  test('P1: a stale refresh does not take over the pending queue, so get_state waits for the newest', async () => {
+    const gate = () => {
+      let open!: () => void;
+      const promise = new Promise<void>((resolve) => (open = resolve));
+      return { promise, open };
+    };
+    const gateCheckA = gate();
+    const gateQueueA = gate();
+    const gateQueueB = gate();
+    const idFor: Record<string, string> = { init: '0001', a: '0002', b: '0003' };
+    const base = fakeCli();
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      const at = args.indexOf('--dir');
+      const dir = at >= 0 ? (args[at + 1] as string) : 'init';
+      if (args.includes('queue')) {
+        if (dir === 'a') await gateQueueA.promise;
+        if (dir === 'b') await gateQueueB.promise;
+        return ok(queueReport([queueItem(idFor[dir] as string)]));
+      }
+      if (args.includes('check') && dir === 'a') await gateCheckA.promise;
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    await openPanel(options, 'panel-1', { input: { dir: 'init' } });
+    await action(options, 'get_state')();
+    const refreshA = action(options, 'refresh')({ dir: 'a' });
+    const refreshB = action(options, 'refresh')({ dir: 'b' });
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+    await tick();
+    gateCheckA.open(); // the stale check settles after the newer one committed
+    await tick();
+    gateQueueA.open();
+    await tick();
+    let settled = false;
+    const reading = action(options, 'get_state')().then((state) => {
+      settled = true;
+      return state;
+    });
+    await tick();
+    expect(settled).toBe(false);
+    gateQueueB.open();
+    const state = await reading;
+    await Promise.all([refreshA, refreshB]);
+    expect(state.queue.items.map((item: { id: string }) => item.id)).toEqual(['0003']);
+  });
+
+  test('P3: the refresh action waits for its own queue', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const base = fakeCli();
+    let hold = false;
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      if (args.includes('queue') && hold) await gate;
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    await openPanel(options);
+    await action(options, 'get_state')();
+    hold = true;
+    let settled = false;
+    const refreshing = action(options, 'refresh')().then((state) => {
+      settled = true;
+      return state;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(settled).toBe(false);
+    release();
+    expect((await refreshing).queue.items.map((item: { id: string }) => item.id)).toEqual(['0020']);
+  });
+
+  test('P2: the page POST routes do not wait for a hung queue', async () => {
+    const base = fakeCli();
+    let hang = false;
+    const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+      if (args.includes('queue') && hang) {
+        return new Promise<Run>((_, reject) => options.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
+      }
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run, queueTimeoutMs: 600 });
+    const { url } = await openPanel(options);
+    hang = true;
+    const headers = { 'X-Adrkit-Token': tokenOf(url) };
+    const timed = async (path: string, body?: string) => {
+      const started = Date.now();
+      const response = await send(withPath(url, path), { method: 'POST', headers, ...(body ? { body } : {}) });
+      return { response, ms: Date.now() - started };
+    };
+    const refreshed = await timed('/api/refresh');
+    expect(refreshed.response.status).toBe(200);
+    expect(refreshed.ms).toBeLessThan(400);
+    const explained = await timed('/api/explain', JSON.stringify({ recordId: '9999' }));
+    expect(explained.response.status).toBe(404);
+    expect(explained.ms).toBeLessThan(400);
+    const reviewing = await timed('/api/run-review', '{}');
+    expect(reviewing.ms).toBeLessThan(400);
+  });
+
+  test('P4: the queue budget counts UTF-8 bytes, not characters', async () => {
+    const wide = '\u20ac'.repeat(4000); // 3 bytes each
+    const targets = Array.from({ length: 6 }, () => wide);
+    const items = Array.from({ length: 30 }, (_, i) => queueItem(String(3000 + i), `Proposal ${i}`, { routingTargets: targets }));
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport(items)) }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(Buffer.byteLength(JSON.stringify(queue.items))).toBeLessThanOrEqual(QUEUE_BYTES_LIMIT + 4096);
+    expect(queue.items.length).toBeLessThan(30);
+  });
+
   test('L2: when adr lint exits 2 the Judge is skipped, so judgeCalls is 0 and the button says so', async () => {
     const { options } = makeCanvas({ run: fakeCli({ lint: { stdout: '', stderr: 'boom', exitCode: 2 } }).run });
     await openPanel(options);
