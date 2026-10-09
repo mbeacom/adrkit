@@ -28,7 +28,7 @@ Until `1.0.0`, minor releases may include breaking changes
   SDK-host smoke. Unmeasured in the Copilot app.
 
 - **The agent plugin's Copilot extension registers three read-only tools,
-  `adr_check`, `adr_explain`, and `adr_lint`.** Copilot's model can call them
+  `adr_check`, `adr_explain`, and `adr_lint` (`adrkit` 0.7.0).** Copilot's model can call them
   directly; each runs one read-only `adr` subcommand with `--json` in the
   session's repository and returns `{ tool, exitCode, report }`, where an exit
   of `1` with a report is a finding, not a failure. The CLI is chosen by the

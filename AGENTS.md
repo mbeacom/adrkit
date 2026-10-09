@@ -537,7 +537,7 @@ will usually be a regression:
   pre-run refresh; only agent `get_state`/`refresh` do. Its strings, and
   `declaredBy` paths, are clipped like CLI messages, and the rows share a
   256 KiB (UTF-8 bytes) serialized budget, before every broadcast.
-- `copilot plugin install` prints only a skill count. Version 0.6.0 should report
+- `copilot plugin install` prints only a skill count. Version 0.7.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
