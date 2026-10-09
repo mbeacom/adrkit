@@ -59,7 +59,7 @@ await register({
   // Read-only and free: two CLI reads, no session, no model.
   board: () =>
     createDecisionBoardCanvas({
-      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, spawn }),
       env: process.env,
       exists: existsSync,
       makeError: (code, message) => new CanvasError(code, message),

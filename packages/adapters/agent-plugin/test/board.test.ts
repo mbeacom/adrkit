@@ -1332,3 +1332,22 @@ describe('fix round 2: no view outlives its panel', () => {
     expect(options.viewCount()).toBe(0);
   });
 });
+
+/** After rebasing onto #272: the board's failure notes follow its fixed-message mapping. */
+describe('rebase onto the hardened runCommand', () => {
+  test('a session directory that no longer exists gets its own fixed note, not "could not be started"', async () => {
+    const gone = Object.assign(new Error('spawn SECRET ENOENT'), { code: 'ENOENT', missing: 'cwd', tool: 'adr' });
+    const { options } = makeBoard({ run: fakeCli({ graph: gone }).run });
+    await openBoard(options);
+    const state = await action(options, 'get_state')();
+    expect(state.graph.notes).toEqual([BOARD_NOTES.cwdMissing]);
+    expect(JSON.stringify(state)).not.toContain('SECRET');
+  });
+
+  test('extension.mjs runs the board through spawn, like every other component', () => {
+    const source = readFileSync(join(packageRoot, 'extensions', 'adrkit', 'extension.mjs'), 'utf8');
+    expect(source).not.toMatch(/\bexecFile\b/);
+    const board = source.slice(source.indexOf('createDecisionBoardCanvas({'));
+    expect(board.slice(0, board.indexOf('makeError'))).toContain('runCommand(command, args, { cwd, signal, spawn })');
+  });
+});

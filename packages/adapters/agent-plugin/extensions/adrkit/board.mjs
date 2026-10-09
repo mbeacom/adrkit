@@ -65,6 +65,7 @@ const DIR_LIMIT = 1024;
  */
 export const BOARD_NOTES = {
   start: 'The decision graph is unavailable: the adr CLI could not be started.',
+  cwdMissing: 'The decision graph is unavailable: the session directory no longer exists, so adr graph could not run there.',
   unreadable: 'The decision graph is unavailable: adr graph did not return a readable graph.',
   tooLarge: 'The decision graph is unavailable: the adr graph output was too large to read.',
   timeout: 'The decision graph is unavailable: adr graph did not finish in time.',
@@ -308,6 +309,7 @@ async function readGraph({ cwd, dir, filter, run, env, exists, timeoutMs = GRAPH
   } catch (error) {
     // Selected by explicit code comparisons; the error's own text is never used.
     if (isRecord(error) && error['code'] === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return unavailableGraph([BOARD_NOTES.tooLarge]);
+    if (isRecord(error) && error['code'] === 'ENOENT' && error['missing'] === 'cwd') return unavailableGraph([BOARD_NOTES.cwdMissing]);
     if (signal?.aborted) return unavailableGraph([BOARD_NOTES.timeout]);
     return unavailableGraph([BOARD_NOTES.start]);
   } finally {
