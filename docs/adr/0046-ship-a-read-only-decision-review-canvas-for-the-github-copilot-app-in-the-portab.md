@@ -430,6 +430,11 @@ or uses a native webview, `ADRKIT_CLI` reaching the extension in the app,
 Copilot CLI and app versions other than those named, the 0.5.0 install from
 GitHub, and any external validation.
 
+Evidence note, 2026-10-08: I followed the README's two launcher links in Copilot
+app 1.1.27. Each opened its onboarding, marketplace add and plugin install, and after
+installing the app showed the extension and recognized the `decision-review` canvas.
+This narrows "the 0.5.0 install from GitHub" above; the other unmeasured items stand.
+
 ## Action items
 
 1. [x] Implement `canvas.mjs`, the page module, and the registration seam, and

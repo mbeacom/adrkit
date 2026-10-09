@@ -440,6 +440,12 @@ deletion-only change had no files and returned `ok` without any judgment.
 I did not re-run the exit-code, invalid-args, or `--result-file` probes on
 1.0.93.
 
+- Maintainer click-through (measured 2026-10-08, Copilot app 1.1.27, by @mbeacom): both
+  README launcher links opened the expected onboarding, marketplace add for link 1 and
+  plugin install for link 2. After installing through them, the app showed the extension
+  and recognized the `decision-review` canvas. This is a hand observation, not a
+  scripted measurement.
+
 ### Not verified
 
 - The Copilot app canvas, the SDK host, and `/every` scheduling.
@@ -647,10 +653,6 @@ without a measured gain.
 
 ### Not verified
 
-- Clicking either link with the app installed. Unmeasured in the Copilot app. Maintainer
-  step: open link 1 in the README, check that Customize, then Plugins opens an add-marketplace
-  form already filled with `mbeacom/adrkit`, and cancel or confirm. Then open link 2 and
-  check the install form is filled with `adrkit@adrkit`. Nothing changes until confirmed.
 - Whether the app shows a logo, or a different listing, for a plugin that declares one.
   Unmeasured in the Copilot app, and moot while the key disables the extension on the CLI
   runtime.
