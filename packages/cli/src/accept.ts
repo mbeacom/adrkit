@@ -79,7 +79,7 @@ export async function runAccept(args: string[]): Promise<number> {
       allowPositionals: true,
       strict: true,
       options: {
-        by: { type: 'string' },
+        by: { type: 'string', multiple: true },
         dir: { type: 'string', default: 'docs/adr' },
         json: { type: 'boolean', default: false },
       },
@@ -100,7 +100,11 @@ export async function runAccept(args: string[]): Promise<number> {
     );
   }
   const rawId = String(parsed.positionals[0]);
-  const by = parsed.values.by === undefined ? '' : String(parsed.values.by);
+  const byValues = (parsed.values.by as string[] | undefined) ?? [];
+  if (byValues.length > 1) {
+    return usageError('--by was given more than once; adr accept records one ratifier.');
+  }
+  const by = byValues[0] ?? '';
   if (by === '') {
     return usageError('adr accept requires --by <identity>: the human ratifying this decision. It is never inferred.');
   }

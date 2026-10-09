@@ -27,14 +27,21 @@ export function distinctIdentityCount(identities: readonly string[]): number {
 // overrides and isolates, zero-width spaces and joiners, and the BOM.
 const INVISIBLE_OR_CONTROL = /[\p{Cc}\p{Cf}]/u;
 
+// ZWNJ and ZWJ: the two format characters some scripts need inside a word, which an
+// internationalized email local part may therefore hold.
+const JOINERS = /[\u200c\u200d]/gu;
+
 /**
  * Whether a writing command may record `identity`. Stricter than the schema's
  * `Identity`, whose email branch admits control and format characters: those would
  * reach a terminal or render text reversed, and a record already holding one stays
- * valid, but no command writes a new one.
+ * valid, but no command writes a new one. The one exception is ZWNJ and ZWJ inside
+ * the email form; a handle or team slug cannot hold them anyway.
  */
 export function isWritableIdentity(identity: string): boolean {
-  return Identity.safeParse(identity).success && !INVISIBLE_OR_CONTROL.test(identity);
+  if (!Identity.safeParse(identity).success) return false;
+  const email = !identity.startsWith('@') && !identity.startsWith('team:');
+  return !INVISIBLE_OR_CONTROL.test(email ? identity.replace(JOINERS, '') : identity);
 }
 
 export function hasInvisibleOrControl(text: string): boolean {

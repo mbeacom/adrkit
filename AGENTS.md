@@ -328,8 +328,9 @@ and objection counts change with them.
   format character (`\p{Cf}`: bidi overrides, zero-width characters, the BOM),
   no U+2028 or U+2029. `--by` gets the same control and format check in all
   four ratifying and review commands, because the schema's email branch admits
-  both. The CLI checks these as usage errors (exit `2`) and core refuses them
-  independently; a repeated `--by` is a usage error too.
+  both, except ZWNJ and ZWJ inside an email. The CLI checks these as usage
+  errors (exit `2`) and core refuses them independently; a repeated `--by` is a
+  usage error too, in `adr accept` as well.
 - **An insertion never backs up into the value above it.** `backUpOverTrivia`
   takes a floor at the end of that value, so a literal block's `# …` line and a
   keep-chomped scalar's trailing blank lines stay inside their scalar, and
@@ -344,9 +345,12 @@ and objection counts change with them.
 - **No agent surface runs them, and the guard checks code, not only prose.**
   The agent plugin's wiring test fails if a command, skill, agent, or any
   extension module, the canvas included, names `accept`, `approve`, `object`,
-  or `resolve` as a CLI call: in an argument array (`['approve', id, …]`), as a
-  tool name (`adr_approve`), or after `adr`, `$ADRKIT_CLI`, or `@adrkit/cli`, in
-  any case and across invisible characters. A prose-only pattern was green
+  or `resolve` as a CLI call: as any quoted array element or call argument
+  (`[cli, 'approve', id]`, `args.push('approve')`), as a quoted value assigned
+  to a name, as a tool name (`adr_approve`), or after `adr`, `$ADRKIT_CLI`,
+  `@adrkit/cli`, or a `${…}` placeholder, in any case and across invisible
+  characters. JSON-schema type lists such as `['object', 'null']` are dropped
+  first, so they never match. A prose-only pattern was green
   while an extension spawning `['approve', …]` passed it. The Spec Kit
   extension (plus its `adrkit_cli` wrapper) and the MCP server (plus any import
   of a writing transition) have the same guard. The canvas's `actions` are

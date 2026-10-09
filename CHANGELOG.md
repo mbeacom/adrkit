@@ -148,7 +148,15 @@ Until `1.0.0`, minor releases may include breaking changes
 - **`adr accept` refuses a ratifier with control or invisible characters.** The
   schema's email form admits an escape sequence or a bidi override; `--by` with
   one is now a usage error in `adr accept` and the review commands, so none of
-  them writes one into a record or echoes it to a terminal.
+  them writes one into a record or echoes it to a terminal. ZWNJ and ZWJ
+  (U+200C, U+200D) stay allowed inside an email address, where some scripts
+  need them.
+
+### Changed
+
+- **`adr accept` refuses `--by` given more than once** (exit `2`), as the review
+  commands do. It used to keep the last value silently, and `--by` names the
+  one person ratifying the record.
 
 ### Documentation
 

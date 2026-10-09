@@ -98,7 +98,10 @@ transition kernel as `adr accept`.**
   not an authentication; the pull request remains the control. The schema's
   email branch admits control and format characters (`\p{Cc}`, `\p{Cf}`: an
   escape, a bidi override, a zero-width space); no writing command records
-  one, `adr accept` included. Tightening `Identity` itself is a schema change
+  one, `adr accept` included. The one exception is ZWNJ and ZWJ (U+200C,
+  U+200D) inside the email form, which an internationalized local part may
+  need; a handle or team slug cannot hold them anyway. `adr accept` also
+  refuses a repeated `--by` now, as the review commands do. Tightening `Identity` itself is a schema change
   this record does not make.
 - **Identities compare case-insensitively.** Two identities are the same person
   when they are equal after an ASCII casefold of the whole identity, so `@bob`
@@ -165,10 +168,14 @@ against planted mentions (ADR-0016):
 - The agent plugin's wiring test fails if any command, skill, agent, or
   extension module, the canvas included, names `adr approve`, `adr object`, or
   `adr resolve`. The same test now guards `adr accept` the same way. Its
-  patterns catch the forms an extension would really use, not only prose: an
-  argument array (`['approve', id, …]`, but not a JSON-schema type list), a
-  tool name (`adr_approve`), and a call through `adr`, `$ADRKIT_CLI`, or
-  `@adrkit/cli`, in any case and across invisible characters.
+  patterns catch the forms an extension would really use, not only prose: the
+  verb as any quoted array element or call argument (`['approve']`,
+  `[cli, 'approve', id]`, `args.push('approve')`, but not a JSON-schema type
+  list), a quoted verb assigned to a name (`const verb = 'approve'`), a tool
+  name (`adr_approve`), and a call through `adr`, `$ADRKIT_CLI`,
+  `@adrkit/cli`, or a template placeholder (`` `${cli} approve` ``), in any
+  case and across invisible characters. A verb built at run time from parts is
+  beyond any static scan; the record, not the test, is the boundary there.
 - The Spec Kit extension's test applies the same patterns, plus its
   `adrkit_cli` wrapper, to its commands, scripts, and manifest.
 - The MCP server's test applies them to its source and also refuses an import

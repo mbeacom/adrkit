@@ -7,6 +7,7 @@ import {
   parseFrontmatter,
   resolveObjectionAdrSource,
   MAX_OBJECTION_SUMMARY_LENGTH,
+  isWritableIdentity,
 } from '@adrkit/core';
 import { finishSplice, locateFrontmatter } from '../src/transition/splice.ts';
 
@@ -394,5 +395,23 @@ describe('round 1: layouts that used to be refused', () => {
     const top = ok(approve(topLevel));
     expect((parseFrontmatter(top.content).data as any).provenance.sourceArtifact).toBe('line\n\n\n');
     expect(ok(object(topLevel)).changed).toBe(true);
+  });
+});
+
+describe('round 2: joiners inside an email identity', () => {
+  test('ZWNJ and ZWJ are allowed only in the email form', () => {
+    const zwnj = String.fromCharCode(0x200c);
+    const zwj = String.fromCharCode(0x200d);
+    for (const by of [`a${zwnj}b@example.com`, `a${zwj}b@example.com`]) {
+      expect({ by, ok: approve(record(), by).ok }).toEqual({ by, ok: true });
+    }
+    // Every other format character stays refused, in an email too.
+    for (const code of [0x00ad, 0x200b, 0x202e, 0xfeff, 0x2066]) {
+      const by = `a${String.fromCharCode(code)}b@example.com`;
+      expect({ code, result: approve(record(), by) }).toMatchObject({ code, result: { ok: false, code: 'invalid-identity' } });
+    }
+    // And a joiner outside an email is still refused.
+    expect(isWritableIdentity(`@a${zwnj}b`)).toBe(false);
+    expect(isWritableIdentity(`team:a${zwj}b`)).toBe(false);
   });
 });

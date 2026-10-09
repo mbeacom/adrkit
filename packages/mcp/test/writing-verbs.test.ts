@@ -15,11 +15,21 @@ const TRANSITIONS = /\b(?:acceptAdrSource|approveAdrSource|objectAdrSource|resol
 
 function mentionsVerb(text: string): boolean {
   const alt = VERBS.join('|');
+  // A JSON-schema type list such as `['object', 'null']` is a type, not a call; drop
+  // lists made only of type words before looking for a quoted verb.
+  const code = text.replace(/\[\s*(?:['"`](?:null|string|array|number|boolean|integer|object)['"`]\s*,?\s*)+\]/g, '');
   return [
-    new RegExp(`\\[\\s*['"\`](?:${alt})['"\`]\\s*,(?!\\s*['"\`](?:null|string|array|number|boolean|integer|object)['"\`])`),
+    // The verb as a quoted array element or call argument: `['approve']`,
+    // `[cli, 'approve', id]`, `args.push('approve')`, `` [`resolve`, id] ``.
+    new RegExp(`[\\[,(]\\s*['"\`](?:${alt})['"\`]\\s*[,\\])]`),
+    // The verb assigned to a name a template then interpolates: `const verb = 'approve'`.
+    new RegExp(`(?<![=!<>])=\\s*['"\`](?:${alt})['"\`]`),
+    // A tool named after the verb: `adr_approve`.
     new RegExp(`\\badr_(?:${alt})\\b`, 'i'),
-    new RegExp(`(?:\\badr|ADRKIT_CLI\\}?"?|@adrkit\\/cli)[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
-  ].some((pattern) => pattern.test(text));
+    // A shell or template call: after `adr`, `$ADRKIT_CLI`, `@adrkit/cli`, or a
+    // `${…}` placeholder, across whitespace and invisible characters, in any case.
+    new RegExp(`(?:\\badr|ADRKIT_CLI\\}?"?|@adrkit\\/cli|\\$\\{[^}]*\\})[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
+  ].some((pattern) => pattern.test(code));
 }
 
 function sources(): string[] {
@@ -41,10 +51,17 @@ describe('writing verbs', () => {
   });
 
   test('the patterns catch the forms a tool would use, and not ordinary code', () => {
-    for (const plant of ["import { approveAdrSource } from '@adrkit/core';", "server.registerTool('adr_resolve', …)", "spawn(cli, ['object', id])"]) {
+    for (const plant of [
+      "import { approveAdrSource } from '@adrkit/core';",
+      "server.registerTool('adr_resolve', …)",
+      "spawn(cli, ['object', id])",
+      "spawn(process.execPath, [cli, 'approve', id])",
+      "args.push('accept')",
+      'execFile(`${cli} resolve`)',
+    ]) {
       expect({ plant, caught: TRANSITIONS.test(plant) || mentionsVerb(plant) }).toEqual({ plant, caught: true });
     }
-    for (const idiom of ["const root = resolve(dir, '.')", 'await Promise.resolve()', "type: 'object'"]) {
+    for (const idiom of ["const root = resolve(dir, '.')", 'await Promise.resolve()', "type: 'object'", "z.object({})", "inputSchema: { type: 'object' }", "typeof x === 'object'"]) {
       expect({ idiom, caught: TRANSITIONS.test(idiom) || mentionsVerb(idiom) }).toEqual({ idiom, caught: false });
     }
   });

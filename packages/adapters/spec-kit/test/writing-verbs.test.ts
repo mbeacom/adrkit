@@ -16,11 +16,21 @@ const VERBS = ['accept', 'approve', 'object', 'resolve'] as const;
 
 function mentionsVerb(text: string): boolean {
   const alt = VERBS.join('|');
+  // A JSON-schema type list such as `['object', 'null']` is a type, not a call; drop
+  // lists made only of type words before looking for a quoted verb.
+  const code = text.replace(/\[\s*(?:['"`](?:null|string|array|number|boolean|integer|object)['"`]\s*,?\s*)+\]/g, '');
   return [
-    new RegExp(`\\[\\s*['"\`](?:${alt})['"\`]\\s*,(?!\\s*['"\`](?:null|string|array|number|boolean|integer|object)['"\`])`),
+    // The verb as a quoted array element or call argument: `['approve']`,
+    // `[cli, 'approve', id]`, `args.push('approve')`, `` [`resolve`, id] ``.
+    new RegExp(`[\\[,(]\\s*['"\`](?:${alt})['"\`]\\s*[,\\])]`),
+    // The verb assigned to a name a template then interpolates: `const verb = 'approve'`.
+    new RegExp(`(?<![=!<>])=\\s*['"\`](?:${alt})['"\`]`),
+    // A tool named after the verb: `adr_approve`.
     new RegExp(`\\badr_(?:${alt})\\b`, 'i'),
-    new RegExp(`(?:\\badr|\\badrkit_cli|ADRKIT_CLI\\}?"?|@adrkit\\/cli)[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
-  ].some((pattern) => pattern.test(text));
+    // A shell or template call: after `adr`, `$ADRKIT_CLI`, `@adrkit/cli`, or a
+    // `${…}` placeholder, across whitespace and invisible characters, in any case.
+    new RegExp(`(?:\\badr|\\badrkit_cli|ADRKIT_CLI\\}?"?|@adrkit\\/cli|\\$\\{[^}]*\\})[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
+  ].some((pattern) => pattern.test(code));
 }
 
 function shipped(): string[] {
@@ -39,7 +49,7 @@ describe('writing verbs', () => {
   });
 
   test('the patterns catch the shell and prose forms a script would use', () => {
-    for (const plant of ['adrkit_cli approve "$id" --by "$me"', 'adr resolve 0007', '"$ADRKIT_CLI" object 7', 'npx @adrkit/cli accept 7', 'adr Accept 7']) {
+    for (const plant of ['adrkit_cli approve "$id" --by "$me"', 'adr resolve 0007', '"$ADRKIT_CLI" object 7', 'npx @adrkit/cli accept 7', 'adr Accept 7', 'verb=\'approve\'', 'cmd="${ADRKIT_BIN} object"']) {
       expect({ plant, caught: mentionsVerb(plant) }).toEqual({ plant, caught: true });
     }
     expect(mentionsVerb('adrkit_cli check "$@" --dir "$adrkit_corpus" --json')).toBe(false);

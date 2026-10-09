@@ -638,11 +638,21 @@ function components(): string[] {
  */
 function mentionsVerb(text: string, verbs: readonly string[]): boolean {
   const alt = verbs.join('|');
+  // A JSON-schema type list such as `['object', 'null']` is a type, not a call; drop
+  // lists made only of type words before looking for a quoted verb.
+  const code = text.replace(/\[\s*(?:['"`](?:null|string|array|number|boolean|integer|object)['"`]\s*,?\s*)+\]/g, '');
   return [
-    new RegExp(`\\[\\s*['"\`](?:${alt})['"\`]\\s*,(?!\\s*['"\`](?:null|string|array|number|boolean|integer|object)['"\`])`),
+    // The verb as a quoted array element or call argument: `['approve']`,
+    // `[cli, 'approve', id]`, `args.push('approve')`, `` [`resolve`, id] ``.
+    new RegExp(`[\\[,(]\\s*['"\`](?:${alt})['"\`]\\s*[,\\])]`),
+    // The verb assigned to a name a template then interpolates: `const verb = 'approve'`.
+    new RegExp(`(?<![=!<>])=\\s*['"\`](?:${alt})['"\`]`),
+    // A tool named after the verb: `adr_approve`.
     new RegExp(`\\badr_(?:${alt})\\b`, 'i'),
-    new RegExp(`(?:\\badr|ADRKIT_CLI\\}?"?|@adrkit\\/cli)[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
-  ].some((pattern) => pattern.test(text));
+    // A shell or template call: after `adr`, `$ADRKIT_CLI`, `@adrkit/cli`, or a
+    // `${…}` placeholder, across whitespace and invisible characters, in any case.
+    new RegExp(`(?:\\badr|ADRKIT_CLI\\}?"?|@adrkit\\/cli|\\$\\{[^}]*\\})[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
+  ].some((pattern) => pattern.test(code));
 }
 
 describe('write boundary', () => {  test('exactly one command writes, and it is adr-draft', () => {
@@ -699,13 +709,30 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
       'adr\u200bapprove 0007',
       'adr Approve 0007',
       'adr resolve 0007',
+      "runAdr(['approve'])",
+      "spawn(node, [cli, 'approve', id, '--by', by])",
+      "args.push('resolve', id)",
+      'run([`object`, id])',
+      'run(`${cli} approve ${id}`)',
+      "const verb = 'approve'; run(`adr ${verb} ${id}`)",
     ];
     for (const plant of plants) {
       expect({ plant, caught: mentionsVerb(plant, REVIEW_VERBS) }).toEqual({ plant, caught: true });
     }
     expect(mentionsVerb("['accept', id, '--by', by]", ['accept'])).toBe(true);
     // Idioms the plugin really uses must not trip it.
-    for (const idiom of ["typeof value === 'object'", "type: ['object', 'null']", "runAdr('adr_check', ['check', '--json'])", 'resolve the path']) {
+    for (const idiom of [
+      "typeof value === 'object'",
+      "type: ['object', 'null']",
+      "type: ['null', 'object']",
+      "{ type: 'object', properties: {} }",
+      "if (kind !== 'object') return",
+      "case 'object':",
+      "runAdr('adr_check', ['check', '--json'])",
+      'resolve the path',
+      'new Promise((resolve) => setTimeout(resolve, 10))',
+      '`${count} objects`',
+    ]) {
       expect({ idiom, caught: mentionsVerb(idiom, REVIEW_VERBS) }).toEqual({ idiom, caught: false });
     }
   });
