@@ -1001,6 +1001,23 @@ budget, both sequence guards, the extent cap, and symlink confinement are
 covered by unit tests, each observed failing under the mutation that removes
 it; none was provoked in the SDK host.
 
+### Re-run after rebasing onto the 0.8.1 hardening (same host, `6b22f11`, 51 records)
+
+After rebasing onto the 0.8.1 hardening (spawn-based `runCommand` with process
+groups) and the review-state CLI, the board runs through `spawn` like every
+other component. The same harness, with the CLI rebuilt from the rebased
+branch:
+
+| # | Probe | Result |
+|---|-------|--------|
+| B24 | Open on this repository | `51 records · 250 relationships`; 5 queue rows; 21,269 bytes |
+| B25 | `focus { id: "0046" }`, `{ kinds: ["supersedes"] }`, `{ id: "9999" }` | 12 records and 11 relationships; 4 and 2; the fixed exit-2 note |
+| B26 | Panel B opened with `{ id: "0046" }`, then panel A's `get_state` | B `12 records · 11 relationships · focus 0046 · 5 open`; A still 51 and 250 with no filter |
+| B27 | Refusals | `id: "12"` and a 65-digit id refused by the runtime's schema check; `refresh { dir: "../.." }` refused with the fixed confinement message; `POST /api/focus` with a bad id 400 with the fixed message |
+| B28 | Page and boundaries | `GET /` 200 with the shared CSP; `/app.js` uses `createElementNS` and has no `innerHTML`, no ratifying command, and no "ready"; no token or a wrong token 403; POST without the header or with a foreign `Origin` 403; both ports refused connections after close |
+| B29 | Ratifying command | In `/api/state` only inside ADR-0044's title; absent with titles blanked |
+| B30 | Four-record fixture | `4 records · 0 relationships`, 2 queue rows; a second panel focused on 0004 read `1 record · 0 relationships · focus 0004 · 2 open` |
+
 ### Local browser render (not the Copilot app)
 
 The board was served by a Node script against this repository and opened in
