@@ -245,6 +245,7 @@ describe('the canvas batches and caps, and still recognizes its own review', () 
                 lintExitCode: 0,
                 files: capped,
                 filesOmitted: WIDE.length - FILES_ECHO_LIMIT,
+                filesDigest: createHash('sha256').update([...WIDE].sort().join('\0')).digest('hex'),
                 filesSource: 'git:origin/main...HEAD',
                 notes: [],
                 governing: [{ recordId: '0001', title: 'One' }, { recordId: '0002', title: 'Two' }],
@@ -539,8 +540,9 @@ describe('show_review checks a capped result against the full file list (round 1
     expect(state.review?.result?.status).toBe('ok');
   });
 
-  test('a capped result with no digest and a different count: refused', async () => {
+  test('a capped result with no digest: refused, whatever its count', async () => {
     const show = await panel();
-    await expect(show({ result: resultFor(WIDE, { filesOmitted: WIDE.length }) })).rejects.toThrow(/different change/);
+    await expect(show({ result: resultFor(WIDE, { filesOmitted: WIDE.length }) })).rejects.toThrow(/filesDigest/);
+    await expect(show({ result: resultFor(WIDE) })).rejects.toThrow(/filesDigest/);
   });
 });

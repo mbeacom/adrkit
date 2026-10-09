@@ -932,6 +932,7 @@ live.
 | R7 | Fixed messages named the wrong program | Rejections carry `tool` (`git` or `adr`) and, for ENOENT, `missing` (`cwd` or `command`); messages are chosen by those codes. Unit-tested, including a real spawn into a missing directory. |
 | R8 | Merged reports were unmarked, with findings in batch order | `batches: N` on merged reports only. Findings are sorted with core's `sortFindings` key, and a test compares against core's own function. |
 | R9 | `show_review` matched a capped result on its first 200 paths and count | Workflow results carry `filesDigest`. A result that shares the first 200 paths and the total but differs later is refused, and the matching digest is accepted. |
+| R10 | Re-review Lows (optional, fixed before the PR) | `test/round2.test.ts`, all observed failing first (15 cases). A capped result without `filesDigest` is refused. A hook check ended by a signal, a timeout, or an abort is not cached, and the next edit checks again; a CLI that cannot start stays cached. Probing a group that still looks alive stops after 10 probes. `base` is held to `^[A-Za-z0-9._/@{}~^-]+$`, with no leading `-` and `..` only in a `...` range, in both the workflow and the tools. |
 
 ## Verdict
 

@@ -234,6 +234,24 @@ function failureMessage(error) {
  */
 
 /**
+ * Was this failure an interruption (a signal, a timeout, or an abort) rather
+ * than an answer? Read from fixed fields only.
+ *
+ * @param {unknown} error
+ */
+function interrupted(error) {
+  if (error === null || typeof error !== 'object') return false;
+  const fields = /** @type {any} */ (error);
+  return (
+    (typeof fields.signal === 'string' && fields.signal.length > 0) ||
+    fields.name === 'AbortError' ||
+    fields.name === 'TimeoutError' ||
+    fields.code === 'ABORT_ERR' ||
+    fields.code === 'ETIMEDOUT'
+  );
+}
+
+/**
  * Settle with `promise`, or with GAVE_UP after `ms`. The timer is unref'd, so
  * it never keeps the process alive, and cleared once the race settles.
  *
@@ -387,13 +405,19 @@ export function createAdvisoryHooks({
       checksStarted += 1;
       // A failure is cached as "nothing" too: retrying a missing CLI on every
       // edit would multiply the cost of the failure the cap exists to bound.
-      pending = check(cwd, [path]).then(
+      const started = check(cwd, [path]).then(
         (outcome) => recordsIn(outcome, 'governing').map((record) => record.id),
         (error) => {
           fail(error);
+          // A check our own signal, a timeout, or an abort ended says
+          // nothing about the file, so it is not cached: the next edit checks
+          // again (still within the budget). Any other failure, such as a CLI
+          // that cannot start, stays cached as "nothing".
+          if (interrupted(error) && checks.get(key) === started) checks.delete(key);
           return [];
         },
       );
+      pending = started;
       checks.set(key, pending);
     }
     return pending;

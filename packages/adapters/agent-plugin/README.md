@@ -233,7 +233,7 @@ read-only git, and writes no file. The Judge agent may also run `adr explain`,
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `files` | none | Repo-relative paths to review. Overrides the git diff. |
-| `base` | `origin/main` | Ref to diff `<base>...HEAD` against. |
+| `base` | `origin/main` | Ref to diff `<base>...HEAD` against. Letters, digits, and `. _ / @ { } ~ ^ -` only, no leading `-`, and `..` only inside a `...` range. |
 | `dir` | `$ADRKIT_DIR`, else `docs/adr` | ADR corpus directory. |
 
 Any other key, including `cli` or `allowRepoCli`, returns `status:

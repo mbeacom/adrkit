@@ -26,7 +26,7 @@
 
 import { realpathSync } from 'node:fs';
 import { isAbsolute, resolve, sep, win32 } from 'node:path';
-import { FILES_ECHO_LIMIT, capFiles, checkInBatches, cliOverhead, collectChangedFiles, resolveCli } from './review.mjs';
+import { FILES_ECHO_LIMIT, capFiles, checkInBatches, cliOverhead, collectChangedFiles, isSafeBaseRef, resolveCli } from './review.mjs';
 
 /** @import { CommandResult } from './review.mjs' */
 
@@ -58,7 +58,7 @@ const MESSAGES = Object.freeze({
   'path-length': `Invalid arguments: a path must be at most ${TOOL_LIMITS.maxPathLength} characters.`,
   'base-invalid':
     `Invalid arguments: base must be a git revision of at most ${TOOL_LIMITS.maxRefLength} characters ` +
-    "using letters, digits, and . _ / @ { } ~ ^ -, and must not start with '-'.",
+    "using letters, digits, and . _ / @ { } ~ ^ -, must not start with '-', and may use '..' only as part of a '...' range.",
   'cli-unresolved':
     'The adr CLI could not be resolved: ADRKIT_CLI is set but nothing exists at that path. ' +
     'Fix ADRKIT_CLI in the environment Copilot was started from.',
@@ -128,7 +128,6 @@ const TOOL_KEYS = Object.freeze({
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
 /** `C:foo` is drive-relative on Windows: neither absolute nor inside the repository. */
 const DRIVE = /^[A-Za-z]:/;
-const REF = /^[A-Za-z0-9._/@{}~^-]+$/;
 
 /**
  * Validate one repository-relative path. Lexical on purpose: the CLI matches
@@ -195,8 +194,7 @@ export function validateToolArgs(tool, raw) {
       typeof base !== 'string' ||
       base.length === 0 ||
       base.length > TOOL_LIMITS.maxRefLength ||
-      base.startsWith('-') ||
-      !REF.test(base)
+      !isSafeBaseRef(base)
     ) {
       return { ok: false, code: 'base-invalid' };
     }

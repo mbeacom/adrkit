@@ -404,7 +404,9 @@ cache nor triggers a refresh.
 
 The single log line is spent by the first failure for the life of the
 process. A transient first timeout therefore hides a later, different
-failure, a failed check stays cached as "nothing" until the corpus is edited,
+failure, a failed check stays cached as "nothing" until the corpus is edited
+(since plugin 0.8.1, except a check that a signal, a timeout, or an abort
+ended, which the next edit retries),
 and the 500-check budget is reached silently.
 
 As first shipped (0.8.0), a timeout killed the direct child process only: the

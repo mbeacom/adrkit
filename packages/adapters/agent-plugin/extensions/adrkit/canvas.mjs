@@ -278,6 +278,9 @@ export function sanitizeReviewResult(raw) {
   if (filesDigest !== null && (typeof filesDigest !== 'string' || !/^[0-9a-f]{64}$/.test(filesDigest))) {
     fail('filesDigest must be null or a SHA-256 hex digest');
   }
+  // A capped list is compared by its digest; without one, a result from
+  // another change that shares the first 200 paths and the total would pass.
+  if (/** @type {number} */ (filesOmitted) > 0 && filesDigest === null) fail('filesDigest is required when filesOmitted is above 0');
   const filesSource = raw['filesSource'] ?? null;
   if (filesSource !== null && typeof filesSource !== 'string') fail('filesSource must be a string or null');
 

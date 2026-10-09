@@ -90,6 +90,9 @@ export const REVIEW_MESSAGES = Object.freeze({
   'file-escape': "Invalid arguments: files must not contain a '..' segment.",
   'base-type': 'Invalid arguments: base must be a non-empty string.',
   'base-option': "Invalid arguments: base must not start with '-'.",
+  'base-invalid':
+    'Invalid arguments: base must be a git revision using letters, digits, and . _ / @ { } ~ ^ -, ' +
+    "with '..' only as part of a '...' range.",
   'dir-type': 'Invalid arguments: dir must be a non-empty string.',
   'dir-option': "Invalid arguments: dir must not start with '-'.",
   'base-unresolved':
@@ -230,6 +233,12 @@ export const KILL_GRACE_MS = 1000;
 export const COMMAND_CEILING_MS = 120_000;
 /** How often a group whose leader closed is probed until it is gone. */
 const PROBE_MS = 1000;
+/**
+ * How many probes a group that still looks alive gets before it is no longer
+ * tracked: a member that lingers, or a probe that answers EPERM, would
+ * otherwise be probed (and keep the signal listeners installed) forever.
+ */
+export const MAX_GROUP_PROBES = 10;
 /** Signals whose default disposition ends the extension process. */
 const STOP_SIGNALS = /** @type {const} */ (['SIGTERM', 'SIGINT', 'SIGHUP']);
 
@@ -379,6 +388,7 @@ export function runCommand(
     let killTimer;
     let ended = false;
     let settled = false;
+    let probes = 0;
     const ceiling = setTimeout(() => {
       endTree();
       finish(() => reject(Object.assign(new Error('The command ran past its time limit'), { name: 'TimeoutError', code: 'ETIMEDOUT', tool })));
@@ -427,7 +437,10 @@ export function runCommand(
       } catch (error) {
         alive = /** @type {any} */ (error)?.code === 'EPERM';
       }
-      if (!alive) {
+      probes += 1;
+      if (!alive || probes >= MAX_GROUP_PROBES) {
+        // Gone, or given up on: a pending SIGKILL is skipped either way,
+        // because signalGroup only signals a tracked group.
         clearTimeout(killTimer);
         untrack(pid);
         return;
@@ -730,6 +743,20 @@ function optionalString(value, code) {
   return value;
 }
 
+const SAFE_REF = /^[A-Za-z0-9._/@{}~^-]+$/;
+
+/**
+ * A conservative git revision: the characters git refs and revision suffixes
+ * need, no leading `-`, and `..` only inside a `...` range. `base` reaches git
+ * argv and is repeated in the Judge prompt's commands, so whitespace,
+ * backticks, quotes, and shell metacharacters are refused outright.
+ *
+ * @param {string} value
+ */
+export function isSafeBaseRef(value) {
+  return SAFE_REF.test(value) && !value.startsWith('-') && !value.replace(/\.{3}/g, '').includes('..');
+}
+
 /** @param {string} value @param {ReviewCode} code */
 function notOptionShaped(value, code) {
   // Both values reach argv. A leading `-` would be read as a flag by git or
@@ -771,7 +798,10 @@ export function validateArgs(raw) {
   }
 
   const base = optionalString(input['base'], 'base-type');
-  if (base !== undefined) out.base = notOptionShaped(base, 'base-option');
+  if (base !== undefined) {
+    out.base = notOptionShaped(base, 'base-option');
+    if (!isSafeBaseRef(base)) throw new ReviewError('base-invalid');
+  }
   const dir = optionalString(input['dir'], 'dir-type');
   if (dir !== undefined) out.dir = notOptionShaped(dir, 'dir-option');
   return out;

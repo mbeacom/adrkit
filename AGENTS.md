@@ -594,7 +594,10 @@ will usually be a regression:
   - At most two hook-spawned processes run at once, each with
     `AbortSignal.timeout(5000)`.
   - There is one `adr check` per distinct path per process, shared by
-    concurrent edits and cached even when it fails. The 500-check budget is a
+    concurrent edits and cached even when it fails, except when a signal, a
+    timeout, or an abort ended it: that says nothing about the file, so the
+    next edit checks again (a CLI that cannot start stays cached, so it is not
+    retried on every edit). The 500-check budget is a
     monotonic count, not the cache size, because a corpus edit clears the
     cache and must not re-arm the budget.
   - The post-edit note gives up after 2 s and the check keeps filling the
@@ -623,7 +626,9 @@ will usually be a regression:
     the extension process and a plain `disconnect` + `client.stop()` left the
     child and its grandchild running before the fix, and ended both after it.
     So a group stays tracked until a probe says it is gone (not merely until
-    its leader closes), an `exit` listener SIGKILLs tracked groups, and while
+    its leader closes; at most 10 probes, 1 s apart, then it is dropped so a
+    lingering member or an EPERM probe cannot keep the listeners forever), an
+    `exit` listener SIGKILLs tracked groups, and while
     any group is tracked, listeners for SIGTERM, SIGINT, and SIGHUP do the
     same, remove themselves, and re-raise the signal so its default action
     still ends the process. With no group tracked no listener exists, so the
@@ -682,7 +687,10 @@ app. Measured, and easy to break:
   `resolveCli`. No tool argument selects it, and unknown keys are refused.
 - **Arguments are validated in the extension**, because the host does not enforce
   the schema: relative paths only, no `..`, no leading `-`, no control
-  characters, at most 200 paths of 1024 characters, a conservative `base`. The
+  characters, at most 200 paths of 1024 characters, and a conservative `base`
+  (`isSafeBaseRef`: `^[A-Za-z0-9._/@{}~^-]+$`, no leading `-`, `..` only in a
+  `...` range), shared with the workflow's `validateArgs` because `base` is
+  repeated in the Judge prompt's commands. The
   corpus directory taken from the argument or the default `docs/adr` is
   `realpath`-checked against the session root before spawning, so a committed
   symlink out of the worktree is refused (`symlink-escape`); a user-set
@@ -698,8 +706,8 @@ app. Measured, and easy to break:
   ADR-0022's declaration caps apply per call. Echoed lists stop at 200 paths
   with a `filesOmitted` count and, in the workflow result, a `filesDigest`
   (SHA-256 of the full sorted list). The canvas keeps the **full** list in
-  memory and compares a capped result with `sameFileSet`, by digest when
-  there is one; comparing a capped result with the full list would drop every
+  memory and compares a capped result with `sameFileSet`, by digest;
+  `sanitizeReviewResult` refuses a capped result with no digest; comparing a capped result with the full list would drop every
   wide-change review as stale (pinned in `test/batching.test.ts`).
 - **A capped Judge prompt must say how to see the rest.** A bare
   `git diff --name-only` prints nothing for committed work, so a Judge shown
