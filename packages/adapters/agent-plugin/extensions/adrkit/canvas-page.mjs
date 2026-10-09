@@ -292,14 +292,25 @@ export const PAGE_JS = `(function () {
     // run would judge nothing, so the button says why and stays disabled.
     var noFiles = files.length === 0;
     var calls = typeof snapshot.judgeCalls === 'number' ? snapshot.judgeCalls : list(snapshot.governing).length;
-    var reason = noFiles ? 'No changed files to review' : calls === 0 ? 'No governing decision, so there is nothing to judge' : '';
+    // Governing records with no calls means the check or lint failed, and the
+    // workflow skips its Judge in that case.
+    var skipped = calls === 0 && list(snapshot.governing).length > 0;
+    var reason = noFiles
+      ? 'No changed files to review'
+      : skipped
+        ? 'adr check or adr lint did not succeed, so the review would make no decision-checker calls'
+        : calls === 0
+          ? 'No governing decision, so there is nothing to judge'
+          : '';
     var runButton = $('run-review');
     runButton.disabled = busy || status === 'pending' || reason !== '';
     runButton.textContent = noFiles
       ? 'Run review (uses AI credits)'
-      : calls === 0
-        ? 'Run review: nothing to judge'
-        : 'Run review: ' + calls + ' decision-checker call' + (calls === 1 ? '' : 's') + ' (uses AI credits)';
+      : skipped
+        ? 'Run review: no decision-checker calls (adr check or adr lint failed)'
+        : calls === 0
+          ? 'Run review: nothing to judge'
+          : 'Run review: ' + calls + ' decision-checker call' + (calls === 1 ? '' : 's') + ' (uses AI credits)';
     if (reason) {
       runButton.title = reason;
       runButton.setAttribute('aria-description', reason);

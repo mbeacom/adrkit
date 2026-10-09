@@ -513,11 +513,13 @@ will usually be a regression:
   globs itself; the extension cannot import core, and a homemade matcher could
   disagree with the CLI and present that as provenance. If core gains per-file
   attribution, read it.
-- **`judgeCalls` is the governing count, because the Judge is
-  `ctx.pipeline(governing, … ctx.agent(…))`** in `review.mjs`: one
-  `decision-checker` call per governing decision, none at zero. Change the
-  workflow's Judge shape and the button label and `run_review` description go
-  stale. The button is disabled at zero governing decisions.
+- **`judgeCalls` follows the Judge, which is
+  `ctx.pipeline(governing, … ctx.agent(…))`** in `review.mjs`: at most one
+  `decision-checker` call per governing decision. It is the governing count when
+  `adr check` and `adr lint` exit 0 or 1, and 0 otherwise, because the workflow
+  then skips the Judge. Change the workflow's Judge shape and the button label
+  and `run_review` description go stale. The button is disabled whenever
+  `judgeCalls` is 0, and says why.
 - **The canvas queue is an allowlist, and that is what keeps the ratifying
   command out.** `adr queue`'s terminal view prints that command for a human;
   the canvas reads only the JSON and keeps nine named item fields, so a field
@@ -525,7 +527,10 @@ will usually be a regression:
   snapshot, `/api/state`, the rendered page, and the shipped page strings.
   Queue rows have no control or explain, and their ids are not explainable. A
   queue failure is a fixed note, never CLI stderr, and never changes the panel's
-  status, governing list, or notes.
+  status, governing list, or notes. The queue runs in `Promise.all` beside the
+  check with its own timeout (30 s, then its process is signalled), so a hung
+  `adr queue` cannot hold the governing view; its strings, and `declaredBy`
+  paths, are clipped like CLI messages before every broadcast.
 - `copilot plugin install` prints only a skill count. Version 0.5.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.

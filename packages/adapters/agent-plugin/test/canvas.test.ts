@@ -8,6 +8,8 @@ import {
   CANVAS_ID,
   CSP,
   buildExplainPrompt,
+  QUEUE_LIMIT,
+  QUEUE_NOTES,
   computeSnapshot,
   createDecisionReviewCanvas,
   sanitizeReviewResult,
@@ -761,7 +763,8 @@ describe('actions', () => {
     cli.calls.length = 0;
     const state = await action(options, 'refresh')({ files: ['src/c.ts'] });
     expect(state.files).toEqual(['src/c.ts']);
-    expect(cli.calls.map((call) => call.args[0])).toEqual(['check', 'lint', 'queue']);
+    // The queue runs beside the check, so only the set is fixed, not the order.
+    expect(cli.calls.map((call) => call.args[0]).sort()).toEqual(['check', 'lint', 'queue']);
     expect(fake.started).toEqual([]);
     expect(fake.sent).toEqual([]);
   });
@@ -1751,5 +1754,154 @@ describe('ADR-0047: read-only queue', () => {
     const queueSection = find(app, (node) => node.tag === 'section' && node.allText().includes('Open proposals, corpus-wide'));
     expect(queueSection.length).toBe(1);
     expect(find(queueSection[0] as FakeNode, (node) => node.tag === 'button')).toEqual([]);
+  });
+});
+
+/** Fix round 1 of the Track C review: surviving mutations (M1) and L1 to L4. */
+describe('ADR-0047: review fix round 1', () => {
+  const pageBase = { workingDirectory: CWD, status: 'ok', files: [], governing: [], history: [], activeProposals: [], findings: [], notes: [], review: null, judgeCalls: 0 };
+  const shownItem = { id: '0020', title: 'P', sourcePath: 'docs/adr/0020-p.md', slaState: 'not-queued', deadlineDate: null, approvalCount: 0, quorum: null, unresolvedObjectionCount: 0, routingTargets: [] };
+
+  test('M1: a report version other than 1 is not read', async () => {
+    const report = JSON.stringify({ ...JSON.parse(queueReport([queueItem('0020')])), version: '2' });
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(report) }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.available).toBe(false);
+    expect(queue.items).toEqual([]);
+    expect(queue.note).toBe(QUEUE_NOTES.version);
+  });
+
+  test('M1: more than QUEUE_LIMIT items are capped, and the state and page say so', async () => {
+    const items = Array.from({ length: QUEUE_LIMIT + 1 }, (_, i) => queueItem(String(1000 + i)));
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport(items)) }).run });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue.items.length).toBe(QUEUE_LIMIT);
+    expect(state.queue.totalItems).toBe(QUEUE_LIMIT + 1);
+    expect(state.queue.note).toBe(`Showing the first ${QUEUE_LIMIT} of ${QUEUE_LIMIT + 1} open proposals.`);
+    const text = ((await renderPageWith(state)).get('app') as FakeNode).allText();
+    expect(text).toContain(`Open proposals, corpus-wide (${QUEUE_LIMIT})`);
+    expect(text).toContain(state.queue.note);
+  });
+
+  test('M1: invalid arguments leave the queue uncomputed with its own note', async () => {
+    const scripted = fakeCli();
+    const { options } = makeCanvas({ run: scripted.run });
+    await openPanel(options, 'panel-1', { input: { base: '-x' } });
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.available).toBe(false);
+    expect(queue.note).toBe(QUEUE_NOTES.args);
+    expect(scripted.calls.some((call) => call.args.includes('queue'))).toBe(false);
+  });
+
+  test('M1: an older refresh landing late does not overwrite the newer queue', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const base = fakeCli();
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      if (args.includes('queue') && args.includes('old')) {
+        await gate;
+        return ok(queueReport([queueItem('0001', 'old corpus')]));
+      }
+      if (args.includes('queue') && args.includes('new')) return ok(queueReport([queueItem('0002', 'new corpus')]));
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    await openPanel(options);
+    const older = action(options, 'refresh')({ dir: 'old' });
+    await action(options, 'refresh')({ dir: 'new' });
+    release();
+    await older;
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.items.map((item: { id: string }) => item.id)).toEqual(['0002']);
+  });
+
+  test('M1: the page shows the corpus-findings count and a note on an available queue', async () => {
+    const queue = { available: true, asOf: '2026-10-08', exitCode: 1, totalItems: 1, corpusFindings: 3, items: [shownItem], note: 'Showing the first 1 of 9 open proposals.' };
+    const text = ((await renderPageWith({ ...pageBase, queue })).get('app') as FakeNode).allText();
+    expect(text).toContain('adr queue reported 3 corpus finding(s)');
+    expect(text).toContain('Showing the first 1 of 9 open proposals.');
+  });
+
+  test('L1: a hung queue times out to a fixed note and does not hold the governing view', async () => {
+    const base = fakeCli();
+    const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+      if (args.includes('queue')) {
+        return new Promise<Run>((_, reject) => options.signal?.addEventListener('abort', () => reject(new Error('aborted SECRET'))));
+      }
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run, queueTimeoutMs: 20 });
+    const opened = await openPanel(options);
+    expect(opened.status).toBe('1 governing · incomplete');
+    const state = await action(options, 'get_state')();
+    expect(state.governing.map((d: { recordId: string }) => d.recordId)).toEqual(['0012']);
+    expect(state.queue.available).toBe(false);
+    expect(state.queue.note).toBe(QUEUE_NOTES.timeout);
+    expect(JSON.stringify(state)).not.toContain('SECRET');
+  });
+
+  test('L1: the check and the queue start together', async () => {
+    const started: string[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const base = fakeCli();
+    const run = async (command: string, args: string[], options: { cwd: string }) => {
+      started.push(command === 'git' ? 'diff' : String(args[0]));
+      if (args.includes('check')) await gate;
+      return base.run(command, args, options);
+    };
+    const { options } = makeCanvas({ run });
+    const opening = openPanel(options);
+    for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+    // The check is still held, and the queue has already run.
+    expect(started).toContain('queue');
+    release();
+    await opening;
+  });
+
+  test('L2: when adr lint exits 2 the Judge is skipped, so judgeCalls is 0 and the button says so', async () => {
+    const { options } = makeCanvas({ run: fakeCli({ lint: { stdout: '', stderr: 'boom', exitCode: 2 } }).run });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    expect(state.governing.length).toBe(1);
+    expect(state.judgeCalls).toBe(0);
+    const button = (await renderPageWith(state)).get('run-review') as FakeNode;
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toBe('Run review: no decision-checker calls (adr check or adr lint failed)');
+    expect(button.title).toBe('adr check or adr lint did not succeed, so the review would make no decision-checker calls');
+  });
+
+  test('L2: the run_review description says the Judge is skipped when check or lint fail', () => {
+    const { options } = makeCanvas();
+    const runReview = options.actions.find((entry: { name: string }) => entry.name === 'run_review');
+    expect(runReview?.description).toMatch(/at most one decision-checker call per governing decision/);
+    expect(runReview?.description).toMatch(/adr check or adr lint exits 2 or more/);
+  });
+
+  test('L3: an oversized queue report gets its own note', async () => {
+    const tooBig = Object.assign(new Error('stdout maxBuffer length exceeded SECRET'), { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' });
+    const { options } = makeCanvas({ run: fakeCli({ queue: tooBig }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.note).toBe(QUEUE_NOTES.tooLarge);
+    expect(JSON.stringify(queue)).not.toContain('SECRET');
+  });
+
+  test('L4: long queue strings and declaredBy paths are clipped', async () => {
+    const long = 'x'.repeat(10_000);
+    const item = queueItem('0020', long, { sourcePath: long, routingTargets: [long, '@ok'] });
+    const marker = { ...governed('0002', 'governing'), firedMatchers: [], declaredBy: [{ path: long, line: 1, ref: long }] };
+    const { options } = makeCanvas({
+      run: fakeCli({ queue: ok(queueReport([item])), check: ok(checkReport([marker])) }).run,
+    });
+    await openPanel(options);
+    const state = await action(options, 'get_state')();
+    const shown = state.queue.items[0];
+    for (const value of [shown.title, shown.sourcePath, shown.routingTargets[0], state.governing[0].declaredBy[0].path, state.governing[0].declaredBy[0].ref]) {
+      expect(value.length).toBeLessThanOrEqual(4001);
+    }
+    expect(shown.routingTargets[1]).toBe('@ok');
   });
 });

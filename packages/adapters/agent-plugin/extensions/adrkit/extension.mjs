@@ -41,7 +41,7 @@ await register({
   }),
   canvas: (getSession) =>
     createDecisionReviewCanvas({
-      run: (command, args, { cwd }) => runCommand(command, args, { cwd, execFile }),
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
       env: process.env,
       exists: existsSync,
       getSession,

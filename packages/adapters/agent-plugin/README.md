@@ -339,7 +339,7 @@ canvas". It takes the same optional `files`, `base`, and `dir` as the workflow.
 | `get_state` | no | Returns the panel snapshot. |
 | `refresh` | no | Re-runs Collect and Check (`git diff`, `adr check`, `adr lint`) and `adr queue --format json`, and updates the panel. Input replaces the remembered `files`, `base`, and `dir`. |
 | `show_review` | no | Displays an `adr-review` result you already have, passed as `{ result }`. The shape is validated and unknown keys are dropped. A result whose status is cleaner than its own payload, or that describes other files or governing records than the panel's, is refused. It never replaces a run the panel started. |
-| `run_review` | **yes** | Starts the `adr-review` workflow and returns `{ runId, status }` at once; the panel follows the run and shows its verdicts. Spend is the workflow's: one `decision-checker` call per governing decision. Invalid arguments throw `invalid_input` before anything is spent, and while a run is in flight a second request starts nothing. |
+| `run_review` | **yes** | Starts the `adr-review` workflow and returns `{ runId, status }` at once; the panel follows the run and shows its verdicts. Spend is the workflow's: at most one `decision-checker` call per governing decision. Invalid arguments throw `invalid_input` before anything is spent, and while a run is in flight a second request starts nothing. |
 
 Explain is not an agent action. It is an HTTP route the page uses when you
 click a decision, and it sends the agent one fixed prompt naming only the
@@ -390,19 +390,22 @@ Proposed in
   named the record. An `affects` match shows the pattern, and says that
   `adr check` does not report which changed file matched it; the panel does not
   guess. `get_state` carries the same data as `declaredBy` and `firedMatchers`.
-- **What a review costs before you start it.** `adr-review` makes one
+- **What a review costs before you start it.** `adr-review` makes at most one
   `decision-checker` call per governing decision, so the button reads
   "Run review: N decision-checker call(s) (uses AI credits)", and `get_state`
   carries the count as `judgeCalls`. With no governing decision the button is
-  disabled and says there is nothing to judge. Runtime retries are not counted.
+  disabled and says there is nothing to judge. When `adr check` or `adr lint`
+  exits 2 or more, the workflow skips its Judge, so `judgeCalls` is 0 and the
+  button says no checker calls will be made. Runtime retries are not counted.
   One measured run judged two decisions for about 0.16 AI credits (Copilot CLI
   1.0.93); that is one measurement, not a price.
 - **Open proposals, corpus-wide.** `refresh` also runs
   `adr queue --format json`, which costs no AI credits, and the panel lists
   every open `proposed` record with its SLA state, deadline, approvals, and
   routing. It is a list only: no buttons, no explain, and nothing that ratifies.
-  If the queue cannot be read, the section shows a note and the rest of the
-  panel is unaffected.
+  It runs alongside the check with its own 30-second limit. If the queue cannot
+  be read, is too large, or does not finish in time, the section shows a note
+  and the rest of the panel is unaffected.
 
 Measured in a headless Copilot CLI 1.0.93 SDK host; the new UI is unmeasured in
 the Copilot app.

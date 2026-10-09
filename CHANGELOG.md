@@ -17,8 +17,9 @@ Until `1.0.0`, minor releases may include breaking changes
   `declaredBy` that `adr check --json` already reports); for an `affects`
   match, the pattern, with a note that `adr check` does not say which changed
   file matched it. The Run review button states how many `decision-checker`
-  calls a run makes (one per governing decision, also `judgeCalls` in
-  `get_state`) and is disabled when there is nothing to judge. `refresh` also
+  calls a run makes (at most one per governing decision, and none when
+  `adr check` or `adr lint` fails; also `judgeCalls` in `get_state`) and is
+  disabled when there is nothing to judge. `refresh` also
   runs `adr queue --format json`, at no AI cost, and the panel lists open
   `proposed` records corpus-wide, read-only and without any ratify control; a
   queue failure is a note and never touches the governing view. Proposed in

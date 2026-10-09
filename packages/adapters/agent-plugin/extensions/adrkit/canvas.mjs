@@ -86,7 +86,7 @@ const RESULT_KEYS = Object.keys(assembleResult({}));
  */
 
 /**
- * @typedef {(command: string, args: string[], options: { cwd: string }) => Promise<CommandResult>} CwdRunner
+ * @typedef {(command: string, args: string[], options: { cwd: string, signal?: AbortSignal }) => Promise<CommandResult>} CwdRunner
  * @typedef {{ path: string, line: number, ref: string }} Declaration
  * @typedef {{
  *   recordId: string, title: string, status?: string, bucket?: string, supersededBy?: string,
@@ -190,7 +190,7 @@ function shownDecision(entry) {
     out.declaredBy = entry['declaredBy']
       .filter(isRecord)
       .filter((d) => typeof d['path'] === 'string' && Number.isInteger(d['line']) && typeof d['ref'] === 'string')
-      .map((d) => ({ path: String(d['path']), line: Number(d['line']), ref: String(d['ref']) }));
+      .map((d) => ({ path: clip(String(d['path'])), line: Number(d['line']), ref: clip(String(d['ref'])) }));
   }
   return out;
 }
@@ -435,6 +435,10 @@ async function computeCheck({ cwd, input, run, env, exists, now }) {
 
 /** The most queue rows a snapshot carries; the count of the rest is kept. */
 export const QUEUE_LIMIT = 200;
+/** The most routing targets kept per queue row. */
+const ROUTING_LIMIT = 50;
+/** How long the queue may take before the panel shows a note instead. */
+export const QUEUE_TIMEOUT_MS = 30_000;
 
 /**
  * Fixed notes for a queue that could not be read. Never the CLI's own stderr
@@ -447,6 +451,8 @@ export const QUEUE_NOTES = {
   start: 'The open-proposal list is unavailable: the adr CLI could not be started.',
   unreadable: 'The open-proposal list is unavailable: adr queue did not return a readable report.',
   version: 'The open-proposal list is unavailable: adr queue returned a report version this panel does not read.',
+  tooLarge: 'The open-proposal list is unavailable: the adr queue report was too large to read.',
+  timeout: 'The open-proposal list is unavailable: adr queue did not finish in time.',
   /** @param {number} code */
   exit: (code) => `The open-proposal list is unavailable: adr queue exited ${code}.`,
 };
@@ -467,16 +473,21 @@ const stringOrNull = (value) => (typeof value === 'string' ? value : null);
  */
 function shownQueueItem(item) {
   return {
-    id: String(item['id']),
-    title: typeof item['title'] === 'string' ? item['title'] : '',
-    sourcePath: typeof item['sourcePath'] === 'string' ? item['sourcePath'] : '',
-    slaState: typeof item['slaState'] === 'string' ? item['slaState'] : '',
-    deadlineDate: stringOrNull(item['deadlineDate']),
+    id: clip(String(item['id'])),
+    // Repository text, so each string is bounded like a CLI message: it is
+    // broadcast to every panel and returned to the agent on each refresh.
+    title: typeof item['title'] === 'string' ? clip(item['title']) : '',
+    sourcePath: typeof item['sourcePath'] === 'string' ? clip(item['sourcePath']) : '',
+    slaState: typeof item['slaState'] === 'string' ? clip(item['slaState']) : '',
+    deadlineDate: typeof item['deadlineDate'] === 'string' ? clip(item['deadlineDate']) : null,
     approvalCount: intOr(item['approvalCount']),
     quorum: Number.isInteger(item['quorum']) ? /** @type {number} */ (item['quorum']) : null,
     unresolvedObjectionCount: intOr(item['unresolvedObjectionCount']),
     routingTargets: Array.isArray(item['routingTargets'])
-      ? item['routingTargets'].filter((target) => typeof target === 'string')
+      ? item['routingTargets']
+          .filter((target) => typeof target === 'string')
+          .slice(0, ROUTING_LIMIT)
+          .map((target) => clip(target))
       : [],
   };
 }
@@ -489,10 +500,17 @@ function shownQueueItem(item) {
  * and 1 both carry a complete report (1 means corpus findings); anything else
  * becomes a fixed note. Nothing here throws.
  *
- * @param {{ cwd: string, input: unknown, run: CwdRunner, env: Record<string, string | undefined>, exists: (path: string) => boolean }} deps
+ * A queue that has not answered within `timeoutMs` is abandoned (its process
+ * is signalled) and reported with a fixed note, so a hung `adr queue` never
+ * holds the governing view.
+ *
+ * @param {{
+ *   cwd: string, input: unknown, run: CwdRunner, env: Record<string, string | undefined>,
+ *   exists: (path: string) => boolean, timeoutMs?: number,
+ * }} deps
  * @returns {Promise<QueueView>}
  */
-export async function computeQueue({ cwd, input, run, env, exists }) {
+export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = QUEUE_TIMEOUT_MS }) {
   /** @param {string} note @param {number | null} [exitCode] @returns {QueueView} */
   const unavailable = (note, exitCode = null) => ({
     available: false,
@@ -513,11 +531,33 @@ export async function computeQueue({ cwd, input, run, env, exists }) {
   const dir = args.dir ?? env['ADRKIT_DIR'];
   /** @type {CommandResult} */
   let result;
+  const controller = new AbortController();
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+  const TIMED_OUT = Symbol('timed out');
   try {
     const cli = resolveCli({ env, cwd, exists });
-    result = await run(cli.command, [...cli.args, 'queue', '--format', 'json', ...(dir ? ['--dir', dir] : [])], { cwd });
-  } catch {
+    const running = run(cli.command, [...cli.args, 'queue', '--format', 'json', ...(dir ? ['--dir', dir] : [])], {
+      cwd,
+      signal: controller.signal,
+    });
+    const expired = new Promise((resolve) => {
+      timer = setTimeout(() => resolve(TIMED_OUT), timeoutMs);
+    });
+    const settled = await Promise.race([running, expired]);
+    if (settled === TIMED_OUT) {
+      controller.abort();
+      // The abandoned run rejects once signalled; nothing is waiting for it.
+      running.catch(() => {});
+      return unavailable(QUEUE_NOTES.timeout);
+    }
+    result = /** @type {CommandResult} */ (settled);
+  } catch (error) {
+    // Selected by an explicit code comparison; the error's own text is never used.
+    if (isRecord(error) && error['code'] === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return unavailable(QUEUE_NOTES.tooLarge);
     return unavailable(QUEUE_NOTES.start);
+  } finally {
+    clearTimeout(timer);
   }
   if (result.exitCode !== 0 && result.exitCode !== 1) return unavailable(QUEUE_NOTES.exit(result.exitCode), result.exitCode);
   /** @type {unknown} */
@@ -599,14 +639,25 @@ function snapshotOf(workspace) {
     ...check,
     status: combinedStatus(check.status, check.governing, review),
     notes,
-    // What a review would cost before it is started: the workflow's Judge makes
-    // one decision-checker call per governing decision (review.mjs).
-    judgeCalls: check.governing.length,
+    judgeCalls: judgeCallsOf(check),
     queue: workspace.queue,
     review: review
       ? { ...(review.runId ? { runId: review.runId } : {}), runStatus: review.runStatus, result: review.result }
       : null,
   };
+}
+
+/**
+ * What a review would cost before it is started. The workflow's Judge makes
+ * one decision-checker call per governing decision (review.mjs), and skips the
+ * Judge entirely when `adr check` or `adr lint` exit anything but 0 or 1, so
+ * those make none.
+ *
+ * @param {Snapshot} check
+ */
+function judgeCallsOf(check) {
+  const succeeded = (/** @type {number | null} */ code) => code === 0 || code === 1;
+  return succeeded(check.checkExitCode) && succeeded(check.lintExitCode) ? check.governing.length : 0;
 }
 
 /** @param {Snapshot} snapshot */
@@ -714,6 +765,7 @@ const singleHeader = (value) => (Array.isArray(value) ? undefined : value);
  *   stat?: (path: string) => Promise<{ size: number, mtimeMs: number }>,
  *   pollIntervalMs?: number,
  *   maxPolls?: number,
+ *   queueTimeoutMs?: number,
  * }} deps
  */
 export function createDecisionReviewCanvas({
@@ -729,6 +781,7 @@ export function createDecisionReviewCanvas({
   stat = (path) => nodeStat(path),
   pollIntervalMs = 2000,
   maxPolls = 1800,
+  queueTimeoutMs = QUEUE_TIMEOUT_MS,
 }) {
   /**
    * Panels by `instanceId`. A promise, so two concurrent opens of one panel
@@ -823,10 +876,13 @@ export function createDecisionReviewCanvas({
     const workspace = workspaceFor(cwd);
     if (input !== undefined) workspace.args = input;
     const seq = ++workspace.seq;
-    const snapshot = await computeCheck({ cwd, input: workspace.args, run, env, exists, now });
-    // After the check, not inside it: the queue is corpus-wide, so it runs with
-    // no changed files too, and it can never alter the check's result.
-    const queue = await computeQueue({ cwd, input: workspace.args, run, env, exists });
+    // Beside the check, not inside it: the queue is corpus-wide, so it runs with
+    // no changed files too, it can never alter the check's result, and its own
+    // timeout keeps a slow queue from holding the governing view.
+    const [snapshot, queue] = await Promise.all([
+      computeCheck({ cwd, input: workspace.args, run, env, exists, now }),
+      computeQueue({ cwd, input: workspace.args, run, env, exists, timeoutMs: queueTimeoutMs }),
+    ]);
     const fingerprint = await fingerprintOf(cwd, snapshot);
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
@@ -1231,10 +1287,11 @@ export function createDecisionReviewCanvas({
         name: 'run_review',
         description:
           'Start the adr-review dynamic workflow for { base, files, dir } (default: the panel\'s). ' +
-          'This spends AI credits: as the workflow is written it makes one decision-checker call per ' +
+          'This spends AI credits: as the workflow is written it makes at most one decision-checker call per ' +
           "governing decision, and get_state's judgeCalls is that count for the panel's current files " +
           '(runtime retries are not counted; new input re-checks first, so the count can change). With 0 ' +
-          'governing decisions nothing is judged. One measured run judged two decisions for about 0.16 AI ' +
+          'governing decisions, or when adr check or adr lint exits 2 or more, nothing is judged and ' +
+          'judgeCalls is 0. One measured run judged two decisions for about 0.16 AI ' +
           'credits on Copilot CLI 1.0.93; that is a measurement, not a price. ' +
           'Returns { runId, status } at once; the panel follows the run and shows its verdicts. Advisory only.',
         inputSchema: ARGS_SCHEMA,

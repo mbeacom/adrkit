@@ -134,26 +134,34 @@ answer. The page says what the CLI does not report instead.
 governing decisions in the current check. As `review.mjs` is written,
 `adr-review` makes at most that many `decision-checker` calls, and exactly that
 many when `adr check` and `adr lint` exit `0` or `1`; otherwise it skips the
-Judge and makes none. Runtime retries are not counted. The Run review button reads "Run review: N
-decision-checker call(s) (uses AI credits)", and is disabled with a stated
-reason ("No governing decision, so there is nothing to judge") when N is 0, as
-it already was with no changed files. The `run_review` action description says
-one call per governing decision, points to `judgeCalls`, says that new input
+Judge and makes none, so `judgeCalls` is 0 in that case. Runtime retries are
+not counted. The Run review button reads "Run review: N decision-checker
+call(s) (uses AI credits)", and is disabled with a stated reason when N is 0:
+"No governing decision, so there is nothing to judge", or, when governing
+decisions exist but `adr check` or `adr lint` failed, that the review would make
+no decision-checker calls. It was already disabled with no changed files. The
+`run_review` action description says at most one call per governing decision
+and none when check or lint exit 2 or more, points to `judgeCalls`, says that new input
 re-checks first so the count can change, and cites the one measured run (about
 0.16 AI credits for two decisions on Copilot CLI 1.0.93) as a measurement, not
 a price. The server does not refuse a zero-governing run from the agent: such a
 run reaches no Judge call, and the description says so.
 
-**3. Read-only queue.** Each refresh, after the check and independent of it,
-runs `adr queue --format json` with the same `--dir` the check used, in the
+**3. Read-only queue.** Each refresh, concurrently with the check and
+independent of it, runs `adr queue --format json` with the same `--dir` the check used, in the
 session directory, with the CLI resolved exactly as the check resolves it. It is
 free: one CLI call, no model. The result is a `queue` block on the snapshot:
 `{ available, asOf, exitCode, totalItems, corpusFindings, items, note }`, with
 each item reduced by allowlist to `id`, `title`, `sourcePath`, `slaState`,
 `deadlineDate`, `approvalCount`, `quorum`, `unresolvedObjectionCount`, and
 `routingTargets`, and at most 200 items with a note saying how many were left
-out. The page shows them in a section headed "Open proposals, corpus-wide",
-labelled "Listed, not judged".
+out. Each string in an item (and each `declaredBy` path and ref) is clipped to
+4000 characters, as CLI messages already are, and at most 50 routing targets are
+kept, because the snapshot is broadcast to every panel and returned to the agent
+on each refresh. The queue has its own timeout (30 seconds); past it, its
+process is signalled and the panel shows a note, so a hung `adr queue` never
+holds the governing view. The page shows the items in a section headed "Open
+proposals, corpus-wide", labelled "Listed, not judged".
 
 - **No ratify control and no ratifying text.** Queue rows have no button, no
   action, and no explain. Their ids are not added to the set explain accepts,
@@ -164,8 +172,9 @@ labelled "Listed, not judged".
   HTML, JavaScript, and CSS contain the command.
 - **Failures are notes, never breakage.** Exit `0` and `1` both carry a complete
   report (`1` means corpus findings, counted on the page). Exit `2`, a CLI that
-  cannot be resolved or started, unreadable output, and a report version other
-  than `1` each become `available: false` with a fixed note chosen by an
+  cannot be resolved or started, a report larger than the output buffer, a
+  timeout, invalid panel arguments, unreadable output, and a report version
+  other than `1` each become `available: false` with a fixed note chosen by an
   explicit check. The CLI's stderr and an exception's text are never copied into
   the note, following the rule CodeQL's `js/stack-trace-exposure` finding set
   for the first canvas. The queue never changes the panel's status, its
@@ -227,8 +236,9 @@ input re-checks first, and the repository can change between the check and the
 run, so the count is a statement about now, not a quote. Runtime retries are not
 counted.
 
-Each refresh runs one more CLI process. On a large corpus `adr queue` reads
-every record, so a refresh is slower than before.
+Each refresh runs one more CLI process. It runs alongside the check, so it adds
+latency only when it is the slower of the two, and never more than its timeout;
+on a large corpus `adr queue` reads every record.
 
 The queue is corpus-wide while the rest of the panel is change-scoped. The
 heading says so, but a reader can still mistake a listed proposal for one the
@@ -251,7 +261,8 @@ does.
   with nothing to judge; the ratifying command appears in the snapshot, the
   served state, the page, or an action result; a queue row gains a control or an
   explain; a queue failure changes the panel's status, its governing list, or
-  its notes, or puts CLI stderr or exception text on the page; refresh starts a
+  its notes, or puts CLI stderr or exception text on the page; a slow or hung
+  `adr queue` delays the governing view; refresh starts a
   model call; or a reviewer reads the corpus-wide queue as the change's own
   proposals. Revisit if `adr check --json` gains per-file attribution for
   pattern matches, in which case the panel should read it and drop the stated
