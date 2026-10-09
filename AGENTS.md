@@ -836,15 +836,31 @@ in the Copilot app. Load-bearing:
 - **Filters are the CLI's.** A focus or kind filter re-runs
   `adr graph --focus <id> --kind <kind>`; do not filter or walk the graph in
   JS, or the board can disagree with `adr graph`. The id is checked against a
-  record's own grammar and each kind against the three, before any spawn. The
-  runtime also enforces the kinds enum from the action schema (measured), but
-  not the id, so the extension's check is the one that holds.
+  record's own grammar (and refused past 64 characters, never clipped) and each
+  kind against the three, before any spawn. The action schemas carry the same
+  id pattern and the kinds enum, and the runtime was measured enforcing both
+  before the handler runs; the extension's check stays the authority.
+- **State is per panel; the queue is shared.** Filter, corpus directory, and
+  graph are keyed by panel id, so a focus in one board never moves another
+  (review M2, measured both ways). The queue is keyed by working directory and
+  corpus directory. Do not move the filter back to the working directory.
+- **A snapshot reports the filter its graph was read with.** `computeGraph`
+  stamps `graph.filter`, and `snapshotOf` reads it, never the pending request
+  (review M1). Only the newest graph read is applied; an overtaken focus
+  returns `superseded: true` with the current, consistent state. Tests with a
+  gated fake CLI fail if either sequence guard (graph or queue) is removed.
+- **A model-chosen `dir` is confined.** It must resolve inside the session root
+  lexically and through `staysInside` (tools.mjs), or the action is refused
+  with a fixed message before any spawn. `ADRKIT_DIR` is trusted.
+  decision-review's `dir` is not confined; that predates the board.
 - **Allowlists and budgets, as in ADR-0047.** Node `id`/`title`/`status`, edge
   `from`/`to`/`kind`, and the queue row's nine fields plus
   `resolvedObjectionCount` and `itemFindingCount`; everything else is dropped
   unnamed. Titles clip at 200 characters. At most 300 records (past that,
   counts by status), 1000 relationships, 200 queue rows, and 512 KiB per
-  snapshot by `Buffer.byteLength` (graph to summary first, then queue rows).
+  snapshot by `Buffer.byteLength` (graph to summary first, then queue rows),
+  on every route, action result, and event-stream frame (a test reads the
+  frames). A drawing past 20,000 px a side also becomes the summary.
   Each CLI call has a 30 s timeout. A failure is a fixed note from
   `BOARD_NOTES`, never stderr or exception text.
 - **The layout runs on the server, in a pure module.** `board-layout.mjs` has no
@@ -859,7 +875,9 @@ in the Copilot app. Load-bearing:
   board, or a `createCanvas` that refuses it, costs neither decision-review,
   the workflow, the tools, nor the hooks. `LABELS.canvases` stays
   "decision-review canvas" when the board is absent, because existing tests
-  assert that text; with both present, the failure log names both.
+  assert that text; with both present, the failure log names both. Known
+  limit: the join ladder has no board-only rung, so a join the runtime refuses
+  because of the board drops decision-review too (ADR-0050).
 - **The post-edit hook does not refresh boards.** Adding a graph and queue
   read under the hooks' 15 s single-flight signal was left out on purpose.
 

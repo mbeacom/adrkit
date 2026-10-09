@@ -563,7 +563,9 @@ ADR-0047). It renders what the CLI computed and derives nothing of its own:
   `adr graph --focus <id>`, and the kind checkboxes add `--kind`, so the board
   and `adr graph` cannot disagree. The id must be a record id (four or more
   digits, or a ULID) and each kind one of the three; anything else is refused
-  before the CLI runs.
+  before the CLI runs. Each open board keeps its own focus: focusing one does
+  not move another. A corpus directory chosen through the board must be inside
+  the repository.
 - **The queue** comes from `adr queue --format json` and shows each open
   proposal's raw review facts: approvals against quorum, unresolved and
   resolved objections, SLA state, deadline, routing, and how many findings it

@@ -981,6 +981,26 @@ called through `session.rpc.canvas.action.invoke`, whose result is
 The fixture run first showed `1 records`; the status line now counts in the
 singular, covered by a unit test.
 
+### Re-run after the first review (same host, `01a10cf`, 50 records)
+
+The review found that panels on one repository shared a filter, that a focus
+result could report another call's filter, and smaller issues. After the fix,
+the same harness against this repository (now 50 records, with ADR-0050):
+
+| # | Probe | Result |
+|---|-------|--------|
+| B18 | Open, state | `50 records · 244 relationships`, 4 queue rows, 20,491 bytes |
+| B19 | `focus { id: "0046" }` | 11 records, 10 relationships; `filter.id` `0046` |
+| B20 | Panel B opened with `{ id: "0046" }`, then panel A's `get_state` | B: `11 records · 10 relationships · focus 0046 · 4 open`. A: still 50 records, 244 relationships, no filter |
+| B21 | `focus { id: "12" }` and a 65-digit id | Refused by the runtime from the new schema `pattern` and `maxLength`, before the handler |
+| B22 | `refresh { dir: "../.." }` | Refused with the fixed message `dir must resolve inside the session repository, also after following symbolic links. Nothing was run.` |
+| B23 | Boundaries and close | Unchanged from B16 |
+
+The overlapping-focus result (`superseded: true`), the event-stream byte
+budget, both sequence guards, the extent cap, and symlink confinement are
+covered by unit tests, each observed failing under the mutation that removes
+it; none was provoked in the SDK host.
+
 ### Local browser render (not the Copilot app)
 
 The board was served by a Node script against this repository and opened in
@@ -1002,6 +1022,9 @@ which the token check refuses like every other route.
 - The 30-second graph timeout and the oversized-output note. Unit tests only.
 - Whether the app forwards `ADRKIT_CLI` and `ADRKIT_DIR` to the extension (the
   ADR-0046 open question).
+- A join the runtime refuses because of the board's definition. There is no
+  ladder rung that drops only the board, so decision-review would be dropped
+  with it; this is a stated limit in ADR-0050, not a measurement.
 
 ## Verdict
 

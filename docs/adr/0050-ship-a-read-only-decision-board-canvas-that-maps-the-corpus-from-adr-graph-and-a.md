@@ -85,16 +85,22 @@ no workflow run, so no model calls):
    relationships. A focus on 9999 returned the fixed exit-2 note.
 2. **Against a four-record fixture:** 4 records, no relationships, 2 queue rows;
    a focus on 0004 returned 1 record.
-3. **Input validation happens twice for kinds, once for ids.** The runtime
-   checked the action's JSON Schema before the handler ran: an unknown kind was
-   refused with the runtime's own schema message. A malformed id has no schema
-   pattern, so it reached the handler and was refused there with the board's
-   fixed message.
+3. **The runtime enforces the action schema before the handler runs.** An
+   unknown kind was refused with the runtime's own schema message. In the first
+   measurement the id had no schema pattern, so a malformed id reached the
+   handler and was refused there with the board's fixed message. After the
+   review added `pattern` and `maxLength` to the id, the runtime refused `12`
+   and a 65-digit id itself; the extension's check stays the authority.
 4. **The 403s, the CSP, and the port release behaved as decision-review's:**
    no token or a wrong token gave 403 on every route tried; a POST without the
    header token or with a foreign `Origin` gave 403; both panels' ports refused
    connections after close.
-5. **The ratifying command reaches the snapshot only as repository text.** It
+5. **Panels keep their own view** (re-measured after review, against 50
+   records): with panel A on the whole corpus, opening panel B with a focus on
+   0046 gave B `11 records · 10 relationships · focus 0046`, and A's
+   `get_state` still reported 50 records, 244 relationships, and no filter. A
+   `refresh` with `dir: "../.."` was refused with the fixed confinement message.
+6. **The ratifying command reaches the snapshot only as repository text.** It
    appeared in `/api/state` exactly once, inside ADR-0044's own title; with
    titles blanked, the snapshot did not contain it. `/app.js` did not contain
    it.
@@ -125,12 +131,18 @@ in `board.mjs` (server and actions), `board-page.mjs` (page), and
    filtering of its own, so it cannot disagree with `adr graph`. The id must
    match a record's own grammar (four or more digits, or a ULID) and each kind
    must be one of the three, checked in the extension before anything is
-   spawned; refusals are fixed messages chosen by which check failed.
+   spawned; refusals are fixed messages chosen by which check failed. An id over
+   64 characters is refused, not clipped. The action schemas carry the same
+   pattern so the runtime refuses a bad id first.
+   A model-chosen `dir` must resolve inside the session repository, lexically
+   and after symbolic links are followed (the read-only tools' rule, ADR-0048);
+   `ADRKIT_DIR` from the environment is the user's own choice and is trusted.
 4. **Allowlists and budgets, as in ADR-0047.** A node keeps `id`, `title`,
    `status`; an edge keeps `from`, `to`, `kind`; a queue row keeps the nine
    fields `decision-review` keeps plus `resolvedObjectionCount` and an
    `itemFindingCount`. Anything else is dropped unnamed. Titles are clipped to
-   200 characters. The board draws at most 300 records and 1000 relationships
+   200 characters. A record whose id is longer than 64 characters is not drawn,
+   with a fixed note counting it, because a clipped id would name no record. The board draws at most 300 records and 1000 relationships
    and lists at most 200 queue rows; past 300 records it shows counts by status
    and asks for a focus, as ADR-0033's terminal view does. One snapshot is held
    to 512 KiB by `Buffer.byteLength`: the graph becomes a summary first, then
@@ -140,19 +152,30 @@ in `board.mjs` (server and actions), `board-page.mjs` (page), and
    deterministic: columns come from supersession only (the replaced record sits
    left of its successor), each supersession component gets its own band of
    rows, records outside any chain fill a grid, and every tie breaks by id. A
-   cycle terminates. The page draws the coordinates it is sent.
+   cycle terminates. A drawing wider or taller than 20,000 px (a very long
+   chain, or a cycle in a malformed corpus) falls back to the summary with a
+   fixed note. The page draws the coordinates it is sent.
 6. **Rendering.** SVG built with `createElementNS`, text through `textContent`
    only, classes through `setAttribute('class', …)`; no library, no HTML sink,
    no inline script or style, and the same CSP as decision-review. Status is
    shown by color and by a text label; a relationship kind by line style and a
-   legend. The theme reuses decision-review's app tokens. Records are focusable,
+   legend, and only `supersedes`, the one directed kind, has an arrowhead. The theme reuses decision-review's app tokens. Records are focusable,
    and Enter selects one; the detail pane shows its fields, its neighbors, and
    its queue row if it has one.
 7. **Agent surface.** `get_state`, `refresh`, and `focus({ id?, kinds? })`, all
    described as read-only with no model calls. Invalid input throws
    `invalid_input`. Open, refresh, and focus accept `null` input, as the app's
    agent was measured sending it.
-8. **Packaging.** The board registers as a second entry in `canvases`, built in
+8. **State is per panel, and a result never misreports its filter.** Each open
+   board keeps its own filter, corpus directory, and graph, keyed by its panel
+   id, so a focus in one board does not move another on the same repository.
+   The queue is shared by working directory and corpus directory. A graph read
+   carries the filter it was made with, and every snapshot reports that pair,
+   never a pending request. Only the newest read is applied; a focus that a
+   later one overtakes is dropped and answers with `superseded: true` and the
+   board's current state. Every snapshot, including each event-stream frame,
+   goes through the byte budget.
+9. **Packaging.** The board registers as a second entry in `canvases`, built in
    its own guarded `try` in `register.mjs`, so a throwing board costs neither
    the workflow, decision-review, the tools, nor the hooks. Its server starts
    lazily inside `open()`. It takes its directory from
@@ -199,6 +222,14 @@ Rejected: the plugin ships no dependencies, and an extension cannot import one.
   past 300 records the board stops drawing.
 - One extension process now serves two canvases. A board server starts only
   when a board is opened.
+- **Known limit: the join ladder has no board-only rung.** The board is a
+  second entry in the one `canvases` field. If a future runtime refused the
+  whole join because of the board's definition (its id, or a schema shape such
+  as `type: ['object', 'null']` with a nested `enum`, which 1.0.93 accepts),
+  the ladder could only drop `canvases` as a whole, and decision-review would
+  go with it. A throwing factory or a refusing `createCanvas` is isolated; a
+  join refusal is not. Accepted for now; a board-only rung is the fix if it is
+  ever observed.
 
 ## Consequences
 
@@ -211,7 +242,8 @@ Rejected: the plugin ships no dependencies, and an extension cannot import one.
   control that writes, ratifies, or starts a workflow; a planted field (a
   ratifying command among them) reaches the snapshot, the served state, the page,
   or an action result (a record whose own title reads like the command is data,
-  not a failure); CLI stderr or exception text reaches the page or the agent; a
+  not a failure); a focus in one board moves another, or a result reports a
+  filter its graph was not read with; CLI stderr or exception text reaches the page or the agent; a
   throwing board takes down decision-review, the workflow, the tools, or the
   hooks; opening the extension binds a port without a board being opened; or
   the snapshot exceeds its budget.
