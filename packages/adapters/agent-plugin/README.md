@@ -72,7 +72,9 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.8.0 adds the advisory session hooks; 0.7.0 added the read-only
+Version 0.8.1 hardens the extension (fixed error messages, `/cd` for the
+workflow, batched checks for wide changes, and process-tree cleanup); 0.8.0
+added the advisory session hooks; 0.7.0 added the read-only
 `adr_check`, `adr_explain`, and `adr_lint` extension tools; 0.6.0 added
 provenance, review cost, and the open-proposal queue to the `decision-review`
 canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review` workflow; 0.3.0
