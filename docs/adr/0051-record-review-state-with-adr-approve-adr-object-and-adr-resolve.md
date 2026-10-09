@@ -25,7 +25,15 @@ affects:
   - type: path
     pattern: "packages/core/src/transition/**"
   - type: path
+    pattern: "packages/core/src/schema/identity.ts"
+  - type: path
+    pattern: "packages/core/src/queue/kernel.ts"
+  - type: path
     pattern: "packages/cli/src/review-commands.ts"
+  - type: path
+    pattern: "packages/cli/src/accept.ts"
+  - type: path
+    pattern: "packages/cli/src/index.ts"
   - type: path
     pattern: "packages/cli/src/record-target.ts"
   - type: path
@@ -39,6 +47,8 @@ provenance:
 > **Status: proposed.** Agent-drafted and not ratified. This record grows the
 > public write surface that ADR-0044 set at three commands. It supersedes
 > nothing; ADR-0044's design for `adr accept` stays binding and is reused here.
+> It amends one ADR-0044 semantic: approvals toward `review.quorum` now count
+> distinct identities (see "Shared rules").
 
 ## Context
 
@@ -81,18 +91,40 @@ transition kernel as `adr accept`.**
 - **The record must be `proposed`.** Review state changes only while a record
   is under review. Any other status, and any record with lint errors, is
   refused with exit `1` and the file left untouched.
-- **`--by` is required, is never inferred, and must be a schema `Identity`.**
-  It names the person whose review this is. Like `adr accept`, the command does
-  not read git config or the environment for it. `--by` is a claim, not an
-  authentication; the pull request remains the control.
-- **Only the objector may resolve an objection.** `--by` must equal that
-  objection's `by`, compared as exact strings. The schema has no `resolvedBy`
+- **`--by` is required, is never inferred, and must be a schema `Identity`
+  with no control or invisible characters.** It names the person whose review
+  this is. Like `adr accept`, the command does not read git config or the
+  environment for it, and given twice it is a usage error. `--by` is a claim,
+  not an authentication; the pull request remains the control. The schema's
+  email branch admits control and format characters (`\p{Cc}`, `\p{Cf}`: an
+  escape, a bidi override, a zero-width space); no writing command records
+  one, `adr accept` included. Tightening `Identity` itself is a schema change
+  this record does not make.
+- **Identities compare case-insensitively.** Two identities are the same person
+  when they are equal after an ASCII casefold of the whole identity, so `@bob`
+  and `@Bob`, and `Eve@Example.com` and `eve@example.com`, are one person.
+  GitHub handles and team slugs are case-insensitive, and so in practice is an
+  email address. This applies to the approve and object no-ops and to the
+  objector check. Non-ASCII letters are not folded.
+- **Quorum counts people, not entries.** One reviewer approving as `@bob` and
+  again as `@Bob` must not meet a quorum of two. So `adr approve` writes
+  nothing for a case variant, and `acceptAdrSource`'s quorum check and
+  `adr queue`'s `approvalCount` now count distinct identities under the same
+  fold. That is a behavior fix to ADR-0044's semantics, which counted entries:
+  a record that hand-listed two spellings of one person met quorum before and
+  does not now.
+- **Only the objector may resolve an objection.** `--by` must be the same
+  identity as that objection's `by`, under the fold above. The schema has no `resolvedBy`
   field, so the record of *who* resolved it is that it was the objector. A
   chair override, and a `resolvedBy` field that would make one auditable, are
   future work and need a schema change this record does not make.
 - **A summary is one safely quoted line.** It is trimmed, must be non-empty, is
-  at most 500 code points, and may contain no control character (C0, DEL, C1)
-  and no U+2028 or U+2029 line separator. It is always written as a YAML
+  at most 500 code points after trimming, and may contain no control character
+  (C0, DEL, C1), no invisible format character (`\p{Cf}`: bidi overrides and
+  isolates, zero-width spaces and joiners, the BOM), and no U+2028 or U+2029
+  line separator. A summary is shown in the queue, in diffs, and on the canvas,
+  where a bidi override would render reversed text. Refusing every format
+  character also refuses an emoji ZWJ sequence; that is accepted. It is always written as a YAML
   double-quoted scalar, so `#`, `:`, quotes, and leading indicators survive.
 - **The transitions are pure.** `approveAdrSource`, `objectAdrSource`, and
   `resolveObjectionAdrSource` live in `packages/core/src/transition/` with no
@@ -101,8 +133,12 @@ transition kernel as `adr accept`.**
   handle `review:` absent, `review:` present without the list, a block list,
   and a flow list, empty or not. A flow list stays a flow list and a block list
   stays a block list; an `objections: []` therefore grows as a flow list of flow
-  mappings rather than being rewritten as a block. A layout they cannot splice
-  safely (for example `review: {…}`) is refused with a message to edit by hand.
+  mappings rather than being rewritten as a block. An insertion never backs up
+  into the value above it, so a literal block whose content has a `# …` line and
+  a keep-chomped (`|+`) scalar with trailing blank lines are spliced around, and
+  `resolve` finds an item whose `-` stands alone on its line. A layout they
+  cannot splice safely (for example `review: {…}`, or a `review` that is not a
+  block mapping) is refused with a message to edit by hand.
 - **The re-parse guard is shared, not copied.** The splice helpers and the
   "parse again, compare to the intended data, validate" tail moved from
   `accept.ts` into an internal `transition/splice.ts`, so every transition goes
@@ -114,25 +150,37 @@ transition kernel as `adr accept`.**
   positive whole number are usage errors, checked before the corpus is read;
   the core transitions refuse the same inputs independently. All three take
   `--json`, because `adr accept` does.
-- **`adr accept` is unchanged** apart from sharing the CLI's record lookup
-  (`record-target.ts`), with its messages kept byte for byte.
+- **`adr accept` changes in three ways only.** It shares the CLI's record
+  lookup (`record-target.ts`), with its messages kept byte for byte; its quorum
+  check counts distinct identities; and it refuses a ratifier with control or
+  invisible characters.
 
 ### Agent boundary
 
 These commands write review state under a person's identity, so **no agent
 surface runs them on the model's initiative**: no skill, subagent, command,
-MCP tool, or extension tool. The agent plugin's wiring test fails if any
-command, skill, agent, or extension module other than the canvas mentions
-`adr approve`, `adr object`, or `adr resolve`, and it was observed failing
-against planted mentions in a command, `tools.mjs`, and `hooks.mjs`
-(ADR-0016). The MCP server stays at four read-only tools.
+MCP tool, or extension tool. Three tests enforce it, each observed failing
+against planted mentions (ADR-0016):
+
+- The agent plugin's wiring test fails if any command, skill, agent, or
+  extension module, the canvas included, names `adr approve`, `adr object`, or
+  `adr resolve`. The same test now guards `adr accept` the same way. Its
+  patterns catch the forms an extension would really use, not only prose: an
+  argument array (`['approve', id, …]`, but not a JSON-schema type list), a
+  tool name (`adr_approve`), and a call through `adr`, `$ADRKIT_CLI`, or
+  `@adrkit/cli`, in any case and across invisible characters.
+- The Spec Kit extension's test applies the same patterns, plus its
+  `adrkit_cli` wrapper, to its commands, scripts, and manifest.
+- The MCP server's test applies them to its source and also refuses an import
+  of any writing transition. The server stays at four read-only tools.
 
 The **only** planned plugin path is a later track: a person pressing a button
 in the Copilot app's canvas, with the identity taken from the environment
-(`ADRKIT_REVIEWER`), never from the model and never from a tool argument. That
-is why the canvas modules are left out of the wiring guard: the track that
-builds the button will govern them, under its own record. Until then the canvas
-runs none of these commands.
+(`ADRKIT_REVIEWER`), never from the model and never from a tool argument. The
+canvas's `actions` are model-callable, so the canvas stays under the guard. The
+track that builds the button will add one narrowly scoped, tested exception for
+a single module that handles the page's POST, under its own record, and a test
+that no canvas action can reach the verbs.
 
 ## Options considered
 
@@ -205,10 +253,12 @@ safely.
 
 Rung 1 of ADR-0014: unit coverage of every splice shape for every command
 (review absent, review with other keys, block list, empty flow list, flow list
-with items, CRLF, comments near the block), every refusal leaving the source
+with items, CRLF, comments near the block, a lone `-`, a literal block with a
+`#` line, a keep-chomped scalar), case-variant identities, every refusal leaving the source
 untouched, idempotence, the re-parse guard against a deliberately broken
-splice, a whole-corpus test over this repository's records, and CLI tests
-including an end-to-end approve, object, resolve, queue, and accept sequence.
+splice, a whole-corpus test over this repository's records comparing the whole
+file, and CLI tests including an end-to-end approve, object, resolve, queue,
+and accept sequence and a `@bob`/`@Bob` quorum pin.
 No reference-repository or external run.
 
 ## Action items
@@ -219,9 +269,11 @@ No reference-repository or external run.
 2. [x] Ship `adr approve`, `adr object`, and `adr resolve` in `@adrkit/cli`,
        registered for help and all three completion shells, Node-compatible,
        with exit codes `0`/`1`/`2` and `--json`.
-3. [x] Enforce in the agent plugin's tests that no non-canvas component
-       mentions the three verbs.
-4. [x] Update `AGENTS.md`, the CLI README, `site/src/content/docs/commands.mdx`,
+3. [x] Enforce in the agent plugin's, Spec Kit extension's, and MCP server's
+       tests that no component mentions the three verbs, the canvas included.
+4. [x] Count distinct identities, case-insensitively, in `adr accept`'s quorum
+       check and `adr queue`'s `approvalCount`.
+5. [x] Update `AGENTS.md`, the CLI README, `site/src/content/docs/commands.mdx`,
        and `CHANGELOG.md`, including every statement of the write surface.
-5. [ ] Extend the extension tools' writing-command scrub to the three verbs.
-6. [ ] Ratify this record with `adr accept 0051 --by <maintainer>`.
+6. [ ] Extend the extension tools' writing-command scrub to the three verbs.
+7. [ ] Ratify this record with `adr accept 0051 --by <maintainer>`.

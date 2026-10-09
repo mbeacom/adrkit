@@ -454,8 +454,8 @@ any record. `--by` is required and is never inferred from git or the
 environment, because naming who ratified the decision is the point.
 
 It refuses, exits `1`, and leaves the file untouched when the record is not
-`proposed`, has an unresolved objection, has fewer approvals than its
-`review.quorum`, already has lint errors, or would not be a valid accepted
+`proposed`, has an unresolved objection, has fewer distinct approvers than its
+`review.quorum` (`@bob` and `@Bob` count once), already has lint errors, or would not be a valid accepted
 record — for example, one with no `deciders`. `--by` never counts as an
 approval.
 
@@ -500,13 +500,15 @@ adr resolve 0044 --objection 1 --by @hubot                      # resolve your o
 Each changes only the list it owns and no other line, keeps a flow list
 (`[...]`) a flow list, and commits nothing. A repeat writes nothing and exits
 `0`: approving twice, raising the same open objection twice, or resolving a
-resolved objection. `--by` is required and is never inferred.
+resolved objection. `--by` is required and is never inferred, and identities
+compare case-insensitively: `@Bob` after `@bob` is the same approval, and the
+objector may resolve under either spelling.
 
 | Option | Meaning |
 |---|---|
 | `<id>` | ADR id as shown by `adr queue`; `44` and `ADR-0044` also resolve to `0044` |
 | `--by <identity>` | Required. `@handle`, `team:slug`, or an email address |
-| `--summary <text>` | `adr object` only. Required, one line, at most 500 characters |
+| `--summary <text>` | `adr object` only. Required, one line, at most 500 characters, no control or invisible characters |
 | `--objection <n>` | `adr resolve` only. Required, a whole number from 1 |
 | `--dir <path>` | ADR corpus directory (default: `docs/adr`) |
 | `--json` | Emit `{ id, path, by, changed, approvals }` (approve) or `{ id, path, by, changed, objection }` (object, resolve) |

@@ -101,7 +101,8 @@ objection `n` (counting from 1, in file order), and only the objector may
 resolve it. Each acts only on a `proposed` record, changes no other line,
 commits nothing, and leaves the file untouched on a repeat (approving twice,
 the same open objection twice, resolving a resolved objection). `--by` is
-required and is never inferred. Exit codes match `adr accept`: `0` written or
+required and is never inferred, and identities compare case-insensitively, so
+`@Bob` after `@bob` is the same approval and quorum counts distinct people. Exit codes match `adr accept`: `0` written or
 unchanged, `1` refused, `2` usage error; `--json` is available on all three.
 `adr queue`'s approval and objection counts follow these writes
 ([ADR-0051](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md), proposed).

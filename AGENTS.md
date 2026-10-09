@@ -309,31 +309,52 @@ and objection counts change with them.
   becomes `approvals: ["@bob"]`; `objections: []` grows a flow mapping. Turning
   either into a block would be a second, unowned layout change. A layout that
   cannot be spliced, such as `review: {…}`, is refused with exit `1`.
-- **Only the objector may resolve.** `--by` must equal the objection's `by`,
-  exactly. There is no `resolvedBy` field and no chair override; both need a
+- **Identities compare by ASCII casefold of the whole identity**
+  (`packages/core/src/schema/identity.ts`): `@bob` and `@Bob` are one person.
+  That governs the approve and object no-ops and the objector check, and it is
+  why `acceptAdrSource`'s quorum check and the queue kernel's `approvalCount`
+  count **distinct** identities, a fix to ADR-0044's entry count. Before it, one
+  reviewer approving under two spellings met a quorum of two. Do not go back
+  to `approvals.length` or `includes` anywhere approvals are counted or matched.
+- **Only the objector may resolve.** `--by` must be the objection's `by` under
+  that fold. There is no `resolvedBy` field and no chair override; both need a
   schema change and are future work in ADR-0051. Do not add either here.
 - **Repeats are no-ops**, exit `0` with no write: an identity that already
   approved, the same open objection (same `by` and summary), an objection that
   is already resolved. The core result says `changed: false` and the CLI skips
   `writeFile`.
 - **A summary is one line, written double-quoted.** Trimmed, non-empty, at most
-  500 code points, no C0/C1 control, DEL, U+2028, or U+2029. The CLI checks it
-  as a usage error (exit `2`) and core refuses it independently.
+  500 code points after trimming, no control character (`\p{Cc}`), no invisible
+  format character (`\p{Cf}`: bidi overrides, zero-width characters, the BOM),
+  no U+2028 or U+2029. `--by` gets the same control and format check in all
+  four ratifying and review commands, because the schema's email branch admits
+  both. The CLI checks these as usage errors (exit `2`) and core refuses them
+  independently; a repeated `--by` is a usage error too.
+- **An insertion never backs up into the value above it.** `backUpOverTrivia`
+  takes a floor at the end of that value, so a literal block's `# …` line and a
+  keep-chomped scalar's trailing blank lines stay inside their scalar, and
+  `resolve` scans back to an item's `-` when it stands alone on its line.
 - **The record must be `proposed`**, for all three. `--by` is mandatory and
   never inferred. A BOM-prefixed record is already invalid to `adr lint`
   (`parseFrontmatter` requires a leading `---`), so these refuse it, as
   `adr accept` does.
-- **All four writing commands find their record through
+- **`adr accept` and the three review commands find their record through
   `packages/cli/src/record-target.ts`**, which accept's lookup moved into with
   its messages unchanged.
-- **No agent surface runs them.** The agent plugin's wiring test fails if a
-  command, skill, agent, or any extension module except `canvas*.mjs` mentions
-  `adr approve`, `adr object`, or `adr resolve`; it was observed failing against
-  planted mentions. The canvas is excluded on purpose: ADR-0051 names a person
-  pressing a canvas button, with the identity read from `ADRKIT_REVIEWER` and
-  never from the model, as the one planned plugin path, for a later track to
-  build and govern. The extension tools' `redactWritingCommands` does not yet
-  name these verbs; extending it is open in ADR-0051.
+- **No agent surface runs them, and the guard checks code, not only prose.**
+  The agent plugin's wiring test fails if a command, skill, agent, or any
+  extension module, the canvas included, names `accept`, `approve`, `object`,
+  or `resolve` as a CLI call: in an argument array (`['approve', id, …]`), as a
+  tool name (`adr_approve`), or after `adr`, `$ADRKIT_CLI`, or `@adrkit/cli`, in
+  any case and across invisible characters. A prose-only pattern was green
+  while an extension spawning `['approve', …]` passed it. The Spec Kit
+  extension (plus its `adrkit_cli` wrapper) and the MCP server (plus any import
+  of a writing transition) have the same guard. The canvas's `actions` are
+  model-callable, so it stays guarded: the later button track, which takes the
+  identity from `ADRKIT_REVIEWER` and never from the model, adds one narrow,
+  tested exception for a single page-POST handler module under its own record.
+  The extension tools' `redactWritingCommands` does not yet name these verbs;
+  extending it is open in ADR-0051.
 
 ## Moving Action tag recovery
 

@@ -135,6 +135,21 @@ Until `1.0.0`, minor releases may include breaking changes
   frontmatter changed only the field they own; that re-check is now shared by
   all four transitions.
 
+### Fixed
+
+- **One reviewer no longer meets a quorum of two.** `adr accept`'s quorum check
+  and `adr queue`'s `approvalCount` now count distinct identities, comparing
+  them by an ASCII casefold of the whole identity, so `@bob` and `@Bob` are one
+  approval. Before, a record listing one person under two spellings met
+  `review.quorum: 2`. `adr approve` treats a case variant as already approved,
+  and only the objector, in any case, may resolve an objection
+  ([ADR-0051](docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md),
+  proposed, amending ADR-0044's count).
+- **`adr accept` refuses a ratifier with control or invisible characters.** The
+  schema's email form admits an escape sequence or a bidi override; `--by` with
+  one is now a usage error in `adr accept` and the review commands, so none of
+  them writes one into a record or echoes it to a terminal.
+
 ### Documentation
 
 - **Recorded why the agent plugin declares no Agent Plugins 1.0 `extensions` logo.**
