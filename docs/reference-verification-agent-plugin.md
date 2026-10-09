@@ -935,6 +935,114 @@ live.
 | R11 | Copilot review on #272 | A capped result must list exactly the canonical 200-path prefix, checked even when its digest matches, and any result is refused above 200 paths. An explicit `files` list over 200 paths makes the run `incomplete` with a fixed note. Four tests in `test/round2.test.ts`, observed failing first. |
 | R10 | Re-review Lows (optional, fixed before the PR) | `test/round2.test.ts`, all observed failing first (15 cases). A capped result without `filesDigest` is refused. A hook check ended by a signal, a timeout, or an abort is not cached, and the next edit checks again; a CLI that cannot start stays cached. Probing a group that still looks alive stops after 10 probes. `base` is held to `^[A-Za-z0-9._/@{}~^-]+$`, with no leading `-` and `..` only in a `...` range, in both the workflow and the tools. |
 
+## `decision-board` canvas (2026-10-09)
+
+Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipping as plugin 0.9.0), for the
+canvas proposed in [ADR-0050](adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**). Rows are numbered B1
+onward so they do not collide with other sections.
+
+### CLI output shapes (this repository)
+
+The CLI was built from the branch (`bun run build`) and run with Node.
+
+| # | Probe | Result |
+|---|-------|--------|
+| B1 | `adr graph --format json` | `{ nodes, edges }`; each node `{ id, title, status }`, each edge `{ from, to, kind }`. 49 nodes, 238 edges. Exit 0 |
+| B2 | `adr graph --format json --focus 0046 --kind supersedes --kind relatesTo` | 10 nodes and 9 `relatesTo` edges, every edge touching 0046. Exit 0 |
+| B3 | `adr graph --format json --focus 9999` and `--kind bogus` | Exit 2 with a usage message on stderr, for both |
+
+### Headless SDK host (Copilot CLI 1.0.93, no model calls)
+
+The ADR-0046 smoke host (`CopilotClient`,
+`createSession({ pluginDirectories, requestCanvasRenderer: true, requestExtensions: true, workingDirectory })`),
+with `pluginDirectories` set to this branch's plugin directory at `28da95e` and
+`ADRKIT_CLI` set in the runtime's environment to the branch's built CLI. No
+prompt was sent and no workflow was run, so nothing was spent. Actions were
+called through `session.rpc.canvas.action.invoke`, whose result is
+`{ result }`.
+
+| # | Probe | Result |
+|---|-------|--------|
+| B4 | `canvas.list` | `decision-review` and `decision-board`, both from `plugin:adrkit:adrkit` |
+| B5 | Open on this repository | Status `49 records · 238 relationships`; URL on `127.0.0.1` |
+| B6 | Page headers | `GET /` 200 `text/html`, the ADR-0046 CSP, `nosniff`, `no-store`. `/app.js` 200, uses `createElementNS`, contains no `innerHTML`, no ratifying command, and no "ready" |
+| B7 | State | `mode: "graph"`, 49 nodes, 238 edges (236 `relatesTo`, 2 `supersedes`), 3 queue rows (0047, 0048, 0049) with exactly the eleven allowlisted fields, 19,618 bytes serialized |
+| B8 | Ratifying command | Present in `/api/state` only inside ADR-0044's own title; absent with titles blanked, and absent from `/app.js` |
+| B9 | `focus { id: "0046" }` | 10 records (0007, 0014, 0022, 0028, 0034, 0045, 0046, 0047, 0048, 0049) and 9 relationships, matching B2 |
+| B10 | `focus { kinds: ["supersedes"] }` | 4 records and 2 relationships |
+| B11 | `focus { id: "9999" }` | `available: false` with the fixed exit-2 note; the queue was unaffected |
+| B12 | `focus { id: "12" }` | Refused by the board's handler: `id must be a record id: four or more digits, or a 26-character ULID.` |
+| B13 | `focus { kinds: ["approves"] }` | Refused by the runtime before the handler ran, with its own schema message (`/kinds/0: "approves" is not one of …`). The id has no schema pattern, so B12 reached the handler |
+| B14 | `focus null`, then `refresh null` | Back to 49 records and 238 relationships |
+| B15 | Open a second panel with `{ id: "0046" }` | Status `10 records · 9 relationships · focus 0046 · 3 open` |
+| B16 | Boundaries | No token or a wrong token: 403 on `/` and `/api/state`. `POST /api/refresh` without the header: 403. `POST /api/focus` with the header and a foreign `Origin`: 403. `POST /api/focus` with a bad id: 400 with the fixed message. After close, both panels' ports refused connections |
+| B17 | Open on a four-record fixture (no relationships, two proposals) | Status `4 records · 0 relationships`; 2 queue rows; `focus { id: "0004" }` gave 1 record; `{ kinds: ["supersedes"] }` gave 0 |
+
+The fixture run first showed `1 records`; the status line now counts in the
+singular, covered by a unit test.
+
+### Re-run after the first review (same host, `01a10cf`, 50 records)
+
+The review found that panels on one repository shared a filter, that a focus
+result could report another call's filter, and smaller issues. After the fix,
+the same harness against this repository (now 50 records, with ADR-0050):
+
+| # | Probe | Result |
+|---|-------|--------|
+| B18 | Open, state | `50 records · 244 relationships`, 4 queue rows, 20,491 bytes |
+| B19 | `focus { id: "0046" }` | 11 records, 10 relationships; `filter.id` `0046` |
+| B20 | Panel B opened with `{ id: "0046" }`, then panel A's `get_state` | B: `11 records · 10 relationships · focus 0046 · 4 open`. A: still 50 records, 244 relationships, no filter |
+| B21 | `focus { id: "12" }` and a 65-digit id | Refused by the runtime from the new schema `pattern` and `maxLength`, before the handler |
+| B22 | `refresh { dir: "../.." }` | Refused with the fixed message `dir must resolve inside the session repository, also after following symbolic links. Nothing was run.` |
+| B23 | Boundaries and close | Unchanged from B16 |
+
+The overlapping-focus result (`superseded: true`), the event-stream byte
+budget, both sequence guards, the extent cap, and symlink confinement are
+covered by unit tests, each observed failing under the mutation that removes
+it; none was provoked in the SDK host.
+
+### Re-run after rebasing onto the 0.8.1 hardening (same host, `6b22f11`, 51 records)
+
+After rebasing onto the 0.8.1 hardening (spawn-based `runCommand` with process
+groups) and the review-state CLI, the board runs through `spawn` like every
+other component. The same harness, with the CLI rebuilt from the rebased
+branch:
+
+| # | Probe | Result |
+|---|-------|--------|
+| B24 | Open on this repository | `51 records · 250 relationships`; 5 queue rows; 21,269 bytes |
+| B25 | `focus { id: "0046" }`, `{ kinds: ["supersedes"] }`, `{ id: "9999" }` | 12 records and 11 relationships; 4 and 2; the fixed exit-2 note |
+| B26 | Panel B opened with `{ id: "0046" }`, then panel A's `get_state` | B `12 records · 11 relationships · focus 0046 · 5 open`; A still 51 and 250 with no filter |
+| B27 | Refusals | `id: "12"` and a 65-digit id refused by the runtime's schema check; `refresh { dir: "../.." }` refused with the fixed confinement message; `POST /api/focus` with a bad id 400 with the fixed message |
+| B28 | Page and boundaries | `GET /` 200 with the shared CSP; `/app.js` uses `createElementNS` and has no `innerHTML`, no ratifying command, and no "ready"; no token or a wrong token 403; POST without the header or with a foreign `Origin` 403; both ports refused connections after close |
+| B29 | Ratifying command | In `/api/state` only inside ADR-0044's title; absent with titles blanked |
+| B30 | Four-record fixture | `4 records · 0 relationships`, 2 queue rows; a second panel focused on 0004 read `1 record · 0 relationships · focus 0004 · 2 open` |
+
+### Local browser render (not the Copilot app)
+
+The board was served by a Node script against this repository and opened in
+Chromium through Playwright. The SVG nodes carried their status classes
+(`node status-accepted` computed a green fill and stroke), `relatesTo` edges
+computed a `6px, 4px` dash, the legend named every status and kind in text,
+and focusing a record and pressing Enter selected it, filled the detail pane
+with its neighbors, and returned keyboard focus to the redrawn record with
+`aria-pressed="true"`. The only console error was a 403 for `/favicon.ico`,
+which the token check refuses like every other route.
+
+### Not verified
+
+- **The board is unmeasured in the Copilot app.** Its rendering, theme,
+  keyboard behavior, and layout in an app session are unverified.
+- A corpus past the 300-record budget, the 1000-relationship cap, or the
+  512 KiB snapshot budget, and how long `adr graph` takes on one. These are
+  covered by unit tests only.
+- The 30-second graph timeout and the oversized-output note. Unit tests only.
+- Whether the app forwards `ADRKIT_CLI` and `ADRKIT_DIR` to the extension (the
+  ADR-0046 open question).
+- A join the runtime refuses because of the board's definition. There is no
+  ladder rung that drops only the board, so decision-review would be dropped
+  with it; this is a stated limit in ADR-0050, not a measurement.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

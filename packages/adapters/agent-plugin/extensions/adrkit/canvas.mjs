@@ -20,16 +20,28 @@
  * server and a 32-byte token that every route checks in constant time; a
  * state-changing POST must also carry the token in a header (which a foreign
  * page cannot set without a CORS preflight this server never answers) and must
- * not come from a foreign `Origin`. Repository text never reaches a prompt.
+ * not come from a foreign `Origin`; `postAllowed` in panel-http.mjs is the one copy
+ * of that check. Repository text never reaches a prompt.
  */
 
 import { Buffer } from 'node:buffer';
-import { randomBytes as nodeRandomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes as nodeRandomBytes } from 'node:crypto';
 import { stat as nodeStat } from 'node:fs/promises';
 import { createServer as nodeCreateServer } from 'node:http';
 import { isAbsolute, resolve } from 'node:path';
 import { setTimeout as nodeSleep } from 'node:timers/promises';
 import { PAGE_CSS, PAGE_JS, renderPage } from './canvas-page.mjs';
+import {
+  BodyTooLarge,
+  BODY_LIMIT,
+  CSP,
+  SECURITY_HEADERS,
+  postAllowed,
+  readBody,
+  reply,
+  replyJson,
+  tokenMatches,
+} from './panel-http.mjs';
 import {
   VERDICTS,
   activeProposalDecisions,
@@ -53,27 +65,9 @@ export const CANVAS_ID = 'decision-review';
 export const CANVAS_TITLE = 'Decision review';
 export const REVIEW_WORKFLOW = 'adr-review';
 
-/**
- * `frame-ancestors *` because the host frames the page; no `X-Frame-Options`.
- *
- * `style-src` allows inline style on purpose: the app applies its theme by
- * inserting `<style>` elements that define the documented tokens, and without
- * this every token falls back to the light-theme default. It costs nothing
- * here, because the page builds no style from data and has no HTML sink that
- * could insert one. Script stays `'self'` only. Do not "tighten" the style rule.
- */
-export const CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; " +
-  "img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors *";
-
-/** Request bodies are tiny (`{ recordId }`); anything past this is refused. */
-export const BODY_LIMIT = 64 * 1024;
-
-const SECURITY_HEADERS = {
-  'Content-Security-Policy': CSP,
-  'X-Content-Type-Options': 'nosniff',
-  'Cache-Control': 'no-store',
-};
+// The shared hardening lives in panel-http.mjs (ADR-0050); re-exported so
+// existing importers keep one name for it.
+export { BODY_LIMIT, CSP, tokenMatches };
 
 const RESULT_STATUSES = ['ok', 'findings', 'incomplete', 'usage-error'];
 /** Severity order for combining a check status with a review status. */
@@ -148,25 +142,6 @@ const clip = (text) => (text.length > 4000 ? `${text.slice(0, 4000)}…` : text)
 
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-
-/**
- * Compare a presented token with the instance's in constant time. A length
- * mismatch still runs one comparison, so a wrong length is not measurably
- * quicker to reject than a wrong value.
- *
- * @param {string} expected
- * @param {unknown} given
- * @param {(a: Buffer, b: Buffer) => boolean} [compare]
- */
-export function tokenMatches(expected, given, compare = timingSafeEqual) {
-  const want = Buffer.from(expected, 'utf8');
-  const got = typeof given === 'string' ? Buffer.from(given, 'utf8') : null;
-  if (got === null || got.length !== want.length) {
-    compare(want, want);
-    return false;
-  }
-  return compare(want, got);
-}
 
 /**
  * The one prompt the panel can send. It names the record id and nothing else:
@@ -527,7 +502,7 @@ const stringOrNull = (value) => (typeof value === 'string' ? value : null);
  * @param {Record<string, unknown>} item
  * @returns {QueueItem}
  */
-function shownQueueItem(item) {
+export function shownQueueItem(item) {
   return {
     id: clip(String(item['id'])),
     // Repository text, so each string is bounded like a CLI message: it is
@@ -563,10 +538,12 @@ function shownQueueItem(item) {
  * @param {{
  *   cwd: string, input: unknown, run: CwdRunner, env: Record<string, string | undefined>,
  *   exists: (path: string) => boolean, timeoutMs?: number,
- * }} deps
+ *   shownItem?: (item: Record<string, unknown>) => any,
+ * }} deps `shownItem` is the row allowlist; the decision board (ADR-0050)
+ *   passes a wider one, and this panel's stays `shownQueueItem`.
  * @returns {Promise<QueueView>}
  */
-export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = QUEUE_TIMEOUT_MS }) {
+export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = QUEUE_TIMEOUT_MS, shownItem = shownQueueItem }) {
   /** @param {string} note @param {number | null} [exitCode] @returns {QueueView} */
   const unavailable = (note, exitCode = null) => ({
     available: false,
@@ -632,7 +609,7 @@ export async function computeQueue({ cwd, input, run, env, exists, timeoutMs = Q
   const items = [];
   let bytes = 0;
   for (const item of all.slice(0, QUEUE_LIMIT)) {
-    const shown = shownQueueItem(item);
+    const shown = shownItem(item);
     bytes += Buffer.byteLength(JSON.stringify(shown));
     if (bytes > QUEUE_BYTES_LIMIT) break;
     items.push(shown);
@@ -760,62 +737,6 @@ const ARGS_SCHEMA = {
     dir: { type: 'string', description: 'ADR corpus directory; default $ADRKIT_DIR or docs/adr.' },
   },
 };
-
-class BodyTooLarge extends Error {}
-
-/**
- * Read a request body, refusing more than `limit` bytes without buffering it.
- *
- * @param {IncomingMessage} req
- * @param {number} limit
- * @returns {Promise<string>}
- */
-function readBody(req, limit) {
-  return new Promise((resolve, reject) => {
-    const declared = Number(req.headers['content-length']);
-    if (Number.isFinite(declared) && declared > limit) return reject(new BodyTooLarge());
-    /** @type {Buffer[]} */
-    const chunks = [];
-    let size = 0;
-    req.on('data', (/** @type {Buffer} */ chunk) => {
-      size += chunk.length;
-      if (size > limit) {
-        req.removeAllListeners('data');
-        reject(new BodyTooLarge());
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
-  });
-}
-
-/**
- * Every response goes through here, so the security headers are on all of
- * them: pages, assets, JSON, errors, and refusals.
- *
- * @param {ServerResponse} res
- * @param {number} status
- * @param {string} body
- * @param {string} [type]
- * @param {Record<string, string>} [extra]
- */
-function reply(res, status, body, type = 'text/plain; charset=utf-8', extra = {}) {
-  res.writeHead(status, {
-    ...SECURITY_HEADERS,
-    'Content-Type': type,
-    'Content-Length': String(Buffer.byteLength(body)),
-    ...extra,
-  });
-  res.end(body);
-}
-
-/** @param {ServerResponse} res @param {number} status @param {unknown} data */
-const replyJson = (res, status, data) => reply(res, status, JSON.stringify(data), 'application/json; charset=utf-8');
-
-/** @param {string | string[] | undefined} value */
-const singleHeader = (value) => (Array.isArray(value) ? undefined : value);
 
 /**
  * Build the canvas's options for the SDK's `createCanvas`. `extension.mjs`
@@ -1215,9 +1136,7 @@ export function createDecisionReviewCanvas({
     // State-changing requests: the URL token alone is not enough, because a
     // URL can leak (history, a screenshot). The header cannot be set by another
     // origin without a preflight, and a present Origin must be this server's.
-    if (!tokenMatches(instance.token, singleHeader(req.headers['x-adrkit-token']))) return reply(res, 403, 'Forbidden');
-    const origin = req.headers['origin'];
-    if (origin !== undefined && origin !== instance.origin) return reply(res, 403, 'Forbidden');
+    if (!postAllowed(instance, req)) return reply(res, 403, 'Forbidden');
 
     /** @type {string} */
     let raw;

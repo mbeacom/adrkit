@@ -9,6 +9,31 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Added
+
+- **The agent plugin adds a read-only `decision-board` canvas for the GitHub
+  Copilot app (`adrkit` 0.9.0).** Where `decision-review` is scoped to one
+  change, the board maps the whole corpus: how the records relate, from
+  `adr graph --format json`, and what is waiting for review, from
+  `adr queue --format json`. Supersession chains read left to right; status is
+  shown by color and label, and a relationship kind by line style and a legend.
+  Focusing on a record or filtering by kind re-runs `adr graph --focus` and
+  `--kind`, so the board and the CLI cannot disagree. A queue row shows its raw
+  review facts (approvals against quorum, objections, SLA state, deadline,
+  routing, findings) and never a readiness verdict. The board writes nothing,
+  starts no workflow, and spends no AI credits; its actions are `get_state`,
+  `refresh`, and `focus`.
+  - At most 300 records (past that, counts by status), 1000 relationships,
+    200 queue rows, and 512 KiB per snapshot; 30 s per CLI call; failures are
+    fixed notes.
+  - Each open board keeps its own focus; the queue is shared.
+  - The HTTP hardening both canvases use now lives in one shared module.
+
+  Proposed in [ADR-0050](docs/adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (proposed); rung 1 of ADR-0014 with a
+  headless Copilot CLI 1.0.93 SDK-host smoke against this repository (51
+  records, 250 relationships) and a fixture, with no model calls. Unmeasured in
+  the Copilot app.
+
 ## [0.18.0] - 2026-10-09
 
 This release adds `adr approve`, `adr object`, and `adr resolve`, so review

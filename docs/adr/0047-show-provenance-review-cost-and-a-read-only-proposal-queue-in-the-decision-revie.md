@@ -45,6 +45,13 @@ provenance:
 > governing result and queue, each with a fixed "automatic refresh timed out"
 > note, and never shows the abort's exception text.
 
+> **Amended by [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (proposed).**
+> A second, corpus-wide canvas, `decision-board`, would render `adr graph` and
+> `adr queue` read-only, with no readiness verdict and no control that writes.
+> It shares this canvas's HTTP hardening, now in `panel-http.mjs`, and
+> registers in its own guarded `try`. This record's read-only, advisory, and
+> security boundaries are unchanged and apply to the board too.
+
 ## Context
 
 ADR-0046 shipped the `decision-review` canvas: a panel in the GitHub Copilot app

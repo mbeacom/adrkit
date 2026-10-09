@@ -417,7 +417,8 @@ tests and a maintainer live smoke on Copilot CLI 1.0.92 (two subagents, both
 planted conflicts found, worktree clean). It also has a repeat through the
 published GitHub install on 1.0.93, plus a deletion-only run. Since 0.5.0 it
 also ships one read-only Copilot app canvas, `decision-review`, in the same
-extension, authorized by
+extension (a second, `decision-board`, is described under its own heading
+below), authorized by
 [ADR-0046](./docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
 (**accepted**). The canvas is **rung 1**: unit and contract tests plus a
 headless Copilot CLI 1.0.93 SDK-host smoke (open, state, refresh, and one
@@ -729,7 +730,7 @@ will usually be a regression:
   including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
   app, and hook firing in the app, an interactive CLI session, and subagent
   child sessions, are unmeasured.
-- `copilot plugin install` prints only a skill count. Version 0.8.1 should report
+- `copilot plugin install` prints only a skill count. Version 0.9.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
@@ -812,6 +813,78 @@ app. Measured, and easy to break:
   is `success` with its `exitCode`.
 - **Commands and skills do not mention the tools.** Claude Code and opencode
   never load extensions; the CLI path stays the portable one.
+
+### The `decision-board` canvas
+
+A second canvas in the same extension maps the whole corpus from
+`adr graph --format json` and `adr queue --format json`, proposed in
+[ADR-0050](./docs/adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**; amends 0046 and 0047). Code in
+`board.mjs`, `board-page.mjs`, and `board-layout.mjs`; the HTTP hardening both
+canvases share is in `panel-http.mjs`. **Rung 1**: unit and contract tests plus
+a headless Copilot CLI 1.0.93 SDK-host smoke with no model calls; unmeasured
+in the Copilot app. Load-bearing:
+
+- **It is read-only and has no session.** The factory takes no `getSession`:
+  it writes nothing, starts no workflow, sends no prompt, and spends nothing.
+  There is no approve, object, or ratify control, and the page posts only to
+  `/api/refresh` and `/api/focus`. A test asserts both.
+- **It shows no readiness verdict.** A queue row shows approvals against
+  quorum, objection counts, SLA state, deadline, routing, and a finding count,
+  and nothing derived from them. Review state misses refusals the
+  `acceptAdrSource` dry run catches (an empty `deciders`), so a "ready" label
+  would be a claim the board cannot back. A test fails on `ready` in the page.
+- **Filters are the CLI's.** A focus or kind filter re-runs
+  `adr graph --focus <id> --kind <kind>`; do not filter or walk the graph in
+  JS, or the board can disagree with `adr graph`. The id is checked against a
+  record's own grammar (and refused past 64 characters, never clipped) and each
+  kind against the three, before any spawn. The action schemas carry the same
+  id pattern and the kinds enum, and the runtime was measured enforcing both
+  before the handler runs; the extension's check stays the authority.
+- **State is per panel; the queue is shared.** Filter, corpus directory, and
+  graph are keyed by panel id, so a focus in one board never moves another
+  (review M2, measured both ways). The queue is keyed by working directory and
+  corpus directory. Do not move the filter back to the working directory. A
+  new `dir` is committed with its graph (`graphDir`), and the queue shown is
+  the graph's directory's, so a faster queue never pairs with the old graph.
+- **A snapshot reports the filter its graph was read with.** `computeGraph`
+  stamps `graph.filter`, and `snapshotOf` reads it, never the pending request
+  (review M1). Only the newest graph read is applied; an overtaken focus
+  returns `superseded: true` with the current, consistent state. Tests with a
+  gated fake CLI fail if either sequence guard (graph or queue) is removed.
+- **A model-chosen `dir` is confined.** It must resolve inside the panel's own
+  repository (on a re-open, the panel's, not the session's current directory)
+  lexically and through `staysInside` (tools.mjs), or the action is refused
+  with a fixed message before any spawn. A remembered `dir` is re-checked right
+  before every graph and queue spawn; one that now escapes gets a fixed note
+  and nothing runs. `ADRKIT_DIR` is trusted.
+  decision-review's `dir` is not confined; that predates the board.
+- **Allowlists and budgets, as in ADR-0047.** Node `id`/`title`/`status`, edge
+  `from`/`to`/`kind`, and the queue row's nine fields plus
+  `resolvedObjectionCount` and `itemFindingCount`; everything else is dropped
+  unnamed. Titles clip at 200 characters. At most 300 records (past that,
+  counts by status), 1000 relationships, 200 queue rows, and 512 KiB per
+  snapshot by `Buffer.byteLength` (graph to summary first, then queue rows),
+  on every route, action result, and event-stream frame (a test reads the
+  frames). A drawing past 20,000 px a side also becomes the summary.
+  Each CLI call has a 30 s timeout. A failure is a fixed note from
+  `BOARD_NOTES`, never stderr or exception text.
+- **The layout runs on the server, in a pure module.** `board-layout.mjs` has no
+  clock, file, or process; columns come from `supersedes` alone (from =
+  successor, to = replaced, as `buildAdrGraph` emits them), ties break by id,
+  and a cycle terminates. The page only draws coordinates.
+- **SVG classes go through `setAttribute('class', …)`.** An SVG element's
+  `className` is an `SVGAnimatedString`; assigning a string does nothing in a
+  browser while a fake DOM accepts it, so a test checks the fake's `className`
+  stays empty. No inline style either: status and edge styles are CSS classes.
+- **It is a second entry in `canvases`, in its own guarded `try`.** A throwing
+  board, or a `createCanvas` that refuses it, costs neither decision-review,
+  the workflow, the tools, nor the hooks. `LABELS.canvases` stays
+  "decision-review canvas" when the board is absent, because existing tests
+  assert that text; with both present, the failure log names both. Known
+  limit: the join ladder has no board-only rung, so a join the runtime refuses
+  because of the board drops decision-review too (ADR-0050).
+- **The post-edit hook does not refresh boards.** Adding a graph and queue
+  read under the hooks' 15 s single-flight signal was left out on purpose.
 
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 
