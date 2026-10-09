@@ -54,6 +54,9 @@ The binary includes:
 - `explain`
 - `check`
 - `queue`
+- `approve`
+- `object`
+- `resolve`
 - `accept`
 - `migrate --from madr`
 - `completion`
@@ -82,6 +85,26 @@ commits nothing. It refuses, and leaves the file untouched, when the record is
 not `proposed`, has an unresolved objection, has fewer approvals than its
 `review.quorum`, or would not be a valid accepted record. `--by` is required and
 is never inferred. Exit codes: `0` accepted, `1` refused, `2` usage error.
+
+### Recording review: approve, object, resolve
+
+```bash
+adr approve 0044 --by @octocat
+adr object 0044 --by @hubot --summary "Needs a load test first"
+adr resolve 0044 --objection 1 --by @hubot
+```
+
+`adr approve` adds `--by` to `review.approvals`. `adr object` appends
+`{ by, summary, resolved: false }` to `review.objections`; the summary is one
+line of at most 500 characters. `adr resolve` sets `resolved: true` on
+objection `n` (counting from 1, in file order), and only the objector may
+resolve it. Each acts only on a `proposed` record, changes no other line,
+commits nothing, and leaves the file untouched on a repeat (approving twice,
+the same open objection twice, resolving a resolved objection). `--by` is
+required and is never inferred. Exit codes match `adr accept`: `0` written or
+unchanged, `1` refused, `2` usage error; `--json` is available on all three.
+`adr queue`'s approval and objection counts follow these writes
+([ADR-0051](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md), proposed).
 
 ## Decision graph
 

@@ -115,6 +115,25 @@ Until `1.0.0`, minor releases may include breaking changes
   [ADR-0045](docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
   (accepted); rung 1 of ADR-0014 with a live Copilot CLI 1.0.92 smoke. The
   plugin has no tag and ships on merge to `main`.
+- **`adr approve`, `adr object`, and `adr resolve` record review state.**
+  `adr approve <id> --by <identity>` adds an approval, `adr object <id> --by
+  <identity> --summary <text>` raises an objection, and `adr resolve <id>
+  --objection <n> --by <identity>` resolves one. Only the objector may resolve
+  an objection. Each acts only on a `proposed` record, changes only the list it
+  owns, commits nothing, and treats a repeat as a no-op. `--by` is required and
+  never inferred. Exit codes match `adr accept`: `0` written or unchanged, `1`
+  refused with the file untouched, `2` usage error; all three take `--json`.
+  `adr queue`'s approval and objection counts follow the writes, so a record
+  can go from objection to `adr accept` without a hand edit. No agent surface
+  runs these commands. Proposed in
+  [ADR-0051](docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md)
+  (proposed).
+- **`approveAdrSource`, `objectAdrSource`, and `resolveObjectionAdrSource` in
+  `@adrkit/core`**, the pure transitions behind them, with
+  `objectionSummaryProblem` and `MAX_OBJECTION_SUMMARY_LENGTH` (500). Like
+  `acceptAdrSource` they splice lines and refuse unless the re-parsed
+  frontmatter changed only the field they own; that re-check is now shared by
+  all four transitions.
 
 ### Documentation
 

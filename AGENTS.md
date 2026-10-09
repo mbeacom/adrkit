@@ -290,6 +290,51 @@ not change the exit code and do not fail the managed-issue Action.
   prints that refusal. Review state alone misses refusals such as an empty
   `deciders`, so do not replace the dry run with a field check.
 
+## `adr approve` / `adr object` / `adr resolve`
+
+`adr approve <id> --by <identity>`, `adr object <id> --by <identity> --summary
+<text>`, and `adr resolve <id> --objection <n> --by <identity>` record review
+state on a `proposed` record, under
+[ADR-0051](./docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md)
+(**proposed**). They follow `adr accept`'s design, and `adr queue`'s approval
+and objection counts change with them.
+
+- **They share accept's splice-and-verify kernel; do not fork it.**
+  `packages/core/src/transition/splice.ts` holds the line-splice helpers and
+  `finishSplice`, the re-parse guard that refuses unless the new frontmatter
+  equals exactly the intended data and still validates. `review.ts` and
+  `accept.ts` both end in it. A copy of the guard in a fourth transition is how
+  one of them would quietly lose it.
+- **A flow list stays flow and a block list stays block.** `approvals: []`
+  becomes `approvals: ["@bob"]`; `objections: []` grows a flow mapping. Turning
+  either into a block would be a second, unowned layout change. A layout that
+  cannot be spliced, such as `review: {…}`, is refused with exit `1`.
+- **Only the objector may resolve.** `--by` must equal the objection's `by`,
+  exactly. There is no `resolvedBy` field and no chair override; both need a
+  schema change and are future work in ADR-0051. Do not add either here.
+- **Repeats are no-ops**, exit `0` with no write: an identity that already
+  approved, the same open objection (same `by` and summary), an objection that
+  is already resolved. The core result says `changed: false` and the CLI skips
+  `writeFile`.
+- **A summary is one line, written double-quoted.** Trimmed, non-empty, at most
+  500 code points, no C0/C1 control, DEL, U+2028, or U+2029. The CLI checks it
+  as a usage error (exit `2`) and core refuses it independently.
+- **The record must be `proposed`**, for all three. `--by` is mandatory and
+  never inferred. A BOM-prefixed record is already invalid to `adr lint`
+  (`parseFrontmatter` requires a leading `---`), so these refuse it, as
+  `adr accept` does.
+- **All four writing commands find their record through
+  `packages/cli/src/record-target.ts`**, which accept's lookup moved into with
+  its messages unchanged.
+- **No agent surface runs them.** The agent plugin's wiring test fails if a
+  command, skill, agent, or any extension module except `canvas*.mjs` mentions
+  `adr approve`, `adr object`, or `adr resolve`; it was observed failing against
+  planted mentions. The canvas is excluded on purpose: ADR-0051 names a person
+  pressing a canvas button, with the identity read from `ADRKIT_REVIEWER` and
+  never from the model, as the one planned plugin path, for a later track to
+  build and govern. The extension tools' `redactWritingCommands` does not yet
+  name these verbs; extending it is open in ADR-0051.
+
 ## Moving Action tag recovery
 
 Normal lockstep releases publish npm and create a draft GitHub release. A human
@@ -746,7 +791,8 @@ Two boundaries are load-bearing:
 Both guards are repo-local scripts, not CLI surface: `adr graph --format json`
 already emits every node's `status` and every `supersedes` edge, and the public
 CLI is a semver commitment (ADR-0031) whose write surface is deliberately
-small: `new`, `migrate`, and `accept` (ADR-0044, **accepted**). A public
+small: `new`, `migrate`, `accept` (ADR-0044, **accepted**), and the review
+commands `approve`, `object`, and `resolve` (ADR-0051, **proposed**). A public
 Markdown inventory formatter waits for adopter demand.
 
 ## Toolchain

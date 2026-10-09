@@ -17,8 +17,9 @@
  *
  * For the reason `check-doc-cli-versions.ts` states in its own docblock, plus
  * two more that are specific to writing: the public CLI's write surface is
- * deliberately small (`new`, `migrate`, and `accept`), and the Spec Kit adapter holds
- * a *tested* invariant that hooks reach only non-writing commands. No new
+ * deliberately small (`new`, `migrate`, `accept`, and the review commands), and
+ * the Spec Kit adapter holds a *tested* invariant that hooks reach only
+ * non-writing commands. No new
  * public surface is needed anyway — `adr graph --format json` already emits
  * `id`, `title` and `status`, which is the whole of the derived state. So this
  * is the established pattern: read-only CLI, redirected, gated (#132).
