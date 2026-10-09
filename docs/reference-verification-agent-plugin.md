@@ -558,8 +558,9 @@ Rows 26 to 28 are single runs of a non-deterministic agent, not a pass rate.
   shows that theme applying. The binary's strings also suggest a dedicated
   native webview, which would make `frame-ancestors *` a no-op; how the app
   frames the panel was not observed, so the directive stays.
-- Re-measure on app upgrades: the workflow reviews `process.cwd()` while the
-  panel uses the session directory (equal in the one app session measured), and
+- Re-measure on app upgrades: the workflow starts from `process.cwd()` and
+  follows `session.context_changed` (since 0.8.1), while the panel uses the
+  session directory (equal at start in the one app session measured), and
   whether every runtime accepts `canvases` in `joinSession` (`register` retries
   without `canvases` if one rejects it; unmeasured).
 - App version drift: rows 8 to 15 were measured under app 1.1.14 with runtime
@@ -864,10 +865,49 @@ agent, not a pass rate.
   and H7 that the extension loads without hooks; that no hook then fires is
   unit-tested, not observed. Its arrival in the Copilot app is unmeasured.
 - Whether the person sees hook context in the CLI or the app transcript.
-- A timeout kills only the process the hook started, not a grandchild (for
-  example `node` behind a version-manager shim for `adr`). This is a known
-  limit of the shared `runCommand`, measured in review and left as a
-  follow-up.
+- On Windows, a timeout still ends only the process the hook started, not a
+  grandchild (for example `node` behind a version-manager shim for `adr`).
+  The POSIX case is fixed in 0.8.1; see "0.8.1 hardening" below.
+
+## 0.8.1 hardening (2026-10-09)
+
+Four follow-ups logged in review of #269 to #271, all in
+`extensions/adrkit/`, with no new surface and no new ADR. ADR-0048's open note
+on the workflow's directory and ADR-0049's note on timeouts are amended in
+place. Spend for this section: **0 AI credits**. No prompt was sent and the
+workflow was not run live.
+
+| # | Follow-up | Evidence |
+| --- | --- | --- |
+| E1 | No CLI stderr, exception text, or echoed argument in the workflow result, the canvas's notes, `/api/state`, the event stream, agent canvas results, tool results, or hook context | `test/error-text.test.ts` plants `ZZ-SENTINEL-7f3a` in git and `adr` stderr, in thrown errors, in an unknown argument key, and in refused file and base values, then asserts it is absent from every one of those outputs. Before the fix, 37 of its 44 cases failed. The 7 that already passed are the tools' and hooks' existing rules and one canvas case, kept as regression guards. The tools' capped, stack-stripped stderr on exit 2 is unchanged. |
+| E2 | The `adr-review` workflow follows the session directory after `/cd` | Unit test: `createReviewWorkflow` reads the shared `session-dir.mjs` tracker when each run starts, so every git and adr call and `$ADRKIT_CLI` resolution uses the moved directory. Live, for the tools that share the tracker: see the table below. The workflow was not run live. |
+| E4 | `adr check` over a wide change fits the command line, and echoed file lists are capped | `test/batching.test.ts`: 2,000 paths (about 120 KiB of argv) become several `adr check` calls of at most 24 KiB each, through the workflow, the canvas, `adr_check` base mode, and the session-start hook. The merged report unions decisions by id. Results list 200 paths and count the rest. A panel-started review of the same wide change survives a refresh. `packages/cli/src` has no stdin or file-list input for `adr check`, so batching was the only option. |
+| E5 | A timeout or abort ends the whole process tree on POSIX | Shown first against the 0.8.0 runner under Node 22.22.2. A `/bin/sh` wrapper that backgrounds `sleep 300` and records its pid was run with a 400 ms `AbortSignal.timeout`. The runner rejected with `AbortError`, and the grandchild was still alive 1.5 s later. The new tests run the same wrapper through the 0.8.1 runner (the grandchild is gone within 5 s), and a Node child process that exits mid-command leaves no grandchild behind. Windows keeps the direct-child behavior, a documented limit. |
+
+### Headless SDK host: the tracker after `/cd` (Copilot CLI 1.0.93, no model calls)
+
+Run with `scratchpad/expand/E-probe/host-cd.mjs`, which uses `CopilotClient`
+and `createSession({ pluginDirectories: [<worktree>/packages/adapters/agent-plugin], requestExtensions: true, workingDirectory: repoA })`,
+with `ADRKIT_CLI` set to the worktree's built `packages/cli/dist/index.js`
+(0.17.0). `repoA` holds records 0001 and 0002, both governing `src/**`.
+`repoB` holds 0001 only.
+
+| # | Step | Observed |
+| --- | --- | --- |
+| H1 | `tools.execute adr_check { paths: ["src/a.ts"] }` and `adr_lint {}` in repoA | `governing` 0001, 0002; `checked` 2 |
+| H2 | `session.rpc.metadata.setWorkingDirectory({ workingDirectory: repoB })` | Returned repoB; the session emitted `session.context_changed` with `cwd` repoB |
+| H3 | The same two calls again | `governing` 0001 only; `checked` 1. The shared tracker moved, and the spawn-based runner ran the CLI under the host's Node |
+
+### Not verified
+
+- The workflow following `/cd` in a live run, in the CLI or the app. It is
+  unit-tested only.
+- Group termination on Windows. Not implemented: `spawn` ends the direct child
+  only there.
+- A wide change against a real Windows command line. The 24 KiB budget is
+  reasoned from Windows' 32,767-character limit and a UTF-8 byte count, never
+  smaller than the UTF-16 count, not measured on Windows.
+- All four changes in the Copilot app: unmeasured in the Copilot app.
 
 ## Verdict
 

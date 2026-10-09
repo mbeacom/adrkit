@@ -242,6 +242,14 @@ workflow arguments can be written by a model that has just read untrusted
 repository content, and extension code runs outside Copilot's permission
 prompts.
 
+The workflow reviews the session's current directory, and follows it after
+`/cd`. A wide change is checked in batches of about 24 KiB of arguments per
+`adr check` call, because the CLI takes paths only as arguments and Windows
+caps a command line at about 32 KiB. The result lists at most 200 changed
+paths and counts the rest in `filesOmitted`. Its `notes` are fixed messages
+that never repeat the CLI's stderr or an exception's text: when one says
+`adr lint` or `adr check` failed, run that command to see why.
+
 ### Run it
 
 Interactively, start `copilot` in the repository and run the `adr-review`
@@ -261,7 +269,7 @@ repo-local step is gated because a non-interactive run cannot ask whether to
 trust a binary an inherited repository supplied.
 
 On Windows, `ADRKIT_ALLOW_REPO_CLI=1` cannot run the repo-local CLI:
-`node_modules/.bin/adr` is `adr.cmd` there, and `execFile` cannot start a `.cmd`
+`node_modules/.bin/adr` is `adr.cmd` there, and `spawn` cannot start a `.cmd`
 without a shell, which the workflow deliberately never uses. Set
 `ADRKIT_CLI=<repo>/node_modules/@adrkit/cli/dist/index.js` instead; a `.js`
 value runs under `node`.
@@ -330,7 +338,9 @@ the governing decisions; active proposals; history (listed, not judged); the
 `adr-review` verdicts and anything left `unverified`. Each decision has a
 collapsed evidence section, and clicking a decision asks the agent to explain
 it (see Explain, below). Before a review runs, the panel shows what `adr check`
-found.
+found. A wide change lists its first 200 paths and counts the rest; the
+panel's notes are fixed messages and never show the CLI's stderr, an
+exception's text, or a run's own error.
 
 **Open it.** In an app session, ask the agent to "open the decision-review
 canvas". It takes the same optional `files`, `base`, and `dir` as the workflow.
@@ -449,7 +459,10 @@ read-only.
 
 **Working directory.** A tool call carries no directory, so the tools start in
 the extension's directory and follow the session when it moves (`/cd`), which
-the extension's own `process.cwd()` does not.
+the extension's own `process.cwd()` does not. The `adr-review` workflow follows
+the same tracker. In `base` mode, `adr_check` checks a wide diff in batches and
+lists at most 200 changed paths, counting the rest in `filesOmitted` (and in
+`report.changedFilesOmitted`).
 
 **Where they exist.** Copilot only: Claude Code and opencode do not load Copilot
 extensions, and the skill and commands keep using the CLI on every host. The
@@ -497,8 +510,9 @@ or a ULID); anything else, including a namespaced reference such as
   limit that covers the open-proposal queue read as well. If it runs out, the
   panel keeps showing its previous result, noting that the automatic refresh
   timed out.
-- A timeout stops the process the hook started, but not a grandchild process
-  that a version-manager shim may start for `adr`.
+- On macOS and Linux, a timeout stops the whole process group the hook
+  started, including a grandchild that a version-manager shim may start for
+  `adr`. On Windows it stops only the process the hook started.
 
 **Turn them off** with `ADRKIT_HOOKS=0` (or `false`, `off`, `no`) in the
 environment Copilot starts from. In the headless SDK host on Copilot CLI

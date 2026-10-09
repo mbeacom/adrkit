@@ -116,6 +116,36 @@ Until `1.0.0`, minor releases may include breaking changes
   (accepted); rung 1 of ADR-0014 with a live Copilot CLI 1.0.92 smoke. The
   plugin has no tag and ships on merge to `main`.
 
+### Extension hardening
+
+- **The agent plugin's Copilot extension closes four review follow-ups
+  (`adrkit` 0.8.1).** No new surface and no new ADR; ADR-0048 and ADR-0049
+  are amended in place where a stated limitation is gone.
+  - **No CLI stderr or exception text in any output.** The workflow result,
+    the `decision-review` panel's notes, `/api/state`, agent canvas results,
+    tool results, and hook context now carry fixed messages chosen by code.
+    That includes the `adr_check` tool's fallback note, which used to repeat
+    git's stderr, and argument validation, which used to echo the refused
+    value. A run's own error text is no longer shown on the panel. The tools'
+    capped, stack-stripped stderr on exit 2 is unchanged.
+  - **The `adr-review` workflow follows `/cd`.** It reads the session
+    directory the tools already tracked through `session.context_changed`,
+    now shared in `session-dir.mjs`, instead of the extension's
+    `process.cwd()`, which does not move.
+  - **Wide changes fit the command line.** `adr check` runs in batches of
+    about 24 KiB of arguments, and the reports are merged, in the workflow,
+    the canvas, `adr_check`, and the session-start hook. Echoed file lists
+    stop at 200 paths, with `filesOmitted` counting the rest.
+  - **Timeouts end the whole process tree on macOS and Linux.** A grandchild
+    behind a version-manager shim no longer outlives a timeout, and commands
+    still running when the extension exits are killed. On Windows only the
+    direct child is ended.
+
+  Rung 1 of ADR-0014: unit tests observed failing first, plus a headless
+  Copilot CLI 1.0.93 SDK-host run (0 AI credits) showing the tools' shared
+  directory tracker following `metadata.setWorkingDirectory`. The workflow is
+  not run live, and all four changes are unmeasured in the Copilot app.
+
 ### Documentation
 
 - **Recorded why the agent plugin declares no Agent Plugins 1.0 `extensions` logo.**

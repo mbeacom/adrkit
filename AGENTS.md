@@ -488,9 +488,10 @@ will usually be a regression:
   is the documented source. The app's *runtime* process runs from `/`, but each
   extension process it forks starts in its session's directory: a probe in an
   app session measured `process.cwd()` equal to `sessionWorkingDirectory`, both
-  the app's session worktree. That is why the workflow's `process.cwd()`, and
-  therefore `run_review`, reviews the right repository in the app. If a later
-  runtime breaks that equality, the workflow must take the session directory
+  the app's session worktree. The workflow starts from that `process.cwd()` and
+  then follows `session.context_changed` (`session-dir.mjs`, below), which is
+  why `run_review` reviews the right repository in the app. If a later runtime
+  breaks that equality at fork, the workflow must take the session directory
   too.
 - **An app session is a fresh worktree off the default branch.** A new app
   session showed `0 changed file(s)` because nothing had changed in it yet.
@@ -603,9 +604,16 @@ will usually be a regression:
     timeout notes; an aborted refresh never commits the abort's exception text
     as a usage error.
   - The debounce timer is `unref`'d.
-  - A timeout kills only the direct child, not a grandchild behind a
-    version-manager shim. That is a known limit of the shared `runCommand`,
-    left as a follow-up.
+  - A timeout or abort ends the whole process tree on POSIX. The shared
+    `runCommand` in `review.mjs` (the one runner the workflow, canvas, tools,
+    and hooks all use; there are no copies) spawns with stdin ignored and
+    `detached`, then signals the group: SIGTERM, then SIGKILL after an
+    unref'd 1 s grace, ESRCH ignored. Signalling only the child left a
+    grandchild behind a version-manager shim running (shown by running the
+    0.8.0 runner against a shell wrapper; a test now asserts the grandchild is
+    gone). Groups still running at a normal extension exit are killed from an
+    `exit` listener. On Windows the signal goes to `spawn`, which ends the
+    direct child only: a stated limit, not fixed.
 - **One join retry ladder serves the hooks and the tools**: without `hooks`,
   without `tools`, without both, without `canvases` alone, then the workflow
   alone (at most six joins; `onEvent` is never dropped). It rethrows the
@@ -639,8 +647,10 @@ app. Measured, and easy to break:
   restarted and its `process.cwd()` does not move, but it receives
   `session.context_changed` with the new `cwd`. The tools track that event,
   through `joinSession`'s `onEvent` so a change during the join is kept; do
-  not "simplify" them back to `process.cwd()`. The workflow still uses
-  `process.cwd()` and has the same staleness (open in ADR-0048).
+  not "simplify" them back to `process.cwd()`. The workflow reads the same
+  tracker (`session-dir.mjs`) when each run starts, through
+  `createReviewWorkflow`, so a review after `/cd` reviews the new directory;
+  a tracker value captured at load would be stale too.
 - **A bad tool definition refuses the whole join.** A name outside
   `/^[a-zA-Z0-9_-]+$/` made the runtime reject `joinSession`, workflow and
   canvas included, so `register.mjs` retries without the tools on the shared
@@ -656,10 +666,27 @@ app. Measured, and easy to break:
   `realpath`-checked against the session root before spawning, so a committed
   symlink out of the worktree is refused (`symlink-escape`); a user-set
   `ADRKIT_DIR` is trusted, and the checked value is the value passed as `--dir`.
+- **Every `adr check` is batched, and every echoed file list is capped.** The
+  CLI takes paths as arguments only (no stdin or file list), so a wide diff
+  can exceed Windows' ~32 KiB command line. `checkInBatches` splits paths at
+  about 24 KiB of argv and merges the reports (decisions by record id, sorted;
+  findings concatenated with exact duplicates dropped; highest exit;
+  `markerScan` dropped, because per-call scan counts do not add up). One batch
+  returns the CLI's result untouched. Echoed lists stop at 200 paths with a
+  `filesOmitted` count. The canvas keeps the **full** list in memory for its
+  fingerprint and compares a capped review result against it with
+  `sameFileSet`; comparing a capped result with the full list would drop every
+  wide-change review as stale (pinned in `test/batching.test.ts`).
 - **Results never carry exception text or a writing command.** Rejections and
   spawn failures return fixed messages chosen by code (CodeQL
   `js/stack-trace-exposure`). CLI stderr is returned only on exit `2`, capped
-  and without stack-frame lines, because a crash's stderr is a stack. Every
+  and without stack-frame lines, because a crash's stderr is a stack. The
+  workflow result, the canvas's notes, `/api/state`, and its agent results
+  follow the same rule since 0.8.1: every error is a `ReviewError` or is
+  mapped by `publicMessage` from its `code` and `signal` alone, `validateArgs`
+  no longer echoes the value it refused, and a run's own `error`/`reason` is
+  never shown. `test/error-text.test.ts` plants a sentinel in stderr and in
+  thrown errors and asserts it reaches none of those outputs. Every
   string is scrubbed **before** serialization, matching any whitespace or
   format character between `adr` and the subcommand: scrubbing the JSON text
   missed `adr\naccept` (found in review). A non-zero `adr` exit with a report
