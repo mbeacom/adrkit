@@ -705,6 +705,14 @@ the branch's built CLI, and the fixture above. No prompt was sent and
 C12 is the SDK host only. Whether the app forwards `ADRKIT_CLI` stays in the
 ADR-0046 "Not verified" list.
 
+After review, the queue was moved to run concurrently with the check, with a
+30-second timeout and a separate note for an oversized report; `judgeCalls`
+became 0 when `adr check` or `adr lint` exits 2 or more; and queue strings and
+`declaredBy` paths are now clipped. Rows C4 to C11 were re-run at `fa4e664`
+with the same results. The timeout, the oversized-report note, the clipping, and
+the check-or-lint-failed button state are covered by unit tests only; none was
+provoked in the SDK host.
+
 ### Not verified
 
 - **The new UI is unmeasured in the Copilot app.** The provenance lines, the
