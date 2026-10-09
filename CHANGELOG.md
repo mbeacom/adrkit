@@ -36,21 +36,27 @@ Until `1.0.0`, minor releases may include breaking changes
 - **The decision board can record review (`adrkit` 0.10.0).** Each open
   proposal gets approve, object, and resolve controls that run `adr approve`,
   `adr object`, and `adr resolve`, so they **need `@adrkit/cli` 0.18.0 or
-  later**. An older CLI gets a fixed upgrade message. The identity is
-  `ADRKIT_REVIEWER`, read by the extension; unset or invalid, the controls are
-  disabled with a note, and the page never supplies one. Each write takes two
-  clicks: the second spends a single-use nonce that expires after two minutes,
-  bound to that kind and record. The CLI runs with argv only, results are
-  fixed messages (stderr is never shown), and the board re-reads the queue
-  afterwards. It still shows no readiness verdict, and its actions stay
-  read-only: no action, tool, hook, or workflow can record review. One
-  module, `board-review-write.mjs`, is the only one the plugin's verb guard
-  exempts, and a test pins that.
+  later**. An older CLI gets a fixed upgrade message.
+  - **Every write needs your yes in the host's confirmation dialog**
+    (`session.ui.confirm`), which the model cannot answer. A host without that
+    dialog leaves the controls off, and any answer but yes writes nothing. In
+    autopilot the board refuses without asking. The model is given the board's
+    URL and token, so it can reach the page's routes. The page's two clicks, its
+    single-use nonce, and the same-origin checks on those routes are therefore
+    defence in depth only.
+  - The identity is `ADRKIT_REVIEWER`, read by the extension. Unset or invalid,
+    the controls are disabled with a note, and the page never supplies one.
+    Action results report whether the controls are on, not as whom.
+  - The CLI runs with argv only. Results are fixed messages (stderr is never
+    shown), and the board re-reads the queue afterwards. It still shows no
+    readiness verdict.
+  - One module, `board-review-write.mjs`, is the only one the plugin's verb
+    guard exempts, and a test pins that.
 
-  Proposed in [ADR-0052](docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md) (proposed; amends ADR-0050); rung 1 of
-  ADR-0014 with an end-to-end test against the built CLI and a headless
-  SDK-host smoke on a fixture, with no model calls. Unmeasured in the Copilot
-  app.
+  Proposed in [ADR-0052](docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md) (proposed; amends ADR-0050). It is at rung 1 of
+  ADR-0014, with an end-to-end test against the built CLI and headless SDK-host
+  measurements with no model calls. It is unmeasured in the Copilot app,
+  including whether the app shows the confirmation dialog.
 
 ### Fixed
 

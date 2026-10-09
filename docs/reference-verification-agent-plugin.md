@@ -1181,7 +1181,9 @@ set to a two-record fixture: 0001 `accepted`, and 0002 `proposed` with
 it. `ADRKIT_CLI` was set in the runtime's environment to the branch's built CLI,
 and `ADRKIT_REVIEWER` to `@fixture-reviewer`. No prompt was sent and no workflow
 was run. Writes went through the page's routes with the URL token, the
-`X-Adrkit-Token` header, and no `Origin`, as the page sends them.
+`X-Adrkit-Token` header, and no `Origin`. This first run predates the review
+fixes below: since round 1 the review routes also need the page's own
+`Origin`, and every write waits for the host's confirmation.
 
 | # | Probe | Result |
 |---|-------|--------|
@@ -1200,9 +1202,31 @@ was run. Writes went through the page's routes with the URL token, the
 | RV17 | The same host with `ADRKIT_REVIEWER` unset | `review.enabled: false` with the fixed "Recording review is off…" note; the nonce route 403 with that note; a write 403 |
 | RV18 | The same host with `ADRKIT_CLI` at `@adrkit/cli` 0.17.0 and the reviewer set | The controls reported enabled; the nonce route answered 409 with "This adr CLI does not support review commands; upgrade @adrkit/cli to 0.18.0 or later." No review subcommand was spawned |
 
+### Review round 1: the model can reach the routes; the host's confirmation is the boundary
+
+Review measured that the runtime's `open_canvas` tool returns the panel URL,
+token included, to the model. Using only that result and the `bash` tool
+(`curl` with no `Origin`), the review recorded an approval with no page and no
+click (`R2-rev/attack.json`). The rows below are the measurements behind the
+fix. Same SDK client (1.0.93 package) and runtime (`copilot` 1.0.94-3), no
+prompt, no workflow, no model calls.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV19 | A probe extension tool that calls `session.ui.confirm`, run through `rpc.tools.execute`, with a host `onElicitationRequest` handler that records each call and declines; repeated in permission modes `manual`, `assisted`, `allow-all` (`permissions.setMode`), after `permissions.setApproveAll({ enabled: true })`, and in agent mode `autopilot` (`mode.set`) with `allow-all` and with `manual` | In every mode the handler was called exactly once and `confirm` returned `false`. With a handler that accepts, every mode returned `true` after exactly one call. The extension read the modes itself through `session.rpc.permissions.getMode()` and `session.rpc.mode.get()`. No mode answered without the handler |
+| RV20 | The same probe with no `onElicitationRequest` | `capabilities.ui.elicitation: false` for the host and the extension; `confirm` threw `Elicitation is not supported by the host…` in every mode |
+| RV21 | The CLI's terminal UI, read from the 1.0.93 bundle (`cli-main.js`) | On `elicitation.requested`, when the agent mode is `autopilot`, it responds `{ action: "decline" }` without a dialog; otherwise it queues a dialog. Static reading only; no interactive session was run |
+| RV22 | The review's attack, re-run (`open_canvas` result, `bash` + `curl`), host with no elicitation handler | `/api/state` reported `enabled: false` with the fixed "this host cannot ask you to confirm" note. Without `Origin`: 403 on both routes. With a forged same-origin `Origin`: the nonce route answered 403 with that note, and the write 403. Fixture unchanged |
+| RV23 | The same, host handler declines | Without `Origin`: 403. With a forged `Origin`: a nonce was issued, the host was asked once with "adrkit decision board: record an approval of ADR-0002 by @fixture-reviewer? This writes review state into the record under your identity. Decline unless you just asked for it on the board.", and the write ended `not-confirmed`. Fixture unchanged |
+| RV24 | The same, host handler accepts (standing in for a person's yes) | With a forged `Origin`: `written`, and the fixture gained the approval. This is the intended path: a write happens when the host says yes |
+
+So, at the runtime layer and in the CLI's terminal UI, a forged write needs a
+yes from the host's dialog, and the terminal UI never gives one in autopilot.
+The extension also refuses in `autopilot` itself, whatever the host does.
+
 ### Tests
 
-`test/board-review.test.ts` (45 tests) and the narrowed guard in
+`test/board-review.test.ts` (45 tests in the first round; 59 after round 1) and the narrowed guard in
 `test/wiring.test.ts`. All of them failed before the module existed. Then 24
 mutations of the code were run, and each was killed by a named test, with three
 exceptions. Two were equivalent: the key allowlist refuses `by` before it could
@@ -1218,11 +1242,28 @@ routes against `packages/cli/dist/index.js` on a fixture: approve, a repeated
 approve (`unchanged`), object, resolve, an out-of-range resolve (`refused`),
 and an unknown id (`usage-error`), with the queue counts checked after each.
 
+Round 1 added tests for the host confirmation (no elicitation, and answers of
+`false`, a truthy non-`true`, a throw, and a hang), the autopilot refusal, the
+dialog text, the stricter `Origin` rule, `--by=`, the identity kept out of
+action results, the Confirm placement, and the write module's reachability
+(dynamic import, `require`, path variant, re-export). All of them failed before
+the fix. 15 mutations of the new code were each killed, and a dynamic import
+planted in the real `tools.mjs` and a re-export planted in the real `board.mjs`
+each failed the suite.
+
 ### Not verified
 
-- **The controls are unmeasured in the Copilot app.** The two-click flow, the
-  confirmation step, the disabled state, keyboard use, and how the controls
-  render in the app's theme have not been seen.
+- **The controls are unmeasured in the Copilot app.** That covers the two-click
+  flow, the disabled state, keyboard use, and how the controls render in the
+  app's theme. It also covers, most importantly, whether the app offers
+  elicitation to extensions, how it shows the confirmation, and whether it
+  ever answers one without a person, in an autonomous mode or otherwise. If it
+  does, the model could record review with no person involved (ADR-0052,
+  residual risk).
+- Whether a framed page's POST in the app carries `Origin`; if it does not,
+  the review routes refuse every write there.
+- Whether another extension in the same session could answer the board's
+  elicitation.
 - Whether the app forwards `ADRKIT_REVIEWER` to the extension. It reached the
   extension through the SDK host (RV6), as other `ADRKIT_*` variables do.
 - The 30-second write timeout and the `unknown` outcome for an exit other than
