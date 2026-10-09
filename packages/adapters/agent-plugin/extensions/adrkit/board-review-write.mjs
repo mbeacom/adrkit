@@ -188,18 +188,31 @@ export function olderThanMinimum(text) {
   return false;
 }
 
-/** A refusal the route answers with a fixed body. */
+/**
+ * The text each refusal code answers with. A refusal carries only a code; the
+ * reply's text is looked up here, never taken from an exception (the rule
+ * since CodeQL's `js/stack-trace-exposure` finding on #267).
+ */
+const REFUSAL_TEXT = {
+  ...REVIEW_REFUSALS,
+  unset: REVIEW_NOTES.unset,
+  invalid: REVIEW_NOTES.invalid,
+  oldCli: REVIEW_MESSAGES.oldCli,
+};
+
+/** A refusal the route answers with a fixed body chosen by its code. */
 class Refusal extends Error {
-  /** @param {number} status @param {string} message */
-  constructor(status, message) {
-    super(message);
+  /** @param {number} status @param {keyof typeof REFUSAL_TEXT} code */
+  constructor(status, code) {
+    super(code);
     this.status = status;
+    this.code = code;
   }
 }
 
 /**
  * @typedef {(command: string, args: string[], options: { cwd: string, signal?: AbortSignal }) => Promise<CommandResult>} CwdRunner
- * @typedef {{ enabled: boolean, reviewer: string | null, note: string | null }} ReviewState
+ * @typedef {{ enabled: boolean, reviewer: string | null, note: string | null, code: 'unset' | 'invalid' | null }} ReviewState
  * @typedef {{ kind: (typeof REVIEW_KINDS)[number], id: string, nonce: string, expires: number }} Issued
  * @typedef {{
  *   kind: (typeof REVIEW_KINDS)[number], id: string, summary?: string, objection?: number,
@@ -244,9 +257,9 @@ export function createReviewWriter({
   /** The controls' state, read from the environment each time. @returns {ReviewState} */
   const state = () => {
     const reviewer = env['ADRKIT_REVIEWER'];
-    if (reviewer === undefined || reviewer === '') return { enabled: false, reviewer: null, note: REVIEW_NOTES.unset };
-    if (!isWritableReviewer(reviewer)) return { enabled: false, reviewer: null, note: REVIEW_NOTES.invalid };
-    return { enabled: true, reviewer, note: null };
+    if (reviewer === undefined || reviewer === '') return { enabled: false, reviewer: null, note: REVIEW_NOTES.unset, code: 'unset' };
+    if (!isWritableReviewer(reviewer)) return { enabled: false, reviewer: null, note: REVIEW_NOTES.invalid, code: 'invalid' };
+    return { enabled: true, reviewer, note: null, code: null };
   };
 
   /** Fire-and-forget: a log that hangs, rejects, or throws must not hold or break a write. @param {string} message */
@@ -262,14 +275,14 @@ export function createReviewWriter({
   /** @param {unknown} value */
   const checkKind = (value) => {
     if (typeof value !== 'string' || !(/** @type {readonly string[]} */ (REVIEW_KINDS).includes(value))) {
-      throw new Refusal(400, REVIEW_REFUSALS.kind);
+      throw new Refusal(400, 'kind');
     }
     return /** @type {(typeof REVIEW_KINDS)[number]} */ (value);
   };
 
   /** @param {unknown} value */
   const checkId = (value) => {
-    if (typeof value !== 'string' || value.length > 64 || !isRecordId(value)) throw new Refusal(400, REVIEW_REFUSALS.id);
+    if (typeof value !== 'string' || value.length > 64 || !isRecordId(value)) throw new Refusal(400, 'id');
     return value;
   };
 
@@ -282,17 +295,17 @@ export function createReviewWriter({
   const writeRequest = (body) => {
     const kind = checkKind(body['kind']);
     const allowed = ['kind', 'id', 'nonce', ...(kind === 'objection' ? ['summary'] : kind === 'resolution' ? ['objection'] : [])];
-    for (const key of Object.keys(body)) if (!allowed.includes(key)) throw new Refusal(400, REVIEW_REFUSALS.shape);
+    for (const key of Object.keys(body)) if (!allowed.includes(key)) throw new Refusal(400, 'shape');
     const id = checkId(body['id']);
     if (kind === 'objection') {
       const summary = body['summary'];
-      if (summaryProblem(summary)) throw new Refusal(400, REVIEW_REFUSALS.summary);
+      if (summaryProblem(summary)) throw new Refusal(400, 'summary');
       return { kind, id, summary: /** @type {string} */ (summary).trim() };
     }
     if (kind === 'resolution') {
       const objection = body['objection'];
       if (typeof objection !== 'number' || !Number.isInteger(objection) || objection < 1 || objection > MAX_OBJECTION) {
-        throw new Refusal(400, REVIEW_REFUSALS.objection);
+        throw new Refusal(400, 'objection');
       }
       return { kind, id, objection };
     }
@@ -473,23 +486,23 @@ export function createReviewWriter({
     try {
       if (path === '/api/review/nonce') {
         const current = state();
-        if (!current.enabled) throw new Refusal(403, /** @type {string} */ (current.note));
-        for (const key of Object.keys(body)) if (key !== 'kind' && key !== 'id') throw new Refusal(400, REVIEW_REFUSALS.shape);
+        if (!current.enabled) throw new Refusal(403, current.code ?? 'unset');
+        for (const key of Object.keys(body)) if (key !== 'kind' && key !== 'id') throw new Refusal(400, 'shape');
         const kind = checkKind(body['kind']);
         const id = checkId(body['id']);
         const cli = cliFor(cwd);
-        if (cli && (await tooOld(cli, cwd)) === true) throw new Refusal(409, REVIEW_MESSAGES.oldCli);
+        if (cli && (await tooOld(cli, cwd)) === true) throw new Refusal(409, 'oldCli');
         const nonce = randomBytes(32).toString('hex');
         issued.set(instanceId, { kind, id, nonce, expires: clock() + NONCE_TTL_MS });
         return replyJson(res, 200, { nonce, expiresInMs: NONCE_TTL_MS });
       }
 
       // POST /api/review. The nonce is spent first, so even a refused attempt uses it up.
-      if (!spend(instanceId, body)) throw new Refusal(403, REVIEW_REFUSALS.nonce);
+      if (!spend(instanceId, body)) throw new Refusal(403, 'nonce');
       const current = state();
-      if (!current.enabled) throw new Refusal(403, /** @type {string} */ (current.note));
+      if (!current.enabled) throw new Refusal(403, current.code ?? 'unset');
       const request = writeRequest(body);
-      if (writing) throw new Refusal(409, REVIEW_REFUSALS.busy);
+      if (writing) throw new Refusal(409, 'busy');
       const corpus = dir() ?? env['ADRKIT_DIR'];
       // The shown directory was confined when it was chosen; check it again
       // right before the spawn, as every graph and queue read does.
@@ -512,7 +525,8 @@ export function createReviewWriter({
       }
       return replyJson(res, 200, { ...result, state: snapshot });
     } catch (error) {
-      if (error instanceof Refusal) return replyJson(res, error.status, { error: error.message });
+      // The text is looked up by the refusal's code, never read from the error.
+      if (error instanceof Refusal) return replyJson(res, error.status, { error: REFUSAL_TEXT[error.code] });
       throw error;
     }
   };
