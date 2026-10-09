@@ -531,7 +531,7 @@ will usually be a regression:
   check with its own timeout (30 s, then its process is signalled), so a hung
   `adr queue` cannot hold the governing view; its strings, and `declaredBy`
   paths, are clipped like CLI messages before every broadcast.
-- `copilot plugin install` prints only a skill count. Version 0.5.0 should report
+- `copilot plugin install` prints only a skill count. Version 0.6.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 

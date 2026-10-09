@@ -12,7 +12,7 @@ Until `1.0.0`, minor releases may include breaking changes
 ### Added
 
 - **The `decision-review` canvas shows provenance, review cost, and the
-  open-proposal queue.** Each governing decision's evidence now names what tied
+  open-proposal queue (`adrkit` 0.6.0).** Each governing decision's evidence now names what tied
   it to the change: for an inbound `@adr` marker, the changed file and line (the
   `declaredBy` that `adr check --json` already reports); for an `affects`
   match, the pattern, with a note that `adr check` does not say which changed

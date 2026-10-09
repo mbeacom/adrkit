@@ -664,7 +664,7 @@ without a measured gain.
 
 ## Canvas provenance, review cost, and proposal queue (2026-10-08)
 
-Measured on 2026-10-08 at **rung 1** of ADR-0014, for the additions proposed in
+Measured on 2026-10-08 at **rung 1** of ADR-0014 (shipping as plugin 0.6.0), for the additions proposed in
 [ADR-0047](adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
 (**proposed**). Rows are numbered C1 onward so they do not collide with other
 sections.

@@ -72,7 +72,8 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.5.0 adds the `decision-review` canvas; 0.4.0 added the `adr-review`
+Version 0.6.0 adds provenance, review cost, and the open-proposal queue to the
+`decision-review` canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review`
 workflow; 0.3.0 added the bootstrap-record offer to backfill; 0.2.0 added the
 second skill and fifth command. Existing installations must refresh and start a
 new host session:
