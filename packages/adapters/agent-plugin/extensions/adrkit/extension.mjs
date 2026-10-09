@@ -1,12 +1,13 @@
 /**
  * Registers the advisory `adr-review` dynamic workflow (ADR-0045), the
- * read-only `decision-review` canvas (ADR-0046), the read-only `adr_check`,
+ * read-only `decision-review` canvas (ADR-0046), the read-only
+ * `decision-board` canvas (ADR-0050), the read-only `adr_check`,
  * `adr_explain`, and `adr_lint` tools (ADR-0048), and the advisory session
  * hooks (ADR-0049) with GitHub Copilot.
  *
  * This is the only file that imports the Copilot SDK, which the host resolves
  * when it forks the extension; the plugin ships no dependencies. All logic
- * lives in `review.mjs`, `canvas.mjs`, `tools.mjs`, and `hooks.mjs`, and the
+ * lives in `review.mjs`, `canvas.mjs`, `board.mjs`, `tools.mjs`, and `hooks.mjs`, and the
  * registration itself in `register.mjs`, so each can be tested without the SDK.
  *
  * Location is manifest-coupled: for a `.claude-plugin/plugin.json` plugin,
@@ -26,6 +27,7 @@
 import { CanvasError, createCanvas, defineWorkflow, joinSession } from '@github/copilot-sdk/extension';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { createDecisionBoardCanvas } from './board.mjs';
 import { createDecisionReviewCanvas } from './canvas.mjs';
 import { createAdvisoryHooks } from './hooks.mjs';
 import { register } from './register.mjs';
@@ -52,6 +54,14 @@ await register({
       env: process.env,
       exists: existsSync,
       getSession,
+      makeError: (code, message) => new CanvasError(code, message),
+    }),
+  // Read-only and free: two CLI reads, no session, no model.
+  board: () =>
+    createDecisionBoardCanvas({
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      env: process.env,
+      exists: existsSync,
       makeError: (code, message) => new CanvasError(code, message),
     }),
   tools: () =>

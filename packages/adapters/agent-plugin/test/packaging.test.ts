@@ -146,7 +146,19 @@ describe('workflow extension packaging', () => {
     // importable, and testable, under Bun where the host's module resolver does
     // not exist. Siblings are named, not matched by pattern, so a new module is
     // a deliberate edit here rather than something that slips in.
-    const siblings = new Set(['./review.mjs', './canvas.mjs', './canvas-page.mjs', './register.mjs', './tools.mjs', './hooks.mjs', './session-dir.mjs']);
+    const siblings = new Set([
+      './review.mjs',
+      './canvas.mjs',
+      './canvas-page.mjs',
+      './register.mjs',
+      './tools.mjs',
+      './hooks.mjs',
+      './session-dir.mjs',
+      './panel-http.mjs',
+      './board.mjs',
+      './board-page.mjs',
+      './board-layout.mjs',
+    ]);
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
       const name = relative(packageRoot, file);
