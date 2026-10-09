@@ -619,6 +619,32 @@ describe('claims match the artifact', () => {
   });
 });
 
+const REVIEW_VERBS = ['approve', 'object', 'resolve'] as const;
+
+function components(): string[] {
+  return [
+    ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
+    ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
+    ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
+    ...extensionFiles(),
+  ];
+}
+
+/**
+ * Whether `text` names one of `verbs` as a CLI invocation: in an argument array
+ * (`['approve', …]`, but not a JSON-schema type list), as a tool name
+ * (`adr_approve`), or after `adr`, `$ADRKIT_CLI`, or `@adrkit/cli` across any
+ * whitespace or invisible format character, in any case.
+ */
+function mentionsVerb(text: string, verbs: readonly string[]): boolean {
+  const alt = verbs.join('|');
+  return [
+    new RegExp(`\\[\\s*['"\`](?:${alt})['"\`]\\s*,(?!\\s*['"\`](?:null|string|array|number|boolean|integer|object)['"\`])`),
+    new RegExp(`\\badr_(?:${alt})\\b`, 'i'),
+    new RegExp(`(?:\\badr|ADRKIT_CLI\\}?"?|@adrkit\\/cli)[\\s\\p{Cf}]+(?:${alt})\\b`, 'iu'),
+  ].some((pattern) => pattern.test(text));
+}
+
 describe('write boundary', () => {  test('exactly one command writes, and it is adr-draft', () => {
     // The same rule the Spec Kit adapter enforces: a governance tool that
     // writes as a side effect of being consulted is a governance tool people
@@ -637,14 +663,12 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     // violation, because a host model reads an example as an instruction. The
     // workflow extension is covered too: it builds prompts for the
     // decision-checker, and it runs code outside Copilot's permission prompts.
-    const components = [
-      ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
-      ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
-      ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
-      ...extensionFiles(),
-    ];
-    expect(components.some((path) => path.endsWith('extension.mjs'))).toBe(true);
-    const runners = components.filter((path) => /\badr accept\b/.test(readFileSync(path, 'utf8')));
+    const all = components();
+    expect(all.some((path) => path.endsWith('extension.mjs'))).toBe(true);
+    for (const module of ['tools.mjs', 'hooks.mjs', 'canvas.mjs']) {
+      expect({ module, covered: all.some((path) => path.endsWith(module)) }).toEqual({ module, covered: true });
+    }
+    const runners = all.filter((path) => mentionsVerb(readFileSync(path, 'utf8'), ['accept']));
     expect(runners).toEqual([]);
   });
 
@@ -652,21 +676,38 @@ describe('write boundary', () => {  test('exactly one command writes, and it is 
     // These record human review state under a person's identity (ADR-0051). No
     // skill, agent, command, or extension module may run them on a model's
     // initiative, and, as with `adr accept`, any mention counts, because a host
-    // model reads an example as an instruction. The canvas modules (canvas*.mjs)
-    // are left out on purpose: ADR-0051 names a person clicking a canvas button,
-    // with the identity read from ADRKIT_REVIEWER, as the one planned path, and
-    // the later track that builds it governs those files.
-    const components = [
-      ...COMMANDS.map((command) => join(packageRoot, 'commands', `${command}.md`)),
-      ...AGENTS.map((agent) => join(packageRoot, 'agents', `${agent}.md`)),
-      ...SKILLS.map((skill) => join(packageRoot, 'skills', skill, 'SKILL.md')),
-      ...extensionFiles().filter((path) => !/(?:^|[\\/])canvas[^\\/]*\.mjs$/.test(path)),
-    ];
-    for (const module of ['tools.mjs', 'hooks.mjs']) {
-      expect({ module, covered: components.some((path) => path.endsWith(module)) }).toEqual({ module, covered: true });
-    }
-    const runners = components.filter((path) => /\badr\s+(?:approve|object|resolve)\b/.test(readFileSync(path, 'utf8')));
+    // model reads an example as an instruction. Every extension module is
+    // guarded, the canvas included: its `actions` are model-callable. The later
+    // canvas-button track will add one narrowly scoped, tested exception for a
+    // single module that handles the page's POST, under its own record; until
+    // then nothing in the plugin names these verbs.
+    const runners = components().filter((path) => mentionsVerb(readFileSync(path, 'utf8'), REVIEW_VERBS));
     expect(runners).toEqual([]);
+  });
+
+  test('the writing-verb guard catches every spelling a component would use', () => {
+    // A prose-only pattern is green while checking nothing for the forms that
+    // matter: an extension spawns the CLI with an argument array, names a tool
+    // after the verb, or calls it through $ADRKIT_CLI or the package name.
+    const plants = [
+      "runAdr('adr_approve', ['approve', id, '--by', by], options)",
+      "spawn(cli, ['object', id, '--by', by, '--summary', s])",
+      'adr_resolve',
+      '"$ADRKIT_CLI" approve 0007 --by @me',
+      '${ADRKIT_CLI} resolve 0007 --objection 1 --by @me',
+      'bunx @adrkit/cli approve 0007 --by @me',
+      'adr\u200bapprove 0007',
+      'adr Approve 0007',
+      'adr resolve 0007',
+    ];
+    for (const plant of plants) {
+      expect({ plant, caught: mentionsVerb(plant, REVIEW_VERBS) }).toEqual({ plant, caught: true });
+    }
+    expect(mentionsVerb("['accept', id, '--by', by]", ['accept'])).toBe(true);
+    // Idioms the plugin really uses must not trip it.
+    for (const idiom of ["typeof value === 'object'", "type: ['object', 'null']", "runAdr('adr_check', ['check', '--json'])", 'resolve the path']) {
+      expect({ idiom, caught: mentionsVerb(idiom, REVIEW_VERBS) }).toEqual({ idiom, caught: false });
+    }
   });
 
   test('the workflow extension names no writing command at all', () => {
