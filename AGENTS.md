@@ -596,7 +596,9 @@ will usually be a regression:
     cache.
   - The hook-triggered canvas refresh is single-flight: one in flight, at most
     one queued, under one 15 s abort signal passed through `refreshOpen` into
-    the canvas's `refresh`.
+    the canvas's `refresh`. That signal bounds the `adr queue` read too,
+    combined with the queue's own timeout rather than replacing it, and the
+    hook's refresh waits for the queue so single-flight stays true.
   - The debounce timer is `unref`'d.
   - A timeout kills only the direct child, not a grandchild behind a
     version-manager shim. That is a known limit of the shared `runCommand`,

@@ -103,7 +103,8 @@ After a tool the runtime classifies as an edit (`edit`, `create`,
    process, and returns `additionalContext` saying the file just edited is
    governed by the named accepted decision(s), once per path per session;
 3. schedules the canvas's `refresh` (Collect and Check: `git diff`,
-   `adr check`, `adr lint`) for each directory with a panel open in this
+   `adr check`, `adr lint`; and, since ADR-0047, the free
+   `adr queue --format json` read) for each directory with a panel open in this
    process. It is debounced (1.5 s, trailing) and single-flight: while one
    refresh is in flight, later requests fold into one queued refresh. It
    reaches the canvas only through a new in-process `refreshOpen` on the
@@ -173,8 +174,10 @@ blocked nothing"), and tells the agent to check the change it just made.
     note is skipped for that edit, and the checks keep running and fill the
     cache, so the next edit of the file is told. A tool result is held at most
     about 2 s.
-  - The hook-triggered refresh runs its three calls under one 15 s abort
-    signal, and never more than one at a time.
+  - The hook-triggered refresh runs its calls (the queue read included)
+    under one 15 s abort signal, and never more than one at a time. The
+    queue keeps its own timeout as well; the two signals are combined, not
+    replaced.
   - The check runs at most once per distinct path per process (20 paths per
     tool call, cut while the patch is parsed). A process starts at most 500
     checks in all, and re-checks after a corpus edit count against that

@@ -533,7 +533,7 @@ describe('advisory hooks', () => {
 });
 
 describe('canvas refreshOpen', () => {
-  test('refreshes every open panel with Collect and Check only, passing the signal, and nothing when none is open', async () => {
+  test('refreshes every open panel with Collect, Check, and the free queue read, bounding every call by the signal, and nothing when none is open', async () => {
     const calls: string[] = [];
     const signals: unknown[] = [];
     let workflowRuns = 0;
@@ -557,15 +557,50 @@ describe('canvas refreshOpen', () => {
     await canvas.open(ctx);
     calls.length = 0;
     signals.length = 0;
-    const signal = new AbortController().signal;
-    expect(await canvas.refreshOpen({ signal })).toBe(1);
-    expect(calls).toEqual(['git diff', 'adr check', 'adr lint']);
-    expect(signals.every((given) => given === signal)).toBe(true);
+    const controller = new AbortController();
+    expect(await canvas.refreshOpen({ signal: controller.signal })).toBe(1);
+    expect([...calls].sort()).toEqual(['adr check', 'adr lint', 'adr queue', 'git diff']);
+    // The queue keeps its own timeout, so its signal is combined with ours,
+    // not replaced: every call must abort when the hooks' signal does.
+    expect(signals.length).toBe(calls.length);
+    controller.abort();
+    expect(signals.every((given) => (given as AbortSignal | undefined)?.aborted === true)).toBe(true);
     expect(workflowRuns).toBe(0);
     await canvas.onClose(ctx);
     calls.length = 0;
     expect(await canvas.refreshOpen()).toBe(0);
     expect(calls).toEqual([]);
+  });
+  test('waits for the queue read, so the hook-driven single-flight refresh really is one at a time', async () => {
+    let release: () => void = () => {};
+    const queueGate = new Promise<void>((resolve) => (release = resolve));
+    let queueStarted = 0;
+    const canvas = createDecisionReviewCanvas({
+      run: async (command: string, args: string[]) => {
+        if (args.includes('queue')) {
+          queueStarted += 1;
+          if (queueStarted > 1) await queueGate;
+          return { stdout: '{}', stderr: '', exitCode: 0 };
+        }
+        return { stdout: command === 'git' ? 'a.ts\0' : args.includes('check') ? '{"governedBy":[]}' : '', stderr: '', exitCode: 0 };
+      },
+      env: {},
+      exists: () => false,
+      getSession: () => ({ rpc: { workflow: { run: async () => {} } } }),
+    } as never) as unknown as {
+      open: (ctx: unknown) => Promise<unknown>;
+      refreshOpen: (options?: { signal?: AbortSignal }) => Promise<number>;
+    };
+    await canvas.open({ instanceId: 'p', session: { workingDirectory: WD } });
+    let settled = false;
+    const pending = canvas.refreshOpen({ signal: new AbortController().signal }).then(() => (settled = true));
+    await tick();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(queueStarted).toBe(2);
+    expect(settled).toBe(false);
+    release();
+    await pending;
+    expect(settled).toBe(true);
   });
 });
 
