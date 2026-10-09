@@ -149,7 +149,7 @@ describe('running the CLI', () => {
     const report = { governedBy: [{ recordId: '0001', bucket: 'governing' }], findings: [] };
     const { calls, invoke } = toolsWith({ answers: { check: { stdout: JSON.stringify(report), exitCode: 0 } } }, { cwd: '/work/repo' });
     const result = await invoke('adr_check', { paths: ['src/x.ts'] });
-    expect(calls).toEqual([{ command: 'adr', args: ['check', '--json', '--', 'src/x.ts'], cwd: '/work/repo', signal: undefined }]);
+    expect(calls).toEqual([{ command: 'adr', args: ['check', '--json', '--dir', 'docs/adr', '--', 'src/x.ts'], cwd: '/work/repo', signal: undefined }]);
     expect(result.resultType).toBe('success');
     const payload = JSON.parse(result.textResultForLlm);
     expect(payload).toMatchObject({ tool: 'adr_check', exitCode: 0, files: ['src/x.ts'], filesSource: 'args', report });
@@ -159,7 +159,7 @@ describe('running the CLI', () => {
     const { calls, invoke } = toolsWith({ git: { stdout: 'src/a.ts\0src/b.ts\0', stderr: '', exitCode: 0 } });
     const result = await invoke('adr_check', { base: 'main' });
     expect(calls[0]).toMatchObject({ command: 'git', args: ['diff', '--name-only', '-z', 'main...HEAD'] });
-    expect(calls[1]).toMatchObject({ command: 'adr', args: ['check', '--json', '--', 'src/a.ts', 'src/b.ts'] });
+    expect(calls[1]).toMatchObject({ command: 'adr', args: ['check', '--json', '--dir', 'docs/adr', '--', 'src/a.ts', 'src/b.ts'] });
     expect(JSON.parse(result.textResultForLlm)).toMatchObject({ files: ['src/a.ts', 'src/b.ts'], filesSource: 'git:main...HEAD' });
   });
 
@@ -612,10 +612,22 @@ describe('symlink confinement (review of #270)', () => {
     }
   });
 
-  test('an ADRKIT_DIR that resolves outside the repository is refused too', async () => {
+  test('an ADRKIT_DIR from the user environment is trusted, even outside the repository', async () => {
     const { base, root } = repoWithEscapes();
     try {
-      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: 'linked-corpus' } });
+      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: join(base, 'outside') } });
+      const result = await invoke('adr_lint', {});
+      expect(result.resultType).toBe('success');
+      expect(calls[0]?.args).toContain(join(base, 'outside'));
+    } finally {
+      cleanup(base);
+    }
+  });
+
+  test('an empty ADRKIT_DIR falls back to the default docs/adr, which is checked', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: '' } });
       const result = await invoke('adr_lint', {});
       expect(JSON.parse(result.textResultForLlm).error).toBe('symlink-escape');
       expect(calls).toEqual([]);
@@ -624,27 +636,45 @@ describe('symlink confinement (review of #270)', () => {
     }
   });
 
-  test('a path that is a symlink out of the repository is refused', async () => {
+  test('the directory that is checked is the directory passed to the CLI', async () => {
     const { base, root } = repoWithEscapes();
     try {
-      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: 'inside-corpus' } });
-      const explain = await invoke('adr_explain', { path: 'leak.md' });
-      expect(JSON.parse(explain.textResultForLlm).error).toBe('symlink-escape');
-      const check = await invoke('adr_check', { paths: ['ok.ts', 'leak.md'] });
-      expect(JSON.parse(check.textResultForLlm).error).toBe('symlink-escape');
-      expect(calls).toEqual([]);
+      for (const [env, args, expected] of [
+        [{}, { dir: 'docs' }, 'docs'],
+        [{ ADRKIT_DIR: 'inside-corpus' }, {}, 'inside-corpus'],
+        [{ ADRKIT_DIR: 'inside-corpus' }, { dir: 'alias-corpus' }, 'alias-corpus'],
+      ] as const) {
+        // The default docs/adr is a symlink out here, so the first row would be refused
+        // unless the argument is what is checked and passed.
+        const { calls, invoke } = toolsWith({}, { cwd: root, env: { ...env } });
+        await invoke('adr_lint', args);
+        const argv = calls[0]?.args ?? [];
+        expect(argv.slice(argv.indexOf('--dir'), argv.indexOf('--dir') + 2)).toEqual(['--dir', expected]);
+      }
     } finally {
       cleanup(base);
     }
   });
 
-  test('a git-collected file that is a symlink out of the repository is refused', async () => {
+  test('a path that is a symlink out of the repository is left to the CLI, not refused here', async () => {
+    const { base, root } = repoWithEscapes();
+    try {
+      const { calls, invoke } = toolsWith({}, { cwd: root, env: { ADRKIT_DIR: 'inside-corpus' } });
+      expect((await invoke('adr_explain', { path: 'leak.md' })).resultType).toBe('success');
+      expect((await invoke('adr_check', { paths: ['ok.ts', 'leak.md'] })).resultType).toBe('success');
+      expect(calls.length).toBe(2);
+    } finally {
+      cleanup(base);
+    }
+  });
+
+  test('one escaping git-collected path does not stop adr_check', async () => {
     const { base, root } = repoWithEscapes();
     try {
       const { calls, invoke } = toolsWith({ git: { stdout: 'ok.ts\0leak.md\0', stderr: '', exitCode: 0 } }, { cwd: root, env: { ADRKIT_DIR: 'inside-corpus' } });
       const result = await invoke('adr_check', { base: 'HEAD~1' });
-      expect(JSON.parse(result.textResultForLlm).error).toBe('symlink-escape');
-      expect(calls.every((call) => call.command === 'git')).toBe(true);
+      expect(result.resultType).toBe('success');
+      expect(calls.some((call) => call.command !== 'git')).toBe(true);
     } finally {
       cleanup(base);
     }

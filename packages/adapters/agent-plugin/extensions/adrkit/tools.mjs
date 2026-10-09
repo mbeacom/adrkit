@@ -76,7 +76,7 @@ const MESSAGES = Object.freeze({
     'The command line was too long for this system. Pass fewer or shorter paths per call (a large diff from base can do this too).',
   'cli-killed': 'The adr process was ended by a signal before it exited.',
   'symlink-escape':
-    'A requested path or the corpus directory resolves, through a symbolic link, outside the session repository. Nothing was run.',
+    'The corpus directory resolves, through a symbolic link, outside the session repository. Nothing was run.',
   'no-report': 'adr exited without a readable report.',
   'cli-failed': 'adr exited with an unexpected code and no readable report.',
 });
@@ -387,20 +387,36 @@ export function createAdrTools({ run, env, exists, getCwd }) {
     return resultOf({ tool, exitCode: result.exitCode, ...extra, error: code, message: MESSAGES[code] }, 'failure');
   }
 
-  /** @param {string | undefined} dir */
-  const dirArgs = (dir) => {
-    const chosen = dir ?? env['ADRKIT_DIR'];
-    return chosen ? ['--dir', chosen] : [];
+  /**
+   * The corpus directory, computed once so the value that is checked is the
+   * value the CLI receives: the argument, else a non-empty `$ADRKIT_DIR`, else
+   * `docs/adr`. A directory from the user's own environment is trusted (it may
+   * be absolute or outside the repository); one from the tool argument or the
+   * default lives in repository content, where a committed symlink could point
+   * outside the session root.
+   *
+   * @param {string | undefined} dir
+   */
+  const corpusDir = (dir) => {
+    const fromEnv = env['ADRKIT_DIR'];
+    const value = dir ?? (fromEnv ? fromEnv : 'docs/adr');
+    return { value, trusted: dir === undefined && Boolean(fromEnv) };
   };
 
+  /** @param {string | undefined} dir */
+  const dirArgs = (dir) => ['--dir', corpusDir(dir).value];
+
   /**
-   * The corpus directory the CLI will read (its default is docs/adr) and every
-   * file it will be pointed at must stay inside the session root.
+   * Only the corpus directory is realpath-checked. Corpus discovery keeps
+   * regular files only, and the CLI's marker reader refuses any path with a
+   * symlink component, so a symlinked file never reads outside the root.
    *
-   * @param {string} cwd @param {string | undefined} dir @param {string[]} files
+   * @param {string} cwd @param {string | undefined} dir
    */
-  const escapes = (cwd, dir, files) =>
-    ![dir ?? env['ADRKIT_DIR'] ?? 'docs/adr', ...files].every((relative) => staysInside(cwd, relative));
+  const escapes = (cwd, dir) => {
+    const corpus = corpusDir(dir);
+    return !corpus.trusted && !staysInside(cwd, corpus.value);
+  };
 
   /**
    * @param {string} tool
@@ -454,7 +470,7 @@ export function createAdrTools({ run, env, exists, getCwd }) {
           if (options.signal?.aborted) throw new Error('cancelled');
           return failure('adr_check', args.base === undefined ? 'git-no-changes' : 'git-base-unresolved');
         }
-        if (escapes(options.cwd, args.dir, collected.files)) return failure('adr_check', 'symlink-escape');
+        if (escapes(options.cwd, args.dir)) return failure('adr_check', 'symlink-escape');
         const extra = { files: collected.files, filesSource: collected.source, notes: collected.notes };
         if (collected.files.length === 0) {
           return resultOf(
@@ -482,7 +498,7 @@ export function createAdrTools({ run, env, exists, getCwd }) {
       },
       skipPermission: true,
       handler: handlerFor('adr_explain', async (args, options) =>
-        escapes(options.cwd, args.dir, [/** @type {string} */ (args.path)])
+        escapes(options.cwd, args.dir)
           ? failure('adr_explain', 'symlink-escape')
           : runAdr('adr_explain', ['explain', '--json', ...dirArgs(args.dir), '--', /** @type {string} */ (args.path)], options),
       ),
@@ -500,7 +516,7 @@ export function createAdrTools({ run, env, exists, getCwd }) {
       },
       skipPermission: true,
       handler: handlerFor('adr_lint', async (args, options) =>
-        escapes(options.cwd, args.dir, []) ? failure('adr_lint', 'symlink-escape') : runAdr('adr_lint', ['lint', '--json', ...dirArgs(args.dir)], options),
+        escapes(options.cwd, args.dir) ? failure('adr_lint', 'symlink-escape') : runAdr('adr_lint', ['lint', '--json', ...dirArgs(args.dir)], options),
       ),
     },
   ];

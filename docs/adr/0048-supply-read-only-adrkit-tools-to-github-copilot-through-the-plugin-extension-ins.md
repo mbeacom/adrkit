@@ -104,11 +104,15 @@ commands already document.
   characters; `paths` holds 1 to 200 entries; `base` is a revision
   of at most 256 characters from a conservative character set that cannot start
   with `-`; `dir` follows the path rules; `paths` and `base` are exclusive. Paths
-  reach `adr` after `--`. Before anything is spawned, the effective corpus
-  directory (the argument, `$ADRKIT_DIR`, or the default `docs/adr`) and every
-  path, including each file git collects, are resolved with `realpath`, and
-  one that leaves the session root through a symlink is refused with the fixed
-  `symlink-escape` message. A target that does not exist yet passes.
+  reach `adr` after `--`. Before anything is spawned, the corpus
+  directory is resolved with `realpath` and refused with the fixed
+  `symlink-escape` message if it leaves the session root through a symlink. It
+  is computed once (the argument, else a non-empty `$ADRKIT_DIR`, else
+  `docs/adr`) and that same value is passed to the CLI as `--dir`. A directory
+  from `$ADRKIT_DIR` is the user's own and is trusted, so an absolute or outside
+  value works. Paths are not realpath-checked: the CLI's marker reader refuses a
+  path with a symlink component, so one escaping file does not fail a whole
+  `adr_check`.
 - **Results never carry exception text.** A rejected argument, an unresolvable
   `$ADRKIT_CLI`, a process that cannot start, an output larger than the 64 MiB
   buffer, a command line too long for the system, a process killed by a signal,
@@ -253,14 +257,15 @@ shells out through a generic tool and parses CLI text, and a repository-local
 `skipPermission` means a model can run these commands without a prompt. They
 are read-only and the executable is environment-chosen, but they do read the
 repository, including the first 8 KiB of each named file for `@adr` markers.
-A committed symlink (`docs/adr`, or any
-relative path) could otherwise point outside the worktree, and `adr lint` would
-list the names of the `.md` files there (measured in review). The Copilot review
-of the pull request raised it again, so the tools now resolve the real path of
-the corpus directory and of every path and refuse an escape before spawning
-(`symlink-escape`). The check and the spawn are separate steps, so a symlink
-swapped between them is not covered; that needs write access to the worktree,
-which the model already has through its own tools.
+Only a symlinked corpus directory was a
+leak: a committed `docs/adr` (or an argument `dir`) pointing outside the
+worktree made `adr lint` list the names of the `.md` files there (measured in
+review). Corpus discovery keeps regular files only, so symlinked entries inside
+the corpus are never read, and the marker reader refuses symlinked paths. The
+tools therefore realpath-check the corpus directory alone and refuse an escape
+before spawning (`symlink-escape`). The check and the spawn are separate steps,
+so a symlink swapped between them is not covered; that needs write access to the
+worktree, which the model already has through its own tools.
 
 The directory tracking depends on an event the runtime emits today. If a later
 runtime stops emitting `session.context_changed`, or starts restarting the
