@@ -494,7 +494,9 @@ or a ULID); anything else, including a namespaced reference such as
   the post-edit note holds a tool result at most about 2 seconds. Past those
   deadlines the hook says nothing for that turn.
 - The panel refresh a hook triggers runs one at a time, under a 15-second
-  limit that covers the open-proposal queue read as well.
+  limit that covers the open-proposal queue read as well. If it runs out, the
+  panel keeps showing its previous result, noting that the automatic refresh
+  timed out.
 - A timeout stops the process the hook started, but not a grandchild process
   that a version-manager shim may start for `adr`.
 

@@ -598,7 +598,10 @@ will usually be a regression:
     one queued, under one 15 s abort signal passed through `refreshOpen` into
     the canvas's `refresh`. That signal bounds the `adr queue` read too,
     combined with the queue's own timeout rather than replacing it, and the
-    hook's refresh waits for the queue so single-flight stays true.
+    hook's refresh waits for the queue so single-flight stays true. When the
+    signal fires, the panel keeps its previous result and queue under fixed
+    timeout notes; an aborted refresh never commits the abort's exception text
+    as a usage error.
   - The debounce timer is `unref`'d.
   - A timeout kills only the direct child, not a grandchild behind a
     version-manager shim. That is a known limit of the shared `runCommand`,

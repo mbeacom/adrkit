@@ -448,6 +448,15 @@ export const QUEUE_TIMEOUT_MS = 30_000;
  * message selected by an explicit check is the rule since CodeQL's
  * stack-trace finding on the first canvas.
  */
+/**
+ * Fixed notes for the governing view. An automatic refresh (the hooks') runs
+ * under a signal; when it fires, the panel keeps its previous result and says
+ * so, rather than showing the abort's exception text as a usage error.
+ */
+export const CANVAS_NOTES = {
+  autoRefreshTimeout: 'Automatic refresh timed out; showing the previous result.',
+};
+
 export const QUEUE_NOTES = {
   args: "The open-proposal list was not computed: the panel's arguments are not valid.",
   start: 'The open-proposal list is unavailable: the adr CLI could not be started.',
@@ -455,6 +464,7 @@ export const QUEUE_NOTES = {
   version: 'The open-proposal list is unavailable: adr queue returned a report version this panel does not read.',
   tooLarge: 'The open-proposal list is unavailable: the adr queue report was too large to read.',
   timeout: 'The open-proposal list is unavailable: adr queue did not finish in time.',
+  autoRefreshTimeout: 'The open-proposal list was not updated: the automatic refresh timed out; showing the previous list.',
   /** @param {number} code */
   exit: (code) => `The open-proposal list is unavailable: adr queue exited ${code}.`,
 };
@@ -908,7 +918,18 @@ export function createDecisionReviewCanvas({
     // no changed files too, it can never alter the check's result, and neither
     // its time nor its failure holds the governing view.
     const queueRun = computeQueue({ cwd, input: workspace.args, run: bounded, env, exists, timeoutMs: queueTimeoutMs });
-    const snapshot = await computeCheck({ cwd, input: workspace.args, run: bounded, env, exists, now });
+    const computed = await computeCheck({ cwd, input: workspace.args, run: bounded, env, exists, now });
+    // An automatic refresh its signal cut short says nothing about the
+    // repository: its snapshot would show the abort's exception text as a
+    // usage error. Keep what the panel had and add a fixed note instead.
+    const timedOut = Boolean(signal?.aborted);
+    const previous = workspace.check;
+    const snapshot =
+      timedOut && previous
+        ? { ...previous, notes: [...previous.notes.filter((note) => note !== CANVAS_NOTES.autoRefreshTimeout), CANVAS_NOTES.autoRefreshTimeout] }
+        : timedOut
+          ? { ...computed, notes: [CANVAS_NOTES.autoRefreshTimeout] }
+          : computed;
     const fingerprint = await fingerprintOf(cwd, snapshot);
     // A slower, older refresh must not overwrite a newer one. It still fills
     // an empty workspace: two panels opened at once on one directory would
@@ -927,7 +948,15 @@ export function createDecisionReviewCanvas({
       broadcast(cwd);
     }
     const queueDone = queueRun
-      .then((queue) => {
+      .then((computedQueue) => {
+        // Same rule for the queue: an aborted automatic refresh keeps the
+        // previous list under a fixed note, never "could not be started".
+        const queue =
+          signal?.aborted && !computedQueue.available
+            ? workspace.queue?.available
+              ? { ...workspace.queue, note: QUEUE_NOTES.autoRefreshTimeout }
+              : { ...computedQueue, note: QUEUE_NOTES.autoRefreshTimeout }
+            : computedQueue;
         if (seq === workspace.seq || workspace.queue === null) {
           workspace.queue = queue;
           broadcast(cwd);

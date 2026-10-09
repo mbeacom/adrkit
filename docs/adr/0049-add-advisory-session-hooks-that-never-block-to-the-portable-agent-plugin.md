@@ -21,6 +21,7 @@ relatesTo:
   - "0028"
   - "0045"
   - "0046"
+  - "0047"
   - "0048"
 affects:
   - type: path
@@ -178,7 +179,10 @@ blocked nothing"), and tells the agent to check the change it just made.
   - The hook-triggered refresh runs its calls (the queue read included)
     under one 15 s abort signal, and never more than one at a time. The
     queue keeps its own timeout as well; the two signals are combined, not
-    replaced.
+    replaced. If that signal fires, the panel keeps its previous result
+    and queue, each with a fixed timeout note ("Automatic refresh timed out;
+    showing the previous result."), rather than committing a snapshot whose
+    note is the abort's exception text.
   - The check runs at most once per distinct path per process (20 paths per
     tool call, cut while the patch is parsed). A process starts at most 500
     checks in all, and re-checks after a corpus edit count against that
@@ -478,5 +482,5 @@ external validation.
 7. [ ] Kill the process group, not only the direct child, on a timeout in the
    shared `runCommand` (follow-up; it affects the workflow and canvas too).
 8. [x] Add reciprocal "Amended by ADR-0049 (proposed)" notes to ADR-0028,
-   ADR-0045, ADR-0046, and ADR-0048, drafted with this record.
+   ADR-0045, ADR-0046, ADR-0047, and ADR-0048, drafted with this record.
 9. [ ] Ratify or reject this record before the plugin publishes the hooks.

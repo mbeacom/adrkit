@@ -11,6 +11,7 @@ import {
   QUEUE_BYTES_LIMIT,
   QUEUE_LIMIT,
   QUEUE_NOTES,
+  CANVAS_NOTES,
   computeSnapshot,
   createDecisionReviewCanvas,
   sanitizeReviewResult,
@@ -2115,5 +2116,72 @@ describe('ADR-0047: review fix round 1', () => {
     await openPanel(options);
     const { queue } = await action(options, 'get_state')();
     expect(queue.items[0].routingTargets).toEqual(targets.slice(0, 50));
+  });
+});
+
+describe('a hook-triggered refresh that its signal aborts', () => {
+  // The hooks bound their background refresh with a 15 s signal. When it
+  // fires, the panel must keep what it was showing and say so with a fixed
+  // note, never "The operation was aborted" or a note blaming the setup.
+  function abortable() {
+    let hang = false;
+    const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
+      const key = command === 'git' ? 'diff' : args.includes('check') ? 'check' : args.includes('queue') ? 'queue' : 'lint';
+      if (hang) {
+        await new Promise((_resolve, reject) => {
+          const fail = () => reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' }));
+          if (options.signal?.aborted) fail();
+          options.signal?.addEventListener('abort', fail, { once: true });
+        });
+      }
+      if (key === 'diff') return ok('src/a.ts\0');
+      if (key === 'check') return ok(checkReport([governed('0012', 'governing', TITLE)]));
+      if (key === 'queue') return ok(queueReport([queueItem('0020')]));
+      return ok();
+    };
+    return { run, hangFromNowOn: () => void (hang = true), stopHanging: () => void (hang = false) };
+  }
+
+  test('keeps the previous check and queue, adds fixed timeout notes, and never shows the exception text', async () => {
+    const cli = abortable();
+    const { options } = makeCanvas({ run: cli.run });
+    await openPanel(options);
+    const before = await action(options, 'get_state')();
+    expect(before.status).not.toBe('usage-error');
+    cli.hangFromNowOn();
+    const controller = new AbortController();
+    const pending = (options as unknown as { refreshOpen: (o: { signal: AbortSignal }) => Promise<number> }).refreshOpen({
+      signal: controller.signal,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    controller.abort();
+    await pending;
+    const after = await action(options, 'get_state')();
+    expect(after.status).toBe(before.status);
+    expect(after.governing.map((entry: { recordId: string }) => entry.recordId)).toEqual(['0012']);
+    expect(after.notes).toContain(CANVAS_NOTES.autoRefreshTimeout);
+    expect(after.queue.available).toBe(true);
+    expect(after.queue.items.map((item: { id: string }) => item.id)).toEqual(['0020']);
+    expect(after.queue.note).toBe(QUEUE_NOTES.autoRefreshTimeout);
+    const shown = JSON.stringify(after);
+    expect(shown).not.toContain('aborted');
+    expect(shown).not.toContain(QUEUE_NOTES.start);
+  });
+
+  test('a later refresh that succeeds clears the timeout notes', async () => {
+    const cli = abortable();
+    const { options } = makeCanvas({ run: cli.run });
+    await openPanel(options);
+    cli.hangFromNowOn();
+    const controller = new AbortController();
+    const refreshOpen = (options as unknown as { refreshOpen: (o?: { signal?: AbortSignal }) => Promise<number> }).refreshOpen;
+    const pending = refreshOpen({ signal: controller.signal });
+    controller.abort();
+    await pending;
+    expect((await action(options, 'get_state')()).notes).toContain(CANVAS_NOTES.autoRefreshTimeout);
+    cli.stopHanging();
+    await action(options, 'refresh')({});
+    const after = await action(options, 'get_state')();
+    expect(after.notes).not.toContain(CANVAS_NOTES.autoRefreshTimeout);
   });
 });
