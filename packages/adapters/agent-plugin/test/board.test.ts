@@ -283,6 +283,13 @@ async function renderBoardWith(state: unknown, posts: Array<{ path: string; body
 
 const svgNodes = (root: FakeNode) => root.all().filter((node) => node.tag === 'g' && node.attrs['role'] === 'button');
 
+/** The board module's `reviewSessionDeps` source, which is all it does with a session. */
+function reviewSessionDepsSource(): string {
+  const source = readFileSync(join(packageRoot, 'extensions', 'adrkit', 'board.mjs'), 'utf8');
+  const start = source.indexOf('function reviewSessionDeps(');
+  return source.slice(start, source.indexOf('\n}\n', start));
+}
+
 describe('declaration', () => {
   test('a canvas whose actions are exactly get_state, refresh, and focus, each read-only', () => {
     const { options } = makeBoard();
@@ -307,13 +314,17 @@ describe('declaration', () => {
     for (const schema of schemas) expect(schema.type).toEqual(['object', 'null']);
   });
 
-  test('the factory uses the session for the review log only: there is nothing to send or start', () => {
-    // ADR-0052 gave the board a session getter, for one fire-and-forget log
-    // call per review write. It still cannot reach the agent or a workflow.
+  test('the factory uses the session for the review controls only: there is nothing to send or start', () => {
+    // ADR-0052 gave the board a session getter for the review controls: the
+    // host confirmation, the agent mode, and a fire-and-forget log. It still
+    // cannot reach the agent or a workflow.
     const source = createDecisionBoardCanvas.toString();
-    expect(source).not.toMatch(/rpc\.workflow|\.send\(|\.rpc\b/);
-    expect([...source.matchAll(/getSession\(\)/g)].length).toBe(1);
-    expect(source).toMatch(/getSession\(\)\?\.log\?\.\(/);
+    expect(source).not.toMatch(/rpc\.workflow|\.send\(/);
+    expect(source).toMatch(/reviewSessionDeps\(getSession\)/);
+    const deps = reviewSessionDepsSource();
+    expect(deps).not.toMatch(/rpc\.workflow|\.send\(/);
+    expect([...deps.matchAll(/\.rpc\b/g)].length).toBe(1);
+    expect(deps).toMatch(/getSession\(\)\?\.rpc\?\.mode\?\.get\?\.\(\)/);
   });
 });
 

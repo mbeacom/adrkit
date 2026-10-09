@@ -57,6 +57,8 @@ export const MIN_CLI_VERSION = '0.18.0';
 export const NONCE_TTL_MS = 2 * 60 * 1000;
 /** How long one write may run before the page is told its outcome is unknown. */
 export const WRITE_TIMEOUT_MS = 30_000;
+/** How long the host's confirmation may stay unanswered before it counts as declined. */
+export const CONFIRM_TIMEOUT_MS = 2 * 60 * 1000;
 /** How long `adr --version` may take. */
 export const VERSION_TIMEOUT_MS = 5_000;
 /** The longest objection summary, in code points (core's MAX_OBJECTION_SUMMARY_LENGTH). */
@@ -80,6 +82,9 @@ export const REVIEW_NOTES = {
     'Recording review is off: ADRKIT_REVIEWER is not an identity the adr CLI records (@handle, team:slug, or an ' +
     'email address, with no control or invisible characters). The page cannot supply an identity.',
   unavailable: 'Recording review is unavailable on this board.',
+  noConfirm:
+    'Recording review is off: this host cannot ask you to confirm a review write, so the board will not record one. ' +
+    'Each write needs a confirmation from the host, which the model cannot answer.',
 };
 
 /** Fixed refusals for a request the route will not act on. */
@@ -93,6 +98,10 @@ export const REVIEW_REFUSALS = {
   objection: 'objection must be a whole number from 1, counting objections in file order.',
   busy: 'Another review write is still running. Wait for it to finish, then try again.',
 };
+
+/** Every confirmation ends with this. */
+const CONFIRM_TAIL =
+  ' This writes review state into the record under your identity. Decline unless you just asked for it on the board.';
 
 /**
  * Fixed messages for a write's outcome. The id and the reviewer interpolated
@@ -129,6 +138,23 @@ export const REVIEW_MESSAGES = {
   start: 'The adr CLI could not be started, so nothing was written.',
   timeout: 'The adr CLI did not finish in time; the record may or may not have changed. Refresh to see its state.',
   dirEscape: 'Nothing was written: the board\'s corpus directory now resolves outside the repository.',
+  notConfirmed: 'Nothing was written: the host confirmation was declined, cancelled, or not answered.',
+  autopilot: 'Nothing was written: the session is in autopilot, where the board records no review.',
+  /**
+   * The host's confirmation dialog. Built only from fixed text, the kind, the
+   * id (validated against the record grammar), the identity (validated against
+   * the identity rule), and numbers. Never the summary or a title: both are
+   * untrusted, and a forged request controls the summary.
+   */
+  confirm: {
+    /** @param {string} id @param {string} who */
+    approval: (id, who) => `adrkit decision board: record an approval of ADR-${id} by ${who}?${CONFIRM_TAIL}`,
+    /** @param {string} id @param {string} who @param {number} length */
+    objection: (id, who, length) =>
+      `adrkit decision board: record an objection on ADR-${id} by ${who}? Its summary (${length} characters) is shown on the board page, not here.${CONFIRM_TAIL}`,
+    /** @param {string} id @param {string} who @param {number} n */
+    resolution: (id, who, n) => `adrkit decision board: mark objection ${n} on ADR-${id} as resolved by ${who}?${CONFIRM_TAIL}`,
+  },
 };
 
 // The schema's Identity grammar (`adr.schema.ts`), and `isWritableIdentity`'s
@@ -197,6 +223,7 @@ const REFUSAL_TEXT = {
   ...REVIEW_REFUSALS,
   unset: REVIEW_NOTES.unset,
   invalid: REVIEW_NOTES.invalid,
+  noConfirm: REVIEW_NOTES.noConfirm,
   oldCli: REVIEW_MESSAGES.oldCli,
 };
 
@@ -212,26 +239,35 @@ class Refusal extends Error {
 
 /**
  * @typedef {(command: string, args: string[], options: { cwd: string, signal?: AbortSignal }) => Promise<CommandResult>} CwdRunner
- * @typedef {{ enabled: boolean, reviewer: string | null, note: string | null, code: 'unset' | 'invalid' | null }} ReviewState
+ * @typedef {{ enabled: boolean, reviewer: string | null, note: string | null, code: 'unset' | 'invalid' | 'noConfirm' | null }} ReviewState
  * @typedef {{ kind: (typeof REVIEW_KINDS)[number], id: string, nonce: string, expires: number }} Issued
  * @typedef {{
  *   kind: (typeof REVIEW_KINDS)[number], id: string, summary?: string, objection?: number,
  * }} WriteRequest
  * @typedef {{
- *   outcome: 'written' | 'unchanged' | 'refused' | 'usage-error' | 'old-cli' | 'unknown' | 'not-run',
+ *   outcome: 'written' | 'unchanged' | 'refused' | 'usage-error' | 'old-cli' | 'unknown' | 'not-run' | 'not-confirmed',
  *   message: string,
  * }} WriteResult
  */
 
 /**
  * Build the write path. `board.mjs` calls `handle` from its HTTP route only,
- * after `postAllowed` has checked the header token and the `Origin`.
+ * after checking the header token and an exact same-origin `Origin`.
+ *
+ * `canConfirm` and `confirm` are the host's elicitation (`session.ui.confirm`),
+ * the one part of this path the model cannot drive: the model is given the
+ * panel URL and token by the runtime's `open_canvas` result, so it can do
+ * everything the page does over HTTP. Without them nothing is ever written.
  *
  * @param {{
  *   run: CwdRunner,
  *   env: Record<string, string | undefined>,
  *   exists: (path: string) => boolean,
  *   isRecordId: (id: string) => boolean,
+ *   canConfirm?: () => boolean,
+ *   confirm?: (message: string) => Promise<unknown>,
+ *   agentMode?: () => Promise<unknown>,
+ *   confirmTimeoutMs?: number,
  *   log?: (message: string) => unknown,
  *   clock?: () => number,
  *   randomBytes?: (size: number) => Buffer,
@@ -243,6 +279,10 @@ export function createReviewWriter({
   env,
   exists,
   isRecordId,
+  canConfirm = () => false,
+  confirm = async () => false,
+  agentMode = async () => null,
+  confirmTimeoutMs = CONFIRM_TIMEOUT_MS,
   log = () => undefined,
   clock = Date.now,
   randomBytes = nodeRandomBytes,
@@ -254,11 +294,55 @@ export function createReviewWriter({
   const supported = new Set();
   let writing = false;
 
+  /** Whether the host offers elicitation; any throw is a no. */
+  const hostCanConfirm = () => {
+    try {
+      return canConfirm() === true;
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * Ask the person through the host, failing closed: only a literal `true`
+   * within the time limit is a yes. A throw, a timeout, or any other answer is
+   * a no, and nothing from the host's answer reaches the reply.
+   *
+   * @param {string} message
+   */
+  const confirmedByHost = async (message) => {
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let timer;
+    try {
+      const answer = await Promise.race([
+        Promise.resolve().then(() => confirm(message)),
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve(false), confirmTimeoutMs);
+        }),
+      ]);
+      return answer === true;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  /** Whether the session reports autopilot. Unreadable is not autopilot: the confirmation still guards. */
+  const inAutopilot = async () => {
+    try {
+      return (await agentMode()) === 'autopilot';
+    } catch {
+      return false;
+    }
+  };
+
   /** The controls' state, read from the environment each time. @returns {ReviewState} */
   const state = () => {
     const reviewer = env['ADRKIT_REVIEWER'];
     if (reviewer === undefined || reviewer === '') return { enabled: false, reviewer: null, note: REVIEW_NOTES.unset, code: 'unset' };
     if (!isWritableReviewer(reviewer)) return { enabled: false, reviewer: null, note: REVIEW_NOTES.invalid, code: 'invalid' };
+    if (!hostCanConfirm()) return { enabled: false, reviewer: null, note: REVIEW_NOTES.noConfirm, code: 'noConfirm' };
     return { enabled: true, reviewer, note: null, code: null };
   };
 
@@ -378,8 +462,8 @@ export function createReviewWriter({
       ...cli.args,
       SUBCOMMANDS[request.kind],
       request.id,
-      '--by',
-      reviewer,
+      // One element, so an email identity that starts with `-` stays a value.
+      `--by=${reviewer}`,
       '--json',
       ...(dir ? ['--dir', dir] : []),
       // One argv element, so a summary that starts with `-` is still a value.
@@ -433,6 +517,18 @@ export function createReviewWriter({
         : { outcome: 'usage-error', message: REVIEW_MESSAGES.usage };
     }
     return { outcome: 'unknown', message: REVIEW_MESSAGES.exit(result.exitCode) };
+  };
+
+  /**
+   * The dialog text for one validated request.
+   *
+   * @param {WriteRequest} request
+   * @param {string} who
+   */
+  const confirmText = (request, who) => {
+    if (request.kind === 'objection') return REVIEW_MESSAGES.confirm.objection(request.id, who, [...(request.summary ?? '')].length);
+    if (request.kind === 'resolution') return REVIEW_MESSAGES.confirm.resolution(request.id, who, /** @type {number} */ (request.objection));
+    return REVIEW_MESSAGES.confirm.approval(request.id, who);
   };
 
   /**
@@ -507,15 +603,26 @@ export function createReviewWriter({
       // The shown directory was confined when it was chosen; check it again
       // right before the spawn, as every graph and queue read does.
       if (escapes(cwd, dir())) return replyJson(res, 200, { outcome: 'not-run', message: REVIEW_MESSAGES.dirEscape });
+      const who = /** @type {string} */ (current.reviewer);
       writing = true;
       /** @type {WriteResult} */
       let result;
       try {
-        result = await perform(request, /** @type {string} */ (current.reviewer), cwd, corpus);
+        // The boundary (ADR-0052): the person confirms through the host, which
+        // the model cannot answer. The page's two clicks and the nonce are
+        // defence in depth only, because the model holds the panel's token.
+        if (await inAutopilot()) {
+          result = { outcome: 'not-confirmed', message: REVIEW_MESSAGES.autopilot };
+        } else if (!(await confirmedByHost(confirmText(request, who)))) {
+          result = { outcome: 'not-confirmed', message: REVIEW_MESSAGES.notConfirmed };
+        } else {
+          result = await perform(request, who, cwd, corpus);
+        }
       } finally {
         writing = false;
       }
-      note(`adrkit: decision board review ${request.kind} on ADR-${request.id} as ${current.reviewer}: ${result.outcome}`);
+      note(`adrkit: decision board review ${request.kind} on ADR-${request.id} as ${who}: ${result.outcome}`);
+      if (result.outcome === 'not-confirmed') return replyJson(res, 200, { ...result, state: null });
       /** @type {unknown} */
       let snapshot = null;
       try {

@@ -399,10 +399,13 @@ export const BOARD_JS = `(function () {
     var who = text(info.reviewer);
     if (armed && armed.id === id) {
       box.appendChild(el('p', 'confirm-text', describe(armed, who)));
+      // Cancel takes the arming button's place and Confirm comes after it, so
+      // a double click on the arming button cannot land on Confirm (review L4).
+      box.appendChild(button('Cancel', function () { armed = null; setMessage(''); render(state); }));
       var yes = button('Confirm ' + REVIEW_TEXT[armed.kind] + ' as ' + who, submit, 'primary');
       yes.disabled = busy;
       box.appendChild(yes);
-      box.appendChild(button('Cancel', function () { armed = null; setMessage(''); render(state); }));
+      box.appendChild(el('p', 'muted note', 'GitHub Copilot will then ask you to confirm it again; the board writes only if you say yes there.'));
       return box;
     }
     var draft = draftFor(id);
