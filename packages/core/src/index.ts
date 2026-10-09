@@ -57,3 +57,20 @@ export {
 } from './queue/types.ts';
 export { acceptAdrSource } from './transition/accept.ts';
 export type { AcceptAdrInput, AcceptAdrResult, AcceptRefusalCode } from './transition/accept.ts';
+export {
+  approveAdrSource,
+  MAX_OBJECTION_SUMMARY_LENGTH,
+  objectAdrSource,
+  objectionSummaryProblem,
+  resolveObjectionAdrSource,
+} from './transition/review.ts';
+export type {
+  ApproveAdrInput,
+  ApproveAdrResult,
+  ObjectAdrInput,
+  ObjectAdrResult,
+  ResolveObjectionAdrInput,
+  ResolveObjectionAdrResult,
+  ReviewRefusal,
+  ReviewRefusalCode,
+} from './transition/review.ts';

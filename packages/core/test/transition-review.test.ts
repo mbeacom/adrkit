@@ -1,0 +1,306 @@
+import { describe, expect, test } from 'bun:test';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import {
+  approveAdrSource,
+  objectAdrSource,
+  parseFrontmatter,
+  resolveObjectionAdrSource,
+  MAX_OBJECTION_SUMMARY_LENGTH,
+} from '@adrkit/core';
+import { finishSplice, locateFrontmatter } from '../src/transition/splice.ts';
+
+const PATH = 'docs/adr/0007-adopt.md';
+
+function record(lines: { status?: string; review?: string; extra?: string } = {}): string {
+  return [
+    '---',
+    'schemaVersion: 0.2.0',
+    'id: "0007"',
+    'title: "Adopt a thing"',
+    `status: ${lines.status ?? 'proposed'}`,
+    'date: 2026-09-01',
+    'deciders: ["@alice"]',
+    'tags: [cli]',
+    'scope: component',
+    'reversibility: two-way-door',
+    'blastRadius: component',
+    'affects: []',
+    'provenance:',
+    '  authoredBy: agent-drafted',
+    ...(lines.review ? [lines.review] : []),
+    ...(lines.extra ? [lines.extra] : []),
+    '---',
+    '',
+    '# ADR-0007: Adopt a thing',
+    '',
+  ].join('\n');
+}
+
+const approve = (source: string, by = '@bob') => approveAdrSource({ source, by, path: PATH });
+const object = (source: string, by = '@dan', summary = 'Needs a cost estimate') =>
+  objectAdrSource({ source, by, summary, path: PATH });
+const resolveObjection = (source: string, objection = 1, by = '@dan') =>
+  resolveObjectionAdrSource({ source, by, objection, path: PATH });
+
+function review(content: string): Record<string, any> {
+  return (parseFrontmatter(content).data as Record<string, any>).review;
+}
+
+/** Everything except `review` parses identically before and after. */
+function restOf(content: string): Record<string, unknown> {
+  const { review: _review, ...rest } = parseFrontmatter(content).data as Record<string, unknown>;
+  return rest;
+}
+
+function ok<T extends { ok: boolean }>(result: T): Extract<T, { ok: true }> {
+  if (!result.ok) throw new Error(`refused: ${JSON.stringify(result)}`);
+  return result as Extract<T, { ok: true }>;
+}
+
+/** Each splice shape, as the `review:` block (or its absence) of a proposed record. */
+const SHAPES: Record<string, { review?: string; extra?: string }> = {
+  'review absent': {},
+  'review with other keys': { review: 'review:\n  tier: async\n  slaDays: 5' },
+  'block lists': {
+    review: 'review:\n  tier: async\n  approvals:\n    - "@erin"\n  objections:\n    - by: "@dan"\n      summary: Earlier\n      resolved: true',
+  },
+  'empty flow lists': { review: 'review:\n  approvals: []\n  objections: []\n  tier: async' },
+  'flow lists with items': {
+    review: 'review:\n  approvals: ["@erin", "@frank"]\n  objections: [{ by: "@dan", summary: Earlier, resolved: true }]',
+  },
+  'comments near the block': {
+    review:
+      'review:\n  # routing\n  tier: async\n  approvals:\n    - "@erin" # first\n    # trailing note\n  objections:\n    - by: "@dan"\n      resolved: true\n    # after the objections\n# a top-level comment',
+    extra: 'reviewBy: 2027-01-01',
+  },
+};
+
+describe('approveAdrSource', () => {
+  for (const [name, shape] of Object.entries(SHAPES)) {
+    test(`adds the approval and changes nothing else: ${name}`, () => {
+      const source = record(shape);
+      const before = review(source)?.approvals ?? [];
+      const result = ok(approve(source));
+      expect(result.changed).toBe(true);
+      expect(review(result.content).approvals).toEqual([...before, '@bob']);
+      expect(result.approvals).toBe(before.length + 1);
+      expect(restOf(result.content)).toEqual(restOf(source));
+      const { approvals: _a, ...otherReview } = review(result.content);
+      const { approvals: _b, ...otherBefore } = review(source) ?? {};
+      expect(otherReview).toEqual(otherBefore);
+      expect(result.content.endsWith('# ADR-0007: Adopt a thing\n')).toBe(true);
+    });
+  }
+
+  test('appends a block item at the existing indent, after a trailing comment', () => {
+    const result = ok(approve(record(SHAPES['comments near the block']!)));
+    expect(result.content).toContain('    - "@erin" # first\n    - "@bob"\n    # trailing note\n  objections:');
+  });
+
+  test('appends inside a flow list and keeps it a flow list', () => {
+    expect(ok(approve(record(SHAPES['empty flow lists']!))).content).toContain('  approvals: ["@bob"]\n');
+    expect(ok(approve(record(SHAPES['flow lists with items']!))).content).toContain('  approvals: ["@erin", "@frank", "@bob"]\n');
+  });
+
+  test('creates the review block when it is absent', () => {
+    expect(ok(approve(record())).content).toContain('  authoredBy: agent-drafted\nreview:\n  approvals:\n    - "@bob"\n---\n');
+  });
+
+  test('preserves CRLF line endings', () => {
+    for (const shape of Object.values(SHAPES)) {
+      const result = ok(approve(record(shape).replace(/\n/g, '\r\n')));
+      expect(result.content.replace(/\r\n/g, '')).not.toContain('\n');
+    }
+  });
+
+  test('is a no-op when the identity has already approved', () => {
+    const source = record(SHAPES['block lists']!);
+    const result = ok(approve(source, '@erin'));
+    expect(result).toEqual({ ok: true, changed: false, content: source, approvals: 1 });
+    const once = ok(approve(source)).content;
+    expect(ok(approve(once))).toMatchObject({ changed: false, content: once });
+  });
+});
+
+describe('objectAdrSource', () => {
+  for (const [name, shape] of Object.entries(SHAPES)) {
+    test(`appends an unresolved objection and changes nothing else: ${name}`, () => {
+      const source = record(shape);
+      const before = review(source)?.objections ?? [];
+      const result = ok(object(source));
+      expect(result.changed).toBe(true);
+      expect(result.objection).toBe(before.length + 1);
+      expect(review(result.content).objections).toEqual([
+        ...before,
+        { by: '@dan', summary: 'Needs a cost estimate', resolved: false },
+      ]);
+      expect(restOf(result.content)).toEqual(restOf(source));
+    });
+  }
+
+  test('writes the summary as a quoted scalar, whatever it contains', () => {
+    const summary = `#1: "quotes", 'apostrophes', key: value, - dash, [flow], {map}, & * ! | > % @ \` \\ ünï`;
+    const result = ok(object(record(), '@dan', summary));
+    expect(review(result.content).objections[0].summary).toBe(summary);
+    expect(result.content).toContain(`      summary: ${JSON.stringify(summary)}\n`);
+  });
+
+  test('appends a block item with the corpus layout', () => {
+    expect(ok(object(record(SHAPES['block lists']!))).content).toContain(
+      '      resolved: true\n    - by: "@dan"\n      summary: "Needs a cost estimate"\n      resolved: false\n---',
+    );
+  });
+
+  test('preserves CRLF line endings', () => {
+    for (const shape of Object.values(SHAPES)) {
+      const result = ok(object(record(shape).replace(/\n/g, '\r\n')));
+      expect(result.content.replace(/\r\n/g, '')).not.toContain('\n');
+    }
+  });
+
+  test('is a no-op when the same person already raised the same unresolved objection', () => {
+    const once = ok(object(record())).content;
+    expect(ok(object(once))).toEqual({ ok: true, changed: false, content: once, objection: 1 });
+    expect(ok(object(once, '@dan', 'A different concern'))).toMatchObject({ changed: true, objection: 2 });
+  });
+
+  test('refuses an empty, multiline, control-character, or overlong summary', () => {
+    const source = record();
+    for (const summary of ['', '   ', 'two\nlines', 'cr\rhere', 'tab\there', 'bell\u0007', 'sep\u2028arator', 'x'.repeat(MAX_OBJECTION_SUMMARY_LENGTH + 1)]) {
+      expect(object(source, '@dan', summary)).toMatchObject({ ok: false, code: 'invalid-summary' });
+    }
+    expect(ok(object(source, '@dan', 'é'.repeat(MAX_OBJECTION_SUMMARY_LENGTH))).changed).toBe(true);
+  });
+});
+
+describe('resolveObjectionAdrSource', () => {
+  const OPEN: Record<string, string> = {
+    'block item without resolved': 'review:\n  objections:\n    - by: "@dan"\n      summary: Needs a cost estimate\n  tier: async',
+    'block item with resolved: false': 'review:\n  objections:\n    - by: "@erin"\n      resolved: true\n    - by: "@dan"\n      resolved: false',
+    'flow item without resolved': 'review:\n  objections: [{ by: "@dan", summary: Needs work }]',
+    'flow item with resolved: false': 'review:\n  objections: [{ by: "@dan", resolved: false }]',
+    'comments near the block': 'review:\n  objections:\n    # the objection\n    - by: "@dan" # objector\n      summary: Needs work\n    # trailing\n# top-level',
+  };
+
+  for (const [name, block] of Object.entries(OPEN)) {
+    test(`resolves the objection and changes nothing else: ${name}`, () => {
+      const source = record({ review: block, extra: 'reviewBy: 2027-01-01' });
+      const objections = review(source).objections as Array<Record<string, unknown>>;
+      const index = objections.findIndex((objection) => objection.by === '@dan') + 1;
+      const result = ok(resolveObjectionAdrSource({ source, by: '@dan', objection: index, path: PATH }));
+      expect(result.changed).toBe(true);
+      const after = review(result.content).objections as Array<Record<string, unknown>>;
+      expect(after).toEqual(objections.map((objection, i) => (i === index - 1 ? { ...objection, resolved: true } : objection)));
+      expect(restOf(result.content)).toEqual(restOf(source));
+      // And again with CRLF.
+      const crlf = ok(resolveObjectionAdrSource({ source: source.replace(/\n/g, '\r\n'), by: '@dan', objection: index, path: PATH }));
+      expect(crlf.content.replace(/\r\n/g, '')).not.toContain('\n');
+    });
+  }
+
+  test('inserts resolved: true at the item’s own indent', () => {
+    const result = ok(resolveObjection(record({ review: OPEN['block item without resolved'] })));
+    expect(result.content).toContain('    - by: "@dan"\n      summary: Needs a cost estimate\n      resolved: true\n  tier: async');
+  });
+
+  test('round-trips with objectAdrSource', () => {
+    for (const shape of Object.values(SHAPES)) {
+      const objected = ok(object(record(shape)));
+      const resolved = ok(resolveObjection(objected.content, objected.objection));
+      expect(review(resolved.content).objections.at(-1)).toEqual({ by: '@dan', summary: 'Needs a cost estimate', resolved: true });
+    }
+  });
+
+  test('is a no-op when the objection is already resolved', () => {
+    const source = record({ review: OPEN['block item with resolved: false'] });
+    const once = ok(resolveObjection(source, 2)).content;
+    expect(ok(resolveObjection(once, 2))).toEqual({ ok: true, changed: false, content: once });
+  });
+
+  test('only the objector may resolve, and the index must exist', () => {
+    const source = record({ review: OPEN['block item with resolved: false'] });
+    expect(resolveObjection(source, 2, '@erin')).toMatchObject({ ok: false, code: 'not-objector' });
+    expect(resolveObjection(source, 3)).toMatchObject({ ok: false, code: 'objection-not-found' });
+    expect(resolveObjection(record())).toMatchObject({ ok: false, code: 'objection-not-found' });
+    for (const index of [0, -1, 1.5, Number.NaN]) {
+      expect(resolveObjection(source, index)).toMatchObject({ ok: false, code: 'invalid-objection-index' });
+    }
+  });
+});
+
+describe('refusals leave the source untouched', () => {
+  const refusals: Array<[string, () => { ok: boolean; code?: string }, string]> = [
+    ['approve: not proposed', () => approve(record({ status: 'draft' })), 'not-proposed'],
+    ['object: not proposed', () => object(record({ status: 'rejected' })), 'not-proposed'],
+    ['resolve: not proposed', () => resolveObjection(record({ status: 'draft', review: 'review:\n  objections:\n    - by: "@dan"' })), 'not-proposed'],
+    ['approve: bad identity', () => approve(record(), 'bob'), 'invalid-identity'],
+    ['object: bad identity', () => object(record(), 'dan'), 'invalid-identity'],
+    ['resolve: bad identity', () => resolveObjection(record(), 1, 'dan'), 'invalid-identity'],
+    ['approve: flow review', () => approve(record({ review: 'review: { tier: async }' })), 'unsupported-layout'],
+    ['object: flow review', () => object(record({ review: 'review: { tier: async }' })), 'unsupported-layout'],
+    ['resolve: flow review', () => resolveObjection(record({ review: 'review: { objections: [{ by: "@dan" }] }' })), 'unsupported-layout'],
+    ['approve: BOM', () => approve(`﻿${record()}`), 'invalid-record'],
+    ['object: BOM', () => object(`﻿${record()}`), 'invalid-record'],
+    ['resolve: BOM', () => resolveObjection(`﻿${record({ review: 'review:\n  objections:\n    - by: "@dan"' })}`), 'invalid-record'],
+    ['approve: invalid record', () => approve(record().replace('scope: component', 'scope: galaxy')), 'invalid-record'],
+  ];
+  for (const [name, run, code] of refusals) {
+    test(name, () => {
+      const result = run();
+      expect(result).toMatchObject({ ok: false, code });
+      expect('content' in result).toBe(false);
+    });
+  }
+});
+
+describe('the re-parse guard', () => {
+  test('refuses a splice that changes another field, and one that no longer parses', () => {
+    const source = record();
+    const located = locateFrontmatter(source);
+    const data = parseFrontmatter(source).data as Record<string, unknown>;
+    const expected = { ...data, review: { approvals: ['@bob'] } };
+    const base = { source, located, expected, path: PATH, owned: 'review.approvals', resultNoun: 'a valid record', id: '0007' };
+    const titleAt = located.yaml.indexOf('"Adopt a thing"');
+    const correct = { start: located.yaml.length, end: located.yaml.length, text: 'review:\n  approvals:\n    - "@bob"\n' };
+    expect(finishSplice({ ...base, edits: [correct] }).ok).toBe(true);
+    expect(
+      finishSplice({ ...base, edits: [correct, { start: titleAt, end: titleAt + 15, text: '"Adopt another"' }] }),
+    ).toMatchObject({ ok: false, code: 'unsupported-layout' });
+    expect(finishSplice({ ...base, edits: [{ ...correct, text: 'review:\n  approvals:\n  - "@bob\n' }] })).toMatchObject({
+      ok: false,
+      code: 'unsupported-layout',
+    });
+  });
+});
+
+describe('across every record in this corpus', () => {
+  test('approve, object, and resolve never change a field they do not own', () => {
+    // Real layouts — flow arrays, folded scalars, comments, nested maps. Each record
+    // is rolled back to `proposed`; records that are then invalid (a superseded one
+    // keeps supersededBy) are skipped.
+    const dir = resolve(import.meta.dir, '../../../docs/adr');
+    const files = readdirSync(dir).filter((file) => /^\d{4}-.+\.md$/.test(file));
+    let exercised = 0;
+    for (const file of files) {
+      const proposed = readFileSync(join(dir, file), 'utf8').replace(/^status: \w+$/m, 'status: proposed');
+      const approved = approveAdrSource({ source: proposed, by: '@zed-reviewer', path: file });
+      if (!approved.ok && approved.code === 'invalid-record') continue;
+      if (!approved.ok) throw new Error(`${file}: ${approved.code}: ${approved.message}`);
+      const objected = objectAdrSource({ source: approved.content, by: '@zed-reviewer', summary: 'A concern', path: file });
+      if (!objected.ok) throw new Error(`${file}: ${objected.code}: ${objected.message}`);
+      const resolved = resolveObjectionAdrSource({ source: objected.content, by: '@zed-reviewer', objection: objected.objection, path: file });
+      if (!resolved.ok) throw new Error(`${file}: ${resolved.code}: ${resolved.message}`);
+      const lines = (text: string) => text.split('\n');
+      const removed = lines(proposed).filter((line) => !lines(resolved.content).includes(line));
+      // At most one rewritten line per list key, and a body that never moves.
+      expect({ file, removed: removed.length <= 2 }).toEqual({ file, removed: true });
+      expect(resolved.content.slice(resolved.content.lastIndexOf('\n---\n'))).toBe(proposed.slice(proposed.lastIndexOf('\n---\n')));
+      const data = parseFrontmatter(resolved.content).data as Record<string, any>;
+      expect(data.review.approvals.at(-1)).toBe('@zed-reviewer');
+      expect(data.review.objections.at(-1)).toEqual({ by: '@zed-reviewer', summary: 'A concern', resolved: true });
+      exercised += 1;
+    }
+    expect(exercised).toBeGreaterThan(20);
+  });
+});
