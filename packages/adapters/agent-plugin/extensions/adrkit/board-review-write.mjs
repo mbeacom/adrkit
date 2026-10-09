@@ -59,6 +59,14 @@ export const NONCE_TTL_MS = 2 * 60 * 1000;
 export const WRITE_TIMEOUT_MS = 30_000;
 /** How long the host's confirmation may stay unanswered before it counts as declined. */
 export const CONFIRM_TIMEOUT_MS = 2 * 60 * 1000;
+/**
+ * How often one panel may put a confirmation in front of the person (review
+ * R1-M1): at most one per 10 s, and five per sliding 10 minutes. A model that
+ * holds the token could otherwise keep a dialog permanently pending.
+ */
+export const DIALOG_SPACING_MS = 10_000;
+export const DIALOG_WINDOW_MS = 10 * 60 * 1000;
+export const DIALOG_WINDOW_MAX = 5;
 /** How long `adr --version` may take. */
 export const VERSION_TIMEOUT_MS = 5_000;
 /** The longest objection summary, in code points (core's MAX_OBJECTION_SUMMARY_LENGTH). */
@@ -96,8 +104,14 @@ export const REVIEW_REFUSALS = {
   summary:
     'The objection summary must be one non-empty line of at most 500 characters, with no control or invisible characters.',
   objection: 'objection must be a whole number from 1, counting objections in file order.',
-  busy: 'Another review write is still running. Wait for it to finish, then try again.',
+  pending: 'GitHub Copilot is already asking you to confirm a review write. Decline it unless you started it, then try again.',
+  tooSoon: 'Nothing was asked or written: this board asked for a confirmation less than 10 seconds ago. Wait, then try again.',
+  tooMany:
+    'Nothing was asked or written: this board has asked for five confirmations in the last 10 minutes. Wait, then try again.',
 };
+
+/** How the pending-write message names each kind. */
+const ACTION_PHRASE = { approval: 'an approval', objection: 'an objection', resolution: 'a resolution' };
 
 /** Every confirmation ends with this. */
 const CONFIRM_TAIL =
@@ -140,6 +154,16 @@ export const REVIEW_MESSAGES = {
   dirEscape: 'Nothing was written: the board\'s corpus directory now resolves outside the repository.',
   notConfirmed: 'Nothing was written: the host confirmation was declined, cancelled, or not answered.',
   autopilot: 'Nothing was written: the session is in autopilot, where the board records no review.',
+  modeUnknown: "Nothing was written: the session's agent mode could not be read, so the board did not ask.",
+  /**
+   * A write is already waiting for the host's confirmation. Names the pending
+   * kind and record (both validated) so the person can tell a confirmation
+   * they did not start from their own (review R1-M1).
+   * @param {string} kind @param {string} id
+   */
+  pending: (kind, id) =>
+    `GitHub Copilot is already asking you to confirm ${ACTION_PHRASE[/** @type {keyof typeof ACTION_PHRASE} */ (kind)] ?? 'a review write'} of ADR-${id}. ` +
+    'Decline it unless you started it, then try again.',
   /**
    * The host's confirmation dialog. Built only from fixed text, the kind, the
    * id (validated against the record grammar), the identity (validated against
@@ -147,13 +171,17 @@ export const REVIEW_MESSAGES = {
    * untrusted, and a forged request controls the summary.
    */
   confirm: {
+    // The first line is the record and the action, so they are what the person
+    // reads first (review R1-M1); the explanation follows.
     /** @param {string} id @param {string} who */
-    approval: (id, who) => `adrkit decision board: record an approval of ADR-${id} by ${who}?${CONFIRM_TAIL}`,
+    approval: (id, who) =>
+      `ADR-${id} · approve as ${who}\n\nadrkit decision board: record an approval of ADR-${id} by ${who}?${CONFIRM_TAIL}`,
     /** @param {string} id @param {string} who @param {number} length */
     objection: (id, who, length) =>
-      `adrkit decision board: record an objection on ADR-${id} by ${who}? Its summary (${length} characters) is shown on the board page, not here.${CONFIRM_TAIL}`,
+      `ADR-${id} · object as ${who}\n\nadrkit decision board: record an objection on ADR-${id} by ${who}? Its summary (${length} characters) is shown on the board page, not here.${CONFIRM_TAIL}`,
     /** @param {string} id @param {string} who @param {number} n */
-    resolution: (id, who, n) => `adrkit decision board: mark objection ${n} on ADR-${id} as resolved by ${who}?${CONFIRM_TAIL}`,
+    resolution: (id, who, n) =>
+      `ADR-${id} · resolve objection ${n} as ${who}\n\nadrkit decision board: mark objection ${n} on ADR-${id} as resolved by ${who}?${CONFIRM_TAIL}`,
   },
 };
 
@@ -229,11 +257,16 @@ const REFUSAL_TEXT = {
 
 /** A refusal the route answers with a fixed body chosen by its code. */
 class Refusal extends Error {
-  /** @param {number} status @param {keyof typeof REFUSAL_TEXT} code */
-  constructor(status, code) {
+  /**
+   * @param {number} status
+   * @param {keyof typeof REFUSAL_TEXT} code
+   * @param {{ kind: string, id: string } | null} [pending] the validated pending request, for code `pending`
+   */
+  constructor(status, code, pending = null) {
     super(code);
     this.status = status;
     this.code = code;
+    this.pending = pending;
   }
 }
 
@@ -268,6 +301,7 @@ class Refusal extends Error {
  *   confirm?: (message: string) => Promise<unknown>,
  *   agentMode?: () => Promise<unknown>,
  *   confirmTimeoutMs?: number,
+ *   dialogLimits?: { spacingMs?: number, windowMs?: number, windowMax?: number },
  *   log?: (message: string) => unknown,
  *   clock?: () => number,
  *   randomBytes?: (size: number) => Buffer,
@@ -283,6 +317,7 @@ export function createReviewWriter({
   confirm = async () => false,
   agentMode = async () => null,
   confirmTimeoutMs = CONFIRM_TIMEOUT_MS,
+  dialogLimits = {},
   log = () => undefined,
   clock = Date.now,
   randomBytes = nodeRandomBytes,
@@ -293,6 +328,28 @@ export function createReviewWriter({
   /** CLIs already seen to be new enough, by command line and directory. @type {Set<string>} */
   const supported = new Set();
   let writing = false;
+  /** The write that holds `writing`, validated, for the 409 message. @type {{ kind: string, id: string } | null} */
+  let pendingWrite = null;
+  /** When each panel last asked the host, for the dialog limits. @type {Map<string, number[]>} */
+  const dialogs = new Map();
+  const spacingMs = dialogLimits.spacingMs ?? DIALOG_SPACING_MS;
+  const windowMs = dialogLimits.windowMs ?? DIALOG_WINDOW_MS;
+  const windowMax = dialogLimits.windowMax ?? DIALOG_WINDOW_MAX;
+
+  /**
+   * Whether this panel may ask the host now: `null` if so, or the refusal code.
+   * @param {string} instanceId
+   * @returns {'tooSoon' | 'tooMany' | null}
+   */
+  const dialogRefusal = (instanceId) => {
+    const now = clock();
+    const recent = (dialogs.get(instanceId) ?? []).filter((at) => now - at < windowMs);
+    dialogs.set(instanceId, recent);
+    const last = recent[recent.length - 1];
+    if (last !== undefined && now - last < spacingMs) return 'tooSoon';
+    if (recent.length >= windowMax) return 'tooMany';
+    return null;
+  };
 
   /** Whether the host offers elicitation; any throw is a no. */
   const hostCanConfirm = () => {
@@ -328,12 +385,18 @@ export function createReviewWriter({
     }
   };
 
-  /** Whether the session reports autopilot. Unreadable is not autopilot: the confirmation still guards. */
-  const inAutopilot = async () => {
+  /**
+   * The session's agent mode as the board acts on it: `autopilot`, `unknown`
+   * when reading it throws (refused, review R1-L1), or `ok`. A session with no
+   * mode method at all answers `undefined`, which is `ok`: the host's
+   * confirmation still guards.
+   * @returns {Promise<'autopilot' | 'unknown' | 'ok'>}
+   */
+  const modeCheck = async () => {
     try {
-      return (await agentMode()) === 'autopilot';
+      return (await agentMode()) === 'autopilot' ? 'autopilot' : 'ok';
     } catch {
-      return false;
+      return 'unknown';
     }
   };
 
@@ -598,28 +661,37 @@ export function createReviewWriter({
       const current = state();
       if (!current.enabled) throw new Refusal(403, current.code ?? 'unset');
       const request = writeRequest(body);
-      if (writing) throw new Refusal(409, 'busy');
+      if (writing) throw new Refusal(409, 'pending', pendingWrite);
       const corpus = dir() ?? env['ADRKIT_DIR'];
       // The shown directory was confined when it was chosen; check it again
       // right before the spawn, as every graph and queue read does.
       if (escapes(cwd, dir())) return replyJson(res, 200, { outcome: 'not-run', message: REVIEW_MESSAGES.dirEscape });
       const who = /** @type {string} */ (current.reviewer);
+      const limited = dialogRefusal(instanceId);
+      if (limited) {
+        note(`adrkit: decision board review ${request.kind} on ADR-${request.id} as ${who}: rate-limited`);
+        throw new Refusal(429, limited);
+      }
       writing = true;
+      pendingWrite = { kind: request.kind, id: request.id };
       /** @type {WriteResult} */
       let result;
       try {
         // The boundary (ADR-0052): the person confirms through the host, which
         // the model cannot answer. The page's two clicks and the nonce are
         // defence in depth only, because the model holds the panel's token.
-        if (await inAutopilot()) {
-          result = { outcome: 'not-confirmed', message: REVIEW_MESSAGES.autopilot };
-        } else if (!(await confirmedByHost(confirmText(request, who)))) {
-          result = { outcome: 'not-confirmed', message: REVIEW_MESSAGES.notConfirmed };
+        const mode = await modeCheck();
+        if (mode !== 'ok') {
+          result = { outcome: 'not-confirmed', message: mode === 'autopilot' ? REVIEW_MESSAGES.autopilot : REVIEW_MESSAGES.modeUnknown };
         } else {
-          result = await perform(request, who, cwd, corpus);
+          /** @type {number[]} */ (dialogs.get(instanceId)).push(clock());
+          result = (await confirmedByHost(confirmText(request, who)))
+            ? await perform(request, who, cwd, corpus)
+            : { outcome: 'not-confirmed', message: REVIEW_MESSAGES.notConfirmed };
         }
       } finally {
         writing = false;
+        pendingWrite = null;
       }
       note(`adrkit: decision board review ${request.kind} on ADR-${request.id} as ${who}: ${result.outcome}`);
       if (result.outcome === 'not-confirmed') return replyJson(res, 200, { ...result, state: null });
@@ -632,8 +704,15 @@ export function createReviewWriter({
       }
       return replyJson(res, 200, { ...result, state: snapshot });
     } catch (error) {
-      // The text is looked up by the refusal's code, never read from the error.
-      if (error instanceof Refusal) return replyJson(res, error.status, { error: REFUSAL_TEXT[error.code] });
+      // The text is looked up by the refusal's code, never read from the
+      // error; a pending write is named from its own validated kind and id.
+      if (error instanceof Refusal) {
+        if (error.code === 'pending' && error.pending) {
+          const { kind, id } = error.pending;
+          return replyJson(res, error.status, { error: REVIEW_MESSAGES.pending(kind, id), pending: { kind, id } });
+        }
+        return replyJson(res, error.status, { error: REFUSAL_TEXT[error.code] });
+      }
       throw error;
     }
   };
@@ -642,6 +721,9 @@ export function createReviewWriter({
     state,
     handle,
     /** A closed panel's nonce is dropped. @param {string} instanceId */
-    forget: (instanceId) => void issued.delete(instanceId),
+    forget: (instanceId) => {
+      issued.delete(instanceId);
+      dialogs.delete(instanceId);
+    },
   };
 }

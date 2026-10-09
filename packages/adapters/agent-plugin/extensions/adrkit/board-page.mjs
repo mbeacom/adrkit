@@ -130,7 +130,11 @@ export const BOARD_JS = `(function () {
 
   function count(n, noun) { return text(n) + ' ' + noun + (n === 1 ? '' : 's'); }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
-  function setMessage(message) { $('message').textContent = text(message); }
+  function setMessage(message, warn) {
+    var node = $('message');
+    node.textContent = text(message);
+    node.className = warn ? 'message warn' : 'message';
+  }
   function statusClass(status) { return 'status-' + (known(STATUSES, status) ? status : 'unknown'); }
 
   function button(label, onClick, className) {
@@ -497,8 +501,8 @@ export const BOARD_JS = `(function () {
       setMessage(data && typeof data.message === 'string' ? data.message : 'Done.');
     }, function (error) {
       busy = false;
-      setMessage(error && error.message ? error.message : 'Request failed');
       render(state);
+      setMessage(error && error.message ? error.message : 'Request failed', Boolean(error && error.pending));
     });
   }
 
@@ -571,7 +575,12 @@ export const BOARD_JS = `(function () {
       body: JSON.stringify(body || {}),
     }).then(function (response) {
       return response.json().catch(function () { return null; }).then(function (data) {
-        if (!response.ok) throw new Error((data && data.error) || 'Request failed (' + response.status + ')');
+        if (!response.ok) {
+          var failure = new Error((data && data.error) || 'Request failed (' + response.status + ')');
+          // A write already waiting for the host's confirmation: say so loudly (review R1-M1).
+          failure.pending = Boolean(data && data.pending);
+          throw failure;
+        }
         return data;
       });
     });
@@ -655,6 +664,7 @@ button.link { border: none; padding: 0 2px; text-decoration: underline; font-fam
 .edge-conflictsWith { stroke: var(--true-color-red, #d1242f); stroke-dasharray: 2 3; }
 .edge-near { stroke-width: 3; }
 .arrow { fill: var(--text-color-muted, #59636e); }
+.message.warn { font-weight: 600; border: 2px solid var(--true-color-yellow, #9a6700); border-radius: 6px; padding: 6px 8px; }
 .review-controls { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .review-controls h3 { font-size: 0.95em; margin: 0; flex-basis: 100%; }
 .review-controls .note, .review-controls .confirm-text { flex-basis: 100%; margin: 0; }

@@ -519,6 +519,7 @@ function reviewSessionDeps(getSession) {
     canConfirm: () => getSession()?.capabilities?.ui?.elicitation === true,
     /** @param {string} message */
     confirm: (message) => getSession().ui.confirm(message),
+    // No mode method answers undefined (ask); a throw is refused (review R1-L1).
     agentMode: () => getSession()?.rpc?.mode?.get?.(),
     /** @param {string} message */
     log: (message) => getSession()?.log?.(message, { level: 'info' }),
@@ -542,6 +543,7 @@ function reviewSessionDeps(getSession) {
  *   getSession?: () => any,
  *   clock?: () => number,
  *   confirmTimeoutMs?: number,
+ *   dialogLimits?: { spacingMs?: number, windowMs?: number, windowMax?: number },
  * }} deps `getSession` serves the review controls only: the host's
  *   confirmation (`capabilities.ui.elicitation`, `ui.confirm`), the agent mode
  *   (`rpc.mode.get`, to refuse in autopilot), and the fire-and-forget activity
@@ -560,6 +562,7 @@ export function createDecisionBoardCanvas({
   getSession = () => undefined,
   clock = Date.now,
   confirmTimeoutMs = undefined,
+  dialogLimits = undefined,
 }) {
   /** Panels by `instanceId`; a promise, so two concurrent opens share one server. @type {Map<string, Promise<Instance>>} */
   const instances = new Map();
@@ -590,6 +593,7 @@ export function createDecisionBoardCanvas({
       clock,
       randomBytes,
       ...(confirmTimeoutMs === undefined ? {} : { confirmTimeoutMs }),
+      ...(dialogLimits === undefined ? {} : { dialogLimits }),
       ...reviewSessionDeps(getSession),
     });
   } catch {

@@ -144,8 +144,9 @@ function makeBoard({
   sessionLog,
   elicitation = true as boolean | 'absent',
   answer = true as Answer,
-  agentMode = 'interactive' as string | Error,
+  agentMode = 'interactive' as string | Error | 'absent',
   confirmTimeoutMs,
+  dialogLimits = { spacingMs: 0, windowMs: 600_000, windowMax: 1000 } as Record<string, number> | 'default',
 }: {
   env?: Record<string, string | undefined>;
   script?: Script;
@@ -154,8 +155,9 @@ function makeBoard({
   sessionLog?: (message: string, options: unknown) => Promise<unknown>;
   elicitation?: boolean | 'absent';
   answer?: Answer;
-  agentMode?: string | Error;
+  agentMode?: string | Error | 'absent';
   confirmTimeoutMs?: number;
+  dialogLimits?: Record<string, number> | 'default';
 } = {}) {
   const cli = fakeCli(script);
   const asked: string[] = [];
@@ -171,7 +173,7 @@ function makeBoard({
       },
     },
     rpc: {
-      mode: {
+      mode: agentMode === 'absent' ? {} : {
         get: async () => {
           if (agentMode instanceof Error) throw agentMode;
           return agentMode;
@@ -188,6 +190,7 @@ function makeBoard({
     clock: () => clock.now,
     getSession: () => session,
     ...(confirmTimeoutMs === undefined ? {} : { confirmTimeoutMs }),
+    ...(dialogLimits === 'default' ? {} : { dialogLimits }),
   } as never) as any;
   return { options, cli, clock, logged, asked };
 }
@@ -574,7 +577,7 @@ describe('the write', () => {
     while (cli.writes().length === 0) await new Promise((resolve) => setTimeout(resolve, 1));
     const second = await write(url, { kind: 'objection', id: '0003', nonce: await nonceFor(url, 'objection'), summary: 'x' });
     expect(second.status).toBe(409);
-    expect(second.data).toEqual({ error: REVIEW_REFUSALS.busy });
+    expect(second.data).toEqual({ error: REVIEW_MESSAGES.pending('approval', '0003'), pending: { kind: 'approval', id: '0003' } });
     release();
     expect((await first).status).toBe(200);
     expect(cli.writes().length).toBe(1);
@@ -760,7 +763,7 @@ describe('host confirmation (round 1, C1)', () => {
     });
   }
 
-  test('in autopilot the write is refused before the host is asked; an unreadable mode still asks', async () => {
+  test('in autopilot, or when the mode cannot be read, the write is refused before the host is asked; no mode method still asks', async () => {
     const auto = makeBoard({ agentMode: 'autopilot' });
     const { url } = await openBoard(auto.options);
     const refused = await write(url, { kind: 'approval', id: '0003', nonce: await nonceFor(url, 'approval') });
@@ -769,11 +772,19 @@ describe('host confirmation (round 1, C1)', () => {
     expect(auto.cli.writes()).toEqual([]);
     await auto.options.onClose(ctxFor('board-1'));
     opened.splice(0);
-    const unknown = makeBoard({ agentMode: new Error('no mode rpc') });
+    const unknown = makeBoard({ agentMode: new Error('mode rpc failed') });
     const { url: other } = await openBoard(unknown.options);
-    const asked = await write(other, { kind: 'approval', id: '0003', nonce: await nonceFor(other, 'approval') });
+    const failed = await write(other, { kind: 'approval', id: '0003', nonce: await nonceFor(other, 'approval') });
+    expect(failed.data).toMatchObject({ outcome: 'not-confirmed', message: REVIEW_MESSAGES.modeUnknown });
+    expect(unknown.asked).toEqual([]);
+    expect(unknown.cli.writes()).toEqual([]);
+    await unknown.options.onClose(ctxFor('board-1'));
+    opened.splice(0);
+    const absent = makeBoard({ agentMode: 'absent' });
+    const { url: third } = await openBoard(absent.options);
+    const asked = await write(third, { kind: 'approval', id: '0003', nonce: await nonceFor(third, 'approval') });
     expect(asked.data.outcome).toBe('written');
-    expect(unknown.asked.length).toBe(1);
+    expect(absent.asked.length).toBe(1);
   });
 
   test('the dialog names the kind, the validated id, and the identity, and never the summary or the title', async () => {
@@ -795,6 +806,12 @@ describe('host confirmation (round 1, C1)', () => {
       expect(message).toContain('ADR-0003');
     }
     expect(asked[1]).toContain(`${[...summary].length} characters`);
+    // R1-M1: the first line is the record and the action, before any explanation.
+    expect(asked.map((message) => message.split('\n')[0])).toEqual([
+      `ADR-0003 · approve as ${REVIEWER}`,
+      `ADR-0003 · object as ${REVIEWER}`,
+      `ADR-0003 · resolve objection 2 as ${REVIEWER}`,
+    ]);
   });
 
   test('a second write while the host is still asking is 409, and nothing is spawned', async () => {
@@ -802,10 +819,46 @@ describe('host confirmation (round 1, C1)', () => {
     const { url } = await openBoard(options);
     const first = write(url, { kind: 'approval', id: '0003', nonce: await nonceFor(url, 'approval') });
     await new Promise((resolve) => setTimeout(resolve, 20));
-    const second = await write(url, { kind: 'objection', id: '0003', nonce: await nonceFor(url, 'objection'), summary: 'x' });
+    const second = await write(url, { kind: 'objection', id: '0002', nonce: await nonceFor(url, 'objection', '0002'), summary: 'x' });
     expect(second.status).toBe(409);
+    // R1-M1: the person is told which confirmation is pending, so they can decline one they did not start.
+    expect(second.data).toEqual({ error: REVIEW_MESSAGES.pending('approval', '0003'), pending: { kind: 'approval', id: '0003' } });
+    expect(second.data.error).toContain('ADR-0003');
+    expect(second.data.error).toContain('Decline it unless you started it');
     expect((await first).data.outcome).toBe('not-confirmed');
     expect(cli.writes()).toEqual([]);
+  });
+
+  test('R1-M1: at most one dialog per panel per 10 s and five per 10 minutes; over either, nothing is asked or spawned, and it is logged', async () => {
+    const logged: Array<{ message: string; options: unknown }> = [];
+    const { options, cli, asked, clock } = makeBoard({ answer: false, dialogLimits: 'default', logged });
+    const { url } = await openBoard(options);
+    const attempt = () => nonceFor(url, 'approval').then((nonce) => write(url, { kind: 'approval', id: '0003', nonce }));
+    expect((await attempt()).data.outcome).toBe('not-confirmed');
+    expect(asked.length).toBe(1);
+    clock.now += 5_000;
+    const soon = await attempt();
+    expect({ status: soon.status, data: soon.data }).toEqual({ status: 429, data: { error: REVIEW_REFUSALS.tooSoon } });
+    expect(asked.length).toBe(1);
+    for (let i = 2; i <= 5; i++) {
+      clock.now += 10_000;
+      expect((await attempt()).data.outcome).toBe('not-confirmed');
+    }
+    expect(asked.length).toBe(5);
+    clock.now += 10_000;
+    const many = await attempt();
+    expect({ status: many.status, data: many.data }).toEqual({ status: 429, data: { error: REVIEW_REFUSALS.tooMany } });
+    expect(asked.length).toBe(5);
+    // Another panel has its own budget.
+    const { url: other } = await openBoard(options, 'board-2');
+    expect((await write(other, { kind: 'approval', id: '0003', nonce: await nonceFor(other, 'approval') })).data.outcome).toBe('not-confirmed');
+    expect(asked.length).toBe(6);
+    // The window slides.
+    clock.now += 600_000;
+    expect((await attempt()).data.outcome).toBe('not-confirmed');
+    expect(asked.length).toBe(7);
+    expect(cli.writes()).toEqual([]);
+    expect(logged.filter((entry) => /: rate-limited$/.test(entry.message)).length).toBe(2);
   });
 
   test('M1: the review routes need the exact same-origin Origin, and Sec-Fetch-Site same-origin when sent', async () => {
@@ -1001,6 +1054,10 @@ describe('page', () => {
         const body = init?.body !== undefined ? JSON.parse(init.body) : undefined;
         if (body !== undefined) posts.push({ path, body });
         const data = body === undefined ? state : answer(path, body);
+        if (data && typeof data === 'object' && '__status' in (data as any)) {
+          const { __status, ...rest } = data as any;
+          return { ok: __status < 400, status: __status, json: async () => rest };
+        }
         return { ok: true, status: 200, json: async () => data };
       },
       URLSearchParams,
@@ -1089,6 +1146,22 @@ describe('page', () => {
     ]);
   });
 
+  test('R1-M1: a 409 naming a pending confirmation is shown as a warning the person cannot miss', async () => {
+    const enabled = { enabled: true, reviewer: REVIEWER, note: null };
+    const pending = REVIEW_MESSAGES.pending('approval', '0042');
+    const { nodes } = await renderWith(snapshot(enabled), (path) =>
+      path.startsWith('/api/review/nonce') ? { nonce: 'n'.repeat(64) } : { __status: 409, error: pending, pending: { kind: 'approval', id: '0042' } },
+    );
+    const queue = nodes.get('queue') as FakeNode;
+    find(queue, /^Approve as /).fire('click');
+    await settle();
+    find(queue, /^Confirm approval as /).fire('click');
+    await settle();
+    const message = nodes.get('message') as FakeNode;
+    expect(message.textContent).toBe(pending);
+    expect(message.className).toContain('warn');
+  });
+
   test('the page uses no browser dialog, no HTML sink, no inline script; the CSP is unchanged', () => {
     expect(BOARD_JS).not.toMatch(/\bconfirm\s*\(|\balert\s*\(|\bprompt\s*\(/);
     for (const sink of [/\binnerHTML\b/, /\bouterHTML\b/, /\binsertAdjacentHTML\b/, /document\.write/, /\.style\b/]) expect(sink.test(BOARD_JS)).toBe(false);
@@ -1155,6 +1228,8 @@ Some.
           ui: { confirm: async () => true },
           rpc: { mode: { get: async () => 'interactive' } },
         }),
+        // Six writes in a row: the dialog limits are a separate test.
+        dialogLimits: { spacingMs: 0, windowMs: 600_000, windowMax: 1000 },
       } as never) as any;
       const { url } = await options.open({ ...ctx, input: null });
       const row = async () => JSON.parse((await send(routeOf(url, '/api/state'))).body).queue.items[0];
