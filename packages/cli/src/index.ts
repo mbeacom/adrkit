@@ -61,6 +61,7 @@ import {
 } from './errors.ts';
 import { QUEUE_USAGE, runQueue } from './queue.ts';
 import { ACCEPT_USAGE, runAccept } from './accept.ts';
+import { APPROVE_USAGE, OBJECT_USAGE, RESOLVE_USAGE, runApprove, runObject, runResolve } from './review-commands.ts';
 import { isMainModule } from './main-module.ts';
 import { getPresentation, setPresentation, styleUsageBlock, type ColorMode, type StreamStyle } from './presentation.ts';
 
@@ -302,6 +303,9 @@ Exit codes: 0 = rendered without corpus errors; 1 = rendered with corpus errors;
 2 = usage error (invalid invocation or unreachable corpus directory).
 `,
   queue: QUEUE_USAGE,
+  approve: APPROVE_USAGE,
+  object: OBJECT_USAGE,
+  resolve: RESOLVE_USAGE,
   accept: ACCEPT_USAGE,
   evaluate: `Usage: adr evaluate <proposal-path> --snapshot <bundle.json> --date YYYY-MM-DD [options]
 
@@ -1326,6 +1330,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (command === 'check') return await runCheck(args);
     if (command === 'evaluate') return await runEvaluate(args);
     if (command === 'queue') return await runQueue(args);
+    if (command === 'approve') return await runApprove(args);
+    if (command === 'object') return await runObject(args);
+    if (command === 'resolve') return await runResolve(args);
     if (command === 'accept') return await runAccept(args);
     if (command === 'completion') return await runCompletion(args);
     return usageError(unknownCommandMessage(command));
