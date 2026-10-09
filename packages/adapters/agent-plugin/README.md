@@ -4,8 +4,9 @@ Decision memory for the agent that is about to change your code.
 
 This package turns adrkit's workflow into portable agent components: two skills,
 one read-only subagent, and five slash commands, plus two host-specific
-extensions: an advisory dynamic workflow for GitHub Copilot CLI and a read-only
-review canvas for the GitHub Copilot app. An agent can load the decisions
+extensions: an advisory dynamic workflow for GitHub Copilot CLI and two read-only
+canvases (decision review and a corpus-wide decision board) for the GitHub
+Copilot app. An agent can load the decisions
 that already govern a change before planning it, check the plan against them,
 audit an inherited codebase for decisions that were never recorded, and draft a
 new record when the work actually makes one.
@@ -88,7 +89,7 @@ apm update --yes --target claude,copilot,opencode
 ```
 
 The expected inventory is two skills, one agent, five commands, and (Copilot
-CLI only) one dynamic workflow, and (Copilot app only) one canvas. Copilot's
+CLI only) one dynamic workflow, and (Copilot app only) two canvases. Copilot's
 install summary reports only the skill count (`Installed 2 skills`); use a fresh
 session to verify the commands and agent.
 

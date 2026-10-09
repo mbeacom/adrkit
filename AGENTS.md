@@ -417,7 +417,8 @@ tests and a maintainer live smoke on Copilot CLI 1.0.92 (two subagents, both
 planted conflicts found, worktree clean). It also has a repeat through the
 published GitHub install on 1.0.93, plus a deletion-only run. Since 0.5.0 it
 also ships one read-only Copilot app canvas, `decision-review`, in the same
-extension, authorized by
+extension (a second, `decision-board`, is described under its own heading
+below), authorized by
 [ADR-0046](./docs/adr/0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
 (**accepted**). The canvas is **rung 1**: unit and contract tests plus a
 headless Copilot CLI 1.0.93 SDK-host smoke (open, state, refresh, and one
