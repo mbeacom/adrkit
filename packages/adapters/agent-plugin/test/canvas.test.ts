@@ -1826,8 +1826,10 @@ describe('ADR-0047: review fix round 1', () => {
 
   test('L1: a hung queue times out to a fixed note and does not hold the governing view', async () => {
     const base = fakeCli();
+    let queueSignal: AbortSignal | undefined;
     const run = async (command: string, args: string[], options: { cwd: string; signal?: AbortSignal }) => {
       if (args.includes('queue')) {
+        queueSignal = options.signal;
         return new Promise<Run>((_, reject) => options.signal?.addEventListener('abort', () => reject(new Error('aborted SECRET'))));
       }
       return base.run(command, args, options);
@@ -1840,6 +1842,8 @@ describe('ADR-0047: review fix round 1', () => {
     expect(state.queue.available).toBe(false);
     expect(state.queue.note).toBe(QUEUE_NOTES.timeout);
     expect(JSON.stringify(state)).not.toContain('SECRET');
+    // The abandoned queue process is signalled, not left running.
+    expect(queueSignal?.aborted).toBe(true);
   });
 
   test('L1: the check and the queue start together', async () => {
@@ -1903,5 +1907,13 @@ describe('ADR-0047: review fix round 1', () => {
       expect(value.length).toBeLessThanOrEqual(4001);
     }
     expect(shown.routingTargets[1]).toBe('@ok');
+  });
+
+  test('L4: routing targets are capped at 50 per row', async () => {
+    const targets = Array.from({ length: 51 }, (_, i) => `@t${i}`);
+    const { options } = makeCanvas({ run: fakeCli({ queue: ok(queueReport([queueItem('0020', 'P', { routingTargets: targets })])) }).run });
+    await openPanel(options);
+    const { queue } = await action(options, 'get_state')();
+    expect(queue.items[0].routingTargets).toEqual(targets.slice(0, 50));
   });
 });
