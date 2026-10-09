@@ -407,12 +407,15 @@ function snapshotOf(cwd, workspace, limit) {
   return snapshot;
 }
 
+/** @param {number} n @param {string} noun */
+const count = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
 /** @param {BoardSnapshot} snapshot */
 function statusLine(snapshot) {
   const graph = snapshot.graph;
   const parts = [];
   if (!graph || !graph.available) parts.push('graph unavailable');
-  else parts.push(`${graph.totalNodes} records · ${graph.totalEdges} relationships`);
+  else parts.push(`${count(graph.totalNodes, 'record')} · ${count(graph.totalEdges, 'relationship')}`);
   if (snapshot.filter.id) parts.push(`focus ${snapshot.filter.id}`);
   if (snapshot.queue?.available) parts.push(`${snapshot.queue.totalItems} open`);
   return parts.join(' · ');

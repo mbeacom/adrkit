@@ -115,6 +115,7 @@ export const BOARD_JS = `(function () {
     return node;
   }
 
+  function count(n, noun) { return text(n) + ' ' + noun + (n === 1 ? '' : 's'); }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
   function setMessage(message) { $('message').textContent = text(message); }
   function statusClass(status) { return 'status-' + (known(STATUSES, status) ? status : 'unknown'); }
@@ -386,7 +387,7 @@ export const BOARD_JS = `(function () {
     var parts = [];
     if (!graph) parts.push('loading');
     else if (!graph.available) parts.push('graph unavailable');
-    else parts.push(text(graph.totalNodes) + ' records · ' + text(graph.totalEdges) + ' relationships');
+    else parts.push(count(graph.totalNodes, 'record') + ' · ' + count(graph.totalEdges, 'relationship'));
     var filter = snapshot.filter || { id: null, kinds: [] };
     if (filter.id) parts.push('focus ' + text(filter.id));
     if (list(filter.kinds).length > 0) parts.push(list(filter.kinds).map(text).join(', '));

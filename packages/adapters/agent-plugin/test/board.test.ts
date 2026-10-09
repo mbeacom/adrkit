@@ -330,6 +330,15 @@ describe('graph and queue', () => {
     expect(state.queue.items.map((item: { id: string }) => item.id)).toEqual(['0003']);
   });
 
+  test('the status line counts in the singular for one', async () => {
+    const scripted = fakeCli({ graph: ok(graphJson([graphNode('0004')], [])), queue: ok(queueReport([])) });
+    const { options } = makeBoard({ run: scripted.run });
+    const result = await openBoard(options);
+    expect(result.status).toBe('1 record · 0 relationships · 0 open');
+    const state = await action(options, 'get_state')();
+    expect((await renderBoardWith(state)).get('status')?.textContent).toBe('1 record · 0 relationships');
+  });
+
   test('refresh with { dir } passes it to both reads', async () => {
     const { options, cli } = makeBoard();
     await openBoard(options);
