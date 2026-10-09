@@ -287,6 +287,9 @@ export const PAGE_JS = `(function () {
     $('cwd').textContent = text(snapshot.workingDirectory);
     $('refresh').disabled = busy;
     var files = list(snapshot.files);
+    // A wide change lists at most a fixed number of paths; the rest are counted.
+    var omitted = typeof snapshot.filesOmitted === 'number' && snapshot.filesOmitted > 0 ? snapshot.filesOmitted : 0;
+    var fileCount = files.length + omitted;
     // Cost before spend: the workflow makes one decision-checker call per
     // governing decision. With no changed files, or nothing governing them, a
     // run would judge nothing, so the button says why and stays disabled.
@@ -320,7 +323,7 @@ export const PAGE_JS = `(function () {
     }
 
     var parts = [];
-    var source = el('p', 'muted', files.length + ' changed file(s) from ' + (text(snapshot.filesSource) || 'nowhere') +
+    var source = el('p', 'muted', fileCount + ' changed file(s) from ' + (text(snapshot.filesSource) || 'nowhere') +
       (snapshot.updatedAt ? ' · updated ' + text(snapshot.updatedAt) : ''));
     parts.push(source);
 
@@ -361,9 +364,10 @@ export const PAGE_JS = `(function () {
     }
 
     var filesNode = el('details', 'files');
-    filesNode.appendChild(el('summary', null, 'Changed files (' + files.length + ')'));
+    filesNode.appendChild(el('summary', null, 'Changed files (' + fileCount + ')'));
     var fileItems = el('ul', 'mono');
     files.forEach(function (file) { fileItems.appendChild(el('li', null, file)); });
+    if (omitted > 0) fileItems.appendChild(el('li', 'muted', '+' + omitted + ' more'));
     filesNode.appendChild(fileItems);
     parts.push(filesNode);
 
@@ -379,7 +383,9 @@ export const PAGE_JS = `(function () {
       body: JSON.stringify(body || {}),
     }).then(function (response) {
       return response.json().catch(function () { return null; }).then(function (data) {
-        if (!response.ok) throw new Error((data && data.error) || 'Request failed (' + response.status + ')');
+        // The server's own fixed message, carried on a field of its own so a
+        // browser exception's text is never what the page shows.
+        if (!response.ok) throw { shown: (data && typeof data.error === 'string' && data.error) || 'Request failed (' + response.status + ')' };
         return data;
       });
     });
@@ -397,7 +403,7 @@ export const PAGE_JS = `(function () {
       return data;
     }, function (error) {
       busy = false;
-      setMessage(error && error.message ? error.message : 'Request failed');
+      setMessage(error && typeof error.shown === 'string' ? error.shown : 'Request failed');
       if (state) render(state);
       return null;
     });

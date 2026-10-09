@@ -72,7 +72,9 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.8.0 adds the advisory session hooks; 0.7.0 added the read-only
+Version 0.8.1 hardens the extension (fixed error messages, `/cd` for the
+workflow, batched checks for wide changes, and process-tree cleanup); 0.8.0
+added the advisory session hooks; 0.7.0 added the read-only
 `adr_check`, `adr_explain`, and `adr_lint` extension tools; 0.6.0 added
 provenance, review cost, and the open-proposal queue to the `decision-review`
 canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review` workflow; 0.3.0
@@ -233,7 +235,7 @@ read-only git, and writes no file. The Judge agent may also run `adr explain`,
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `files` | none | Repo-relative paths to review. Overrides the git diff. |
-| `base` | `origin/main` | Ref to diff `<base>...HEAD` against. |
+| `base` | `origin/main` | Ref to diff `<base>...HEAD` against. Letters, digits, and `. _ / @ { } ~ ^ -` only, no leading `-`, and `..` only inside a `...` range. |
 | `dir` | `$ADRKIT_DIR`, else `docs/adr` | ADR corpus directory. |
 
 Any other key, including `cli` or `allowRepoCli`, returns `status:
@@ -241,6 +243,20 @@ Any other key, including `cli` or `allowRepoCli`, returns `status:
 workflow arguments can be written by a model that has just read untrusted
 repository content, and extension code runs outside Copilot's permission
 prompts.
+
+The workflow reviews the session's current directory, and follows it after
+`/cd`. A wide change is checked in batches of about 24 KiB of arguments per
+`adr check` call, because the CLI takes paths only as arguments and Windows
+caps a command line at about 32 KiB. The result lists at most 200 changed
+paths, counts the rest in `filesOmitted`, and carries `filesDigest`, a SHA-256
+of the full sorted list, when it caps. Each Judge is shown the paths that
+declared its decision first, and told the exact `git diff --name-only` range
+for the rest. An explicit `files` list longer than 200 paths makes the review
+`incomplete` at best, because the Judge cannot see or list the rest. Its
+`notes` are fixed messages that never repeat the CLI's
+stderr or an exception's text: when one says `adr lint` or `adr check` failed,
+run that command to see why. Any single `git` or `adr` call it makes is ended
+after 120 seconds.
 
 ### Run it
 
@@ -261,7 +277,7 @@ repo-local step is gated because a non-interactive run cannot ask whether to
 trust a binary an inherited repository supplied.
 
 On Windows, `ADRKIT_ALLOW_REPO_CLI=1` cannot run the repo-local CLI:
-`node_modules/.bin/adr` is `adr.cmd` there, and `execFile` cannot start a `.cmd`
+`node_modules/.bin/adr` is `adr.cmd` there, and `spawn` cannot start a `.cmd`
 without a shell, which the workflow deliberately never uses. Set
 `ADRKIT_CLI=<repo>/node_modules/@adrkit/cli/dist/index.js` instead; a `.js`
 value runs under `node`.
@@ -330,7 +346,9 @@ the governing decisions; active proposals; history (listed, not judged); the
 `adr-review` verdicts and anything left `unverified`. Each decision has a
 collapsed evidence section, and clicking a decision asks the agent to explain
 it (see Explain, below). Before a review runs, the panel shows what `adr check`
-found.
+found. A wide change lists its first 200 paths and counts the rest; the
+panel's notes are fixed messages and never show the CLI's stderr, an
+exception's text, or a run's own error.
 
 **Open it.** In an app session, ask the agent to "open the decision-review
 canvas". It takes the same optional `files`, `base`, and `dir` as the workflow.
@@ -449,7 +467,12 @@ read-only.
 
 **Working directory.** A tool call carries no directory, so the tools start in
 the extension's directory and follow the session when it moves (`/cd`), which
-the extension's own `process.cwd()` does not.
+the extension's own `process.cwd()` does not. The `adr-review` workflow follows
+the same tracker. `adr_check` checks a wide change in batches, from `paths` or
+from `base`, and lists at most 200 changed paths, counting the rest in
+`filesOmitted` (and in `report.changedFilesOmitted`). A report merged from
+several batches carries `batches` and no `markerScan`. A call is ended after
+120 seconds.
 
 **Where they exist.** Copilot only: Claude Code and opencode do not load Copilot
 extensions, and the skill and commands keep using the CLI on every host. The
@@ -497,8 +520,10 @@ or a ULID); anything else, including a namespaced reference such as
   limit that covers the open-proposal queue read as well. If it runs out, the
   panel keeps showing its previous result, noting that the automatic refresh
   timed out.
-- A timeout stops the process the hook started, but not a grandchild process
-  that a version-manager shim may start for `adr`.
+- On macOS and Linux, a timeout stops the whole process group the hook
+  started, including a grandchild that a version-manager shim may start for
+  `adr`, and the session-start summary stops starting work once its deadline
+  passes. On Windows a timeout stops only the process the hook started.
 
 **Turn them off** with `ADRKIT_HOOKS=0` (or `false`, `off`, `no`) in the
 environment Copilot starts from. In the headless SDK host on Copilot CLI

@@ -285,9 +285,14 @@ have cost the workflow and the canvas too. On a runtime that refuses `canvases`,
 the chain also drops the tools, because it keeps the workflow alone rather than
 try every combination.
 
-The workflow (ADR-0045) still reviews the extension's `process.cwd()`, which
-this record measured going stale after `/cd`. That is unchanged here and noted
-as a follow-up.
+The workflow (ADR-0045) reviewed the extension's `process.cwd()`, which this
+record measured going stale after `/cd`. Since plugin 0.8.1 the tracker lives
+in `session-dir.mjs`, and the workflow reads it when each run starts, as the
+tools do; the canvas keeps `ctx.session.workingDirectory` and the hooks keep
+each input's `workingDirectory`. The tools' half was re-measured headlessly on
+Copilot CLI 1.0.93 against the 0.8.1 plugin directory (see
+`docs/reference-verification-agent-plugin.md`, "0.8.1 hardening"); the
+workflow's half is unit-tested, not run live.
 
 ## Consequences
 
@@ -342,5 +347,6 @@ GitHub; and any external validation.
 6. [ ] Bump the plugin version on every version-bearing surface in
    `docs/RELEASING.md`, and add a reciprocal note to ADR-0028's amendment block,
    when this record is ratified.
-7. [ ] Decide separately whether the `adr-review` workflow should follow
-   `session.context_changed` too.
+7. [x] Decide separately whether the `adr-review` workflow should follow
+   `session.context_changed` too. It does, since plugin 0.8.1, through the
+   shared `session-dir.mjs` tracker.

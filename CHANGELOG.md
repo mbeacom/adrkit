@@ -127,6 +127,52 @@ Until `1.0.0`, minor releases may include breaking changes
   and after installing, the app showed the extension and recognized the
   `decision-review` canvas.
 
+### Fixed
+
+- **The agent plugin's Copilot extension closes the review follow-ups from
+  0.6.0 to 0.8.0 (`adrkit` 0.8.1).** No new surface and no new ADR; ADR-0048
+  and ADR-0049 are amended in place where a stated limitation is gone.
+  - **The `adr-review` workflow follows `/cd`.** It reads the session
+    directory the tools already tracked through `session.context_changed`,
+    now shared in `session-dir.mjs`, instead of the extension's
+    `process.cwd()`, which does not move.
+  - **Wide changes fit the command line.** `adr check` runs in batches of
+    about 24 KiB of arguments, and the reports are merged, in the workflow,
+    the canvas, `adr_check`, and the session-start hook. A merged report
+    carries `batches` and no `markerScan`. Echoed file lists stop at 200
+    paths, with `filesOmitted` counting the rest. Workflow results add
+    `filesDigest`, so the canvas compares a capped result by its full list.
+  - **A wide review's Judge sees what matters.** It is shown the paths that
+    declared its decision first, and the exact `git diff --name-only` range
+    for the rest. An explicit `files` list longer than 200 paths makes the
+    review `incomplete` at best, because the rest cannot be shown or listed.
+  - **Commands cannot outlive their limits or the extension.** On macOS and
+    Linux a timeout ends the whole process group, including a grandchild
+    behind a version-manager shim. Groups still running are killed when the
+    extension exits, or when it is stopped by SIGTERM, SIGINT, or SIGHUP.
+    Every command has a 120 s ceiling. The session-start summary stops
+    starting work once its deadline passes. On Windows only the direct child
+    is ended.
+
+  Rung 1 of ADR-0014: unit tests observed failing first, plus headless
+  Copilot CLI 1.0.93 SDK-host runs (0 AI credits). Those runs showed the
+  shared directory tracker following `metadata.setWorkingDirectory`, and
+  child process groups ending when the extension is stopped by SIGTERM or by
+  `disconnect` and `client.stop()`. The workflow was not run live, and all of
+  this is unmeasured in the Copilot app.
+
+### Security
+
+- **No CLI stderr or exception text reaches a model or a page from the agent
+  plugin's Copilot extension (`adrkit` 0.8.1).** The workflow result, the
+  `decision-review` panel's notes, `/api/state`, agent canvas results, tool
+  results, and hook context now carry fixed messages chosen by code. Each
+  message names the program that failed. That includes the `adr_check` tool's
+  fallback note, which used to repeat git's stderr, and argument validation,
+  which used to echo the refused value. A run's own error text is no longer
+  shown on the panel. The tools' capped, stack-stripped stderr on exit 2 is
+  unchanged.
+
 ## [0.17.0] - 2026-10-03
 
 This release changes only the governing-decisions Action. The four npm
