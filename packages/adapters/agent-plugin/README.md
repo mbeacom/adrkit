@@ -72,12 +72,12 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.7.0 adds the read-only `adr_check`, `adr_explain`, and `adr_lint`
-extension tools; 0.6.0 added provenance, review cost, and the open-proposal
-queue to the `decision-review` canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review`
-workflow; 0.3.0 added the bootstrap-record offer to backfill; 0.2.0 added the
-second skill and fifth command. Existing installations must refresh and start a
-new host session:
+Version 0.8.0 adds the advisory session hooks; 0.7.0 added the read-only
+`adr_check`, `adr_explain`, and `adr_lint` extension tools; 0.6.0 added
+provenance, review cost, and the open-proposal queue to the `decision-review`
+canvas; 0.5.0 added the canvas; 0.4.0 added the `adr-review` workflow; 0.3.0
+added the bootstrap-record offer to backfill; 0.2.0 added the second skill and
+fifth command. Existing installations must refresh and start a new host session:
 
 ```bash
 copilot plugin update adrkit@adrkit

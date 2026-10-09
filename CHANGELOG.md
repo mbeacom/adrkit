@@ -11,8 +11,8 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Added
 
-- **The agent plugin adds advisory session hooks for GitHub Copilot.** The
-  extension now registers two hooks. `onSessionStart` adds a short summary of
+- **The agent plugin adds advisory session hooks for GitHub Copilot (`adrkit`
+  0.8.0).** The extension now registers two hooks. `onSessionStart` adds a short summary of
   the decisions governing the session's changed files, from one `git diff` and
   one `adr check`, with no model call. `onPostToolUse`, after an edit tool,
   notes the accepted decision(s) governing the file just edited (once per file

@@ -794,7 +794,7 @@ results; `base: "no-such-ref"` now returns `git-base-unresolved`.
 - Copilot CLI versions other than 1.0.93, an install from GitHub with the tools
   in place, a Windows host, and any rung-2 or rung-3 evidence.
 
-## Advisory session hooks (2026-10-08)
+## v0.8.0 advisory session hooks (2026-10-08)
 
 Measured on 2026-10-08 at **rung 1** of ADR-0014. The hooks are proposed in
 [ADR-0049](adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
