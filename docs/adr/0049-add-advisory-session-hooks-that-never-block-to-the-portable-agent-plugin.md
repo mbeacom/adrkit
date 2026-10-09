@@ -171,7 +171,10 @@ blocked nothing"), and tells the agent to check the change it just made.
     fallback, `adr check`), so without the deadline the first prompt could wait
     15 s. With it, the first prompt waits at most about 5 s. Work past the
     deadline continues in the background, each call still bounded by its own
-    5 s timeout, so it ends within about 15 s.
+    5 s timeout, so it ends within about 15 s. (Since plugin 0.8.1, a diff too
+    wide for one command line runs one `adr check` per batch of about 24 KiB
+    of paths, each bounded the same way, so a wide diff's background work can
+    run 5 s longer per extra batch.)
   - The post-edit note races its checks against a 2 s deadline. Past it the
     note is skipped for that edit, and the checks keep running and fill the
     cache, so the next edit of the file is told. A tool result is held at most

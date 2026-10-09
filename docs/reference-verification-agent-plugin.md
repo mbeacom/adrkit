@@ -896,7 +896,7 @@ with `ADRKIT_CLI` set to the worktree's built `packages/cli/dist/index.js`
 | --- | --- | --- |
 | H1 | `tools.execute adr_check { paths: ["src/a.ts"] }` and `adr_lint {}` in repoA | `governing` 0001, 0002; `checked` 2 |
 | H2 | `session.rpc.metadata.setWorkingDirectory({ workingDirectory: repoB })` | Returned repoB; the session emitted `session.context_changed` with `cwd` repoB |
-| H3 | The same two calls again | `governing` 0001 only; `checked` 1. The shared tracker moved, and the spawn-based runner ran the CLI under the host's Node |
+| H3 | The same two calls again | `governing` 0001 only; `checked` 1. The shared tracker moved. The extension's new spawn-based runner started the CLI (a `.js` `ADRKIT_CLI`, so run by the `node` on `PATH`) |
 
 ### Not verified
 
@@ -907,6 +907,10 @@ with `ADRKIT_CLI` set to the worktree's built `packages/cli/dist/index.js`
 - A wide change against a real Windows command line. The 24 KiB budget is
   reasoned from Windows' 32,767-character limit and a UTF-8 byte count, never
   smaller than the UTF-16 count, not measured on Windows.
+- How Copilot ends the extension process (closing its stdio, or a signal).
+  The exit sweep runs on a normal exit or `process.exit()`; a stop by an
+  unhandled signal skips Node's `exit` event, so a process group still running
+  then would not be swept. Unmeasured.
 - All four changes in the Copilot app: unmeasured in the Copilot app.
 
 ## Verdict

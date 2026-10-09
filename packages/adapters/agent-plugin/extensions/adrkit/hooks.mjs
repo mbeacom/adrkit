@@ -5,8 +5,9 @@
  * Two hooks, and neither can stop anything:
  *
  * - `onSessionStart` adds a one-paragraph summary of the decisions that govern
- *   the session's changed files: one `git diff` and one `adr check --json`, no
- *   model call. Measured on Copilot CLI 1.0.93 (headless SDK host): a plugin
+ *   the session's changed files: up to two `git diff`s and one
+ *   `adr check --json` per batch of paths (one for any diff that fits a
+ *   command line), no model call. Measured on Copilot CLI 1.0.93 (headless SDK host): a plugin
  *   extension joins after `session.start`, and the hook fires with the first
  *   prompt (`source: "new"`, after `userPromptSubmitted`), not at load.
  * - `onPostToolUse`, after an edit tool, adds a note naming the accepted

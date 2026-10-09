@@ -574,8 +574,10 @@ will usually be a regression:
   1.0.93 (SDK host): a plugin extension joins after `session.start`; with no
   prompt no hook fires, even on resume. With a prompt it fires after
   `onUserPromptSubmitted` with `source: "new"`. It races a 5 s deadline, because
-  its three sequential calls (two `git diff`s and `adr check`) could otherwise
-  hold the first prompt for 15 s.
+  its sequential calls (up to two `git diff`s, then one `adr check` per
+  batch of a wide diff) could otherwise hold the first prompt for 15 s or
+  more; a wide diff's later batches keep running after the deadline, each
+  still under its own 5 s limit and the two-at-a-time cap.
 - **The edit tools are the ones the runtime classifies as edits**: `edit` and
   `create` (`{ path }`, absolute in session logs), `str_replace` (`edit`'s
   shape), `str_replace_editor` only when `command` is `create`, `str_replace`,
