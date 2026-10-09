@@ -24,7 +24,7 @@
  */
 
 import { CanvasError, createCanvas, defineWorkflow, joinSession } from '@github/copilot-sdk/extension';
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createDecisionReviewCanvas } from './canvas.mjs';
 import { createAdvisoryHooks } from './hooks.mjs';
@@ -41,14 +41,14 @@ await register({
   joinSession,
   workflow: () =>
     createReviewWorkflow({
-      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, spawn }),
       env: process.env,
       exists: existsSync,
       getCwd: sessionDir.get,
     }),
   canvas: (getSession) =>
     createDecisionReviewCanvas({
-      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, spawn }),
       env: process.env,
       exists: existsSync,
       getSession,
@@ -56,7 +56,7 @@ await register({
     }),
   tools: () =>
     createAdrTools({
-      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, spawn }),
       env: process.env,
       exists: existsSync,
       getCwd: sessionDir.get,
@@ -66,7 +66,7 @@ await register({
   // return undefined (registering nothing) when ADRKIT_HOOKS=0.
   hooks: ({ getSession, refreshCanvas }) =>
     createAdvisoryHooks({
-      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, execFile }),
+      run: (command, args, { cwd, signal }) => runCommand(command, args, { cwd, signal, spawn }),
       env: process.env,
       exists: existsSync,
       getSession,

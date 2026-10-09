@@ -1,4 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
+import { execFileSync, spawn as nodeSpawn } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { packageRoot } from './harness.ts';
 import {
   ADR_REVIEW_META,
   DECISION_CHECKER_AGENT,
@@ -92,55 +98,233 @@ describe('resolveCli', () => {
 });
 
 describe('runCommand', () => {
-  type Callback = (error: unknown, stdout: string, stderr: string) => void;
+  type Listener = (...args: unknown[]) => void;
 
-  function fakeExecFile(outcome: { error?: unknown; stdout?: string; stderr?: string }) {
+  /** A minimal ChildProcess: `emit` drives it, `calls` records the spawn. */
+  function fakeSpawn(script: (child: ReturnType<typeof makeChild>) => void, pid = 4242) {
     const calls: Array<{ command: string; args: string[]; options: Record<string, unknown> }> = [];
-    const execFile = (
-      command: string,
-      args: string[],
-      options: Record<string, unknown>,
-      callback: Callback,
-    ) => {
+    const spawn = (command: string, args: string[], options: Record<string, unknown>) => {
       calls.push({ command, args, options });
-      callback(outcome.error ?? null, outcome.stdout ?? '', outcome.stderr ?? '');
+      const child = makeChild(pid);
+      queueMicrotask(() => script(child));
+      return child;
     };
-    return { execFile, calls };
+    return { spawn, calls };
   }
 
-  test('exit 0 resolves with the output', async () => {
-    const { execFile, calls } = fakeExecFile({ stdout: '{}' });
+  function makeChild(pid: number) {
+    const emitter = () => {
+      const listeners: Record<string, Listener[]> = {};
+      return {
+        on(event: string, listener: Listener) {
+          (listeners[event] ??= []).push(listener);
+          return this;
+        },
+        once(event: string, listener: Listener) {
+          return this.on(event, listener);
+        },
+        emit(event: string, ...args: unknown[]) {
+          for (const listener of listeners[event] ?? []) listener(...args);
+        },
+      };
+    };
+    return Object.assign(emitter(), { pid, stdout: emitter(), stderr: emitter(), kill: () => true });
+  }
+
+  const posix = { platform: 'darwin' as const, kill: () => {} };
+
+  test('exit 0 resolves with the output, with stdin closed and its own process group on POSIX', async () => {
+    const { spawn, calls } = fakeSpawn((child) => {
+      child.stdout.emit('data', Buffer.from('{}'));
+      child.emit('close', 0, null);
+    });
     const signal = new AbortController().signal;
-    const result = await runCommand('adr', ['lint'], { cwd: '/repo', signal, execFile });
+    const result = await runCommand('adr', ['lint'], { cwd: '/repo', signal, spawn, ...posix });
     expect(result).toEqual({ stdout: '{}', stderr: '', exitCode: 0 });
     expect(calls[0]?.options['cwd']).toBe('/repo');
+    expect((calls[0]?.options['stdio'] as string[])[0]).toBe('ignore');
+    expect(calls[0]?.options['detached']).toBe(true);
+    // The signal is handled here, by signalling the group, not by spawn.
+    expect(calls[0]?.options['signal']).toBeUndefined();
+  });
+
+  test('on Windows the child is not detached and spawn handles the signal', async () => {
+    const { spawn, calls } = fakeSpawn((child) => child.emit('close', 0, null));
+    const signal = new AbortController().signal;
+    await runCommand('adr', ['lint'], { cwd: '/repo', signal, spawn, platform: 'win32' });
+    expect(calls[0]?.options['detached']).toBeUndefined();
     expect(calls[0]?.options['signal']).toBe(signal);
   });
 
   test('a non-zero exit is data, not a rejection', async () => {
     // `adr check` exits 1 with a complete report. Rejecting here would make the
     // run settle as an error that the host then reports with exit code 0.
-    const error = Object.assign(new Error('Command failed'), { code: 1 });
-    const { execFile } = fakeExecFile({ error, stdout: '{"ok":false}', stderr: 'warn' });
-    const result = await runCommand('adr', ['check'], { cwd: '/repo', execFile });
+    const { spawn } = fakeSpawn((child) => {
+      child.stdout.emit('data', Buffer.from('{"ok":false}'));
+      child.stderr.emit('data', Buffer.from('warn'));
+      child.emit('close', 1, null);
+    });
+    const result = await runCommand('adr', ['check'], { cwd: '/repo', spawn, ...posix });
     expect(result).toEqual({ stdout: '{"ok":false}', stderr: 'warn', exitCode: 1 });
   });
 
   test('a spawn failure rejects and names what is missing', async () => {
-    const error = Object.assign(new Error('spawn adr ENOENT'), { code: 'ENOENT' });
-    const { execFile } = fakeExecFile({ error });
-    await expect(runCommand('adr', ['check'], { cwd: '/repo', execFile })).rejects.toThrow(
-      /"adr".*not found/,
-    );
+    const { spawn } = fakeSpawn((child) => {
+      child.emit('error', Object.assign(new Error('spawn adr ENOENT'), { code: 'ENOENT' }));
+      child.emit('close', -2, null);
+    });
+    const failure = runCommand('adr', ['check'], { cwd: '/repo', spawn, ...posix });
+    await expect(failure).rejects.toThrow(/"adr".*not found/);
+    await expect(failure).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  test('cancellation rejects rather than masquerading as an exit code', async () => {
-    const error = Object.assign(new Error('The operation was aborted'), {
-      code: 'ABORT_ERR',
+  test('cancellation rejects as an AbortError and signals the whole process group', async () => {
+    const kills: Array<[number, string]> = [];
+    const { spawn } = fakeSpawn(() => {}, 777);
+    const controller = new AbortController();
+    const failure = runCommand('adr', ['check'], {
+      cwd: '/repo',
+      signal: controller.signal,
+      spawn,
+      platform: 'linux',
+      kill: (pid: number, sig: string) => void kills.push([pid, sig]),
+      graceMs: 5,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    controller.abort();
+    await expect(failure).rejects.toMatchObject({ name: 'AbortError', code: 'ABORT_ERR' });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    // Negative pid: the group, so a grandchild behind a shim goes too.
+    expect(kills).toEqual([
+      [-777, 'SIGTERM'],
+      [-777, 'SIGKILL'],
+    ]);
+  });
+
+  test('an already-aborted signal spawns nothing', async () => {
+    const { spawn, calls } = fakeSpawn(() => {});
+    const controller = new AbortController();
+    controller.abort();
+    await expect(runCommand('adr', ['check'], { cwd: '/repo', signal: controller.signal, spawn, ...posix })).rejects.toMatchObject({
       name: 'AbortError',
     });
-    const { execFile } = fakeExecFile({ error });
-    await expect(runCommand('adr', ['check'], { cwd: '/repo', execFile })).rejects.toThrow();
+    expect(calls).toEqual([]);
+  });
+
+  test('a group that is already gone (ESRCH) is not an error', async () => {
+    const { spawn } = fakeSpawn(() => {});
+    const controller = new AbortController();
+    const failure = runCommand('adr', ['check'], {
+      cwd: '/repo',
+      signal: controller.signal,
+      spawn,
+      platform: 'linux',
+      kill: () => {
+        throw Object.assign(new Error('kill ESRCH'), { code: 'ESRCH' });
+      },
+      graceMs: 1,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    controller.abort();
+    await expect(failure).rejects.toMatchObject({ name: 'AbortError' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+
+  test('output past the buffer cap rejects with the maxBuffer code and ends the group', async () => {
+    const kills: Array<[number, string]> = [];
+    const { spawn } = fakeSpawn((child) => child.stdout.emit('data', Buffer.from('x'.repeat(20))), 99);
+    const failure = runCommand('adr', ['check'], {
+      cwd: '/repo',
+      spawn,
+      platform: 'linux',
+      kill: (pid: number, sig: string) => void kills.push([pid, sig]),
+      maxBuffer: 10,
+      graceMs: 1,
+    });
+    await expect(failure).rejects.toMatchObject({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' });
+    expect(kills[0]).toEqual([-99, 'SIGTERM']);
+  });
+
+  test('a child ended by a signal it did not get from us rejects with that signal', async () => {
+    const { spawn } = fakeSpawn((child) => child.emit('close', null, 'SIGKILL'));
+    await expect(runCommand('adr', ['check'], { cwd: '/repo', spawn, ...posix })).rejects.toMatchObject({ signal: 'SIGKILL' });
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('runCommand timeouts end the whole process tree (POSIX)', () => {
+  // A version-manager shim is a shell script that starts node. Signalling only
+  // the shell left the node process (the grandchild) running. The wrapper here
+  // starts a long sleep in the background, records its pid, and waits on it.
+  const alive = (pid: number) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const waitGone = async (pid: number, ms: number) => {
+    const until = Date.now() + ms;
+    while (alive(pid) && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 25));
+    return !alive(pid);
+  };
+  let grandchild = 0;
+  let dir = '';
+  afterEach(() => {
+    if (grandchild > 0 && alive(grandchild)) process.kill(grandchild, 'SIGKILL');
+    grandchild = 0;
+    if (dir) rmSync(dir, { recursive: true, force: true });
+    dir = '';
+  });
+
+  function shim() {
+    dir = mkdtempSync(join(tmpdir(), 'adrkit-tree-'));
+    const script = join(dir, 'shim.sh');
+    const pidFile = join(dir, 'grandchild.pid');
+    writeFileSync(script, `#!/bin/sh\nsleep 300 &\necho $! > "${pidFile}"\nwait\n`, { mode: 0o755 });
+    return { script, pidFile };
+  }
+
+  async function readPid(pidFile: string) {
+    for (let i = 0; i < 200 && !existsSync(pidFile); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+    for (let i = 0; i < 200; i++) {
+      const text = existsSync(pidFile) ? readFileSync(pidFile, 'utf8').trim() : '';
+      if (/^\d+$/.test(text)) return Number(text);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error('the shim never recorded its grandchild');
+  }
+
+  test('a timeout signals the group, and the grandchild is gone afterwards', async () => {
+    const { script, pidFile } = shim();
+    const failure = runCommand('/bin/sh', [script], { cwd: dir, signal: AbortSignal.timeout(400), spawn: nodeSpawn });
+    grandchild = await readPid(pidFile);
+    expect(alive(grandchild)).toBe(true);
+    await expect(failure).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await waitGone(grandchild, 5000)).toBe(true);
+  });
+
+  test('a normal extension exit takes running detached children with it', () => {
+    // The extension process exits while a check is still running: the child
+    // is in its own process group, so nothing else would end it.
+    const { script, pidFile } = shim();
+    const review = pathToFileURL(join(packageRoot, 'extensions', 'adrkit', 'review.mjs')).href;
+    const program = [
+      `import { spawn } from 'node:child_process';`,
+      `import { existsSync, readFileSync } from 'node:fs';`,
+      `import { runCommand } from ${JSON.stringify(review)};`,
+      `runCommand('/bin/sh', [${JSON.stringify(script)}], { cwd: ${JSON.stringify(dir)}, spawn }).catch(() => {});`,
+      `const started = Date.now();`,
+      `const poll = setInterval(() => {`,
+      `  if (existsSync(${JSON.stringify(pidFile)}) && readFileSync(${JSON.stringify(pidFile)}, 'utf8').trim()) { clearInterval(poll); process.exit(0); }`,
+      `  if (Date.now() - started > 5000) process.exit(3);`,
+      `}, 10);`,
+    ].join('\n');
+    execFileSync('node', ['--input-type=module', '-e', program], { encoding: 'utf8', timeout: 10_000 });
+    grandchild = Number(readFileSync(pidFile, 'utf8').trim());
+    const until = Date.now() + 3000;
+    while (alive(grandchild) && Date.now() < until) Bun.sleepSync(25);
+    expect(alive(grandchild)).toBe(false);
   });
 });
 

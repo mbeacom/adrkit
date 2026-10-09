@@ -85,7 +85,7 @@ const JS_ENTRY = /\.(?:c|m)?js$/;
  * inherited repository's binary is never run unless the person running the
  * workflow opted in.
  *
- * The returned command is for `execFile`, never a shell. `$ADRKIT_CLI` is made
+ * The returned command is for `spawn` without a shell, never a shell. `$ADRKIT_CLI` is made
  * absolute first, so its value can never be read as a flag by `node`. A path
  * that does not exist throws rather than falling through to `PATH`, which would
  * run a different CLI and report its answer as the configured one's.
@@ -114,38 +114,169 @@ export function resolveCli({ env, cwd, exists }) {
   return { command: 'adr', args: [], source: 'path' };
 }
 
+/** The most stdout or stderr one command may produce. */
+export const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
+/** How long a signalled process group gets between SIGTERM and SIGKILL. */
+export const KILL_GRACE_MS = 1000;
+
+/** Process groups started by `runCommand` that have not closed yet. @type {Set<number>} */
+const liveGroups = new Set();
+let sweepInstalled = false;
+
 /**
- * Run one process with `execFile`. Any numeric exit resolves: `adr` uses 1 for
- * "found something" with a complete report on stdout, and that is data. A spawn
- * failure or a cancellation rejects, because there is no result to report.
+ * Detached children are in their own process group, so nothing ends them when
+ * the extension exits. On a normal exit, every group still running is killed;
+ * `kill` is synchronous, which is what an `exit` listener may do.
+ */
+function installExitSweep() {
+  if (sweepInstalled) return;
+  sweepInstalled = true;
+  process.once('exit', () => {
+    for (const pid of liveGroups) {
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        // ESRCH: already gone.
+      }
+    }
+  });
+}
+
+/** @param {AbortSignal | undefined} signal */
+const abortError = (signal) =>
+  Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR', cause: signal?.reason });
+
+/**
+ * Run one process and collect its output. Any numeric exit resolves: `adr`
+ * uses 1 for "found something" with a complete report on stdout, and that is
+ * data. A spawn failure, a cancellation, a signal, or output past the cap
+ * rejects, because there is no result to report. Rejections carry the same
+ * `code`/`name`/`signal` fields `execFile` used, and callers select their
+ * fixed messages by those fields, never by the text.
+ *
+ * On POSIX the child gets its own process group (`detached`), and a
+ * cancellation or timeout signals the whole group: SIGTERM, then SIGKILL after
+ * `graceMs`. Signalling only the direct child left a grandchild behind a
+ * version-manager shim (a shell script that starts node) running. A group
+ * still alive when the extension exits normally is killed then. On Windows
+ * the signal is passed to `spawn`, which ends the direct child only: a
+ * grandchild there can outlive a timeout, a stated limit.
+ *
+ * stdin is never opened. The returned promise settles at once on abort; the
+ * group's SIGKILL follows on an unref'd timer, so nothing waits on it.
  *
  * @param {string} command
  * @param {string[]} args
- * @param {{ cwd: string, signal?: AbortSignal, execFile: Function }} options
+ * @param {{
+ *   cwd: string, signal?: AbortSignal, spawn: Function,
+ *   platform?: string, kill?: (pid: number, signal: string) => unknown,
+ *   graceMs?: number, maxBuffer?: number,
+ * }} options
  * @returns {Promise<CommandResult>}
  */
-export function runCommand(command, args, { cwd, signal, execFile }) {
+export function runCommand(
+  command,
+  args,
+  {
+    cwd,
+    signal,
+    spawn,
+    platform = process.platform,
+    kill = (pid, sig) => process.kill(pid, /** @type {NodeJS.Signals} */ (sig)),
+    graceMs = KILL_GRACE_MS,
+    maxBuffer = MAX_OUTPUT_BYTES,
+  },
+) {
   return new Promise((resolve, reject) => {
-    execFile(
-      command,
-      args,
-      // The 1 MiB default is small enough for `adr check --json` on a wide
-      // change to overflow, which surfaces as an error and not an exit code.
-      { cwd, signal, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true },
-      /** @param {any} error @param {string} stdout @param {string} stderr */
-      (error, stdout, stderr) => {
-        const out = String(stdout ?? '');
-        const err = String(stderr ?? '');
-        if (!error) return resolve({ stdout: out, stderr: err, exitCode: 0 });
-        if (typeof error.code === 'number') {
-          return resolve({ stdout: out, stderr: err, exitCode: error.code });
-        }
-        if (error.code === 'ENOENT') {
-          return reject(new Error(`could not start "${command}": not found`));
-        }
-        return reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
+    if (signal?.aborted) return reject(abortError(signal));
+    const group = platform !== 'win32';
+    /** @type {any} */
+    let child;
+    try {
+      child = spawn(command, args, {
+        cwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        ...(group ? { detached: true } : { signal }),
+      });
+    } catch (error) {
+      return reject(error);
+    }
+    const pid = typeof child.pid === 'number' ? child.pid : undefined;
+    if (group && pid !== undefined) {
+      liveGroups.add(pid);
+      installExitSweep();
+    }
+    let settled = false;
+    /** @param {() => void} settle */
+    const finish = (settle) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', onAbort);
+      settle();
+    };
+    /** @param {string} sig */
+    const signalGroup = (sig) => {
+      if (pid === undefined) return;
+      try {
+        kill(-pid, sig);
+      } catch {
+        // ESRCH: the group has already gone.
+      }
+    };
+    const endTree = () => {
+      if (!group) {
+        child.kill?.();
+        return;
+      }
+      signalGroup('SIGTERM');
+      const timer = setTimeout(() => signalGroup('SIGKILL'), graceMs);
+      timer.unref?.();
+    };
+    const onAbort = () => {
+      // Windows: spawn holds the signal and ends the child itself.
+      if (group) endTree();
+      finish(() => reject(abortError(signal)));
+    };
+    if (group) signal?.addEventListener('abort', onAbort, { once: true });
+
+    /** @type {Buffer[]} */
+    const out = [];
+    /** @type {Buffer[]} */
+    const err = [];
+    let outBytes = 0;
+    let errBytes = 0;
+    const overflow = () => {
+      endTree();
+      finish(() =>
+        reject(Object.assign(new Error('stdout or stderr exceeded the output limit'), { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })),
+      );
+    };
+    child.stdout?.on('data', (/** @type {Buffer} */ chunk) => {
+      outBytes += chunk.length;
+      if (outBytes > maxBuffer) return overflow();
+      out.push(Buffer.from(chunk));
+    });
+    child.stderr?.on('data', (/** @type {Buffer} */ chunk) => {
+      errBytes += chunk.length;
+      if (errBytes > maxBuffer) return overflow();
+      err.push(Buffer.from(chunk));
+    });
+    child.on('error', (/** @type {any} */ error) => {
+      if (pid !== undefined) liveGroups.delete(pid);
+      if (error?.code === 'ENOENT') {
+        return finish(() => reject(Object.assign(new Error(`could not start "${command}": not found`), { code: 'ENOENT' })));
+      }
+      if (error?.name === 'AbortError') return finish(() => reject(abortError(signal)));
+      finish(() => reject(error instanceof Error ? error : new Error(String(error))));
+    });
+    child.on('close', (/** @type {number | null} */ code, /** @type {string | null} */ sig) => {
+      if (pid !== undefined) liveGroups.delete(pid);
+      const stdout = Buffer.concat(out).toString('utf8');
+      const stderr = Buffer.concat(err).toString('utf8');
+      if (typeof code === 'number') return finish(() => resolve({ stdout, stderr, exitCode: code }));
+      finish(() => reject(Object.assign(new Error(`"${command}" was ended by a signal`), { code: null, signal: sig })));
+    });
   });
 }
 
