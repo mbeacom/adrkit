@@ -214,6 +214,21 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+      # Docker Hub refuses anonymous pulls once the runner's shared address is
+      # over its rate limit (`429 Too Many Requests` on the pinned `node`
+      # digest, three attempts running on #277), which fails this job with no
+      # change to the image. Pull through Google's public Docker Hub mirror
+      # instead. Every `FROM` is pinned by digest, so the mirror cannot serve
+      # different content; an image it does not hold falls back to Docker Hub.
+      - name: Pull Docker Hub images through a mirror
+        run: |
+          set -euo pipefail
+          config=/etc/docker/daemon.json
+          current="$(sudo cat "$config" 2>/dev/null || echo '{}')"
+          jq '."registry-mirrors" = ["https://mirror.gcr.io"]' <<<"$current" \
+            | sudo tee "$config" >/dev/null
+          sudo systemctl restart docker
+          docker info --format '{{json .RegistryConfig.Mirrors}}' | grep -F 'mirror.gcr.io'
       - name: Build the all-in-one image
         run: docker build -f Containerfile --target adrkit -t adrkit:ci .
       - name: Build the dedicated CLI target
