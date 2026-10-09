@@ -33,7 +33,7 @@ const messageOf = (error) => (error instanceof Error ? error.message : String(er
  *   joinSession: (config: Record<string, unknown>) => Promise<S>,
  *   workflow: () => unknown,
  *   canvas: (getSession: () => S | undefined) => unknown,
- *   hooks?: (deps: { getSession: () => S | undefined, refreshCanvas: () => Promise<unknown> }) => Record<string, unknown> | undefined,
+ *   hooks?: (deps: { getSession: () => S | undefined, refreshCanvas: (options?: unknown) => Promise<unknown> }) => Record<string, unknown> | undefined,
  * }} deps
  * @returns {Promise<S>}
  */
@@ -65,7 +65,7 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
     try {
       const built = hooks({
         getSession: () => joined,
-        refreshCanvas: async (options) => {
+        refreshCanvas: async (/** @type {unknown} */ options) => {
           if (typeof canvasOptions?.refreshOpen === 'function') await canvasOptions.refreshOpen(options);
         },
       });
@@ -108,5 +108,5 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
       // Nothing else can reach the user: stdout is the RPC channel.
     }
   }
-  return joined;
+  return /** @type {S} */ (joined);
 }
