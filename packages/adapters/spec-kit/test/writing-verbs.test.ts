@@ -18,7 +18,10 @@ function mentionsVerb(text: string): boolean {
   const alt = VERBS.join('|');
   // A JSON-schema type list such as `['object', 'null']` is a type, not a call; drop
   // lists made only of type words before looking for a quoted verb.
-  const code = text.replace(/\[\s*(?:['"`](?:null|string|array|number|boolean|integer|object)['"`]\s*,?\s*)+\]/g, '');
+  // Items are separated by a required comma, so the match cannot backtrack
+  // exponentially (CodeQL js/redos).
+  const type = `['"\`](?:null|string|array|number|boolean|integer|object)['"\`]`;
+  const code = text.replace(new RegExp(`\\[\\s*${type}(?:\\s*,\\s*${type})*(?:\\s*,)?\\s*\\]`, 'g'), '');
   return [
     // The verb as a quoted array element or call argument: `['approve']`,
     // `[cli, 'approve', id]`, `args.push('approve')`, `` [`resolve`, id] ``.
@@ -46,6 +49,15 @@ describe('writing verbs', () => {
     const files = shipped();
     expect(files.some((path) => path.endsWith('check.sh'))).toBe(true);
     expect(files.filter((path) => mentionsVerb(readFileSync(path, 'utf8')))).toEqual([]);
+  });
+
+  test('the type-list filter runs in linear time (CodeQL js/redos)', () => {
+    // `["null"` then many tab-separated `"null"`s with no closing bracket made the
+    // first type-list filter backtrack exponentially: about 4x per two more items.
+    const adversarial = `["null"${'\t"null"'.repeat(28)}`;
+    const started = performance.now();
+    expect(mentionsVerb(adversarial)).toBe(false);
+    expect(performance.now() - started).toBeLessThan(250);
   });
 
   test('the patterns catch the shell and prose forms a script would use', () => {
