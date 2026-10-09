@@ -1440,3 +1440,49 @@ describe('PR #274 re-review', () => {
     }
   });
 });
+
+describe('PR #274 third review', () => {
+  test('queue titles are held to the board\'s 200-character cap', async () => {
+    const queue = queueReport([queueItem('0003', { title: 'Q'.repeat(5000) })]);
+    const { options } = makeBoard({ run: fakeCli({ queue: ok(queue) }).run });
+    await openBoard(options);
+    const state = await action(options, 'get_state')();
+    expect(state.queue.items[0].title.length).toBeLessThanOrEqual(201);
+  });
+
+  test('the queue heading counts every open proposal, not only the rows kept', async () => {
+    const base = { workingDirectory: CWD, filter: { id: null, kinds: [] }, graph: null, notes: [], updatedAt: 'x' };
+    const state = {
+      ...base,
+      queue: { available: true, asOf: '2026-10-09', exitCode: 0, totalItems: 250, corpusFindings: 0, note: 'Showing the first 1 of 250 open proposals.', items: [boardRow()] },
+    };
+    const heading = ((await renderBoardWith(state)).get('queue') as FakeNode).children[0] as FakeNode;
+    expect(heading.textContent).toBe('Open proposals, corpus-wide (250)');
+  });
+
+  test('focusing from the summary view keeps the active kind filter', async () => {
+    const state = {
+      workingDirectory: CWD,
+      filter: { id: null, kinds: ['relatesTo'] },
+      graph: { available: true, mode: 'summary', totalNodes: 400, totalEdges: 900, byStatus: [{ status: 'accepted', count: 400 }], nodes: [], edges: [], notes: [], filter: { id: null, kinds: ['relatesTo'] } },
+      queue: null,
+      notes: [],
+      updatedAt: 'x',
+    };
+    const posts: Array<{ path: string; body: unknown }> = [];
+    const nodes = await renderBoardWith(state, posts);
+    const board = nodes.get('board') as FakeNode;
+    const input = board.all().find((node) => node.tag === 'input') as FakeNode;
+    input.value = '0002';
+    board.all().find((node) => node.tag === 'button' && node.textContent === 'Focus')?.fire('click');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(posts).toEqual([{ path: '/api/focus?token=t', body: { id: '0002', kinds: ['relatesTo'] } }]);
+  });
+});
+
+function boardRow() {
+  return {
+    id: '0003', title: 'Proposal 0003', sourcePath: 'docs/adr/0003.md', slaState: 'on-track', deadlineDate: null,
+    approvalCount: 0, quorum: null, unresolvedObjectionCount: 0, resolvedObjectionCount: 0, routingTargets: [], itemFindingCount: 0,
+  };
+}

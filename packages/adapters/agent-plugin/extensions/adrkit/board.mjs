@@ -239,6 +239,8 @@ export function graphArgs({ dir, filter }) {
 export function boardQueueItem(item) {
   return {
     ...shownQueueItem(item),
+    // The board's own cap, tighter than decision-review's.
+    title: typeof item['title'] === 'string' ? clipTo(item['title'], TITLE_LIMIT) : '',
     resolvedObjectionCount: intOr(item['resolvedObjectionCount']),
     itemFindingCount: Array.isArray(item['itemFindings']) ? item['itemFindings'].length : 0,
   };

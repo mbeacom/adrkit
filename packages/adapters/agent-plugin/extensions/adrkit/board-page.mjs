@@ -298,7 +298,7 @@ export const BOARD_JS = `(function () {
     input.setAttribute('aria-label', 'Record id to focus on');
     label.appendChild(input);
     form.appendChild(label);
-    form.appendChild(button('Focus', function () { focus({ id: text(input.value).trim() }); }));
+    form.appendChild(button('Focus', function () { focus({ id: text(input.value).trim(), kinds: currentKinds() }); }));
     return form;
   }
 
@@ -353,7 +353,9 @@ export const BOARD_JS = `(function () {
     var node = $('queue');
     clear(node);
     var queue = state && state.queue;
-    node.appendChild(el('h2', null, 'Open proposals, corpus-wide' + (queue && queue.available ? ' (' + list(queue.items).length + ')' : '')));
+    // The total open, not the rows kept: past the row or byte cap the note says how many are shown.
+    var total = queue && queue.available ? (typeof queue.totalItems === 'number' ? queue.totalItems : list(queue.items).length) : null;
+    node.appendChild(el('h2', null, 'Open proposals, corpus-wide' + (total === null ? '' : ' (' + text(total) + ')')));
     if (!queue) { node.appendChild(el('p', 'muted', 'Loading the open-proposal list…')); return; }
     if (!queue.available) { node.appendChild(el('p', 'muted note', queue.note || 'The open-proposal list is unavailable.')); return; }
     node.appendChild(el('p', 'muted', 'Raw review facts from adr queue' + (queue.asOf ? ', as of ' + text(queue.asOf) : '') + '. Listed, not judged.'));
