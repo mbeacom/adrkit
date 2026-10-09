@@ -833,11 +833,15 @@ session's native invocation pipeline and fires the pre- and post-tool hooks.
 | H17 | Probe post-tool hook never answers (free) | Tool **ran** (file written); its result still held at 90 s |
 | H18 | Shipped hooks, `create` of `src/hooks-probe.ts` via `tools.execute`, canvas open (free) | `onPostToolUse` **104 ms**, returned "adrkit (advisory; it blocked nothing): the file(s) you just edited are governed by accepted decision(s) 0001. …" |
 | H19 | Same session: a second governed file, an ungoverned file, a `view` | 109 ms with the note; 110 ms (one check, no note); 0 ms. The panel's `updatedAt` moved, `review` stayed `null` |
+| H20 | After rebasing onto the tools (ADR-0048) and the canvas queue (ADR-0047): one session, no prompt sent | The extension `running`; `adr_check`, `adr_explain`, `adr_lint` registered; `decision-review` listed; `adr-review` with an unknown argument `completed` as `usage-error`. Via `tools.execute`: `adr_check` 102 ms naming 0001; `create` of a governed file, post hook 96 ms with the 0001 note; `view` 0 ms; an ungoverned `create`, post hook 95 ms, no note. The panel's `updatedAt` moved, the queue read was `available`, `review` stayed `null`. No `joined without` log line |
+| H21 | Same session, unplanned | The workflow's terminal `system.notification` started a model turn on the session's default model (`claude-sonnet-5.5`), which fired `onSessionStart` (107 ms, summary naming 0001 and 0002) and called `adr_check` itself. Starting `adr-review` in an SDK session with a live model is therefore not free, even when the run spends nothing |
 
 Spend: two paid turns, both `gpt-6-luna`. H2 cost 208,739,500 nano-AIU and H8
 to H11 cost 605,392,000, about 0.81 AI credits together at 10^9 nano-AIU per
-credit. Every other row was free. H2 and H8 are single runs of a
-non-deterministic agent, not a pass rate.
+credit. H21 was an unplanned third turn, 6,768,480,000 nano-AIU (about 6.77
+credits), started by the workflow's completion notice rather than by a prompt.
+Every other row was free. H2 and H8 are single runs of a non-deterministic
+agent, not a pass rate.
 
 ### Not verified
 
