@@ -1,7 +1,7 @@
 ---
 schemaVersion: 0.2.0
 id: "0052"
-title: "Record review from the decision board under ADRKIT_REVIEWER with a confirmed, single-use nonce"
+title: "Record review from the decision board only after the host's own confirmation"
 status: proposed
 date: 2026-10-09
 deciders:
@@ -37,7 +37,7 @@ provenance:
   authoredBy: agent-drafted
 ---
 
-# ADR-0052: Record review from the decision board under ADRKIT_REVIEWER with a confirmed, single-use nonce
+# ADR-0052: Record review from the decision board only after the host's own confirmation
 
 > **Status: proposed.** Agent-drafted and not ratified. This record amends
 > [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md)
@@ -52,6 +52,13 @@ provenance:
 > the panel's URL and token and can do everything the page does over HTTP. The
 > boundary is now the host's confirmation dialog, which the model cannot
 > answer. The nonce and the two clicks remain as defence in depth only.
+>
+> **Revised again (round 2).** The dialog now leads with the record and the
+> action, a write that arrives while another is pending is told which one,
+> each panel may ask at most once per 10 seconds and five times per 10 minutes,
+> and an unreadable agent mode is refused. The record was retitled from "…
+> with a confirmed, single-use nonce", which named a control that is not the
+> boundary.
 
 ## Context
 
@@ -114,12 +121,23 @@ the decision board, behind this boundary:
    (`capabilities.ui.elicitation` is not `true`), the controls render
    disabled with a fixed note ("this host cannot ask you to confirm a review
    write") and both routes refuse. If the session's agent mode reads
-   `autopilot`, the route refuses before asking, whatever the host would do;
-   an unreadable mode still asks. The dialog text is built only from fixed
-   strings, the kind, the validated record id, the identity from
-   `ADRKIT_REVIEWER`, and numbers (the objection index, or the summary's
-   length). It never contains the summary or a title, which are untrusted and
-   which a forged request controls.
+   `autopilot`, the route refuses before asking, whatever the host would do.
+   If reading the mode throws, it refuses too; a session with no mode method
+   at all is still asked, because the confirmation still guards. The dialog
+   text is built only from fixed strings, the kind, the validated record id,
+   the identity from `ADRKIT_REVIEWER`, and numbers (the objection index, or
+   the summary's length). It never contains the summary or a title, which are
+   untrusted and which a forged request controls. **Its first line is the
+   record and the action**, such as `ADR-0042 · approve as @x`, and the fixed
+   explanation follows, so the record is what the person reads first.
+   - **A pending confirmation is named.** While one write waits for the host,
+     another gets a 409 that names the pending kind and record ("GitHub
+     Copilot is already asking you to confirm an approval of ADR-0042. Decline
+     it unless you started it, then try again."), and the page shows it as a
+     warning.
+   - **Dialogs are rate-limited per panel**: at most one per 10 seconds and
+     five per sliding 10 minutes. Over either limit the route answers 429 with
+     a fixed message, asks nothing, spawns nothing, and logs the refusal.
 2. **The identity is the environment's.** The extension reads
    `ADRKIT_REVIEWER` on every request. It must pass core's
    `isWritableIdentity` rule, mirrored in the extension (an extension cannot
@@ -227,13 +245,32 @@ and only fixed messages reach a page (CodeQL `js/stack-trace-exposure` on #267).
   refusal covers the one mode it can see; it cannot see a host that
   auto-accepts in some other way. **This residual risk is the maintainer's to
   accept or to close by measuring the app before the controls are relied on.**
+- **A dialog the person did not start can look like one they did.** A
+  prompt-injected model can open its own panel and POST an approval of
+  ADR-0042, so the host's dialog for it is pending. The person then confirms
+  an approval of 0002 on the board, their write is turned away because one is
+  pending, and the one dialog on screen is the model's, just when they expect
+  one. Three things narrow this. The dialog's first line names the record and
+  the action. The person's 409 says which confirmation is pending and to
+  decline it unless they started it. And a panel cannot keep a dialog up
+  continuously (one per 10 s, five per 10 minutes). The limits are per panel,
+  and the model can open new panels, so they slow the model rather than stop
+  it. A person who answers yes without reading the first line can still
+  approve the wrong record.
 - **A person can still be talked into "yes".** A prompt-injected model can
   start a write and the dialog will appear; a person who accepts without
   reading has approved it. The dialog names the record, the kind, and the
   identity, and says to decline unless the person just asked for it on the
   board. It cannot say whether the request came from the page.
 - **The model can start writes, so it can also make dialogs appear.** That is
-  a nuisance, not a write, and the log names every attempt and its outcome.
+  a nuisance, not a write, and the log names every attempt and its outcome,
+  rate-limited ones included.
+- **The dialog guards the board's write path, not review state in general.**
+  A model with shell access can still run `adr approve <id> --by=<anyone>`
+  directly, edit a record's frontmatter, or edit the installed extension and
+  reload it. ADR-0051's agent boundary is about which plugin surfaces exist,
+  and reviewing the pull request diff is the backstop for review state
+  however it was written.
 - **A token holder can cancel a person's armed confirmation.** Any POST to the
   write route spends the panel's live nonce first, and a "busy" refusal spends
   it too, so another client holding the token can make the page's Confirm fail
@@ -251,7 +288,8 @@ and only fixed messages reach a page (CodeQL `js/stack-trace-exposure` on #267).
 - Harder: one exempt module, one dialog per write, and a host requirement
   (elicitation) without which the controls stay off.
 - **How we would know this was wrong:** a review is written without a `true`
-  from the host's confirmation; a host answers that confirmation without a
+  from the host's confirmation; a person approves a record they did not
+  choose because a staged dialog looked like their own; a host answers that confirmation without a
   person (in the app, in any mode); the dialog shows the summary or a title; a
   write runs with an identity from anywhere but `ADRKIT_REVIEWER`; stderr,
   exception text, or a summary appears in a reply or the log; the board shows
@@ -265,8 +303,8 @@ and only fixed messages reach a page (CodeQL `js/stack-trace-exposure` on #267).
 
 **Rung 1** under ADR-0014. Unit and contract tests, each observed failing
 before it passed: before the code existed, or under a mutation of the code it
-covers. The first round ran 24 mutations; the review round ran 15 more, all
-killed. An end-to-end test drives the routes against the repository's built
+covers. The first round ran 24 mutations; the review round ran 15 more and
+the second review round 11 more, all killed. An end-to-end test drives the routes against the repository's built
 CLI on a fixture corpus.
 
 Headless SDK-host measurements on 2026-10-09 (SDK client from the Copilot CLI

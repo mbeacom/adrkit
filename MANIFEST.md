@@ -129,6 +129,6 @@ There are 52 records, ids `0001`-`0052`, alongside
 | `0049` | proposed | Add advisory session hooks that never block to the portable agent plugin |
 | `0050` | proposed | Ship a read-only decision-board canvas that maps the corpus from adr graph and adr queue |
 | `0051` | proposed | Record review state with adr approve, adr object, and adr resolve |
-| `0052` | proposed | Record review from the decision board under ADRKIT_REVIEWER with a confirmed, single-use nonce |
+| `0052` | proposed | Record review from the decision board only after the host's own confirmation |
 
 <!-- END GENERATED: adr-inventory -->

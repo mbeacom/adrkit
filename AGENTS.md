@@ -920,7 +920,7 @@ in the Copilot app. Load-bearing:
 #### Recording review from the board
 
 Each open-proposal row has approve, object, and resolve controls, proposed in
-[ADR-0052](./docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md)
+[ADR-0052](./docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
 (**proposed**; amends ADR-0050, implements the plugin half of ADR-0051). They
 run `adr approve`, `adr object`, and `adr resolve` and **need `@adrkit/cli`
 0.18.0 or later**. **Rung 1**: unit, contract, and mutation tests, an
@@ -936,8 +936,9 @@ no model calls; **unmeasured in the Copilot app**. Load-bearing:
   `session.ui.confirm(...)` before spawning and writes only on a literal
   `true` within two minutes; a throw, a timeout, or any other answer writes
   nothing. Without `capabilities.ui.elicitation === true` the controls are off
-  with a fixed note and both routes refuse. In agent mode `autopilot` the route
-  refuses before asking. Measured: the runtime routes an extension's `confirm`
+  with a fixed note and both routes refuse. In agent mode `autopilot`, or when
+  `rpc.mode.get` throws, the route refuses before asking; a session with no
+  mode method is still asked. Measured: the runtime routes an extension's `confirm`
   to the host's handler in every permission and agent mode, and answers
   nothing on its own; the CLI's terminal UI declines elicitations in
   autopilot (read from its bundle). **Whether the Copilot app offers
@@ -945,7 +946,18 @@ no model calls; **unmeasured in the Copilot app**. Load-bearing:
   ADR-0052 names that as a residual risk the maintainer must accept or
   measure. Do not remove the confirmation, accept a truthy non-`true` answer,
   or put the summary or a title in the dialog: the dialog text is fixed text,
-  the kind, the validated id, the identity, and numbers only.
+  the kind, the validated id, the identity, and numbers only. The confirmation
+  guards the board's write path only: a model with a shell can still run
+  `adr approve --by=…` itself, edit frontmatter, or edit the extension, and the
+  pull request diff is the backstop.
+- **A staged dialog must not pass for the person's own** (re-review R1-M1).
+  The dialog's first line is the record and the action
+  (`ADR-0042 · approve as @x`). A write that arrives while one is pending gets
+  a 409 naming the pending kind and record and saying to decline it unless the
+  person started it, shown on the page as a warning. Each panel may ask at
+  most once per 10 s and five times per sliding 10 minutes; over that it is a
+  429 with nothing asked or spawned, and the refusal is logged. The limits are
+  per panel and the model can open panels, so they slow it, not stop it.
 - **The identity is `ADRKIT_REVIEWER`, read on every request,** never taken
   from the page, the model, or an argument, and checked by a mirror of core's
   `isWritableIdentity` that a test compares with core. A body with any extra

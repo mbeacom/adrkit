@@ -44,6 +44,11 @@ Until `1.0.0`, minor releases may include breaking changes
     URL and token, so it can reach the page's routes. The page's two clicks, its
     single-use nonce, and the same-origin checks on those routes are therefore
     defence in depth only.
+  - The dialog's first line names the record and the action. A write that
+    arrives while another is pending is told which record it is for. Each
+    board asks at most once per 10 seconds and five times per 10 minutes.
+    The dialog guards the board's write path only; the pull request diff
+    remains the check on review state.
   - The identity is `ADRKIT_REVIEWER`, read by the extension. Unset or invalid,
     the controls are disabled with a note, and the page never supplies one.
     Action results report whether the controls are on, not as whom.
@@ -53,7 +58,7 @@ Until `1.0.0`, minor releases may include breaking changes
   - One module, `board-review-write.mjs`, is the only one the plugin's verb
     guard exempts, and a test pins that.
 
-  Proposed in [ADR-0052](docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md) (proposed; amends ADR-0050). It is at rung 1 of
+  Proposed in [ADR-0052](docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md) (proposed; amends ADR-0050). It is at rung 1 of
   ADR-0014, with an end-to-end test against the built CLI and headless SDK-host
   measurements with no model calls. It is unmeasured in the Copilot app,
   including whether the app shows the confirmation dialog.

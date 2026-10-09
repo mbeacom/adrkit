@@ -596,7 +596,7 @@ board is **unmeasured in the Copilot app**. Details are in the
 ### Decision board → Recording review
 
 Each open proposal on the board has three controls, proposed in
-[ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md)
+[ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
 (**proposed**):
 
 - **Approve as `<you>`** runs `adr approve <id> --by=<you>`.
@@ -623,8 +623,14 @@ Without any one of these the controls are disabled, with a note saying why.
    sends it.
 3. **GitHub Copilot then asks you to confirm it in its own dialog**, naming the
    record, the kind, and your identity, and the board writes only if you say
-   yes there. Declining, closing the dialog, or leaving it unanswered for two
-   minutes writes nothing. In autopilot the board refuses without asking.
+   yes there. The dialog's first line is the record and the action, such as
+   `ADR-0042 · approve as @you`: check it. Declining, closing the dialog, or
+   leaving it unanswered for two minutes writes nothing. In autopilot, or when
+   the session's mode cannot be read, the board refuses without asking.
+
+If the board says GitHub Copilot is **already asking you to confirm** a
+review write, it names that record: decline it unless you started it. A board
+asks at most once every 10 seconds and five times in 10 minutes.
 
 Nothing is committed: review the diff and open a pull request, as with the CLI.
 After a write the board re-reads the graph and the queue, so the counts change.
@@ -636,9 +642,11 @@ can therefore send the same requests the page sends. The page's two clicks, its
 single-use confirmation, and its origin checks only stop replays and other web
 pages; they do not stop the model. The host's dialog does, because the model
 cannot answer it. So decline any review confirmation you did not just ask for on
-the board. Whether the Copilot app shows that dialog, and how it behaves in its
+the board. The dialog protects the board's write path only. A model with shell
+access could still run `adr approve` itself or edit a record directly, and the
+pull request diff is where any review change gets checked. Whether the Copilot app shows that dialog, and how it behaves in its
 autonomous modes, has not been measured yet (see
-[ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md)).
+[ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)).
 
 **What you see when it does not write.** Exit codes map to fixed messages. A
 refusal (exit 1) says the record was not changed and lists the likely causes,

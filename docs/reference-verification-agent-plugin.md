@@ -1150,7 +1150,7 @@ Windows.**
 ## Decision board review controls (2026-10-09)
 
 Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipping as plugin 0.10.0),
-for the controls proposed in [ADR-0052](adr/0052-record-review-from-the-decision-board-under-adrkit-reviewer-with-a-confirmed-sin.md)
+for the controls proposed in [ADR-0052](adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
 (**proposed**). They need `@adrkit/cli` 0.18.0 or later. Rows are numbered RV1
 onward so they do not collide with other sections. Nothing here made a model
 call, so nothing was spent.
@@ -1224,9 +1224,27 @@ So, at the runtime layer and in the CLI's terminal UI, a forged write needs a
 yes from the host's dialog, and the terminal UI never gives one in autopilot.
 The extension also refuses in `autopilot` itself, whatever the host does.
 
+### Review round 2: a staged dialog, an unreadable mode
+
+Re-review described a timing attack. A model holding the token puts up a
+confirmation for a record the person did not choose, and the person's own
+write is turned away while that dialog is pending. The fix is unit-tested; the
+row below records the new dialog text through the same host as RV23.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV25 | RV23 re-run after the round-2 fix (host handler declines; forged `Origin`) | The host was asked once with first line `ADR-0002 · approve as @fixture-reviewer`, a blank line, then the fixed explanation; the write ended `not-confirmed`; a request without `Origin` still got 403; the fixture was unchanged |
+
+The pending-write 409 (naming the pending kind and record), the per-panel
+dialog limits (one per 10 s, five per sliding 10 minutes, 429 and a log line
+over either), and the refusal when reading the agent mode throws are covered by
+unit tests only. Each failed before the fix and under its mutation (11
+mutations, all killed). The dialog limits are per panel, and the model can open
+new panels.
+
 ### Tests
 
-`test/board-review.test.ts` (45 tests in the first round; 59 after round 1) and the narrowed guard in
+`test/board-review.test.ts` (45 tests in the first round; 59 after round 1; 61 after round 2) and the narrowed guard in
 `test/wiring.test.ts`. All of them failed before the module existed. Then 24
 mutations of the code were run, and each was killed by a named test, with three
 exceptions. Two were equivalent: the key allowlist refuses `by` before it could
