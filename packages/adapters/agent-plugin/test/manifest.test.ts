@@ -118,6 +118,12 @@ describe('manifest shape the hosts actually accept', () => {
     // only shape that loads everywhere is to declare none of them. Re-adding
     // one breaks Claude Code without breaking Copilot, which is exactly the
     // kind of asymmetry nobody notices until a user reports it.
+    //
+    // `extensions` is guarded for a second, measured reason (Copilot CLI
+    // 1.0.93, 2026-10-08): each non-string value tried (objects, including the Agent Plugins 1.0
+    // vendor map with a logo, and an array) stops the plugin's extension loading, so the
+    // workflow and canvas vanish while the plugin still lists as enabled.
+    // `claude plugin validate` only warns and APM accepts it.
     for (const field of ['agents', 'skills', 'commands', 'extensions', 'lspServers']) {
       expect({ field, value: plugin[field] }).toEqual({ field, value: undefined });
     }

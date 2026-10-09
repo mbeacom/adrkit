@@ -50,9 +50,13 @@ Both links go through GitHub's hosted launcher
 `ghapp://` links as clickable, and the launcher shows a fallback page when the
 app is not installed. The link format follows
 [GitHub's deep-link documentation](https://docs.github.com/en/copilot/how-tos/github-copilot-app/open-with-deep-links).
-I have not followed these links myself. The app reads the same
-`~/.copilot/installed-plugins` as the CLI, so installing with the CLI commands
-above also makes the plugin available in the app. That is measured.
+Their encoding round-trips exactly and the launcher answers HTTP 200 (measured
+2026-10-08), and I followed both links in Copilot app 1.1.27 on 2026-10-08: each
+opened its onboarding (marketplace add, then plugin install), and after
+installing, the app showed the extension and recognized the decision-review
+canvas. The app
+reads the same `~/.copilot/installed-plugins` as the CLI, so installing with the
+CLI commands above also makes the plugin available in the app. That is measured.
 
 You also need the CLI itself, because the components shell out to it:
 

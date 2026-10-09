@@ -372,6 +372,14 @@ will usually be a regression:
   rejects the string form outright (`commands: Invalid input`). Both hosts
   discover the conventional directories without them. `category` belongs to the
   marketplace entry, not the plugin manifest.
+- **The manifest declares no `extensions` key either.** Measured on Copilot CLI
+  1.0.93: a non-string `extensions` value (three objects and an array were tried, not
+  `null`, booleans or numbers; the string form loads) in `.claude-plugin/plugin.json`
+  stops the plugin's extension from loading, so the workflow and canvas vanish while
+  `plugins.list` still shows the plugin enabled. `claude plugin validate` only warns
+  and APM accepts it, so both validators pass a change that removes the shipped
+  surface. That rules out the Agent Plugins 1.0 `extensions["com.github.copilot"].logo`
+  listing key; see `docs/reference-verification-agent-plugin.md`.
 - **No component declares a `tools` list.** Claude Code takes a comma-separated
   string of capitalized names, Copilot CLI an array of lowercase ones, and
   opencode requires a name-to-boolean mapping and *rejects the agent at load
