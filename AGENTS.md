@@ -1027,8 +1027,9 @@ unmeasured in the Copilot app. Load-bearing:
   the page's own rules (no new route). Every colour is an alias that reads the
   app's injected token first, `var(--background-color-default, var(--ak-bg))`,
   so theming stays the app's. The `--ak-*` fallbacks come from `THEME_TOKENS`
-  and follow `prefers-color-scheme`; before 0.11.0 every dark and light render
-  outside the app was byte-identical. The contrast test reads `THEME_TOKENS`,
+  and follow `prefers-color-scheme`; before 0.11.0 a dark render outside the
+  app kept a white page and dark text, and only native form controls followed
+  the system theme. The contrast test reads `THEME_TOKENS`,
   so a hue changed there is checked at 4.5:1 on the background, the surface,
   and its own tint, in both themes.
 - **No inline style on either page, tested.** `test/visual-pass.test.ts` fails

@@ -1375,7 +1375,7 @@ corpus (past the 300-record budget), and a copy of the `adrkit-demo` corpus.
 | V8 | board | a record focused | Neighbors bright, the rest dimmed; detail pane with status badge |
 | V9 | board | queue row selected | Approvals as dots (2 of 3), `1 unresolved` and `1 resolved` badges, SLA badge and deadline |
 | V10 | board | recording off (headless host has no elicitation) | All three controls disabled; one note above the list; each control carries it as its description |
-| V11 | both | dark vs light | Every pair differs (before 0.11.0 every pair was byte-identical) |
+| V11 | both | dark vs light | All 36 after pairs differ, with dark page colours. In the 34 baseline pairs the dark render kept a white page and dark text: 16 were byte-identical, and the rest differed only in native form controls and timestamps |
 | V12 | board | viewport changed after load (900 to 420 px, through the chrome-devtools MCP) | The untouched graph re-opened for the new width: `viewBox` `0 -106.84 776 377.69` at 489 px, then `0 -116.33 588.33 396.67` at 353 px (0.6 scale). Before the fix, a change after load left a stale 0.39 scale |
 
 The finished review (verdicts `consistent` and `conflicts`), the enabled review
