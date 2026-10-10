@@ -1298,7 +1298,8 @@ Some.
         dialogLimits: { spacingMs: 0, windowMs: 600_000, windowMax: 1000 },
       } as never) as any;
       const { url } = await options.open({ ...ctx, input: null });
-      const row = async () => JSON.parse((await send(routeOf(url, '/api/state'))).body).queue.items[0];
+      // The queue lands after the graph, so /api/state says queue: null until then; keep polling.
+      const row = async () => JSON.parse((await send(routeOf(url, '/api/state'))).body).queue?.items?.[0];
       for (let i = 0; i < 100 && !(await row()); i++) await new Promise((resolve) => setTimeout(resolve, 50));
       expect(await row()).toMatchObject({ id: '0001', approvalCount: 0, unresolvedObjectionCount: 0, resolvedObjectionCount: 0 });
 
