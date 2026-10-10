@@ -126,9 +126,12 @@ carried. Facts that shape where and how:
    - **Verified.** Terraform Azure Verified Modules exist for Container Apps
      managed environments (`avm-res-app-managedenvironment`) and jobs
      (`avm-res-app-job`; it requires azapi `~> 2.12` and azurerm
-     `>= 4.73.0, < 5.0.0`, and pulls a `modtm` telemetry provider). No APIM
-     Terraform AVM module surfaced in the search; treat it as absent until
-     found.
+     `>= 4.73.0, < 5.0.0`, and pulls a `modtm` telemetry provider). An APIM
+     Terraform AVM module also exists (`avm-res-apimanagement-service` 0.9.0,
+     found while scaffolding `adrkit-azure`); the skeleton uses native
+     resources for APIM anyway, because the `publicNetworkAccess` step and v2
+     outbound integration need direct control. azurerm 5.x is published, but
+     both Container Apps AVM modules still require 4.x.
    - **Verified.** A Container Apps job has exactly one trigger type (`Manual`,
      `Schedule`, or `Event`), and any job can also be started on demand through
      ARM `jobs/{name}/start`, which needs `Microsoft.App/jobs/start/action`.
@@ -141,7 +144,11 @@ carried. Facts that shape where and how:
      gateway public access on Standard v2 through the portal only; the REST
      `publicNetworkAccess` property is shown for classic tiers and Premium v2.
      That an ARM update of `publicNetworkAccess` works on Standard v2 is
-     unmeasured.
+     unmeasured here. The maintainer states, from their own Azure use, that
+     Standard v2 supports disabling `publicNetworkAccess` once the private
+     endpoint exists; that is maintainer-asserted evidence, recorded on
+     2026-10-10, not a measurement of the ARM or `azapi` path this record
+     uses, which action item 2 still measures.
    - **Unverified.** Whether azurerm's `virtual_network_type` and
      `virtual_network_configuration` express v2 *outbound integration* at all.
      Their documentation describes classic injection (port 3443).
@@ -173,7 +180,12 @@ fully private and deliberately public.
 3. **Compute.** One Azure Container Apps environment on workload profiles,
    internal in **both** modes, so flipping `public_access` never recreates the
    backend. The server app runs with minimum replicas 1 (no cold start for MCP
-   clients), a read-only corpus mount, ingress internal, and target port 8080.
+   clients), a read-only corpus mount, and target port 8080. Its ingress has
+   `external_enabled = true`, which inside an internal environment means
+   reachable from the virtual network and nothing wider; ingress limited to the
+   environment would shut out APIM, which sits outside it. APIM requires a
+   subscription key (an `adrkit` product) in both modes, in addition to the
+   private network in private mode and the token policy in public mode.
 4. **Corpus sync, and agreement to ADR-0055's sidecar.** A Container Apps job
    with a `Schedule` trigger shallow-clones `docs/adr` of each configured
    repository into an Azure Files share mounted read-only by the server. For
@@ -205,7 +217,10 @@ fully private and deliberately public.
    and, in private mode only, the portal at `/`; see clause 8), and an API of type `mcp` whose tools map those
    operations, created with `azapi_resource` because azurerm has none.
    `/healthz` is probed inside the environment and is not published. No
-   operation other than `GET`/`HEAD` exists on these APIs. No policy reads
+   operation other than `GET`/`HEAD` exists on the REST API, and a policy
+   answers anything else with 405. The MCP API cannot be `GET`-only, because
+   streamable HTTP uses `POST`; each of its tools maps to one of the REST API's
+   `GET` operations, so no tool can reach anything else. No policy reads
    `context.Response.Body`, because that breaks streaming.
 7. **`public_access`, a second step in one apply.** APIM is created with public
    access enabled (Azure requires it). The private endpoint and DNS follow, and
@@ -213,8 +228,10 @@ fully private and deliberately public.
    It sets `Disabled` when `public_access = false`, which is the default, and
    `Enabled` otherwise. Terraform orders this within one `terraform apply`. The
    instance is still reachable publicly between creation and the update, so the
-   first apply attaches no API until the update has succeeded, and a global
-   `ip-filter` denying all is in place from creation. The azurerm attribute
+   first apply attaches no API until the update has succeeded: every API,
+   policy, product, and backend depends on it. A global deny-all `ip-filter`
+   was considered and dropped, because it would also block callers on the
+   private endpoint and would have to be removed in the same apply. The azurerm attribute
    carries `lifecycle { ignore_changes = [public_network_access_enabled] }`, so
    a plan does not try to revert the flip. Whether the ARM update works on
    Standard v2 is unverified (Context fact 5). If it does not, this clause
@@ -305,7 +322,7 @@ the API.
 
 - **The one apply is not atomic.** Between creation and the
   `publicNetworkAccess` update, the instance is publicly addressable. No API is
-  attached and an `ip-filter` denies all, but the window exists.
+  attached during it, but the window exists.
 - **azapi is pinned to a preview API version** for MCP resources
   (`2025-09-01-preview`). A breaking change there breaks the MCP half of an
   apply, not the REST half.
@@ -360,8 +377,9 @@ above, observed failing first. No reference-repository or external run exists.
 
 ## Action items
 
-1. [ ] Create `mbeacom/adrkit-azure` and record its URL here, as ADR-0030 action
-   item 6 does for the Backstage surface.
+1. [x] Create `mbeacom/adrkit-azure` and record its URL here, as ADR-0030 action
+   item 6 does for the Backstage surface: <https://github.com/mbeacom/adrkit-azure>
+   (created 2026-10-10, public, Apache-2.0).
 2. [ ] Measure the `publicNetworkAccess` ARM update on a Standard v2 instance,
    and whether azurerm can express v2 outbound integration. Record both here
    and correct clause 7 or 12 if either fails.
