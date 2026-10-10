@@ -134,7 +134,23 @@ ${VIEW_HELPERS_SRC}
   /** A value from the repository used as a lookup key: own entries of a fixed list only. */
   function known(values, value) { return typeof value === 'string' && values.indexOf(value) >= 0; }
   function own(table, key) { return typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined; }
-  function shorten(value, size) { var s = text(value); return s.length > size ? s.slice(0, size - 1) + '…' : s; }
+  /**
+   * Clip to at most \`size\` characters without cutting one in half: by
+   * grapheme where the browser can segment, else by code point, so an emoji
+   * or a combining mark is never split into a replacement glyph.
+   */
+  function shorten(value, size) {
+    var s = text(value);
+    var parts;
+    if (typeof Intl === 'object' && Intl && typeof Intl.Segmenter === 'function') {
+      parts = [];
+      var segments = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s);
+      for (var it = segments[Symbol.iterator](), step = it.next(); !step.done; step = it.next()) parts.push(step.value.segment);
+    } else {
+      parts = Array.from(s);
+    }
+    return parts.length > size ? parts.slice(0, size - 1).join('') + '…' : s;
+  }
 
   /** Every HTML node is built here; text only ever goes through textContent. */
   function el(tag, className, content) {
@@ -301,7 +317,9 @@ ${VIEW_HELPERS_SRC}
   function zoomBy(factor, fx, fy) {
     if (!drawn || !view) return;
     touched = true;
-    view = clampView(zoomView(view, factor, fx, fy, viewport.width), drawn.width, drawn.height);
+    // Zooming out may reach the whole-graph fit even when that is below 0.2.
+    var floor = viewport.width / fitView(drawn.width, drawn.height, viewport.width, viewport.height).w;
+    view = clampView(zoomView(view, factor, fx, fy, viewport.width, floor), drawn.width, drawn.height);
     applyView();
   }
 
@@ -945,7 +963,10 @@ const BOARD_ONLY_CSS = `
 .node-stripe { stroke: none; }
 .node.selected .node-box, .node.focused .node-box { stroke-width: 3; }
 .node.neighbor .node-box { stroke-width: 2.25; }
-.node.dim { opacity: 0.28; }
+/* Dim the box, never the label or the focus ring: a dimmed record must still read. */
+.node.dim .node-box, .node.dim .node-stripe { opacity: 0.3; }
+.node.dim .node-id { fill: var(--c-muted); }
+.node.dim:focus-visible .node-box { opacity: 1; }
 .node:focus-visible .node-box { stroke: var(--c-focus); stroke-width: 3.5; }
 .node-id { font-family: var(--font-code); font-size: 12px; font-weight: 600; fill: var(--c-text); }
 .node-title { font-family: var(--font-ui); font-size: 12px; fill: var(--c-muted); }

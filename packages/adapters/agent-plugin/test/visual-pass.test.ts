@@ -132,6 +132,10 @@ describe('board-view: pan and zoom over a viewBox', () => {
     expect(clampScale(Number.NaN)).toBe(1);
     expect(clampScale(-2)).toBe(1);
     expect(clampScale(Number.POSITIVE_INFINITY)).toBe(1);
+    // A floor lowers the minimum only below 0.2.
+    expect(clampScale(0.05, 0.1)).toBe(0.1);
+    expect(clampScale(0.05, 0.5)).toBe(0.2);
+    expect(clampScale(0.05, Number.NaN)).toBe(0.2);
   });
 
   test('fitView centres the whole graph, keeps the viewport aspect, and never upscales', () => {
@@ -143,8 +147,11 @@ describe('board-view: pan and zoom over a viewBox', () => {
     const small = fitView(100, 50, 800, 400);
     expect(800 / small.w).toBe(1);
     expect(small.x).toBeCloseTo(-350, 6);
-    // Far past the zoom range, the fit stops at the minimum scale.
-    expect(400 / fitView(100000, 100, 400, 400).w).toBeCloseTo(0.2, 6);
+    // Fit means the whole graph, even below the interactive minimum (review on #282).
+    expect(400 / fitView(100000, 100, 400, 400).w).toBeCloseTo(0.004, 6);
+    const tall = fitView(232, 5712, 500, 640);
+    expect(tall.h).toBeGreaterThanOrEqual(5712);
+    expect(tall.w).toBeGreaterThanOrEqual(232);
   });
 
   test('initialView fits a graph that stays readable, and otherwise opens at the top at 0.6 or more', () => {
@@ -181,6 +188,8 @@ describe('board-view: pan and zoom over a viewBox', () => {
     expect(800 / zoomView(view, 100, 0.5, 0.5, 800).w).toBeCloseTo(3, 6);
     expect(800 / zoomView(view, 0.001, 0.5, 0.5, 800).w).toBeCloseTo(0.2, 6);
     near(zoomView(view, Number.NaN, 0.5, 0.5, 800), view);
+    // With a fitted floor below 0.2, zooming out reaches the fit and stops there.
+    expect(800 / zoomView(view, 0.001, 0.5, 0.5, 800, 0.1).w).toBeCloseTo(0.1, 6);
     near(zoomView(view, 2, 7, -1, 800), zoomView(view, 2, 0.5, 0.5, 800));
   });
 
@@ -465,6 +474,40 @@ describe('decision-board view and highlight', () => {
     } finally {
       FakeNode.rect = null;
     }
+  });
+
+  test('Fit and zooming out show the whole of a graph that only fits below 0.2', async () => {
+    const tall = { ...state, graph: { ...state.graph, width: 232, height: 5712 } };
+    FakeNode.rect = { width: 500, height: 640 };
+    try {
+      const nodes = await runPage(BOARD_JS, BOARD_IDS, tall);
+      const box = () => svgRoot(nodes).attrs['viewBox']!.split(' ').map(Number);
+      const frame = (nodes.get('board') as FakeNode).all().find((n) => n.attrs['role'] === 'region') as FakeNode;
+      frame.fire('keydown', { key: '0' });
+      expect(box()[3]).toBeGreaterThanOrEqual(5712);
+      for (let i = 0; i < 4; i++) frame.fire('keydown', { key: '+' });
+      for (let i = 0; i < 40; i++) frame.fire('keydown', { key: '-' });
+      expect(box()[3]).toBeCloseTo(fitView(232, 5712, 500, 640).h, 1);
+    } finally {
+      FakeNode.rect = null;
+    }
+  });
+
+  test('a clipped title never splits a character, and the full title stays in the tooltip', async () => {
+    const title = 'a'.repeat(26) + '\u{1F600}bc';
+    const withEmoji = { ...state, graph: { ...state.graph, nodes: [{ id: '0001', title, status: 'accepted', x: 16, y: 16 }], edges: [] } };
+    const nodes = await runPage(BOARD_JS, BOARD_IDS, withEmoji);
+    const record = records(nodes)[0] as FakeNode;
+    const label = record.children.find((n) => n.tag === 'text' && n.attrs['class'] === 'node-title') as FakeNode;
+    expect(label.textContent).toBe('a'.repeat(26) + '\u{1F600}…');
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(label.textContent)).toBe(false);
+    expect(record.children.find((n) => n.tag === 'title')?.textContent).toContain(title);
+  });
+
+  test('dimming fades the box, not the label or the focus ring', () => {
+    expect(BOARD_CSS).not.toMatch(/\.node\.dim\s*\{[^}]*opacity/);
+    expect(BOARD_CSS).toMatch(/\.node\.dim \.node-box, \.node\.dim \.node-stripe \{ opacity/);
+    expect(BOARD_CSS).toContain('.node.dim:focus-visible .node-box { opacity: 1; }');
   });
 
   test('the frame height is a class step, chosen from the drawing', async () => {

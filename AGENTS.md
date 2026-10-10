@@ -1042,6 +1042,11 @@ unmeasured in the Copilot app. Load-bearing:
   `Function.prototype.toString`. Each must stay self-contained ES2017 (no
   imports, no module constants, no closures); a test runs the embedded copies.
   A view is a `viewBox`, so zooming sets one attribute and rebuilds nothing.
+  Fit means the whole graph, so `fitView` may go below the 0.2 zoom minimum
+  and zooming out stops at that fit, not at 0.2 (review on #282).
+- **Dim the box, never the label.** A dimmed record keeps its text and focus
+  ring at full opacity (0.28 on the whole group measured 1.79:1 in light),
+  and a clipped title is cut by grapheme, never mid-character.
 - **A drag must not select.** A pointer drag past 4 px sets a flag the record's
   click handler consumes, and the graph's `+ - 0` and arrow keys ignore events
   from an input or button.

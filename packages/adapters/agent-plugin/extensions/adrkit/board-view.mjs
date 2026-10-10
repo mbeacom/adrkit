@@ -17,13 +17,16 @@
  */
 
 /**
- * Clamp a scale to the board's zoom range.
+ * Clamp a scale to the board's zoom range: 0.2 to 3, except that `floor` may
+ * lower the minimum, so a graph that only fits below 0.2 can still be shown
+ * whole and zoomed back out to that fit.
  *
  * @param {number} scale
+ * @param {number} [floor] a lower minimum, used only when it is below 0.2
  * @returns {number}
  */
-export function clampScale(scale) {
-  var MIN = 0.2;
+export function clampScale(scale, floor) {
+  var MIN = typeof floor === 'number' && floor > 0 && floor < 0.2 ? floor : 0.2;
   var MAX = 3;
   if (!(scale > 0) || !isFinite(scale)) return 1;
   return Math.min(MAX, Math.max(MIN, scale));
@@ -52,7 +55,7 @@ export function clampView(view, graphW, graphH) {
 
 /**
  * The whole graph, centred, at the largest scale that fits (never above 1, so
- * a small graph is not blown up), within the zoom range.
+ * a small graph is not blown up), even when that is below the zoom minimum.
  *
  * @param {number} graphW
  * @param {number} graphH
@@ -64,7 +67,9 @@ export function fitView(graphW, graphH, viewW, viewH) {
   var gh = graphH > 0 ? graphH : 1;
   var vw = viewW > 0 ? viewW : gw;
   var vh = viewH > 0 ? viewH : gh;
-  var scale = clampScale(Math.min(1, vw / gw, vh / gh));
+  // Fit means the whole graph, so it may go below the interactive minimum.
+  var fit = Math.min(1, vw / gw, vh / gh);
+  var scale = clampScale(fit, fit);
   var w = vw / scale;
   var h = vh / scale;
   return { x: (gw - w) / 2, y: (gh - h) / 2, w: w, h: h };
@@ -104,11 +109,12 @@ export function initialView(graphW, graphH, viewW, viewH) {
  * @param {number} fx
  * @param {number} fy
  * @param {number} viewW viewport width in pixels
+ * @param {number} [floor] the fitted scale, when it is below the zoom minimum
  */
-export function zoomView(view, factor, fx, fy, viewW) {
+export function zoomView(view, factor, fx, fy, viewW, floor) {
   var vw = viewW > 0 ? viewW : view.w;
   var scale = vw / view.w;
-  var next = clampScale(scale * (factor > 0 && isFinite(factor) ? factor : 1));
+  var next = clampScale(scale * (factor > 0 && isFinite(factor) ? factor : 1), floor);
   var ratio = scale / next;
   var w = view.w * ratio;
   var h = view.h * ratio;
