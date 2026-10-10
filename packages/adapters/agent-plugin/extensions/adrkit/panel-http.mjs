@@ -129,3 +129,23 @@ export function postAllowed(instance, req) {
   const origin = req.headers['origin'];
   return origin === undefined || origin === instance.origin;
 }
+
+/**
+ * The stricter check the decision board's review-write routes use (ADR-0052):
+ * everything `postAllowed` checks, plus an `Origin` that is exactly the
+ * panel's own (a request with none is refused) and, when the client sends
+ * `Sec-Fetch-Site`, the value `same-origin`.
+ *
+ * This is hardening against naive scripts and other pages only. curl can send
+ * both headers, and the model is given the panel's URL and token, so this is
+ * not the boundary; the host confirmation is.
+ *
+ * @param {{ token: string, origin: string }} instance
+ * @param {IncomingMessage} req
+ */
+export function sameOriginPost(instance, req) {
+  if (!postAllowed(instance, req)) return false;
+  if (singleHeader(req.headers['origin']) !== instance.origin) return false;
+  const site = req.headers['sec-fetch-site'];
+  return site === undefined || site === 'same-origin';
+}

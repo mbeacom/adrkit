@@ -10,7 +10,7 @@
  * joined, because stdout carries the JSON-RPC connection.
  *
  * The read-only adrkit tools (ADR-0048), the advisory hooks (ADR-0049), and the
- * read-only `decision-board` canvas (ADR-0050) get the same isolation, and all
+ * `decision-board` canvas (ADR-0050, ADR-0052) get the same isolation, and all
  * three are optional here so a caller that registers only the workflow and
  * canvas is unchanged. The board is a second entry in `canvases`, built in its
  * own `try`, so a throwing board costs neither the decision-review canvas nor
@@ -49,7 +49,7 @@ const messageOf = (error) => (error instanceof Error ? error.message : String(er
  *   joinSession: (config: Record<string, unknown>) => Promise<S>,
  *   workflow: () => unknown,
  *   canvas: (getSession: () => S | undefined) => unknown,
- *   board?: () => unknown,
+ *   board?: (getSession: () => S | undefined) => unknown,
  *   tools?: () => unknown[],
  *   onEvent?: (event: unknown) => void,
  *   hooks?: (deps: { getSession: () => S | undefined, refreshCanvas: (options?: unknown) => Promise<unknown> }) => Record<string, unknown> | undefined,
@@ -86,9 +86,10 @@ export async function register({ defineWorkflow, createCanvas, joinSession, work
     failures.push(`failed to register the ${LABELS['canvases']}: ${messageOf(error)}`);
   }
   if (board) {
-    // Read-only and needs no session: it starts nothing and sends nothing.
+    // It starts nothing and sends nothing; the session getter is for the
+    // review controls' activity log only (ADR-0052), filled in once joined.
     try {
-      canvases.push(createCanvas(board()));
+      canvases.push(createCanvas(board(() => joined)));
       canvasNames.push('decision-board');
     } catch (error) {
       failures.push(`failed to register the ${BOARD_LABEL}: ${messageOf(error)}`);

@@ -1147,6 +1147,204 @@ Windows.**
 - A repository with no commit yet (`HEAD` unborn) still reports `git-failed`
   rather than listing untracked files. Unchanged from 0.9.0.
 
+## Decision board review controls (2026-10-09)
+
+Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipping as plugin 0.10.0),
+for the controls proposed in [ADR-0052](adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
+(**proposed**). They need `@adrkit/cli` 0.18.0 or later. Rows are numbered RV1
+onward so they do not collide with other sections. Nothing here made a model
+call, so nothing was spent.
+
+### CLI behavior the controls depend on
+
+Each command was run with Node in a scratch Git repository.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV1 | `@adrkit/cli` 0.17.0 (`npx -y @adrkit/cli@0.17.0`): `approve 0001 --by @x --json`, `object … --summary=hi --json`, `resolve … --objection 1 --by @x --json` | Exit 2 for each, `Error: Unknown command "<verb>"` and the help text on stderr, 0 bytes on stdout. `--version` prints `0.17.0` |
+| RV2 | 0.18.0 (this branch's build): `approve` on a record with lint errors, with `--json` | Exit 1; the reason and the findings on stderr; nothing on stdout. A refusal has no machine-readable code |
+| RV3 | 0.18.0: `approve 0099` (no such record), and `--dir nope` | Exit 2 with a usage message on stderr, for both: the same exit code as RV1 |
+| RV4 | `npx -y @adrkit/cli@0.18.0 --version` | `0.18.0` |
+
+RV1 and RV3 are why an exit 2 is followed by `adr --version`, and RV2 is why a
+refusal is one fixed message.
+
+### Headless SDK host (no model calls)
+
+The client came from the Copilot CLI 1.0.93 SDK package
+(`~/.copilot/pkg/darwin-arm64/1.0.93/copilot-sdk`), and the runtime was the
+installed `copilot` binary, which reported `1.0.94-3`. `createSession` had
+`pluginDirectories` set to this branch's plugin directory at `2759e2c`,
+`requestCanvasRenderer` and `requestExtensions` on, and the working directory
+set to a two-record fixture: 0001 `accepted`, and 0002 `proposed` with
+`review.quorum: 2` and `relatesTo: ["0001"]`. `adr lint` reported 0 errors for
+it. `ADRKIT_CLI` was set in the runtime's environment to the branch's built CLI,
+and `ADRKIT_REVIEWER` to `@fixture-reviewer`. No prompt was sent and no workflow
+was run. Writes went through the page's routes with the URL token, the
+`X-Adrkit-Token` header, and no `Origin`. This first run predates the review
+fixes below: since round 1 the review routes also need the page's own
+`Origin`, and every write waits for the host's confirmation.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV5 | `canvas.list`, open the board | `decision-review` and `decision-board`; status `2 records · 1 relationship · 1 open`; the board's actions were still `get_state`, `refresh`, `focus` |
+| RV6 | `/api/state` and the `get_state` action | Both carried `review: { enabled: true, reviewer: "@fixture-reviewer", note: null }`; 0002 at `0/2` approvals, 0 objections |
+| RV7 | `POST /api/review/nonce { kind: "approval", id: "0002" }` | 200 with a 64-hex nonce and `expiresInMs: 120000`. A `get_state` result taken afterwards did not contain the nonce |
+| RV8 | `POST /api/review` without the header token, and with `Origin: http://evil.example` | 403 for both; the nonce was not spent (RV9 used it) |
+| RV9 | `POST /api/review { kind: "approval", id: "0002", nonce }` | 200, `outcome: "written"`, the fixed "Recorded an approval of ADR-0002 by @fixture-reviewer…" message; the reply's queue row read `1/2` |
+| RV10 | The same request again (replayed nonce) | 403 with the fixed "This confirmation expired or was already used…" message |
+| RV11 | A fresh nonce, then a body with `by: "@attacker"` | 400 with the fixed shape message; nothing was written |
+| RV12 | Objection with summary `-Needs a load test: "p99" # first` | 200 `written`; the row read 1 unresolved, 0 resolved |
+| RV13 | Resolution of objection 1 | 200 `written`; the row read 0 unresolved, 1 resolved |
+| RV14 | Resolution of objection 5 | 200 `outcome: "refused"` with the fixed exit-1 message |
+| RV15 | The fixture's frontmatter afterwards | `approvals: ["@fixture-reviewer"]` and one objection `{ by: "@fixture-reviewer", summary: "-Needs a load test: \"p99\" # first", resolved: true }` as block lists under the existing `review:`; no other line changed |
+| RV16 | Session events | Four `session.info` events: `adrkit: decision board review approval on ADR-0002 as @fixture-reviewer: written`, then the same for the objection and the resolution, and the refused resolution with `: refused`. None carried the summary |
+| RV17 | The same host with `ADRKIT_REVIEWER` unset | `review.enabled: false` with the fixed "Recording review is off…" note; the nonce route 403 with that note; a write 403 |
+| RV18 | The same host with `ADRKIT_CLI` at `@adrkit/cli` 0.17.0 and the reviewer set | The controls reported enabled; the nonce route answered 409 with "This adr CLI does not support review commands; upgrade @adrkit/cli to 0.18.0 or later." No review subcommand was spawned |
+
+### Review round 1: the model can reach the routes; the host's confirmation is the boundary
+
+Review measured that the runtime's `open_canvas` tool returns the panel URL,
+token included, to the model. Using only that result and the `bash` tool
+(`curl` with no `Origin`), the review recorded an approval with no page and no
+click (`R2-rev/attack.json`). The rows below are the measurements behind the
+fix. Same SDK client (1.0.93 package) and runtime (`copilot` 1.0.94-3), no
+prompt, no workflow, no model calls.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV19 | A probe extension tool that calls `session.ui.confirm`, run through `rpc.tools.execute`, with a host `onElicitationRequest` handler that records each call and declines; repeated in permission modes `manual`, `assisted`, `allow-all` (`permissions.setMode`), after `permissions.setApproveAll({ enabled: true })`, and in agent mode `autopilot` (`mode.set`) with `allow-all` and with `manual` | In every mode the handler was called exactly once and `confirm` returned `false`. With a handler that accepts, every mode returned `true` after exactly one call. The extension read the modes itself through `session.rpc.permissions.getMode()` and `session.rpc.mode.get()`. No mode answered without the handler |
+| RV20 | The same probe with no `onElicitationRequest` | `capabilities.ui.elicitation: false` for the host and the extension; `confirm` threw `Elicitation is not supported by the host…` in every mode |
+| RV21 | The CLI's terminal UI, read from the 1.0.93 bundle (`cli-main.js`) | On `elicitation.requested`, when the agent mode is `autopilot`, it responds `{ action: "decline" }` without a dialog; otherwise it queues a dialog. Static reading only; no interactive session was run |
+| RV22 | The review's attack, re-run (`open_canvas` result, `bash` + `curl`), host with no elicitation handler | `/api/state` reported `enabled: false` with the fixed "this host cannot ask you to confirm" note. Without `Origin`: 403 on both routes. With a forged same-origin `Origin`: the nonce route answered 403 with that note, and the write 403. Fixture unchanged |
+| RV23 | The same, host handler declines | Without `Origin`: 403. With a forged `Origin`: a nonce was issued, the host was asked once with "adrkit decision board: record an approval of ADR-0002 by @fixture-reviewer? This writes review state into the record under your identity. Decline unless you just asked for it on the board.", and the write ended `not-confirmed`. Fixture unchanged |
+| RV24 | The same, host handler accepts (standing in for a person's yes) | With a forged `Origin`: `written`, and the fixture gained the approval. This is the intended path: a write happens when the host says yes |
+
+So, at the runtime layer and in the CLI's terminal UI, a forged write needs a
+yes from the host's dialog, and the terminal UI never gives one in autopilot.
+The extension also refuses in `autopilot` itself, whatever the host does.
+
+### Review round 2: a staged dialog, an unreadable mode
+
+Re-review described a timing attack. A model holding the token puts up a
+confirmation for a record the person did not choose, and the person's own
+write is turned away while that dialog is pending. The fix is unit-tested; the
+row below records the new dialog text through the same host as RV23.
+
+| # | Probe | Result |
+|---|-------|--------|
+| RV25 | RV23 re-run after the round-2 fix (host handler declines; forged `Origin`) | The host was asked once with first line `ADR-0002 · approve as @fixture-reviewer`, a blank line, then the fixed explanation; the write ended `not-confirmed`; a request without `Origin` still got 403; the fixture was unchanged |
+
+The pending-write 409 (naming the pending kind and record), the dialog limits
+(one per 10 s, five per sliding 10 minutes, 429 and a log line over either),
+and the refusal when reading the agent mode throws are covered by unit tests
+only. Each failed before the fix and under its mutation (11 mutations, all
+killed). The limits were first per panel; they now count across every board
+panel in the extension process, so a new or reopened panel gets no fresh
+budget. That test failed against the per-panel version, and against a
+mutation that resets the budget when a panel closes.
+
+### Tests
+
+`test/board-review.test.ts` (45 tests in the first round; 59 after round 1; 61 after round 2) and the narrowed guard in
+`test/wiring.test.ts`. All of them failed before the module existed. Then 24
+mutations of the code were run, and each was killed by a named test, with three
+exceptions. Two were equivalent: the key allowlist refuses `by` before it could
+be used, and the review state never holds a nonce. The third, dropping the
+nonce on panel close, survived because the test posted a made-up nonce; the test
+now spends the closed panel's own nonce and fails under that mutation. Written
+into the real files, a review verb in `board.mjs`'s actions or in
+`board-page.mjs`, `accept` in the exempt module, a second exempt entry, and an
+import of the write module from `tools.mjs` each failed the suite. The guard
+test also plants verbs into the sources of `board.mjs`, `board-page.mjs`,
+`tools.mjs`, `hooks.mjs`, and `canvas.mjs` in memory and asserts each is caught. The end-to-end test runs the
+routes against `packages/cli/dist/index.js` on a fixture: approve, a repeated
+approve (`unchanged`), object, resolve, an out-of-range resolve (`refused`),
+and an unknown id (`usage-error`), with the queue counts checked after each.
+
+Round 1 added tests for the host confirmation (no elicitation, and answers of
+`false`, a truthy non-`true`, a throw, and a hang), the autopilot refusal, the
+dialog text, the stricter `Origin` rule, `--by=`, the identity kept out of
+action results, the Confirm placement, and the write module's reachability
+(dynamic import, `require`, path variant, re-export). All of them failed before
+the fix. 15 mutations of the new code were each killed, and a dynamic import
+planted in the real `tools.mjs` and a re-export planted in the real `board.mjs`
+each failed the suite.
+
+### Copilot app run (2026-10-10, maintainer)
+
+The maintainer ran the branch in the GitHub Copilot app on 2026-10-10 between
+00:12 and 00:15 UTC.
+- Build: `0f0a24e` merged onto `origin/main` `1c7b3eb` (0.9.1). The code merged
+  cleanly, and the plugin suite passed 718/718 with the CLI built.
+- Runtime: 1.0.94-3. The app's own version was not recorded.
+- Environment: `ADRKIT_REVIEWER=@mbeacom`, with `ADRKIT_CLI` pointing at the
+  published `@adrkit/cli` 0.18.0.
+- Corpus: a scratch repository with one `proposed` record, 0001, whose
+  `deciders` was `["@mbeacom"]` and which had no `review` block.
+- Evidence: the maintainer's report and the session's `events.jsonl`
+  `session.info` lines (session `9686b78d`).
+
+| # | Probe | Result |
+|---|-------|--------|
+| RA1 | Open the board and select 0001 | The row offered "Approve as @mbeacom" and "Raise objection". So `ADRKIT_REVIEWER` reached the extension in the app, and the app reported `capabilities.ui.elicitation: true` (the controls are disabled otherwise) |
+| RA2 | Approve, then Confirm | The host's confirmation dialog appeared |
+| RA3 | Decline the dialog | `approvals` stayed at 0; log line `…: not-confirmed` |
+| RA4 | Accept the dialog | The approval was written; log line `…: written` |
+| RA5 | A click within 10 s of the previous dialog | Refused; log line `…: rate-limited`. The extension-wide dialog limit worked in the app |
+| RA6 | The record's diff afterwards | Exactly `review:` / `  approvals:` / `    - "@mbeacom"` inserted after `provenance`; nothing else changed |
+| RA7 | The session's log lines, in order | `written` (00:13:53Z), `not-confirmed` (00:15:18Z), `rate-limited` (00:15:23Z), `written` (00:15:27Z) |
+
+RA7 does not show a no-op logged as a write. The report called the second
+accepted approve a repeat, but the record's modification time is 00:15:27Z, the
+second `written`. The CLI writes the file only when `changed` is `true`, so that
+approve changed the file. That is consistent with the record having been
+restored between the attempts; its committed version has no `review` block.
+The published 0.18.0 CLI reports `changed: false` for a true repeat (measured),
+which the board logs as `unchanged`. A unit test now pins that, and it fails
+under a mutation that logs a no-op as `written`. Because the page's POSTs
+succeeded through routes that require an exact same-origin `Origin`, the framed
+page in the app sends a matching `Origin`.
+
+### Host behavior seen while setting up the app run
+
+These were observed by the maintainer and are not adrkit behavior. They are
+recorded because they affect anyone testing a local build in the app.
+
+- **Relaunching the app after a marketplace merge auto-updated the installed
+  plugin** (0.9.0 → 0.9.1), overwriting local files in the installed copy.
+- **Changed extension files re-raised an `extension-permission-access`
+  prompt.** After the extension's files changed, new sessions raised the prompt
+  again ("skip tool permission prompts", "register hooks").
+  - The app's assisted-approval judge returned `requireApproval` ("Skipping
+    tool permission prompts disables a permission control").
+  - Until someone answered it, the extension did not start, so prompts
+    appeared to hang.
+  - Earlier, the same request had been approved automatically by
+    `host_policy`.
+  - The cause of the change (a content hash, or something else) is
+    unconfirmed.
+
+### Not verified
+
+- **Object and Resolve in the app.** Only Approve was exercised (RA2–RA6).
+- **The dialog's lead line in the app.** The build carried the
+  `ADR-<id> · <action> as <identity>` first line, but how the app rendered the
+  dialog's text was not reported.
+- **Whether the app ever answers the dialog without a person**, in autopilot
+  or otherwise. Only a person's decline and accept were seen. If the app did
+  answer on its own, the model could record review with no person involved
+  (ADR-0052, residual risk).
+- **An `Origin` refusal in the app.** None was attempted.
+- The disabled state, keyboard use, and theme of the controls in the app.
+- Whether another extension in the same session could answer the board's
+  elicitation.
+- The 30-second write timeout and the `unknown` outcome for an exit other than
+  0, 1, or 2. Unit tests only.
+- Two writes from two boards in different extension processes on one record.
+  Each board allows one write at a time, but separate processes are not
+  serialized, as ADR-0051 accepts for the CLI.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

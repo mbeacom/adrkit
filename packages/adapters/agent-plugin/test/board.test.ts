@@ -283,8 +283,15 @@ async function renderBoardWith(state: unknown, posts: Array<{ path: string; body
 
 const svgNodes = (root: FakeNode) => root.all().filter((node) => node.tag === 'g' && node.attrs['role'] === 'button');
 
+/** The board module's `reviewSessionDeps` source, which is all it does with a session. */
+function reviewSessionDepsSource(): string {
+  const source = readFileSync(join(packageRoot, 'extensions', 'adrkit', 'board.mjs'), 'utf8');
+  const start = source.indexOf('function reviewSessionDeps(');
+  return source.slice(start, source.indexOf('\n}\n', start));
+}
+
 describe('declaration', () => {
-  test('a read-only canvas with exactly get_state, refresh, and focus', () => {
+  test('a canvas whose actions are exactly get_state, refresh, and focus, each read-only', () => {
     const { options } = makeBoard();
     expect(options.id).toBe('decision-board');
     expect(options.displayName).toBe('Decision board');
@@ -295,8 +302,9 @@ describe('declaration', () => {
         readOnly: true,
       });
     }
-    expect(options.description).toMatch(/Read-only/);
-    expect(options.description).toMatch(/spends no AI credits/);
+    // ADR-0052: the page can record review as a person; the actions cannot.
+    expect(options.description).toMatch(/Its actions are read-only and spend no AI credits\./);
+    expect(options.description).toMatch(/no action can\./);
   });
 
   test('every optional-input schema accepts null', () => {
@@ -306,10 +314,17 @@ describe('declaration', () => {
     for (const schema of schemas) expect(schema.type).toEqual(['object', 'null']);
   });
 
-  test('the factory takes no session: there is nothing to send or start', () => {
-    // No getSession dependency at all: the board cannot reach the agent or a workflow.
+  test('the factory uses the session for the review controls only: there is nothing to send or start', () => {
+    // ADR-0052 gave the board a session getter for the review controls: the
+    // host confirmation, the agent mode, and a fire-and-forget log. It still
+    // cannot reach the agent or a workflow.
     const source = createDecisionBoardCanvas.toString();
-    expect(source).not.toMatch(/getSession|rpc\.workflow|\.send\(/);
+    expect(source).not.toMatch(/rpc\.workflow|\.send\(/);
+    expect(source).toMatch(/reviewSessionDeps\(getSession\)/);
+    const deps = reviewSessionDepsSource();
+    expect(deps).not.toMatch(/rpc\.workflow|\.send\(/);
+    expect([...deps.matchAll(/\.rpc\b/g)].length).toBe(1);
+    expect(deps).toMatch(/getSession\(\)\?\.rpc\?\.mode\?\.get\?\.\(\)/);
   });
 });
 
@@ -443,14 +458,15 @@ describe('graph and queue', () => {
   });
 
   test('over the byte budget the graph becomes a summary, then the queue rows go', async () => {
-    const { options } = makeBoard({ bytesLimit: 900 });
+    // 1200, not 900: every snapshot now carries the review controls' state (ADR-0052).
+    const { options } = makeBoard({ bytesLimit: 1200 });
     const { url } = await openBoard(options);
     const state = await action(options, 'get_state')();
     expect(state.graph.mode).toBe('summary');
     expect(state.graph.nodes).toEqual([]);
     expect(state.graph.notes).toContain(BOARD_NOTES.overBytes);
-    expect(Buffer.byteLength(JSON.stringify(state))).toBeLessThanOrEqual(900);
-    expect(Buffer.byteLength((await send(withPath(url, '/api/state'))).body)).toBeLessThanOrEqual(900);
+    expect(Buffer.byteLength(JSON.stringify(state))).toBeLessThanOrEqual(1200);
+    expect(Buffer.byteLength((await send(withPath(url, '/api/state'))).body)).toBeLessThanOrEqual(1200);
     const tiny = makeBoard({ bytesLimit: 400 });
     await openBoard(tiny.options, 'tiny');
     const squeezed = await action(tiny.options, 'get_state')(undefined, 'tiny');
@@ -1064,7 +1080,7 @@ describe('fix round 1', () => {
   });
 
   test('M3: every event-stream frame is held to the byte budget', async () => {
-    const { options } = makeBoard({ bytesLimit: 900 });
+    const { options } = makeBoard({ bytesLimit: 1200 });
     const { url } = await openBoard(options);
     const frames: string[] = [];
     let buffer = '';
@@ -1090,7 +1106,7 @@ describe('fix round 1', () => {
     expect(frames.length).toBeGreaterThan(2);
     for (const frame of frames) {
       const data = frame.slice(frame.indexOf('data: ') + 'data: '.length);
-      expect(Buffer.byteLength(data)).toBeLessThanOrEqual(900);
+      expect(Buffer.byteLength(data)).toBeLessThanOrEqual(1200);
     }
   });
 

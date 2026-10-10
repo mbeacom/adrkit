@@ -73,7 +73,9 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.9.1 reviews uncommitted and untracked edits (the default change was the committed range alone) and names a session directory git does not treat as a work tree; 0.9.0 added the read-only `decision-board` canvas; 0.8.1 hardens the extension (fixed error messages, `/cd` for the
+Version 0.10.0 adds approve, object, and resolve controls to the
+`decision-board` canvas (they need `@adrkit/cli` 0.18.0 or later,
+`ADRKIT_REVIEWER`, and a host that can ask you to confirm each write); 0.9.1 reviews uncommitted and untracked edits (the default change was the committed range alone) and names a session directory git does not treat as a work tree; 0.9.0 added the `decision-board` canvas; 0.8.1 hardens the extension (fixed error messages, `/cd` for the
 workflow, batched checks for wide changes, and process-tree cleanup); 0.8.0
 added the advisory session hooks; 0.7.0 added the read-only
 `adr_check`, `adr_explain`, and `adr_lint` extension tools; 0.6.0 added
@@ -145,7 +147,7 @@ your project config - see
 | Command | `/adr-backfill [files-or-directories...]` | no |
 | Dynamic workflow (Copilot CLI only) | `adr-review` | no |
 | Canvas (Copilot app only) | `decision-review` | no |
-| Canvas (Copilot app only) | `decision-board` | no |
+| Canvas (Copilot app only) | `decision-board` | review state, only after you confirm it in the host's dialog |
 | Tools (Copilot only) | `adr_check`, `adr_explain`, `adr_lint` | no |
 
 The skill is the part that works without being asked for: it teaches the
@@ -576,11 +578,12 @@ ADR-0047). It renders what the CLI computed and derives nothing of its own:
   resolved objections, SLA state, deadline, routing, and how many findings it
   carries. **The board never says a proposal is ready.** Review state alone
   misses refusals such as an empty `deciders`, so a verdict would be a claim the
-  board cannot back. There is no approve, object, or ratify control.
+  board cannot back. There is no ratify control.
 
-It is read-only and free: it writes nothing, starts no workflow, sends no
-prompt, and spends no AI credits. Its actions are `get_state`, `refresh`, and
-`focus({ id?, kinds? })`. It draws at most 300 records (past that it shows
+It is free: it starts no workflow, sends no prompt, and spends no AI credits.
+Its actions are `get_state`, `refresh`, and `focus({ id?, kinds? })`, all
+read-only. The only writes are the review controls below, and each one needs
+your yes in the host's own confirmation dialog. It draws at most 300 records (past that it shows
 counts by status and asks for a focus), 1000 relationships, and 200 queue rows,
 and one snapshot is held to 512 KiB. Each CLI call has a 30-second limit, and a
 failure is a fixed note. The post-edit hook does not refresh it; use Refresh.
@@ -589,6 +592,89 @@ Measured in a headless Copilot CLI 1.0.93 SDK host against this repository (49
 records, 238 relationships) and a four-record fixture, with no model calls. The
 board is **unmeasured in the Copilot app**. Details are in the
 [evidence index](../../../docs/reference-verification-agent-plugin.md).
+
+### Decision board → Recording review
+
+Each open proposal on the board has three controls, proposed in
+[ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
+(**proposed**):
+
+- **Approve as `<you>`** runs `adr approve <id> --by=<you>`.
+- **Raise objection** runs `adr object <id> --by=<you> --summary=<text>`
+  with the one-line summary you typed (at most 500 characters, no control or
+  invisible characters).
+- **Resolve objection** runs `adr resolve <id> --objection <n> --by=<you>`.
+  Only the objector can resolve an objection, and the board cannot tell which
+  objection is yours: the queue reports counts, not objections. A wrong number
+  is refused by the CLI.
+
+**Requirements.**
+- `@adrkit/cli` **0.18.0 or later**. An older CLI gets "This adr CLI does not
+  support review commands; upgrade @adrkit/cli to 0.18.0 or later."
+- **`ADRKIT_REVIEWER`** set to your `@handle`, `team:slug`, or email address in
+  the environment GitHub Copilot runs in, then restart it.
+- **A host that can show a confirmation dialog** to you (elicitation).
+
+Without any one of these the controls are disabled, with a note saying why.
+
+**How a write happens.**
+1. On the board, the first click prepares a confirmation.
+2. The second, "Confirm approval as `<you>`" (or objection, or resolution),
+   sends it.
+3. **GitHub Copilot then asks you to confirm it in its own dialog**, naming the
+   record, the kind, and your identity, and the board writes only if you say
+   yes there. The dialog's first line is the record and the action, such as
+   `ADR-0042 · approve as @you`: check it. Declining, closing the dialog, or
+   leaving it unanswered for two minutes writes nothing. In autopilot, or when
+   the session's mode cannot be read, the board refuses without asking.
+
+If the board says GitHub Copilot is **already asking you to confirm** a
+review write, it names that record: decline it unless you started it. A board
+asks at most once every 10 seconds and five times in 10 minutes, across all
+its panels.
+
+Nothing is committed: review the diff and open a pull request, as with the CLI.
+After a write the board re-reads the graph and the queue, so the counts change.
+It still never says a record is ready; ratifying stays a human CLI step.
+
+**Why the host's dialog matters.** GitHub Copilot hands the model the board's
+address, including its access token, when the board opens. A model with a shell
+can therefore send the same requests the page sends. The page's two clicks, its
+single-use confirmation, and its origin checks only stop replays and other web
+pages; they do not stop the model. The host's dialog does, because the model
+cannot answer it. So decline any review confirmation you did not just ask for on
+the board. The dialog protects the board's write path only. A model with shell
+access could still run `adr approve` itself or edit a record directly, and the
+pull request diff is where any review change gets checked. The Copilot app
+showed that dialog for an approval in the maintainer's run. How it behaves in
+its autonomous modes has not been measured yet (see
+[ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)).
+
+**What you see when it does not write.** Exit codes map to fixed messages. A
+refusal (exit 1) says the record was not changed and lists the likely causes,
+because the CLI reports the reason only on stderr, which the board never shows.
+Run the same command in a terminal to see why. Another client holding the
+board's token can make an armed Confirm fail as "expired or already used"; you
+can arm it again.
+
+**What the model can do.** The board's actions (`get_state`, `refresh`,
+`focus`) report whether the controls are on and why, but not as whom. No
+action, tool, hook, or workflow records review. A model can start a write over
+HTTP, but it cannot finish one without your answer in the host's dialog. Each
+attempt is logged in the session with the record id, the kind, the identity,
+and the outcome, never the summary.
+
+Measured on 2026-10-09 through a headless SDK host, with no model calls. In the
+Copilot app (maintainer, 2026-10-10, runtime 1.0.94-3), the dialog appeared for
+an approval. A decline wrote nothing, an accept wrote the approval, and a second
+click within 10 seconds was refused. Object and Resolve are not yet exercised in
+the app.
+
+**When testing a local build in the app**, two things can get in the way:
+- Relaunching after a marketplace merge auto-updated the installed plugin and
+  overwrote local files.
+- Changed extension files re-raised the extension-permission prompt. Until
+  someone answered it, the extension did not start.
 
 ## Things that are load-bearing and easy to break
 
@@ -701,7 +787,12 @@ load of `extensions/` are unverified.
 
 The `decision-board` canvas (ADR-0050, **proposed**) is rung 1: unit and
 contract tests plus a headless Copilot CLI 1.0.93 SDK-host smoke with no model
-calls. It is unmeasured in the Copilot app.
+calls. It is unmeasured in the Copilot app. Its review controls (ADR-0052,
+**proposed**) are rung 1 too: unit, contract, and mutation tests, an
+end-to-end test against the built CLI, and headless SDK-host measurements with
+no model calls. In the Copilot app, the maintainer exercised Approve with the
+host's dialog (decline and accept). Object, Resolve, and the app's autonomous
+modes are unmeasured there.
 
 The extension tools (`adr_check`, `adr_explain`, `adr_lint`; ADR-0048,
 **proposed**) are rung 1: unit and contract tests plus a headless Copilot CLI

@@ -33,6 +33,38 @@ Until `1.0.0`, minor releases may include breaking changes
   headless Copilot CLI 1.0.93 SDK-host smoke against this repository (51
   records, 250 relationships) and a fixture, with no model calls. Unmeasured in
   the Copilot app.
+- **The decision board can record review (`adrkit` 0.10.0).** Each open
+  proposal gets approve, object, and resolve controls that run `adr approve`,
+  `adr object`, and `adr resolve`, so they **need `@adrkit/cli` 0.18.0 or
+  later**. An older CLI gets a fixed upgrade message.
+  - **Every write needs your yes in the host's confirmation dialog**
+    (`session.ui.confirm`), which the model cannot answer. A host without that
+    dialog leaves the controls off, and any answer but yes writes nothing. In
+    autopilot the board refuses without asking. The model is given the board's
+    URL and token, so it can reach the page's routes. The page's two clicks, its
+    single-use nonce, and the same-origin checks on those routes are therefore
+    defence in depth only.
+  - The dialog's first line names the record and the action. A write that
+    arrives while another is pending is told which record it is for. Each
+    board asks at most once per 10 seconds and five times per 10 minutes,
+    across all its panels.
+    The dialog guards the board's write path only; the pull request diff
+    remains the check on review state.
+  - The identity is `ADRKIT_REVIEWER`, read by the extension. Unset or invalid,
+    the controls are disabled with a note, and the page never supplies one.
+    Action results report whether the controls are on, not as whom.
+  - The CLI runs with argv only. Results are fixed messages (stderr is never
+    shown), and the board re-reads the queue afterwards. It still shows no
+    readiness verdict.
+  - One module, `board-review-write.mjs`, is the only one the plugin's verb
+    guard exempts, and a test pins that.
+
+  Proposed in [ADR-0052](docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md) (proposed; amends ADR-0050). It is at rung 1 of
+  ADR-0014, with an end-to-end test against the built CLI and headless SDK-host
+  measurements with no model calls. The maintainer ran it in the Copilot app
+  (runtime 1.0.94-3): the dialog appeared for an approval, a decline wrote
+  nothing, an accept wrote it, and a quick second click was rate-limited.
+  Object, Resolve, and the app's autonomous modes are not yet measured there.
 
 ### Fixed
 

@@ -162,6 +162,7 @@ describe('workflow extension packaging', () => {
       './board.mjs',
       './board-page.mjs',
       './board-layout.mjs',
+      './board-review-write.mjs',
     ]);
     for (const file of files) {
       const source = readFileSync(file, 'utf8');

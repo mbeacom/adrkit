@@ -355,9 +355,11 @@ and objection counts change with them.
   while an extension spawning `['approve', …]` passed it. The Spec Kit
   extension (plus its `adrkit_cli` wrapper) and the MCP server (plus any import
   of a writing transition) have the same guard. The canvas's `actions` are
-  model-callable, so it stays guarded: the later button track, which takes the
-  identity from `ADRKIT_REVIEWER` and never from the model, adds one narrow,
-  tested exception for a single page-POST handler module under its own record.
+  model-callable, so they stay guarded. The one exception is the decision
+  board's page-POST module, `board-review-write.mjs` (ADR-0052, **proposed**),
+  which takes the identity from `ADRKIT_REVIEWER` and writes only after the
+  host's confirmation, because the model can reach its routes over HTTP; see
+  "Recording review from the board" below.
   The extension tools' `redactWritingCommands` scrubs these verbs from tool
   results too, because a record title can carry `adr approve …` to the model.
 - **The read, transition, write window is not locked.** Two of these commands,
@@ -756,7 +758,7 @@ will usually be a regression:
   including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
   app, and hook firing in the app, an interactive CLI session, and subagent
   child sessions, are unmeasured.
-- `copilot plugin install` prints only a skill count. Version 0.9.1 should report
+- `copilot plugin install` prints only a skill count. Version 0.10.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
@@ -850,10 +852,13 @@ canvases share is in `panel-http.mjs`. **Rung 1**: unit and contract tests plus
 a headless Copilot CLI 1.0.93 SDK-host smoke with no model calls; unmeasured
 in the Copilot app. Load-bearing:
 
-- **It is read-only and has no session.** The factory takes no `getSession`:
-  it writes nothing, starts no workflow, sends no prompt, and spends nothing.
-  There is no approve, object, or ratify control, and the page posts only to
-  `/api/refresh` and `/api/focus`. A test asserts both.
+- **Its actions are read-only; writes need the host's confirmation.** No
+  action writes, starts a workflow, sends a prompt, or spends anything. The
+  factory uses the session only for the review controls below (the host
+  confirmation, the agent mode, and the log), and a test fails on any
+  `rpc.workflow` or `.send(`. The review routes are reachable by anything
+  holding the panel token, the model included, so every write waits for the
+  host's confirmation (ADR-0052). There is no ratify control.
 - **It shows no readiness verdict.** A queue row shows approvals against
   quorum, objection counts, SLA state, deadline, routing, and a finding count,
   and nothing derived from them. Review state misses refusals the
@@ -911,6 +916,92 @@ in the Copilot app. Load-bearing:
   because of the board drops decision-review too (ADR-0050).
 - **The post-edit hook does not refresh boards.** Adding a graph and queue
   read under the hooks' 15 s single-flight signal was left out on purpose.
+
+#### Recording review from the board
+
+Each open-proposal row has approve, object, and resolve controls, proposed in
+[ADR-0052](./docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
+(**proposed**; amends ADR-0050, implements the plugin half of ADR-0051). They
+run `adr approve`, `adr object`, and `adr resolve` and **need `@adrkit/cli`
+0.18.0 or later**. **Rung 1**: unit, contract, and mutation tests, an
+end-to-end test against the built CLI, and headless SDK-host measurements with
+no model calls. In the Copilot app the maintainer ran Approve once (runtime
+1.0.94-3): the dialog appeared, a decline wrote nothing, an accept wrote, and a
+click within 10 s was rate-limited. Object, Resolve, and the app's autonomous
+modes are unmeasured there. Load-bearing:
+
+- **The model holds the board's URL and token.** The runtime's `open_canvas`
+  tool returns the instance URL, token included, to the model, and the model
+  can open its own instance. With a shell it can call every route the page
+  calls, with any headers (measured by review: an approval with no click).
+  So nothing on the page or in the HTTP layer is the boundary.
+- **The boundary is the host's confirmation.** The write route calls
+  `session.ui.confirm(...)` before spawning and writes only on a literal
+  `true` within two minutes; a throw, a timeout, or any other answer writes
+  nothing. Without `capabilities.ui.elicitation === true` the controls are off
+  with a fixed note and both routes refuse. In agent mode `autopilot`, or when
+  `rpc.mode.get` throws or does not answer within 5 s, the route refuses
+  before asking (a never-answering RPC must not hold the single-flight flag);
+  a session with no mode method is still asked. The shown corpus directory is
+  confined again after the confirmation, right before the spawn, because the
+  dialog can take two minutes. Measured: the runtime routes an extension's `confirm`
+  to the host's handler in every permission and agent mode, and answers
+  nothing on its own; the CLI's terminal UI declines elicitations in
+  autopilot (read from its bundle). The Copilot app offered elicitation and
+  showed the dialog for an approval (measured once). **Whether it ever answers
+  without a person is unmeasured**; ADR-0052 names that as a residual risk the
+  maintainer must accept or measure. Do not remove the confirmation, accept a truthy non-`true` answer,
+  or put the summary or a title in the dialog: the dialog text is fixed text,
+  the kind, the validated id, the identity, and numbers only. The confirmation
+  guards the board's write path only: a model with a shell can still run
+  `adr approve --by=…` itself, edit frontmatter, or edit the extension, and the
+  pull request diff is the backstop.
+- **A staged dialog must not pass for the person's own** (re-review R1-M1).
+  The dialog's first line is the record and the action
+  (`ADR-0042 · approve as @x`). A write that arrives while one is pending gets
+  a 409 naming the pending kind and record and saying to decline it unless the
+  person started it, shown on the page as a warning. The board may ask at
+  most once per 10 s and five times per sliding 10 minutes, counted across
+  every board panel in the extension process; over that it is a 429 with
+  nothing asked or spawned, and the refusal is logged. Do not make the budget
+  per panel again: the model can open panels, and each would get a fresh
+  budget (a test opens a second panel and reopens one).
+- **The identity is `ADRKIT_REVIEWER`, read on every request,** never taken
+  from the page, the model, or an argument, and checked by a mirror of core's
+  `isWritableIdentity` that a test compares with core. A body with any extra
+  key (`by` among them) is a 400. It goes to the CLI as one `--by=<identity>`
+  element, because an email identity may start with `-`. Action results carry
+  `review: { enabled, note }` only; the identity appears only in the page's own
+  HTTP state.
+- **The nonce and the two clicks are defence in depth, not the boundary.** The
+  first click asks `POST /api/review/nonce` for a nonce bound to the kind and
+  record; the second, a Confirm button placed after Cancel so a double click
+  cannot hit it, spends it. Single use, two minutes, dropped on close, never in
+  an action result. A token holder (the model included) can mint and spend
+  one as the page does, and can also spend the panel's live nonce to cancel a
+  person's armed Confirm (denial of service only; the person re-arms).
+- **The review routes need an exact same-origin `Origin`** (none is refused)
+  and `Sec-Fetch-Site: same-origin` when sent, through `sameOriginPost` in
+  `panel-http.mjs`. That stops naive scripts and other pages only; curl can
+  send both.
+- **Exactly one module is exempt from the verb guard.** `board-review-write.mjs`
+  may name the three review verbs, and never `accept`. `wiring.test.ts` pins the
+  exemption list to that one path. Only `board.mjs` names the module, once, as
+  a static import it does not re-export; a test fails on any other mention
+  (static, dynamic `import()`, `require`, a path variant) and on a re-export,
+  each planted. The actions never reference the writer. That keeps the code
+  structure honest; the HTTP routes are still the model's path, which is why
+  the confirmation exists.
+- **Exit codes map to fixed messages, and stderr is never read.** Measured on
+  0.18.0: a refusal (exit 1) prints nothing on stdout even with `--json`, so
+  exit 1 is one fixed message. Measured on 0.17.0: an unknown subcommand also
+  exits 2, so an exit 2 asks `adr --version` afresh, and the nonce route asks
+  first. A refusal's reply text is looked up by code, never read from an error.
+- **A write re-reads the board and the queue**, never adds a readiness verdict,
+  and neither the page nor the write module names the ratifying command.
+- **Each attempt that reaches the confirmation is logged fire-and-forget**
+  through `session.log` with the id, kind, identity, and outcome
+  (`not-confirmed` included), never the summary.
 
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 
