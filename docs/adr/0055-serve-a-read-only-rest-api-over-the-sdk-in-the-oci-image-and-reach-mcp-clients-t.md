@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0055"
 title: "Serve a read-only REST API over the SDK in the OCI image, and reach MCP clients through it"
-status: proposed
+status: accepted
 date: 2026-10-10
 deciders:
   - "@mbeacom"
@@ -39,6 +39,9 @@ affects:
     pattern: "scripts/container-entrypoint.sh"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-10T16:17:54Z
 ---
 
 # ADR-0055: Serve a read-only REST API over the SDK in the OCI image, and reach MCP clients through it

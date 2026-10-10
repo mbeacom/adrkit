@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0054"
 title: "Publish a static decision portal for GitHub Pages, built outside the CLI from the SDK"
-status: proposed
+status: accepted
 date: 2026-10-10
 deciders:
   - "@mbeacom"
@@ -37,6 +37,9 @@ affects:
     pattern: "packages/ci/portal/**"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-10T16:17:54Z
 ---
 
 # ADR-0054: Publish a static decision portal for GitHub Pages, built outside the CLI from the SDK

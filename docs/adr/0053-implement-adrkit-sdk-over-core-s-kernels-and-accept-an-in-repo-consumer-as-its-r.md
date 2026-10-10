@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0053"
 title: "Implement @adrkit/sdk over core's kernels and accept an in-repo consumer as its real consumer"
-status: proposed
+status: accepted
 date: 2026-10-10
 deciders:
   - "@mbeacom"
@@ -30,6 +30,9 @@ affects:
     pattern: "docs/sdk-surface.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-10T16:17:54Z
 ---
 
 # ADR-0053: Implement @adrkit/sdk over core's kernels and accept an in-repo consumer as its real consumer
