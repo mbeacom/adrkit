@@ -72,7 +72,8 @@ Until `1.0.0`, minor releases may include breaking changes
   - an `adr check` recording;
   - the governing-decisions comment;
   - GitHub Copilot code review citing an ADR;
-  - both Copilot app canvases.
+  - both Copilot app canvases;
+  - an 80-second tour video, hosted as a GitHub attachment and never autoplayed.
 
   The README's plugin section now also describes the canvases, which it
   omitted. The images live once, in `site/public/demo/`, and are downscaled for

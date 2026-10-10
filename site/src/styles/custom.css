@@ -751,6 +751,17 @@ starlight-theme-select select {
 	margin: 0;
 }
 
+/* No autoplay: the tour starts only when the reader presses play. */
+.adr-tour {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin-block-start: var(--adr-row-block);
+	border: 1px solid var(--adr-line);
+	border-radius: 0.5rem;
+	background: #0d1117;
+}
+
 .adr-shot img {
 	display: block;
 	width: 100%;

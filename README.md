@@ -16,6 +16,11 @@ record as **typed data with a markdown body** and adds one field â€” `affects` â
 so a tool can answer *"which decisions govern this pull request?"* and put the
 answer where the next decision is being made.
 
+An 80-second tour, from the terminal to the pull request to the GitHub Copilot
+app:
+
+https://github.com/user-attachments/assets/2ab466f9-53f0-4274-a87c-98d8d5e5ecdf
+
 [![adr check on a ledger change: two accepted decisions govern it, a proposed one touches it, and a stale @adr marker still names a superseded record](site/public/demo/check-violating.png)](site/public/demo/check-violating.gif)
 
 <sub>A still of the final screen. Select it to watch the 15-second recording.</sub>
