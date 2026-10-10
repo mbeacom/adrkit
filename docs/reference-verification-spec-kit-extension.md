@@ -230,3 +230,60 @@ under the weekly self-verifying gate remains the open follow-up; these runs are
 maintainer-session evidence, and the SSL trust store on the session host also
 prevented the catalog lookup inside `extension info` from resolving, which that
 command degraded past with exit 0.
+
+## 2026-10-09: install channel and command names, re-measured
+
+The sections above are untouched. Building a demo repository against Spec Kit
+1.0.5 found two documentation errors: the documented
+`specify extension add adrkit` failed, and the Copilot agent saw the commands
+as `/speckit-adrkit-check` and `/speckit-plan`, not the dotted names the docs
+used. This section records the maintainer-session measurement that settled
+both. Like the two addenda above, it is real installs against real upstream
+releases, and **not** a rung-2 matrix extension.
+
+Method: `uvx --from specify-cli==<version> specify …` on macOS, in throwaway
+projects made by `specify init <name> --integration <copilot|claude>
+--ignore-agent-tools --script sh` (plus `--non-interactive` on 1.0.x), with
+`NO_COLOR=1` and `GIT_CONFIG_GLOBAL=/dev/null`. The full matrix ran on `1.0.5`,
+`1.0.6`, and `1.0.13` (the newest release inside `<1.1.0`; PyPI's newest is
+`1.1.3`, outside the pin) for both integrations. `0.13.0`, `0.15.1`, and
+`0.16.5` were sampled for the catalog form, `--dev`, and what each integration
+writes; `0.13.0` and `0.16.5` (Copilot) also for `--from`. The archive is
+`https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip`.
+
+| Evidence | Result |
+|---|---|
+| `specify extension add adrkit`, `0.16.5`, `1.0.5`, `1.0.6`, `1.0.13`, both integrations | exit 1: `Error: 'adrkit' was found in the 'community' catalog, which is discovery-only — a search surface, not an install source.` The message suggests `specify extension add adrkit --from <archive-url>`. |
+| `specify extension add adrkit`, `0.13.0` and `0.15.1`, both integrations | exit 1: `Error: 'adrkit' is available in the 'community' catalog but installation is not allowed from that catalog.` |
+| `specify extension add adrkit --from <archive>`, stdin `/dev/null` | an `⚠ Untrusted Source` panel ("You are installing an extension directly from an external URL, bypassing your trusted (install-allowed) extension catalogs."), then `Continue with installation? [y/N]: Aborted.`, exit 1. Same on every version tried. |
+| the same with `--force` | still prompts and aborts, exit 1. `extension add --help` lists only `--dev`, `--from`, `--force`, `--priority`; there is no `--yes`. |
+| `printf 'y\n' \| specify extension add adrkit --from <archive>` | exit 0, `✓ Extension installed successfully!`, `v0.1.4`, three commands listed, on `0.13.0`, `0.16.5`, `1.0.5`, `1.0.6`, `1.0.13` |
+| `specify init <name> --extension <archive> --trust-extension-urls --non-interactive` | exit 0 with `.specify/extensions/adrkit/` installed, on `1.0.5`, `1.0.6`, `1.0.13`. A prompt-free route for a new project only. |
+| `specify extension add --dev packages/adapters/spec-kit` | exit 0 on every version tried |
+| `https://github.com/mbeacom/adrkit/releases/latest/download/adrkit.zip` | `302` to `releases/download/v0.18.0/adrkit.zip`, then `404`. "Latest" follows the lockstep release, so there is no durable unversioned URL for the `spec-kit-v*` series. |
+
+What each integration writes for the three commands:
+
+| Integration and versions | Files | Name the agent sees |
+|---|---|---|
+| `claude`, `0.13.0`, `0.15.1`, `0.16.5`, `1.0.5`, `1.0.6`, `1.0.13` | `.claude/skills/speckit-adrkit-{context,check,draft}/SKILL.md` | `/speckit-adrkit-check` |
+| `copilot`, `0.16.5`, `1.0.5`, `1.0.6`, `1.0.13` | `.github/skills/speckit-adrkit-{context,check,draft}/SKILL.md` | `/speckit-adrkit-check` |
+| `copilot`, `0.13.0`, `0.15.1` | `.github/agents/speckit.adrkit.*.agent.md` and `.github/prompts/speckit.adrkit.*.prompt.md` | `/speckit.adrkit.check` |
+
+So the demo's report and the 2026-09-12 row ("all three commands registered")
+are both right: the commands register, as hyphenated skills. That row did not
+record names. The 2026-09-09 note says the skills rendering starts on
+"1.0.x"; it starts at `0.16.5` at the latest, the earliest skills-mode version
+sampled here.
+
+**The `after_plan` hook still resolves.** `.specify/extensions.yml` records
+`command: speckit.adrkit.check`, `optional: true`, `enabled: true` on every
+version. In skills mode, the generated `speckit-plan/SKILL.md` (both
+integrations, every skills-mode version sampled) tells the agent: "When
+constructing command invocations from hook command names, replace dots (`.`)
+with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`."
+So the offer names `/speckit-adrkit-check`, which exists. Nothing is
+functionally broken, and `extension.yml` and `commands/` are unchanged; the
+docs now give the install command that works and a per-integration name
+table. No live agent session drove `/speckit-plan` to watch the offer render,
+so that last step rests on the generated instruction, not on an observed run.

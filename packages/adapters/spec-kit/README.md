@@ -31,12 +31,27 @@ Plus one hook: `after_plan` offers to run `/speckit.adrkit.check`. It is
 
 ## Install
 
-From the
-[Spec Kit community catalog](https://github.com/github/spec-kit/blob/main/extensions/catalog.community.json):
+Install from the release archive, which carries the version in its URL:
 
 ```sh
-specify extension add adrkit
+specify extension add adrkit \
+  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
 ```
+
+Spec Kit asks before installing from a URL (`⚠ Untrusted Source` …
+`Continue with installation? [y/N]`). There is no `--yes`, and `--force` does
+not skip the question; with no answer on stdin the install aborts with exit 1.
+To answer it non-interactively, pipe the answer in:
+
+```sh
+printf 'y\n' | specify extension add adrkit \
+  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
+```
+
+adrkit is listed in the
+[Spec Kit community catalog](https://github.com/github/spec-kit/blob/main/extensions/catalog.community.json),
+but that catalog is discovery-only: `specify extension add adrkit` finds the
+entry and refuses to install from it.
 
 Or straight from a checkout:
 
@@ -44,8 +59,24 @@ Or straight from a checkout:
 specify extension add --dev path/to/packages/adapters/spec-kit
 ```
 
-Then `/speckit.adrkit.context` is available in your agent, and `/speckit.plan`
-will offer the `after_plan` hook.
+Then the commands below are available in your agent, and Spec Kit's plan
+command offers the `after_plan` hook.
+
+### Command names in your agent
+
+The extension declares dotted command ids (`speckit.adrkit.check`). What you
+type depends on how Spec Kit registers commands for your agent:
+
+| Integration | What Spec Kit writes | You type |
+|---|---|---|
+| Claude Code, every Spec Kit version measured (0.13.0 to 1.0.13) | `.claude/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
+| GitHub Copilot, Spec Kit 0.16.5 and later | `.github/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
+| GitHub Copilot, Spec Kit 0.13.0 to 0.15.1 | `.github/prompts/speckit.adrkit.*.prompt.md` | `/speckit.adrkit.check`, `/speckit.plan` |
+
+This README uses the dotted ids. Where your agent uses skills, read each dot
+as a hyphen. The `after_plan` hook works under both: Spec Kit records it as
+`speckit.adrkit.check`, and its generated plan skill tells the agent to replace
+dots with hyphens when it offers the hook.
 
 The package is also published on npm as `@adrkit/spec-kit` for programmatic or
 pinned installs.

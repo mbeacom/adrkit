@@ -68,6 +68,26 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Fixed
 
+- **Docs: the Spec Kit install command, the command names, and the checkout pin
+  in workflow snippets.** Found while building a demo repository on Spec Kit
+  1.0.5.
+  - `specify extension add adrkit` does not install: the community catalog is
+    discovery-only, and every Spec Kit version measured (0.13.0 to 1.0.13)
+    now refuses it with exit 1. The extension README and the site now install from
+    the versioned release archive
+    (`--from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip`),
+    explain the `Untrusted Source` prompt, and show how to answer it
+    non-interactively. A test keeps that URL on `extension.yml`'s version.
+  - Both pages now say what to type per integration: Claude Code, and Copilot
+    from Spec Kit 0.16.5, register the commands as skills
+    (`/speckit-adrkit-check`, `/speckit-plan`); Copilot on 0.13.0 to 0.15.1
+    keeps the dotted names. The `after_plan` hook resolves under both, so the
+    extension itself is unchanged and needs no release.
+  - Workflow snippets in the README and the site used `actions/checkout@v4`,
+    which draws GitHub's Node.js 20 deprecation annotation. The tag-form
+    snippets now use `@v7`, and the OpenWiki snippet's SHA pins move to the
+    `v7.0.1` commit this repository's own workflows use.
+
 - **The agent plugin reviews uncommitted and untracked edits (`adrkit` 0.9.1).**
   The `adr-review` workflow, the `decision-review` panel, the `adr_check` tool
   with no paths, and the session-start hook took the change from

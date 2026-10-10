@@ -224,8 +224,12 @@ deliberately unreachable from any hook, because a plan-phase hook creating
 records unprompted would manufacture decision memory rather than record it.
 
 Pinned to Spec Kit `>=0.13.0,<1.1.0` and tested against 0.13.0, 0.14.4, 0.15.1,
-0.16.5, 1.0.0, and 1.0.4–1.0.6. It is available from the Spec Kit community catalog;
-see the package README for setup.
+0.16.5, 1.0.0, and 1.0.4–1.0.6. It is listed in the Spec Kit community catalog,
+which is discovery-only, so install it from its release archive with
+`specify extension add adrkit --from <zip URL>`; see the package README for the
+URL and setup. Under the Claude Code integration, and under Copilot from Spec
+Kit 0.16.5 on, Spec Kit registers these as skills, so you type
+`/speckit-adrkit-check` rather than `/speckit.adrkit.check`.
 
 ## For any coding agent: the plugin
 
@@ -391,7 +395,7 @@ jobs:
   governing-decisions:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: mbeacom/adrkit@v0.18.0
 ```
 
