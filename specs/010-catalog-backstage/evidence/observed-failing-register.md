@@ -379,18 +379,18 @@ records: **gate 4 remains unmet and not yet testable regardless of this feature'
 and is recorded as unmet — never as passed, and never as failed.** Failed would imply it
 was tested; it was not, because it cannot yet be.
 
-### 4.6 One post-install step of seventeen is not network-denied — the canonical statement
+### 4.6 One post-install step of eighteen is not network-denied — the canonical statement
 
 **This section is the single source for the exemption.** `tasks.md` T093, the workflow
 comment, and `negative-cases/clean-clone-offline/` all point here rather than restate it.
 Three restatements would be three places to drift, and this feature has twice been bitten
 by a description outliving the thing it described.
 
-`clean-clone-builds` has **seventeen post-install steps. Sixteen run through
-`scripts/run-network-denied.ts`. The seventeenth is `bun test`.** The count is stated rather
+`clean-clone-builds` has **eighteen post-install steps. Seventeen run through
+`scripts/run-network-denied.ts`. The eighteenth is `bun test`.** The count is stated rather
 than rounded to "every step is denied": rounding up claims coverage the run does not have,
 which under ADR-0016's own reasoning is a defect, not a simplification. Counted from the
-workflow — 20 steps in the job, 3 before and including the install, 17 after, 16 of which
+workflow — 21 steps in the job, 3 before and including the install, 18 after, 17 of which
 name the wrapper in their `run:` — and counted independently twice, because the number now
 appears in a requirement.
 
@@ -427,6 +427,12 @@ count, or stops stating one it can read. The workflow's own comment on the `bun 
 used to restate the count too; it now points here instead, and the same test fails if a
 count reappears in `ci.yml`. Adding a step without re-counting is no longer possible on a
 green build (ADR-0040, action item 7).
+
+The count has moved once since, to eighteen, with the wrapped step ADR-0054 clause 11 added
+(`emit:portal-vendor` and a `git diff --exit-code` of the portal's copied modules). This
+time the test caught it rather than a reader: with the step added and these documents
+unchanged, `scripts/network-denial-count.test.ts` failed all four document checks, each
+reporting the stale count against the workflow's 17 of 18.
 
 Two things that correction exposed are worth stating plainly, because they are this
 section's own claims failing.

@@ -341,13 +341,13 @@ would be rung 2. No external party has run it, so rung 3 is absent.
 
 ## Action items
 
-1. [ ] Land ADR-0053 decision 11 (the queue review fields, the two missing
+1. [x] Land ADR-0053 decision 11 (the queue review fields, the two missing
    edge kinds, and the record body, added to the SDK additively, with the
    surface re-measured) before the views that read them.
-2. [ ] Create `packages/portal` (private): generator, `portal-data.json` v1,
+2. [x] Create `packages/portal` (private): generator, `portal-data.json` v1,
    subset Markdown parser, page module, and path table, with determinism,
    purity, sanitizer, and no-`innerHTML`/no-inline-style tests.
-3. [ ] Add the emit script and no-diff check for the three copied modules,
+3. [x] Add the emit script and no-diff check for the three copied modules,
    and the copied-set and no-review-verb tests.
 4. [ ] Add `check-deps` entries for `@adrkit/portal` and the widened
    `@adrkit/ci`, each with a negative case.
@@ -356,8 +356,8 @@ would be rung 2. No external party has run it, so rung 3 is absent.
    consumer workflow.
 6. [ ] Teach `action-tag-recovery.yml` and `docs/RELEASING.md` the third
    nested bundle.
-7. [ ] Add a test that the portal's shipped strings contain no ratifying or
+7. [x] Add a test that the portal's shipped strings contain no ratifying or
    review command and no readiness word.
 8. [ ] Build this repository's corpus from `site.yml` and publish it under
    adrkit.dev as the rung-2 dogfood.
-9. [ ] Ratify or reject this record.
+9. [x] Ratify or reject this record.

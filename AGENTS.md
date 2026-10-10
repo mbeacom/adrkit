@@ -1041,6 +1041,9 @@ unmeasured in the Copilot app. Load-bearing:
   them for the tests, and `board-page.mjs` embeds the same functions with
   `Function.prototype.toString`. Each must stay self-contained ES2017 (no
   imports, no module constants, no closures); a test runs the embedded copies.
+  The decision portal also carries a generated copy of `board-view.mjs`,
+  `board-layout.mjs`, and `canvas-theme.mjs` (see "The decision portal"
+  below), so an edit to any of the three needs `bun run emit:portal-vendor`.
   A view is a `viewBox`, so zooming sets one attribute and rebuilds nothing.
   Fit means the whole graph, so `fitView` may go below the 0.2 zoom minimum
   and zooming out stops at that fit, not at 0.2 (review on #282).
@@ -1059,6 +1062,55 @@ unmeasured in the Copilot app. Load-bearing:
 - **Objector names are not shown, because `adr queue` does not report them.**
   QueueReport v1 carries only the two objection counts; showing who raised each
   needs a CLI field, not a page change.
+
+## The decision portal (`packages/portal`)
+
+A static, read-only decision portal for GitHub Pages, under
+[ADR-0054](./docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
+(**accepted**). `@adrkit/portal` is private and depends on `@adrkit/sdk`
+alone; it is the SDK's first consumer under
+[ADR-0053](./docs/adr/0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md).
+The nested build-only Action (`packages/ci/portal`) is not built yet.
+**Rung 1**: unit, contract, purity, and mutation tests, a Node run of the
+bundled generator, and a maintainer browser check on this repository's corpus.
+Load-bearing:
+
+- **It lives outside the CLI.** ADR-0033 decision 11 keeps HTML out of
+  `@adrkit/cli`; do not add an `adr site` or `--format html`.
+- **The builder is pure, and the file is deterministic.** `buildPortalData`
+  takes the handle, commit, `asOf`, and a resolved path table, and reads no
+  clock, file, or environment, because ADR-0055's server will call it. All
+  I/O is in `generate.ts`. `portal-data.json` has no `generatedAt`; identical
+  inputs give identical bytes. A field is added additively; changing one is
+  `version: "2"`.
+- **Governance by path is a precomputed table, never a matcher.** States are
+  `available` (possibly capped), `unavailable` (the corpus has an error, so
+  the SDK withheld resolution), and `absent` (a host with no source tree). The
+  page never says "ungoverned"; a miss in a capped table says "not in this
+  table".
+- **Untrusted text stays text.** Titles, bodies, tags, and paths come from
+  the consumer's repository. The Markdown subset parser turns raw HTML and
+  any link that is not http(s), a fragment, or another record into text; the
+  page rebuilds links from checked parts and builds its DOM with
+  `textContent` only, under a `default-src 'none'` meta CSP. Tests fail on
+  `innerHTML`, inline style, and a looser policy.
+- **No verdict, no verbs.** The queue view shows the raw review facts only,
+  and the portal's own strings never name a review or ratifying command or a
+  readiness word; a test enforces both.
+- **The graph opens on supersession alone.** The data file holds all three
+  edge kinds; the other two are opt-in checkboxes. Edges are drawn beneath
+  opaque record boxes.
+- **Three modules are generated copies.** `src/vendor/` holds
+  `board-layout.mjs`, `board-view.mjs`, and `canvas-theme.mjs`, copied from
+  the agent plugin by `bun run emit:portal-vendor`, and `clean-clone-builds`
+  fails on any diff. The plugin owns them; never edit the copies, and never
+  copy `board-page.mjs`, `board.mjs`, `panel-http.mjs`, or
+  `board-review-write.mjs`.
+- **Page assets are text imports.** `src/page/assets.ts` imports the page and
+  two vendor modules `with { type: 'text' }`, so `bun build --target=node`
+  embeds them. `canvas-theme.mjs` is imported as a module (for `THEME_CSS`)
+  and cannot also be a text import in the same bundle, which is why it is not
+  written into the output.
 
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 

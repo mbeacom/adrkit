@@ -39,6 +39,7 @@
     "check:site-grammar": "bun run scripts/check-site-corpus-grammar.ts",
     "check:stale-refs": "bun run scripts/check-stale-adr-references.ts",
     "emit:manifest": "bun run scripts/emit-manifest.ts",
+    "emit:portal-vendor": "bun run scripts/emit-portal-vendor.ts",
     "check:dco": "bun run scripts/check-dco.ts",
     "check:gate-integrity": "bun run scripts/check-gate-integrity.ts",
     "check:ci-comment": "bun run scripts/check-ci-comment.ts",

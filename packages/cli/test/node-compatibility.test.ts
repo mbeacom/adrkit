@@ -25,6 +25,11 @@ const SHIPPED_ROOTS = [
   // ADR-0016 clause 2: observed failing with `export const planted = () => Bun.version;`
   // appended to packages/sdk/src/decision-set.ts; the retained input is that line, removed.
   resolve(process.cwd(), 'packages/sdk/src'),
+  // `@adrkit/portal` is private, but it is bundled for Node into the portal Action
+  // (ADR-0054 clause 2, `runs.using: node24`) and imported by ADR-0055's server.
+  // ADR-0016 clause 2: observed failing with `export const planted = () => Bun.version;`
+  // appended to packages/portal/src/data/build.ts; the retained input is that line, removed.
+  resolve(process.cwd(), 'packages/portal/src'),
 ];
 
 /** Strip comments so the rule is about code, not about prose describing the rule. */

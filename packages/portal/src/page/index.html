@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Decision portal</title>
+<link rel="stylesheet" href="./app.css">
+<script type="module" src="./page/app.mjs"></script>
+</head>
+<body>
+<div class="wrap">
+<header class="bar">
+  <div class="headline">
+    <h1 class="site-title"><a href="#/" class="home">Decision portal</a></h1>
+    <span id="corpus" class="muted small mono"></span>
+  </div>
+  <nav aria-label="Portal views">
+    <ul class="nav plain">
+      <li><a id="nav-overview" href="#/">Records</a></li>
+      <li><a id="nav-graph" href="#/graph">Graph</a></li>
+      <li><a id="nav-queue" href="#/queue">Review queue</a></li>
+      <li><a id="nav-paths" href="#/paths">Governance by path</a></li>
+    </ul>
+  </nav>
+</header>
+<div id="banner"></div>
+<main id="app" aria-live="polite"><p class="muted">Loading decisions…</p></main>
+<footer id="footer">Read-only decision portal. It has no form and changes nothing.</footer>
+<noscript><p>This portal needs JavaScript to read <code>portal-data.json</code>.</p></noscript>
+</div>
+</body>
+</html>

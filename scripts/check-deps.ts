@@ -201,6 +201,25 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
     };
   }
 
+  if (packageName === '@adrkit/portal') {
+    // ADR-0054's private static-portal generator, a non-adapter by location
+    // (`packages/portal/`). Clause 1: its only runtime dependency is the SDK. It never
+    // reaches `@adrkit/core` or `@adrkit/cli` directly; that is what makes it ADR-0031
+    // clause 8's real consumer rather than a second caller of core. ADR-0030 clause 1
+    // also keeps a Markdown library out: the body parser is in-house.
+    //
+    // This entry reads declarations only. A relative source import from
+    // `packages/portal` into `packages/adapters/**` (the board's layout and theme
+    // modules) would not be seen here, which is why ADR-0054 clause 11 copies those
+    // modules with an emit script instead of importing them.
+    return {
+      dependencies: new Set(['@adrkit/sdk']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
   if (packageName === '@adrkit/catalog-envelope') {
     // Feature 010's envelope consumer — a non-adapter workspace library, which it
     // is by *location* (`packages/catalog-envelope/`, outside `packages/adapters/`)

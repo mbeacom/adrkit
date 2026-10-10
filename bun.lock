@@ -110,6 +110,16 @@
         "@types/bun": "latest",
       },
     },
+    "packages/portal": {
+      "name": "@adrkit/portal",
+      "version": "0.0.0",
+      "dependencies": {
+        "@adrkit/sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+    },
     "packages/sdk": {
       "name": "@adrkit/sdk",
       "version": "0.0.0",
@@ -147,6 +157,8 @@
     "@adrkit/evaluator": ["@adrkit/evaluator@workspace:packages/evaluator"],
 
     "@adrkit/mcp": ["@adrkit/mcp@workspace:packages/mcp"],
+
+    "@adrkit/portal": ["@adrkit/portal@workspace:packages/portal"],
 
     "@adrkit/sdk": ["@adrkit/sdk@workspace:packages/sdk"],
 

@@ -107,6 +107,15 @@ jobs:
       # like the schema emit above. Both halves wrapped, for the reason recorded there.
       - name: Verify MANIFEST inventory matches the corpus (network denied)
         run: bun scripts/run-network-denied.ts -- sh -c 'bun run emit:manifest && git diff --exit-code MANIFEST.md'
+      # ADR-0054 clause 11: the portal holds generated copies of the plugin's layout,
+      # view, and theme modules, because the plugin cannot import a module outside its
+      # own directory. The same mechanism as the MANIFEST step above: regenerate, then
+      # assert the tree unchanged. The copied set, byte identity, and the no-import and
+      # no-review-verb rules are packages/portal/test/vendor.test.ts, which `bun test`
+      # runs in this job (a deleted copy comes back untracked, invisible to git diff).
+      # Both halves wrapped, for the reason recorded at the schema step.
+      - name: Verify portal vendor copies match the plugin (network denied)
+        run: bun scripts/run-network-denied.ts -- sh -c 'bun run emit:portal-vendor && git diff --exit-code packages/portal/src/vendor'
       - name: Verify dependency boundaries (adapters + toolkit confinement)
         run: bun scripts/run-network-denied.ts -- bun run check:deps
       - name: Verify frozen oracle hashes match (feature 010 Barrier B, R5 mechanism 2)

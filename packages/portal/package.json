@@ -1,0 +1,34 @@
+{
+  "name": "@adrkit/portal",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Builds the static, read-only decision portal for GitHub Pages from the @adrkit/sdk handle (ADR-0054). Private; bundled into the portal Action, never published.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/portal"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "//boundary": "ADR-0054 clause 1: the only runtime dependency is @adrkit/sdk. This package never imports @adrkit/core or @adrkit/cli and spawns no `adr` process; scripts/check-deps.ts admits @adrkit/sdk alone. The SDK declares no exports map (ADR-0031 clause 8, asserted by packages/sdk/test/packaging.test.ts), so the import specifier is the subpath `@adrkit/sdk/src/index.ts`, resolved through this package's declared workspace dependency.",
+  "//purity": "src/data/** is pure (ADR-0054 clause 3): no clock, file, environment, process, or network. ADR-0055's server calls buildPortalData directly. test/purity.test.ts enforces it. src/generate.ts is the only I/O.",
+  "//release": "Private and unpublished. It reaches users only bundled into the nested portal Action (packages/ci/portal, ADR-0054 clause 2) and, later, the OCI image (ADR-0055).",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "bun run typecheck",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

@@ -516,6 +516,66 @@ describe('sdk dependency boundary (ADR-0031)', () => {
   });
 });
 
+describe('portal dependency boundary (ADR-0054)', () => {
+  const PORTAL_MANIFEST = 'packages/portal/package.json';
+
+  function portalManifest(dependencies: Record<string, string> = { '@adrkit/sdk': 'workspace:*' }): string {
+    return JSON.stringify(
+      {
+        name: '@adrkit/portal',
+        version: '0.0.0',
+        private: true,
+        dependencies,
+        devDependencies: { '@types/bun': 'latest' },
+      },
+      null,
+      2,
+    );
+  }
+
+  test('allows exactly the workspace sdk, plus @types/bun', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, PORTAL_MANIFEST), portalManifest());
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  // ADR-0054 clause 1: the portal is the SDK's in-repo consumer, so it reaches core only
+  // through the SDK. A direct core edge would make it a second caller of core, the thing
+  // ADR-0031 clause 8 asked a consumer not to be. This is also the only proof the entry
+  // exists: without it the package is silently unconstrained.
+  //
+  // ADR-0016 clause 2: observed failing before the entry was added. With the entry absent,
+  // this test returned `{ ok: true, violations: [] }`; the retained input is the manifest
+  // below, unchanged.
+  test('proves the portal allowlist entry exists, by rejecting a direct @adrkit/core dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, PORTAL_MANIFEST), portalManifest({ '@adrkit/sdk': 'workspace:*', '@adrkit/core': 'workspace:*' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => `${violation.dependency}: ${violation.reason}`)).toEqual([
+      '@adrkit/core: @adrkit/portal declares a dependency outside its allowed public surface',
+    ]);
+  });
+
+  // ADR-0030 clause 1 rules out a Markdown library (ADR-0054's Markdown options).
+  test('rejects a third-party Markdown library', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, PORTAL_MANIFEST), portalManifest({ '@adrkit/sdk': 'workspace:*', marked: '^15' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.violations.map((violation) => violation.dependency)).toEqual(['marked']);
+  });
+
+  test('rejects the cli', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, PORTAL_MANIFEST), portalManifest({ '@adrkit/sdk': 'workspace:*', '@adrkit/cli': 'workspace:*' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.violations.map((violation) => violation.dependency)).toEqual(['@adrkit/cli']);
+  });
+});
+
 describe('mcp dependency boundary (Phase 5)', () => {
   test('allows exactly core, the pinned SDK server, and zod, plus the dev-only SDK client and @types/bun', async () => {
     const root = await resetTestDir(DIR_NAME);
