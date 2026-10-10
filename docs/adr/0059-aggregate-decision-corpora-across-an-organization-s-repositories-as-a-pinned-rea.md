@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0059"
 title: "Aggregate decision corpora across an organization's repositories as a pinned, read-only federation"
-status: proposed
+status: accepted
 date: 2026-10-10
 deciders:
   - "@mbeacom"
@@ -56,6 +56,9 @@ affects:
     note: "Clause 5 changes how a log-qualified relatesTo is reported."
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-10T20:12:46Z
 ---
 
 # ADR-0059: Aggregate decision corpora across an organization's repositories as a pinned, read-only federation

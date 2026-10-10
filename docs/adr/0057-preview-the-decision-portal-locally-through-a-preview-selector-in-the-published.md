@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0057"
 title: "Preview the decision portal locally through a preview selector in the published image, published to loopback only"
-status: proposed
+status: accepted
 date: 2026-10-10
 deciders:
   - "@mbeacom"
@@ -35,6 +35,9 @@ affects:
     pattern: "scripts/container-entrypoint.sh"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-10T20:12:46Z
 ---
 
 # ADR-0057: Preview the decision portal locally through a preview selector in the published image, published to loopback only
