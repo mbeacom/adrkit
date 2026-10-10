@@ -301,7 +301,7 @@ Method: the same as the section above, with `uvx` on Python 3.13. `1.1.0` is a
 GitHub release that never reached PyPI (PyPI goes from `1.0.13` to `1.1.1`), so
 it ran as `uvx --from git+https://github.com/github/spec-kit.git@v1.1.0
 specify`, as `1.0.0` did on 2026-09-09. `1.1.1`, `1.1.2`, and `1.1.3` ran from
-PyPI. The archive under test is the 0.1.5 `adrkit.zip` that
+PyPI, except the 0.1.4 refusal runs on `1.1.3`, which used its git tag. The archive under test is the 0.1.5 `adrkit.zip` that
 `release:pack -- --only @adrkit/spec-kit --tag spec-kit-v0.1.5` and
 `scripts/pack-extension-zip.ts` produce, served from `http://127.0.0.1`,
 because the `spec-kit-v0.1.5` release asset does not exist until the tag is
