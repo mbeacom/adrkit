@@ -325,12 +325,12 @@ No external validation is claimed.
 2. [x] Implement `openDecisions` and the six `DecisionSet` members over
    `@adrkit/core`, keeping the declared types, adding the fields of decision
    11, and adding no re-export.
-3. [ ] Before publication, export the absent-input `--as-of` default from
+3. [x] Before publication, export the absent-input `--as-of` default from
    core (ADR-0031 action item 8) and replace all four inline copies with it:
    the CLI, the CI Action, the scaffold, and the SDK's `queue()`.
 4. [x] Add behaviour tests per entry point and contract tests against
    `adr queue`, `adr graph`, and `adr explain` JSON, each observed failing first.
-5. [ ] Build the conformance fixture (ADR-0031 action item 6, ADR-0030 action
+5. [x] Build the conformance fixture (ADR-0031 action item 6, ADR-0030 action
    item 5) and run the SDK's tests against it.
 6. [x] Extend `packages/cli/test/node-compatibility.test.ts`, or add an
    equivalent check, to cover `packages/sdk/src`.
@@ -338,7 +338,7 @@ No external validation is claimed.
    `package.json`'s `//status`, and `docs/sdk-surface.md`'s "Nothing is
    implemented" and rung statement to match the tree, and replace the
    body exclusion there with decision 11's reason.
-8. [ ] Converge `explain`, `lint`, and `new` `--json` onto core formatters
+8. [x] Converge `explain`, `lint`, and `new` `--json` onto core formatters
    (ADR-0031 action item 4).
 9. [ ] Before any publication record: a consumer built against the implemented
    SDK in this repository and exercised in CI, with the build-time gap of

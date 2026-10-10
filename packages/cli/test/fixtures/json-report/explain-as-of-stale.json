@@ -1,0 +1,196 @@
+{
+  "path": "src/sync/stale.ts",
+  "asOf": {
+    "requested": "2026-07-15",
+    "date": "2026-07-15",
+    "resolvedFrom": "date",
+    "governing": [],
+    "activeProposals": [],
+    "history": [],
+    "notYetRecorded": [
+      {
+        "recordId": "0001",
+        "title": "Use the sync protocol",
+        "status": "accepted",
+        "bucket": "governing",
+        "firedMatchers": [
+          {
+            "type": "path",
+            "pattern": "src/sync/**"
+          }
+        ],
+        "window": {
+          "opensOn": "2026-07-18",
+          "closesOn": null
+        },
+        "standing": "notYetRecorded"
+      },
+      {
+        "recordId": "0003",
+        "title": "Poll for changes",
+        "status": "superseded",
+        "bucket": "history",
+        "supersededBy": "0004",
+        "firedMatchers": [
+          {
+            "type": "path",
+            "pattern": "src/sync/**"
+          }
+        ],
+        "declaredBy": [
+          {
+            "path": "src/sync/stale.ts",
+            "line": 1,
+            "ref": "0003"
+          }
+        ],
+        "window": {
+          "opensOn": "2026-07-18",
+          "closesOn": "2026-07-18",
+          "closedBy": "0004"
+        },
+        "standing": "notYetRecorded"
+      },
+      {
+        "recordId": "0005",
+        "title": "Batch sync writes",
+        "status": "proposed",
+        "bucket": "activeProposals",
+        "firedMatchers": [
+          {
+            "type": "path",
+            "pattern": "src/sync/**"
+          }
+        ],
+        "window": {
+          "opensOn": "2026-07-18",
+          "closesOn": null
+        },
+        "standing": "notYetRecorded"
+      }
+    ],
+    "undetermined": []
+  },
+  "governedBy": [
+    {
+      "recordId": "0001",
+      "title": "Use the sync protocol",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    },
+    {
+      "recordId": "0003",
+      "title": "Poll for changes",
+      "status": "superseded",
+      "bucket": "history",
+      "supersededBy": "0004",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ],
+      "declaredBy": [
+        {
+          "path": "src/sync/stale.ts",
+          "line": 1,
+          "ref": "0003"
+        }
+      ]
+    },
+    {
+      "recordId": "0005",
+      "title": "Batch sync writes",
+      "status": "proposed",
+      "bucket": "activeProposals",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "governing": [
+    {
+      "recordId": "0001",
+      "title": "Use the sync protocol",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "activeProposals": [
+    {
+      "recordId": "0005",
+      "title": "Batch sync writes",
+      "status": "proposed",
+      "bucket": "activeProposals",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "history": [
+    {
+      "recordId": "0003",
+      "title": "Poll for changes",
+      "status": "superseded",
+      "bucket": "history",
+      "supersededBy": "0004",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ],
+      "declaredBy": [
+        {
+          "path": "src/sync/stale.ts",
+          "line": 1,
+          "ref": "0003"
+        }
+      ]
+    }
+  ],
+  "markers": {
+    "state": "scanned",
+    "windowBytes": 8192,
+    "scannedBytes": 40,
+    "fileBytes": 40,
+    "truncated": false,
+    "declarationLimit": 64,
+    "totalDeclarations": 1,
+    "omittedDeclarations": 0,
+    "declared": [
+      {
+        "ref": "0003",
+        "line": 1
+      }
+    ]
+  },
+  "findings": [
+    {
+      "rule": "stale-marker",
+      "severity": "warn",
+      "message": "Source marker \"@adr 0003\" in src/sync/stale.ts:1 names superseded ADR 0003; update it to \"@adr 0004\" or re-affirm 0003",
+      "path": "src/sync/stale.ts",
+      "field": "marker",
+      "pattern": "0003"
+    }
+  ]
+}

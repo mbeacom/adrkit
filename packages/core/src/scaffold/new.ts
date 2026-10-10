@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { Status, SCHEMA_VERSION, AdrFrontmatter } from '../schema/adr.schema.ts';
 import { discoverAdrFiles, normalizeDisplayPath } from '../load/corpus.ts';
+import { todayUtcDate } from '../queue/as-of.ts';
 
 export interface NewAdrOptions {
   title: string;
@@ -26,10 +27,6 @@ export class ScaffoldError extends Error {
     this.name = 'ScaffoldError';
     this.code = code;
   }
-}
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export function slugifyTitle(title: string): string {
@@ -190,7 +187,7 @@ export async function createAdr(options: NewAdrOptions): Promise<NewAdrResult> {
   const fileName = `${id}-${slugifyTitle(title)}.md`;
   const path = resolve(cwd, dir, fileName);
   const displayPath = normalizeDisplayPath(path, cwd);
-  const content = renderAdrRecord({ id, title, status, date: options.date ?? todayIsoDate() });
+  const content = renderAdrRecord({ id, title, status, date: options.date ?? todayUtcDate() });
 
   if (options.write !== false) {
     await mkdir(dirname(path), { recursive: true });

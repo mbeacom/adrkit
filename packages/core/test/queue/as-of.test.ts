@@ -14,7 +14,9 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { resolveAsOf } from '../../src/queue/as-of.ts';
+import { readdir, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { resolveAsOf, todayUtcDate } from '../../src/queue/as-of.ts';
 
 describe('resolveAsOf — accepted inputs', () => {
   test('a bare YYYY-MM-DD resolves to itself', () => {
@@ -98,5 +100,73 @@ describe('resolveAsOf — reachable as a published contract', () => {
     const core = await import('../../src/index.ts');
     expect(typeof core.resolveAsOf).toBe('function');
     expect(core.resolveAsOf('2026-01-08')).toEqual({ ok: true, date: '2026-01-08' });
+  });
+});
+
+/**
+ * `todayUtcDate` — the absent-input clause of `cli-contract.md §As-Of Resolution`
+ * (ADR-0031 action item 8, ADR-0053 action item 3).
+ *
+ * Observed failing (ADR-0016): restoring `new Date().toISOString().slice(0, 10)` in
+ * `packages/sdk/src/decision-set.ts` failed "no consumer re-inlines the default" for that
+ * file, and dropping `todayUtcDate` from the entry point failed the reachability test, while
+ * every behavioural case still passed — the same shape as item 7's defect: an unreachable rule
+ * is not a wrong answer.
+ */
+describe('todayUtcDate — the absent-input default', () => {
+  test('answers the UTC calendar date of the instant, not the local one', () => {
+    // 23:30 at -05:00 on the 8th is 04:30Z on the 9th. A local-date default answers the 8th
+    // here and disagrees with CI for the five hours before UTC midnight.
+    expect(todayUtcDate(new Date('2026-01-08T23:30:00-05:00'))).toBe('2026-01-09');
+    expect(todayUtcDate(new Date('2026-01-08T00:00:00Z'))).toBe('2026-01-08');
+  });
+
+  test('reads the clock only when no instant is supplied', () => {
+    const before = new Date().toISOString().slice(0, 10);
+    const today = todayUtcDate();
+    const after = new Date().toISOString().slice(0, 10);
+    expect([before, after]).toContain(today);
+    expect(resolveAsOf(today)).toEqual({ ok: true, date: today });
+  });
+
+  test('refuses an instant outside years 0000-9999 rather than returning a non-date', () => {
+    expect(() => todayUtcDate(new Date('+010000-01-01T00:00:00Z'))).toThrow(RangeError);
+  });
+
+  test('it is exported from the package entry point, not only from its module', async () => {
+    const core = await import('../../src/index.ts');
+    expect(typeof core.todayUtcDate).toBe('function');
+    expect(core.todayUtcDate(new Date('2026-03-01T12:00:00Z'))).toBe('2026-03-01');
+  });
+
+  // The four call sites ADR-0031 action item 8 named. Each must take the default from core and
+  // none may spell the expression again: a fifth copy is how the midnight divergence returns.
+  const REPO = resolve(import.meta.dir, '../../../..');
+  const CONSUMERS = [
+    'packages/cli/src/queue.ts',
+    'packages/ci/src/queue-action-entrypoint.ts',
+    'packages/core/src/scaffold/new.ts',
+    'packages/sdk/src/decision-set.ts',
+  ];
+  for (const path of CONSUMERS) {
+    test(`no consumer re-inlines the default: ${path}`, async () => {
+      const source = await readFile(resolve(REPO, path), 'utf8');
+      expect(source).not.toMatch(/new Date\(\)\.toISOString\(\)\.slice\(0,\s*10\)/);
+      expect(source).toMatch(/\btodayUtcDate\(\)/);
+    });
+  }
+
+  // The static portal may import only `@adrkit/sdk`, so it cannot call `todayUtcDate` itself; it
+  // takes the SDK's echoed default (`handle.queue().asOf`). It must not compute its own today
+  // either, which is how it once carried a fifth copy. Observed failing against that copy in
+  // `packages/portal/src/generate.ts` before it was removed.
+  test('the portal computes no today of its own', async () => {
+    const dir = resolve(REPO, 'packages/portal/src');
+    const files = (await readdir(dir, { recursive: true })).filter((name) => /\.(ts|mjs|js)$/.test(String(name)));
+    expect(files.length).toBeGreaterThan(0);
+    for (const name of files) {
+      const source = await readFile(resolve(dir, String(name)), 'utf8');
+      expect({ name, inline: /\.toISOString\(\)\.slice\(0,\s*10\)/.test(source) }).toEqual({ name, inline: false });
+    }
   });
 });

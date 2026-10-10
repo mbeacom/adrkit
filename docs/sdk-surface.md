@@ -210,9 +210,11 @@ Five points where the declared surface left a choice, and how each was settled:
   `buildAdrGraph`'s stable id order, never looked up by id, so a corpus that repeats an id
   shows both records, as the CLI does. `get(id)` alone resolves a repeated id to the last
   record, the one `governing` and `adr explain` resolve it to.
-- **The `asOf` default is inlined** as `new Date().toISOString().slice(0, 10)`, a fourth copy of
-  the absent-input clause. ADR-0031 action item 8 — a publication gate for this package —
-  replaces all four with one core export; it is deliberately not done here.
+- **The `asOf` default is core's `todayUtcDate()`**, the one export of `cli-contract.md`
+  §As-Of Resolution's absent-input clause, which `adr queue`, the queue Action, and `adr new`
+  also call. The SDK once inlined a fourth copy; ADR-0031 action item 8 replaced all four.
+  The static portal still carries its own copy, because it may import only `@adrkit/sdk` and the
+  SDK exposes no date helper; it also keeps a bare-date `asOf` rule for the same reason.
 
 All filesystem access is `openDecisions` plus `governing`'s marker read through core's confined
 reader (skipped with `readMarkers: false`). Nothing in the package writes. The returned records,
@@ -338,8 +340,16 @@ Decisions this left open, and how they were settled:
 
 - **ADR-0014 rung 1 only.** The implementation has unit, behaviour, and CLI-equivalence tests
   (`packages/sdk/test/`), the equivalence run against two fixture corpora and this repository's
-  own `docs/adr`. No consumer has exercised the surface, because the one it was designed for does
-  not exist yet. ADR-0031's own trade-off — *"the risk is that the guess hardens before the
+  own `docs/adr`, and it is tested against the committed conformance fixture
+  (`packages/core/test/conformance/golden/`, ADR-0031 action item 6) that the CLI's goldens also
+  pin. One consumer outside `packages/sdk/` exercises it: the static portal (`packages/portal`,
+  ADR-0054) calls `openDecisions` and five of the six handle members (`records`, `issues`,
+  `queue`, `graph`, `governing`; not `get`), and takes its default `asOf` from `queue()`'s echo.
+  `bun test` runs it in CI over fixture corpora, and the portal Action's bundle is tested the
+  same way. That consumer is build-time only: it opens a corpus once per build, so the handle's
+  long-lived use is not exercised (ADR-0053 decision 8), and whether it satisfies ADR-0053
+  action item 9 is for the publication record to decide. The consumer the surface was designed
+  for, a Backstage backend, does not exist yet. ADR-0031's own trade-off — *"the risk is that the guess hardens before the
   Backstage plugin tests it"* — is not mitigated by this work, only made concrete enough to
   criticize.
 - **Implemented, not exercised.** The eight-call `explain` assembly the surface claims to absorb

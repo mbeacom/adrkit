@@ -41128,25 +41128,13 @@ function validateParsedAdr(parsed) {
 }
 // ../core/src/validate/corpus-invariants.ts
 function addReferenceFinding(findings, record, field, ref, severity) {
-  const crossLog = parseAdrRef(ref).log !== undefined;
   findings.push({
     rule: `dangling-${field}`,
     severity,
-    message: crossLog ? `Reference "${ref}" in ${field} names another decision log; cross-repository supersession is not supported` : `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
+    message: `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
     path: record.path,
     id: record.frontmatter.id,
     field
-  });
-}
-function addFederatedReferenceFinding(findings, record, field, ref, log) {
-  findings.push({
-    rule: "federated-ref-unresolved",
-    severity: "info",
-    message: `Reference "${ref}" in ${field} names another decision log ("${log}") and is inert against this corpus`,
-    path: record.path,
-    id: record.frontmatter.id,
-    field,
-    pattern: ref
   });
 }
 function validateCorpusInvariants(records) {
@@ -41182,17 +41170,11 @@ function validateCorpusInvariants(records) {
       addReferenceFinding(findings, record, "supersededBy", record.frontmatter.supersededBy, "error");
     }
     for (const ref of record.frontmatter.relatesTo) {
-      const { log } = parseAdrRef(ref);
-      if (log !== undefined)
-        addFederatedReferenceFinding(findings, record, "relatesTo", ref, log);
-      else if (!ids.has(ref))
+      if (!ids.has(ref))
         addReferenceFinding(findings, record, "relatesTo", ref, "error");
     }
     for (const ref of record.frontmatter.conflictsWith) {
-      const { log } = parseAdrRef(ref);
-      if (log !== undefined) {
-        addFederatedReferenceFinding(findings, record, "conflictsWith", ref, log);
-      } else if (!ids.has(ref)) {
+      if (!ids.has(ref)) {
         addReferenceFinding(findings, record, "conflictsWith", ref, "warn");
       } else if (record.frontmatter.status === "accepted") {
         findings.push({
@@ -41226,6 +41208,156 @@ function validateImportIncomplete(records) {
     }
   }
   return findings;
+}
+// ../core/src/validate/index.ts
+import { stat as stat3 } from "node:fs/promises";
+import { isAbsolute as isAbsolute2, resolve as resolve3 } from "node:path";
+function parseErrorFinding(error, path) {
+  if (error instanceof FrontmatterError) {
+    return {
+      rule: error.code === "invalid-yaml" ? "frontmatter-parse" : "frontmatter-fence",
+      severity: "error",
+      message: error.message,
+      path,
+      field: "frontmatter"
+    };
+  }
+  return {
+    rule: "file-read",
+    severity: "error",
+    message: error instanceof Error ? error.message : String(error),
+    path
+  };
+}
+function skippedFileFinding(skipped, cwd) {
+  const message = skipped.reason === "nested" ? "Markdown file is in a subdirectory of the corpus, and discovery reads only the top level of the corpus directory; move it to the corpus root as <id>-<slug>.md for it to be linted and enforced" : "Markdown file in the corpus directory is not a discoverable ADR record and was skipped; rename it to <id>-<slug>.md (four or more leading digits) for it to be linted and enforced";
+  return {
+    rule: "corpus-file-skipped",
+    severity: "warn",
+    message,
+    path: normalizeDisplayPath(skipped.path, cwd)
+  };
+}
+async function isDirectory2(path) {
+  return stat3(path).then((info) => info.isDirectory(), () => false);
+}
+async function scannedDirectories(paths, dir, cwd) {
+  if (!paths || paths.length === 0)
+    return [dir];
+  const directories = new Set;
+  for (const path of paths) {
+    const absolutePath = isAbsolute2(path) ? path : resolve3(cwd, path);
+    if (await isDirectory2(absolutePath))
+      directories.add(absolutePath);
+  }
+  return [...directories].sort((a, b) => compareByDisplayPath(a, b, cwd));
+}
+async function lintCorpus(options = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const dir = options.dir ?? "docs/adr";
+  const files = await expandRecordInputs(options.paths, dir, cwd);
+  const records = [];
+  const findings = [];
+  for (const file of files) {
+    const displayPath = normalizeDisplayPath(file, cwd);
+    try {
+      const parsed = await parseAdrFile(file, cwd);
+      const result = validateParsedAdr(parsed);
+      findings.push(...result.findings);
+      if (result.record) {
+        records.push(result.record);
+      }
+    } catch (error) {
+      findings.push(parseErrorFinding(error, displayPath));
+    }
+  }
+  const checkedPaths = new Set(files);
+  for (const scanned of await scannedDirectories(options.paths, dir, cwd)) {
+    for (const skipped of await discoverSkippedMarkdownFiles(scanned, cwd)) {
+      if (!checkedPaths.has(skipped.path))
+        findings.push(skippedFileFinding(skipped, cwd));
+    }
+  }
+  findings.push(...validateImportIncomplete(records));
+  findings.push(...validateCorpusInvariants(records));
+  return {
+    checked: files.length,
+    findings: sortFindings(findings),
+    records: [...records].sort((a, b) => compareCodeUnits(a.frontmatter.id, b.frontmatter.id))
+  };
+}
+// ../core/src/queue/as-of.ts
+function isCalendarDate(candidate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate))
+    return false;
+  const probe = new Date(`${candidate}T00:00:00Z`);
+  return Number.isFinite(probe.getTime()) && probe.toISOString().slice(0, 10) === candidate;
+}
+function resolveAsOf(value) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return isCalendarDate(value) ? { ok: true, date: value } : { ok: false, code: "invalid" };
+  }
+  const tIndex = value.indexOf("T");
+  if (tIndex !== -1) {
+    const timePart = value.slice(tIndex + 1);
+    const hasTimezone = /Z$/.test(timePart) || /[+-]\d{2}:?\d{2}$/.test(timePart);
+    if (!hasTimezone)
+      return { ok: false, code: "tzless" };
+    if (!isCalendarDate(value.slice(0, tIndex)))
+      return { ok: false, code: "invalid" };
+    const parsed = new Date(value);
+    if (!Number.isFinite(parsed.getTime()))
+      return { ok: false, code: "invalid" };
+    const resolved = parsed.toISOString().slice(0, 10);
+    return isCalendarDate(resolved) ? { ok: true, date: resolved } : { ok: false, code: "invalid" };
+  }
+  return { ok: false, code: "invalid" };
+}
+function todayUtcDate(now = new Date) {
+  const date = now.toISOString().slice(0, 10);
+  if (!isCalendarDate(date))
+    throw new RangeError(`todayUtcDate: ${now.toISOString()} is outside years 0000-9999.`);
+  return date;
+}
+// ../core/src/graph/build.ts
+function edgeKey(edge) {
+  return `${edge.from}\x00${edge.to}\x00${edge.kind}`;
+}
+function pushEdge(edges, ids, edge) {
+  if (!ids.has(edge.from) || !ids.has(edge.to))
+    return;
+  edges.set(edgeKey(edge), edge);
+}
+function buildAdrGraph(records) {
+  const sortedRecords = [...records].sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id));
+  const ids = new Set(sortedRecords.map((record) => record.frontmatter.id));
+  const edges = new Map;
+  for (const record of sortedRecords) {
+    for (const superseded of record.frontmatter.supersedes) {
+      pushEdge(edges, ids, { from: record.frontmatter.id, to: superseded, kind: "supersedes" });
+    }
+    if (record.frontmatter.supersededBy) {
+      pushEdge(edges, ids, {
+        from: record.frontmatter.supersededBy,
+        to: record.frontmatter.id,
+        kind: "supersedes"
+      });
+    }
+    for (const related of record.frontmatter.relatesTo) {
+      pushEdge(edges, ids, { from: record.frontmatter.id, to: related, kind: "relatesTo" });
+    }
+    for (const conflict of record.frontmatter.conflictsWith) {
+      pushEdge(edges, ids, { from: record.frontmatter.id, to: conflict, kind: "conflictsWith" });
+    }
+  }
+  return {
+    nodes: sortedRecords.map((record) => ({
+      id: record.frontmatter.id,
+      title: record.frontmatter.title,
+      status: record.frontmatter.status
+    })),
+    edges: [...edges.values()].sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.kind.localeCompare(b.kind))
+  };
 }
 // ../core/src/affects/inert.ts
 var import_picomatch = __toESM(require_picomatch2(), 1);
@@ -41331,7 +41463,6 @@ function matchPathPattern(pattern, changedFiles) {
 }
 
 // ../core/src/affects/index.ts
-var AFFECTS_REPO_NOT_APPLICABLE = "affects-repo-not-applicable";
 function compareFiredMatcher(a, b) {
   return compareCodeUnits(a.type, b.type) || compareCodeUnits(a.pattern, b.pattern);
 }
@@ -41353,15 +41484,8 @@ function affectsFinding(record, matcher, rule, severity, message) {
     pattern: matcher.pattern
   };
 }
-function matcherAppliesToMember(matcher, member) {
-  if (!matcher.repo)
-    return true;
-  if (member === undefined)
-    return false;
-  return matcher.repo === member.repo || matcher.repo === member.log;
-}
-function repoNotApplicableFinding(record, matcher) {
-  return affectsFinding(record, matcher, AFFECTS_REPO_NOT_APPLICABLE, "info", `${matcher.type} matcher "${matcher.pattern}" is qualified with repo "${matcher.repo}" and cannot apply in a single-repository corpus; it was skipped, and is kept for a federation that includes that repository.`);
+function matcherAppliesToLog(matcher, log) {
+  return !matcher.repo || matcher.repo === log;
 }
 function evaluateMatcher(record, matcher, changedFiles, snapshots) {
   if (matcher.type === "path") {
@@ -41430,11 +41554,8 @@ function resolveAffects(input) {
     const firedMatchers = [];
     let suppressed = false;
     for (const matcher of record.frontmatter.affects ?? []) {
-      if (!matcherAppliesToMember(matcher, input.member)) {
-        if (input.member === undefined)
-          findings.push(repoNotApplicableFinding(record, matcher));
+      if (!matcherAppliesToLog(matcher, input.log))
         continue;
-      }
       const result = evaluateMatcher(record, matcher, input.changedFiles, input.snapshots);
       findings.push(...result.findings);
       if (!result.matched)
@@ -41455,146 +41576,6 @@ function resolveAffects(input) {
   return {
     matches: matches.sort((a, b) => compareCodeUnits(a.recordId, b.recordId)),
     findings: sortFindings(findings)
-  };
-}
-
-// ../core/src/validate/affects-repo-qualifier.ts
-function validateAffectsRepoQualifiers(records) {
-  const findings = [];
-  for (const record of records) {
-    const qualified = (record.frontmatter.affects ?? []).filter((matcher) => Boolean(matcher.repo));
-    if (qualified.length === 0)
-      continue;
-    const repos = [...new Set(qualified.map((matcher) => matcher.repo))].sort(compareCodeUnits);
-    const count = qualified.length;
-    const noun = count === 1 ? "affects matcher is" : "affects matchers are";
-    findings.push({
-      rule: AFFECTS_REPO_NOT_APPLICABLE,
-      severity: "info",
-      message: `${count} ${noun} qualified with another repository (repo ${repos.map((repo) => `"${repo}"`).join(", ")}) ` + "and cannot apply in a single-repository corpus; adr check and adr explain skip them, " + "and they are kept for a federation that includes that repository.",
-      path: record.path,
-      id: record.frontmatter.id,
-      field: "affects"
-    });
-  }
-  return findings;
-}
-// ../core/src/validate/index.ts
-import { stat as stat3 } from "node:fs/promises";
-import { isAbsolute as isAbsolute2, resolve as resolve3 } from "node:path";
-function parseErrorFinding(error, path) {
-  if (error instanceof FrontmatterError) {
-    return {
-      rule: error.code === "invalid-yaml" ? "frontmatter-parse" : "frontmatter-fence",
-      severity: "error",
-      message: error.message,
-      path,
-      field: "frontmatter"
-    };
-  }
-  return {
-    rule: "file-read",
-    severity: "error",
-    message: error instanceof Error ? error.message : String(error),
-    path
-  };
-}
-function skippedFileFinding(skipped, cwd) {
-  const message = skipped.reason === "nested" ? "Markdown file is in a subdirectory of the corpus, and discovery reads only the top level of the corpus directory; move it to the corpus root as <id>-<slug>.md for it to be linted and enforced" : "Markdown file in the corpus directory is not a discoverable ADR record and was skipped; rename it to <id>-<slug>.md (four or more leading digits) for it to be linted and enforced";
-  return {
-    rule: "corpus-file-skipped",
-    severity: "warn",
-    message,
-    path: normalizeDisplayPath(skipped.path, cwd)
-  };
-}
-async function isDirectory2(path) {
-  return stat3(path).then((info) => info.isDirectory(), () => false);
-}
-async function scannedDirectories(paths, dir, cwd) {
-  if (!paths || paths.length === 0)
-    return [dir];
-  const directories = new Set;
-  for (const path of paths) {
-    const absolutePath = isAbsolute2(path) ? path : resolve3(cwd, path);
-    if (await isDirectory2(absolutePath))
-      directories.add(absolutePath);
-  }
-  return [...directories].sort((a, b) => compareByDisplayPath(a, b, cwd));
-}
-async function lintCorpus(options = {}) {
-  const cwd = options.cwd ?? process.cwd();
-  const dir = options.dir ?? "docs/adr";
-  const files = await expandRecordInputs(options.paths, dir, cwd);
-  const records = [];
-  const findings = [];
-  for (const file of files) {
-    const displayPath = normalizeDisplayPath(file, cwd);
-    try {
-      const parsed = await parseAdrFile(file, cwd);
-      const result = validateParsedAdr(parsed);
-      findings.push(...result.findings);
-      if (result.record) {
-        records.push(result.record);
-      }
-    } catch (error) {
-      findings.push(parseErrorFinding(error, displayPath));
-    }
-  }
-  const checkedPaths = new Set(files);
-  for (const scanned of await scannedDirectories(options.paths, dir, cwd)) {
-    for (const skipped of await discoverSkippedMarkdownFiles(scanned, cwd)) {
-      if (!checkedPaths.has(skipped.path))
-        findings.push(skippedFileFinding(skipped, cwd));
-    }
-  }
-  findings.push(...validateImportIncomplete(records));
-  findings.push(...validateAffectsRepoQualifiers(records));
-  findings.push(...validateCorpusInvariants(records));
-  return {
-    checked: files.length,
-    findings: sortFindings(findings),
-    records: [...records].sort((a, b) => compareCodeUnits(a.frontmatter.id, b.frontmatter.id))
-  };
-}
-// ../core/src/graph/build.ts
-function edgeKey(edge) {
-  return `${edge.from}\x00${edge.to}\x00${edge.kind}`;
-}
-function pushEdge(edges, ids, edge) {
-  if (!ids.has(edge.from) || !ids.has(edge.to))
-    return;
-  edges.set(edgeKey(edge), edge);
-}
-function buildAdrGraph(records) {
-  const sortedRecords = [...records].sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id));
-  const ids = new Set(sortedRecords.map((record) => record.frontmatter.id));
-  const edges = new Map;
-  for (const record of sortedRecords) {
-    for (const superseded of record.frontmatter.supersedes) {
-      pushEdge(edges, ids, { from: record.frontmatter.id, to: superseded, kind: "supersedes" });
-    }
-    if (record.frontmatter.supersededBy) {
-      pushEdge(edges, ids, {
-        from: record.frontmatter.supersededBy,
-        to: record.frontmatter.id,
-        kind: "supersedes"
-      });
-    }
-    for (const related of record.frontmatter.relatesTo) {
-      pushEdge(edges, ids, { from: record.frontmatter.id, to: related, kind: "relatesTo" });
-    }
-    for (const conflict of record.frontmatter.conflictsWith) {
-      pushEdge(edges, ids, { from: record.frontmatter.id, to: conflict, kind: "conflictsWith" });
-    }
-  }
-  return {
-    nodes: sortedRecords.map((record) => ({
-      id: record.frontmatter.id,
-      title: record.frontmatter.title,
-      status: record.frontmatter.status
-    })),
-    edges: [...edges.values()].sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.kind.localeCompare(b.kind))
   };
 }
 // ../core/src/markers/scan.ts
@@ -42236,33 +42217,6 @@ function buildQueueReport(input) {
     corpusFindings
   };
 }
-// ../core/src/queue/as-of.ts
-function isCalendarDate(candidate) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate))
-    return false;
-  const probe = new Date(`${candidate}T00:00:00Z`);
-  return Number.isFinite(probe.getTime()) && probe.toISOString().slice(0, 10) === candidate;
-}
-function resolveAsOf(value) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return isCalendarDate(value) ? { ok: true, date: value } : { ok: false, code: "invalid" };
-  }
-  const tIndex = value.indexOf("T");
-  if (tIndex !== -1) {
-    const timePart = value.slice(tIndex + 1);
-    const hasTimezone = /Z$/.test(timePart) || /[+-]\d{2}:?\d{2}$/.test(timePart);
-    if (!hasTimezone)
-      return { ok: false, code: "tzless" };
-    if (!isCalendarDate(value.slice(0, tIndex)))
-      return { ok: false, code: "invalid" };
-    const parsed = new Date(value);
-    if (!Number.isFinite(parsed.getTime()))
-      return { ok: false, code: "invalid" };
-    const resolved = parsed.toISOString().slice(0, 10);
-    return isCalendarDate(resolved) ? { ok: true, date: resolved } : { ok: false, code: "invalid" };
-  }
-  return { ok: false, code: "invalid" };
-}
 // ../sdk/src/corpus-directory.ts
 import { isAbsolute as isAbsolute4, resolve as resolve5 } from "node:path";
 var CORPUS_DIRECTORY_NOT_FOUND_CODES = new Set(["ENOENT", "ENOTDIR"]);
@@ -42390,12 +42344,9 @@ function resolveEdgeKinds(kinds) {
   }
   return EDGE_KINDS.filter((kind) => kinds.includes(kind));
 }
-function todayUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
 function resolveQueueAsOf(asOf) {
   if (asOf === undefined)
-    return todayUtc();
+    return todayUtcDate();
   if (typeof asOf !== "string" || !BARE_CALENDAR_DATE.test(asOf) || !resolveAsOf(asOf).ok) {
     throw new RangeError(`queue({ asOf }) must be a real UTC calendar date in YYYY-MM-DD form; received ${JSON.stringify(asOf)}.`);
   }
@@ -44284,13 +44235,8 @@ function toPosix(path) {
 async function generatePortal(options = {}) {
   const given = resolve6(options.cwd ?? process.cwd());
   const cwd = await realpath2(given).catch(() => given);
-  let asOf;
-  if (options.asOf !== undefined) {
-    if (!isCalendarDate2(options.asOf))
-      return usage(`asOf must be a UTC calendar date YYYY-MM-DD; got "${options.asOf}".`);
-    asOf = options.asOf;
-  } else {
-    asOf = (options.now ?? (() => new Date))().toISOString().slice(0, 10);
+  if (options.asOf !== undefined && !isCalendarDate2(options.asOf)) {
+    return usage(`asOf must be a UTC calendar date YYYY-MM-DD; got "${options.asOf}".`);
   }
   let baseUrl = null;
   if (options.baseUrl !== undefined && options.baseUrl !== "") {
@@ -44347,6 +44293,7 @@ async function generatePortal(options = {}) {
     }
     throw error;
   }
+  const asOf = options.asOf ?? handle.queue().asOf;
   const errorIssues = handle.issues.filter((issue) => issue.severity === "error");
   let commit = null;
   if (toplevel !== null) {

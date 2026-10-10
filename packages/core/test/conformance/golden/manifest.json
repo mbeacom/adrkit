@@ -1,0 +1,17 @@
+{
+  "fixture": "adrkit-conformance",
+  "version": 1,
+  "cwd": "repo",
+  "commands": {
+    "queue": {
+      "args": ["queue", "--format", "json", "--as-of", "2026-07-15"],
+      "exitCode": 0,
+      "golden": "queue.json"
+    },
+    "check": {
+      "args": ["check", "--json", "src/sync/retry.ts", "src/sync/protocol.ts", "src/sync/stale.ts", "src/cache/lru.ts", "src/sync/missing.ts"],
+      "exitCode": 0,
+      "golden": "check.json"
+    }
+  }
+}

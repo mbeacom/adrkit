@@ -1,0 +1,11 @@
+{
+  "checked": 7,
+  "findings": [
+    {
+      "rule": "corpus-file-skipped",
+      "severity": "warn",
+      "message": "Markdown file is in a subdirectory of the corpus, and discovery reads only the top level of the corpus directory; move it to the corpus root as <id>-<slug>.md for it to be linted and enforced",
+      "path": "docs/adr/notes/0008-nested-record.md"
+    }
+  ]
+}

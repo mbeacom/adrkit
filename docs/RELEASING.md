@@ -98,6 +98,61 @@ renames, or reinterprets that field breaks badges in other people's
 repositories; call it out in the release notes and keep the v1 field emitted for
 at least one minor release.
 
+## Consumer contracts: `@adrkit/sdk` and the CLI JSON
+
+[ADR-0031](adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+names two contracts for code outside this repository, and attaches the
+additive-only obligation of ADR-0029 clause 11 to them instead of to
+`@adrkit/core`. Core's exports are the engine: the surface test pins them so
+each change is deliberate, but a downstream surface should bind to one of these
+two.
+
+**`@adrkit/sdk`** is the typed library contract: `openDecisions()` and a
+`DecisionSet` handle (`records`, `issues`, `get`, `queue`, `graph`,
+`governing`), with its own declared types and no re-export of core's. The
+surface, its counts, and the reasoning behind each entry are in
+[`docs/sdk-surface.md`](sdk-surface.md). It is implemented and **not
+published**. It stays at `0.0.0` with no `exports` or `files` and is absent
+from `RELEASE_PACKAGES`, until a later record authorizes publication
+(ADR-0031 clause 8, with the gates in
+[ADR-0053](adr/0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md)
+decision 9). Once published it is versioned independently, as
+`@adrkit/spec-kit` is, and is additive-only: fields, options, and methods may
+be added, but none is removed, renamed, or reinterpreted. A core change reaches
+SDK consumers only through a deliberate edit to its mapping layer.
+
+**The CLI JSON** is the language-agnostic contract. Every `--json` shape below
+is a type core owns and serializes with `JSON.stringify(value, null, 2)` plus a
+trailing newline:
+
+| Command | Shape | Formatter |
+|---|---|---|
+| `adr queue --format json` | `QueueReport` v1 ([`queue-report.md`](../specs/007-arb-queue/contracts/queue-report.md)) | `formatQueueReportJson` |
+| `adr check --json` | `CheckOutcome` | serialized directly |
+| `adr explain --json` | `ExplainReport` | `formatExplainReportJson` |
+| `adr lint --json` | `LintReport` (`{ checked, findings }`) | `formatLintReportJson` |
+| `adr new --json` | `NewAdrReport` (`{ id, path }`) | `formatNewAdrReportJson` |
+| `adr graph --format json` | `{ nodes, edges }` | `renderJsonGraph` |
+
+It is additive-only too. A key may be added. Removing, renaming, or
+reinterpreting a key, or reclassifying an exit code, is a break. One
+exception is admitted, by
+[ADR-0059](adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
+clause 5: `adr lint --json` reports a log-qualified `relatesTo` or
+`conflictsWith` whose log is absent as `federated-ref-unresolved`. When
+`--as-of` is absent, `adr queue` uses core's `todayUtcDate()`, the one
+implementation of the default in
+[`cli-contract.md` §As-Of Resolution](../specs/007-arb-queue/contracts/cli-contract.md).
+
+Goldens pin these shapes. The conformance fixture,
+[`packages/core/test/conformance/golden/`](../packages/core/test/conformance/golden/README.md),
+is a fixed corpus with golden `adr queue` and `adr check` output (ADR-0030
+clause 5). The CLI and the SDK are both tested against it, and a downstream
+repository can run its `manifest.json` against the `adr` version it pins.
+`packages/cli/test/fixtures/json-report/` pins `explain`, `lint`, and `new`
+the same way. A change that has to regenerate a golden changes the contract.
+Say so in the CHANGELOG and the release notes.
+
 ## Local release simulation
 
 From a clean checkout:

@@ -32,6 +32,7 @@ import {
   resolveAsOf,
   resolveSourceMarkers,
   sortFindings,
+  todayUtcDate,
   toGoverningDecisions,
   type Adr,
   type CorpusFinding,
@@ -212,20 +213,11 @@ function resolveEdgeKinds(kinds: readonly DecisionEdgeKind[] | undefined): reado
   return EDGE_KINDS.filter((kind) => kinds.includes(kind));
 }
 
-/**
- * Today's UTC calendar date — `cli-contract.md` §As-Of Resolution's absent-input clause.
- *
- * Inlined, as it is in `packages/cli/src/queue.ts`, `packages/ci/src/queue-action-entrypoint.ts`,
- * and `packages/core/src/scaffold/new.ts`. This is the fourth copy, and ADR-0031 action item 8
- * (a publication gate for this package) exists to replace all four with one core export. It is
- * the one ambient read in the handle, and it happens only when the caller omits `asOf`.
- */
-function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function resolveQueueAsOf(asOf: string | undefined): string {
-  if (asOf === undefined) return todayUtc();
+  // Absent: today's UTC date, from core's one export of `cli-contract.md` §As-Of Resolution's
+  // absent-input clause — the same function `adr queue` and the queue Action call. It is the
+  // one ambient read in the handle, and it happens only when the caller omits `asOf`.
+  if (asOf === undefined) return todayUtcDate();
   // The contract is a bare calendar date only. `resolveAsOf` also accepts zoned datetimes
   // for the CLI flag; the SDK deliberately does not, so the timezone question is answered
   // once, by the caller, rather than silently here.

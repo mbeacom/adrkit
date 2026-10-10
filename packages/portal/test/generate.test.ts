@@ -29,6 +29,7 @@ import { cleanupTestDir, resetTestDir, writeText } from '../../core/test/helpers
 import { writeBrokenCorpus, writeHealthyCorpus } from '../../sdk/test/fixture.ts';
 import type { PortalPathTableAvailable } from '../src/data/contract.ts';
 import { generatePortal } from '../src/generate.ts';
+import { openDecisions } from '../../sdk/src/index.ts';
 
 const HEALTHY = 'portal-generate-healthy';
 const BROKEN = 'portal-generate-broken';
@@ -127,9 +128,15 @@ describe('exit 0: a healthy corpus in a git repository', () => {
     expect(await readFile(second.dataFile!, 'utf8')).toBe(await readFile(first.dataFile!, 'utf8'));
   });
 
-  test('asOf defaults to today in UTC, read from the clock', async () => {
-    const result = await generatePortal({ cwd: healthyRoot, out: 'site-d', now: () => new Date('2026-07-09T23:30:00-05:00') });
-    expect(result.data!.asOf).toBe('2026-07-10');
+  test('asOf defaults to the SDK\'s own default: today in UTC, echoed by queue()', async () => {
+    // The portal reads no clock: it takes `handle.queue().asOf`, which the SDK computes with
+    // core's `todayUtcDate()`. The test brackets the call, since a UTC midnight may fall in it.
+    const before = new Date().toISOString().slice(0, 10);
+    const result = await generatePortal({ cwd: healthyRoot, out: 'site-d' });
+    const after = new Date().toISOString().slice(0, 10);
+    expect([before, after]).toContain(result.data!.asOf);
+    const sdkDefault = (await openDecisions({ cwd: healthyRoot })).queue().asOf;
+    if (before === after) expect(result.data!.asOf).toBe(sdkDefault);
   });
 
   test('from a subdirectory, the corpus opens from the top level and the table covers the whole tree', async () => {

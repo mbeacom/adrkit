@@ -40,9 +40,25 @@ export type {
   ResolveDecisionsAsOfInput,
 } from './temporal/decisions.ts';
 export { buildQueueReport } from './queue/kernel.ts';
-export { resolveAsOf } from './queue/as-of.ts';
+export { resolveAsOf, todayUtcDate } from './queue/as-of.ts';
 export type { AsOfResolution } from './queue/as-of.ts';
 export { formatQueueReportJson, formatQueueReportMarkdown } from './queue/format.ts';
+export {
+  buildExplainReport,
+  buildLintReport,
+  buildNewAdrReport,
+  explainMarkerScan,
+  formatExplainReportJson,
+  formatLintReportJson,
+  formatNewAdrReportJson,
+  type ExplainAsOf,
+  type ExplainAsOfResolution,
+  type ExplainMarkerScan,
+  type ExplainReport,
+  type ExplainReportInput,
+  type LintReport,
+  type NewAdrReport,
+} from './report/index.ts';
 export { sortCorpusFindings, sortItemFindings, sortQueueItems } from './queue/sort.ts';
 export { mapFindingToCorpusFinding, RULE_TO_CORPUS_CODE } from './queue/findings.ts';
 export {

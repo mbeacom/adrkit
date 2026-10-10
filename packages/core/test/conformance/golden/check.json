@@ -1,0 +1,197 @@
+{
+  "changedFiles": [
+    "src/cache/lru.ts",
+    "src/sync/missing.ts",
+    "src/sync/protocol.ts",
+    "src/sync/retry.ts",
+    "src/sync/stale.ts"
+  ],
+  "governedBy": [
+    {
+      "recordId": "0001",
+      "title": "Use the sync protocol",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    },
+    {
+      "recordId": "0002",
+      "title": "Retry on transient failure",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [],
+      "declaredBy": [
+        {
+          "path": "src/sync/retry.ts",
+          "line": 1,
+          "ref": "0002"
+        }
+      ]
+    },
+    {
+      "recordId": "0003",
+      "title": "Poll for changes",
+      "status": "superseded",
+      "bucket": "history",
+      "supersededBy": "0004",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ],
+      "declaredBy": [
+        {
+          "path": "src/sync/stale.ts",
+          "line": 1,
+          "ref": "0003"
+        }
+      ]
+    },
+    {
+      "recordId": "0004",
+      "title": "Push changes over websockets",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/protocol.ts"
+        }
+      ]
+    },
+    {
+      "recordId": "0005",
+      "title": "Batch sync writes",
+      "status": "proposed",
+      "bucket": "activeProposals",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "governing": [
+    {
+      "recordId": "0001",
+      "title": "Use the sync protocol",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    },
+    {
+      "recordId": "0002",
+      "title": "Retry on transient failure",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [],
+      "declaredBy": [
+        {
+          "path": "src/sync/retry.ts",
+          "line": 1,
+          "ref": "0002"
+        }
+      ]
+    },
+    {
+      "recordId": "0004",
+      "title": "Push changes over websockets",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/protocol.ts"
+        }
+      ]
+    }
+  ],
+  "activeProposals": [
+    {
+      "recordId": "0005",
+      "title": "Batch sync writes",
+      "status": "proposed",
+      "bucket": "activeProposals",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "history": [
+    {
+      "recordId": "0003",
+      "title": "Poll for changes",
+      "status": "superseded",
+      "bucket": "history",
+      "supersededBy": "0004",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ],
+      "declaredBy": [
+        {
+          "path": "src/sync/stale.ts",
+          "line": 1,
+          "ref": "0003"
+        }
+      ]
+    }
+  ],
+  "changedRecords": [],
+  "findings": [
+    {
+      "rule": "stale-marker",
+      "severity": "warn",
+      "message": "Source marker \"@adr 0003\" in src/sync/stale.ts:1 names superseded ADR 0003; update it to \"@adr 0004\" or re-affirm 0003",
+      "path": "src/sync/stale.ts",
+      "field": "marker",
+      "pattern": "0003"
+    }
+  ],
+  "markerScan": {
+    "totalCandidates": 5,
+    "limit": 3000,
+    "counts": {
+      "scanned": 4,
+      "absent": 1,
+      "unreadable": 0,
+      "out-of-tree": 0,
+      "truncated": 0,
+      "skipped": 0
+    },
+    "absentPaths": [
+      "src/sync/missing.ts"
+    ],
+    "unreadablePaths": [],
+    "outOfTreePaths": [],
+    "truncatedPaths": [],
+    "skippedPaths": [],
+    "declarations": {
+      "total": 2,
+      "retained": 2,
+      "omitted": 0,
+      "perFileOmitted": 0,
+      "batchOmitted": 0,
+      "perFileLimit": 64,
+      "batchLimit": 10000
+    }
+  },
+  "ok": true
+}

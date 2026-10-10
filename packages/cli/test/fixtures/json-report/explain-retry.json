@@ -1,0 +1,130 @@
+{
+  "path": "src/sync/retry.ts",
+  "governedBy": [
+    {
+      "recordId": "0001",
+      "title": "Use the sync protocol",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    },
+    {
+      "recordId": "0002",
+      "title": "Retry on transient failure",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [],
+      "declaredBy": [
+        {
+          "path": "src/sync/retry.ts",
+          "line": 1,
+          "ref": "0002"
+        }
+      ]
+    },
+    {
+      "recordId": "0003",
+      "title": "Poll for changes",
+      "status": "superseded",
+      "bucket": "history",
+      "supersededBy": "0004",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    },
+    {
+      "recordId": "0005",
+      "title": "Batch sync writes",
+      "status": "proposed",
+      "bucket": "activeProposals",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "governing": [
+    {
+      "recordId": "0001",
+      "title": "Use the sync protocol",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    },
+    {
+      "recordId": "0002",
+      "title": "Retry on transient failure",
+      "status": "accepted",
+      "bucket": "governing",
+      "firedMatchers": [],
+      "declaredBy": [
+        {
+          "path": "src/sync/retry.ts",
+          "line": 1,
+          "ref": "0002"
+        }
+      ]
+    }
+  ],
+  "activeProposals": [
+    {
+      "recordId": "0005",
+      "title": "Batch sync writes",
+      "status": "proposed",
+      "bucket": "activeProposals",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "history": [
+    {
+      "recordId": "0003",
+      "title": "Poll for changes",
+      "status": "superseded",
+      "bucket": "history",
+      "supersededBy": "0004",
+      "firedMatchers": [
+        {
+          "type": "path",
+          "pattern": "src/sync/**"
+        }
+      ]
+    }
+  ],
+  "markers": {
+    "state": "scanned",
+    "windowBytes": 8192,
+    "scannedBytes": 40,
+    "fileBytes": 40,
+    "truncated": false,
+    "declarationLimit": 64,
+    "totalDeclarations": 1,
+    "omittedDeclarations": 0,
+    "declared": [
+      {
+        "ref": "0002",
+        "line": 1
+      }
+    ]
+  },
+  "findings": []
+}

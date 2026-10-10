@@ -7,7 +7,7 @@
 
 import * as core from '@actions/core';
 import { getOctokit } from '@actions/github';
-import { buildQueueReport, formatQueueReportMarkdown, lintCorpus } from '@adrkit/core';
+import { buildQueueReport, formatQueueReportMarkdown, lintCorpus, todayUtcDate } from '@adrkit/core';
 import { publishQueueReport } from './queue-issue.ts';
 import { createOctokitQueueClient, handleGitHubApiError, type QueueOctokit } from './queue-github-client.ts';
 
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const asOf = new Date().toISOString().slice(0, 10);
+  const asOf = todayUtcDate();
   const report = buildQueueReport({ corpus, asOf });
   const markdown = formatQueueReportMarkdown(report);
 

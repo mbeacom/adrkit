@@ -317,7 +317,8 @@ export interface CorpusIssue {
 /** Options for {@link DecisionSet.queue}. */
 export interface QueueOptions {
   /**
-   * UTC calendar date, `YYYY-MM-DD`, that SLA state is computed against. Defaults to today.
+   * UTC calendar date, `YYYY-MM-DD`, that SLA state is computed against. Defaults to today's
+   * UTC date, by the same function `adr queue` uses when `--as-of` is absent.
    *
    * A bare calendar date only — no datetime, and no `Date`. Both alternatives carry a timezone
    * question, and this contract answers it once here instead of at every call site. A caller

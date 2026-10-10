@@ -4,16 +4,21 @@ import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { readdir } from 'node:fs/promises';
 import {
   buildAdrGraph,
+  buildExplainReport,
+  buildLintReport,
+  buildNewAdrReport,
   bucketDecisions,
   checkChanges,
   countFindings,
   createAdr,
   exitCodeForFindings,
   filterAdrGraph,
+  formatExplainReportJson,
+  formatLintReportJson,
+  formatNewAdrReportJson,
   isInvertedWindow,
   lintCorpus,
   MARKER_DECLARATION_FILE_CAP,
-  MARKER_HEADER_WINDOW_BYTES,
   mergeSourceDeclarations,
   migrateMadr,
   readSourceMarkers,
@@ -512,7 +517,7 @@ async function runLint(args: string[]): Promise<number> {
   const counts = countFindings(findings);
 
   if (parsed.values.json) {
-    writeStdout(`${JSON.stringify({ checked: result.checked, findings }, null, 2)}\n`);
+    writeStdout(formatLintReportJson(buildLintReport(result, findings)));
   } else {
     const humanFindings = renderHumanLint(findings, getPresentation().stderr);
     if (humanFindings) writeStderr(humanFindings);
@@ -644,7 +649,7 @@ async function runNew(args: string[]): Promise<number> {
       dir: String(parsed.values.dir),
     });
     if (parsed.values.json) {
-      writeStdout(`${JSON.stringify({ id: result.id, path: result.path }, null, 2)}\n`);
+      writeStdout(formatNewAdrReportJson(buildNewAdrReport(result)));
     } else {
       writeStdout(`${getPresentation().stdout.path(result.path)}\n`);
     }
@@ -803,22 +808,9 @@ async function runExplain(args: string[]): Promise<number> {
   const corpusFindings = sortFindings(corpus.findings);
   if (exitCodeForFindings(corpusFindings) !== 0) {
     if (parsed.values.json) {
-      writeStdout(
-        `${JSON.stringify(
-          {
-            path,
-            ...(asOf ? { asOf: emptyAsOfJson(asOf) } : {}),
-            governedBy: [],
-            governing: [],
-            activeProposals: [],
-            history: [],
-            markers: markerScanJson(scan),
-            findings: corpusFindings,
-          },
-          null,
-          2,
-        )}\n`,
-      );
+      // No `governedBy` and no `asOfView`: the report answers with empty groups, and still
+      // reports the `--as-of` resolution and the marker scan, which do not depend on the corpus.
+      writeStdout(formatExplainReportJson(buildExplainReport({ path, scan, ...(asOf ? { asOf } : {}), findings: corpusFindings })));
     } else {
       const humanFindings = renderHumanLint(corpusFindings, getPresentation().stderr);
       if (humanFindings) writeStderr(humanFindings);
@@ -850,18 +842,9 @@ async function runExplain(args: string[]): Promise<number> {
 
   if (parsed.values.json) {
     writeStdout(
-      `${JSON.stringify(
-        {
-          path,
-          ...(asOf && asOfView ? { asOf: asOfJson(asOf, asOfView) } : {}),
-          governedBy,
-          ...buckets,
-          markers: markerScanJson(scan),
-          findings,
-        },
-        null,
-        2,
-      )}\n`,
+      formatExplainReportJson(
+        buildExplainReport({ path, scan, governedBy, ...(asOf && asOfView ? { asOf, asOfView } : {}), findings }),
+      ),
     );
     return 0;
   }
@@ -914,46 +897,6 @@ function renderDecisionGroup(
     }
   }
   return output;
-}
-
-/**
- * The `asOf` block of `adr explain --json`.
- *
- * Additive, and present only when `--as-of` was given. The present-tense `governing`,
- * `activeProposals`, and `history` keys beside it keep their meaning untouched, because a
- * consumer that has never heard of this flag must not find those keys re-dated under it —
- * the same discipline `markerScan` follows in `CheckOutcome`.
- */
-function asOfJson(resolved: ResolvedAsOf, view: DecisionsAsOf) {
-  return {
-    requested: resolved.requested,
-    date: resolved.date,
-    resolvedFrom: resolved.resolvedFrom,
-    ...(resolved.commit === undefined ? {} : { commit: resolved.commit }),
-    ...(resolved.committedAt === undefined ? {} : { committedAt: resolved.committedAt }),
-    governing: view.governing,
-    activeProposals: view.activeProposals,
-    history: view.history,
-    notYetRecorded: view.notYetRecorded,
-    undetermined: view.undetermined,
-  };
-}
-
-/**
- * The same block when the corpus did not parse. The resolution still happened and is still
- * reported, because what the user asked for is a fact independent of whether it could be
- * answered — the same reason the marker scan state is reported on this path.
- */
-function emptyAsOfJson(resolved: ResolvedAsOf) {
-  return asOfJson(resolved, {
-    date: resolved.date,
-    governing: [],
-    activeProposals: [],
-    history: [],
-    notYetRecorded: [],
-    undetermined: [],
-    findings: [],
-  });
 }
 
 /**
@@ -1041,40 +984,6 @@ function renderWindow(decision: DecisionAsOf): string {
     return `no in-force interval: recorded ${decision.window.opensOn}, but its successor${closedBy ? ` ${decision.window.closedBy}` : ''} is dated ${decision.window.closesOn}`;
   }
   return `in force ${decision.window.opensOn} → ${decision.window.closesOn}${closedBy}`;
-}
-
-/**
- * The `markers` block of `adr explain --json`: what was scanned, and what was found.
- *
- * `truncated` says bytes were left unscanned, but not how many — and the window constant
- * does not answer that either, because the scan stops at the last complete line inside it.
- * `scannedBytes` / `fileBytes` report the measurement, so a consumer can size the
- * unscanned remainder and set its own policy instead of inheriting one (#108). Both are
- * omitted for a state that never opened the file, rather than reported as `0`.
- */
-function markerScanJson(scan: SourceMarkerScan): {
-  state: SourceMarkerScan['state'];
-  windowBytes: number;
-  scannedBytes?: number;
-  fileBytes?: number;
-  truncated: boolean;
-  declarationLimit: number;
-  totalDeclarations: number;
-  omittedDeclarations: number;
-  declared: Array<{ ref: string; line: number }>;
-} {
-  const omittedDeclarations = scan.omittedMarkers ?? 0;
-  return {
-    state: scan.state,
-    windowBytes: MARKER_HEADER_WINDOW_BYTES,
-    ...(scan.scannedBytes === undefined ? {} : { scannedBytes: scan.scannedBytes }),
-    ...(scan.fileBytes === undefined ? {} : { fileBytes: scan.fileBytes }),
-    truncated: scan.truncated,
-    declarationLimit: MARKER_DECLARATION_FILE_CAP,
-    totalDeclarations: scan.markers.length + omittedDeclarations,
-    omittedDeclarations,
-    declared: scan.markers.map((marker) => ({ ref: marker.ref, line: marker.line })),
-  };
 }
 
 /**

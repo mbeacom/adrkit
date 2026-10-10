@@ -60,3 +60,25 @@ export function resolveAsOf(value: string): AsOfResolution {
 
   return { ok: false, code: 'invalid' };
 }
+
+/**
+ * Today's UTC calendar date, `YYYY-MM-DD` — the absent-input clause of
+ * `cli-contract.md §As-Of Resolution` ("if absent: the current UTC date").
+ *
+ * `resolveAsOf` turns a *supplied* value into a date and takes a required string, so it
+ * cannot express the absent case. Until this was exported the default was inlined at four
+ * call sites (`adr queue`, the queue Action, `adr new`'s scaffold, and the SDK's `queue()`),
+ * and a consumer defaulting from a *local* calendar date rather than a UTC one disagreed with
+ * CI near midnight with no error anywhere (ADR-0031 action item 8).
+ *
+ * This is the one clock read the rule needs, and it belongs at a boundary: pure kernels such
+ * as `buildQueueReport` keep taking the date as an argument. `now` exists so a caller (and a
+ * test) can supply the instant instead of reading the clock; it is not a second rule.
+ */
+export function todayUtcDate(now: Date = new Date()): string {
+  const date = now.toISOString().slice(0, 10);
+  // `toISOString` emits `±YYYYYY-…` outside years 0000-9999 (see `resolveAsOf`); refuse such an
+  // instant rather than hand the kernel a non-date it would compare lexicographically.
+  if (!isCalendarDate(date)) throw new RangeError(`todayUtcDate: ${now.toISOString()} is outside years 0000-9999.`);
+  return date;
+}

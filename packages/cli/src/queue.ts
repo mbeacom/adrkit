@@ -7,6 +7,7 @@ import {
   formatQueueReportMarkdown,
   lintCorpus,
   resolveAsOf,
+  todayUtcDate,
 } from '@adrkit/core';
 import { commandOptions, renderGlobalColorUsageLine, requiredCommandValueChoices, withGlobalColorOption } from './command-registry.ts';
 import { corpusDirectoryErrorKind, corpusDirectoryErrorMessage, formatUsageError } from './errors.ts';
@@ -185,7 +186,7 @@ export async function runQueue(args: string[]): Promise<number> {
     }
     asOf = resolution.date;
   } else {
-    asOf = new Date().toISOString().slice(0, 10);
+    asOf = todayUtcDate();
   }
 
   let corpus: Awaited<ReturnType<typeof lintCorpus>>;

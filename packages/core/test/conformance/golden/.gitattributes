@@ -1,0 +1,3 @@
+# The conformance fixture is compared byte for byte (queue.json carries a corpus
+# fingerprint over the record bytes), so a CRLF checkout must not rewrite it.
+* text eol=lf

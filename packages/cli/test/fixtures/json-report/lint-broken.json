@@ -1,0 +1,12 @@
+{
+  "checked": 2,
+  "findings": [
+    {
+      "rule": "frontmatter-fence",
+      "severity": "error",
+      "message": "ADR frontmatter is missing its closing --- fence",
+      "path": "docs/adr/0002-no-closing-fence.md",
+      "field": "frontmatter"
+    }
+  ]
+}

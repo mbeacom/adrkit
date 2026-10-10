@@ -100,6 +100,34 @@ Until `1.0.0`, minor releases may include breaking changes
   `matcherAppliesToMember` applies a qualified matcher when it equals either
   name. No surface passes a member yet; that is ADR-0059's federation work.
 
+### Added
+
+- **`@adrkit/core` exports `todayUtcDate()`, the `--as-of` default.** When
+  `--as-of` is absent, `adr queue`, the queue Action, and `adr new` now take
+  today's UTC date from this one function instead of three inline copies. So
+  does the unpublished `@adrkit/sdk`, and the decision-portal Action now takes
+  its default from the SDK rather than computing a fifth copy. A library consumer can now default the
+  queue exactly as CI does, instead of risking a local-date default that
+  disagrees near midnight
+  ([ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+  action item 8). No output changes.
+- **`@adrkit/core` owns the `adr explain`, `adr lint`, and `adr new` JSON
+  shapes.** `buildExplainReport`/`formatExplainReportJson`,
+  `buildLintReport`/`formatLintReportJson`, and
+  `buildNewAdrReport`/`formatNewAdrReportJson` join `formatQueueReportJson` and
+  `renderJsonGraph`, and the CLI prints their output (ADR-0031 action item 4).
+  The bytes are unchanged, which goldens captured before the change pin.
+- **A conformance fixture for the CLI JSON contract.** A fixed corpus with
+  golden `adr queue --format json` and `adr check --json` output, at
+  `packages/core/test/conformance/golden/`. The CLI and `@adrkit/sdk` are
+  tested against it, and a downstream repository can run its `manifest.json`
+  against the `adr` it pins
+  ([ADR-0030](docs/adr/0030-keep-extension-surfaces-that-carry-a-dependency-tree-outside-this-repository.md)
+  clause 5).
+- **`docs/RELEASING.md` documents the two consumer contracts**: the
+  `@adrkit/sdk` surface (still unpublished) and the CLI JSON, each with the
+  additive-only obligation stated (ADR-0031 action item 5).
+
 ## [0.19.0] - 2026-10-10
 
 This release ships the decision portal: a third, build-only nested Action,

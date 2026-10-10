@@ -1,0 +1,32 @@
+{
+  "path": "src/retry.ts",
+  "governedBy": [],
+  "governing": [],
+  "activeProposals": [],
+  "history": [],
+  "markers": {
+    "state": "scanned",
+    "windowBytes": 8192,
+    "scannedBytes": 40,
+    "fileBytes": 40,
+    "truncated": false,
+    "declarationLimit": 64,
+    "totalDeclarations": 1,
+    "omittedDeclarations": 0,
+    "declared": [
+      {
+        "ref": "0001",
+        "line": 1
+      }
+    ]
+  },
+  "findings": [
+    {
+      "rule": "frontmatter-fence",
+      "severity": "error",
+      "message": "ADR frontmatter is missing its closing --- fence",
+      "path": "docs/adr/0002-no-closing-fence.md",
+      "field": "frontmatter"
+    }
+  ]
+}

@@ -3,7 +3,8 @@
  * ([ADR-0054](../../../docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
  * clauses 3, 6, 9).
  *
- * It opens the corpus through `@adrkit/sdk`, resolves `asOf` (today, UTC, when not given),
+ * It opens the corpus through `@adrkit/sdk`, takes `asOf` from the SDK's own default when not
+ * given (today, UTC — `queue()` echoes the date it used, so no clock is read here),
  * resolves the commit and the tracked files through `git`, builds the path table from the
  * SDK's `governing(path)` for every tracked file, and writes the page bundle with
  * `portal-data.json` into `out`, replacing it whole: the bundle is built in a sibling staging
@@ -63,8 +64,6 @@ export interface GeneratePortalOptions {
   readonly baseUrl?: string;
   /** Path table caps; each defaults to {@link DEFAULT_PATH_TABLE_CAPS}. */
   readonly pathTableCaps?: Partial<PortalPathTableCaps>;
-  /** Clock, for tests. Only read when `asOf` is absent. */
-  readonly now?: () => Date;
   /** Most concurrent `governing(path)` resolutions (each reads one file header). Defaults to 16. */
   readonly concurrency?: number;
   /** File writes, for tests that inject a failure. Defaults to `node:fs/promises`. */
@@ -116,12 +115,10 @@ export async function generatePortal(options: GeneratePortalOptions = {}): Promi
   const given = resolve(options.cwd ?? process.cwd());
   const cwd = await realpath(given).catch(() => given);
 
-  let asOf: string;
-  if (options.asOf !== undefined) {
-    if (!isCalendarDate(options.asOf)) return usage(`asOf must be a UTC calendar date YYYY-MM-DD; got "${options.asOf}".`);
-    asOf = options.asOf;
-  } else {
-    asOf = (options.now ?? (() => new Date()))().toISOString().slice(0, 10);
+  // A supplied `asOf` is validated before anything is read, so a usage error is not reported
+  // behind a corpus that may itself fail to load. An absent one is taken from the SDK below.
+  if (options.asOf !== undefined && !isCalendarDate(options.asOf)) {
+    return usage(`asOf must be a UTC calendar date YYYY-MM-DD; got "${options.asOf}".`);
   }
 
   let baseUrl: string | null = null;
@@ -187,6 +184,12 @@ export async function generatePortal(options: GeneratePortalOptions = {}): Promi
     }
     throw error;
   }
+
+  // Absent `asOf`: the SDK's default, which is core's `todayUtcDate()` — the one implementation
+  // `adr queue` and the queue Action also use. `queue()` echoes the date it computed against,
+  // so the portal reads no clock of its own and cannot drift from CI near UTC midnight. The
+  // builder stays pure and still takes the date as an argument.
+  const asOf = options.asOf ?? handle.queue().asOf;
 
   const errorIssues = handle.issues.filter((issue) => issue.severity === 'error');
   // The corpus comes from the working tree and the path list from the index, so a bundle is

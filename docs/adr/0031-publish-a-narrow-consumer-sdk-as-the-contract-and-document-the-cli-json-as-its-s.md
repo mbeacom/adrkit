@@ -264,12 +264,23 @@ recorded as its own wrongness signal.
    object shapes structurally identical to a core type. Measuring it is what revealed that this
    record's own wrongness criterion tested the wrong property — see *Consequences*, where the
    criterion is replaced and the correction recorded.**
-4. [ ] Converge `explain`, `lint`, and `new` `--json` onto core formatters, as `queue` is,
-   so the two modes describe the same shapes.
-5. [ ] Document the CLI JSON contract and the SDK surface in `docs/RELEASING.md`, with the
-   additive-only obligation stated at both.
-6. [ ] Build the conformance fixture ADR-0030 action item 5 names, as the SDK's own test
-   fixture, so one artifact discharges both records.
+4. [x] Converge `explain`, `lint`, and `new` `--json` onto core formatters, as `queue` is,
+   so the two modes describe the same shapes. **Done 2026-10-10:** `buildExplainReport` /
+   `formatExplainReportJson`, `buildLintReport` / `formatLintReportJson`, and
+   `buildNewAdrReport` / `formatNewAdrReportJson` in `packages/core/src/report/`, exported
+   from the entry point; the CLI supplies inputs only. Output is byte-for-byte unchanged:
+   goldens captured from the inline assembly before it was removed
+   (`packages/cli/test/json-report.test.ts`), and a before/after comparison of the old and
+   new CLI over this repository's corpus and the SDK fixtures.
+5. [x] Document the CLI JSON contract and the SDK surface in `docs/RELEASING.md`, with the
+   additive-only obligation stated at both. **Done 2026-10-10:** "Consumer contracts:
+   `@adrkit/sdk` and the CLI JSON", linking `docs/sdk-surface.md`.
+6. [x] Build the conformance fixture ADR-0030 action item 5 names, as the SDK's own test
+   fixture, so one artifact discharges both records. **Done 2026-10-10:**
+   `packages/core/test/conformance/golden/` (a fixed corpus, `manifest.json`, `queue.json`,
+   `check.json`). `packages/cli/test/conformance.test.ts` requires the CLI to reproduce both
+   goldens byte for byte, and `packages/sdk/test/conformance.test.ts` runs the SDK against
+   them. Publishing it to downstream consumers rides on the package publication records.
 7. [~] **Close the `--as-of` resolution gap: `queue`'s date resolver is a contract that lives
    outside the contract.** `resolveAsOf` in `packages/cli/src/queue.ts` is ~25 lines
    implementing `cli-contract.md §As-Of Resolution` — bare `YYYY-MM-DD` or an ISO datetime with
@@ -301,7 +312,7 @@ recorded as its own wrongness signal.
    boundary — the same divergence class this item was opened to close. Carried as a
    successor item rather than marked closed.
 
-8. [ ] Export the absent-input clause of `cli-contract.md` §As-Of Resolution — successor to
+8. [x] Export the absent-input clause of `cli-contract.md` §As-Of Resolution — successor to
    item 7. `new Date().toISOString().slice(0,10)` is inlined at
    `packages/cli/src/queue.ts`, `packages/ci/src/queue-action-entrypoint.ts`, and
    `packages/core/src/scaffold/new.ts`. Until it is exported, "the queue as of now" — the
@@ -324,3 +335,12 @@ recorded as its own wrongness signal.
    answer, it was an unreachable rule, so no behavioural assertion could have detected it.
    A suite of correctness cases alone would have reported this contract gap as fully
    covered.
+
+   **Done 2026-10-10.** `todayUtcDate()` lives in `packages/core/src/queue/as-of.ts` beside
+   `resolveAsOf`, is exported from the entry point, and is consumed by `adr queue`, the queue
+   Action (bundle regenerated), `adr new`'s scaffold, and the SDK's `queue()`, which was the
+   fourth copy. A test in `packages/core/test/queue/as-of.test.ts` fails if any of the four
+   spells the expression again; observed failing by restoring it in the SDK. The static portal,
+   which may import only `@adrkit/sdk`, takes the default the SDK echoes in `queue().asOf`
+   rather than computing its own (a second test bans the expression under
+   `packages/portal/src`), and keeps its bare-date rule for an `asOf` a caller supplies.
