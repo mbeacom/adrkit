@@ -8,7 +8,7 @@
  * in the supersedes relation fail with `cycle`. Exactly one aggregate result (C11).
  */
 
-import { buildAdrGraph, type Adr } from '@adrkit/core';
+import { buildAdrGraph, parseAdrRef, type Adr } from '@adrkit/core';
 import { aggregate, passResult, type SubResult } from './kernel.ts';
 import { isCrossLog } from './no-orphan-refs.ts';
 import type { RuleContext } from './context.ts';
@@ -47,7 +47,23 @@ function hasSupersedesCycle(records: readonly Adr[]): boolean {
 }
 
 export function evaluateSupersessionConsistent(ctx: RuleContext): RuleResult {
-  const records = ctx.corpusRecords;
+  const resolutionLog = ctx.input.resolutionLog;
+  // A ref qualified with the resolution log itself (`here:0002` under `here`) names a local
+  // record, as no-orphan-refs reads it, so every check below compares its bare id. A ref
+  // naming another log stays raw, never matches a bare id, and keeps the clause-4 failure.
+  const local = (ref: string): string => (isCrossLog(ref, resolutionLog) ? ref : parseAdrRef(ref).id);
+  const normalized: Adr[] = ctx.corpusRecords.map((record) => ({
+    ...record,
+    frontmatter: {
+      ...record.frontmatter,
+      supersedes: record.frontmatter.supersedes.map(local),
+      ...(record.frontmatter.supersededBy !== undefined
+        ? { supersededBy: local(record.frontmatter.supersededBy) }
+        : {}),
+    },
+  }));
+  const originals = new Map(normalized.map((record, index) => [record, ctx.corpusRecords[index]!]));
+  const records = normalized;
   const ids = new Set(records.map((record) => record.frontmatter.id));
   const supersededByById = new Map<string, string>();
   for (const record of records) {
@@ -65,15 +81,17 @@ export function evaluateSupersessionConsistent(ctx: RuleContext): RuleResult {
     const target = record.frontmatter.supersededBy;
     if (target && !ids.has(target)) {
       danglingRefs.add(`${record.frontmatter.id}->${target}`);
+      // Findings echo the ref as written, never the normalized id.
+      const written = originals.get(record)!.frontmatter.supersededBy ?? target;
       const finding: RuleFinding = {
         reason: 'supersession-consistent.dangling-superseded-by',
         // ADR-0059 clause 4: a log-qualified successor is never resolved, snapshot or not.
-        message: isCrossLog(target, ctx.input.resolutionLog)
-          ? `supersededBy "${target}" names another decision log; cross-repository supersession is not supported (ADR-0059 clause 4)`
-          : `supersededBy "${target}" does not resolve to a record in the corpus`,
+        message: isCrossLog(written, resolutionLog)
+          ? `supersededBy "${written}" names another decision log; cross-repository supersession is not supported (ADR-0059 clause 4)`
+          : `supersededBy "${written}" does not resolve to a record in the corpus`,
         adr: record.frontmatter.id,
         candidateAdr: record.frontmatter.id,
-        relatedAdr: target,
+        relatedAdr: written,
         recordPath: record.path,
         field: 'supersededBy',
         lowerLevel: { rule: 'dangling-supersededBy', path: record.path, id: record.frontmatter.id, field: 'supersededBy' },

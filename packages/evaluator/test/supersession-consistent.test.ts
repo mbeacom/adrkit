@@ -94,4 +94,92 @@ describe('supersession-consistent', () => {
       expect(result.findings[0]?.message).toContain('ADR-0059 clause 4');
     }
   });
+
+  // A ref qualified with the evaluator's own resolution log names a local record, so every
+  // supersession check reads it by its bare id (no-orphan-refs already does).
+  describe('refs qualified with the resolution log itself', () => {
+    test('a same-log supersededBy resolves and reciprocates → pass', () => {
+      const superseded = record(
+        { id: '0001', status: 'superseded', supersededBy: 'here:0002' },
+        { path: 'docs/adr/0001-a.md' },
+      );
+      const successor = record({ id: '0002', supersedes: ['0001'] }, { path: 'docs/adr/0002-b.md' });
+      const report = evaluateReport(
+        baseInput({ corpus: corpusOf([superseded, successor]), proposalPath: 'docs/adr/0002-b.md', resolutionLog: 'here' }),
+      );
+      expect(ruleResult(report, 'supersession-consistent')).toMatchObject({
+        status: 'pass',
+        reason: 'supersession-consistent.ok',
+      });
+    });
+
+    test('a same-log supersedes reciprocates a bare supersededBy → pass', () => {
+      const superseded = record(
+        { id: '0001', status: 'superseded', supersededBy: '0002' },
+        { path: 'docs/adr/0001-a.md' },
+      );
+      const successor = record({ id: '0002', supersedes: ['here:0001'] }, { path: 'docs/adr/0002-b.md' });
+      const report = evaluateReport(
+        baseInput({ corpus: corpusOf([superseded, successor]), proposalPath: 'docs/adr/0002-b.md', resolutionLog: 'here' }),
+      );
+      expect(ruleResult(report, 'supersession-consistent').status).toBe('pass');
+      expect(ruleResult(report, 'no-orphan-refs').status).toBe('pass');
+    });
+
+    test('a same-log supersedes that is not reciprocated fails as non-reciprocal', () => {
+      const target = record({ id: '0001', status: 'accepted', deciders: ['@a'] }, { path: 'docs/adr/0001-a.md' });
+      const successor = record({ id: '0002', supersedes: ['here:0001'] }, { path: 'docs/adr/0002-b.md' });
+      const report = evaluateReport(
+        baseInput({ corpus: corpusOf([target, successor]), proposalPath: 'docs/adr/0002-b.md', resolutionLog: 'here' }),
+      );
+      expect(ruleResult(report, 'supersession-consistent').reason).toBe('supersession-consistent.non-reciprocal');
+    });
+
+    test('a supersession cycle through same-log refs is detected', () => {
+      const a = record(
+        { id: '0001', status: 'superseded', supersededBy: 'here:0002', supersedes: ['here:0002'] },
+        { path: 'docs/adr/0001-a.md' },
+      );
+      const b = record(
+        { id: '0002', status: 'superseded', supersededBy: 'here:0001', supersedes: ['here:0001'] },
+        { path: 'docs/adr/0002-b.md' },
+      );
+      const proposal = record({ id: '0003' }, { path: 'docs/adr/0003-c.md' });
+      const report = evaluateReport(
+        baseInput({ corpus: corpusOf([a, b, proposal]), proposalPath: 'docs/adr/0003-c.md', resolutionLog: 'here' }),
+      );
+      const result = ruleResult(report, 'supersession-consistent');
+      expect(result.status).toBe('fail');
+      expect(result.findings.map((f) => f.reason)).toEqual(['supersession-consistent.cycle']);
+    });
+
+    test('a same-log supersededBy whose id is missing is dangling without the clause-4 wording', () => {
+      const superseded = record(
+        { id: '0001', status: 'superseded', supersededBy: 'here:0009' },
+        { path: 'docs/adr/0001-a.md' },
+      );
+      const proposal = record({ id: '0003' }, { path: 'docs/adr/0003-c.md' });
+      const report = evaluateReport(
+        baseInput({ corpus: corpusOf([superseded, proposal]), proposalPath: 'docs/adr/0003-c.md', resolutionLog: 'here' }),
+      );
+      const result = ruleResult(report, 'supersession-consistent');
+      expect(result.reason).toBe('supersession-consistent.dangling-superseded-by');
+      expect(result.findings[0]?.relatedAdr).toBe('here:0009');
+      expect(result.findings[0]?.message).not.toContain('ADR-0059');
+    });
+
+    test('without a resolution log, a qualified supersededBy is another log and stays the clause-4 failure', () => {
+      const superseded = record(
+        { id: '0001', status: 'superseded', supersededBy: 'here:0002' },
+        { path: 'docs/adr/0001-a.md' },
+      );
+      const successor = record({ id: '0002', supersedes: ['0001'] }, { path: 'docs/adr/0002-b.md' });
+      const report = evaluateReport(
+        baseInput({ corpus: corpusOf([superseded, successor]), proposalPath: 'docs/adr/0002-b.md' }),
+      );
+      const result = ruleResult(report, 'supersession-consistent');
+      expect(result.status).toBe('fail');
+      expect(result.findings.some((f) => f.message?.includes('ADR-0059 clause 4') === true)).toBe(true);
+    });
+  });
 });
