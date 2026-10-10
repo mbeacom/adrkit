@@ -26,6 +26,12 @@ any changed ADR records, and posts a single comment. It is read-only and
 comment-only; on a read-only fork token it degrades to a log notice instead of
 failing the job.
 
+![The Action's comment on a pull request in adrkit-demo: ADR-0002 governs through the path src/money/**, and ADR-0007 through an @adr marker on line 1 of src/handlers/transfers.ts](/demo/pr-2-comment.png)
+
+The comment above is from [adrkit-demo](https://github.com/mbeacom/adrkit-demo),
+which keeps pull requests open for a compliant change, a violating one, a new
+decision, and an invalid record.
+
 ```yaml
 # .github/workflows/adr.yml
 name: ADR governing decisions

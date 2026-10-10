@@ -737,6 +737,45 @@ starlight-theme-select select {
 	align-items: flex-start;
 }
 
+/* Screenshots from the demo repository. Fixed width and height attributes on
+   each img keep layout stable while they load lazily; the grid collapses to one
+   column on its own, so no breakpoint is needed. */
+.adr-gallery {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+	gap: clamp(1.25rem, 3vw, 2rem);
+	margin-block-start: var(--adr-row-block);
+}
+
+.adr-shot {
+	margin: 0;
+}
+
+/* No autoplay: the tour starts only when the reader presses play. */
+.adr-tour {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin-block-start: var(--adr-row-block);
+	border: 1px solid var(--adr-line);
+	border-radius: 0.5rem;
+	background: #0d1117;
+}
+
+.adr-shot img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--adr-line);
+	border-radius: 0.5rem;
+}
+
+.adr-shot figcaption {
+	margin-block-start: 0.75rem;
+	font-size: 0.9375rem;
+	line-height: 1.5;
+}
+
 /* Marketing chips: borderless mono, not the bordered box docs prose uses.
 
    One mechanism, stated once for the whole Starlight-overrides region: the base

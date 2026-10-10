@@ -16,6 +16,28 @@ record as **typed data with a markdown body** and adds one field — `affects` �
 so a tool can answer *"which decisions govern this pull request?"* and put the
 answer where the next decision is being made.
 
+An 80-second tour, from the terminal to the pull request to the GitHub Copilot
+app:
+
+https://github.com/user-attachments/assets/2ab466f9-53f0-4274-a87c-98d8d5e5ecdf
+
+[![adr check on a ledger change: two accepted decisions govern it, a proposed one touches it, and a stale @adr marker still names a superseded record](site/public/demo/check-violating.png)](site/public/demo/check-violating.gif)
+
+<sub>A still of the final screen. Select it to watch the 15-second recording.</sub>
+
+On a pull request, the [governing-decisions Action](https://adrkit.dev/ci/)
+posts that answer as a comment, and GitHub Copilot code review can cite a record
+because it lives in the repository:
+
+<p>
+  <img src="site/public/demo/pr-2-comment.png" alt="Pull request comment from the governing-decisions Action listing ADR-0002 and ADR-0007, one matched by path and one declared by an @adr marker" width="49%">
+  <img src="site/public/demo/pr-3-copilot-cites-adr-0002.png" alt="GitHub Copilot code review flagging a fractional-dollar helper as violating ADR-0002" width="49%">
+</p>
+
+[`mbeacom/adrkit-demo`](https://github.com/mbeacom/adrkit-demo) is a small
+payments-ledger repository with these pull requests open, a managed ARB queue
+issue, and recordings of every command.
+
 ## Decision governance, not generated documentation
 
 Generated knowledge systems answer *"how does the system work now?"* adrkit
@@ -263,6 +285,20 @@ components resolve it from `$ADRKIT_CLI`, then `./node_modules/.bin/adr`, then
 | `/adr-draft <title-or-candidate-key>` | Draft one ADR from a current decision or selected backfill handoff | one new record |
 | `/adr-queue` | The review queue — the questions still open | no |
 | `/adr-backfill [paths...]` | Produce a coverage ledger and deduplicated candidate ADR report from an inherited codebase or documentation corpus | no |
+
+In the GitHub Copilot app, the plugin also adds two canvases. The
+[`decision-review`](packages/adapters/agent-plugin/README.md#canvas-decision-review-github-copilot-app)
+canvas shows which decisions govern the session's uncommitted change and can
+start an `adr-review` run. The
+[`decision-board`](packages/adapters/agent-plugin/README.md#canvas-decision-board-github-copilot-app)
+canvas maps the corpus from `adr graph` and `adr queue`. Its approve and object
+controls write only after the app's own confirmation dialog, and neither canvas
+can ratify a record. Both are at rung 1.
+
+<p>
+  <img src="site/public/demo/decision-board.png" alt="The decision-board canvas in the GitHub Copilot app: the corpus graph with ADR-0009 selected, its review facts, and the record-review controls" width="49%">
+  <img src="site/public/demo/decision-review.png" alt="The decision-review canvas in the GitHub Copilot app: one changed file, ADR-0001 governing and judged consistent by a completed adr-review run" width="49%">
+</p>
 
 It deliberately ships **no MCP configuration**: Copilot CLI spawns a plugin's
 MCP servers outside the workspace, and outside any Git repository, so the adrkit

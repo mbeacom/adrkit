@@ -65,6 +65,19 @@ Until `1.0.0`, minor releases may include breaking changes
   (runtime 1.0.94-3): the dialog appeared for an approval, a decline wrote
   nothing, an accept wrote it, and a quick second click was rate-limited.
   Object, Resolve, and the app's autonomous modes are not yet measured there.
+- **Docs show adrkit working (docs only).** The README and the site now carry
+  screenshots and a terminal recording from
+  [adrkit-demo](https://github.com/mbeacom/adrkit-demo), a payments-ledger
+  repository with open pull requests:
+  - an `adr check` recording;
+  - the governing-decisions comment;
+  - GitHub Copilot code review citing an ADR;
+  - both Copilot app canvases;
+  - an 80-second tour video, hosted as a GitHub attachment and never autoplayed.
+
+  The README's plugin section now also describes the canvases, which it
+  omitted. The images live once, in `site/public/demo/`, and are downscaled for
+  the web.
 
 ### Changed
 
