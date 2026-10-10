@@ -43,7 +43,9 @@ review:
 > the SDK's runtime, **not** publishing it. Publication stays a later record's
 > act, as ADR-0031 clause 8 and
 > [ADR-0029](./0029-scope-backstage-publication-as-a-downstream-consumer-tiered-on-the-entity-owners.md)
-> clause 10 require. Nothing described below is implemented at this revision.
+> clause 10 require. The Context below describes the tree when this record was
+> drafted; the implementation landed afterwards in
+> [#290](https://github.com/mbeacom/adrkit/pull/290), unpublished.
 
 ## Context
 
@@ -308,29 +310,31 @@ exercise nothing the SDK is supposed to prove.
 
 ## Evidence rung
 
-**Rung 0** under ADR-0014 at this revision: a types-only design that no consumer
-has exercised. Implementing it with the tests in decision 6 would reach **rung
-1** at best. A consumer built in this repository is still rung 1; rung 2 would
+**Rung 1** under ADR-0014: the implementation in
+[#290](https://github.com/mbeacom/adrkit/pull/290) has behaviour tests and
+contract tests against the CLI's JSON, each observed failing first, and no
+consumer has exercised it yet. It was rung 0, a types-only design, when this
+record was drafted. A consumer built in this repository is still rung 1; rung 2 would
 need a maintainer-owned reference-repository run, and rung 3 an external party.
 No external validation is claimed.
 
 ## Action items
 
-1. [ ] Ratify or reject this record, including the D1 reading of ADR-0031
+1. [x] Ratify or reject this record, including the D1 reading of ADR-0031
    clause 8.
-2. [ ] Implement `openDecisions` and the six `DecisionSet` members over
+2. [x] Implement `openDecisions` and the six `DecisionSet` members over
    `@adrkit/core`, keeping the declared types, adding the fields of decision
    11, and adding no re-export.
 3. [ ] Before publication, export the absent-input `--as-of` default from
    core (ADR-0031 action item 8) and replace all four inline copies with it:
    the CLI, the CI Action, the scaffold, and the SDK's `queue()`.
-4. [ ] Add behaviour tests per entry point and contract tests against
+4. [x] Add behaviour tests per entry point and contract tests against
    `adr queue`, `adr graph`, and `adr explain` JSON, each observed failing first.
 5. [ ] Build the conformance fixture (ADR-0031 action item 6, ADR-0030 action
    item 5) and run the SDK's tests against it.
-6. [ ] Extend `packages/cli/test/node-compatibility.test.ts`, or add an
+6. [x] Extend `packages/cli/test/node-compatibility.test.ts`, or add an
    equivalent check, to cover `packages/sdk/src`.
-7. [ ] When the implementation lands, update `src/index.ts`'s header,
+7. [x] When the implementation lands, update `src/index.ts`'s header,
    `package.json`'s `//status`, and `docs/sdk-surface.md`'s "Nothing is
    implemented" and rung statement to match the tree, and replace the
    body exclusion there with decision 11's reason.

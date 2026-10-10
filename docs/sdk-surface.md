@@ -286,8 +286,9 @@ schema agree, matching core is a consequence rather than a re-export.
 ## Additive extension
 
 Three additions made as part of the implementation scope, for a GitHub Pages portal and a REST
-API built on this surface. The decision is recorded in a proposed record that lands in a separate
-pull request. All
+API built on this surface. The decision is recorded in
+[ADR-0053](./adr/0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md)
+(accepted), decision 11. All
 three are additive to a type a caller already holds; none adds an entry point.
 
 | Addition | Core source | Notes |
