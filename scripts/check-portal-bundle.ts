@@ -32,7 +32,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Files the page needs to load; a bundle missing any of them renders nothing. */
-export const REQUIRED_FILES = ['index.html', 'app.css', 'page/app.mjs', 'portal-data.json'] as const;
+// page/app.mjs imports the two vendor modules statically (packages/portal/src/page/app.mjs);
+// if either is missing the browser aborts the page module and the portal renders nothing.
+export const REQUIRED_FILES = [
+  'index.html',
+  'app.css',
+  'page/app.mjs',
+  'vendor/board-layout.mjs',
+  'vendor/board-view.mjs',
+  'portal-data.json',
+] as const;
 
 export interface BundleReport {
   readonly problems: string[];

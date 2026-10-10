@@ -14,6 +14,8 @@ function bundle(files: Record<string, string | null> = {}) {
     'index.html': HTML,
     'app.css': 'body{}',
     'page/app.mjs': 'export {};',
+    'vendor/board-layout.mjs': 'export {};',
+    'vendor/board-view.mjs': 'export {};',
     'portal-data.json': data(),
     ...files,
   };
