@@ -30,8 +30,8 @@ The optional `after_plan` hook offers to run `/speckit.adrkit.check` after
 
 ## Requirements
 
-- **Spec Kit `>=0.13.0,<1.1.0`.** Compatibility is tested against 0.13.0,
-  0.14.4, 0.15.1, 0.16.5, 1.0.0, and 1.0.4–1.0.6.
+- **Spec Kit `>=0.13.0,<1.2.0`.** Compatibility is tested against 0.13.0,
+  0.14.4, 0.15.1, 0.16.5, 1.0.0, 1.0.4–1.0.6, 1.0.13, and 1.1.0–1.1.3.
 - **The `adr` CLI.** Install `@adrkit/cli` globally or in the project, or set
   `ADRKIT_CLI` to its entry point.
 - **An ADR corpus.** Defaults to `docs/adr`.
@@ -49,7 +49,7 @@ Install from the release archive, which carries the version in its URL:
 
 ```sh
 specify extension add adrkit \
-  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
+  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.5/adrkit.zip
 ```
 
 Spec Kit asks before installing from a URL (`⚠ Untrusted Source` …
@@ -59,7 +59,7 @@ In a script or CI job, pipe the answer in:
 
 ```sh
 printf 'y\n' | specify extension add adrkit \
-  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
+  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.5/adrkit.zip
 ```
 
 </TabItem>
@@ -78,7 +78,7 @@ adrkit is listed in the
 [Spec Kit community catalog](https://github.com/github/spec-kit/blob/main/extensions/catalog.community.json),
 but that catalog is discovery-only: `specify extension add adrkit` finds the
 entry and refuses to install from it, on every Spec Kit version measured from
-0.13.0 to 1.0.13.
+0.13.0 to 1.1.3.
 
 Then the commands are available in your agent, and Spec Kit's plan command
 offers the `after_plan` hook.
@@ -90,7 +90,7 @@ type depends on how Spec Kit registers commands for your agent:
 
 | Integration | What Spec Kit writes | You type |
 |---|---|---|
-| Claude Code, every Spec Kit version measured (0.13.0 to 1.0.13) | `.claude/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
+| Claude Code, every Spec Kit version measured (0.13.0 to 1.1.3) | `.claude/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
 | GitHub Copilot, Spec Kit 0.16.5 and later | `.github/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
 | GitHub Copilot, Spec Kit 0.13.0 to 0.15.1 | `.github/prompts/speckit.adrkit.*.prompt.md` | `/speckit.adrkit.check`, `/speckit.plan` |
 
@@ -153,7 +153,7 @@ network** — a missing CLI is reported, never fetched.
 
 `@adrkit/spec-kit` is listed in the Spec Kit community catalog, installs from
 its release archive, and is tested against Spec Kit 0.13.0, 0.14.4, 0.15.1,
-0.16.5, 1.0.0, and 1.0.4–1.0.6. If you find a compatibility issue, [open an issue](https://github.com/mbeacom/adrkit/issues).
+0.16.5, 1.0.0, 1.0.4–1.0.6, 1.0.13, and 1.1.0–1.1.3. If you find a compatibility issue, [open an issue](https://github.com/mbeacom/adrkit/issues).
 
 For implementation details, see the
 [`@adrkit/spec-kit` README](https://github.com/mbeacom/adrkit/blob/main/packages/adapters/spec-kit/README.md).

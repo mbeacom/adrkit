@@ -49,7 +49,7 @@ the Phase 6 rung-2 evidence. It is **not** this monorepo.
 | `.extensionignore` at that ref | SHA-256 `f1a39b110fcc888ed32c9cfcdea50971caf4caef292350e0dfddf29482f26c0c` |
 | Validation script | `scripts/validate-spec-kit-extension.sh`, SHA-256 `c0bde9297f3fc7b535974b1c489f3be1ad4a985dc2b4d4c27883bd771b56082f` |
 | Validation workflow | `.github/workflows/spec-kit-extension.yml`, SHA-256 `5c2af3fc5d0e139d3445962f3a1bb98a232cac0750ff1a3edab3f9587a487a2a` |
-| Spec Kit versions exercised | `0.13.0`, `0.14.4`, `0.15.1` — the endpoints and midpoint of the range the manifest declared *at the time of this run*, `>=0.13.0,<0.16.0`. The manifest has since widened to `>=0.13.0,<1.1.0`; this workflow leg has not, and the gap is recorded in the addenda below. |
+| Spec Kit versions exercised | `0.13.0`, `0.14.4`, `0.15.1` — the endpoints and midpoint of the range the manifest declared *at the time of this run*, `>=0.13.0,<0.16.0`. The manifest has since widened to `>=0.13.0,<1.2.0`; this workflow leg has not, and the gap is recorded in the addenda below. |
 | `adr` CLI under test | published `@adrkit/cli@0.3.0` from npm — the surface a real consumer installs, not a workspace build |
 | Runner / runtimes | `ubuntu-latest`; Node 22; Python 3.12 |
 | Workflow permissions | `contents: read` only. No PAT, no repository secret, no write scope. |
@@ -287,3 +287,49 @@ functionally broken, and `extension.yml` and `commands/` are unchanged; the
 docs now give the install command that works and a per-integration name
 table. No live agent session drove `/speckit-plan` to watch the offer render,
 so that last step rests on the generated instruction, not on an observed run.
+
+## 2026-10-09: widening to the `1.1` line (`>=0.13.0,<1.2.0`)
+
+The sections above are untouched. Spec Kit 1.1.0 shipped on 2026-10-02 and
+1.1.3 is now PyPI's newest, so the `<1.1.0` gate fired as designed. This
+section records the maintainer-session re-verification that widened the pin to
+`<1.2.0` and moved `@adrkit/spec-kit` to 0.1.5. Like the addenda above, it is
+real installs against real upstream releases, and **not** a rung-2 matrix
+extension. No 1.2 release or tag exists as of this run.
+
+Method: the same as the section above, with `uvx` on Python 3.13. `1.1.0` is a
+GitHub release that never reached PyPI (PyPI goes from `1.0.13` to `1.1.1`), so
+it ran as `uvx --from git+https://github.com/github/spec-kit.git@v1.1.0
+specify`, as `1.0.0` did on 2026-09-09. `1.1.1`, `1.1.2`, and `1.1.3` ran from
+PyPI, except the 0.1.4 refusal runs on `1.1.3`, which used its git tag. The archive under test is the 0.1.5 `adrkit.zip` that
+`release:pack -- --only @adrkit/spec-kit --tag spec-kit-v0.1.5` and
+`scripts/pack-extension-zip.ts` produce, served from `http://127.0.0.1`,
+because the `spec-kit-v0.1.5` release asset does not exist until the tag is
+pushed. The scripts ran against a four-record fixture corpus with the published
+`@adrkit/cli` 0.18.0 as `ADRKIT_CLI`.
+
+| Evidence | Result |
+|---|---|
+| 0.1.4 on `1.1.0` and `1.1.3`, both integrations: `printf 'y\n' \| specify extension add adrkit --from …/spec-kit-v0.1.4/adrkit.zip`, and `extension add --dev` of the unchanged tree | exit 1 on all eight: `Compatibility Error: Extension requires spec-kit >=0.13.0,<1.1.0, but 1.1.3 is installed.` (`1.1.0` on that version), then `Upgrade spec-kit with: uv tool install specify-cli --force --from git+https://github.com/github/spec-kit.git`. The fail-loud gate works on both install routes. |
+| `extensions/EXTENSION-API-REFERENCE.md`, `v0.16.5` → `v1.1.3` | byte-identical (SHA-256 `cb037d69fe62c7d8…`, 896 lines) at `v0.16.5`, `v1.0.4`, `v1.0.6`, `v1.0.13`, `v1.1.0`, `v1.1.1`, `v1.1.2`. `v1.1.3` (`a54e2239e1fd4de6…`, 907 lines) adds one block listing the bundled `bug` extension's `before_/after_bug_{assess,fix,test}` events. Additive. |
+| Loader, `v1.0.13` → `v1.1.3` (`extensions/__init__.py`, `command_add.py`, `agents.py`) | three feature commits: generic-integration command and skill registration (#4785), exact catalog release selection (#4726), and catalog-installed external agent adapters (#4862), plus install rollback that unregisters hooks if a later step fails. `SpecifierSet` version parsing and `.extensionignore` handling are untouched. The one new refusal, an archive whose id or version disagrees with the catalog entry it was selected from, applies only to catalog installs, which the community catalog does not allow. |
+| `specify extension add --dev` (0.1.5 tree), `1.1.0` and `1.1.3` × `copilot` and `claude`; `1.1.1` and `1.1.2` × `copilot` | exit 0 on all six. `extension list` reports `v0.1.5`. Installed tree: `LICENSE`, `NOTICE`, `README.md`, `commands/`, `extension.yml`, `scripts/`, plus the loader's `.specify-dev/`. No `test/`, `tsconfig.json`, `package.json`, or `node_modules/`. |
+| `printf 'y\n' \| specify extension add adrkit --from <0.1.5 archive>`, same six | exit 0, `✓ Extension installed successfully!`, `v0.1.5`, three commands listed. The `⚠ Untrusted Source` question is unchanged. |
+| `specify init <name> --extension <0.1.5 archive> --trust-extension-urls --non-interactive`, same six | exit 0, `.specify/extensions/adrkit/` installed |
+| `specify extension add adrkit` (catalog form), `1.1.0` and `1.1.3` | exit 1, the same discovery-only error as `0.16.5`–`1.0.13`. `extension search adrkit` lists `v0.1.4`: the 0.1.4 catalog update ([github/spec-kit#4571](https://github.com/github/spec-kit/issues/4571)) was applied 2026-09-15. |
+| Commands registered | `.github/skills/speckit-adrkit-{context,check,draft}/` under Copilot and `.claude/skills/speckit-adrkit-{context,check,draft}/` under Claude, on every 1.1.x run. You type `/speckit-adrkit-check`, as on `1.0.x`. Skill metadata credits `author: Mark Beacom (@mbeacom)`. Its `source` field is `extension:adrkit` under Copilot and `adrkit:commands/check.md` under Claude, the same split as on `1.0.13`. |
+| `after_plan` hook | `.specify/extensions.yml` records `command: speckit.adrkit.check`, `enabled: true`, `optional: true`, `priority: 10` on every run. The generated `speckit-plan/SKILL.md` still says "replace dots (`.`) with hyphens (`-`)". On `1.1.2` and `1.1.3`, `extension info adrkit --json` (new in 1.1.2) reports `hooks: [{trigger: after_plan, targetCommand: speckit.adrkit.check, optional: true}]` and the three commands. `1.1.0` and `1.1.1` reject `--json` with exit 2. |
+| Scripts from `.specify/extensions/adrkit/scripts/`, every 1.1.x run | `context.sh` with no paths: exit 0, a QueueReport v1 JSON document. `context.sh src/net/client.ts`: exit 0, governed by `0001`, `0002`, `0003`. `check.sh src/net/client.ts`: exit 0, the `==> adrkit:check` section, and on stderr the stated omission of routing because `ADRKIT_SNAPSHOT` is unset. |
+| Extension test suite | No test drives Spec Kit itself. The version-dependent assertion is the pin in `test/manifest.test.ts`, which failed on `<1.2.0` before its expectation moved. The two version-agreement tests (`package.json` vs `extension.yml`, and the README and site archive URL vs `extension.yml`) failed when only `extension.yml` moved to 0.1.5. |
+
+Nothing in `commands/` or `scripts/` changed; 1.1.x needed only the pin.
+
+**The README URL points at an asset that does not exist yet.** The guard
+from 2026-10-09 ties the README and site URL to `extension.yml`'s version, so
+both now name `spec-kit-v0.1.5/adrkit.zip`, which returns 404 until the tag is
+pushed. Merge and tag together.
+
+**Limitation (unchanged)**: the dogfood workflow's three legs still exercise
+`0.13.0`/`0.14.4`/`0.15.1`. No live agent session drove `/speckit-plan` on
+1.1.x to watch the hook offer render; that rests on the generated instruction
+and the recorded hook, as on 1.0.x.
