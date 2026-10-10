@@ -66,6 +66,30 @@ Until `1.0.0`, minor releases may include breaking changes
   nothing, an accept wrote it, and a quick second click was rate-limited.
   Object, Resolve, and the app's autonomous modes are not yet measured there.
 
+### Changed
+
+- **The agent plugin's two Copilot app canvases get a visual pass (`adrkit`
+  0.11.0).** Function, routes, actions, the payload, and the
+  Content-Security-Policy are unchanged.
+  - Both pages share one stylesheet. Colours still come from the app's tokens
+    first; the built-in fallbacks now follow the system's light or dark
+    setting, where before every render outside the app was light. Text
+    colours meet 4.5:1 in both themes, checked by a test.
+  - Status is never colour alone: every badge has a symbol and its word.
+  - `decision-review` shows each governing decision as a card with its
+    status, verdict, and provenance (the `affects` pattern, or the marker's
+    file and line) in view; findings grouped by severity; notes collapsed; the
+    review cost in plain words under the button; and distinct loading, empty,
+    and error states.
+  - `decision-board` pans and zooms (drag, Ctrl or Cmd with the wheel, the
+    buttons, or `+`, `-`, `0`, and the arrows), dims everything but the
+    selected record's neighbors, and shows approvals as dots against the
+    quorum and objections as two labelled counts. The review controls label
+    their three steps, and with recording off one note above the list says
+    why. Objector names are not shown, because `adr queue` reports counts only.
+  - Rendered from a headless Copilot CLI 1.0.93 SDK host in Chrome at 900 and
+    420 px, light and dark, with no model calls; unmeasured in the Copilot app.
+
 ### Fixed
 
 - **Docs: the Spec Kit install command, the command names, and the checkout pin

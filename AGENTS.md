@@ -771,7 +771,7 @@ will usually be a regression:
   including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
   app, and hook firing in the app, an interactive CLI session, and subagent
   child sessions, are unmeasured.
-- `copilot plugin install` prints only a skill count. Version 0.10.0 should report
+- `copilot plugin install` prints only a skill count. Version 0.11.0 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
@@ -1015,6 +1015,50 @@ modes are unmeasured there. Load-bearing:
 - **Each attempt that reaches the confirmation is logged fire-and-forget**
   through `session.log` with the id, kind, identity, and outcome
   (`not-confirmed` included), never the summary.
+
+### Canvas look and feel (0.11.0)
+
+Both canvases share one stylesheet and the board pans and zooms. **Rung 1**:
+unit tests, mutation plants, and headless SDK-host renders in Chrome;
+unmeasured in the Copilot app. Load-bearing:
+
+- **One shared stylesheet, generated from its tokens.** `canvas-theme.mjs`
+  exports `THEME_CSS`, and each page's `/app.css` is that block followed by
+  the page's own rules (no new route). Every colour is an alias that reads the
+  app's injected token first, `var(--background-color-default, var(--ak-bg))`,
+  so theming stays the app's. The `--ak-*` fallbacks come from `THEME_TOKENS`
+  and follow `prefers-color-scheme`; before 0.11.0 a dark render outside the
+  app kept a white page and dark text, and only native form controls followed
+  the system theme. The contrast test reads `THEME_TOKENS`,
+  so a hue changed there is checked at 4.5:1 on the background, the surface,
+  and its own tint, in both themes.
+- **No inline style on either page, tested.** `test/visual-pass.test.ts` fails
+  on a `style` attribute or element in the HTML and on `.style`, `'style'`,
+  `cssText`, `setProperty(`, `insertRule(`, or `CSSStyleSheet` in either
+  script. Sizes are class steps (the graph frame's `h-s` to `h-xl`), never
+  computed styles.
+- **Pan and zoom are pure helpers shipped twice.** `board-view.mjs` exports
+  them for the tests, and `board-page.mjs` embeds the same functions with
+  `Function.prototype.toString`. Each must stay self-contained ES2017 (no
+  imports, no module constants, no closures); a test runs the embedded copies.
+  A view is a `viewBox`, so zooming sets one attribute and rebuilds nothing.
+  Fit means the whole graph, so `fitView` may go below the 0.2 zoom minimum
+  and zooming out stops at that fit, not at 0.2 (review on #282).
+- **Dim the box, never the label.** A dimmed record keeps its text and focus
+  ring at full opacity (0.28 on the whole group puts a muted label at about
+  1.5:1 on the light surface, computed from the fallback tokens),
+  and a clipped title is cut by grapheme, never mid-character.
+- **A drag must not select.** A pointer drag past 4 px sets a flag the record's
+  click handler consumes, and the graph's `+ - 0` and arrow keys ignore events
+  from an input or button.
+- **The confirm step is an attribute, not a class.** `data-step="confirm"`
+  styles step 2 of the review controls, because the review tests find the box
+  by `className === 'review-controls'`. With recording off, the fixed note is
+  shown once above the queue and each disabled control carries it as its
+  description.
+- **Objector names are not shown, because `adr queue` does not report them.**
+  QueueReport v1 carries only the two objection counts; showing who raised each
+  needs a CLI field, not a page change.
 
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 

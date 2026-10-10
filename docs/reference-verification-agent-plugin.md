@@ -1345,6 +1345,60 @@ recorded because they affect anyone testing a local build in the app.
   Each board allows one write at a time, but separate processes are not
   serialized, as ADR-0051 accepts for the CLI.
 
+## v0.11.0 canvas visual pass (2026-10-10)
+
+A presentation pass on `decision-review` and `decision-board`: one shared
+stylesheet (`canvas-theme.mjs`), light and dark fallbacks, badges with a
+symbol and a word, and pan and zoom on the board graph (`board-view.mjs`).
+Routes, actions, the payload, and the Content-Security-Policy are unchanged.
+
+### Headless renders (Copilot CLI 1.0.93 SDK host, Chrome 154 headless, no model calls)
+
+Each canvas was opened through `createSession({ pluginDirectories,
+requestCanvasRenderer: true, requestExtensions: true })` with no prompt sent and
+no `run_review`, and its page URL captured in Chrome over the DevTools protocol
+at 900 and 420 px wide, with `prefers-color-scheme` light and dark. Corpora:
+this repository's `docs/adr` (52 records, 255 relationships), a five-record
+fixture with a proposed record carrying two approvals of a quorum of three, one
+open and one resolved objection, and an SLA deadline, a 320-record synthetic
+corpus (past the 300-record budget), and a copy of the `adrkit-demo` corpus.
+
+| # | Surface | State | Result |
+|---|---|---|---|
+| V1 | review | governing records, before a review | Cards with status badge and provenance chips (`affects path: src/cache/**`, `marker src/cache/ttl.ts:1 names 0003`); cost line under the button |
+| V2 | review | stale-marker finding | Findings grouped, `Warnings (1)` |
+| V3 | review | no changed files | Distinct empty state; Run review disabled with its reason |
+| V4 | review | session directory outside a git work tree | `usage-error`; the fixed not-a-work-tree note shown open in a red callout, not repeated under Notes |
+| V5 | review | loading (state request held) | Spinner and "Reading the change and running adr check…" |
+| V6 | board | 52-record graph | Opens at the top at 0.6 scale (the whole graph would be smaller); edges at reduced weight; zoom bar and keyboard hint |
+| V7 | board | 320 records | Summary: status counts as badges, focus form |
+| V8 | board | a record focused | Neighbors bright, the rest dimmed; detail pane with status badge |
+| V9 | board | queue row selected | Approvals as dots (2 of 3), `1 unresolved` and `1 resolved` badges, SLA badge and deadline |
+| V10 | board | recording off (headless host has no elicitation) | All three controls disabled; one note above the list; each control carries it as its description |
+| V11 | both | dark vs light | All 36 after pairs differ, with dark page colours. In the 34 baseline pairs the dark render kept a white page and dark text: 16 were byte-identical, and the rest differed only in native form controls and timestamps |
+| V12 | board | viewport changed after load (900 to 420 px, through the chrome-devtools MCP) | The untouched graph re-opened for the new width: `viewBox` `0 -106.84 776 377.69` at 489 px, then `0 -116.33 588.33 396.67` at 353 px (0.6 scale). Before the fix, a change after load left a stale 0.39 scale |
+
+The finished review (verdicts `consistent` and `conflicts`), the enabled review
+controls, and the confirm step cannot be reached in the headless host, which
+has no completed run and no elicitation. Those three were rendered by a stub
+server that serves the shipped page strings with the real security headers and
+a snapshot captured from the host, with only `review` replaced: the confirm
+step shows "Step 2 of 3" in its own highlighted box and names step 3, the
+host's dialog. The chrome-devtools MCP was used for a spot check of keyboard
+order and accessible names on the fixture board.
+
+Screenshots, before and after, are kept with the track's working notes, not in
+the repository.
+
+### Not verified
+
+- **Any of this in the Copilot app.** The app injects its own theme tokens,
+  which replace the fallback colours, so the app's contrast is the app's.
+- Pan and zoom with a real trackpad pinch in the app's webview. A plain wheel
+  is left to scroll the panel, by design and by test; only Ctrl or Cmd with
+  the wheel zooms.
+- The enabled review controls and the confirm step outside the stub server.
+
 ## Verdict
 
 The plugin's six components load on Copilot CLI and function correctly against a

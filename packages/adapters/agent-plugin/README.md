@@ -73,9 +73,11 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.10.0 adds approve, object, and resolve controls to the
-`decision-board` canvas (they need `@adrkit/cli` 0.18.0 or later,
-`ADRKIT_REVIEWER`, and a host that can ask you to confirm each write); 0.9.1 reviews uncommitted and untracked edits (the default change was the committed range alone) and names a session directory git does not treat as a work tree; 0.9.0 added the `decision-board` canvas; 0.8.1 hardens the extension (fixed error messages, `/cd` for the
+Version 0.11.0 is a visual pass on both canvases (a shared stylesheet, light
+and dark fallbacks, and pan and zoom on the board graph); 0.10.0 added approve,
+object, and resolve controls to the `decision-board` canvas (they need
+`@adrkit/cli` 0.18.0 or later, `ADRKIT_REVIEWER`, and a host that can ask you
+to confirm each write); 0.9.1 reviews uncommitted and untracked edits (the default change was the committed range alone) and names a session directory git does not treat as a work tree; 0.9.0 added the `decision-board` canvas; 0.8.1 hardens the extension (fixed error messages, `/cd` for the
 workflow, batched checks for wide changes, and process-tree cleanup); 0.8.0
 added the advisory session hooks; 0.7.0 added the read-only
 `adr_check`, `adr_explain`, and `adr_lint` extension tools; 0.6.0 added
@@ -352,10 +354,14 @@ architecture decisions governing the current change. It ships in the same
 **What it shows.** The status, the working directory, and the changed files;
 the governing decisions; active proposals; history (listed, not judged); the
 `adr check` and `adr lint` findings; notes; and, once a review exists, the
-`adr-review` verdicts and anything left `unverified`. Each decision has a
-collapsed evidence section, and clicking a decision asks the agent to explain
-it (see Explain, below). Before a review runs, the panel shows what `adr check`
-found. A wide change lists its first 200 paths and counts the rest; the
+`adr-review` verdicts and anything left `unverified`. Each decision is a card
+with its status, its verdict once a review exists, and what tied it to the
+change; the reviewer's evidence is a collapsed section, and a button asks the
+agent to explain the decision (see Explain, below). Findings are grouped by
+severity, errors first, and notes are collapsed. Loading, no changed files,
+and a check that could not run (for example, a session directory outside a git
+work tree) each have their own state, the last showing the panel's fixed
+message. Before a review runs, the panel shows what `adr check` found. A wide change lists its first 200 paths and counts the rest; the
 panel's notes are fixed messages and never show the CLI's stderr, an
 exception's text, or a run's own error.
 
@@ -415,15 +421,16 @@ Proposed in
 [ADR-0047](../../../docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
 (**proposed**, amends ADR-0046). Three additions, with no new action or route:
 
-- **Why each decision governs.** A decision's evidence section names what tied
-  it to the change. An inbound marker shows the changed file and line that
+- **Why each decision governs.** A decision's card names what tied it to the
+  change. An inbound marker shows the changed file and line that
   named the record. An `affects` match shows the pattern, and says that
   `adr check` does not report which changed file matched it; the panel does not
   guess. `get_state` carries the same data as `declaredBy` and `firedMatchers`.
 - **What a review costs before you start it.** `adr-review` makes at most one
   `decision-checker` call per governing decision, so the button reads
   "Run review: N decision-checker call(s) (uses AI credits)", and `get_state`
-  carries the count as `judgeCalls`. With no governing decision the button is
+  carries the count as `judgeCalls`; a line under the button says the same in
+  words, and that Refresh is free. With no governing decision the button is
   disabled and says there is nothing to judge. When `adr check` or `adr lint`
   exits 2 or more, the workflow skips its Judge, so `judgeCalls` is 0 and the
   button says no checker calls will be made. Runtime retries are not counted.
@@ -441,6 +448,25 @@ Proposed in
 
 Measured in a headless Copilot CLI 1.0.93 SDK host; the new UI is unmeasured in
 the Copilot app.
+
+### Look and feel (0.11.0)
+
+Both canvases share one stylesheet, `extensions/adrkit/canvas-theme.mjs`, so
+their spacing, type, badges, buttons, and focus ring cannot drift apart. The
+theme is still the app's: every colour reads the app's own token first, and
+the built-in fallbacks follow the system's light or dark setting when the app
+supplies none. Status is never shown by colour alone; each badge also has a
+symbol and its word. Motion is limited to a spinner and short transitions, and
+both stop under reduced motion. Below 720 px the board's graph and detail
+panes stack, and so do a queue row's facts and controls. A test
+checks that every text colour in the fallbacks meets 4.5:1 in both themes.
+
+The pages still set no inline style, take no external font or library, and
+build their DOM with `textContent`; the Content-Security-Policy is unchanged.
+
+Rendered from a headless Copilot CLI 1.0.93 SDK host in Chrome at 900 and 420
+px, light and dark; the new look is **unmeasured in the Copilot app**, where
+the app's own tokens replace the fallback colours.
 
 ## Tools: `adr_check`, `adr_explain`, `adr_lint` (GitHub Copilot)
 
@@ -564,8 +590,15 @@ ADR-0047). It renders what the CLI computed and derives nothing of its own:
   title, and status, and each `supersedes`, `relatesTo`, or `conflictsWith`
   relationship. A supersession chain reads left to right, oldest first. Status
   is shown by color and by a text label, and a relationship kind by line style
-  and a legend. Records are focusable; Enter selects one, and the detail pane
-  shows its fields, its neighbors, and its queue row if it has one.
+  and a legend. Records are focusable; Enter selects one, its neighbors stay
+  bright and the rest dim, and the detail pane shows its fields, its neighbors,
+  and its queue row if it has one. Long titles are clipped in the box, with the
+  full title as the record's tooltip.
+- **Pan and zoom.** Drag to pan, Ctrl or Cmd with the wheel (or a trackpad
+  pinch) to zoom at the pointer, the −, +, and Fit buttons, or, with the graph
+  focused, `+`, `-`, `0` (fit), and the arrow keys. The graph opens whole when
+  it fits at 60% or more, and otherwise at the top, fitted to the width. Panning
+  and zooming rewrite the drawing's `viewBox` and nothing else.
 - **Focus and kind filters re-run the CLI.** Focusing on a record runs
   `adr graph --focus <id>`, and the kind checkboxes add `--kind`, so the board
   and `adr graph` cannot disagree. The id must be a record id (four or more
@@ -576,7 +609,10 @@ ADR-0047). It renders what the CLI computed and derives nothing of its own:
 - **The queue** comes from `adr queue --format json` and shows each open
   proposal's raw review facts: approvals against quorum, unresolved and
   resolved objections, SLA state, deadline, routing, and how many findings it
-  carries. **The board never says a proposal is ready.** Review state alone
+  carries. Approvals show as dots against the quorum, with the numbers; the
+  objections as two labelled counts. `adr queue` reports counts only, so the
+  board cannot say who raised each objection. **The board never says a
+  proposal is ready.** Review state alone
   misses refusals such as an empty `deciders`, so a verdict would be a claim the
   board cannot back. There is no ratify control.
 
@@ -615,12 +651,16 @@ Each open proposal on the board has three controls, proposed in
   the environment GitHub Copilot runs in, then restart it.
 - **A host that can show a confirmation dialog** to you (elicitation).
 
-Without any one of these the controls are disabled, with a note saying why.
+Without any one of these the controls are disabled, with one note above the
+list saying why; each disabled control carries the same note as its
+description.
 
 **How a write happens.**
 1. On the board, the first click prepares a confirmation.
 2. The second, "Confirm approval as `<you>`" (or objection, or resolution),
    sends it.
+   The board labels these as steps 1 and 2 of 3, and step 2 is a highlighted
+   box of its own, so a confirmation waiting for its click is hard to miss.
 3. **GitHub Copilot then asks you to confirm it in its own dialog**, naming the
    record, the kind, and your identity, and the board writes only if you say
    yes there. The dialog's first line is the record and the action, such as
