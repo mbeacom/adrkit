@@ -40391,7 +40391,7 @@ function checkChanges(input) {
   }) : { matches: [], findings: [] };
   const governedBy = mergeSourceDeclarations(toGoverningDecisions(input.lint.records, resolution.matches), input.lint.records, markerResolution.matches);
   const buckets = bucketDecisions(governedBy);
-  const changedRecordFindings = input.lint.findings.filter((finding) => finding.path !== undefined && changedRecordSet.has(finding.path));
+  const changedRecordFindings = input.lint.findings.filter((finding) => finding.path !== undefined && changedRecordSet.has(finding.path) && !(input.member !== undefined && finding.rule === AFFECTS_REPO_NOT_APPLICABLE));
   const markerScan = input.markerScans ? markerScanReport(input.markerScans) : undefined;
   const capped = markerScan ? cappedScanFinding(markerScan) : undefined;
   const cappedDeclarations = markerScan ? cappedDeclarationsFinding(markerScan) : undefined;

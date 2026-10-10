@@ -205,3 +205,60 @@ describe('checkChanges passes the member through', () => {
     expect(federated.findings).toEqual([]);
   });
 });
+
+describe('lintCorpus + checkChanges with a member and the qualified record itself changed (PR #308 review)', () => {
+  const DIR_NAME = 'core-affects-repo-member-check';
+
+  async function seed(repo: string): Promise<string> {
+    const { acceptedRecordMarkdown, resetTestDir, writeText } = await import('./helpers.ts');
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      `${root}/docs/adr/0001-payments.md`,
+      acceptedRecordMarkdown('0001', 'Use payments paths').replace(
+        'affects: []',
+        ['affects:', '  - type: path', '    pattern: "src/**"', `    repo: "${repo}"`].join('\n'),
+      ),
+    );
+    return root;
+  }
+
+  async function run(repo: string, member?: { log: string; repo: string }) {
+    const { lintCorpus } = await import('../src/validate/index.ts');
+    const { checkChanges } = await import('../src/check/index.ts');
+    const { cleanupTestDir } = await import('./helpers.ts');
+    const root = await seed(repo);
+    try {
+      const lint = await lintCorpus({ cwd: root });
+      expect(lint.findings.map((finding) => finding.rule)).toEqual(['affects-repo-not-applicable']);
+      return checkChanges({
+        lint,
+        changedFiles: ['src/a.ts', 'docs/adr/0001-payments.md'],
+        ...(member ? { member } : {}),
+      });
+    } finally {
+      await cleanupTestDir(DIR_NAME);
+    }
+  }
+
+  test('a member the matcher names: governed, and no finding says the matcher cannot apply', async () => {
+    const outcome = await run('payments', { log: 'payments', repo: 'acme/payments' });
+    expect(outcome.governing.map((decision) => decision.recordId)).toEqual(['0001']);
+    expect(outcome.findings.filter((finding) => finding.rule === 'affects-repo-not-applicable')).toEqual([]);
+  });
+
+  test('a member the matcher does not name: skipped silently, as the resolver does', async () => {
+    const outcome = await run('acme/billing', { log: 'payments', repo: 'acme/payments' });
+    expect(outcome.governing).toEqual([]);
+    expect(outcome.findings.filter((finding) => finding.rule === 'affects-repo-not-applicable')).toEqual([]);
+  });
+
+  test('no member: both the per-matcher and the per-record advisory still appear', async () => {
+    const outcome = await run('payments');
+    expect(outcome.governing).toEqual([]);
+    expect(
+      outcome.findings
+        .filter((finding) => finding.rule === 'affects-repo-not-applicable')
+        .map((finding) => finding.field),
+    ).toEqual(['affects', 'affects.path']);
+  });
+});

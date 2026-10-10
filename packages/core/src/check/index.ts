@@ -5,7 +5,12 @@
 // file the corpus reaches by no pattern at all.
 import { sep } from 'node:path';
 import type { Adr } from '../schema/adr.schema.ts';
-import { resolveAffects, type MemberIdentity, type ResolutionSnapshots } from '../affects/index.ts';
+import {
+  AFFECTS_REPO_NOT_APPLICABLE,
+  resolveAffects,
+  type MemberIdentity,
+  type ResolutionSnapshots,
+} from '../affects/index.ts';
 import { mergeSourceDeclarations, resolveSourceMarkers } from '../markers/resolve.ts';
 import {
   MARKER_DECLARATION_BATCH_CAP,
@@ -261,8 +266,18 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
   // Findings kept only for files lint attributes to a changed record. Errors on
   // unchanged records (A5) and corpus-level findings without a record path do not
   // fail the check.
+  //
+  // `lintCorpus` always reads a single-repository corpus, so its per-record
+  // `affects-repo-not-applicable` advisory asserts that the record's qualified matchers
+  // cannot apply. With a member, that claim is false: the resolver above either applied
+  // each matcher or skipped it because it names another member, which says nothing
+  // (ADR-0059 clause 11). Drop the lint advisory then, so a check never both applies a
+  // matcher and reports that it cannot apply. It is `info`, so `ok` is unaffected.
   const changedRecordFindings = input.lint.findings.filter(
-    (finding) => finding.path !== undefined && changedRecordSet.has(finding.path),
+    (finding) =>
+      finding.path !== undefined &&
+      changedRecordSet.has(finding.path) &&
+      !(input.member !== undefined && finding.rule === AFFECTS_REPO_NOT_APPLICABLE),
   );
   const markerScan = input.markerScans ? markerScanReport(input.markerScans) : undefined;
   const capped = markerScan ? cappedScanFinding(markerScan) : undefined;
