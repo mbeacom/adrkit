@@ -15,7 +15,7 @@ export const RECORD_ID = /^(?:[0-9]{4,64}|[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})$/
 /** `adr graph --kind`'s vocabulary, in the canonical order a query is normalized to. */
 export const EDGE_KINDS: readonly DecisionEdgeKind[] = Object.freeze(['supersedes', 'relatesTo', 'conflictsWith']);
 
-const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const MAX_PATH = 1024;
 
@@ -47,13 +47,15 @@ export function parseKinds(raw: string): Validated<readonly DecisionEdgeKind[]> 
   return { ok: true, value: EDGE_KINDS.filter((kind) => wanted.has(kind)) };
 }
 
-/** `asOf`: a real UTC calendar date in `YYYY-MM-DD` form. */
+/**
+ * `asOf`: a real UTC calendar date in `YYYY-MM-DD` form. The same rule as core's as-of
+ * resolver, which `DecisionSet.queue` applies: the ISO date must round-trip through `Date`.
+ * (`Date.UTC` would map years 0 to 99 onto 1900 to 1999 and refuse dates the SDK accepts.)
+ */
 export function parseAsOf(raw: string): Validated<string> {
-  const match = CALENDAR_DATE.exec(raw);
-  if (!match) return invalid;
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return invalid;
+  if (!CALENDAR_DATE.test(raw)) return invalid;
+  const probe = new Date(`${raw}T00:00:00Z`);
+  if (!Number.isFinite(probe.getTime()) || probe.toISOString().slice(0, 10) !== raw) return invalid;
   return { ok: true, value: raw };
 }
 

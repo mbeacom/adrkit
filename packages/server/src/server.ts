@@ -322,8 +322,11 @@ function write(response: ServerResponse, reply: Reply, head: boolean, ifNoneMatc
   };
   if (reply.location !== undefined) headers.Location = reply.location;
   if (reply.etag !== undefined) {
-    headers.ETag = reply.etag;
-    if (reply.status === 200 && ifNoneMatch !== undefined && ifNoneMatch.split(',').some((tag) => tag.trim() === reply.etag)) {
+    // The validator covers the bytes as well as the commit and canonical query, so a body
+    // that changes at the same commit (a server or SDK upgrade) never answers 304.
+    const etag = etagOf(reply.etag, reply.body);
+    headers.ETag = etag;
+    if (reply.status === 200 && ifNoneMatch !== undefined && noneMatchHits(ifNoneMatch, etag)) {
       response.writeHead(304, headers);
       response.end();
       return;
@@ -333,6 +336,17 @@ function write(response: ServerResponse, reply: Reply, head: boolean, ifNoneMatc
   headers['Content-Length'] = String(body.byteLength);
   response.writeHead(reply.status, headers);
   response.end(head ? undefined : body);
+}
+
+/**
+ * RFC 9110 section 13.1.2 for GET and HEAD: `*` matches any current representation, and
+ * each listed tag is compared weakly (a `W/` prefix on either side is ignored).
+ */
+export function noneMatchHits(header: string, etag: string): boolean {
+  if (header.trim() === '*') return true;
+  const opaque = (tag: string): string => tag.trim().replace(/^W\//, '');
+  const ours = opaque(etag);
+  return header.split(',').some((tag) => opaque(tag) === ours);
 }
 
 /** An `http.Server` over {@link createRequestHandler}, not yet listening. */

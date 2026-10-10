@@ -17,7 +17,8 @@
  * swap: the corpus directory briefly absent between the moves, and a load that failed or saw
  * the commit move. A directory that is present with a missing or invalid sidecar is not
  * served: clause 4 forbids an answer without a commit, and a stale one would be a lie about
- * the tree on disk. A directory that now resolves outside the root is not served either.
+ * the tree on disk. A corpus directory, or the records directory inside it, that now
+ * resolves outside the root is not served either, old handle or not.
  */
 
 import { readFile, realpath, stat } from 'node:fs/promises';
@@ -129,6 +130,14 @@ export class CorpusHolder {
     }
   }
 
+  async #recordsPlacement(): Promise<'inside' | 'absent' | 'escapes'> {
+    try {
+      return isInside(this.#root, await realpath(join(this.#dir, this.#adrDir))) ? 'inside' : 'escapes';
+    } catch (error) {
+      return isNotFound(error) ? 'absent' : 'escapes';
+    }
+  }
+
   #load(commit: string): Promise<CorpusState> {
     if (this.#pending?.commit === commit) return this.#pending.promise;
     const promise = this.#loadOnce(commit).finally(() => {
@@ -141,6 +150,10 @@ export class CorpusHolder {
   async #loadOnce(commit: string): Promise<CorpusState> {
     const fallback = (code: UnavailableCode): CorpusState =>
       this.#loaded ? { ok: true, corpus: this.#loaded } : { ok: false, code };
+    // `openDecisions` follows the records directory wherever it points, so it is confined
+    // too, right before every open: an in-root corpus whose `docs/adr` is a symlink out of
+    // the root must not serve the outside records.
+    if ((await this.#recordsPlacement()) === 'escapes') return { ok: false, code: 'corpus-escapes-root' };
     let handle: CorpusHandle;
     try {
       handle = await this.#open({ cwd: this.#dir, dir: this.#adrDir });

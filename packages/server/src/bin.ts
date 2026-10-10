@@ -43,7 +43,9 @@ async function main(argv: readonly string[]): Promise<void> {
     });
   }
 
-  server.listen(config.port, config.host, () => {
+  // `[::1]` is how an IPv6 address is written in a URL; Node's listen wants it bare.
+  const bindHost = config.host.startsWith('[') && config.host.endsWith(']') ? config.host.slice(1, -1) : config.host;
+  server.listen(config.port, bindHost, () => {
     const address = server.address();
     const port = typeof address === 'object' && address !== null ? address.port : config.port;
     const host = config.host.includes(':') && !config.host.startsWith('[') ? `[${config.host}]` : config.host;
