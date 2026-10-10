@@ -84,6 +84,8 @@ describe('packaging', () => {
       'extensions/adrkit/board.mjs',
       'extensions/adrkit/board-page.mjs',
       'extensions/adrkit/board-layout.mjs',
+      'extensions/adrkit/board-view.mjs',
+      'extensions/adrkit/canvas-theme.mjs',
       'README.md',
       'LICENSE',
       'NOTICE',
@@ -163,6 +165,8 @@ describe('workflow extension packaging', () => {
       './board-page.mjs',
       './board-layout.mjs',
       './board-review-write.mjs',
+      './board-view.mjs',
+      './canvas-theme.mjs',
     ]);
     for (const file of files) {
       const source = readFileSync(file, 'utf8');

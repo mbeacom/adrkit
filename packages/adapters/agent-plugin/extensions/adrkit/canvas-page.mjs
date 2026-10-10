@@ -10,9 +10,12 @@
  * appears here. The Content-Security-Policy the server sends allows only these
  * same-origin files, so there is no inline script or style either.
  *
- * Theme values come from the app's documented canvas tokens, each with a
- * fallback so the page still reads when opened outside the app.
+ * The stylesheet is the shared canvas theme (canvas-theme.mjs) plus this
+ * page's own rules: app tokens first, with light and dark fallbacks, and no
+ * inline style anywhere, so every state is a class.
  */
+
+import { THEME_CSS } from './canvas-theme.mjs';
 
 const TOKEN_SLOT = '__ADRKIT_TOKEN__';
 
@@ -34,17 +37,19 @@ export const PAGE_HTML = `<!doctype html>
 <header class="bar">
   <div class="headline">
     <h1>Decision review</h1>
-    <span id="status" class="badge tone-neutral" role="status" aria-live="polite">loading</span>
+    <span id="status" class="badge lg tone-neutral glyph-wait" role="status" aria-live="polite">loading</span>
   </div>
-  <p id="cwd" class="cwd mono muted"></p>
+  <div id="meta" class="meta"></div>
+  <p id="cwd" class="cwd mono"></p>
   <div class="buttons">
-    <button type="button" id="refresh">Refresh</button>
-    <button type="button" id="run-review">Run review (uses AI credits)</button>
+    <button type="button" id="run-review" class="primary" disabled>Run review (uses AI credits)</button>
+    <button type="button" id="refresh" class="secondary">Refresh</button>
   </div>
+  <p id="cost" class="cost"></p>
   <p id="message" class="message" role="alert"></p>
 </header>
 <main id="app"></main>
-<footer class="muted">Read-only and advisory: this view has no exit-code authority.</footer>
+<footer>Read-only and advisory: this view has no exit-code authority.</footer>
 </body>
 </html>
 `;
@@ -58,21 +63,34 @@ export function renderPage(token) {
   return PAGE_HTML.split(TOKEN_SLOT).join(token);
 }
 
+
 /** Browser script. Plain ES2017, no modules, no dependencies. */
 export const PAGE_JS = `(function () {
   'use strict';
 
   var token = new URLSearchParams(window.location.search).get('token') || '';
   var query = '?token=' + encodeURIComponent(token);
+  // Each status, verdict, and severity has a hue and a glyph, and is always
+  // shown with its text label too: colour is never the only signal.
   var STATUS_TONE = { ok: 'green', findings: 'red', incomplete: 'yellow', 'usage-error': 'red', pending: 'blue' };
+  var STATUS_GLYPH = { ok: 'check', findings: 'cross', incomplete: 'bang', 'usage-error': 'cross', pending: 'wait' };
   var VERDICT_TONE = { consistent: 'green', conflicts: 'red', unclear: 'yellow' };
+  var VERDICT_GLYPH = { consistent: 'check', conflicts: 'cross', unclear: 'ask' };
   var SEVERITY_TONE = { error: 'red', warn: 'yellow', info: 'blue' };
+  var SEVERITY_GLYPH = { error: 'cross', warn: 'bang', info: 'info' };
+  var SEVERITY_TITLE = { error: 'Errors', warn: 'Warnings', info: 'Information' };
+  var SEVERITIES = ['error', 'warn', 'info'];
+  var RECORD_TONE = { accepted: 'green', proposed: 'blue', draft: 'neutral', rejected: 'red', superseded: 'purple', deprecated: 'yellow' };
+  var RECORD_GLYPH = { accepted: 'check', proposed: 'half', draft: 'ring', rejected: 'cross', superseded: 'arrow', deprecated: 'bang' };
   var state = null;
   var busy = false;
+  var loaded = false;
 
   function $(id) { return document.getElementById(id); }
   function list(value) { return Array.isArray(value) ? value : []; }
   function text(value) { return typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value); }
+  function plural(n, noun) { return n + ' ' + noun + (n === 1 ? '' : 's'); }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
   /** Every node is built here; text only ever goes through textContent. */
   function el(tag, className, content) {
@@ -82,14 +100,21 @@ export const PAGE_JS = `(function () {
     return node;
   }
 
-  function badge(label, tone) { return el('span', 'badge tone-' + (tone || 'neutral'), label); }
-
   /**
    * Look up a tone by a value that came from the repository or an agent. Own
    * properties only, so a key such as "constructor" finds nothing.
    */
   function toneOf(table, key) {
     return typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined;
+  }
+
+  /** A badge: hue, glyph, and the text label. */
+  function badge(label, tone, glyph, extra) {
+    return el('span', 'badge tone-' + (tone || 'neutral') + (glyph ? ' glyph-' + glyph : '') + (extra ? ' ' + extra : ''), label);
+  }
+  function recordBadge(status) {
+    var key = text(status);
+    return badge(key || 'unknown', toneOf(RECORD_TONE, key), toneOf(RECORD_GLYPH, key) || 'ask');
   }
 
   function button(label, onClick) {
@@ -99,13 +124,24 @@ export const PAGE_JS = `(function () {
     return node;
   }
 
-  function section(title, count) {
+  /** A section whose heading carries its count in the same text, "Title (n)". */
+  function section(title, count, lede) {
     var node = el('section', 'section');
-    node.appendChild(el('h2', null, count === undefined ? title : title + ' (' + count + ')'));
+    var head = el('div', 'section-head');
+    head.appendChild(el('h2', null, count === undefined ? title : title + ' (' + count + ')'));
+    node.appendChild(head);
+    if (lede) node.appendChild(el('p', 'lede', lede));
     return node;
   }
 
   function setMessage(message) { $('message').textContent = text(message); }
+
+  function chip(kind, value) {
+    var node = el('span', 'chip');
+    node.appendChild(el('span', 'chip-kind', kind));
+    node.appendChild(el('span', 'mono', value));
+    return node;
+  }
 
   function describeMatcher(matcher) {
     if (!matcher || typeof matcher !== 'object') return text(matcher);
@@ -135,55 +171,67 @@ export const PAGE_JS = `(function () {
     return out;
   }
 
+  /**
+   * One record as a card: id, title, status, verdict, then what tied it to
+   * the change. A marker names its file and line; an affects match names only
+   * the pattern, because adr check reports no file for one, so the page does
+   * not invent one (ADR-0047).
+   */
   function decisionItem(decision, verdict, explainable) {
-    var item = el('li', 'decision');
-    var head = el('div', 'decision-head');
-    head.appendChild(el('span', 'record-id mono', decision.recordId));
+    var item = el('li', 'card decision');
+    var head = el('div', 'card-head');
+    head.appendChild(el('span', 'record-id', decision.recordId));
     head.appendChild(el('span', 'record-title', decision.title));
-    if (verdict) head.appendChild(badge(verdict.verdict, toneOf(VERDICT_TONE, verdict.verdict)));
-    if (decision.status) head.appendChild(el('span', 'muted', decision.status));
     item.appendChild(head);
+    var badges = el('div', 'chips');
+    if (decision.status) badges.appendChild(recordBadge(decision.status));
+    if (verdict) badges.appendChild(badge(text(verdict.verdict) || 'no verdict', toneOf(VERDICT_TONE, verdict.verdict), toneOf(VERDICT_GLYPH, verdict.verdict) || 'ask'));
+    if (decision.supersededBy) badges.appendChild(chip('superseded by', decision.supersededBy));
+    if (badges.firstChild) item.appendChild(badges);
 
-    var details = el('details', 'evidence');
-    details.appendChild(el('summary', null, 'Evidence'));
-    if (verdict) details.appendChild(el('p', 'verdict-evidence', verdict.evidence));
-    // Provenance: what tied this record to the change. A marker names its file
-    // and line; an affects match names only the pattern, because adr check
-    // reports no file for one, so the page does not invent one.
+    var provenance = el('div', 'provenance');
     var matchers = list(decision.firedMatchers);
-    if (matchers.length > 0) {
-      var matched = el('ul', 'matchers');
-      matchers.forEach(function (matcher) { matched.appendChild(el('li', 'mono', describeMatcher(matcher))); });
-      details.appendChild(el('p', 'muted', 'Matched by affects pattern:'));
-      details.appendChild(matched);
-      details.appendChild(el('p', 'muted', 'adr check does not report which changed file matched a pattern.'));
-    }
     var declared = list(decision.declaredBy);
-    if (declared.length > 0) {
-      var declaring = el('ul', 'matchers');
-      declared.forEach(function (entry) {
-        declaring.appendChild(el('li', 'mono', text(entry.path) + ':' + text(entry.line) + ' names ' + text(entry.ref)));
-      });
-      details.appendChild(el('p', 'muted', 'Declared by an inbound marker in a changed file:'));
-      details.appendChild(declaring);
+    if (matchers.length > 0) {
+      provenance.appendChild(el('p', 'small muted', 'Matched by affects pattern:'));
+      var matched = el('div', 'chips');
+      matchers.forEach(function (matcher) { matched.appendChild(chip('affects', describeMatcher(matcher))); });
+      provenance.appendChild(matched);
+      provenance.appendChild(el('p', 'small muted', 'adr check does not report which changed file matched a pattern.'));
     }
-    if (decision.supersededBy) details.appendChild(el('p', 'muted', 'Superseded by ' + text(decision.supersededBy)));
-    if (!verdict && matchers.length === 0 && declared.length === 0) details.appendChild(el('p', 'muted', 'No evidence recorded.'));
-    item.appendChild(details);
+    if (declared.length > 0) {
+      provenance.appendChild(el('p', 'small muted', 'Declared by an inbound marker in a changed file:'));
+      var declaring = el('div', 'chips');
+      declared.forEach(function (entry) {
+        declaring.appendChild(chip('marker', text(entry.path) + ':' + text(entry.line) + ' names ' + text(entry.ref)));
+      });
+      provenance.appendChild(declaring);
+    }
+    if (!verdict && matchers.length === 0 && declared.length === 0) provenance.appendChild(el('p', 'small muted', 'No evidence recorded.'));
+    item.appendChild(provenance);
+
+    if (verdict && text(verdict.evidence)) {
+      var details = el('details', 'evidence');
+      details.appendChild(el('summary', null, 'Reviewer evidence'));
+      details.appendChild(el('p', 'verdict-evidence', verdict.evidence));
+      item.appendChild(details);
+    }
 
     if (explainable && /^[0-9]{4}$/.test(text(decision.recordId))) {
-      item.appendChild(button('Ask the agent to explain ' + decision.recordId, function () { explain(decision.recordId); }));
+      var actions = el('div', 'card-actions');
+      actions.appendChild(button('Ask the agent to explain ' + decision.recordId, function () { explain(decision.recordId); }));
+      item.appendChild(actions);
     }
     return item;
   }
 
-  function decisionList(title, decisions, verdicts, explainable, empty) {
-    var node = section(title, decisions.length);
+  function decisionList(title, decisions, verdicts, explainable, empty, lede) {
+    var node = section(title, decisions.length, lede);
     if (decisions.length === 0) {
-      node.appendChild(el('p', 'muted', empty));
+      node.appendChild(el('p', 'muted none', empty));
       return node;
     }
-    var items = el('ul', 'decisions');
+    var items = el('ul', 'cards');
     decisions.forEach(function (decision) { items.appendChild(decisionItem(decision, verdicts.get(text(decision.recordId)), explainable)); });
     node.appendChild(items);
     return node;
@@ -191,30 +239,45 @@ export const PAGE_JS = `(function () {
 
   function reviewSection(review) {
     var node = section('Review');
-    var line = el('p', 'review-line');
+    var card = el('div', 'card review-card');
+    var line = el('div', 'card-head');
     if (review.runId) {
-      line.appendChild(el('span', null, 'adr-review run ' + text(review.runId) + ': '));
-      line.appendChild(badge(review.runStatus, review.runStatus === 'completed' ? 'green' : review.runStatus === 'running' || review.runStatus === 'pending' ? 'blue' : 'yellow'));
+      line.appendChild(el('span', 'mono small', 'adr-review run ' + text(review.runId)));
+      var run = text(review.runStatus);
+      line.appendChild(badge(run || 'unknown', run === 'completed' ? 'green' : run === 'running' || run === 'pending' ? 'blue' : 'yellow', run === 'completed' ? 'check' : run === 'running' || run === 'pending' ? 'wait' : 'bang'));
     } else {
       // The agent handed this over; it may have read hostile repository text,
       // so it is never dressed as a run the panel watched.
-      line.appendChild(badge('supplied by the agent', 'neutral'));
-      line.appendChild(el('span', 'muted', ' Result supplied by the agent, not a run this panel followed.'));
+      line.appendChild(badge('supplied by the agent', 'neutral', 'ask'));
+      line.appendChild(el('span', 'small muted', 'Result supplied by the agent, not a run this panel followed.'));
     }
     if (review.result) {
-      line.appendChild(el('span', 'muted', ' result '));
-      line.appendChild(badge(review.result.status, toneOf(STATUS_TONE, review.result.status)));
+      line.appendChild(el('span', 'small muted', 'result'));
+      line.appendChild(badge(text(review.result.status) || 'unknown', toneOf(STATUS_TONE, review.result.status), toneOf(STATUS_GLYPH, review.result.status)));
     }
-    node.appendChild(line);
+    card.appendChild(line);
     if (review.result) {
       var notes = list(review.result.notes);
       if (notes.length > 0) {
         var items = el('ul', 'notes');
         notes.forEach(function (note) { items.appendChild(el('li', null, note)); });
-        node.appendChild(items);
+        card.appendChild(items);
       }
     }
+    node.appendChild(card);
     return node;
+  }
+
+  /** Approvals against quorum as a row of dots plus the number; no verdict on them. */
+  function approvalFacts(item) {
+    var wrap = el('span', 'approvals');
+    var have = typeof item.approvalCount === 'number' && item.approvalCount > 0 ? Math.floor(item.approvalCount) : 0;
+    var need = typeof item.quorum === 'number' && item.quorum > 0 ? Math.floor(item.quorum) : 0;
+    var dots = el('span', 'dots');
+    for (var i = 0; i < Math.min(Math.max(have, need), 12); i++) dots.appendChild(el('span', i < have ? 'dot on' : 'dot'));
+    if (dots.firstChild) wrap.appendChild(dots);
+    wrap.appendChild(el('span', null, 'approvals ' + text(item.approvalCount) + '/' + (item.quorum === null || item.quorum === undefined ? '-' : text(item.quorum))));
+    return wrap;
   }
 
   /**
@@ -229,67 +292,122 @@ export const PAGE_JS = `(function () {
       node.appendChild(el('p', 'muted note', queue.note || 'The open-proposal list is unavailable.'));
       return node;
     }
-    node.appendChild(el('p', 'muted', 'Listed, not judged' + (queue.asOf ? ', as of ' + text(queue.asOf) : '') + '.'));
+    node.appendChild(el('p', 'lede', 'Listed, not judged' + (queue.asOf ? ', as of ' + text(queue.asOf) : '') + '.'));
     if (items.length === 0) {
-      node.appendChild(el('p', 'muted', 'No proposed record is open.'));
+      node.appendChild(el('p', 'muted none', 'No proposed record is open.'));
     } else {
-      var rows = el('ul', 'decisions');
+      var rows = el('ul', 'cards');
       items.forEach(function (item) {
-        var row = el('li', 'decision');
-        var head = el('div', 'decision-head');
-        head.appendChild(el('span', 'record-id mono', item.id));
+        var row = el('li', 'card queue-row');
+        var head = el('div', 'card-head');
+        head.appendChild(el('span', 'record-id', item.id));
         head.appendChild(el('span', 'record-title', item.title));
         row.appendChild(head);
-        var facts = ['SLA ' + (text(item.slaState) || 'unknown')];
-        if (item.deadlineDate) facts.push('due ' + text(item.deadlineDate));
-        facts.push('approvals ' + text(item.approvalCount) + '/' + (item.quorum === null || item.quorum === undefined ? '-' : text(item.quorum)));
-        if (item.unresolvedObjectionCount > 0) facts.push(text(item.unresolvedObjectionCount) + ' unresolved objection(s)');
+        var facts = el('div', 'facts-row');
+        facts.appendChild(approvalFacts(item));
+        facts.appendChild(el('span', null, 'SLA ' + (text(item.slaState) || 'unknown')));
+        if (item.deadlineDate) facts.appendChild(el('span', null, 'due ' + text(item.deadlineDate)));
+        if (item.unresolvedObjectionCount > 0) facts.appendChild(el('span', 'objections-open', text(item.unresolvedObjectionCount) + ' unresolved objection(s)'));
         var targets = list(item.routingTargets).map(text);
-        if (targets.length > 0) facts.push('routed to ' + targets.join(', '));
-        row.appendChild(el('p', 'muted', facts.join(' · ')));
-        if (item.sourcePath) row.appendChild(el('p', 'mono muted', item.sourcePath));
+        if (targets.length > 0) facts.appendChild(el('span', null, 'routed to ' + targets.join(', ')));
+        row.appendChild(facts);
+        if (item.sourcePath) row.appendChild(el('p', 'mono small muted path', item.sourcePath));
         rows.appendChild(row);
       });
       node.appendChild(rows);
     }
     if (queue.corpusFindings > 0) {
-      node.appendChild(el('p', 'muted', 'adr queue reported ' + text(queue.corpusFindings) + ' corpus finding(s); adr lint shows them.'));
+      node.appendChild(el('p', 'small muted', 'adr queue reported ' + text(queue.corpusFindings) + ' corpus finding(s); adr lint shows them.'));
     }
-    if (queue.note) node.appendChild(el('p', 'muted note', queue.note));
+    if (queue.note) node.appendChild(el('p', 'small muted note', queue.note));
     return node;
   }
 
+  /** Findings grouped by severity, errors first; an unknown severity is listed last. */
   function findingsSection(findings) {
     var node = section('Findings', findings.length);
     if (findings.length === 0) {
-      node.appendChild(el('p', 'muted', 'None.'));
+      node.appendChild(el('p', 'muted none', 'None.'));
       return node;
     }
-    var items = el('ul', 'findings');
+    var groups = new Map();
     findings.forEach(function (finding) {
-      var item = el('li');
-      item.appendChild(badge(finding.severity || 'finding', toneOf(SEVERITY_TONE, finding.severity)));
-      if (finding.rule) item.appendChild(el('span', 'mono', ' ' + text(finding.rule) + ' '));
-      item.appendChild(el('span', null, finding.message));
-      if (finding.path) item.appendChild(el('span', 'mono muted', ' ' + text(finding.path)));
-      items.appendChild(item);
+      var key = SEVERITIES.indexOf(text(finding.severity)) >= 0 ? text(finding.severity) : 'other';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(finding);
     });
-    node.appendChild(items);
+    SEVERITIES.concat(['other']).forEach(function (key) {
+      var group = groups.get(key);
+      if (!group) return;
+      var block = el('div', 'finding-group');
+      block.appendChild(el('h3', null, (toneOf(SEVERITY_TITLE, key) || 'Other') + ' (' + group.length + ')'));
+      var items = el('ul', 'cards');
+      group.forEach(function (finding) {
+        var item = el('li', 'card finding');
+        var head = el('div', 'card-head');
+        head.appendChild(badge(text(finding.severity) || 'finding', toneOf(SEVERITY_TONE, finding.severity), toneOf(SEVERITY_GLYPH, finding.severity) || 'ask'));
+        if (finding.rule) head.appendChild(el('span', 'mono small', text(finding.rule)));
+        item.appendChild(head);
+        item.appendChild(el('p', null, finding.message));
+        if (finding.path) item.appendChild(el('p', 'mono small muted path', finding.path));
+        items.appendChild(item);
+      });
+      block.appendChild(items);
+      node.appendChild(block);
+    });
     return node;
+  }
+
+  function emptyState(title, body) {
+    var node = el('div', 'empty');
+    node.appendChild(el('strong', null, title));
+    node.appendChild(el('span', null, body));
+    return node;
+  }
+
+  /**
+   * The error state: the server's own fixed messages (the notes), shown first
+   * and open. Exception text never reaches a snapshot, so nothing here is one.
+   */
+  function errorState(notes) {
+    var node = el('div', 'callout tone-red error-state');
+    node.setAttribute('role', 'alert');
+    node.appendChild(el('p', 'callout-title glyph-cross', 'The check could not run'));
+    if (notes.length === 0) {
+      node.appendChild(el('p', null, 'adr check or adr lint did not succeed. Refresh to try again.'));
+    } else {
+      var items = el('ul', 'notes');
+      notes.forEach(function (note) { items.appendChild(el('li', null, note)); });
+      node.appendChild(items);
+    }
+    return node;
+  }
+
+  function renderMeta(snapshot, fileCount) {
+    var meta = $('meta');
+    if (!meta) return;
+    clear(meta);
+    meta.appendChild(el('span', null, plural(fileCount, 'changed file')));
+    meta.appendChild(el('span', null, 'from ' + (text(snapshot.filesSource) || 'nowhere')));
+    if (snapshot.updatedAt) meta.appendChild(el('span', null, 'updated ' + text(snapshot.updatedAt)));
   }
 
   function render(snapshot) {
     state = snapshot;
+    loaded = true;
     var status = text(snapshot.status) || 'unknown';
     var statusNode = $('status');
     statusNode.textContent = status;
-    statusNode.className = 'badge tone-' + (toneOf(STATUS_TONE, status) || 'neutral');
-    $('cwd').textContent = text(snapshot.workingDirectory);
+    statusNode.className = 'badge lg tone-' + (toneOf(STATUS_TONE, status) || 'neutral') + ' glyph-' + (toneOf(STATUS_GLYPH, status) || 'ask');
+    var cwd = $('cwd');
+    cwd.textContent = text(snapshot.workingDirectory);
+    cwd.title = text(snapshot.workingDirectory);
     $('refresh').disabled = busy;
     var files = list(snapshot.files);
     // A wide change lists at most a fixed number of paths; the rest are counted.
     var omitted = typeof snapshot.filesOmitted === 'number' && snapshot.filesOmitted > 0 ? snapshot.filesOmitted : 0;
     var fileCount = files.length + omitted;
+    renderMeta(snapshot, fileCount);
     // Cost before spend: the workflow makes one decision-checker call per
     // governing decision. With no changed files, or nothing governing them, a
     // run would judge nothing, so the button says why and stays disabled.
@@ -321,11 +439,19 @@ export const PAGE_JS = `(function () {
       runButton.title = '';
       runButton.removeAttribute('aria-description');
     }
+    var cost = $('cost');
+    if (cost) {
+      cost.className = 'cost' + (reason ? ' off' : '');
+      cost.textContent = reason
+        ? reason + '. Refresh is free.'
+        : 'A review costs ' + plural(calls, 'decision-checker call') + ' (AI credits), one per governing decision. Refresh is free.';
+    }
 
     var parts = [];
-    var source = el('p', 'muted', fileCount + ' changed file(s) from ' + (text(snapshot.filesSource) || 'nowhere') +
-      (snapshot.updatedAt ? ' · updated ' + text(snapshot.updatedAt) : ''));
-    parts.push(source);
+    var notes = list(snapshot.notes);
+    var failed = status === 'usage-error';
+    if (failed) parts.push(errorState(notes));
+    else if (noFiles) parts.push(emptyState('No changed files', 'Nothing in this change to review. Edit a file, or open the panel where the change is, then refresh.'));
 
     if (snapshot.review) parts.push(reviewSection(snapshot.review));
 
@@ -343,37 +469,51 @@ export const PAGE_JS = `(function () {
     if (unverified.length > 0) {
       var callout = el('div', 'callout tone-yellow');
       callout.setAttribute('role', 'note');
-      callout.appendChild(el('strong', null, 'Unverified: '));
-      callout.appendChild(el('span', null, unverified.join(', ') + '. No usable verdict, so the review is incomplete.'));
+      callout.appendChild(el('p', 'callout-title glyph-bang', 'Unverified: ' + unverified.join(', ')));
+      callout.appendChild(el('p', null, 'No usable verdict, so the review is incomplete.'));
       parts.push(callout);
     }
 
     parts.push(decisionList('Governing', governingOf(snapshot), verdicts, true, 'No accepted decision governs these files.'));
+    parts.push(findingsSection(list(snapshot.findings)));
     parts.push(decisionList('Active proposals', list(snapshot.activeProposals), new Map(), true, 'None.'));
     parts.push(decisionList('History (listed, not judged)', list(snapshot.history), new Map(), true, 'None.'));
     if (snapshot.queue && typeof snapshot.queue === 'object') parts.push(queueSection(snapshot.queue));
-    parts.push(findingsSection(list(snapshot.findings)));
 
-    var notes = list(snapshot.notes);
-    if (notes.length > 0) {
-      var notesNode = section('Notes', notes.length);
+    // Notes are collapsed by default; in the error state they are the error,
+    // shown open above, so they are not repeated here.
+    if (notes.length > 0 && !failed) {
+      var notesNode = el('details', 'section notes-block');
+      notesNode.appendChild(el('summary', null, 'Notes (' + notes.length + ')'));
       var noteItems = el('ul', 'notes');
       notes.forEach(function (note) { noteItems.appendChild(el('li', null, note)); });
       notesNode.appendChild(noteItems);
       parts.push(notesNode);
     }
 
-    var filesNode = el('details', 'files');
+    var filesNode = el('details', 'section files');
     filesNode.appendChild(el('summary', null, 'Changed files (' + fileCount + ')'));
-    var fileItems = el('ul', 'mono');
+    var fileItems = el('ul', 'mono small');
     files.forEach(function (file) { fileItems.appendChild(el('li', null, file)); });
     if (omitted > 0) fileItems.appendChild(el('li', 'muted', '+' + omitted + ' more'));
     filesNode.appendChild(fileItems);
     parts.push(filesNode);
 
     var app = $('app');
-    while (app.firstChild) app.removeChild(app.firstChild);
+    clear(app);
     parts.forEach(function (part) { app.appendChild(part); });
+  }
+
+  /** Before the first snapshot: a distinct loading state, not a blank page. */
+  function renderLoading() {
+    if (loaded) return;
+    var app = $('app');
+    clear(app);
+    var node = el('div', 'loading');
+    node.setAttribute('aria-busy', 'true');
+    node.appendChild(el('span', 'spinner'));
+    node.appendChild(el('span', null, 'Reading the change and running adr check…'));
+    app.appendChild(node);
   }
 
   function post(path, body) {
@@ -418,6 +558,7 @@ export const PAGE_JS = `(function () {
   $('refresh').addEventListener('click', function () { act('/api/refresh', {}, 'Refreshing…'); });
   $('run-review').addEventListener('click', function () { act('/api/run-review', {}, 'Starting adr-review…'); });
 
+  renderLoading();
   fetch('/api/state' + query)
     .then(function (response) { return response.json(); })
     .then(render)
@@ -432,61 +573,39 @@ export const PAGE_JS = `(function () {
 })();
 `;
 
-/** Stylesheet: documented app tokens only, each with a fallback. */
-export const PAGE_CSS = `:root { color-scheme: light dark; }
-body {
-  margin: 0;
-  padding: 12px 16px 24px;
-  background: var(--background-color-default, #ffffff);
-  color: var(--text-color-default, #1f2328);
-  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-  font-size: var(--text-body-medium, 14px);
-  line-height: var(--leading-body-medium, 20px);
+/** decision-review's own rules, after the shared stylesheet. */
+const REVIEW_ONLY_CSS = `
+.cost { margin: 0; font-size: var(--fs-sm); color: var(--c-text); }
+.cost.off { color: var(--c-muted); }
+.cost:empty { display: none; }
+.provenance { margin-top: var(--sp-2); }
+.provenance .chips { margin-top: var(--sp-1); }
+.card-actions { margin-top: var(--sp-2); }
+.evidence { margin-top: var(--sp-2); }
+.verdict-evidence { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: var(--sp-2) var(--sp-3); background: var(--c-surface); border-radius: var(--r-md); }
+.none { margin: 0; }
+.finding-group + .finding-group { margin-top: var(--sp-3); }
+.finding-group h3 { margin-bottom: var(--sp-2); }
+.finding p { margin: var(--sp-1) 0 0; overflow-wrap: anywhere; }
+.path { overflow-wrap: anywhere; margin: var(--sp-1) 0 0; }
+.facts-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); margin-top: var(--sp-2); font-size: var(--fs-sm); color: var(--c-muted); }
+.objections-open { color: var(--c-yellow); font-weight: 600; }
+.approvals { display: inline-flex; align-items: center; gap: 6px; }
+.dots { display: inline-flex; gap: 3px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--c-green); background: transparent; }
+.dot.on { background: var(--c-green); }
+.notes { margin: var(--sp-1) 0 0; padding-left: 20px; }
+.notes li + li { margin-top: var(--sp-1); }
+.error-state { margin-top: var(--sp-4); }
+.files ul { margin-top: var(--sp-1); }
+.loading { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-6) var(--sp-4); color: var(--c-muted); border: 1px dashed var(--c-border); border-radius: var(--r-lg); margin-top: var(--sp-4); }
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--c-border); border-top-color: var(--c-blue); animation: ak-spin 0.9s linear infinite; flex: none; }
+@keyframes ak-spin { to { transform: rotate(360deg); } }
+@media (max-width: 520px) {
+  body { padding: var(--sp-3) var(--sp-3) var(--sp-4); }
+  .buttons button { flex: 1 1 auto; }
 }
-.mono, code { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace); }
-.muted { color: var(--text-color-muted, #59636e); }
-h1 { font-size: 1.15em; margin: 0; }
-h2 { font-size: 1em; margin: 16px 0 8px; }
-.bar { border-bottom: 1px solid var(--border-color-default, #d1d9e0); padding-bottom: 8px; }
-.headline { display: flex; align-items: center; gap: 8px; }
-.cwd { margin: 4px 0 8px; overflow-wrap: anywhere; }
-.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-.message:empty { display: none; }
-button {
-  font: inherit;
-  color: inherit;
-  background: transparent;
-  border: 1px solid var(--border-color-default, #d1d9e0);
-  border-radius: 6px;
-  padding: 4px 10px;
-  cursor: pointer;
-}
-button.secondary { margin-top: 6px; padding: 2px 8px; }
-button:disabled { opacity: 0.5; cursor: default; }
-button:focus-visible, summary:focus-visible {
-  outline: 2px solid var(--color-focus-outline, #0969da);
-  outline-offset: 2px;
-}
-ul { margin: 0; padding-left: 20px; }
-ul.decisions { list-style: none; padding-left: 0; }
-.decision { border: 1px solid var(--border-color-default, #d1d9e0); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
-.decision-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
-.record-title { font-weight: 600; overflow-wrap: anywhere; }
-.evidence { margin-top: 4px; }
-.evidence summary, .files summary { cursor: pointer; }
-.verdict-evidence { white-space: pre-wrap; overflow-wrap: anywhere; }
-.badge {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 0 8px;
-  font-size: 0.85em;
-  border: 1px solid currentColor;
-}
-.callout { border-radius: 6px; padding: 8px; margin: 12px 0; border: 1px solid currentColor; }
-.tone-neutral { color: var(--text-color-muted, #59636e); }
-.tone-green { color: var(--true-color-green, #1a7f37); background: var(--true-color-green-muted, rgba(26, 127, 55, 0.12)); }
-.tone-red { color: var(--true-color-red, #d1242f); background: var(--true-color-red-muted, rgba(209, 36, 47, 0.12)); }
-.tone-yellow { color: var(--true-color-yellow, #9a6700); background: var(--true-color-yellow-muted, rgba(154, 103, 0, 0.12)); }
-.tone-blue { color: var(--true-color-blue, #0969da); background: var(--true-color-blue-muted, rgba(9, 105, 218, 0.12)); }
-footer { margin-top: 16px; font-size: 0.85em; }
 `;
+
+/** Stylesheet: the shared canvas theme, then decision-review's own rules. */
+export const PAGE_CSS = THEME_CSS + REVIEW_ONLY_CSS;
