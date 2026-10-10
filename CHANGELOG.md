@@ -9,8 +9,86 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-10
+
+This release ships the decision portal: a third, build-only nested Action,
+`mbeacom/adrkit/packages/ci/portal@v0.19.0`, that builds a static, read-only
+view of your decisions for GitHub Pages
+([ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)).
+Pin it by immutable tag; it has no root alias and is never advertised at `@v0`.
+On npm, `@adrkit/core`, `@adrkit/evaluator`, and `@adrkit/cli` move to 0.19.0
+for lockstep with no source change, and `@adrkit/mcp` picks up
+`@modelcontextprotocol/server` 2.3.1. No existing CLI, MCP, or Action behavior
+changes. It also carries the agent plugin's work since 0.18.0 (`adrkit` 0.9.0
+through 0.11.0), which already shipped on merge to `main` and is listed here for
+the record; the plugin and `@adrkit/spec-kit` are versioned independently and do
+not move with this release (`spec-kit-v0.1.5` has its own section below).
+Dependency bumps that touch only this repository's workflows (#288, #278) or the
+documentation site (#286) are not listed.
+
 ### Added
 
+- **A nested, build-only decision-portal Action, `packages/ci/portal`.** It
+  runs the portal generator over the corpus and writes the bundle into `out`
+  (default `_site`), and nothing else: it holds no token, makes no GitHub API
+  call, and needs only `contents: read`. Your workflow uploads the directory
+  with `actions/upload-pages-artifact` and deploys it with
+  `actions/deploy-pages` in a separate job; the full SHA-pinned workflow is in
+  [Use in CI](https://adrkit.dev/ci/#publish-a-decision-portal-to-github-pages).
+  - **A private repository fails closed.** The bundle carries every record body
+    and the governed file paths, so the Action builds only when the event
+    payload says the repository is public, or when `publish-private` is exactly
+    `'true'`. Private, internal, and a payload that does not say are each
+    refused with a fixed message before the generator runs, so nothing is
+    written. `publish-private` is read untrimmed: the default trimming turned
+    `' true '` into the exact opt-in (found in security review).
+  - **Exit codes follow the generator.** `0` succeeds; `1` succeeds with a
+    warning and the complete bundle, with the corpus errors shown on every
+    page; `2` fails with the generator's own fixed message and writes nothing.
+    A thrown error fails with a fixed message, never its text. The
+    `exit-code` output is set whenever the generator ran.
+  - **The image still builds.** The Containerfile's build stage now copies
+    `packages/portal/package.json`, which Bun's frozen install needs once
+    `@adrkit/ci` depends on `@adrkit/portal`, and a contract test checks that
+    every copied manifest's workspace dependencies are copied too.
+  - **Recovery keeps older releases recoverable.** `action-tag-recovery.yml`
+    and `docs/RELEASING.md` require `dist/portal-action.js` only when
+    `packages/ci/portal/action.yml` exists at the target, so `v0` can still be
+    moved back to a pre-portal release such as v0.18.0.
+
+  Rung 1 of ADR-0014: unit, contract, and mutation tests, and a Node 22 run of
+  the committed bundle against a git fixture. The `dist/index.js` and
+  `dist/queue-action.js` bundles are unchanged.
+- **The portal generator and page, `@adrkit/portal` (private).** It ships to
+  users only inside the Action above and is not published to npm. It is built
+  on `@adrkit/sdk` alone.
+  - `portal-data.json` v1 comes from a pure builder (no clock, file, or
+    environment; identical inputs give identical bytes).
+  - The page has five read-only views on hash routes: the records, one record,
+    the graph, the review queue, and governance by path. Governance by path is
+    shown as available (possibly capped), unavailable when the corpus has
+    errors, or absent without a git work tree; the page never says
+    "ungoverned".
+  - The page carries a `default-src 'none'` CSP and builds its DOM with
+    `textContent` only. Record bodies go through an in-house Markdown renderer
+    that renders raw HTML, and any link that is not http(s), a fragment, or
+    another record, as text, with table and link-bracket work bounded.
+  - The queue shows raw review facts and no readiness verdict, and the
+    portal's strings name no review or ratifying command.
+  - The graph layout, pan and zoom, and theme are byte-identical copies of the
+    agent plugin's modules, kept in step by `bun run emit:portal-vendor` and a
+    no-diff step in `clean-clone-builds`.
+  - The corpus directory is confined with `realpath`, and the bundle is staged
+    and swapped into place, so a failed write leaves nothing half-written.
+- **`@adrkit/sdk` is implemented, and still unpublished.** `openDecisions` and
+  `DecisionSet` now work, as a read-only mapping layer over `@adrkit/core`'s
+  kernels with the SDK's own frozen types: `records` and `issues`, `queue`
+  (with the queue's review counts and no readiness field), `graph` (supersession
+  by default; `relatesTo` and `conflictsWith` on request), `governing` (the
+  chain `adr explain` runs), and each record's raw Markdown `body`. There is no
+  npm package: it stays at `0.0.0` with no exports map and no release wiring,
+  and the portal is its only consumer. Publication waits on the gates in
+  [ADR-0053](docs/adr/0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md).
 - **The agent plugin adds a read-only `decision-board` canvas for the GitHub
   Copilot app (`adrkit` 0.9.0).** Where `decision-review` is scoped to one
   change, the board maps the whole corpus: how the records relate, from
@@ -81,6 +159,15 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Changed
 
+- **`@adrkit/mcp` now runs on `@modelcontextprotocol/server` 2.3.1**, from
+  2.2.0, with the dev-only `@modelcontextprotocol/client` moved with it so that
+  one `@modelcontextprotocol/core@2.3.1` resolves in the tree. Both stay
+  exact-pinned. 2.3.0's breaking change, that a server object serves one
+  connection at a time, does not reach `adrkit-mcp`: it already builds a fresh
+  server per connection through `serveStdio(() => …)`, the form upstream lists
+  as unaffected. 2.3.0's other additions are opt-in and unused here. The
+  server's source is unchanged, and its tests, which drive both protocol eras
+  over real stdio, pass on the new version.
 - **The agent plugin's two Copilot app canvases get a visual pass (`adrkit`
   0.11.0).** Function, routes, actions, the payload, and the
   Content-Security-Policy are unchanged.
@@ -105,6 +192,13 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ### Fixed
 
+- **Release notes start at the previous tag of the same kind.** The Release
+  workflow's generated GitHub release notes diffed against the latest release
+  of any kind, so `spec-kit-v0.1.5`'s notes listed every pull request since
+  v0.18.0, and this release's would have started at `spec-kit-v0.1.5`.
+  `scripts/release-notes-start-tag.ts` now passes `--notes-start-tag` with the
+  previous `v*` tag for a lockstep release and the previous `<adapter>-v*` tag
+  for an adapter (#303).
 - **Docs: the Spec Kit install command, the command names, and the checkout pin
   in workflow snippets.** Found while building a demo repository on Spec Kit
   1.0.5.
@@ -143,6 +237,29 @@ Until `1.0.0`, minor releases may include breaking changes
   `adr queue` exits 2 because the corpus directory is not there, the panel says
   that instead of "exited 2". This follows a Windows report (git
   2.55.0.vfs.0.10) whose cause is not reproduced here.
+- **The decision board's end-to-end test no longer races the queue (agent
+  plugin test only).** It read the first queue row while the queue, which
+  arrives in a second update, could still be `null`, and failed
+  `clean-clone-builds` intermittently. It now keeps polling.
+
+### Documentation
+
+- **Decisions for the SDK, the portal, and the hosted surfaces.**
+  [ADR-0053](docs/adr/0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md)
+  (implement the SDK over core),
+  [ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
+  (the Pages portal), and
+  [ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
+  (a read-only REST API in the image) are accepted, as are
+  [ADR-0057](docs/adr/0057-preview-the-decision-portal-locally-through-a-preview-selector-in-the-published.md)
+  (a local portal preview),
+  [ADR-0058](docs/adr/0058-project-the-decision-corpus-into-a-github-project-as-a-one-way-derived-view.md)
+  (a one-way GitHub Project view), and
+  [ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
+  (organization-level federation).
+  [ADR-0056](docs/adr/0056-ship-the-azure-deployment-surface-as-terraform-in-a-separate-repository-behind-a.md)
+  (Terraform for Azure in `mbeacom/adrkit-azure`) is proposed. Only ADR-0053
+  and ADR-0054 are implemented in this release; the others are rung 0.
 
 ## [spec-kit-0.1.5] - 2026-10-09
 
@@ -2169,7 +2286,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/mbeacom/adrkit/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/mbeacom/adrkit/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mbeacom/adrkit/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/mbeacom/adrkit/compare/v0.15.0...v0.16.0

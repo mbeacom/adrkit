@@ -91,7 +91,7 @@ See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 | Feed prior decisions to coding agents | [`@adrkit/mcp`](packages/mcp/README.md) | Local, read-only stdio MCP server |
 | Run adrkit from an OCI image | [Container usage](#container-usage) | Lockstep multi-architecture image, beginning with the first release containing ADR-0032 |
 | Comment governing decisions on pull requests | [Use in CI](https://adrkit.dev/ci/) | GitHub Action from this repository |
-| Browse decisions on GitHub Pages | [Decision portal](https://adrkit.dev/ci/#publish-a-decision-portal-to-github-pages) | Nested build-only Action, beginning with the first lockstep release containing ADR-0054 |
+| Browse decisions on GitHub Pages | [Decision portal](https://adrkit.dev/ci/#publish-a-decision-portal-to-github-pages) | Nested build-only Action, beginning with `v0.19.0` |
 | Evaluate decision governance with a generated wiki | [Generated knowledge guide](https://adrkit.dev/generated-knowledge/) | Provisional OpenWiki recipe; no runtime coupling |
 | Add decision memory to Spec Kit | [`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) | Published separately for Spec Kit `>=0.13.0,<1.2.0` |
 | Add decision memory to Copilot, Claude Code, or opencode | [`adrkit` agent plugin](packages/adapters/agent-plugin/README.md) | Install from this repository or marketplace |
@@ -414,7 +414,7 @@ answer where the next decision is actually being made.
 It never approves anything. It routes, and humans decide.
 
 The root Marketplace entry point has shipped with every release since
-`v0.13.0`. Pin its immutable root reference — currently `v0.18.0` — for the
+`v0.13.0`. Pin its immutable root reference — currently `v0.19.0` — for the
 complete governing-decisions workflow (see
 [Use in CI](https://adrkit.dev/ci/)):
 
@@ -433,7 +433,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: mbeacom/adrkit@v0.18.0
+      - uses: mbeacom/adrkit@v0.19.0
 ```
 
 Existing consumers of the nested form can stay on
@@ -441,7 +441,7 @@ Existing consumers of the nested form can stay on
 `mbeacom/adrkit/packages/ci/queue@v0`.
 
 A third, build-only Action, `mbeacom/adrkit/packages/ci/portal@vX.Y.Z` (pin an
-immutable release tag; beginning with the first lockstep release containing ADR-0054), builds a
+immutable release tag; beginning with `v0.19.0`), builds a
 static, read-only decision portal for GitHub Pages
 ([ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)).
 It holds no token and needs only `contents: read`; your workflow deploys the
@@ -480,8 +480,10 @@ table is the short version:
 | Available now | `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, `@adrkit/mcp` | Published on npm for Node 22+ |
 | Available now | `@adrkit/spec-kit` | Published separately for current Spec Kit releases |
 | Available now | `adr queue`, `adr approve`, `adr object`, `adr resolve`, `adr accept`, and the governing-decisions GitHub Action | Queue reporting, recorded review state, ratification from the queue, and PR comments are part of the shipped workflow |
+| Available now | Decision portal Action (`packages/ci/portal`) | Builds a static, read-only portal for GitHub Pages, beginning with `v0.19.0`; the private `@adrkit/portal` generator ships only inside it |
 | Available now | `adrkit` agent plugin | Install from this repository or marketplace; shells out to `adr` |
 | In development | Later evaluator passes | Passes 1–3 and calibration remain design targets; Pass 0 is the implemented evaluator surface |
+| In development | `@adrkit/sdk` | Implemented over `@adrkit/core` and used by the portal, but unpublished at `0.0.0`; there is no npm package |
 | In development | Catalog packages | `@adrkit/catalog-envelope` and `@adrkit/catalog-backstage` exist in the workspace at `0.0.0` and are not released |
 | Planned | Additional downstream integrations | Future integrations will build on the current typed corpus and read-only retrieval model |
 

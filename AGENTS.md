@@ -2,12 +2,14 @@
 
 Decision memory for human- and agent-authored plans — machine-readable ADRs
 that are enforceable in CI and legible to agents, without leaving git.
-Status: early — phases 0–6 landed and v0.18.0 is public. `@adrkit/core`,
+Status: early — phases 0–6 landed and v0.19.0 is public. `@adrkit/core`,
 `@adrkit/evaluator`, `@adrkit/cli` (`lint`, `new`, `graph`, `explain`,
 `check`, `queue`, `accept`, `approve`, `object`, `resolve`, `migrate --from madr`,
 `evaluate`) are published on npm, as is
 the independently versioned `@adrkit/spec-kit` Spec Kit extension (0.1.5); the
-repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`.
+repository-backed CI Action is available at `mbeacom/adrkit/packages/ci@v0`,
+and the build-only decision-portal Action at
+`mbeacom/adrkit/packages/ci/portal@v0.19.0` (pin an immutable tag, never `@v0`).
 The governing-decisions Action also has a root `action.yml` alias for GitHub
 Marketplace beginning with v0.13.0. Root
 Marketplace guidance uses immutable release tags; never advertise
