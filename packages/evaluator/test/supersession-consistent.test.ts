@@ -71,4 +71,27 @@ describe('supersession-consistent', () => {
     expect(orphan.findings.some((f) => f.reason === 'supersession-consistent.dangling-superseded-by')).toBe(false);
     expect(orphan.status).not.toBe('fail');
   });
+
+  // ADR-0059 clause 4: a log-qualified supersededBy stays the dangling failure, with or
+  // without a snapshot of the named log, and its message says why.
+  test('a log-qualified supersededBy fails as dangling, even with a snapshot of that log', () => {
+    const superseded = record(
+      { id: '0001', status: 'superseded', supersededBy: 'payments:0012' },
+      { path: 'docs/adr/0001-a.md' },
+    );
+    const proposal = record({ id: '0003' }, { path: 'docs/adr/0003-c.md' });
+    for (const federatedLogs of [undefined, [{ log: 'payments', adrIds: ['0012'] }]]) {
+      const report = evaluateReport(
+        baseInput({
+          corpus: corpusOf([superseded, proposal]),
+          proposalPath: 'docs/adr/0003-c.md',
+          ...(federatedLogs ? { federatedLogs } : {}),
+        }),
+      );
+      const result = ruleResult(report, 'supersession-consistent');
+      expect(result.status).toBe('fail');
+      expect(result.reason).toBe('supersession-consistent.dangling-superseded-by');
+      expect(result.findings[0]?.message).toContain('ADR-0059 clause 4');
+    }
+  });
 });

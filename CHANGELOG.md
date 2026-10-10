@@ -34,6 +34,35 @@ Until `1.0.0`, minor releases may include breaking changes
   ([ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
   action item 8, #294).
 
+- **Behavior change: `adr lint` no longer fails on a log-qualified `relatesTo`
+  or `conflictsWith`.** A reference such as `relatesTo: ["payments:0012"]` names
+  a record in another decision log. The schema has always accepted it, but the
+  corpus gate reported it as `dangling-relatesTo` (`error`, exit `1`) or
+  `dangling-conflictsWith` (`warn`), while the evaluator, the marker resolver,
+  and the MCP server already treated it as inert. `adr lint` and `adr lint
+  --json` now report it as `federated-ref-unresolved` at `info`, so the
+  surfaces agree ([#299](https://github.com/mbeacom/adrkit/issues/299)). This is
+  the one non-additive change
+  [ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
+  clause 5 makes, and it amends
+  [ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+  clause 5's additive-only CLI JSON contract for exactly this case: the finding
+  is renamed and its severity lowered. Only the `relatesTo` case lowers an exit
+  code, from `1` to `0`; a dangling `conflictsWith` was already a warning.
+  Measured on a one-record fixture, that moves `adr lint` and `adr explain`
+  from exit `1` to `0`; `adr check` and `adr queue` already exited `0` there.
+  Everything that reads lint findings, the Actions included, sees the new code.
+  A qualified reference never resolves
+  against a local record with the same bare id. An unqualified dangling
+  reference is unchanged, and a log-qualified `supersedes` or `supersededBy`
+  stays a `dangling-*` error, now with a message saying cross-repository
+  supersession is not supported (ADR-0059 clause 4). `adr evaluate` now agrees:
+  a log-qualified `supersedes` fails `no-orphan-refs` as
+  `no-orphan-refs.dangling-supersedes` even when a snapshot of that log is
+  supplied (before, it was inert without a snapshot and passed when the snapshot
+  listed the id), and a log-qualified `supersededBy` names clause 4 in its
+  existing failure.
+
 ## [0.19.0] - 2026-10-10
 
 This release ships the decision portal: a third, build-only nested Action,

@@ -464,7 +464,7 @@ rung 3 is absent.
 1. [ ] Define the manifest in Zod, emit `schema/federation.schema.json`, and
    add the manifest validator (unique `log` and `repo`, required
    `visibility`, no unknown keys).
-2. [ ] Change `validateCorpusInvariants` per clause 5, with a CHANGELOG
+2. [x] Change `validateCorpusInvariants` per clause 5, with a CHANGELOG
    behavior-change entry and a test observed failing first.
 3. [ ] Add `packages/ci/federation/action.yml`: fetch per member, write the
    tree aside, write the sidecar last, swap, write the lock, and check

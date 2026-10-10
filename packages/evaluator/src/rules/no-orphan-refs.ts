@@ -3,7 +3,8 @@
  *
  * Local `supersedes` / `relatesTo` targets must resolve. A federated ref (`<log>:<id>`)
  * resolves against a supplied federated-log snapshot; a federated ref whose log has NO
- * snapshot is inert (`federated-log-absent`), never an orphan failure (C2). `supersededBy`
+ * snapshot is inert (`federated-log-absent`), never an orphan failure (C2), except that a
+ * `supersedes` naming another log is always `dangling-supersedes` (ADR-0059 clause 4). `supersededBy`
  * is owned by supersession-consistent and is not re-reported here. Exactly one aggregate
  * result (C11); status precedence keeps a dangling failure above a federated inert.
  */
@@ -15,6 +16,12 @@ import type { RuleContext } from './context.ts';
 import type { ReasonCode, RuleFinding, RuleResult } from '../types.ts';
 
 type RefField = 'supersedes' | 'relatesTo';
+
+/** True when `ref` is qualified with a log other than the one being evaluated. */
+export function isCrossLog(ref: string, resolutionLog: string | undefined): boolean {
+  const { log } = parseAdrRef(ref);
+  return log !== undefined && log !== resolutionLog;
+}
 
 export function evaluateNoOrphanRefs(ctx: RuleContext): RuleResult {
   const resolutionLog = ctx.input.resolutionLog;
@@ -54,7 +61,10 @@ export function evaluateNoOrphanRefs(ctx: RuleContext): RuleResult {
       field === 'supersedes' ? 'no-orphan-refs.dangling-supersedes' : 'no-orphan-refs.dangling-relates-to';
     const lowerRule = field === 'supersedes' ? 'dangling-supersedes' : 'dangling-relatesTo';
     for (const ref of refs) {
-      const outcome = classify(ref);
+      // ADR-0059 clause 4: a `supersedes` naming another log is refused, snapshot or not,
+      // so a federated log never makes cross-repository supersession resolve.
+      const crossLog = field === 'supersedes' && isCrossLog(ref, resolutionLog);
+      const outcome = crossLog ? 'dangling' : classify(ref);
       if (outcome === 'resolved') continue;
       if (outcome === 'federated-absent') {
         const finding: RuleFinding = {
@@ -70,7 +80,9 @@ export function evaluateNoOrphanRefs(ctx: RuleContext): RuleResult {
       }
       const finding: RuleFinding = {
         reason: danglingReason,
-        message: `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
+        message: crossLog
+          ? `Reference "${ref}" in ${field} names another decision log; cross-repository supersession is not supported (ADR-0059 clause 4)`
+          : `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
         adr: record.frontmatter.id,
         candidateAdr: record.frontmatter.id,
         relatedAdr: ref,

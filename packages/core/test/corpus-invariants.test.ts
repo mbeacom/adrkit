@@ -83,6 +83,74 @@ describe('corpus invariants', () => {
     ]);
   });
 
+  describe('log-qualified references (ADR-0059 clauses 4 and 5)', () => {
+    test('a qualified relatesTo is federated-ref-unresolved at info, not a dangling error', () => {
+      const findings = validateCorpusInvariants([record('0001', { relatesTo: ['payments:0012'] })]);
+      expect(findings).toEqual([
+        {
+          rule: 'federated-ref-unresolved',
+          severity: 'info',
+          message:
+            'Reference "payments:0012" in relatesTo names another decision log ("payments") and is inert against this corpus',
+          path: 'docs/adr/0001-test.md',
+          id: '0001',
+          field: 'relatesTo',
+          pattern: 'payments:0012',
+        },
+      ]);
+    });
+
+    test('a qualified conflictsWith is federated-ref-unresolved at info, not a dangling warning', () => {
+      const findings = validateCorpusInvariants([record('0001', { conflictsWith: ['payments:0012'] })]);
+      expect(findings).toMatchObject([
+        { rule: 'federated-ref-unresolved', severity: 'info', field: 'conflictsWith', pattern: 'payments:0012' },
+      ]);
+    });
+
+    test('a qualified conflictsWith on an accepted record never reads as a known local conflict', () => {
+      const findings = validateCorpusInvariants([
+        record('0012'),
+        record('0001', { status: 'accepted', deciders: ['@mbeacom'], conflictsWith: ['payments:0012'] }),
+      ]);
+      expect(findings.map((finding) => [finding.rule, finding.severity])).toEqual([
+        ['federated-ref-unresolved', 'info'],
+      ]);
+    });
+
+    test('a qualified reference never resolves to a local record with the same bare id', () => {
+      const findings = validateCorpusInvariants([
+        record('0012'),
+        record('0001', { relatesTo: ['payments:0012'] }),
+      ]);
+      expect(findings).toMatchObject([{ rule: 'federated-ref-unresolved', severity: 'info', id: '0001' }]);
+    });
+
+    test('a qualified supersedes or supersededBy stays a dangling error', () => {
+      const findings = validateCorpusInvariants([
+        record('0001', { status: 'superseded', supersededBy: 'payments:0012' }),
+        record('0002', { supersedes: ['payments:0013'] }),
+      ]);
+      expect(findings.map((finding) => [finding.rule, finding.severity])).toEqual([
+        ['dangling-supersededBy', 'error'],
+        ['dangling-supersedes', 'error'],
+      ]);
+      for (const finding of findings) {
+        expect(finding.message).toContain('cross-repository supersession is not supported');
+      }
+    });
+
+    test('an unqualified dangling reference is unchanged', () => {
+      const findings = validateCorpusInvariants([record('0001', { relatesTo: ['9999'], conflictsWith: ['9998'] })]);
+      expect(findings.map((finding) => [finding.rule, finding.severity])).toEqual([
+        ['dangling-relatesTo', 'error'],
+        ['dangling-conflictsWith', 'warn'],
+      ]);
+      for (const finding of findings) {
+        expect(finding.message).toContain('does not resolve to a record in the corpus');
+      }
+    });
+  });
+
   test('clean corpus yields zero errors', () => {
     const findings = validateCorpusInvariants([
       record('0001'),

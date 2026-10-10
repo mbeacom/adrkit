@@ -81,9 +81,13 @@ The public surface is:
 Patch releases must be backward compatible: no removals, renames, exit-code
 reclassification, or incompatible output/type-shape changes. Minor releases may
 carry breaking changes before `1.0.0`, but the release notes must call them out
-explicitly. Adding a runtime export is not breaking, but it intentionally expands
-the API: update the matching surface test and mention the addition in the
-release notes. Any `exports` map or runtime named-export change that is not
+explicitly. The CLI JSON is additive-only under ADR-0031 clause 5, with one
+amendment: under ADR-0059 clause 5, `adr lint --json` reports a log-qualified
+`relatesTo` or `conflictsWith` (`payments:0012`) as `federated-ref-unresolved`
+at `info`, not `dangling-relatesTo` (`error`) or `dangling-conflictsWith`
+(`warn`), so only the qualified `relatesTo` case lowers an exit code. Adding a
+runtime export is not breaking, but it intentionally expands the API: update
+the matching surface test and mention the addition in the release notes. Any `exports` map or runtime named-export change that is not
 accompanied by a surface-test update is a release blocker.
 
 `QueueReport.totalItems` carries an obligation the surface tests cannot see.

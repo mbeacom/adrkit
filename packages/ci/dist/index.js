@@ -39374,13 +39374,25 @@ function validateParsedAdr(parsed) {
 }
 // ../core/src/validate/corpus-invariants.ts
 function addReferenceFinding(findings, record, field, ref, severity) {
+  const crossLog = parseAdrRef(ref).log !== undefined;
   findings.push({
     rule: `dangling-${field}`,
     severity,
-    message: `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
+    message: crossLog ? `Reference "${ref}" in ${field} names another decision log; cross-repository supersession is not supported` : `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
     path: record.path,
     id: record.frontmatter.id,
     field
+  });
+}
+function addFederatedReferenceFinding(findings, record, field, ref, log) {
+  findings.push({
+    rule: "federated-ref-unresolved",
+    severity: "info",
+    message: `Reference "${ref}" in ${field} names another decision log ("${log}") and is inert against this corpus`,
+    path: record.path,
+    id: record.frontmatter.id,
+    field,
+    pattern: ref
   });
 }
 function validateCorpusInvariants(records) {
@@ -39416,11 +39428,17 @@ function validateCorpusInvariants(records) {
       addReferenceFinding(findings, record, "supersededBy", record.frontmatter.supersededBy, "error");
     }
     for (const ref of record.frontmatter.relatesTo) {
-      if (!ids.has(ref))
+      const { log } = parseAdrRef(ref);
+      if (log !== undefined)
+        addFederatedReferenceFinding(findings, record, "relatesTo", ref, log);
+      else if (!ids.has(ref))
         addReferenceFinding(findings, record, "relatesTo", ref, "error");
     }
     for (const ref of record.frontmatter.conflictsWith) {
-      if (!ids.has(ref)) {
+      const { log } = parseAdrRef(ref);
+      if (log !== undefined) {
+        addFederatedReferenceFinding(findings, record, "conflictsWith", ref, log);
+      } else if (!ids.has(ref)) {
         addReferenceFinding(findings, record, "conflictsWith", ref, "warn");
       } else if (record.frontmatter.status === "accepted") {
         findings.push({

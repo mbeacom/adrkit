@@ -10,6 +10,7 @@
 
 import { buildAdrGraph, type Adr } from '@adrkit/core';
 import { aggregate, passResult, type SubResult } from './kernel.ts';
+import { isCrossLog } from './no-orphan-refs.ts';
 import type { RuleContext } from './context.ts';
 import type { RuleFinding, RuleResult } from '../types.ts';
 
@@ -66,7 +67,10 @@ export function evaluateSupersessionConsistent(ctx: RuleContext): RuleResult {
       danglingRefs.add(`${record.frontmatter.id}->${target}`);
       const finding: RuleFinding = {
         reason: 'supersession-consistent.dangling-superseded-by',
-        message: `supersededBy "${target}" does not resolve to a record in the corpus`,
+        // ADR-0059 clause 4: a log-qualified successor is never resolved, snapshot or not.
+        message: isCrossLog(target, ctx.input.resolutionLog)
+          ? `supersededBy "${target}" names another decision log; cross-repository supersession is not supported (ADR-0059 clause 4)`
+          : `supersededBy "${target}" does not resolve to a record in the corpus`,
         adr: record.frontmatter.id,
         candidateAdr: record.frontmatter.id,
         relatedAdr: target,

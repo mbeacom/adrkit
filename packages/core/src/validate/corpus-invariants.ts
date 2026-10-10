@@ -1,4 +1,5 @@
 import type { Adr } from '../schema/adr.schema.ts';
+import { parseAdrRef } from '../schema/ref.ts';
 import type { Finding, FindingSeverity } from './findings.ts';
 
 function addReferenceFinding(
@@ -8,13 +9,38 @@ function addReferenceFinding(
   ref: string,
   severity: FindingSeverity,
 ): void {
+  // ADR-0059 clause 4: a log-qualified supersession target stays a dangling error, and the
+  // message says why, so nobody reads it as a typo to fix in this corpus.
+  const crossLog = parseAdrRef(ref).log !== undefined;
   findings.push({
     rule: `dangling-${field}`,
     severity,
-    message: `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
+    message: crossLog
+      ? `Reference "${ref}" in ${field} names another decision log; cross-repository supersession is not supported`
+      : `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
     path: record.path,
     id: record.frontmatter.id,
     field,
+  });
+}
+
+/**
+ * A log-qualified `relatesTo` or `conflictsWith` (`payments:0012`) names a record in another
+ * decision log, which a single corpus cannot judge. ADR-0059 clause 5 (amending ADR-0031
+ * clause 5) reports it at `info`, as the marker resolver's `marker-unresolvable`, the
+ * evaluator's `no-orphan-refs.federated-log-absent`, and MCP's `federated-log-unavailable`
+ * already treat the same input: inert here, not broken. It never resolves against a local
+ * record with the same bare id.
+ */
+function addFederatedReferenceFinding(findings: Finding[], record: Adr, field: string, ref: string, log: string): void {
+  findings.push({
+    rule: 'federated-ref-unresolved',
+    severity: 'info',
+    message: `Reference "${ref}" in ${field} names another decision log ("${log}") and is inert against this corpus`,
+    path: record.path,
+    id: record.frontmatter.id,
+    field,
+    pattern: ref,
   });
 }
 
@@ -54,11 +80,16 @@ export function validateCorpusInvariants(records: readonly Adr[]): Finding[] {
     }
 
     for (const ref of record.frontmatter.relatesTo) {
-      if (!ids.has(ref)) addReferenceFinding(findings, record, 'relatesTo', ref, 'error');
+      const { log } = parseAdrRef(ref);
+      if (log !== undefined) addFederatedReferenceFinding(findings, record, 'relatesTo', ref, log);
+      else if (!ids.has(ref)) addReferenceFinding(findings, record, 'relatesTo', ref, 'error');
     }
 
     for (const ref of record.frontmatter.conflictsWith) {
-      if (!ids.has(ref)) {
+      const { log } = parseAdrRef(ref);
+      if (log !== undefined) {
+        addFederatedReferenceFinding(findings, record, 'conflictsWith', ref, log);
+      } else if (!ids.has(ref)) {
         addReferenceFinding(findings, record, 'conflictsWith', ref, 'warn');
       } else if (record.frontmatter.status === 'accepted') {
         findings.push({

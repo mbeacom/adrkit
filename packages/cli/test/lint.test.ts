@@ -58,6 +58,71 @@ describe('adr lint CLI', () => {
     expect(result.stderr).toContain('superseded-requires-supersededBy');
   });
 
+  // ADR-0059 clause 5, amending ADR-0031 clause 5: a log-qualified relatesTo or
+  // conflictsWith is inert against a single corpus, so it no longer fails the gate.
+  test('exits 0 on a qualified relatesTo and reports it at info in --json', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-federated.md'),
+      recordMarkdown('0001').replace('relatesTo: []', 'relatesTo: ["payments:0012"]'),
+    );
+
+    const human = await runAdr(['lint', '--dir', join(root, 'docs/adr')]);
+    expect(human.exitCode).toBe(0);
+    expect(human.stdout).toContain('checked 1 records, 0 errors, 0 warnings');
+    expect(human.stderr).toContain('federated-ref-unresolved');
+    expect(human.stderr).not.toContain('dangling-relatesTo');
+
+    const json = await runAdr(['lint', '--json', '--dir', join(root, 'docs/adr')]);
+    expect(json.exitCode).toBe(0);
+    const report = JSON.parse(json.stdout) as { findings: Array<Record<string, unknown>> };
+    expect(report.findings).toMatchObject([
+      { rule: 'federated-ref-unresolved', severity: 'info', id: '0001', field: 'relatesTo', pattern: 'payments:0012' },
+    ]);
+  });
+
+  test('reports a qualified conflictsWith at info instead of warn', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-federated.md'),
+      recordMarkdown('0001', undefined, 'conflictsWith: ["payments:0012"]\n'),
+    );
+
+    const result = await runAdr(['lint', '--json', '--dir', join(root, 'docs/adr')]);
+    expect(result.exitCode).toBe(0);
+    const report = JSON.parse(result.stdout) as { findings: Array<Record<string, unknown>> };
+    expect(report.findings).toMatchObject([
+      { rule: 'federated-ref-unresolved', severity: 'info', field: 'conflictsWith' },
+    ]);
+  });
+
+  test('still exits 1 on a qualified supersedes, which clause 4 keeps out', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-federated.md'),
+      recordMarkdown('0001', undefined, 'supersedes: ["payments:0012"]\n'),
+    );
+
+    const result = await runAdr(['lint', '--dir', join(root, 'docs/adr')]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('checked 1 records, 1 errors');
+    expect(result.stderr).toContain('dangling-supersedes');
+    expect(result.stderr).toContain('cross-repository supersession is not supported');
+  });
+
+  test('still exits 1 on an unqualified dangling relatesTo', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, 'docs/adr/0001-local.md'),
+      recordMarkdown('0001').replace('relatesTo: []', 'relatesTo: ["0012"]'),
+    );
+
+    const result = await runAdr(['lint', '--json', '--dir', join(root, 'docs/adr')]);
+    expect(result.exitCode).toBe(1);
+    const report = JSON.parse(result.stdout) as { findings: Array<Record<string, unknown>> };
+    expect(report.findings).toMatchObject([{ rule: 'dangling-relatesTo', severity: 'error' }]);
+  });
+
   test('reports a missing explicit path as a finding instead of crashing', async () => {
     const root = await resetTestDir(DIR_NAME);
 
