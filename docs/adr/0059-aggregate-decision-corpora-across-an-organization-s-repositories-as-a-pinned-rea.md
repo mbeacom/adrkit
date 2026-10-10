@@ -154,7 +154,13 @@ directories already on disk. Git in each member stays the source of truth.
      ADR-0055's corpus key, so one string serves both.
    - `repo`, as `owner/name`.
    - `ref`, a branch, tag, or 40-hex commit.
-   - `dir`, the corpus directory, defaulting to `docs/adr`.
+   - `dir`, the corpus directory, defaulting to `docs/adr`. It must be a
+     normalized, repository-relative POSIX path: no leading `/`, no `.` or
+     `..` segment, no backslash, no control character. The populator also
+     confines it lexically and, after the fetch, through `realpath` inside
+     both the fetched member tree and `<root>/<log>/`, before anything is
+     copied or swapped. A `dir` that fails either check fails the member
+     without writing, because the populator holds a token.
    - `visibility`, `public` or `private`, required with no default (clause 9).
 
    `log` and `repo` must each be unique in the manifest. Its JSON Schema is
@@ -206,9 +212,12 @@ directories already on disk. Git in each member stays the source of truth.
    its own record.
 
 5. **`adr lint` reports a log-qualified `relatesTo` or `conflictsWith` as
-   `federated-ref-unresolved` (`info`) instead of `dangling-*` (`error`).** This
-   is the one existing behavior this record changes, and it relaxes a CLI exit
-   code. Without it, a member repository cannot hold the references clause 4
+   `federated-ref-unresolved` (`info`) instead of `dangling-relatesTo`
+   (`error`) or `dangling-conflictsWith` (`warn`).** This is the one existing
+   behavior this record changes. Only the `relatesTo` case lowers a CLI exit
+   code, because `validateCorpusInvariants` already reports a dangling
+   `conflictsWith` at `warn`
+   (`packages/core/src/validate/corpus-invariants.ts`). Without it, a member repository cannot hold the references clause 4
    admits, because its own corpus gate fails. The severity follows
    `marker-unresolvable` (`info`, ADR-0022). A member's CI cannot fix such a
    reference locally, so `warn` would leave a permanent warning there. A
@@ -216,8 +225,11 @@ directories already on disk. Git in each member stays the source of truth.
    clause 4's member check. An unqualified dangling reference is unchanged.
    `validateCorpusInvariants` uses `parseAdrRef` for this. This is the only
    non-additive change in this record. It renames a finding in
-   `adr lint --json` and lowers its severity for the qualified case, so it asks
-   ADR-0031 clause 5's additive-only obligation to give way. It is confined to
+   `adr lint --json` and lowers its severity for the qualified case, so this
+   record **amends ADR-0031 clause 5** (the CLI JSON as an additive-only
+   contract) for exactly this case. On ratification ADR-0031 gains a
+   reciprocal note naming this record and the amended clause, following the
+   amendment practice of ADR-0014 and ADR-0031 itself. It is confined to
    a case the schema has always accepted and the gate has always rejected. It
    goes in the CHANGELOG as a behavior change of the lockstep CLI.
 
@@ -463,4 +475,6 @@ rung 3 is absent.
    codes and clause 9's `publish-private` refusal.
 7. [ ] Build a federation of this repository and `adrkit-t018-dogfood` as
    the rung-2 run.
-8. [ ] Ratify or reject this record.
+8. [ ] On ratification, add the reciprocal amendment note to ADR-0031
+   clause 5 naming this record (clause 5).
+9. [ ] Ratify or reject this record.

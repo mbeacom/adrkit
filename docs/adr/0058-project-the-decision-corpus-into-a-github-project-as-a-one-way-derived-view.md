@@ -148,10 +148,29 @@ in step with the corpus, and document a zero-code recipe beside it.
    `ADR-<id>: <title>`; the title is repository text shown as data.
 
 5. **Owned fields are overwritten on every run, and nothing else is touched.**
-   The owned fields are `ADR ID`, `ADR status`, `Tier`, `SLA state`,
-   `Deadline` (date), `Approvals` (number), `Quorum` (number), `Objections`,
-   and `Routing`. Each run writes their current values from the corpus. A
-   record that is not `proposed` has its queue fields emptied. The Action
+   The owned fields, their Project types, and their sources are exact, so
+   `create-fields` can create them and validation can check an existing
+   project deterministically:
+
+   | Field | Type | Options or format | Source |
+   |---|---|---|---|
+   | `ADR ID` | text | the record id | record `id` |
+   | `ADR status` | single select | `draft`, `proposed`, `accepted`, `rejected`, `superseded`, `deprecated` | record `status` |
+   | `Tier` | single select | `auto`, `async`, `arb` | QueueReport v1 `tier`; empty when null |
+   | `SLA state` | single select | `decided`, `escalated`, `overdue`, `due`, `within-sla`, `missing-sla`, `not-queued` | QueueReport v1 `slaState` |
+   | `Deadline` | date | `YYYY-MM-DD` | QueueReport v1 `deadlineDate`; empty when null |
+   | `Approvals` | number | distinct identities | QueueReport v1 `approvalCount` |
+   | `Quorum` | number | | QueueReport v1 `quorum`; empty when null |
+   | `Open objections` | number | unresolved only | QueueReport v1 `unresolvedObjectionCount` |
+   | `Resolved objections` | number | | QueueReport v1 `resolvedObjectionCount` |
+   | `Routing` | text | comma-separated, in source order | QueueReport v1 `routingTargets` |
+
+   A single-select option missing from an existing field is a validation
+   failure, never a silent skip. Each run writes every owned value from the
+   corpus. A record that is not `proposed` has its queue fields emptied. The
+   item **title and body are owned too**: both are rewritten on every run,
+   not only when the item is created, so a renamed record, a changed
+   `portal-url`, or a new synced commit never leaves a stale card. The Action
    **never writes the built-in `Status` field**, which belongs to the board's
    own workflows: mapping adrkit status onto it would conflate two
    states, in the spirit of what ADR-0037 clause 3 forbids for documentation

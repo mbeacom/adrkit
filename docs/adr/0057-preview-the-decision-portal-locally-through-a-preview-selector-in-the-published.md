@@ -159,7 +159,10 @@ loopback.
    staged bundle in whole, so a reader never sees half a bundle.
 
 3. **Git ships in the `adrkit` stage only, pinned.** The `adrkit` final stage
-   adds `apk add --no-cache git=<version>`. The shared `runtime` stage does
+   adds `apk add --no-cache git=<version>`. It inherits `USER node` from
+   `runtime`, so the install runs after a temporary `USER root` and the stage
+   restores `USER node` immediately after; the container never runs as root.
+   The shared `runtime` stage does
    not, so the `cli`, `mcp`, `ci`, and `queue-action` isolation targets stay
    git-free, as ADR-0032 clause 4's isolation rationale wants. A new local
    `preview` target mirrors them (the portal bundle and git, nothing else),
