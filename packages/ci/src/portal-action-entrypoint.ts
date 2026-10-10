@@ -18,7 +18,10 @@ await runPortalAction({
     out: core.getInput('out'),
     baseUrl: core.getInput('base-url'),
     asOf: core.getInput('as-of'),
-    publishPrivate: core.getInput('publish-private'),
+    // Untrimmed: `getInput` trims by default, which turned `' true '` into the exact opt-in
+    // clause 10 requires (Copilot security review on #302). The other inputs keep trimming;
+    // it can only narrow a path or date, never widen what is published.
+    publishPrivate: core.getInput('publish-private', { trimWhitespace: false }),
   },
   repository: context.payload.repository,
   workspace: process.env.GITHUB_WORKSPACE ?? process.cwd(),

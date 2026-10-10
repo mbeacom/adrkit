@@ -44594,7 +44594,7 @@ await runPortalAction({
     out: getInput("out"),
     baseUrl: getInput("base-url"),
     asOf: getInput("as-of"),
-    publishPrivate: getInput("publish-private")
+    publishPrivate: getInput("publish-private", { trimWhitespace: false })
   },
   repository: context2.payload.repository,
   workspace: process.env.GITHUB_WORKSPACE ?? process.cwd(),

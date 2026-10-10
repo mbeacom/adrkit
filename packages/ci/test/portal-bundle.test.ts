@@ -26,6 +26,9 @@
  *   repository" failed (index.html missing). "every page asset is embedded" still passed, as
  *   expected: the text itself was still in the bundle; it guards the embedding, the run
  *   guards the write.
+ * - "publish-private with surrounding whitespace does not open the gate" failed against the
+ *   bundle committed in 5ed19c0, before the entrypoint read the input with
+ *   `trimWhitespace: false`: `' true '` exited 0 and wrote the bundle for a private payload.
  * - The `publishPrivate !== "true"` check replaced by `false`: "a private repository writes
  *   nothing and fails the step" and "a payload with no repository writes nothing" failed (the
  *   bundle was written and the step succeeded).
@@ -158,6 +161,21 @@ describe('the committed portal Action bundle', () => {
     const run = await runBundle('unknown-site', undefined);
     expect(run.status).not.toBe(0);
     expect(existsSync(join(repo, 'unknown-site'))).toBe(false);
+  });
+
+  // `core.getInput` trims by default, so `' true '` became `'true'` and passed the exact-string
+  // gate (Copilot security review on #302). The entrypoint reads this one input untrimmed.
+  test('publish-private with surrounding whitespace does not open the gate', async () => {
+    for (const [name, value] of [
+      ['padded-site', ' true '],
+      ['newline-site', 'true\n'],
+    ] as const) {
+      const run = await runBundle(name, { private: true, visibility: 'private' }, { 'INPUT_PUBLISH-PRIVATE': value });
+      expect(run.status, JSON.stringify(value)).not.toBe(0);
+      expect(run.stdout).toContain('::error::adrkit portal: this repository is private');
+      expect(exitCodeOutput(run.outputs)).toBeNull();
+      expect(existsSync(join(repo, name))).toBe(false);
+    }
   });
 
   test('publish-private: true publishes a private repository', async () => {
