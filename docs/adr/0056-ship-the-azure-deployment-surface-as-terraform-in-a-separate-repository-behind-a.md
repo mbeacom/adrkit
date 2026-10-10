@@ -141,7 +141,11 @@ carried. Facts that shape where and how:
      gateway public access on Standard v2 through the portal only; the REST
      `publicNetworkAccess` property is shown for classic tiers and Premium v2.
      That an ARM update of `publicNetworkAccess` works on Standard v2 is
-     unmeasured.
+     unmeasured here. The maintainer states, from their own Azure use, that
+     Standard v2 supports disabling `publicNetworkAccess` once the private
+     endpoint exists; that is maintainer-asserted evidence, recorded on
+     2026-10-10, not a measurement of the ARM or `azapi` path this record
+     uses, which action item 2 still measures.
    - **Unverified.** Whether azurerm's `virtual_network_type` and
      `virtual_network_configuration` express v2 *outbound integration* at all.
      Their documentation describes classic injection (port 3443).
@@ -360,8 +364,9 @@ above, observed failing first. No reference-repository or external run exists.
 
 ## Action items
 
-1. [ ] Create `mbeacom/adrkit-azure` and record its URL here, as ADR-0030 action
-   item 6 does for the Backstage surface.
+1. [x] Create `mbeacom/adrkit-azure` and record its URL here, as ADR-0030 action
+   item 6 does for the Backstage surface: <https://github.com/mbeacom/adrkit-azure>
+   (created 2026-10-10, public, Apache-2.0).
 2. [ ] Measure the `publicNetworkAccess` ARM update on a Standard v2 instance,
    and whether azurerm can express v2 outbound integration. Record both here
    and correct clause 7 or 12 if either fails.
