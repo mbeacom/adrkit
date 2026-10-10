@@ -189,11 +189,11 @@ follows the CLI command that answers the same question, call for call:
 | `.records` | `lintCorpus().records`, `decisionBucketFor`; `body` is core's `Adr.body` | `adr graph --format json` nodes (id, title, status, order); `body` against each file's text after its closing fence |
 | `.issues` | `lintCorpus().findings`, `sortFindings` | `adr lint --json` findings (`rule` → `code`) |
 | `.get(id)` | id lookup, last duplicate wins as in `toGoverningDecisions`; `31` pads to `0031` | — |
-| `.queue({ asOf })` | `buildQueueReport`; a supplied `asOf` checked with `resolveAsOf` and required to be a bare `YYYY-MM-DD` | `adr queue --format json --as-of` items (including the review counts) and `corpusFindings` |
+| `.queue({ asOf })` | `buildQueueReport`; a supplied `asOf` resolved with `resolveAsOf`, the `adr queue --as-of` grammar (bare date, or a datetime with an explicit zone), and the resolved date echoed | `adr queue --format json --as-of` items (including the review counts) and `corpusFindings` |
 | `.graph({ kinds })` | `buildAdrGraph`, edges filtered to `kinds` (default `['supersedes']`) | nodes: `adr graph --format json`; edges: `--kind supersedes` by default, each `--kind` for one kind, unfiltered for all three |
 | `.governing(path)` | `readSourceMarkers` → `resolveAffects` → `resolveSourceMarkers` → `mergeSourceDeclarations` → `toGoverningDecisions` → `bucketDecisions` → `sortFindings` | `adr explain <path> --json` groups and findings |
 
-Five points where the declared surface left a choice, and how each was settled:
+Six points where the declared surface left a choice, and how each was settled:
 
 - **Issue codes follow the CLI JSON for the same question.** `DecisionSet.issues` and
   `PathGovernance.issues` carry lint rule names verbatim (`corpus-file-skipped`), and
@@ -213,8 +213,14 @@ Five points where the declared surface left a choice, and how each was settled:
 - **The `asOf` default is core's `todayUtcDate()`**, the one export of `cli-contract.md`
   §As-Of Resolution's absent-input clause, which `adr queue`, the queue Action, and `adr new`
   also call. The SDK once inlined a fourth copy; ADR-0031 action item 8 replaced all four.
-  The static portal still carries its own copy, because it may import only `@adrkit/sdk` and the
-  SDK exposes no date helper; it also keeps a bare-date `asOf` rule for the same reason.
+- **A supplied `asOf` takes the CLI's whole grammar.** `queue({ asOf })` accepts exactly what
+  `adr queue --as-of` accepts — a bare `YYYY-MM-DD`, or an ISO datetime with an explicit zone —
+  through core's `resolveAsOf`, and `QueueView.asOf` echoes the resolved UTC calendar date; a
+  timezone-less datetime throws `RangeError`. The sketch accepted bare dates only and told a
+  caller with a datetime to import `resolveAsOf` from core, which is the reach-into-core
+  ADR-0031 names as the facade failing; widening the input closed that without a new symbol.
+  The static portal relies on both: it passes a caller's `asOf` (or none) to `queue()` and builds
+  from the echoed date, so it computes no date and restates no grammar of its own.
 
 All filesystem access is `openDecisions` plus `governing`'s marker read through core's confined
 reader (skipped with `readMarkers: false`). Nothing in the package writes. The returned records,

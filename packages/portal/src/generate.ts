@@ -3,8 +3,9 @@
  * ([ADR-0054](../../../docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
  * clauses 3, 6, 9).
  *
- * It opens the corpus through `@adrkit/sdk`, takes `asOf` from the SDK's own default when not
- * given (today, UTC — `queue()` echoes the date it used, so no clock is read here),
+ * It opens the corpus through `@adrkit/sdk`, resolves `asOf` through the SDK's `queue()` (which
+ * accepts what `adr queue --as-of` accepts, defaults to today in UTC, and echoes the resolved
+ * date, so no clock is read and no date grammar is restated here),
  * resolves the commit and the tracked files through `git`, builds the path table from the
  * SDK's `governing(path)` for every tracked file, and writes the page bundle with
  * `portal-data.json` into `out`, replacing it whole: the bundle is built in a sibling staging
@@ -58,7 +59,11 @@ export interface GeneratePortalOptions {
   readonly out?: string;
   /** Working directory. Defaults to the process cwd. Inside a git work tree, the corpus is opened from its top level. */
   readonly cwd?: string;
-  /** UTC calendar date `YYYY-MM-DD` for SLA states. Defaults to today (UTC). A datetime is a usage error. */
+  /**
+   * The date for SLA states, in the grammar `adr queue --as-of` accepts: `YYYY-MM-DD`, or an ISO
+   * datetime with an explicit timezone, resolved to its UTC calendar date by the SDK's `queue()`.
+   * A timezone-less datetime or an impossible date is a usage error. Defaults to today (UTC).
+   */
   readonly asOf?: string;
   /** Absolute `http:`/`https:` URL the site is served at; feeds absolute links only (clause 8). */
   readonly baseUrl?: string;
@@ -97,14 +102,6 @@ function usage(message: string): GeneratePortalResult {
   return { exitCode: 2, dataFile: null, data: null, errors: [], message };
 }
 
-function isCalendarDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-}
-
 function toPosix(path: string): string {
   return path.split(sep).join('/');
 }
@@ -115,11 +112,6 @@ export async function generatePortal(options: GeneratePortalOptions = {}): Promi
   const given = resolve(options.cwd ?? process.cwd());
   const cwd = await realpath(given).catch(() => given);
 
-  // A supplied `asOf` is validated before anything is read, so a usage error is not reported
-  // behind a corpus that may itself fail to load. An absent one is taken from the SDK below.
-  if (options.asOf !== undefined && !isCalendarDate(options.asOf)) {
-    return usage(`asOf must be a UTC calendar date YYYY-MM-DD; got "${options.asOf}".`);
-  }
 
   let baseUrl: string | null = null;
   if (options.baseUrl !== undefined && options.baseUrl !== '') {
@@ -185,11 +177,22 @@ export async function generatePortal(options: GeneratePortalOptions = {}): Promi
     throw error;
   }
 
-  // Absent `asOf`: the SDK's default, which is core's `todayUtcDate()` — the one implementation
-  // `adr queue` and the queue Action also use. `queue()` echoes the date it computed against,
-  // so the portal reads no clock of its own and cannot drift from CI near UTC midnight. The
-  // builder stays pure and still takes the date as an argument.
-  const asOf = options.asOf ?? handle.queue().asOf;
+  // `asOf` is resolved by the SDK's `queue()`, which takes exactly `adr queue --as-of`'s grammar
+  // and defaults to core's `todayUtcDate()`, and echoes the resolved UTC date. The portal reads
+  // no clock and restates no date rule, so it cannot drift from CI. It is resolved after the
+  // corpus opens, because the resolver is a handle method; nothing has been written yet, so a
+  // bad value is still exit 2 with nothing written. The builder stays pure and takes the date.
+  let asOf: string;
+  try {
+    asOf = handle.queue(options.asOf === undefined ? {} : { asOf: options.asOf }).asOf;
+  } catch (error) {
+    if (error instanceof RangeError) {
+      return usage(
+        `asOf must be YYYY-MM-DD or an ISO datetime with an explicit timezone (e.g. 2026-01-08T00:00:00Z); got "${options.asOf}".`,
+      );
+    }
+    throw error;
+  }
 
   const errorIssues = handle.issues.filter((issue) => issue.severity === 'error');
   // The corpus comes from the working tree and the path list from the index, so a bundle is

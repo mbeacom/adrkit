@@ -343,4 +343,5 @@ recorded as its own wrongness signal.
    spells the expression again; observed failing by restoring it in the SDK. The static portal,
    which may import only `@adrkit/sdk`, takes the default the SDK echoes in `queue().asOf`
    rather than computing its own (a second test bans the expression under
-   `packages/portal/src`), and keeps its bare-date rule for an `asOf` a caller supplies.
+   `packages/portal/src`). A caller-supplied `asOf` goes through the same method, which now takes
+   `adr queue --as-of`'s whole grammar and echoes the resolved UTC date.

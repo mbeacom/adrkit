@@ -106,7 +106,12 @@ Until `1.0.0`, minor releases may include breaking changes
   `--as-of` is absent, `adr queue`, the queue Action, and `adr new` now take
   today's UTC date from this one function instead of three inline copies. So
   does the unpublished `@adrkit/sdk`, and the decision-portal Action now takes
-  its default from the SDK rather than computing a fifth copy. A library consumer can now default the
+  its default from the SDK rather than computing a fifth copy.
+- **The decision-portal Action's `as-of` accepts an ISO datetime with an
+  explicit timezone**, as `adr queue --as-of` does, and resolves it to the UTC
+  calendar date. A timezone-less datetime is still refused. Underneath, the
+  unpublished `@adrkit/sdk`'s `queue({ asOf })` takes the same grammar and
+  echoes the resolved date. A library consumer can now default the
   queue exactly as CI does, instead of risking a local-date default that
   disagrees near midnight
   ([ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)

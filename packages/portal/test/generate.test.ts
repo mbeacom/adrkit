@@ -133,10 +133,19 @@ describe('exit 0: a healthy corpus in a git repository', () => {
     // core's `todayUtcDate()`. The test brackets the call, since a UTC midnight may fall in it.
     const before = new Date().toISOString().slice(0, 10);
     const result = await generatePortal({ cwd: healthyRoot, out: 'site-d' });
+    const sdkDefault = (await openDecisions({ cwd: healthyRoot })).queue().asOf;
+    // Sampled after both calls, so the window covers every clock read either of them made.
     const after = new Date().toISOString().slice(0, 10);
     expect([before, after]).toContain(result.data!.asOf);
-    const sdkDefault = (await openDecisions({ cwd: healthyRoot })).queue().asOf;
+    expect([before, after]).toContain(sdkDefault);
     if (before === after) expect(result.data!.asOf).toBe(sdkDefault);
+  });
+
+  test('a zoned datetime asOf is accepted, as `adr queue --as-of` accepts it, and resolves to its UTC date', async () => {
+    const result = await generatePortal({ cwd: healthyRoot, out: 'site-dt', asOf: '2026-07-04T23:30:00-05:00' });
+    expect(result.exitCode).toBe(0);
+    expect(result.data!.asOf).toBe('2026-07-05');
+    expect(JSON.parse(await readFile(result.dataFile!, 'utf8')).asOf).toBe('2026-07-05');
   });
 
   test('from a subdirectory, the corpus opens from the top level and the table covers the whole tree', async () => {
@@ -192,7 +201,7 @@ describe('no table where there is nothing to enumerate', () => {
 describe('exit 2: usage errors and an unreadable corpus write nothing', () => {
   const cases: Array<[string, Parameters<typeof generatePortal>[0]]> = [
     ['an unreadable corpus directory', { dir: 'no/such/dir' }],
-    ['a datetime asOf', { asOf: '2026-07-05T00:00:00Z' }],
+    ['a timezone-less datetime asOf', { asOf: '2026-07-05T00:00:00' }],
     ['an impossible asOf', { asOf: '2026-02-30' }],
     ['a non-http base-url', { baseUrl: 'javascript:alert(1)' }],
     ['a relative base-url', { baseUrl: '/docs' }],

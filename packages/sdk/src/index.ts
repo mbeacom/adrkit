@@ -317,17 +317,17 @@ export interface CorpusIssue {
 /** Options for {@link DecisionSet.queue}. */
 export interface QueueOptions {
   /**
-   * UTC calendar date, `YYYY-MM-DD`, that SLA state is computed against. Defaults to today's
+   * The date SLA state is computed against, in exactly the grammar `adr queue --as-of` accepts
+   * (`cli-contract.md` §As-Of Resolution): a bare `YYYY-MM-DD`, or an ISO datetime with an
+   * explicit timezone (`2026-01-08T00:00:00Z`, `2026-01-08T23:30:00-05:00`), which resolves to its
+   * UTC calendar date. {@link QueueView.asOf} echoes the resolved date, so a consumer and CI agree
+   * on the calendar date for the same input without resolving it themselves. Defaults to today's
    * UTC date, by the same function `adr queue` uses when `--as-of` is absent.
    *
-   * A bare calendar date only — no datetime, and no `Date`. Both alternatives carry a timezone
-   * question, and this contract answers it once here instead of at every call site. A caller
-   * holding a datetime resolves it first with `resolveAsOf` from `@adrkit/core`, which is the
-   * same rule the CLI applies to `--as-of` — so a consumer and CI agree on the calendar date for
-   * the same input. (That resolver was unexported when this surface was enumerated; ADR-0031
-   * action item 7 closed it.) Anything else — a datetime, or an impossible date such as
-   * `2026-02-30` — makes {@link DecisionSet.queue} throw a `RangeError`: it is a caller error, not
-   * a corpus issue.
+   * A timezone-less datetime is refused rather than guessed, because the date it lands on depends
+   * on the reader's zone. It, an impossible date such as `2026-02-30`, a non-string, or anything
+   * else outside the grammar makes {@link DecisionSet.queue} throw a `RangeError`: it is a caller
+   * error, not a corpus issue.
    */
   readonly asOf?: string;
 }
@@ -339,6 +339,7 @@ export interface QueueOptions {
  * against, and a consumer that caches this view needs to know what it cached.
  */
 export interface QueueView {
+  /** The resolved UTC calendar date, `YYYY-MM-DD`, even when a datetime was supplied. */
   readonly asOf: string;
   readonly entries: readonly QueueEntry[];
   /** Corpus issues that prevented records from reaching {@link entries}. */

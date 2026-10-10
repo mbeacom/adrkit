@@ -192,6 +192,16 @@ for (const corpus of CORPORA) {
       );
     });
 
+    test('queue with a zoned datetime ≡ adr queue --as-of with the same datetime', async () => {
+      const datetime = '2026-07-04T23:30:00-05:00';
+      const { json } = await adrJson(['queue', '--format', 'json', '--as-of', datetime], corpus.cwd());
+      const view = corpus.set().queue({ asOf: datetime });
+      expect(view.asOf).toBe(json.asOf);
+      expect(view.entries.map((entry) => [entry.id, entry.slaState, entry.deadline])).toEqual(
+        json.items.map((item: any) => [item.id, item.slaState, item.deadlineDate]),
+      );
+    });
+
     // Nodes are every record, as unfiltered `adr graph` prints them; `--kind supersedes`
     // would also drop the records no supersession edge touches, which a consumer browsing
     // the corpus still needs. Edges are the supersession edges `--kind supersedes` prints.

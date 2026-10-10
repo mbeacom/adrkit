@@ -25,8 +25,9 @@ inputs:
     default: ""
   as-of:
     description: >
-      Optional UTC calendar date (YYYY-MM-DD) for the queue's SLA states.
-      Defaults to today (UTC).
+      Optional date for the queue's SLA states, as `adr queue --as-of`
+      takes it: YYYY-MM-DD, or an ISO datetime with an explicit timezone
+      (resolved to its UTC calendar date). Defaults to today (UTC).
     required: false
     default: ""
   publish-private:

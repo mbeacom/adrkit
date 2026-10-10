@@ -285,10 +285,18 @@ describe('queue', () => {
     expect([before, after]).toContain(asOf);
   });
 
-  test('refuses anything but a real bare calendar date', () => {
-    for (const asOf of ['2026-02-30', '2026-07-05T00:00:00Z', '2026-07-05T00:00:00', 'today', '']) {
+  test('accepts what `adr queue --as-of` accepts, and echoes the resolved UTC date', () => {
+    expect(healthy.queue({ asOf: '2026-01-08' }).asOf).toBe('2026-01-08');
+    expect(healthy.queue({ asOf: '2026-01-08T00:00:00Z' }).asOf).toBe('2026-01-08');
+    // 23:30 at -05:00 on the 8th is 04:30Z on the 9th: the zone is honoured, not sliced off.
+    expect(healthy.queue({ asOf: '2026-01-08T23:30:00-05:00' }).asOf).toBe('2026-01-09');
+  });
+
+  test('refuses what `adr queue --as-of` refuses, including a timezone-less datetime', () => {
+    for (const asOf of ['2026-02-30', '2026-02-30T00:00:00Z', '2026-07-05T00:00:00', 'today', '']) {
       expect(() => healthy.queue({ asOf })).toThrow(RangeError);
     }
+    expect(() => healthy.queue({ asOf: 20260705 as unknown as string })).toThrow(RangeError);
   });
 });
 
