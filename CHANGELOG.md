@@ -9,6 +9,19 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Changed
+
+- **The adrkit.dev site builds on Starlight 0.42.** Every 0.42 bump had failed
+  `astro build` with `Cannot find native binding`: under the site's isolated
+  linker (ADR-0010) Vite could not resolve Starlight's `satteri` from the site
+  root, so it inlined the napi loader into the prerender bundle, where the
+  platform binding could not be found. The site now lists `satteri` as a direct
+  dependency so Vite keeps it external, with no hoisting and no linker change,
+  and Dependabot updates it together with Starlight
+  ([#224](https://github.com/mbeacom/adrkit/issues/224)). The site also picks up
+  Starlight 0.42's reworked mobile menu, which is meant to open without
+  JavaScript.
+
 ## [0.19.0] - 2026-10-10
 
 This release ships the decision portal: a third, build-only nested Action,

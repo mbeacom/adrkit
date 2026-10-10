@@ -52,6 +52,35 @@ Two things to know before it goes red on you:
 fails unless every sabotage-reachable check catches it, so a checker that has
 quietly stopped looking cannot report a green zero.
 
+## Why `satteri` is a direct dependency
+
+The site never imports `satteri`. It is listed in `package.json` because Starlight
+0.42 does, and the isolated linker that `bunfig.toml` requires
+([ADR-0010](../docs/adr/0010-bun-toolchain.md)) changes how Vite treats it.
+
+`satteri` is a napi package: its entry point `require`s a platform binding such
+as `@bruits/satteri-linux-x64-gnu`. During `astro build`, Vite externalizes a
+bare import only when it can resolve it from the site root. Under the isolated
+linker a transitive dependency is not in `site/node_modules`, so that lookup
+fails and Vite inlines `satteri` into `dist/.prerender/chunks/` instead. The
+inlined loader then looks for the binding relative to `dist`, finds nothing,
+and every page that renders Markdown at build time fails with `Cannot find
+native binding` ([#224](https://github.com/mbeacom/adrkit/issues/224)).
+`ssr.external: ['satteri']` does not help, because Vite applies the same
+resolve-from-root check to configured externals.
+
+A direct dependency puts `satteri` in `site/node_modules`, so Vite leaves it as
+an import and Node loads it from its own package directory, where its bindings
+are. Nothing is hoisted and the linker stays isolated.
+
+Keep its range in step with the one Starlight declares. If they diverge, Bun
+installs two copies, Starlight's copy is inlined again, and the build fails the
+same way. Dependabot moves the two in one pull request for that reason. After
+a Starlight bump, regenerate `bun.lock` from scratch rather than with an
+incremental `bun install`, and check that every `@bruits/satteri-*` entry
+matches the `satteri` version: an incremental resolve has left stale bindings
+behind before.
+
 ## Generated content — do not edit by hand
 
 Two build steps run before every `dev`/`build` (both are git-ignored output):
