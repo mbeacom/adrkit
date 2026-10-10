@@ -156,7 +156,12 @@ placement, not DKIM-style selectors).
 #    NOTE: needs OpenSSL 3.0+. macOS system LibreSSL cannot do Ed25519 in genpkey —
 #    use `brew install openssl@3` and call that openssl explicitly.
 openssl genpkey -algorithm Ed25519 -out adrkit-mcp-key.pem
-PRIVATE_KEY=$(openssl pkey -in adrkit-mcp-key.pem -text -noout | grep -A3 'priv:' | tail -n +2 | tr -d ' :\n')
+# Read the raw 32-byte seed from the DER encoding, as for the public key. Do not
+# scrape `-text` output: OpenSSL 4 wraps it at 16 bytes per line, so a fixed
+# `grep -A3 'priv:'` also captures the `pub:` label and mcp-publisher rejects the
+# key with `invalid hex private key format: … invalid byte: U+0070 'p'`.
+PRIVATE_KEY=$(openssl pkey -in adrkit-mcp-key.pem -outform DER | tail -c 32 | xxd -p -c 64)
+[ "${#PRIVATE_KEY}" -eq 64 ] || echo "unexpected private key length: ${#PRIVATE_KEY}" >&2
 PUBLIC_KEY=$(openssl pkey -in adrkit-mcp-key.pem -pubout -outform DER | tail -c 32 | base64)
 
 # 2. Publish this TXT record at the apex of adrkit.dev via your DNS provider:
