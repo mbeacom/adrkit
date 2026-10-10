@@ -20,6 +20,11 @@ const SHIPPED_ROOTS = [
   resolve(process.cwd(), 'packages/cli/src'),
   resolve(process.cwd(), 'packages/core/src'),
   resolve(process.cwd(), 'packages/evaluator/src'),
+  // `@adrkit/sdk` is unpublished (ADR-0031 clause 8), but it declares `engines.node >= 22`
+  // and its consumers are Node services; the rule applies before a release, not after one.
+  // ADR-0016 clause 2: observed failing with `export const planted = () => Bun.version;`
+  // appended to packages/sdk/src/decision-set.ts; the retained input is that line, removed.
+  resolve(process.cwd(), 'packages/sdk/src'),
 ];
 
 /** Strip comments so the rule is about code, not about prose describing the rule. */

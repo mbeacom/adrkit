@@ -6,10 +6,11 @@ happens to export, and record the count.
 
 > **Status: investigation supporting an accepted record.**
 > [ADR-0031](adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
-> was ratified by `@mbeacom` on 2026-08-24. `packages/sdk/` remains a
-> **types-only** sketch: no runtime, no build, no release, and absent from
-> `RELEASE_PACKAGES`. ADR-0031 authorizes construction only; a later record must
-> authorize publication.
+> was ratified by `@mbeacom` on 2026-08-24. `packages/sdk/` is now **implemented
+> and unpublished**: `openDecisions` and every `DecisionSet` member run over
+> `@adrkit/core`'s kernels (see [Implementation](#implementation) below), with no
+> build, no release, version 0.0.0, and no entry in `RELEASE_PACKAGES`. ADR-0031
+> authorizes construction only; a later record must authorize publication.
 
 ## Verdict, first
 
@@ -63,6 +64,19 @@ ratifier sees what was measured, not only the conclusion.
 The honest summary for `@mbeacom`: **the surface is 7 callable entry points and 17 symbols; the
 insulation is real and measured; the record's own falsification criterion was the part that
 needed fixing, and measuring it is what found that out.**
+
+> **Remeasured after the additive extension (2026-10-10).** The figures above are the first
+> enumeration's and are left as measured. After the [additive extension](#additive-extension)
+> the surface is **7 callable entry points** (unchanged), **19 exported symbols** (`GraphOptions`
+> and `DecisionEdgeKind` added; `SupersessionEdge` renamed `DecisionEdge`), and **1 of 13**
+> object shapes structurally identical to a core type: `DecisionEdge { from, to, kind }` has
+> the same member names and types as core's `GraphEdge`. That is under ADR-0031's one-third
+> threshold (4 of 13 would cross it), and it is reported rather than renamed away: those three
+> names are `adr graph --format json`'s published edge shape, the same converge-on-published-
+> vocabulary rule the three unions follow. The other twelve: seven diverged (`GraphOptions`
+> against core's `AdrGraphFilter`, which also carries `focus`), five with no core counterpart.
+> `DecisionEdgeKind` is a fourth vocabulary union, the frontmatter field names that
+> `adr graph --kind` accepts.
 
 ## Measurements
 
@@ -155,11 +169,54 @@ DecisionSet.records                     browsing the corpus
 DecisionSet.issues                      corpus health
 DecisionSet.get(id)                     record status, one record
 DecisionSet.queue(options?)             the ARB queue and its SLA state
-DecisionSet.graph()                     the supersession graph
+DecisionSet.graph(options?)             the supersession graph; relationship edges on request
 DecisionSet.governing(path, options?)   path-governance, explicitly supplied path
 ```
 
 Declared at [`packages/sdk/src/index.ts`](../packages/sdk/src/index.ts).
+
+### Implementation
+
+The surface above is implemented without changing a declared type. `openDecisions`
+lives in [`packages/sdk/src/index.ts`](../packages/sdk/src/index.ts); the mapping layer
+that turns each core result into an SDK shape is
+[`packages/sdk/src/decision-set.ts`](../packages/sdk/src/decision-set.ts). Each entry point
+follows the CLI command that answers the same question, call for call:
+
+| Entry point | Core kernels | CLI JSON it is tested equal to |
+|---|---|---|
+| `openDecisions` | `lintCorpus({ dir, cwd })` | — (an unreadable corpus directory rejects with `Corpus directory not found` / `not readable`, classified by the same rule as `corpusDirectoryErrorKind` in `packages/cli/src/errors.ts`, the cases `adr` turns into exit 2; a pathless `EIO`/`ESTALE` is rethrown, as there) |
+| `.records` | `lintCorpus().records`, `decisionBucketFor`; `body` is core's `Adr.body` | `adr graph --format json` nodes (id, title, status, order); `body` against each file's text after its closing fence |
+| `.issues` | `lintCorpus().findings`, `sortFindings` | `adr lint --json` findings (`rule` → `code`) |
+| `.get(id)` | id lookup, last duplicate wins as in `toGoverningDecisions`; `31` pads to `0031` | — |
+| `.queue({ asOf })` | `buildQueueReport`; a supplied `asOf` checked with `resolveAsOf` and required to be a bare `YYYY-MM-DD` | `adr queue --format json --as-of` items (including the review counts) and `corpusFindings` |
+| `.graph({ kinds })` | `buildAdrGraph`, edges filtered to `kinds` (default `['supersedes']`) | nodes: `adr graph --format json`; edges: `--kind supersedes` by default, each `--kind` for one kind, unfiltered for all three |
+| `.governing(path)` | `readSourceMarkers` → `resolveAffects` → `resolveSourceMarkers` → `mergeSourceDeclarations` → `toGoverningDecisions` → `bucketDecisions` → `sortFindings` | `adr explain <path> --json` groups and findings |
+
+Five points where the declared surface left a choice, and how each was settled:
+
+- **Issue codes follow the CLI JSON for the same question.** `DecisionSet.issues` and
+  `PathGovernance.issues` carry lint rule names verbatim (`corpus-file-skipped`), and
+  `QueueView.issues` carries the queue contract's codes (`corpus.file-skipped`). The type's
+  former single example named only the queue spelling.
+- **`governing` keeps `adr explain`'s corpus-error gate.** A corpus with an error-severity issue
+  answers with empty groups and the corpus's own issues, because an unloaded record may be the
+  one that governs the path.
+- **A marker scan that could not look is an issue, not silence** (ADR-0016): `marker-scan-absent`
+  (`info`), `marker-scan-unreadable` and `marker-scan-out-of-tree` (`warn`). `adr explain --json`
+  reports the same fact under `markers.state`, which `PathGovernance` has no key for.
+- **`graph()` nodes are every record**, as unfiltered `adr graph` prints them, whatever
+  `kinds` selects; `--kind` would also drop records no kept edge touches. They are the mapped records in
+  `buildAdrGraph`'s stable id order, never looked up by id, so a corpus that repeats an id
+  shows both records, as the CLI does. `get(id)` alone resolves a repeated id to the last
+  record, the one `governing` and `adr explain` resolve it to.
+- **The `asOf` default is inlined** as `new Date().toISOString().slice(0, 10)`, a fourth copy of
+  the absent-input clause. ADR-0031 action item 8 — a publication gate for this package —
+  replaces all four with one core export; it is deliberately not done here.
+
+All filesystem access is `openDecisions` plus `governing`'s marker read through core's confined
+reader (skipped with `readMarkers: false`). Nothing in the package writes. The returned records,
+arrays, and views are frozen, so one consumer of a shared handle cannot alter another's view.
 
 ### Why a handle, not free functions
 
@@ -181,17 +238,20 @@ would be exactly the trimming-to-fit that action item 3 warns against.
 | 3 | `.issues` | corpus health | `sortFindings`, severity split | `corpus.file-skipped` is `warn`, not `error` — a `proposed` record can otherwise vanish silently |
 | 4 | `.get(id)` | record status, one record | id normalization + lookup | a deep-link route (`/adr/0031`) resolves one record; linear-scanning `records` is the alternative |
 | 5 | `.queue(options?)` | ARB queue + SLA state | `buildQueueReport` **+ the CLI's `--as-of` resolver** | that resolver was 25 lines in `packages/cli/src/queue.ts` and unexported at measurement; **closed 2026-08-16** — now `resolveAsOf` in `packages/core/src/queue/as-of.ts`, exported |
-| 6 | `.graph()` | supersession graph | `buildAdrGraph` | frontmatter alone silently drops a supersession target that does not exist; the built graph reports it |
+| 6 | `.graph(options?)` | supersession graph (relationship edges opt-in through `kinds`; see [Additive extension](#additive-extension)) | `buildAdrGraph` | frontmatter alone silently drops a supersession target that does not exist; the built graph reports it |
 | 7 | `.governing(path)` | path-governance, explicit path | the eight-call `explain` chain, incl. the `@adr` marker scan | `runExplain`, `packages/cli/src/index.ts` |
 
 ### What is deliberately excluded, and why
 
 Exclusions are the load-bearing half of a narrowing exercise, so each carries its reason:
 
-- **The document layer** (ADR-0029 clause 9) — rendering ADR prose belongs to
+- **Rendering the document layer** (ADR-0029 clause 9) — rendering ADR prose belongs to
   `@backstage-community/plugin-adr` via its `contentDecorators` / `statusComponent` extension
-  points. It reads markdown; it does not want a JavaScript API. `DecisionRecord` therefore
-  carries no `body`.
+  points. *Reversed in part:* the first enumeration also excluded the raw `body` on this
+  ground. `DecisionRecord.body` now carries it, unrendered and unsanitized, because a static
+  portal and a REST API need the prose and have no other way to reach it without re-reading
+  every file. Rendering and sanitizing stay out: they are the consumer's. See
+  [Additive extension](#additive-extension).
 - **Anything needing the entity-ownership mapping** — Tier 2, not authorized. ADR-0029 clause 2:
   *"where clauses 1 and 2 both admit a capability, clause 2 governs."*
 - **`resolveAffects` against a *derived* path.** Clause 1 admits path-governance only for a path
@@ -223,6 +283,41 @@ The rule this expresses, stated so it can be applied to the next type: **diverge
 implementation shapes; converge on the schema's published vocabulary.** Where core and the
 schema agree, matching core is a consequence rather than a re-export.
 
+## Additive extension
+
+Three additions made as part of the implementation scope, for a GitHub Pages portal and a REST
+API built on this surface. The decision is recorded in a proposed record that lands in a separate
+pull request. All
+three are additive to a type a caller already holds; none adds an entry point.
+
+| Addition | Core source | Notes |
+|---|---|---|
+| `DecisionRecord.body: string` | `Adr.body`, the text `parseFrontmatter` keeps after the closing `---` when `lintCorpus` reads the file | No second read. Verbatim: line endings kept, nothing rendered or sanitized. It is repository text, so a consumer that inserts it as HTML unsanitized has built an injection path. |
+| `QueueEntry.approvalCount` | QueueReport v1 `approvalCount` | Distinct identities under ASCII casefold (ADR-0051), as the kernel and `adr accept` count them — not `approvals.length`. |
+| `QueueEntry.quorum` | `quorum` | `null` when the record sets none. |
+| `QueueEntry.unresolvedObjectionCount` / `resolvedObjectionCount` | the same names | |
+| `QueueEntry.routingTargets` | `routingTargets` (the record's `deciders`) | Frozen copy. |
+| `QueueEntry.itemFindingCount` | `itemFindings.length` | The count only, under the name the decision board uses. |
+| `DecisionEdge.kind`, `graph({ kinds })` | `GraphEdge.kind` from `buildAdrGraph` | Direction is core's: `supersedes` runs successor → replaced; `relatesTo`/`conflictsWith` run from the declaring record. |
+
+Decisions this left open, and how they were settled:
+
+- **Review fields keep QueueReport v1's names.** That contract is already published (badges
+  read it from `queue.json`), so a portal reading the SDK and one reading
+  `adr queue --format json` see the same numbers under the same names. `path` and `deadline`
+  keep their earlier SDK names.
+- **No readiness verdict** (ADR-0050). Review state misses refusals such as an empty
+  `deciders` that only `adr accept`'s transition catches, so the SDK reports counts and does not
+  combine them.
+- **`graph()` stays supersession-only by default.** Entry point 6 was enumerated as *the
+  supersession graph*, `SupersessionEdge` named it, and the equivalence test pinned it to
+  `--kind supersedes`. That is a documented contract, so relationship edges are an opt-in
+  `kinds` option and a caller that passes nothing gets the edges it always got, now with
+  `kind: 'supersedes'` on each. An empty or unknown `kinds` list throws `RangeError` rather than
+  guessing between "default", "all", and "none".
+- **`SupersessionEdge` is renamed `DecisionEdge`, with no alias.** The package is unpublished at
+  0.0.0 with no consumers; an alias would be a symbol kept for nobody.
+
 ## What was verified
 
 - `bun test` — full suite, including 4 new `packages/sdk/test/packaging.test.ts` assertions and
@@ -240,13 +335,15 @@ schema agree, matching core is a consequence rather than a re-export.
 
 ## What this does not establish
 
-- **ADR-0014 rung 0.** No consumer has exercised this surface, because the one it was designed
-  for does not exist yet. ADR-0031's own trade-off — *"the risk is that the guess hardens before
-  the Backstage plugin tests it"* — is not mitigated by this work, only made concrete enough to
+- **ADR-0014 rung 1 only.** The implementation has unit, behaviour, and CLI-equivalence tests
+  (`packages/sdk/test/`), the equivalence run against two fixture corpora and this repository's
+  own `docs/adr`. No consumer has exercised the surface, because the one it was designed for does
+  not exist yet. ADR-0031's own trade-off — *"the risk is that the guess hardens before the
+  Backstage plugin tests it"* — is not mitigated by this work, only made concrete enough to
   criticize.
-- **Nothing is implemented.** Every entry point is a `declare` or an interface member. The
-  eight-call assembly it claims to absorb has not been written, so its feasibility is argued from
-  reading `runExplain`, not from a passing test.
+- **Implemented, not exercised.** The eight-call `explain` assembly the surface claims to absorb
+  is now written and tested equal to `adr explain --json`; its fitness for a long-lived server
+  consumer is still argued, not observed.
 - **No release, and none prepared.** ADR-0031 clause 7 specifies `versioning: 'independent'`
   *when* released; wiring that into `scripts/release-pack.ts` now would prepare an act clause 8
   does not authorize, so it is deliberately absent — and asserted absent by test, so its absence
