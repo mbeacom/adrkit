@@ -1,0 +1,34 @@
+{
+  "name": "@adrkit/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A read-only REST API over @adrkit/sdk, with the decision portal, shipped as the `server` selector of the adrkit OCI image (ADR-0055). Private; bundled into the image, never published.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://adrkit.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbeacom/adrkit.git",
+    "directory": "packages/server"
+  },
+  "bugs": {
+    "url": "https://github.com/mbeacom/adrkit/issues"
+  },
+  "//boundary": "ADR-0055 clause 10: node:http and no framework. The only runtime dependencies are @adrkit/sdk (the consumer contract, ADR-0031) and the private @adrkit/portal (its pure builder and page assets only). It never imports @adrkit/core or @adrkit/cli, spawns no process, runs no git, and opens no outbound connection; scripts/check-deps.ts admits exactly those two. Neither declares an exports map, so the import specifiers are the subpaths `@adrkit/sdk/src/index.ts`, `@adrkit/portal/src/data/build.ts`, and `@adrkit/portal/src/page/assets.ts`.",
+  "//release": "Private and unpublished. It reaches users only as /opt/adrkit/server.js in the all-in-one OCI image (ADR-0055 clause 12), which rides the lockstep release (ADR-0032).",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "bun run typecheck",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@adrkit/portal": "workspace:*",
+    "@adrkit/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

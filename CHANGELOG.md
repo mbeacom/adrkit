@@ -63,6 +63,23 @@ Until `1.0.0`, minor releases may include breaking changes
   listed the id), and a log-qualified `supersededBy` names clause 4 in its
   existing failure.
 
+- **A read-only REST server in the OCI image, `adrkit-container server`.**
+  This server authenticates no one: run it on localhost or behind a gateway
+  that authenticates every request. It serves `GET` and `HEAD` only, under
+  `/api/v1/corpora/{corpus}`: `records`, `records/{id}`, `graph?kinds=`,
+  `queue?asOf=`, `issues`, and `governing?path=`, plus `/api/v1/corpora`,
+  `/openapi.json`, `/healthz`, and the decision portal at `/`
+  ([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)).
+  Every answer is `{ corpus, commit, data }`, with the commit read from the
+  `.adrkit-corpus.json` file the populator writes next to the records; a corpus
+  without one is not served. Configure it with `ADRKIT_SERVER_CORPORA`
+  (`key[=dir],...` or a JSON object), `ADRKIT_SERVER_ROOT`,
+  `ADRKIT_SERVER_HOST` (default `127.0.0.1`), and `ADRKIT_SERVER_PORT`
+  (default `8080`); see [Container usage](README.md#the-read-only-rest-server).
+  It runs no `git`, spawns no process, and opens no outbound connection.
+  `governing` matches `affects` only: it never reads the file at the path, so
+  it has no `@adr` marker evidence.
+
 ## [0.19.0] - 2026-10-10
 
 This release ships the decision portal: a third, build-only nested Action,

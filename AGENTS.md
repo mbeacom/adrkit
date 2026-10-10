@@ -1168,8 +1168,9 @@ GitHub release.
 
 Things that are load-bearing:
 
-- **Only the all-in-one `adrkit` target is published.** The `cli`, `mcp`, `ci`,
-  and `queue-action` targets exist for local isolation, SBOM, and policy checks;
+- **Only the all-in-one `adrkit` target is published.** The `cli`, `mcp`,
+  `server`, `ci`, and `queue-action` targets exist for local isolation, SBOM,
+  and policy checks;
   each final stage contains only its own executable. Publishing five packages
   would multiply visibility, retention, and rollback operations without adding
   behavior.
@@ -1191,6 +1192,38 @@ Things that are load-bearing:
 This surface is at **rung 1** of ADR-0014: contract tests, local Docker/Podman
 build and runtime smoke, and CI construction. No reference-repository or
 external/community validation has been recorded.
+
+## The read-only REST server (`packages/server`)
+
+`@adrkit/server` (private) is the image's `server` selector, under
+[ADR-0055](./docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+(**accepted**). **It authenticates no one.** `node:http` over `@adrkit/sdk`
+and `@adrkit/portal`'s pure builder, and nothing else (`check-deps` admits
+exactly those two). **Rung 1**: unit, contract, and side-effect-denial tests
+plus a local Podman smoke; the APIM path is unmeasured. Load-bearing:
+
+- **The route table is the server.** `src/routes.ts` is data; the dispatcher
+  matches it and `/openapi.json` is generated from it. Every row is `GET`;
+  any other method is 405 before routing and no body is read. `operationId`s
+  are APIM tool names, so renaming one breaks remote agents.
+- **The commit comes from the sidecar, never from git.** `.adrkit-corpus.json`
+  is the ADR-0055/0056 contract. Missing or invalid with the directory present
+  is 503; a directory briefly absent (the two-move swap) or a failed or moved
+  load keeps the last handle. A load is kept only if the sidecar names the
+  same commit after it.
+- **`governing` passes `readMarkers: false`, always.** Removing it turns a
+  query parameter into a file read; a test plants a marker file to catch it.
+- **Errors come from `messages.ts` only.** The catch-all answers `internal`
+  with fixed text; a sentinel test covers thrown errors, sidecars, and
+  directory names. No access log is written, because a request line carries
+  caller-supplied paths.
+- **The portal is per corpus at `/portal/{corpus}/`.** `/` redirects
+  relatively when one corpus is configured and lists them otherwise; links stay
+  relative so a gateway base path survives. Portal files carry the page's CSP
+  plus `frame-ancestors 'none'`.
+- **Configuration is `ADRKIT_SERVER_CORPORA`** (`key[=dir],...` or JSON),
+  confined under `ADRKIT_SERVER_ROOT` by `realpath`, at start and before every
+  load. As PID 1 the binary handles SIGTERM itself.
 
 ## Derived surfaces stay in lockstep three different ways
 

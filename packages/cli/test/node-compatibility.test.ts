@@ -30,6 +30,11 @@ const SHIPPED_ROOTS = [
   // ADR-0016 clause 2: observed failing with `export const planted = () => Bun.version;`
   // appended to packages/portal/src/data/build.ts; the retained input is that line, removed.
   resolve(process.cwd(), 'packages/portal/src'),
+  // `@adrkit/server` is private, but the image runs it on Node 24 as /opt/adrkit/server.js
+  // (ADR-0055 clauses 10 and 12).
+  // ADR-0016 clause 2: observed failing with `export const planted = () => Bun.version;`
+  // appended to packages/server/src/validate.ts; the retained input is that line, removed.
+  resolve(process.cwd(), 'packages/server/src'),
 ];
 
 /** Strip comments so the rule is about code, not about prose describing the rule. */

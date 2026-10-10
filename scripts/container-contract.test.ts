@@ -27,6 +27,12 @@ const SURFACES = [
     entrypoint: '["node", "/opt/adrkit/adrkit-mcp.js"]',
   },
   {
+    target: 'server',
+    aliases: ['server', 'adrkit-server'],
+    artifact: '/opt/adrkit/server.js',
+    entrypoint: '["node", "/opt/adrkit/server.js"]',
+  },
+  {
     target: 'ci',
     aliases: ['ci', 'adrkit-ci'],
     artifact: '/opt/adrkit/ci.js',
@@ -99,6 +105,41 @@ describe('container contract', () => {
     expect(CI_WORKFLOW).toContain('scripts/smoke-container.mjs adrkit:ci mcp');
     expect(CI_WORKFLOW).toContain('adrkit:ci ci 2>&1');
     expect(CI_WORKFLOW).toContain('adrkit:ci queue-action 2>&1');
+    expect(CI_WORKFLOW).toContain('adrkit:ci server');
+  });
+
+  // ADR-0055 clauses 12 to 14. The server is network-facing, so its documented run keeps
+  // everything of the stdio MCP posture but `--network none`: a read-only root file system,
+  // `:ro` mounts, and a loopback default that only an explicit ADRKIT_SERVER_HOST overrides.
+  // ADR-0016 clause 2: observed failing with the `COPY packages/server/src` line removed from
+  // the Containerfile, and (the selector test above) with the entrypoint's
+  // `server | adrkit-server)` case renamed; the retained inputs are both lines, restored.
+  test('builds and documents the server selector with its read-only posture', () => {
+    expect(CONTAINERFILE).toContain('COPY packages/sdk/src ./packages/sdk/src');
+    expect(CONTAINERFILE).toContain('COPY packages/portal/src ./packages/portal/src');
+    expect(CONTAINERFILE).toContain('COPY packages/server/src ./packages/server/src');
+    expect(CONTAINERFILE).toContain('bun build packages/server/src/bin.ts');
+    const allInOne = CONTAINERFILE.split('FROM runtime AS adrkit\n')[1] ?? '';
+    expect(allInOne).toContain('/out/server.js /opt/adrkit/server.js');
+
+    const help = Bun.spawnSync(['sh', ENTRYPOINT_PATH, '--help']).stdout.toString();
+    expect(help).toContain('server | adrkit-server');
+    expect(help).toContain('authenticates no one');
+
+    const section = README.split('### The read-only REST server')[1]?.split('\n## ')[0] ?? '';
+    expect(section.trimStart()).toStartWith('**This server authenticates no one.**');
+    expect(section).toContain('ADRKIT_SERVER_CORPORA');
+    expect(section).toContain('--read-only');
+    expect(section).toMatch(/:ro\b/);
+    const run = section.split('```sh')[1]?.split('```')[0] ?? '';
+    expect(run).toContain('adrkit:vX.Y.Z server');
+    expect(run).not.toContain('--network none');
+    expect(run).not.toMatch(/-p (?!127\.0\.0\.1:)/);
+
+    for (const line of ['!packages/sdk/src/**', '!packages/portal/src/**', '!packages/server/src/**']) {
+      expect(dockerignoreLines().has(line)).toBe(true);
+    }
+    expect(CI_WORKFLOW).toContain('docker build -f Containerfile --target server -t adrkit-server:ci .');
   });
 
   test('admits only runtime source and the committed Action bundles', () => {

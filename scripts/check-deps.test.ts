@@ -576,6 +576,68 @@ describe('portal dependency boundary (ADR-0054)', () => {
   });
 });
 
+describe('server dependency boundary (ADR-0055)', () => {
+  const SERVER_MANIFEST = 'packages/server/package.json';
+
+  function serverManifest(extra: Record<string, string> = {}): string {
+    return JSON.stringify(
+      {
+        name: '@adrkit/server',
+        version: '0.0.0',
+        private: true,
+        dependencies: { '@adrkit/portal': 'workspace:*', '@adrkit/sdk': 'workspace:*', ...extra },
+        devDependencies: { '@types/bun': 'latest' },
+      },
+      null,
+      2,
+    );
+  }
+
+  test('allows exactly the workspace sdk and portal, plus @types/bun', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, SERVER_MANIFEST), serverManifest());
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  // ADR-0055 clause 10: the SDK is the door. A direct core edge would make the server a
+  // second caller of core, and is the only proof the entry exists: without it the package
+  // is silently unconstrained.
+  //
+  // ADR-0016 clause 2: observed failing before the entry was added. With the entry absent,
+  // this test returned `{ ok: true, violations: [] }`; the retained input is the manifest
+  // below, unchanged.
+  test('proves the server allowlist entry exists, by rejecting a direct @adrkit/core dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, SERVER_MANIFEST), serverManifest({ '@adrkit/core': 'workspace:*' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => `${violation.dependency}: ${violation.reason}`)).toEqual([
+      '@adrkit/core: @adrkit/server declares a dependency outside its allowed public surface',
+    ]);
+  });
+
+  // ADR-0055 fact 4 and Option D: no HTTP framework.
+  test('rejects an HTTP framework', async () => {
+    for (const framework of ['hono', '@hono/node-server', 'express', 'fastify']) {
+      const root = await resetTestDir(DIR_NAME);
+      await writeText(join(root, SERVER_MANIFEST), serverManifest({ [framework]: '^1' }));
+      const result = await checkDependencyRules(root);
+      expect(result.violations.map((violation) => violation.dependency)).toEqual([framework]);
+    }
+  });
+
+  test('rejects the cli and the stdio MCP server', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(
+      join(root, SERVER_MANIFEST),
+      serverManifest({ '@adrkit/cli': 'workspace:*', '@adrkit/mcp': 'workspace:*' }),
+    );
+    const result = await checkDependencyRules(root);
+    expect(result.violations.map((violation) => violation.dependency).sort()).toEqual(['@adrkit/cli', '@adrkit/mcp']);
+  });
+});
+
 describe('ci surface admits the portal generator (ADR-0054 item 4)', () => {
   const CI_MANIFEST = 'packages/ci/package.json';
 

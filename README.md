@@ -125,15 +125,16 @@ bind-mount label (for example, `:Z`).
 
 The default image treats an unrecognized selector as an `adr` subcommand.
 Explicit selectors are `cli`/`adr`/`adrkit`, `mcp`/`adrkit-mcp`,
-`ci`/`adrkit-ci`, and `queue-action`/`adrkit-queue-action`. The default
+`server`/`adrkit-server`, `ci`/`adrkit-ci`, and
+`queue-action`/`adrkit-queue-action`. The default
 `--help` describes these selectors; `cli --help` opens the CLI command
 reference. The container also reserves `-h`, `container-help`, and
 `--container-help`; CLI help subcommands such as `help lint` otherwise pass
 through unchanged.
 
 Build the same source locally with Docker or Podman. Purpose-specific `cli`,
-`mcp`, `ci`, and `queue-action` targets are isolated for local policy and SBOM
-inspection; the registry publishes only the all-in-one `adrkit` target:
+`mcp`, `server`, `ci`, and `queue-action` targets are isolated for local policy
+and SBOM inspection; the registry publishes only the all-in-one `adrkit` target:
 
 ```sh
 docker build -f Containerfile -t adrkit:local .
@@ -156,6 +157,56 @@ GitHub Marketplace listing. That root form is available beginning with
 `v0.13.0`; the existing `packages/ci` form remains supported.
 GitHub lists only root Action metadata, so the queue Action stays at its nested
 path.
+
+### The read-only REST server
+
+**This server authenticates no one.** Run it on localhost, or behind a gateway
+that authenticates every request. Anyone who can reach its port can read every
+corpus it serves, private repositories included.
+
+The `server` selector serves a read-only REST API and the decision portal over
+one or more corpora
+([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)).
+It answers `GET` and `HEAD` only, and every other method gets `405`. Every data
+response is `{ corpus, commit, data }`. It runs no `git`, spawns no process, and
+opens no outbound connection. It binds `127.0.0.1` unless `ADRKIT_SERVER_HOST`
+says otherwise; inside a container that address cannot be reached from outside,
+so publishing a port also takes `ADRKIT_SERVER_HOST=0.0.0.0`, and the server
+then logs a warning. Routes, under `/api/v1/corpora/{corpus}`: `records`,
+`records/{id}`, `graph?kinds=`, `queue?asOf=`, `issues`, and `governing?path=`.
+`governing` matches a path against `affects` only and never reads the file, so
+it has no `@adr` marker evidence. Also served: `/api/v1/corpora`,
+`/openapi.json`, `/healthz`, and the portal at `/` (one corpus) or
+`/portal/{corpus}/`.
+
+Each corpus is a directory something else writes: the repository's records under
+`docs/adr` (or another `adrDir`) and, at its top, `.adrkit-corpus.json`, a JSON
+object holding at least `{ "commit": "<40 hex>" }`. A corpus without a valid
+sidecar is not served (`503`). When the sidecar's commit changes, the server
+loads the new tree and swaps to it. Configure the corpora with environment
+variables:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ADRKIT_SERVER_CORPORA` | (required) | `key[=dir],...`, or a JSON object such as `{"adrkit":"adrkit","platform":{"dir":"repos/platform","adrDir":"decisions"}}`. A bare `key` means `<root>/<key>`. Keys match `^[a-z0-9][a-z0-9-]{0,63}$` and are the `{corpus}` path segment. |
+| `ADRKIT_SERVER_ROOT` | working directory | Every corpus directory must resolve inside it, symbolic links included. |
+| `ADRKIT_SERVER_HOST` | `127.0.0.1` | Address to bind. |
+| `ADRKIT_SERVER_PORT` | `8080` | Port to bind. |
+
+To serve a checkout of your own repository on your machine only, write the
+sidecar, then mount the checkout read-only:
+
+```sh
+printf '{"commit":"%s"}\n' "$(git rev-parse HEAD)" > .adrkit-corpus.json
+docker run --rm --read-only -p 127.0.0.1:8080:8080 \
+  -v "$PWD:/workspace:ro" \
+  -e ADRKIT_SERVER_HOST=0.0.0.0 -e ADRKIT_SERVER_CORPORA=adrkit=. \
+  ghcr.io/mbeacom/adrkit:vX.Y.Z server
+```
+
+The `-p 127.0.0.1:` prefix keeps the published port on the host's loopback.
+This server has no `--network none` mode, because it listens for requests, but
+it never needs a writable mount.
 
 ## What it looks like
 

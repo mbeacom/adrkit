@@ -244,6 +244,8 @@ jobs:
         run: docker build -f Containerfile --target cli -t adrkit-cli:ci .
       - name: Build the dedicated MCP target
         run: docker build -f Containerfile --target mcp -t adrkit-mcp:ci .
+      - name: Build the dedicated read-only server target
+        run: docker build -f Containerfile --target server -t adrkit-server:ci .
       - name: Build the dedicated governing-decisions Action target
         run: docker build -f Containerfile --target ci -t adrkit-action:ci .
       - name: Build the dedicated queue Action target
@@ -255,6 +257,8 @@ jobs:
             'test -f /opt/adrkit/adr.js && test ! -e /opt/adrkit/adrkit-mcp.js && test ! -e /opt/adrkit/ci.js'
           docker run --rm --entrypoint sh adrkit-mcp:ci -c \
             'test -f /opt/adrkit/adrkit-mcp.js && test ! -e /opt/adrkit/adr.js && test ! -e /opt/adrkit/ci.js'
+          docker run --rm --entrypoint sh adrkit-server:ci -c \
+            'test -f /opt/adrkit/server.js && test ! -e /opt/adrkit/adr.js && test ! -e /opt/adrkit/adrkit-mcp.js'
           docker run --rm --entrypoint sh adrkit-action:ci -c \
             'test -f /opt/adrkit/ci.js && test ! -e /opt/adrkit/adr.js && test ! -e /opt/adrkit/queue-action.js'
           docker run --rm --entrypoint sh adrkit-queue-action:ci -c \
@@ -274,6 +278,35 @@ jobs:
             adrkit:ci lint --dir docs/adr
           node scripts/smoke-container.mjs adrkit-mcp:ci
           node scripts/smoke-container.mjs adrkit:ci mcp
+      # ADR-0055 clauses 12 to 14: the server keeps every part of the MCP posture but
+      # `--network none` (it listens): a read-only root file system and a `:ro` corpus
+      # mount. It binds 127.0.0.1 unless told otherwise, so the smoke sets the host and
+      # publishes the port on the runner's loopback only.
+      - name: Smoke test the read-only server through the all-in-one image
+        run: |
+          set -euo pipefail
+          corpora="$RUNNER_TEMP/corpora"
+          mkdir -p "$corpora/adrkit/docs"
+          cp -R docs/adr "$corpora/adrkit/docs/adr"
+          commit="$(git rev-parse HEAD)"
+          printf '{"commit":"%s"}\n' "$commit" > "$corpora/adrkit/.adrkit-corpus.json"
+          docker run -d --name adrkit-server --read-only -p 127.0.0.1:18080:8080 \
+            -v "$corpora:/corpora:ro" \
+            -e ADRKIT_SERVER_ROOT=/corpora -e ADRKIT_SERVER_CORPORA=adrkit \
+            -e ADRKIT_SERVER_HOST=0.0.0.0 \
+            adrkit:ci server
+          trap 'docker logs adrkit-server; docker rm -f adrkit-server >/dev/null' EXIT
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:18080/healthz && break
+            sleep 1
+          done
+          base=http://127.0.0.1:18080
+          curl -fsS "$base/api/v1/corpora" \
+            | jq -e --arg commit "$commit" '.data == [{corpus: "adrkit", commit: $commit}]'
+          curl -fsS "$base/api/v1/corpora/adrkit/records" | jq -e --arg commit "$commit" '.commit == $commit and (.data | length) > 0'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$base/api/v1/corpora/adrkit/records")" = 405
+          curl -fsS -D - -o /dev/null "$base/portal/adrkit/" | grep -i "^content-security-policy:.*frame-ancestors 'none'"
+          docker logs adrkit-server 2>&1 | grep -F 'This server authenticates no one'
       - name: Exercise the governing-decisions Action event boundary
         run: |
           set -euo pipefail

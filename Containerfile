@@ -17,6 +17,7 @@ COPY packages/ci/package.json ./packages/ci/package.json
 COPY packages/catalog-envelope/package.json ./packages/catalog-envelope/package.json
 COPY packages/sdk/package.json ./packages/sdk/package.json
 COPY packages/portal/package.json ./packages/portal/package.json
+COPY packages/server/package.json ./packages/server/package.json
 COPY packages/adapters/agent-plugin/package.json ./packages/adapters/agent-plugin/package.json
 COPY packages/adapters/catalog-backstage/package.json ./packages/adapters/catalog-backstage/package.json
 COPY packages/adapters/spec-kit/package.json ./packages/adapters/spec-kit/package.json
@@ -24,6 +25,9 @@ COPY packages/core/src ./packages/core/src
 COPY packages/evaluator/src ./packages/evaluator/src
 COPY packages/cli/src ./packages/cli/src
 COPY packages/mcp/src ./packages/mcp/src
+COPY packages/sdk/src ./packages/sdk/src
+COPY packages/portal/src ./packages/portal/src
+COPY packages/server/src ./packages/server/src
 COPY packages/ci/dist ./packages/ci/dist
 
 RUN bun install --frozen-lockfile --production --ignore-scripts
@@ -35,11 +39,15 @@ RUN mkdir -p /out \
     && bun build packages/mcp/src/bin.ts \
       --target=node \
       --conditions bun \
-      --outfile=/out/adrkit-mcp.js
+      --outfile=/out/adrkit-mcp.js \
+    && bun build packages/server/src/bin.ts \
+      --target=node \
+      --conditions bun \
+      --outfile=/out/server.js
 
 FROM node:${NODE_VERSION}@${NODE_DIGEST} AS runtime
 LABEL org.opencontainers.image.title="adrkit" \
-      org.opencontainers.image.description="Containerized adrkit CLI, MCP server, and CI entry points" \
+      org.opencontainers.image.description="Containerized adrkit CLI, MCP server, read-only REST server, and CI entry points" \
       org.opencontainers.image.source="https://github.com/mbeacom/adrkit" \
       org.opencontainers.image.licenses="Apache-2.0"
 
@@ -58,6 +66,11 @@ FROM runtime AS mcp
 COPY --from=build --chown=node:node /out/adrkit-mcp.js /opt/adrkit/adrkit-mcp.js
 ENTRYPOINT ["node", "/opt/adrkit/adrkit-mcp.js"]
 
+FROM runtime AS server
+COPY --from=build --chown=node:node /out/server.js /opt/adrkit/server.js
+EXPOSE 8080
+ENTRYPOINT ["node", "/opt/adrkit/server.js"]
+
 FROM runtime AS ci
 COPY --from=build --chown=node:node /opt/adrkit/packages/ci/dist/index.js /opt/adrkit/ci.js
 ENTRYPOINT ["node", "/opt/adrkit/ci.js"]
@@ -69,6 +82,7 @@ ENTRYPOINT ["node", "/opt/adrkit/queue-action.js"]
 FROM runtime AS adrkit
 COPY --from=build --chown=node:node /out/adr.js /opt/adrkit/adr.js
 COPY --from=build --chown=node:node /out/adrkit-mcp.js /opt/adrkit/adrkit-mcp.js
+COPY --from=build --chown=node:node /out/server.js /opt/adrkit/server.js
 COPY --from=build --chown=node:node /opt/adrkit/packages/ci/dist/index.js /opt/adrkit/ci.js
 COPY --from=build --chown=node:node /opt/adrkit/packages/ci/dist/queue-action.js /opt/adrkit/queue-action.js
 COPY --chmod=0755 scripts/container-entrypoint.sh /usr/local/bin/adrkit-container

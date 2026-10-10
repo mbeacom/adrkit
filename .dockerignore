@@ -29,6 +29,15 @@ packages/adapters/*/*
 !packages/mcp/
 !packages/mcp/src/
 !packages/mcp/src/**
+!packages/sdk/
+!packages/sdk/src/
+!packages/sdk/src/**
+!packages/portal/
+!packages/portal/src/
+!packages/portal/src/**
+!packages/server/
+!packages/server/src/
+!packages/server/src/**
 !packages/ci/
 !packages/ci/dist/
 !packages/ci/dist/**

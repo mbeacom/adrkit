@@ -224,6 +224,21 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
     };
   }
 
+  if (packageName === '@adrkit/server') {
+    // ADR-0055's private read-only REST server, a non-adapter by location
+    // (`packages/server/`). Clause 10: `node:http` and no framework, depending at run time
+    // on the SDK (the consumer contract) and the private portal (its pure builder and page
+    // assets only), and nothing else. Fact 4 of that record is why there is no HTTP
+    // framework: the MCP SDK v1 line shipped Express and Hono to a server that never ran
+    // them. It never reaches `@adrkit/core` or `@adrkit/cli` directly; the SDK is the door.
+    return {
+      dependencies: new Set(['@adrkit/sdk', '@adrkit/portal']),
+      devDependencies: new Set(['@types/bun']),
+      peerDependencies: new Set(),
+      optionalDependencies: new Set(),
+    };
+  }
+
   if (packageName === '@adrkit/catalog-envelope') {
     // Feature 010's envelope consumer — a non-adapter workspace library, which it
     // is by *location* (`packages/catalog-envelope/`, outside `packages/adapters/`)

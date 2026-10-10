@@ -10,6 +10,8 @@ usage: adrkit-container [selector] [args...]
 selectors:
   cli | adr | adrkit              Run the adr CLI
   mcp | adrkit-mcp                Run the stdio MCP server
+  server | adrkit-server          Run the read-only REST server and portal
+                                  (authenticates no one; see `server --help`)
   ci | adrkit-ci                  Run the governing-decisions GitHub Action
   queue-action | adrkit-queue-action
                                   Run the managed ARB queue GitHub Action
@@ -39,6 +41,10 @@ case "$command" in
   mcp | adrkit-mcp)
     shift
     exec node "$ADRKIT_HOME/adrkit-mcp.js" "$@"
+    ;;
+  server | adrkit-server)
+    shift
+    exec node "$ADRKIT_HOME/server.js" "$@"
     ;;
   ci | adrkit-ci)
     shift
