@@ -63,7 +63,7 @@ review:
 
 # ADR-0059: Aggregate decision corpora across an organization's repositories as a pinned, read-only federation
 
-> **Status: proposed.** Agent-drafted and not ratified. It adds no schema
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-10. It adds no schema
 > field: the reference grammar it relies on (`<log>:<id>`) has been in
 > `AdrRef` since the first schema, and the `affects` `repo` qualifier is
 > already in use (ADR-0056). It changes one existing behavior, called out in
@@ -478,6 +478,6 @@ rung 3 is absent.
    codes and clause 9's `publish-private` refusal.
 7. [ ] Build a federation of this repository and `adrkit-t018-dogfood` as
    the rung-2 run.
-8. [ ] On ratification, add the reciprocal amendment note to ADR-0031
+8. [x] On ratification, add the reciprocal amendment note to ADR-0031
    clause 5 naming this record (clause 5).
-9. [ ] Ratify or reject this record.
+9. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-10-10.**

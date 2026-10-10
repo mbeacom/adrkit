@@ -42,7 +42,7 @@ review:
 
 # ADR-0057: Preview the decision portal locally through a preview selector in the published image, published to loopback only
 
-> **Status: proposed.** Agent-drafted and not ratified. It adds a second
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-10. It adds a second
 > in-image consumer of the portal generator of
 > [ADR-0054](./0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md),
 > beside the `server` selector of
@@ -367,4 +367,4 @@ run it.
 6. [ ] Document the run in the README with the loopback-only `-p` form and
    the warning before it, the worktree limit, and `--user` as an alternative.
 7. [ ] Add the root `bun run preview` script.
-8. [ ] Ratify or reject this record.
+8. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-10-10.**

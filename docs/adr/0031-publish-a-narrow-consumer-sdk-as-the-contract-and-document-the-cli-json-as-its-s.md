@@ -139,6 +139,13 @@ and document the CLI JSON as a separate sibling contract rather than as an SDK a
    documented in `docs/RELEASING.md` alongside the SDK's surface and carries the same
    additive-only obligation.
 
+   > **Amended by [ADR-0059](0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md) (clause 5).** One narrow,
+   > non-additive change is admitted: `adr lint --json` reports a log-qualified
+   > `relatesTo` or `conflictsWith` whose log is absent as `federated-ref-unresolved`
+   > at `info`, instead of `dangling-relatesTo` (`error`) or `dangling-conflictsWith`
+   > (`warn`). Only the qualified `relatesTo` case lowers an exit code. The
+   > additive-only obligation otherwise stands.
+
 6. **Library-first, and the door to a CLI adapter stays open.** The SDK commits to the
    library mode only. The three commands whose `--json` is assembled in the CLI —
    `explain`, `lint`, `new` — are converged onto core formatters as hygiene, the way `queue`

@@ -45,7 +45,7 @@ review:
 
 # ADR-0058: Project the decision corpus into a GitHub Project as a one-way derived view
 
-> **Status: proposed.** Agent-drafted and not ratified. This record amends no
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-10. This record amends no
 > record and supersedes none. It adds a projection that
 > [ADR-0004](./0004-git-is-source-of-truth-database-is-an-index.md) already
 > allows: git holds the decisions, and anything else is derived from them with
@@ -348,4 +348,4 @@ party has run it.
 7. [ ] Decide later, in its own change, whether to link a record's open pull
    request as a second, unkeyed item, which would need a pull-request read
    permission this version does not ask for.
-8. [ ] Ratify or reject this record.
+8. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-10-10.**
