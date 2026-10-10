@@ -230,6 +230,19 @@ Things that are load-bearing and easy to break:
   `node_modules/` here that then lands in someone else's repo or aborts their
   install. `LICENSE` and `NOTICE` are committed rather than generated for the
   same reason. Enforced by `test/packaging.test.ts`.
+- **The community catalog is discovery-only, so docs install from the archive.**
+  `specify extension add adrkit` exits 1 on every Spec Kit version measured
+  (0.13.0 to 1.0.13). The docs give
+  `--from .../releases/download/spec-kit-v<version>/adrkit.zip`, which prompts
+  `Continue with installation? [y/N]` (no `--yes`; `--force` does not skip it).
+  `releases/latest/download` follows the lockstep release and 404s, so the URL
+  carries the version, and `test/manifest.test.ts` fails if it disagrees with
+  `extension.yml`. Bump the README and site URLs with the version.
+- **The dotted ids are what the manifest declares, not always what users type.**
+  Under Claude Code, and under Copilot from Spec Kit 0.16.5, Spec Kit registers
+  the commands as skills (`/speckit-adrkit-check`). The `after_plan` hook keeps
+  `speckit.adrkit.check`; the generated plan skill tells the agent to swap dots
+  for hyphens. Do not rename the commands in `extension.yml` to match.
 - **Hooks can only reach commands that do not write.** `draft` is the only
   writing command and is unreachable from any hook, by test.
 - `packages/core`, `packages/cli`, and `schema/` import nothing from

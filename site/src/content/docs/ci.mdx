@@ -41,7 +41,7 @@ jobs:
   governing-decisions:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: mbeacom/adrkit@v0.18.0
         # with:
         #   dir: docs/adr          # ADR corpus directory (default: docs/adr)
@@ -116,7 +116,7 @@ jobs:
   arb-queue:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: mbeacom/adrkit/packages/ci/queue@v0
         # with:
         #   dir: docs/adr

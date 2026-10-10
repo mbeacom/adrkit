@@ -49,6 +49,26 @@ describe('extension manifest', () => {
     });
   });
 
+  test('the documented install archive names this version', () => {
+    // The community catalog is discovery-only, so the docs install from a
+    // release archive whose URL carries the version. A release that bumped
+    // extension.yml without these URLs would tell every reader to install the
+    // previous archive. Count the URLs first, so a doc that dropped them all
+    // cannot pass by having nothing to compare.
+    const docs = [
+      join(packageRoot, 'README.md'),
+      join(packageRoot, '..', '..', '..', 'site', 'src', 'content', 'docs', 'spec-kit.mdx'),
+    ];
+    const url = /releases\/download\/spec-kit-v([^/\s]+)\/adrkit\.zip/g;
+    for (const path of docs) {
+      const versions = [...readFileSync(path, 'utf8').matchAll(url)].map((match) => match[1]);
+      expect({ path, count: versions.length > 0 }).toEqual({ path, count: true });
+      for (const version of versions) {
+        expect({ path, version }).toEqual({ path, version: manifest.extension.version });
+      }
+    }
+  });
+
   test('description stays under the 200-character upstream limit', () => {
     // Asserting the real length, not just the bound, so a description that
     // silently emptied out cannot pass this by being trivially short.
