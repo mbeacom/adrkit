@@ -20,8 +20,18 @@
  *   repository, or a write that failed. **Nothing is written**: a new `out` is not created,
  *   and an existing one is left byte-for-byte as it was.
  *
+ * The bundle is stamped with HEAD's commit only when the checkout matches HEAD for its
+ * purposes: no staged or unstaged change to a tracked file (the path table reads the working
+ * tree) and no untracked file inside the corpus directory (the records are read from it).
+ * Otherwise `commit` is `null`, so nothing is attributed to a commit that does not contain it,
+ * and the page uses its no-commit wording. An untracked file elsewhere keeps the SHA.
+ *
+ * Outside a git work tree (git's own "not a git repository") there is no commit and the path
+ * table is `absent`. A git that cannot start, an ownership refusal (`safe.directory`), or any
+ * other git failure is exit 2 with a fixed message; git's stderr is never shown.
+ *
  * Git is invoked with stdin closed, `GIT_TERMINAL_PROMPT=0`, and `GIT_OPTIONAL_LOCKS=0`, and
- * only `rev-parse` and `ls-files`, neither of which prints a signature or prompts. The user's
+ * only `rev-parse`, `ls-files`, and `status`, none of which prints a signature or prompts. The user's
  * global git config is deliberately **not** overridden here (a runner's `safe.directory`
  * lives there); tests isolate it with `GIT_CONFIG_GLOBAL=/dev/null` instead (AGENTS.md).
  */
@@ -138,8 +148,13 @@ export async function generatePortal(options: GeneratePortalOptions = {}): Promi
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   if (!Number.isSafeInteger(concurrency) || concurrency < 1) return usage('concurrency must be a positive integer.');
 
-  // Git: the top level anchors every path. Outside a work tree there is no commit and no table.
-  const toplevel = await gitTopLevel(cwd);
+  // Git: the top level anchors every path. Outside a work tree there is no commit and no
+  // table; any other git failure (git missing, an ownership refusal, an unreadable `.git`)
+  // is exit 2 with a fixed message, never git's own stderr.
+  const located = await gitTopLevel(cwd);
+  if (located.kind === 'missing') return usage(GIT_MISSING_MESSAGE);
+  if (located.kind === 'error') return usage(GIT_REFUSED_MESSAGE);
+  const toplevel = located.kind === 'repository' ? located.path : null;
   const root = toplevel ?? cwd;
   const givenDir = options.dir ?? 'docs/adr';
   const dirAbsolute = resolve(cwd, givenDir);
@@ -154,7 +169,11 @@ export async function generatePortal(options: GeneratePortalOptions = {}): Promi
   const out = resolve(cwd, options.out ?? '_site');
   // The bundle replaces `out` whole, so `out` may not be the repository, the working
   // directory, or any directory above them.
-  if (contains(out, root) || contains(out, cwd)) {
+  // Lexically, then through symlinks in its existing components (`repo/up -> ..` with
+  // `out: 'up/repo'` names the repository itself), before anything is staged.
+  const realOut = await realpathOfExisting(out);
+  const realRoot = await realpath(root).catch(() => root);
+  if (contains(out, root) || contains(out, cwd) || contains(realOut, realRoot) || contains(realOut, cwd)) {
     return usage(`Output directory "${options.out ?? '_site'}" would replace the repository or the working directory.`);
   }
 
@@ -170,7 +189,14 @@ export async function generatePortal(options: GeneratePortalOptions = {}): Promi
   }
 
   const errorIssues = handle.issues.filter((issue) => issue.severity === 'error');
-  const commit = toplevel === null ? null : await gitHead(root);
+  // The corpus comes from the working tree and the path list from the index, so a bundle is
+  // stamped with HEAD only when the checkout matches it (see `checkoutMatchesHead`).
+  let commit: string | null = null;
+  if (toplevel !== null) {
+    const clean = await checkoutMatchesHead(root, dir);
+    if (clean === null) return usage(`Could not read the working tree's status with git.`);
+    commit = clean ? await gitHead(root) : null;
+  }
 
   let pathTable: PortalPathTable;
   if (errorIssues.length > 0) {
@@ -257,6 +283,25 @@ export async function writePortalAssets(context: PortalAssetsContext, io: Portal
 
 function errorCode(error: unknown): string {
   return error && typeof error === 'object' && 'code' in error ? String(error.code) : 'unknown';
+}
+
+/**
+ * `path`'s real location: its deepest existing ancestor (itself included) through `realpath`,
+ * with the components that do not exist yet appended.
+ */
+async function realpathOfExisting(path: string): Promise<string> {
+  let existing = path;
+  const rest: string[] = [];
+  for (;;) {
+    try {
+      return join(await realpath(existing), ...rest);
+    } catch {
+      const parent = dirname(existing);
+      if (parent === existing) return path;
+      rest.unshift(basename(existing));
+      existing = parent;
+    }
+  }
 }
 
 /** Whether `inner` is `outer` or below it. */
@@ -359,34 +404,79 @@ export class PortalAssetsError extends Error {
 interface GitResult {
   readonly code: number | null;
   readonly stdout: Buffer;
+  /** Read only to classify a failure; never shown or returned. */
+  readonly stderr: string;
 }
+
+const GIT_MISSING_MESSAGE = 'git could not be started, so the repository could not be read; install git or put it on PATH.';
+const GIT_REFUSED_MESSAGE =
+  'git refused to read this repository, or could not read it; check its ownership and permissions (safe.directory).';
 
 /** Run git with stdin closed and no prompt; `null` when git cannot be started at all. */
 function runGit(args: readonly string[], cwd: string): Promise<GitResult | null> {
   return new Promise((resolvePromise, reject) => {
     const child = spawn('git', args, {
       cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' },
     });
     const chunks: Buffer[] = [];
+    const errors: Buffer[] = [];
     child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    child.stderr.on('data', (chunk: Buffer) => errors.push(chunk));
     child.on('error', (error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') resolvePromise(null);
       else reject(error);
     });
-    child.on('close', (code) => resolvePromise({ code, stdout: Buffer.concat(chunks) }));
+    child.on('close', (code) =>
+      resolvePromise({ code, stdout: Buffer.concat(chunks), stderr: Buffer.concat(errors).toString('utf8').slice(0, 4096) }),
+    );
   });
 }
 
-/** The work tree's top level, or `null` outside one (or when git is not installed). */
-async function gitTopLevel(cwd: string): Promise<string | null> {
+type Located = { readonly kind: 'repository'; readonly path: string } | { readonly kind: 'outside' | 'missing' | 'error' };
+
+/**
+ * Where `cwd` sits. `outside` is kept for git's own answer that this is no work tree: exit
+ * 128 with "not a git repository" (and no ownership refusal), or `--is-inside-work-tree`
+ * printing `false` (inside `.git`). A git that cannot start is `missing`; every other failure
+ * is `error`.
+ */
+async function gitTopLevel(cwd: string): Promise<Located> {
   const inside = await runGit(['rev-parse', '--is-inside-work-tree'], cwd);
-  if (!inside || inside.code !== 0 || inside.stdout.toString('utf8').trim() !== 'true') return null;
+  if (inside === null) return { kind: 'missing' };
+  if (inside.code === 0) {
+    const answer = inside.stdout.toString('utf8').trim();
+    if (answer === 'false') return { kind: 'outside' };
+    if (answer !== 'true') return { kind: 'error' };
+  } else {
+    const refused = /dubious ownership|safe\.directory/i.test(inside.stderr);
+    return inside.code === 128 && !refused && /not a git repository/i.test(inside.stderr) ? { kind: 'outside' } : { kind: 'error' };
+  }
   const top = await runGit(['rev-parse', '--show-toplevel'], cwd);
-  if (!top || top.code !== 0) return null;
+  if (top === null) return { kind: 'missing' };
+  if (top.code !== 0) return { kind: 'error' };
   const path = top.stdout.toString('utf8').replace(/\n$/, '');
-  return path.length > 0 ? resolve(path) : null;
+  return path.length > 0 ? { kind: 'repository', path: resolve(path) } : { kind: 'error' };
+}
+
+/**
+ * Whether the checkout matches HEAD for this bundle's purposes: no staged or unstaged change
+ * to any tracked file (the path table reads the working tree) and no untracked file inside
+ * the corpus directory (the records do). An untracked file elsewhere changes nothing the
+ * bundle shows. `null` when git cannot say.
+ */
+async function checkoutMatchesHead(root: string, dir: string): Promise<boolean | null> {
+  const status = await runGit(['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames'], root);
+  if (!status || status.code !== 0) return null;
+  const inCorpus = (path: string) => dir === '.' || path === dir || path.startsWith(`${dir}/`);
+  for (const entry of status.stdout.toString('utf8').split('\0')) {
+    if (entry.length < 4) continue;
+    const state = entry.slice(0, 2);
+    const path = entry.slice(3);
+    if (state !== '??' || inCorpus(path)) return false;
+  }
+  return true;
 }
 
 /** HEAD's commit, or `null` in a repository with no commits. */

@@ -145,11 +145,14 @@ export function safeExternalHref(href) {
   }
 }
 
-/** Trim a typed path to the table's form: no leading `./` or `/`, POSIX separators. */
+/**
+ * Trim a typed path for lookup: surrounding whitespace and a leading `./` only. A backslash is
+ * a literal character in a repository path (core treats `src/we\ird.ts` and `src/we/ird.ts`
+ * as two paths), so it is never rewritten.
+ */
 export function normalizeLookup(value) {
-  let path = text(value).trim().split('\\').join('/');
+  let path = text(value).trim();
   while (path.startsWith('./')) path = path.slice(2);
-  while (path.startsWith('/')) path = path.slice(1);
   return path;
 }
 

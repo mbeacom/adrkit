@@ -920,9 +920,10 @@ function matchAutolink(text: string, start: number): { href: string; text: strin
 
 /** `http:`/`https:` only, WHATWG-normalized; anything else is `null`. */
 function externalHref(destination: string): string | null {
-  // Browsers drop ASCII tab and newline anywhere in a URL and C0 controls and space at its
-  // ends, so `java\tscript:` is `javascript:` to them. Judge the scheme on what they see.
-  const cleaned = destination.replace(/[\u0000-\u0020\u007f]/g, '');
+  // What a browser parses (WHATWG URL): ASCII tab, LF, and CR dropped anywhere, C0 controls
+  // and space trimmed at the ends, so `java\tscript:` is `javascript:` to it. An embedded
+  // space stays and `new URL` percent-encodes it.
+  const cleaned = browserView(destination);
   const scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(cleaned);
   if (!scheme) return null;
   const name = scheme[1]!.toLowerCase();
@@ -933,6 +934,10 @@ function externalHref(destination: string): string | null {
   } catch {
     return null;
   }
+}
+
+function browserView(destination: string): string {
+  return destination.replace(/[\t\n\r]/g, '').replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, '');
 }
 
 function decode(text: string): string | null {
@@ -965,9 +970,14 @@ function resolveLink(destination: string, options: MarkdownOptions): LinkTarget 
   const href = externalHref(destination);
   if (href) return { kind: 'external', href };
 
-  const cleaned = destination.replace(/[\u0000-\u0020\u007f]/g, '');
+  // The fully stripped form only detects a scheme disguised with controls or spaces; a target
+  // is resolved from what the author wrote, and one holding a control character is text.
+  const stripped = destination.replace(/[\u0000-\u0020\u007f]/g, '');
+  if (stripped.length === 0) return null;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(stripped)) return null; // any other scheme
+  if (/[\u0000-\u001f\u007f]/.test(destination)) return null;
+  const cleaned = destination.trim();
   if (cleaned.length === 0) return null;
-  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(cleaned)) return null; // any other scheme
   if (cleaned.startsWith('#')) {
     const fragment = decode(cleaned.slice(1)) ?? cleaned.slice(1);
     return fragment.length > 0 ? { kind: 'fragment', fragment } : null;

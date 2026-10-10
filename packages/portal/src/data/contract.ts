@@ -74,7 +74,10 @@ export interface PortalData {
   /**
    * The commit the bundle was built from: a 40- or 64-character lowercase hex object name,
    * or `null` when it is unknown (not a git repository, a repository with no commits, or a
-   * host such as ADR-0055's server that was not given one).
+   * host such as ADR-0055's server that was not given one) or when the bundle was built from
+   * a checkout that differs from that commit: a staged or unstaged change to a tracked file,
+   * or an untracked file inside the corpus directory. A non-null `commit` therefore means
+   * every record and path table entry is as of that commit.
    */
   readonly commit: string | null;
   /** The UTC calendar date, `YYYY-MM-DD`, the queue's SLA states were computed against. */

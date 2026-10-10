@@ -19,6 +19,9 @@
  * - `root.appendChild(nodeGroup)` moved above `root.appendChild(edgeGroup)` (edges painted
  *   over the records), and separately the `node-base` rect removed: "edges are painted
  *   beneath the records, and every box has an opaque base" failed each time.
+ * - against the code before the fix (`normalizeLookup` rewrote `\` to `/` and stripped a
+ *   leading `/`): "a backslash path and a slash path are two entries, each found by its own
+ *   lookup" failed (both lookups found 0002), as did the rewritten normalization test.
  * - against the code before the fix (the checkbox's `change` handler called `render()`): "a
  *   kind toggle redraws only the lines: same checkbox, same frame, same view" failed, the
  *   view's nodes and checkbox replaced and the zoom reset.
@@ -84,9 +87,27 @@ describe('routing and helpers', () => {
     for (let size = 2; size < 12; size++) expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(clipText(`x${family.repeat(4)}`, size))).toBe(false);
   });
 
-  test('a typed path is normalized to the table form', () => {
+  test('a typed path loses only surrounding whitespace and a leading ./; a backslash stays literal', () => {
     expect(normalizeLookup('  ./src/a.ts ')).toBe('src/a.ts');
-    expect(normalizeLookup('/src\\a.ts')).toBe('src/a.ts');
+    expect(normalizeLookup('src\\a.ts')).toBe('src\\a.ts');
+    expect(normalizeLookup('.\\src\\a.ts')).toBe('.\\src\\a.ts');
+  });
+
+  test('a backslash path and a slash path are two entries, each found by its own lookup', () => {
+    // Core treats `src/we\ird.ts` and `src/we/ird.ts` as distinct paths
+    // (packages/core/test/check.test.ts, markers-scan.test.ts); the table can hold both.
+    const decision = (id: string) => [{ id, evidence: ['affects'] }];
+    const table = pathTable({
+      governedPathCount: 2,
+      entries: [
+        { path: 'src/we/ird.ts', governing: decision('0002'), activeProposals: [], history: [] },
+        { path: 'src/we\\ird.ts', governing: decision('0003'), activeProposals: [], history: [] },
+      ],
+    } as never);
+    const slash = lookupPath(table, COMMIT, 'src/we/ird.ts');
+    const back = lookupPath(table, COMMIT, 'src/we\\ird.ts');
+    expect(slash.kind === 'hit' && slash.entry.governing[0].id).toBe('0002');
+    expect(back.kind === 'hit' && back.entry.governing[0].id).toBe('0003');
   });
 });
 
