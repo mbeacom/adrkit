@@ -16,7 +16,9 @@ record as **typed data with a markdown body** and adds one field â€” `affects` â
 so a tool can answer *"which decisions govern this pull request?"* and put the
 answer where the next decision is being made.
 
-![adr check on a ledger change: two accepted decisions govern it, a proposed one touches it, and a stale @adr marker still names a superseded record](site/public/demo/check-violating.gif)
+[![adr check on a ledger change: two accepted decisions govern it, a proposed one touches it, and a stale @adr marker still names a superseded record](site/public/demo/check-violating.png)](site/public/demo/check-violating.gif)
+
+<sub>A still of the final screen. Select it to watch the 15-second recording.</sub>
 
 On a pull request, the [governing-decisions Action](https://adrkit.dev/ci/)
 posts that answer as a comment, and GitHub Copilot code review can cite a record
