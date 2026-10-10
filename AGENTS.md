@@ -232,7 +232,7 @@ Things that are load-bearing and easy to break:
   same reason. Enforced by `test/packaging.test.ts`.
 - **The community catalog is discovery-only, so docs install from the archive.**
   `specify extension add adrkit` exits 1 on every Spec Kit version measured
-  (0.13.0 to 1.0.13). The docs give
+  (0.13.0 to 1.1.3). The docs give
   `--from .../releases/download/spec-kit-v<version>/adrkit.zip`, which prompts
   `Continue with installation? [y/N]` (no `--yes`; `--force` does not skip it).
   `releases/latest/download` follows the lockstep release and 404s, so the URL
