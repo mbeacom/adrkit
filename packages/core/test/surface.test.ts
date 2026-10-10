@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 const PUBLIC_RUNTIME_EXPORTS = [
   'ADR_SCHEMA_ID',
+  'AFFECTS_REPO_NOT_APPLICABLE',
   'AdrFrontmatter',
   'AdrRef',
   'AffectsMatcher',
@@ -78,6 +79,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'mapMadrStatus',
   'matchPackagePattern',
   'matchPathPattern',
+  'matcherAppliesToMember',
   'mergeMadr',
   'mergeSourceDeclarations',
   'migrateMadr',
@@ -116,6 +118,7 @@ const PUBLIC_RUNTIME_EXPORTS = [
   'stringifyJsonSchema',
   'toGoverningDecisions',
   'validateAdrFrontmatter',
+  'validateAffectsRepoQualifiers',
   'validateCorpusInvariants',
   'validateImportIncomplete',
   'validateParsedAdr',

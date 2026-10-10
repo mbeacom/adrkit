@@ -37802,6 +37802,33 @@ function validateImportIncomplete(records) {
   }
   return findings;
 }
+// ../core/src/affects/matchers/package.ts
+var import_semver = __toESM(require_semver2(), 1);
+
+// ../core/src/affects/index.ts
+var AFFECTS_REPO_NOT_APPLICABLE = "affects-repo-not-applicable";
+
+// ../core/src/validate/affects-repo-qualifier.ts
+function validateAffectsRepoQualifiers(records) {
+  const findings = [];
+  for (const record of records) {
+    const qualified = (record.frontmatter.affects ?? []).filter((matcher) => Boolean(matcher.repo));
+    if (qualified.length === 0)
+      continue;
+    const repos = [...new Set(qualified.map((matcher) => matcher.repo))].sort(compareCodeUnits);
+    const count = qualified.length;
+    const noun = count === 1 ? "affects matcher is" : "affects matchers are";
+    findings.push({
+      rule: AFFECTS_REPO_NOT_APPLICABLE,
+      severity: "info",
+      message: `${count} ${noun} qualified with another repository (repo ${repos.map((repo) => `"${repo}"`).join(", ")}) ` + "and cannot apply in a single-repository corpus; adr check and adr explain skip them, " + "and they are kept for a federation that includes that repository.",
+      path: record.path,
+      id: record.frontmatter.id,
+      field: "affects"
+    });
+  }
+  return findings;
+}
 // ../core/src/validate/index.ts
 import { stat as stat3 } from "node:fs/promises";
 import { isAbsolute as isAbsolute2, resolve as resolve2 } from "node:path";
@@ -37872,6 +37899,7 @@ async function lintCorpus(options = {}) {
     }
   }
   findings.push(...validateImportIncomplete(records));
+  findings.push(...validateAffectsRepoQualifiers(records));
   findings.push(...validateCorpusInvariants(records));
   return {
     checked: files.length,
@@ -37879,8 +37907,6 @@ async function lintCorpus(options = {}) {
     records: [...records].sort((a, b) => compareCodeUnits(a.frontmatter.id, b.frontmatter.id))
   };
 }
-// ../core/src/affects/matchers/package.ts
-var import_semver = __toESM(require_semver2(), 1);
 // ../core/src/import/status.ts
 var MADR_RECOGNIZED_STATUSES = [
   "draft",

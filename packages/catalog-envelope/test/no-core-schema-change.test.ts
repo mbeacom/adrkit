@@ -27,7 +27,12 @@
  * `packages/core/src/schema/adr.schema.ts` and `schema/adr.schema.json`: the
  * schema shape did change, by design, when zod 4.5 made `date-time` fields
  * require seconds. The published v0.1.0 bytes are retained under
- * `schema/versions/` and pinned by `site/scripts/sync-schema.test.ts`.
+ * `schema/versions/` and pinned by `site/scripts/sync-schema.test.ts`. The
+ * separately authorized #300 fix re-pinned only `affects/index.ts`: a
+ * `repo`-qualified matcher still never matches in a single-repository run, and
+ * now reports an `info` `affects-repo-not-applicable` finding instead of being
+ * skipped silently; the dead `log` input became an explicit `member` identity
+ * (ADR-0059 clause 11). The catalog types and the schema are untouched.
  *
  * ## Why the pin table lives in a JSON sidecar
  *

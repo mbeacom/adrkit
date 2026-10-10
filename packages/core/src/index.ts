@@ -7,6 +7,7 @@ export * from './validate/findings.ts';
 export * from './validate/contract.ts';
 export * from './validate/corpus-invariants.ts';
 export * from './validate/import-incomplete.ts';
+export * from './validate/affects-repo-qualifier.ts';
 export * from './validate/index.ts';
 export * from './scaffold/new.ts';
 export * from './graph/build.ts';

@@ -42,7 +42,9 @@ describe('adr lint CLI', () => {
     const result = await runAdr(['lint']);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(`checked ${expectedRecords} records, 0 errors, 0 warnings`);
-    expect(result.stderr).toBe('');
+    // Advisory `info` findings may appear (ADR-0056's repo-qualified matchers, #300);
+    // nothing at `error` or `warn` may.
+    expect(result.stderr).not.toMatch(/^\s+(error|warn)\s/m);
   });
 
   test('exits 1 on a fixture corpus containing an error', async () => {

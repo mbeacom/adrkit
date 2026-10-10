@@ -80,6 +80,26 @@ Until `1.0.0`, minor releases may include breaking changes
   `governing` matches `affects` only: it never reads the file at the path, so
   it has no `@adr` marker evidence.
 
+### Fixed
+
+- **A `repo`-qualified `affects` matcher no longer vanishes silently
+  ([#300](https://github.com/mbeacom/adrkit/issues/300)).** A matcher such as
+  `{ type: path, pattern: "src/**", repo: "payments" }` names another
+  repository, so in a single-repository corpus it still never matches. Until
+  now it was also skipped with no finding, so `adr check src/a.ts` returned
+  nothing and said nothing. `adr check` and `adr explain` now report each
+  skipped matcher as an `info` finding, `affects-repo-not-applicable`, and
+  `adr lint` reports one per record, so a corpus-wide run surfaces it without
+  a path. This repository's ADR-0056, whose `resource` matchers name
+  `mbeacom/adrkit-azure`, is the live example. The finding is `info`, as
+  [ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
+  clause 11 names it, and changes no exit code; `adr lint --json` and
+  `adr check --json` output grow additively. In `@adrkit/core`, the unused
+  `log` input on `resolveAffects` and `checkChanges`, which no caller set,
+  is replaced by an explicit `member: { log, repo }` identity, and
+  `matcherAppliesToMember` applies a qualified matcher when it equals either
+  name. No surface passes a member yet; that is ADR-0059's federation work.
+
 ## [0.19.0] - 2026-10-10
 
 This release ships the decision portal: a third, build-only nested Action,

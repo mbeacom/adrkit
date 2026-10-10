@@ -8,7 +8,7 @@
     },
     {
       "path": "packages/core/src/affects/index.ts",
-      "sha256": "dec53795d47490d67451f5bff8130f613c7944e9bf3f96a41e0e2d62eeefe0c1",
+      "sha256": "e49904da651b666e366a9f0f4e4f5379da5a9b2c1a8f039a23ebbfe4470fc438",
       "why": "the affects resolution entry point — FR-004's matcher semantics"
     },
     {

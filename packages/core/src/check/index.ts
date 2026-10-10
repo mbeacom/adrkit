@@ -5,7 +5,7 @@
 // file the corpus reaches by no pattern at all.
 import { sep } from 'node:path';
 import type { Adr } from '../schema/adr.schema.ts';
-import { resolveAffects, type ResolutionSnapshots } from '../affects/index.ts';
+import { resolveAffects, type MemberIdentity, type ResolutionSnapshots } from '../affects/index.ts';
 import { mergeSourceDeclarations, resolveSourceMarkers } from '../markers/resolve.ts';
 import {
   MARKER_DECLARATION_BATCH_CAP,
@@ -89,8 +89,12 @@ export interface CheckChangesInput {
   /** Corpus directory (default `docs/adr`) used to identify changed records. */
   dir?: string;
   snapshots?: ResolutionSnapshots;
-  /** Optional current-repo identity for scoped (`repo`-qualified) matchers. */
-  log?: string;
+  /**
+   * The federation member being checked, for `repo`-qualified matchers (ADR-0059
+   * clause 11). Omit for a single-repository run, where such a matcher never applies and
+   * is reported as `affects-repo-not-applicable`.
+   */
+  member?: MemberIdentity;
   /** Marker I/O performed by the caller; `checkChanges` only resolves these values. */
   markerScans?: SourceMarkerBatchScan;
 }
@@ -238,7 +242,7 @@ export function checkChanges(input: CheckChangesInput): CheckOutcome {
     records: input.lint.records,
     changedFiles,
     snapshots: input.snapshots,
-    log: input.log,
+    ...(input.member ? { member: input.member } : {}),
   });
 
   const markerResolution = input.markerScans

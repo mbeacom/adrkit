@@ -25,12 +25,36 @@ export interface ResolutionSnapshots {
   catalog?: CatalogSnapshot;
 }
 
+/**
+ * The federation member whose working tree a resolution is for (ADR-0059 clause 11).
+ *
+ * A federation manifest names each member by both a `log` (the slug an `AdrRef` prefix
+ * uses, as in `payments:0012`) and a `repo` (`owner/name`). A `repo`-qualified `affects`
+ * matcher applies to a member when it equals either name, which is how ADR-0056's
+ * `repo: "mbeacom/adrkit-azure"` and a slug-style `repo: "payments"` both stay valid.
+ *
+ * `undefined` is a single-repository run, the only kind any surface performs today. No
+ * caller passes a member yet; the federation's `governing(<log>, path)` will.
+ *
+ * This is deliberately not `Adr.log`. That field names the log a *record* was loaded
+ * from; the member names the *repository being checked*. A record sourced from
+ * `payments` can carry a matcher for `billing`.
+ */
+export interface MemberIdentity {
+  readonly log: string;
+  readonly repo: string;
+}
+
 export interface ResolveAffectsInput {
   records: readonly Adr[];
   changedFiles: readonly string[];
   snapshots?: ResolutionSnapshots;
-  log?: string;
+  /** The federation member being resolved for; omit for a single-repository run. */
+  member?: MemberIdentity;
 }
+
+/** Rule id for a `repo`-qualified matcher that cannot apply in this run (#300). */
+export const AFFECTS_REPO_NOT_APPLICABLE = 'affects-repo-not-applicable';
 
 export interface FiredMatcher {
   type: string;
@@ -89,8 +113,35 @@ function affectsFinding(
   };
 }
 
-function matcherAppliesToLog(matcher: Matcher, log: string | undefined): boolean {
-  return !matcher.repo || matcher.repo === log;
+/**
+ * Whether an `affects` matcher applies to the repository being resolved.
+ *
+ * An unqualified matcher always applies. A `repo`-qualified one applies only to a
+ * federation member named by that `repo`, as either its `repo` or its `log` (ADR-0059
+ * clause 11). With no member — a single-repository run — a qualified matcher never
+ * applies; `resolveAffects` reports that with an `affects-repo-not-applicable` finding
+ * rather than skipping it silently (ADR-0016).
+ */
+export function matcherAppliesToMember(
+  matcher: { readonly repo?: string },
+  member: MemberIdentity | undefined,
+): boolean {
+  if (!matcher.repo) return true;
+  if (member === undefined) return false;
+  return matcher.repo === member.repo || matcher.repo === member.log;
+}
+
+function repoNotApplicableFinding(record: Adr, matcher: Matcher): Finding {
+  return affectsFinding(
+    record,
+    matcher,
+    AFFECTS_REPO_NOT_APPLICABLE,
+    // `info`, as ADR-0059 clause 11 names it: the matcher is not malformed, only inert in
+    // this run, which is what `affects-unresolvable` already reports at `info`. ADR-0022:
+    // no exit code reads an `info` finding.
+    'info',
+    `${matcher.type} matcher "${matcher.pattern}" is qualified with repo "${matcher.repo}" and cannot apply in a single-repository corpus; it was skipped, and is kept for a federation that includes that repository.`,
+  );
 }
 
 function evaluateMatcher(
@@ -213,7 +264,12 @@ export function resolveAffects(input: ResolveAffectsInput): ResolveAffectsResult
     let suppressed = false;
 
     for (const matcher of (record.frontmatter.affects ?? []) as readonly Matcher[]) {
-      if (!matcherAppliesToLog(matcher, input.log)) continue;
+      if (!matcherAppliesToMember(matcher, input.member)) {
+        // Inside a federation, a matcher naming another member applies there, so its
+        // skip here is expected and says nothing. Outside one it can apply nowhere.
+        if (input.member === undefined) findings.push(repoNotApplicableFinding(record, matcher));
+        continue;
+      }
 
       const result = evaluateMatcher(record, matcher, input.changedFiles, input.snapshots);
       findings.push(...result.findings);
