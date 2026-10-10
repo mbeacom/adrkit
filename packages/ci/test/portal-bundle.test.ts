@@ -187,10 +187,21 @@ describe('the committed portal Action bundle', () => {
   });
 
   test('a usage error fails the step with the generator message and writes nothing', async () => {
-    const run = await runBundle('usage-site', { private: false }, { 'INPUT_AS-OF': '2026-07-05T00:00:00Z' });
+    const run = await runBundle('usage-site', { private: false }, { 'INPUT_AS-OF': '2026-07-05T00:00:00' });
     expect(run.status).not.toBe(0);
     expect(exitCodeOutput(run.outputs)).toBe('2');
-    expect(run.stdout).toContain('::error::adrkit portal: asOf must be a UTC calendar date');
+    expect(run.stdout).toContain('::error::adrkit portal: asOf must be YYYY-MM-DD or an ISO datetime with an explicit timezone');
     expect(existsSync(join(repo, 'usage-site'))).toBe(false);
+  });
+
+  // The bundle takes `adr queue --as-of`'s grammar through the SDK: a zoned datetime
+  // resolves to its UTC calendar date. Observed failing against the bundle built before
+  // the SDK's queue() accepted datetimes (exit 2, "asOf must be a UTC calendar date").
+  test('a zoned datetime as-of resolves to its UTC calendar date', async () => {
+    const run = await runBundle('datetime-site', { private: false }, { 'INPUT_AS-OF': '2026-01-08T23:30:00-05:00' });
+    expect(run.status).toBe(0);
+    expect(exitCodeOutput(run.outputs)).toBe('0');
+    const data = JSON.parse(readFileSync(join(repo, 'datetime-site', 'portal-data.json'), 'utf8'));
+    expect(data.asOf).toBe('2026-01-09');
   });
 });

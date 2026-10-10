@@ -37408,6 +37408,13 @@ var AdrFrontmatter = strictObject2({
 });
 // ../core/src/schema/emit.ts
 var ADR_SCHEMA_ID = `https://adrkit.dev/schema/adr/v${SCHEMA_VERSION}/adr.schema.json`;
+// ../core/src/schema/ref.ts
+function parseAdrRef(ref) {
+  const idx = ref.indexOf(":");
+  if (idx <= 0)
+    return { id: ref };
+  return { log: ref.slice(0, idx), id: ref.slice(idx + 1) };
+}
 // ../../node_modules/.bun/yaml@2.9.1/node_modules/yaml/dist/index.js
 var composer = require_composer();
 var Document = require_Document();
@@ -37696,13 +37703,25 @@ function validateParsedAdr(parsed) {
 }
 // ../core/src/validate/corpus-invariants.ts
 function addReferenceFinding(findings, record, field, ref, severity) {
+  const crossLog = parseAdrRef(ref).log !== undefined;
   findings.push({
     rule: `dangling-${field}`,
     severity,
-    message: `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
+    message: crossLog ? `Reference "${ref}" in ${field} names another decision log; cross-repository supersession is not supported` : `Reference "${ref}" in ${field} does not resolve to a record in the corpus`,
     path: record.path,
     id: record.frontmatter.id,
     field
+  });
+}
+function addFederatedReferenceFinding(findings, record, field, ref, log) {
+  findings.push({
+    rule: "federated-ref-unresolved",
+    severity: "info",
+    message: `Reference "${ref}" in ${field} names another decision log ("${log}") and is inert against this corpus`,
+    path: record.path,
+    id: record.frontmatter.id,
+    field,
+    pattern: ref
   });
 }
 function validateCorpusInvariants(records) {
@@ -37738,11 +37757,17 @@ function validateCorpusInvariants(records) {
       addReferenceFinding(findings, record, "supersededBy", record.frontmatter.supersededBy, "error");
     }
     for (const ref of record.frontmatter.relatesTo) {
-      if (!ids.has(ref))
+      const { log } = parseAdrRef(ref);
+      if (log !== undefined)
+        addFederatedReferenceFinding(findings, record, "relatesTo", ref, log);
+      else if (!ids.has(ref))
         addReferenceFinding(findings, record, "relatesTo", ref, "error");
     }
     for (const ref of record.frontmatter.conflictsWith) {
-      if (!ids.has(ref)) {
+      const { log } = parseAdrRef(ref);
+      if (log !== undefined) {
+        addFederatedReferenceFinding(findings, record, "conflictsWith", ref, log);
+      } else if (!ids.has(ref)) {
         addReferenceFinding(findings, record, "conflictsWith", ref, "warn");
       } else if (record.frontmatter.status === "accepted") {
         findings.push({
@@ -37774,6 +37799,33 @@ function validateImportIncomplete(records) {
         field: "deciders"
       });
     }
+  }
+  return findings;
+}
+// ../core/src/affects/matchers/package.ts
+var import_semver = __toESM(require_semver2(), 1);
+
+// ../core/src/affects/index.ts
+var AFFECTS_REPO_NOT_APPLICABLE = "affects-repo-not-applicable";
+
+// ../core/src/validate/affects-repo-qualifier.ts
+function validateAffectsRepoQualifiers(records) {
+  const findings = [];
+  for (const record of records) {
+    const qualified = (record.frontmatter.affects ?? []).filter((matcher) => Boolean(matcher.repo));
+    if (qualified.length === 0)
+      continue;
+    const repos = [...new Set(qualified.map((matcher) => matcher.repo))].sort(compareCodeUnits);
+    const count = qualified.length;
+    const noun = count === 1 ? "affects matcher is" : "affects matchers are";
+    findings.push({
+      rule: AFFECTS_REPO_NOT_APPLICABLE,
+      severity: "info",
+      message: `${count} ${noun} qualified with another repository (repo ${repos.map((repo) => `"${repo}"`).join(", ")}) ` + "and cannot apply in a single-repository corpus; adr check and adr explain skip them, " + "and they are kept for a federation that includes that repository.",
+      path: record.path,
+      id: record.frontmatter.id,
+      field: "affects"
+    });
   }
   return findings;
 }
@@ -37847,6 +37899,7 @@ async function lintCorpus(options = {}) {
     }
   }
   findings.push(...validateImportIncomplete(records));
+  findings.push(...validateAffectsRepoQualifiers(records));
   findings.push(...validateCorpusInvariants(records));
   return {
     checked: files.length,
@@ -37867,8 +37920,6 @@ function todayUtcDate(now = new Date) {
     throw new RangeError(`todayUtcDate: ${now.toISOString()} is outside years 0000-9999.`);
   return date;
 }
-// ../core/src/affects/matchers/package.ts
-var import_semver = __toESM(require_semver2(), 1);
 // ../core/src/import/status.ts
 var MADR_RECOGNIZED_STATUSES = [
   "draft",
