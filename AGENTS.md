@@ -940,8 +940,11 @@ modes are unmeasured there. Load-bearing:
   `true` within two minutes; a throw, a timeout, or any other answer writes
   nothing. Without `capabilities.ui.elicitation === true` the controls are off
   with a fixed note and both routes refuse. In agent mode `autopilot`, or when
-  `rpc.mode.get` throws, the route refuses before asking; a session with no
-  mode method is still asked. Measured: the runtime routes an extension's `confirm`
+  `rpc.mode.get` throws or does not answer within 5 s, the route refuses
+  before asking (a never-answering RPC must not hold the single-flight flag);
+  a session with no mode method is still asked. The shown corpus directory is
+  confined again after the confirmation, right before the spawn, because the
+  dialog can take two minutes. Measured: the runtime routes an extension's `confirm`
   to the host's handler in every permission and agent mode, and answers
   nothing on its own; the CLI's terminal UI declines elicitations in
   autopilot (read from its bundle). The Copilot app offered elicitation and

@@ -123,8 +123,11 @@ the decision board, behind this boundary:
    disabled with a fixed note ("this host cannot ask you to confirm a review
    write") and both routes refuse. If the session's agent mode reads
    `autopilot`, the route refuses before asking, whatever the host would do.
-   If reading the mode throws, it refuses too; a session with no mode method
-   at all is still asked, because the confirmation still guards. The dialog
+   If reading the mode throws or does not answer within 5 seconds, it refuses
+   too; a session with no mode method at all is still asked, because the
+   confirmation still guards. After a yes, the corpus directory the board shows
+   is read and confined again right before the spawn, because the dialog can
+   stay open for two minutes. The dialog
    text is built only from fixed strings, the kind, the validated record id,
    the identity from `ADRKIT_REVIEWER`, and numbers (the objection index, or
    the summary's length). It never contains the summary or a title, which are

@@ -70,6 +70,8 @@ export const CONFIRM_TIMEOUT_MS = 2 * 60 * 1000;
 export const DIALOG_SPACING_MS = 10_000;
 export const DIALOG_WINDOW_MS = 10 * 60 * 1000;
 export const DIALOG_WINDOW_MAX = 5;
+/** How long the session's agent mode may take to read before it counts as unknown (refused). */
+export const MODE_TIMEOUT_MS = 5_000;
 /** How long `adr --version` may take. */
 export const VERSION_TIMEOUT_MS = 5_000;
 /** The longest objection summary, in code points (core's MAX_OBJECTION_SUMMARY_LENGTH). */
@@ -304,6 +306,7 @@ class Refusal extends Error {
  *   confirm?: (message: string) => Promise<unknown>,
  *   agentMode?: () => Promise<unknown>,
  *   confirmTimeoutMs?: number,
+ *   modeTimeoutMs?: number,
  *   dialogLimits?: { spacingMs?: number, windowMs?: number, windowMax?: number },
  *   log?: (message: string) => unknown,
  *   clock?: () => number,
@@ -320,6 +323,7 @@ export function createReviewWriter({
   confirm = async () => false,
   agentMode = async () => null,
   confirmTimeoutMs = CONFIRM_TIMEOUT_MS,
+  modeTimeoutMs = MODE_TIMEOUT_MS,
   dialogLimits = {},
   log = () => undefined,
   clock = Date.now,
@@ -395,10 +399,24 @@ export function createReviewWriter({
    * @returns {Promise<'autopilot' | 'unknown' | 'ok'>}
    */
   const modeCheck = async () => {
+    // A session RPC may never answer; the read has its own deadline so it
+    // cannot hold the single-flight flag forever (Copilot review on #279).
+    const TIMED_OUT = Symbol('timed out');
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let timer;
     try {
-      return (await agentMode()) === 'autopilot' ? 'autopilot' : 'ok';
+      const mode = await Promise.race([
+        Promise.resolve().then(() => agentMode()),
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve(TIMED_OUT), modeTimeoutMs);
+        }),
+      ]);
+      if (mode === TIMED_OUT) return 'unknown';
+      return mode === 'autopilot' ? 'autopilot' : 'ok';
     } catch {
       return 'unknown';
+    } finally {
+      clearTimeout(timer);
     }
   };
 
@@ -664,7 +682,6 @@ export function createReviewWriter({
       if (!current.enabled) throw new Refusal(403, current.code ?? 'unset');
       const request = writeRequest(body);
       if (writing) throw new Refusal(409, 'pending', pendingWrite);
-      const corpus = dir() ?? env['ADRKIT_DIR'];
       // The shown directory was confined when it was chosen; check it again
       // right before the spawn, as every graph and queue read does.
       if (escapes(cwd, dir())) return replyJson(res, 200, { outcome: 'not-run', message: REVIEW_MESSAGES.dirEscape });
@@ -687,9 +704,18 @@ export function createReviewWriter({
           result = { outcome: 'not-confirmed', message: mode === 'autopilot' ? REVIEW_MESSAGES.autopilot : REVIEW_MESSAGES.modeUnknown };
         } else {
           dialogTimes.push(clock());
-          result = (await confirmedByHost(confirmText(request, who)))
-            ? await perform(request, who, cwd, corpus)
-            : { outcome: 'not-confirmed', message: REVIEW_MESSAGES.notConfirmed };
+          if (!(await confirmedByHost(confirmText(request, who)))) {
+            result = { outcome: 'not-confirmed', message: REVIEW_MESSAGES.notConfirmed };
+          } else {
+            // The confirmation can take two minutes, and the shown directory
+            // can be swapped for a link out of the repository meanwhile, so it
+            // is read and confined again right before the spawn (Copilot
+            // review on #279).
+            const shown = dir();
+            result = escapes(cwd, shown)
+              ? { outcome: 'not-run', message: REVIEW_MESSAGES.dirEscape }
+              : await perform(request, who, cwd, shown ?? env['ADRKIT_DIR']);
+          }
         }
       } finally {
         writing = false;

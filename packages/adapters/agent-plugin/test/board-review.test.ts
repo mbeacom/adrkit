@@ -144,7 +144,8 @@ function makeBoard({
   sessionLog,
   elicitation = true as boolean | 'absent',
   answer = true as Answer,
-  agentMode = 'interactive' as string | Error | 'absent',
+  agentMode = 'interactive' as string | Error | 'absent' | 'hang',
+  modeTimeoutMs,
   confirmTimeoutMs,
   dialogLimits = { spacingMs: 0, windowMs: 600_000, windowMax: 1000 } as Record<string, number> | 'default',
 }: {
@@ -155,7 +156,8 @@ function makeBoard({
   sessionLog?: (message: string, options: unknown) => Promise<unknown>;
   elicitation?: boolean | 'absent';
   answer?: Answer;
-  agentMode?: string | Error | 'absent';
+  agentMode?: string | Error | 'absent' | 'hang';
+  modeTimeoutMs?: number;
   confirmTimeoutMs?: number;
   dialogLimits?: Record<string, number> | 'default';
 } = {}) {
@@ -175,6 +177,7 @@ function makeBoard({
     rpc: {
       mode: agentMode === 'absent' ? {} : {
         get: async () => {
+          if (agentMode === 'hang') return new Promise<string>(() => {});
           if (agentMode instanceof Error) throw agentMode;
           return agentMode;
         },
@@ -191,6 +194,7 @@ function makeBoard({
     getSession: () => session,
     ...(confirmTimeoutMs === undefined ? {} : { confirmTimeoutMs }),
     ...(dialogLimits === 'default' ? {} : { dialogLimits }),
+    ...(modeTimeoutMs === undefined ? {} : { modeTimeoutMs }),
   } as never) as any;
   return { options, cli, clock, logged, asked };
 }
@@ -795,6 +799,48 @@ describe('host confirmation (round 1, C1)', () => {
     const asked = await write(third, { kind: 'approval', id: '0003', nonce: await nonceFor(third, 'approval') });
     expect(asked.data.outcome).toBe('written');
     expect(absent.asked.length).toBe(1);
+  });
+
+  test('PR #279: a mode read that never answers is refused after its deadline, and later writes are not wedged', async () => {
+    const hung = makeBoard({ agentMode: 'hang', modeTimeoutMs: 30 });
+    const { url } = await openBoard(hung.options);
+    const first = await write(url, { kind: 'approval', id: '0003', nonce: await nonceFor(url, 'approval') });
+    expect(first.data).toMatchObject({ outcome: 'not-confirmed', message: REVIEW_MESSAGES.modeUnknown });
+    expect(hung.asked).toEqual([]);
+    // The single-flight flag was released: the next write is not a pending 409.
+    const second = await write(url, { kind: 'approval', id: '0003', nonce: await nonceFor(url, 'approval') });
+    expect(second.status).toBe(200);
+    expect(second.data.outcome).toBe('not-confirmed');
+    expect(hung.cli.writes()).toEqual([]);
+  });
+
+  test('PR #279: the corpus directory is re-confined after the confirmation, right before the spawn', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'adrkit-board-confirm-'));
+    try {
+      mkdirSync(join(root, 'docs', 'adr'), { recursive: true });
+      const cli = fakeCli();
+      const swap = () => {
+        rmSync(join(root, 'docs', 'adr'), { recursive: true });
+        execFileSync('ln', ['-s', tmpdir(), join(root, 'docs', 'adr')]);
+      };
+      const options = createDecisionBoardCanvas({
+        run: cli.run,
+        env: { ADRKIT_REVIEWER: REVIEWER, ADRKIT_CLI: CLI_PATH },
+        exists: () => true,
+        createServer: (handler: any) => createServer(handler),
+        dialogLimits: { spacingMs: 0, windowMs: 600_000, windowMax: 1000 },
+        // The directory is swapped for an escape while the person is answering.
+        getSession: () => ({ capabilities: { ui: { elicitation: true } }, ui: { confirm: async () => (swap(), true) } }),
+      } as never) as any;
+      const ctx = { ...ctxFor('board-y'), session: { workingDirectory: root } };
+      const { url } = await options.open({ ...ctx, input: { dir: 'docs/adr' } });
+      opened.push({ onClose: () => options.onClose(ctx), instanceId: 'board-y' });
+      const response = await write(url, { kind: 'approval', id: '0003', nonce: await nonceFor(url, 'approval') });
+      expect(response.data).toMatchObject({ outcome: 'not-run', message: REVIEW_MESSAGES.dirEscape });
+      expect(cli.writes()).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('the dialog names the kind, the validated id, and the identity, and never the summary or the title', async () => {

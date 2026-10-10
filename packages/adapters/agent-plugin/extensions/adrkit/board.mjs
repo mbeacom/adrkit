@@ -543,6 +543,7 @@ function reviewSessionDeps(getSession) {
  *   getSession?: () => any,
  *   clock?: () => number,
  *   confirmTimeoutMs?: number,
+ *   modeTimeoutMs?: number,
  *   dialogLimits?: { spacingMs?: number, windowMs?: number, windowMax?: number },
  * }} deps `getSession` serves the review controls only: the host's
  *   confirmation (`capabilities.ui.elicitation`, `ui.confirm`), the agent mode
@@ -562,6 +563,7 @@ export function createDecisionBoardCanvas({
   getSession = () => undefined,
   clock = Date.now,
   confirmTimeoutMs = undefined,
+  modeTimeoutMs = undefined,
   dialogLimits = undefined,
 }) {
   /** Panels by `instanceId`; a promise, so two concurrent opens share one server. @type {Map<string, Promise<Instance>>} */
@@ -594,6 +596,7 @@ export function createDecisionBoardCanvas({
       randomBytes,
       ...(confirmTimeoutMs === undefined ? {} : { confirmTimeoutMs }),
       ...(dialogLimits === undefined ? {} : { dialogLimits }),
+      ...(modeTimeoutMs === undefined ? {} : { modeTimeoutMs }),
       ...reviewSessionDeps(getSession),
     });
   } catch {
