@@ -52,6 +52,10 @@ temporary `NPM_TOKEN` is removed from the protected `npm` environment.
   exactly matches the local tarball.
 - A lockstep GitHub release draft is created only after every npm package
   succeeds. Adapter releases remain immediately published.
+- Generated release notes start at the previous tag of the same kind
+  (`scripts/release-notes-start-tag.ts`): `v0.19.0` from the highest earlier
+  stable `v*` tag and `spec-kit-v0.1.6` from the highest earlier `spec-kit-v*`
+  tag, never from the latest release of the other kind or the moving `v0`.
 - A lockstep release cannot be published to Marketplace unless its tree contains
   the root entry point.
 - Publishing the stable lockstep draft triggers a finalization job that moves the
@@ -429,6 +433,8 @@ bootstrap described below.
 8. Confirm the workflow published all packages and created a **draft** lockstep
    GitHub release. It must not move the Action's `v0` tag or start `Publish
    container` yet.
+   Its generated notes should list the pull requests since the previous `v*`
+   release, including ones that shipped in an adapter release in between.
 9. Open that draft, select **Publish this Action to the GitHub Marketplace**,
    choose **Code review** as the primary category and **Code quality** as the
    secondary category, then publish the release with 2FA. Do not perform this

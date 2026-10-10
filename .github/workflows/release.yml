@@ -184,9 +184,17 @@ jobs:
               gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
             fi
           else
+            # Start the generated notes at the previous tag of the same kind;
+            # GitHub's default is the latest release of any kind, which mixes
+            # lockstep and adapter pull requests. Empty for a first release.
+            notes=(--generate-notes)
+            start_tag="$(bun scripts/release-notes-start-tag.ts "$GITHUB_REF_NAME")"
+            if [ -n "$start_tag" ]; then
+              notes+=(--notes-start-tag "$start_tag")
+            fi
             if [ "$LOCKSTEP" = "true" ]; then
-              gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes
+              gh release create "$GITHUB_REF_NAME" --draft --verify-tag "${notes[@]}"
             else
-              gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes "${assets[@]}"
+              gh release create "$GITHUB_REF_NAME" --verify-tag "${notes[@]}" "${assets[@]}"
             fi
           fi

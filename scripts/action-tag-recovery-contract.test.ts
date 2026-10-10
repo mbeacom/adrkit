@@ -113,11 +113,21 @@ describe('major Action tag recovery contract', () => {
 
   test('publishes a lockstep draft before Marketplace finalization', () => {
     expect(RELEASE_WORKFLOW).toContain(
-      'gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes',
+      'gh release create "$GITHUB_REF_NAME" --draft --verify-tag "${notes[@]}"',
     );
     expect(RELEASE_WORKFLOW).toContain(
-      'gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes "${assets[@]}"',
+      'gh release create "$GITHUB_REF_NAME" --verify-tag "${notes[@]}" "${assets[@]}"',
     );
+    // Generated notes start at the previous tag of the same kind, never at the
+    // latest release of either kind (release-notes-start-tag.test.ts). The
+    // selection reads `git tag --list`, so the checkout must carry every tag.
+    expect(RELEASE_WORKFLOW).toContain('notes=(--generate-notes)');
+    expect(RELEASE_WORKFLOW).toContain(
+      'start_tag="$(bun scripts/release-notes-start-tag.ts "$GITHUB_REF_NAME")"',
+    );
+    expect(RELEASE_WORKFLOW).toContain('notes+=(--notes-start-tag "$start_tag")');
+    expect(RELEASE_WORKFLOW).toContain('fetch-depth: 0');
+    expect(RELEASE_WORKFLOW).not.toContain('--verify-tag --generate-notes');
     expect(RELEASE_WORKFLOW).not.toContain('name: Update the major Action tag');
     expect(CONTAINER_WORKFLOW).toContain('release:\n    types: [published]');
     expect(CONTAINER_WORKFLOW).not.toContain('workflow_run:');
