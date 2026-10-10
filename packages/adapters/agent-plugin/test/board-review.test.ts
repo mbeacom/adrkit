@@ -682,6 +682,16 @@ describe('results', () => {
     expect(entry?.message).not.toContain('Proposal 0003');
   });
 
+  test('a repeat that the CLI reports as changed: false is logged as unchanged, not written', async () => {
+    // The Copilot app run (2026-10-10) asked for this: a no-op must not read as a write in the activity log.
+    const logged: Array<{ message: string; options: unknown }> = [];
+    const { options } = makeBoard({ logged, script: { write: ok(JSON.stringify({ changed: false, approvals: 1 })) } });
+    const { url } = await openBoard(options);
+    const response = await write(url, { kind: 'approval', id: '0003', nonce: await nonceFor(url, 'approval') });
+    expect(response.data.outcome).toBe('unchanged');
+    expect(logged.map((entry) => entry.message)).toEqual([`adrkit: decision board review approval on ADR-0003 as ${REVIEWER}: unchanged`]);
+  });
+
   test('a log that never answers, or rejects, or throws, does not hold or break the write', async () => {
     for (const sessionLog of [
       () => new Promise<never>(() => {}),
