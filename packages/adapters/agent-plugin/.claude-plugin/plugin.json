@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "adrkit",
   "displayName": "adrkit — decision memory",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Load the architecture decisions governing a change, check plans against them, audit existing code and documentation for missing decisions, draft new records deliberately, and (in GitHub Copilot CLI) run an advisory adr-review workflow, and open a read-only decision-review canvas in the GitHub Copilot app — driven by the adr CLI.",
   "author": {
     "name": "Mark Beacom",
