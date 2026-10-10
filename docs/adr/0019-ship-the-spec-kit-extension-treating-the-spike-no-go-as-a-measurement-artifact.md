@@ -243,9 +243,9 @@ floating range that appears to work until it does not.
 
 1. [x] Build the extension at `packages/adapters/spec-kit/` under the constraints above
 2. [x] Enforce the read-only hook boundary with a test observed failing first
-3. [x] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it — done 2026-08-01, see the addendum above; widened to `<0.16.0`, verified at 0.13.0, 0.14.4, 0.15.1. **Superseded twice since, and this item records the practice rather than a one-time task:** re-verified 2026-09-09 and widened to `<1.1.0`, then extended 2026-09-12 to close the `1.0` line's upper edge. The current bound and its evidence live in the two addenda below, not on this line.
+3. [x] Re-verify the `speckit_version` pin against the next Spec Kit minor before widening it — done 2026-08-01, see the addendum above; widened to `<0.16.0`, verified at 0.13.0, 0.14.4, 0.15.1. **Superseded twice since, and this item records the practice rather than a one-time task:** re-verified 2026-09-09 and widened to `<1.1.0`, then extended 2026-09-12 to close the `1.0` line's upper edge, then re-verified 2026-10-09 and widened to `<1.2.0`. The current bound and its evidence live in the addenda below, not on this line.
 4. [x] Decide whether to publish `@adrkit/spec-kit` to npm, or install it from the repository — **both channels**, see the addendum below
-5. [x] Submit the catalog entry to `github/spec-kit` once a release asset exists — submitted 2026-08-03 as issue [github/spec-kit#3942](https://github.com/github/spec-kit/issues/3942) and applied the same day by a maintainer in [#3947](https://github.com/github/spec-kit/pull/3947), listing version 0.1.2. (An earlier revision of this line said "landed 2026-08-25 via #3947"; both the issue and the pull request are dated 2026-08-03, and the pull request was the maintainer's step rather than ours.) **This is a standing per-release obligation, not a one-time task, and treating it as one-time cost two releases:** the entry stayed pinned at 0.1.2 through 0.1.3 and 0.1.4, still advertising `>=0.13.0,<0.16.0` — a bound that by then refused to install on any current Spec Kit. An update request for 0.1.4 was **submitted** 2026-09-13 as [github/spec-kit#4571](https://github.com/github/spec-kit/issues/4571) and is **still open**: the catalog entry remains at 0.1.2 until a maintainer applies it, so `specify extension search` keeps serving the stale entry in the meantime. Filing is not refreshing, and this item is not closed by the filing — record the refresh when the catalog change actually lands. The release runbook carries the step ([`docs/RELEASING.md`](../RELEASING.md)).
+5. [x] Submit the catalog entry to `github/spec-kit` once a release asset exists — submitted 2026-08-03 as issue [github/spec-kit#3942](https://github.com/github/spec-kit/issues/3942) and applied the same day by a maintainer in [#3947](https://github.com/github/spec-kit/pull/3947), listing version 0.1.2. (An earlier revision of this line said "landed 2026-08-25 via #3947"; both the issue and the pull request are dated 2026-08-03, and the pull request was the maintainer's step rather than ours.) **This is a standing per-release obligation, not a one-time task, and treating it as one-time cost two releases:** the entry stayed pinned at 0.1.2 through 0.1.3 and 0.1.4, still advertising `>=0.13.0,<0.16.0` — a bound that by then refused to install on any current Spec Kit. An update request for 0.1.4 was **submitted** 2026-09-13 as [github/spec-kit#4571](https://github.com/github/spec-kit/issues/4571) and is **still open**: the catalog entry remains at 0.1.2 until a maintainer applies it, so `specify extension search` keeps serving the stale entry in the meantime. Filing is not refreshing, and this item is not closed by the filing — record the refresh when the catalog change actually lands. **Applied:** the issue was closed 2026-09-15, and on 2026-10-09 `catalog.community.json` lists 0.1.4 with `>=0.13.0,<1.1.0`, which `specify extension search adrkit` on 1.1.x also reports. 0.1.5 owes the same submission once its asset resolves. The release runbook carries the step ([`docs/RELEASING.md`](../RELEASING.md)).
 6. [x] Remove `@adrkit/spec-kit` from `BOOTSTRAP_PACKAGES` after its first publish, once Trusted Publishing is configured for the name — done 2026-08-03; the set is now empty, which is its correct steady state. The `NPM_BOOTSTRAP_TOKEN` secret can be deleted.
 
 ### Addendum, 2026-08-02: distribution channels (action item 4)
@@ -356,3 +356,28 @@ exercises `0.13.0`/`0.14.4`/`0.15.1`, and bringing `0.16.5`, `1.0.0`, and
 No manifest change accompanies this addendum — the pin already reads
 `>=0.13.0,<1.1.0`; only its evidence moved. `@adrkit/spec-kit` 0.1.4 is the
 release that carries it.
+
+### Addendum, 2026-10-09: widening to the `1.1` line
+
+Spec Kit 1.1.0 shipped on 2026-10-02, and the `<1.1.0` gate fired as this
+decision intends: 0.1.4 refuses 1.1.0 and 1.1.3 from both its release archive
+and `--dev`, with `Compatibility Error: Extension requires spec-kit
+>=0.13.0,<1.1.0, but 1.1.3 is installed.` and exit 1. This addendum records
+the re-verification on the same maintainer-session terms as the two above.
+
+| Evidence | Result |
+|---|---|
+| `extensions/EXTENSION-API-REFERENCE.md`, `v1.0.13` → `v1.1.3` | byte-identical through `v1.1.2` (SHA-256 `cb037d69fe62c7d8…`); `v1.1.3` adds only the bundled `bug` extension's hook events. Additive. |
+| Loader, `v1.0.13` → `v1.1.3` | generic-integration registration (#4785), exact catalog release selection (#4726), external agent adapters (#4862), and install rollback that unregisters hooks on failure. `SpecifierSet` parsing and `.extensionignore` are untouched; the one new refusal applies only to catalog installs. |
+| Install of 0.1.5 on `1.1.0` (git tag; never on PyPI) and `1.1.3` (PyPI), Copilot and Claude integrations, by `--dev`, by `--from` its packed archive, and by `specify init --extension` | exit 0 on all twelve; three `speckit-adrkit-*` skills registered; `after_plan` recorded `optional: true`; the plan skill still maps dots to hyphens; no development files deposited. `1.1.1` and `1.1.2` sampled under Copilot with the same results. |
+| `context.sh` and `check.sh` from the installed location, `@adrkit/cli` 0.18.0 | exit 0 on every run, with the expected governing records |
+
+Nothing in `commands/` or `scripts/` needed to change. The bound is widened to
+`>=0.13.0,<1.2.0`: `<1.2.0` asserts "verified through the `1.1` line", and
+1.2.0 is where re-verification is next owed. `@adrkit/spec-kit` moves to 0.1.5
+with this widening, which also ships the README install line corrected after
+0.1.4. The full matrix is in
+[`docs/reference-verification-spec-kit-extension.md`](../reference-verification-spec-kit-extension.md).
+
+Limitations: unchanged. These are maintainer-session installs, not tracked
+dogfood legs, and no live agent session watched the hook offer render on 1.1.x.

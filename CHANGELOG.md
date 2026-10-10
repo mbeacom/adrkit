@@ -107,6 +107,40 @@ Until `1.0.0`, minor releases may include breaking changes
   that instead of "exited 2". This follows a Windows report (git
   2.55.0.vfs.0.10) whose cause is not reproduced here.
 
+## [spec-kit-0.1.5] - 2026-10-09
+
+### Changed
+
+- **The Spec Kit pin is widened to `>=0.13.0,<1.2.0`.** Re-verified, not
+  bumped on inference. 0.1.4 refuses every 1.1.x with `Compatibility Error:
+  Extension requires spec-kit >=0.13.0,<1.1.0, but 1.1.3 is installed.`
+  (exit 1, from the release archive and from `--dev`). Upstream's extension API
+  reference is byte-identical from 0.16.5 through 1.1.2, and 1.1.3 adds only
+  the bundled `bug` extension's hook events. The 1.1 loader changes (generic
+  integration registration, exact catalog releases, transactional install
+  rollback, external agent adapters) remove nothing this extension uses. On
+  1.1.0 and 1.1.3, under both the Copilot and Claude integrations, the
+  extension installs with `--dev`, from its archive, and through `specify init
+  --extension`; it registers the same three `speckit-adrkit-*` skills; the
+  `after_plan` hook is recorded `optional: true`; the generated plan skill
+  still maps dots to hyphens; and `context.sh` and `check.sh` run from the
+  installed location against a small corpus with `@adrkit/cli` 0.18.0. 1.1.1
+  and 1.1.2 were sampled under Copilot with the same results. 1.1.0 is not on
+  PyPI and was installed from its git tag
+  ([ADR-0019](docs/adr/0019-ship-the-spec-kit-extension-treating-the-spike-no-go-as-a-measurement-artifact.md),
+  2026-10-09 addendum).
+
+  `<1.2.0` asserts "verified through the `1.1` line"; 1.2.0 is where the
+  extension fails loud and re-verification is owed.
+
+### Fixed
+
+- **The packaged README gives an install command that works.** The 0.1.4
+  archive and npm README still say `specify extension add adrkit`, which every
+  measured Spec Kit refuses because the community catalog is discovery-only.
+  0.1.5 ships the corrected README, which installs from the versioned release
+  archive and names the commands per integration.
+
 ## [0.18.0] - 2026-10-09
 
 This release adds `adr approve`, `adr object`, and `adr resolve`, so review
@@ -2114,6 +2148,7 @@ against live Spec Kit, rather than reasoning about it:
 [0.6.0]: https://github.com/mbeacom/adrkit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mbeacom/adrkit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mbeacom/adrkit/compare/v0.3.0...v0.4.0
+[spec-kit-0.1.5]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.4...spec-kit-v0.1.5
 [spec-kit-0.1.4]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.3...spec-kit-v0.1.4
 [spec-kit-0.1.3]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.2...spec-kit-v0.1.3
 [spec-kit-0.1.2]: https://github.com/mbeacom/adrkit/compare/spec-kit-v0.1.1...spec-kit-v0.1.2

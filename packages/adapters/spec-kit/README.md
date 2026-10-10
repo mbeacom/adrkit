@@ -23,8 +23,8 @@ Plus one hook: `after_plan` offers to run `/speckit.adrkit.check`. It is
 
 ## Requirements
 
-- Spec Kit `>=0.13.0,<1.1.0`. Compatibility is tested against 0.13.0, 0.14.4,
-  0.15.1, 0.16.5, 1.0.0, and 1.0.4–1.0.6.
+- Spec Kit `>=0.13.0,<1.2.0`. Compatibility is tested against 0.13.0, 0.14.4,
+  0.15.1, 0.16.5, 1.0.0, 1.0.4–1.0.6, 1.0.13, and 1.1.0–1.1.3.
 - The `adr` CLI (`npm install -g @adrkit/cli`), a project-local installation,
   or `ADRKIT_CLI` pointing at its entry point.
 - An ADR corpus. Defaults to `docs/adr`.
@@ -35,7 +35,7 @@ Install from the release archive, which carries the version in its URL:
 
 ```sh
 specify extension add adrkit \
-  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
+  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.5/adrkit.zip
 ```
 
 Spec Kit asks before installing from a URL (`⚠ Untrusted Source` …
@@ -45,7 +45,7 @@ To answer it non-interactively, pipe the answer in:
 
 ```sh
 printf 'y\n' | specify extension add adrkit \
-  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.4/adrkit.zip
+  --from https://github.com/mbeacom/adrkit/releases/download/spec-kit-v0.1.5/adrkit.zip
 ```
 
 adrkit is listed in the
@@ -69,7 +69,7 @@ type depends on how Spec Kit registers commands for your agent:
 
 | Integration | What Spec Kit writes | You type |
 |---|---|---|
-| Claude Code, every Spec Kit version measured (0.13.0 to 1.0.13) | `.claude/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
+| Claude Code, every Spec Kit version measured (0.13.0 to 1.1.3) | `.claude/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
 | GitHub Copilot, Spec Kit 0.16.5 and later | `.github/skills/speckit-adrkit-*/` | `/speckit-adrkit-check`, `/speckit-plan` |
 | GitHub Copilot, Spec Kit 0.13.0 to 0.15.1 | `.github/prompts/speckit.adrkit.*.prompt.md` | `/speckit.adrkit.check`, `/speckit.plan` |
 
@@ -126,7 +126,7 @@ network — a missing CLI is reported, never fetched.
 ## Compatibility and support
 
 The extension is tested against Spec Kit 0.13.0, 0.14.4, 0.15.1, 0.16.5, 1.0.0,
-and 1.0.4–1.0.6. Report
+1.0.4–1.0.6, 1.0.13, and 1.1.0–1.1.3. Report
 compatibility issues in the
 [adrkit issue tracker](https://github.com/mbeacom/adrkit/issues). Maintainers can
 find the detailed verification record in
