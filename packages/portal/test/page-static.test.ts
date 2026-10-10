@@ -75,8 +75,12 @@ describe('index.html (clauses 7 and 8)', () => {
   });
 
   test('one external module script and one stylesheet, nothing inline', () => {
-    const scripts = [...HTML.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
-    expect(scripts.map((match) => [match[1]!.trim(), match[2]])).toEqual([['type="module" src="./page/app.mjs"', '']]);
+    // Count every opener rather than parse script elements with a regex: a closing tag
+    // has spellings (`</script >`, `</script x>`) a tag pattern can miss (CodeQL
+    // js/bad-tag-filter), while one opener plus the exact empty element leaves no room
+    // for a second, inline script however it is closed.
+    expect(HTML.match(/<script/gi) ?? []).toHaveLength(1);
+    expect(HTML).toContain('<script type="module" src="./page/app.mjs"></script>');
     expect([...HTML.matchAll(/<link\b[^>]*>/gi)].map((match) => match[0])).toEqual(['<link rel="stylesheet" href="./app.css">']);
     expect(HTML).not.toMatch(/<style\b/i);
     expect(HTML).not.toMatch(/\sstyle\s*=/i);
