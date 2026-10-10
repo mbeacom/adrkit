@@ -61,8 +61,10 @@ Until `1.0.0`, minor releases may include breaking changes
 
   Proposed in [ADR-0052](docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md) (proposed; amends ADR-0050). It is at rung 1 of
   ADR-0014, with an end-to-end test against the built CLI and headless SDK-host
-  measurements with no model calls. It is unmeasured in the Copilot app,
-  including whether the app shows the confirmation dialog.
+  measurements with no model calls. The maintainer ran it in the Copilot app
+  (runtime 1.0.94-3): the dialog appeared for an approval, a decline wrote
+  nothing, an accept wrote it, and a quick second click was rate-limited.
+  Object, Resolve, and the app's autonomous modes are not yet measured there.
 
 ### Fixed
 

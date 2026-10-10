@@ -645,8 +645,9 @@ pages; they do not stop the model. The host's dialog does, because the model
 cannot answer it. So decline any review confirmation you did not just ask for on
 the board. The dialog protects the board's write path only. A model with shell
 access could still run `adr approve` itself or edit a record directly, and the
-pull request diff is where any review change gets checked. Whether the Copilot app shows that dialog, and how it behaves in its
-autonomous modes, has not been measured yet (see
+pull request diff is where any review change gets checked. The Copilot app
+showed that dialog for an approval in the maintainer's run. How it behaves in
+its autonomous modes has not been measured yet (see
 [ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)).
 
 **What you see when it does not write.** Exit codes map to fixed messages. A
@@ -663,8 +664,17 @@ HTTP, but it cannot finish one without your answer in the host's dialog. Each
 attempt is logged in the session with the record id, the kind, the identity,
 and the outcome, never the summary.
 
-Measured on 2026-10-09 through a headless SDK host, with no model calls.
-**The controls are unmeasured in the Copilot app.**
+Measured on 2026-10-09 through a headless SDK host, with no model calls. In the
+Copilot app (maintainer, 2026-10-10, runtime 1.0.94-3), the dialog appeared for
+an approval. A decline wrote nothing, an accept wrote the approval, and a second
+click within 10 seconds was refused. Object and Resolve are not yet exercised in
+the app.
+
+**When testing a local build in the app**, two things can get in the way:
+- Relaunching after a marketplace merge auto-updated the installed plugin and
+  overwrote local files.
+- Changed extension files re-raised the extension-permission prompt. Until
+  someone answered it, the extension did not start.
 
 ## Things that are load-bearing and easy to break
 
@@ -780,8 +790,9 @@ contract tests plus a headless Copilot CLI 1.0.93 SDK-host smoke with no model
 calls. It is unmeasured in the Copilot app. Its review controls (ADR-0052,
 **proposed**) are rung 1 too: unit, contract, and mutation tests, an
 end-to-end test against the built CLI, and headless SDK-host measurements with
-no model calls. The click flow, and the app's confirmation dialog, are
-unmeasured in the Copilot app.
+no model calls. In the Copilot app, the maintainer exercised Approve with the
+host's dialog (decline and accept). Object, Resolve, and the app's autonomous
+modes are unmeasured there.
 
 The extension tools (`adr_check`, `adr_explain`, `adr_lint`; ADR-0048,
 **proposed**) are rung 1: unit and contract tests plus a headless Copilot CLI

@@ -240,12 +240,13 @@ and only fixed messages reach a page (CodeQL `js/stack-trace-exposure` on #267).
 
 ## Trade-offs
 
-- **The boundary is the host's dialog, and its behavior in the Copilot app is
-  unmeasured.** Facts 2–4 hold for the runtime (measured) and for the CLI's
-  terminal UI (read from its bundle). Whether the Copilot app offers
-  elicitation to extensions, how it renders the dialog, and whether it ever
-  answers one without a person (for example in an autonomous mode) are not
-  known. If the app answered `true` on its own, the model could record review
+- **The boundary is the host's dialog, and the app is only partly measured.**
+  Facts 2–4 hold for the runtime (measured) and for the CLI's terminal UI (read
+  from its bundle). In the Copilot app (runtime 1.0.94-3, 2026-10-10), the
+  maintainer saw the board's controls enabled, the host's dialog shown for an
+  approval, a decline write nothing, and an accept write the approval. Whether
+  the app ever answers the dialog without a person (for example in an
+  autonomous mode) is still not known. If the app answered `true` on its own, the model could record review
   as `ADRKIT_REVIEWER` with no person involved. The extension's own autopilot
   refusal covers the one mode it can see; it cannot see a host that
   auto-accepts in some other way. **This residual risk is the maintainer's to
@@ -326,9 +327,13 @@ model calls). They are recorded in
   unchanged. Only a handler that accepts let it write. A request with no
   `Origin` got 403 in all three.
 
-**The controls are unmeasured in the Copilot app**, including whether the app
-offers elicitation and how it answers it. No reference-repository run and no
-external validation.
+**In the Copilot app** (maintainer, 2026-10-10, runtime 1.0.94-3, published
+`@adrkit/cli` 0.18.0), the controls were enabled under `ADRKIT_REVIEWER`, and
+the host's dialog appeared for an approval. A decline wrote nothing, an accept
+wrote exactly the approval, and a second click within 10 seconds was
+rate-limited. Object and Resolve, the dialog's lead-line wording, an `Origin`
+refusal, and the app's behavior in autonomous modes were not measured. No
+reference-repository run and no external validation.
 
 ## Action items
 
@@ -340,7 +345,10 @@ external validation.
    verbs, and test the module's reachability and the action boundary.
 4. [x] Headless SDK-host measurements, recorded in
    `docs/reference-verification-agent-plugin.md`.
-5. [ ] Measure in a Copilot app session that the app offers elicitation, shows
-   the dialog to the person, and never answers it on its own (autopilot
-   included), and record the app version.
-6. [ ] Ratify or reject this record.
+5. [x] Measure in a Copilot app session that the app offers elicitation to the
+   board and shows the dialog to the person, that a decline writes nothing,
+   and that an accept writes (runtime 1.0.94-3, 2026-10-10).
+6. [ ] Measure in the app that it never answers the dialog on its own,
+   autopilot included; exercise Object and Resolve there; and record the app
+   version.
+7. [ ] Ratify or reject this record.

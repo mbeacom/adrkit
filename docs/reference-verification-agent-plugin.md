@@ -1271,21 +1271,74 @@ the fix. 15 mutations of the new code were each killed, and a dynamic import
 planted in the real `tools.mjs` and a re-export planted in the real `board.mjs`
 each failed the suite.
 
+### Copilot app run (2026-10-10, maintainer)
+
+The maintainer ran the branch in the GitHub Copilot app on 2026-10-10 between
+00:12 and 00:15 UTC.
+- Build: `0f0a24e` merged onto `origin/main` `1c7b3eb` (0.9.1). The code merged
+  cleanly, and the plugin suite passed 718/718 with the CLI built.
+- Runtime: 1.0.94-3. The app's own version was not recorded.
+- Environment: `ADRKIT_REVIEWER=@mbeacom`, with `ADRKIT_CLI` pointing at the
+  published `@adrkit/cli` 0.18.0.
+- Corpus: a scratch repository with one `proposed` record, 0001, whose
+  `deciders` was `["@mbeacom"]` and which had no `review` block.
+- Evidence: the maintainer's report and the session's `events.jsonl`
+  `session.info` lines (session `9686b78d`).
+
+| # | Probe | Result |
+|---|-------|--------|
+| RA1 | Open the board and select 0001 | The row offered "Approve as @mbeacom" and "Raise objection". So `ADRKIT_REVIEWER` reached the extension in the app, and the app reported `capabilities.ui.elicitation: true` (the controls are disabled otherwise) |
+| RA2 | Approve, then Confirm | The host's confirmation dialog appeared |
+| RA3 | Decline the dialog | `approvals` stayed at 0; log line `…: not-confirmed` |
+| RA4 | Accept the dialog | The approval was written; log line `…: written` |
+| RA5 | A click within 10 s of the previous dialog | Refused; log line `…: rate-limited`. The extension-wide dialog limit worked in the app |
+| RA6 | The record's diff afterwards | Exactly `review:` / `  approvals:` / `    - "@mbeacom"` inserted after `provenance`; nothing else changed |
+| RA7 | The session's log lines, in order | `written` (00:13:53Z), `not-confirmed` (00:15:18Z), `rate-limited` (00:15:23Z), `written` (00:15:27Z) |
+
+RA7 does not show a no-op logged as a write. The report called the second
+accepted approve a repeat, but the record's modification time is 00:15:27Z, the
+second `written`. The CLI writes the file only when `changed` is `true`, so that
+approve changed the file. That is consistent with the record having been
+restored between the attempts; its committed version has no `review` block.
+The published 0.18.0 CLI reports `changed: false` for a true repeat (measured),
+which the board logs as `unchanged`. A unit test now pins that, and it fails
+under a mutation that logs a no-op as `written`. Because the page's POSTs
+succeeded through routes that require an exact same-origin `Origin`, the framed
+page in the app sends a matching `Origin`.
+
+### Host behavior seen while setting up the app run
+
+These were observed by the maintainer and are not adrkit behavior. They are
+recorded because they affect anyone testing a local build in the app.
+
+- **Relaunching the app after a marketplace merge auto-updated the installed
+  plugin** (0.9.0 → 0.9.1), overwriting local files in the installed copy.
+- **Changed extension files re-raised an `extension-permission-access`
+  prompt.** After the extension's files changed, new sessions raised the prompt
+  again ("skip tool permission prompts", "register hooks").
+  - The app's assisted-approval judge returned `requireApproval` ("Skipping
+    tool permission prompts disables a permission control").
+  - Until someone answered it, the extension did not start, so prompts
+    appeared to hang.
+  - Earlier, the same request had been approved automatically by
+    `host_policy`.
+  - The cause of the change (a content hash, or something else) is
+    unconfirmed.
+
 ### Not verified
 
-- **The controls are unmeasured in the Copilot app.** That covers the two-click
-  flow, the disabled state, keyboard use, and how the controls render in the
-  app's theme. It also covers, most importantly, whether the app offers
-  elicitation to extensions, how it shows the confirmation, and whether it
-  ever answers one without a person, in an autonomous mode or otherwise. If it
-  does, the model could record review with no person involved (ADR-0052,
-  residual risk).
-- Whether a framed page's POST in the app carries `Origin`; if it does not,
-  the review routes refuse every write there.
+- **Object and Resolve in the app.** Only Approve was exercised (RA2–RA6).
+- **The dialog's lead line in the app.** The build carried the
+  `ADR-<id> · <action> as <identity>` first line, but how the app rendered the
+  dialog's text was not reported.
+- **Whether the app ever answers the dialog without a person**, in autopilot
+  or otherwise. Only a person's decline and accept were seen. If the app did
+  answer on its own, the model could record review with no person involved
+  (ADR-0052, residual risk).
+- **An `Origin` refusal in the app.** None was attempted.
+- The disabled state, keyboard use, and theme of the controls in the app.
 - Whether another extension in the same session could answer the board's
   elicitation.
-- Whether the app forwards `ADRKIT_REVIEWER` to the extension. It reached the
-  extension through the SDK host (RV6), as other `ADRKIT_*` variables do.
 - The 30-second write timeout and the `unknown` outcome for an exit other than
   0, 1, or 2. Unit tests only.
 - Two writes from two boards in different extension processes on one record.

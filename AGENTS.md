@@ -925,7 +925,10 @@ Each open-proposal row has approve, object, and resolve controls, proposed in
 run `adr approve`, `adr object`, and `adr resolve` and **need `@adrkit/cli`
 0.18.0 or later**. **Rung 1**: unit, contract, and mutation tests, an
 end-to-end test against the built CLI, and headless SDK-host measurements with
-no model calls; **unmeasured in the Copilot app**. Load-bearing:
+no model calls. In the Copilot app the maintainer ran Approve once (runtime
+1.0.94-3): the dialog appeared, a decline wrote nothing, an accept wrote, and a
+click within 10 s was rate-limited. Object, Resolve, and the app's autonomous
+modes are unmeasured there. Load-bearing:
 
 - **The model holds the board's URL and token.** The runtime's `open_canvas`
   tool returns the instance URL, token included, to the model, and the model
@@ -941,10 +944,10 @@ no model calls; **unmeasured in the Copilot app**. Load-bearing:
   mode method is still asked. Measured: the runtime routes an extension's `confirm`
   to the host's handler in every permission and agent mode, and answers
   nothing on its own; the CLI's terminal UI declines elicitations in
-  autopilot (read from its bundle). **Whether the Copilot app offers
-  elicitation, and whether it ever answers without a person, is unmeasured**;
-  ADR-0052 names that as a residual risk the maintainer must accept or
-  measure. Do not remove the confirmation, accept a truthy non-`true` answer,
+  autopilot (read from its bundle). The Copilot app offered elicitation and
+  showed the dialog for an approval (measured once). **Whether it ever answers
+  without a person is unmeasured**; ADR-0052 names that as a residual risk the
+  maintainer must accept or measure. Do not remove the confirmation, accept a truthy non-`true` answer,
   or put the summary or a title in the dialog: the dialog text is fixed text,
   the kind, the validated id, the identity, and numbers only. The confirmation
   guards the board's write path only: a model with a shell can still run
