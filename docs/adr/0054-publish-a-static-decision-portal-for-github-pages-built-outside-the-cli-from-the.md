@@ -349,12 +349,12 @@ would be rung 2. No external party has run it, so rung 3 is absent.
    purity, sanitizer, and no-`innerHTML`/no-inline-style tests.
 3. [x] Add the emit script and no-diff check for the three copied modules,
    and the copied-set and no-review-verb tests.
-4. [ ] Add `check-deps` entries for `@adrkit/portal` and the widened
+4. [x] Add `check-deps` entries for `@adrkit/portal` and the widened
    `@adrkit/ci`, each with a negative case.
-5. [ ] Add `packages/ci/portal/action.yml`, the `dist/portal-action.js`
+5. [x] Add `packages/ci/portal/action.yml`, the `dist/portal-action.js`
    build, the exit-code and `publish-private` behavior, and the documented
    consumer workflow.
-6. [ ] Teach `action-tag-recovery.yml` and `docs/RELEASING.md` the third
+6. [x] Teach `action-tag-recovery.yml` and `docs/RELEASING.md` the third
    nested bundle.
 7. [x] Add a test that the portal's shipped strings contain no ratifying or
    review command and no readiness word.

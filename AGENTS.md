@@ -391,7 +391,10 @@ from `main` with an existing stable `vX.Y.Z` release tag. It requires an annotat
 tag that peels to a commit on `main`, an exact successful `Release` run, matching
 root version, and both committed nested Action bundles. It deliberately permits
 pre-Marketplace releases so the first compatible release does not remove the
-last known-good target for nested `@v0` consumers. It shares the release
+last known-good target for nested `@v0` consumers. For the same reason the
+third bundle, `dist/portal-action.js`, is required only where
+`packages/ci/portal/action.yml` exists at the target, so pre-portal releases
+stay eligible; never make that check unconditional. It shares the release
 concurrency group, holds only `actions: read` and `contents: write`, and pushes
 with a lease against the observed remote tag object.
 Recovery also records a durable `action-recovery-block/<commit>` tag for the
@@ -1070,7 +1073,8 @@ A static, read-only decision portal for GitHub Pages, under
 (**accepted**). `@adrkit/portal` is private and depends on `@adrkit/sdk`
 alone; it is the SDK's first consumer under
 [ADR-0053](./docs/adr/0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md).
-The nested build-only Action (`packages/ci/portal`) is not built yet.
+The nested build-only Action (`packages/ci/portal`, `dist/portal-action.js`)
+is described below.
 **Rung 1**: unit, contract, purity, and mutation tests, a Node run of the
 bundled generator, and a maintainer browser check on this repository's corpus.
 Load-bearing:
@@ -1111,6 +1115,38 @@ Load-bearing:
   embeds them. `canvas-theme.mjs` is imported as a module (for `THEME_CSS`)
   and cannot also be a text import in the same bundle, which is why it is not
   written into the output.
+
+### The portal Action (`packages/ci/portal`)
+
+The third nested Action in `@adrkit/ci` (ADR-0054 clauses 2, 9, 10), running
+`../dist/portal-action.js` on `node24`. It builds the bundle into `out` and
+nothing else: no token, no API call, `contents: read`. The consumer workflow
+deploys with `upload-pages-artifact` and `deploy-pages` in a separate job; the
+documented workflow is in `site/src/content/docs/ci.mdx`. **Rung 1**: unit,
+contract, and mutation tests, and a Node run of the committed bundle against a
+git fixture. Load-bearing:
+
+- **Logic is `src/portal-action.ts`, wiring is the entrypoint.** Only
+  `portal-action-entrypoint.ts` imports `@actions/*`, as for the queue Action,
+  so the exit mapping and the visibility gate are tested with stubs.
+- **A private repository fails closed, and so does an unknown one.** The
+  Action publishes only when the event payload says the repository is public
+  (`private: false` and no `visibility` or `public`), or `publish-private` is
+  exactly `'true'`. Private, internal, and a payload with no repository (or
+  neither field) are refused with fixed messages, before the generator runs.
+- **Exit 1 publishes.** `0` succeeds, `1` succeeds with a warning annotation,
+  `2` fails with the generator's own fixed message and nothing written. An
+  absent optional input is passed as `undefined`, never `''`: the generator
+  treats `asOf: ''` as a usage error. A throw fails with a fixed message,
+  never the error's text.
+- **Nested only, immutable pins.** No root alias, never `mbeacom/adrkit@v0`.
+  Docs pin `packages/ci/portal@vX.Y.Z`, because recovering `v0` to a
+  pre-portal release removes the path from `@v0`.
+- **The container build stage copies `packages/portal/package.json`.** Bun
+  1.4.2's frozen install refuses a pruned workspace set in which a copied
+  workspace (`@adrkit/ci`) depends on one not on disk; measured with
+  `podman build --target build`. `scripts/container-contract.test.ts` checks
+  every copied manifest's workspace dependencies are copied too.
 
 ## The OCI container (`ghcr.io/mbeacom/adrkit`)
 

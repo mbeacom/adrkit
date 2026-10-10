@@ -91,6 +91,7 @@ See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 | Feed prior decisions to coding agents | [`@adrkit/mcp`](packages/mcp/README.md) | Local, read-only stdio MCP server |
 | Run adrkit from an OCI image | [Container usage](#container-usage) | Lockstep multi-architecture image, beginning with the first release containing ADR-0032 |
 | Comment governing decisions on pull requests | [Use in CI](https://adrkit.dev/ci/) | GitHub Action from this repository |
+| Browse decisions on GitHub Pages | [Decision portal](https://adrkit.dev/ci/#publish-a-decision-portal-to-github-pages) | Nested build-only Action, beginning with the first lockstep release containing ADR-0054 |
 | Evaluate decision governance with a generated wiki | [Generated knowledge guide](https://adrkit.dev/generated-knowledge/) | Provisional OpenWiki recipe; no runtime coupling |
 | Add decision memory to Spec Kit | [`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) | Published separately for Spec Kit `>=0.13.0,<1.2.0` |
 | Add decision memory to Copilot, Claude Code, or opencode | [`adrkit` agent plugin](packages/adapters/agent-plugin/README.md) | Install from this repository or marketplace |
@@ -438,6 +439,16 @@ jobs:
 Existing consumers of the nested form can stay on
 `mbeacom/adrkit/packages/ci@v0`. The queue Action remains available at
 `mbeacom/adrkit/packages/ci/queue@v0`.
+
+A third, build-only Action, `mbeacom/adrkit/packages/ci/portal@vX.Y.Z` (pin an
+immutable release tag; beginning with the first lockstep release containing ADR-0054), builds a
+static, read-only decision portal for GitHub Pages
+([ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)).
+It holds no token and needs only `contents: read`; your workflow deploys the
+directory it writes with `actions/upload-pages-artifact` and
+`actions/deploy-pages`. On a private or internal repository it refuses unless
+`publish-private: 'true'`. The full workflow is in
+[Use in CI](https://adrkit.dev/ci/#publish-a-decision-portal-to-github-pages).
 
 ## Why not plain MADR — or "Structured MADR"?
 

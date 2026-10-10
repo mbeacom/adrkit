@@ -79,6 +79,11 @@ jobs:
           git cat-file -e "$revision:packages/ci/dist/index.js"
           git cat-file -e "$revision:packages/ci/queue/action.yml"
           git cat-file -e "$revision:packages/ci/dist/queue-action.js"
+          # The portal Action (ADR-0054) is required only where it exists: releases
+          # before it stay eligible targets, as pre-Marketplace releases do above.
+          if git cat-file -e "$revision:packages/ci/portal/action.yml" 2>/dev/null; then
+            git cat-file -e "$revision:packages/ci/dist/portal-action.js"
+          fi
 
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$revision" origin/main

@@ -1,13 +1,14 @@
 ---
 title: Use in CI
-description: Comment the decisions governing a pull request, and publish the ARB operations queue, with the adrkit GitHub Actions.
+description: Comment the decisions governing a pull request, publish the ARB operations queue, and build a decision portal for GitHub Pages, with the adrkit GitHub Actions.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-adrkit ships two GitHub Actions from this repository. Both run with only the
-default `GITHUB_TOKEN`, hold no database, and never approve anything — they read
-the corpus and write a comment or an issue.
+adrkit ships three GitHub Actions from this repository. They hold no database
+and never approve anything. Two run with the default `GITHUB_TOKEN` and write a
+comment or an issue; the third, the [decision portal](#publish-a-decision-portal-to-github-pages),
+holds no token at all and only writes a directory for your workflow to deploy.
 
 <Aside type="note" title="GitHub Marketplace">
 	The governing-decisions Action has a repository-root Marketplace entry point
@@ -15,7 +16,8 @@ the corpus and write a comment or an issue.
 	`mbeacom/adrkit/packages/ci@&lt;ref&gt;` form remains supported, including
 	through its moving `v0` tag. Root Marketplace examples use immutable release
 	tags because recovery may move `v0` to a release from before the root alias.
-	GitHub lists only root Action metadata, so the queue Action remains nested.
+	GitHub lists only root Action metadata, so the queue and portal Actions
+	remain nested.
 </Aside>
 
 ## Comment governing decisions on a PR
@@ -155,3 +157,106 @@ Identical inputs produce byte-for-byte identical output, so a re-run only
 changes the issue when the corpus actually changed. Run the same projection
 locally with [`adr queue`](/commands/#adr-queue), or publish its `totalItems`
 as a README badge — see [Badges](/badges/).
+
+## Publish a decision portal to GitHub Pages
+
+The `packages/ci/portal` Action builds a static, read-only decision portal from
+the corpus: the record list and every record, status counts, the supersession
+graph, the review queue, and governance by path. It writes the bundle into a
+directory and does nothing else. It holds no token, needs only `contents: read`,
+and never deploys. Your workflow uploads the directory with
+`actions/upload-pages-artifact` and deploys it with `actions/deploy-pages` in a
+separate job that alone holds `pages: write` and `id-token: write`
+([ADR-0054](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)).
+
+Set the repository's **Settings → Pages → Source** to **GitHub Actions**, then:
+
+```yaml
+# .github/workflows/adr-portal.yml
+name: ADR decision portal
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - id: portal
+        uses: mbeacom/adrkit/packages/ci/portal@vX.Y.Z # an immutable adrkit release tag
+        # with:
+        #   dir: docs/adr
+        #   out: _site
+        #   base-url: https://<owner>.github.io/<repo>/
+        #   as-of: 2026-07-05
+        #   publish-private: 'true'
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
+```
+
+The default shallow checkout is enough: the Action reads `HEAD`, the tracked
+file list, and the working tree's status, never history. The bundle uses
+relative assets and hash routes, so it works at a project path
+(`/<repo>/`) or a custom domain without `base-url`; `base-url` feeds absolute
+links only.
+
+<Aside type="caution" title="Private and internal repositories">
+	The bundle carries every record body and the governed file paths, and a
+	Pages site can be readable by people who cannot read the repository. When
+	the event payload marks the repository private or internal, the Action fails
+	and writes nothing unless `publish-private` is exactly `'true'`. It does the
+	same when the payload does not say the repository is public, because it
+	cannot tell the difference. The Action cannot read your Pages site's
+	visibility; setting `publish-private: 'true'` is your statement that you
+	checked who can read it.
+</Aside>
+
+The step's outcome follows the portal generator's exit code, which it also sets
+as the `exit-code` output:
+
+| `exit-code` | Bundle | Step |
+|---|---|---|
+| `0` | written | succeeds |
+| `1` | written, with every corpus error shown in a banner on every page and governance by path withheld | succeeds, with a warning annotation |
+| `2` | not written; an existing `out` is left as it was | fails |
+
+So a corpus with error findings still publishes, and says so on every page,
+while a corpus that cannot be read publishes nothing and leaves the last
+deployed site in place.
+
+<Aside type="note" title="Pinning the portal Action">
+	The portal Action is available beginning with the first lockstep release
+	containing ADR-0054; replace `vX.Y.Z` with that release or a later one. Pin an immutable release
+	tag (or its commit), not `@v0`: recovering the moving `v0` tag may restore
+	it to a release from before the portal Action existed. It is nested only:
+	there is no root alias, and `mbeacom/adrkit@<ref>` is the governing-decisions
+	Action, not this one.
+</Aside>

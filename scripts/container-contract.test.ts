@@ -118,3 +118,32 @@ describe('container contract', () => {
     expect(CONTAINERFILE).toContain('COPY packages/ci/dist ./packages/ci/dist');
   });
 });
+
+// The build stage copies only package manifests before `bun install --frozen-lockfile`, and
+// Bun 1.4.2 refuses a pruned workspace set in which a copied workspace depends on one that is
+// not on disk ("a pruned checkout must keep every workspace that its remaining workspaces
+// depend on"). `@adrkit/ci` gained `@adrkit/portal` for the portal Action (ADR-0054), and the
+// container build failed exactly that way until the portal manifest was copied.
+// ADR-0016 clause 2: observed failing with the `packages/portal/package.json` COPY line
+// removed (and the build itself was observed failing first, `podman build --target build`).
+describe('container build-stage manifests', () => {
+  test('every workspace dependency of a copied manifest is copied too', () => {
+    const copied = [...CONTAINERFILE.matchAll(/^COPY (packages\/\S+\/package\.json) /gm)].map((match) => match[1]!);
+    const byName = new Map<string, string>();
+    for (const path of copied) {
+      const manifest = JSON.parse(readFileSync(join(ROOT, path), 'utf8')) as { name: string };
+      byName.set(manifest.name, path);
+    }
+    const missing: string[] = [];
+    for (const path of copied) {
+      const manifest = JSON.parse(readFileSync(join(ROOT, path), 'utf8')) as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies })) {
+        if (version.startsWith('workspace:') && !byName.has(name)) missing.push(`${path} -> ${name}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});

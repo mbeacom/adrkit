@@ -16,6 +16,7 @@ COPY packages/mcp/package.json ./packages/mcp/package.json
 COPY packages/ci/package.json ./packages/ci/package.json
 COPY packages/catalog-envelope/package.json ./packages/catalog-envelope/package.json
 COPY packages/sdk/package.json ./packages/sdk/package.json
+COPY packages/portal/package.json ./packages/portal/package.json
 COPY packages/adapters/agent-plugin/package.json ./packages/adapters/agent-plugin/package.json
 COPY packages/adapters/catalog-backstage/package.json ./packages/adapters/catalog-backstage/package.json
 COPY packages/adapters/spec-kit/package.json ./packages/adapters/spec-kit/package.json

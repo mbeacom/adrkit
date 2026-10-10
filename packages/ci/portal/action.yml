@@ -1,0 +1,55 @@
+name: "ADR Decision Portal"
+author: "adrkit"
+description: >
+  Builds the static, read-only adrkit decision portal for GitHub Pages into a
+  directory, and nothing else. Needs contents: read only; upload the directory
+  with actions/upload-pages-artifact and deploy it with actions/deploy-pages in
+  a separate job.
+
+inputs:
+  dir:
+    description: "Path to the ADR corpus directory (relative to GITHUB_WORKSPACE)"
+    required: false
+    default: "docs/adr"
+  out:
+    description: >
+      Directory to write the portal bundle into (relative to GITHUB_WORKSPACE).
+      It is replaced whole, and only when the bundle is complete.
+    required: false
+    default: "_site"
+  base-url:
+    description: >
+      Optional absolute http(s) URL the site is served at. It feeds absolute
+      links only; the bundle works at any path without it.
+    required: false
+    default: ""
+  as-of:
+    description: >
+      Optional UTC calendar date (YYYY-MM-DD) for the queue's SLA states.
+      Defaults to today (UTC).
+    required: false
+    default: ""
+  publish-private:
+    description: >
+      The bundle carries every record body and the governed file paths. On a
+      private or internal repository, or when the event payload does not say
+      the repository is public, the Action refuses and writes nothing unless
+      this is exactly 'true'. Set it only after checking who can read the
+      Pages site.
+    required: false
+    default: "false"
+
+outputs:
+  exit-code:
+    description: >
+      The generator's exit code: 0 written; 1 written, with corpus errors shown
+      in a banner (the step succeeds with a warning); 2 nothing written (the
+      step fails). Unset when the Action refused a private repository.
+
+runs:
+  using: "node24"
+  main: "../dist/portal-action.js"
+
+branding:
+  icon: "book-open"
+  color: "blue"

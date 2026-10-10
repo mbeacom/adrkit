@@ -161,6 +161,35 @@ describe('major Action tag recovery contract', () => {
     expect(RECOVERY_WORKFLOW).toContain('git cat-file -e "$revision:packages/ci/queue/action.yml"');
   });
 
+  // ADR-0054 item 6: the third nested bundle. Required only where the portal Action
+  // exists in the target revision, for the reason the root alias above is not required at
+  // all: every release before the portal Action has no portal bundle, and an unconditional
+  // check would make all of them (v0.18.0 included) unrecoverable, so a bad first portal
+  // release could not be rolled back to the last known-good nested target.
+  // ADR-0016 clause 2: observed failing before the workflow and RELEASING.md were taught
+  // the bundle (`portalGate` was -1), and again with the workflow's check planted
+  // unconditional and with the manual-fallback check deleted.
+  test('requires the portal bundle wherever the portal Action exists, and keeps earlier releases eligible', () => {
+    const cases = [
+      { source: RECOVERY_WORKFLOW, revision: '$revision' },
+      { source: manualFallbackBlock(), revision: '$target_commit' },
+    ];
+    for (const { source, revision } of cases) {
+      const portalGate = source.indexOf(`if git cat-file -e "${revision}:packages/ci/portal/action.yml"`);
+      const bundle = source.indexOf(`git cat-file -e "${revision}:packages/ci/dist/portal-action.js"`);
+      const closeMatch = /\n[ \t]*fi\n/.exec(source.slice(bundle));
+      const close = closeMatch ? bundle + closeMatch.index : -1;
+      expect(portalGate).toBeGreaterThan(-1);
+      expect(bundle).toBeGreaterThan(portalGate);
+      expect(close).toBeGreaterThan(bundle);
+      // Never unconditional: the only mention of the bundle is inside the gate.
+      const mention = source.indexOf('packages/ci/dist/portal-action.js');
+      expect(source.lastIndexOf('packages/ci/dist/portal-action.js')).toBe(mention);
+      expect(mention).toBeGreaterThan(bundle);
+      expect(mention).toBeLessThan(close);
+    }
+  });
+
   test('documents containment for immutable Marketplace releases', () => {
     expect(RELEASING_DOCS).toContain('### Containing a bad Marketplace release');
     expect(RELEASING_DOCS).toContain('clear **Publish this Action to the GitHub');

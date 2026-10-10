@@ -1,6 +1,6 @@
 # Releasing adrkit
 
-adrkit distributes four public npm packages, two repository-backed GitHub
+adrkit distributes four public npm packages, three repository-backed GitHub
 Actions, one Marketplace entry point, and one lockstep OCI image:
 
 | Artifact | Distribution |
@@ -12,6 +12,7 @@ Actions, one Marketplace entry point, and one lockstep OCI image:
 | `action.yml` | GitHub Actions Marketplace and Git tag (governing-decisions alias; available beginning with `v0.13.0`) |
 | `packages/ci/action.yml` | Git tag (existing governing-decisions subpath, latest immutable release `v0.18.0`, moving `v0`) |
 | `packages/ci/queue/action.yml` | Git tag (nested queue Action, latest immutable release `v0.18.0`, moving `v0`) |
+| `packages/ci/portal/action.yml` | Git tag (nested, build-only decision-portal Action, ADR-0054; beginning with the first lockstep release containing ADR-0054, moving `v0`; document only immutable `vX.Y.Z` pins) |
 | `ghcr.io/mbeacom/adrkit` | GitHub Container Registry (`vX.Y.Z`, moving `vX`, `latest`; begins with the first release containing ADR-0032) |
 
 `@adrkit/ci` stays private because GitHub executes the committed Action bundle
@@ -19,7 +20,8 @@ directly from the referenced repository ref.
 
 The root `action.yml` is the Marketplace alias for
 `packages/ci/action.yml`. GitHub lists only root Action metadata, so the queue
-Action intentionally remains nested. `scripts/marketplace-action-contract.test.ts`
+and portal Actions intentionally remain nested. Never advertise a root alias or
+`mbeacom/adrkit@v0` for the portal Action. `scripts/marketplace-action-contract.test.ts`
 keeps the two governing-decisions metadata contracts identical except for their
 different bundle paths.
 
@@ -167,7 +169,7 @@ everything that matters.
 | Tag | `v0.3.0` | `spec-kit-v0.1.0` |
 | Packages | core, evaluator, CLI, MCP (+ any adapter riding along) | exactly one adapter |
 | Installed-tarball smoke | runs | skipped — the smoke project imports the lockstep surface, and an adapter that ships no JavaScript has nothing for it to import |
-| `packages/ci/queue@v0` Action tag | updated after the draft is published | untouched |
+| `packages/ci/queue@v0` and `packages/ci/portal@v0` Action tag | updated after the draft is published | untouched |
 | `ghcr.io/mbeacom/adrkit` | published after the draft is published | untouched |
 | GitHub release | draft after npm; published manually with Marketplace | published immediately |
 
@@ -491,7 +493,11 @@ gh run list --workflow action-tag-recovery.yml --limit 1
 
 The workflow refuses a prerelease, draft, lightweight tag, tag whose commit is
 not on `main`, release without a successful `Release` run for the exact peeled
-commit, root-version mismatch, or tree without both committed Action bundles.
+commit, root-version mismatch, or tree without both committed Action bundles
+(`dist/index.js` and `dist/queue-action.js`). The third bundle,
+`dist/portal-action.js`, is required only when the tree contains
+`packages/ci/portal/action.yml`: releases from before the portal Action stay
+eligible targets for the same reason pre-Marketplace releases do.
 The root Marketplace entry point is deliberately not required here, so a bad
 first Marketplace-compatible release does not remove the last known-good
 recovery target for established nested consumers.
@@ -521,7 +527,10 @@ The API should report a lightweight tag (`type: commit`) at `target_commit`.
 Consumers do not need to change their workflow files. New runs resolve the moved
 tag; rerun any job that had already resolved the bad SHA. Consumers needing an
 immediate immutable containment pin can temporarily use `@<target_commit>`.
-This contains the two documented nested `@v0` references only. It does not alter
+This contains the documented nested `@v0` references only. Restoring `v0` to a
+release from before the portal Action removes `packages/ci/portal` from `@v0`
+until a later release brings it back, which is why the portal Action is
+documented with an immutable `vX.Y.Z` pin rather than `@v0`. It does not alter
 an immutable root Action tag or the Marketplace listing.
 
 ### Manual fallback when GitHub Actions is unavailable
@@ -542,6 +551,9 @@ git cat-file -e "$target_commit:packages/ci/action.yml"
 git cat-file -e "$target_commit:packages/ci/dist/index.js"
 git cat-file -e "$target_commit:packages/ci/queue/action.yml"
 git cat-file -e "$target_commit:packages/ci/dist/queue-action.js"
+if git cat-file -e "$target_commit:packages/ci/portal/action.yml" 2>/dev/null; then
+  git cat-file -e "$target_commit:packages/ci/dist/portal-action.js"
+fi
 git merge-base --is-ancestor "$target_commit" origin/main
 
 release=$(gh release view "$target" --json isDraft,isPrerelease)

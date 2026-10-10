@@ -576,6 +576,64 @@ describe('portal dependency boundary (ADR-0054)', () => {
   });
 });
 
+describe('ci surface admits the portal generator (ADR-0054 item 4)', () => {
+  const CI_MANIFEST = 'packages/ci/package.json';
+
+  function ciManifest(extra: Record<string, string> = {}): string {
+    return JSON.stringify(
+      {
+        name: '@adrkit/ci',
+        version: '0.1.0',
+        private: true,
+        dependencies: {
+          '@actions/core': '^3.0.1',
+          '@actions/github': '^9.1.1',
+          '@adrkit/core': 'workspace:*',
+          '@adrkit/portal': 'workspace:*',
+          ...extra,
+        },
+        devDependencies: { '@types/bun': 'latest' },
+      },
+      null,
+      2,
+    );
+  }
+
+  // ADR-0016 clause 2: observed failing before the entry was widened. With
+  // `@adrkit/portal` added to packages/ci/package.json and the allowlist unchanged, this
+  // test (and `passes on the current workspace tree` above) returned
+  // `@adrkit/ci declares a dependency outside its allowed public surface` for
+  // `dependencies.@adrkit/portal`.
+  test('allows core, the GitHub toolkit, and the private portal generator', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, CI_MANIFEST), ciManifest());
+    await expect(checkDependencyRules(root)).resolves.toEqual({ ok: true, violations: [] });
+  });
+
+  // The widening is the portal alone. The SDK reaches the bundle only through the portal,
+  // whose own entry confines it; a direct SDK edge here would let the Action reach around
+  // the generator. ADR-0016 clause 2: observed failing by temporarily adding
+  // '@adrkit/sdk' to the ci allowlist, which turned this into `{ ok: true }`.
+  test('rejects a direct @adrkit/sdk dependency', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, CI_MANIFEST), ciManifest({ '@adrkit/sdk': 'workspace:*' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((violation) => `${violation.dependency}: ${violation.reason}`)).toEqual([
+      '@adrkit/sdk: @adrkit/ci declares a dependency outside its allowed public surface',
+    ]);
+  });
+
+  test('rejects the cli', async () => {
+    const root = await resetTestDir(DIR_NAME);
+    await writeText(join(root, CI_MANIFEST), ciManifest({ '@adrkit/cli': 'workspace:*' }));
+
+    const result = await checkDependencyRules(root);
+    expect(result.violations.map((violation) => violation.dependency)).toEqual(['@adrkit/cli']);
+  });
+});
+
 describe('mcp dependency boundary (Phase 5)', () => {
   test('allows exactly core, the pinned SDK server, and zod, plus the dev-only SDK client and @types/bun', async () => {
     const root = await resetTestDir(DIR_NAME);

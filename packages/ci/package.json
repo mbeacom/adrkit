@@ -12,14 +12,15 @@
     }
   },
   "scripts": {
-    "build": "rm -rf dist && bun build ./src/index.ts --target=node --conditions bun --outfile=dist/index.js && bun build ./src/queue-action-entrypoint.ts --target=node --conditions bun --outfile=dist/queue-action.js",
+    "build": "rm -rf dist && bun build ./src/index.ts --target=node --conditions bun --outfile=dist/index.js && bun build ./src/queue-action-entrypoint.ts --target=node --conditions bun --outfile=dist/queue-action.js && bun build ./src/portal-action-entrypoint.ts --target=node --conditions bun --outfile=dist/portal-action.js",
     "lint": "bun run typecheck",
     "typecheck": "tsc --noEmit --customConditions bun --project ../../tsconfig.json"
   },
   "dependencies": {
     "@actions/core": "^3.0.1",
     "@actions/github": "^9.1.1",
-    "@adrkit/core": "workspace:*"
+    "@adrkit/core": "workspace:*",
+    "@adrkit/portal": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -27,6 +28,7 @@
   "files": [
     "action.yml",
     "queue",
+    "portal",
     "dist"
   ]
 }

@@ -275,8 +275,17 @@ describe('path classes', () => {
     }
   });
 
-  test('artifacts are the two bundles and the schema, nothing nested or traversing', () => {
-    for (const p of ['packages/ci/dist/index.js', 'packages/ci/dist/queue-action.js', 'schema/adr.schema.json']) {
+  // The portal bundle (ADR-0054) joined the list without a code change: the artifact pattern
+  // admits any top-level `packages/ci/dist/*.js`. So this case passed before the third path
+  // was added and does not count as observed failing (ADR-0016); it records that the
+  // regeneration workflow will rebuild the portal bundle on a dependency bump.
+  test('artifacts are the three bundles and the schema, nothing nested or traversing', () => {
+    for (const p of [
+      'packages/ci/dist/index.js',
+      'packages/ci/dist/queue-action.js',
+      'packages/ci/dist/portal-action.js',
+      'schema/adr.schema.json',
+    ]) {
       expect(isArtifactFile(p)).toBe(true);
     }
     for (const p of ['packages/ci/dist/sub/x.js', 'packages/ci/dist/../src/x.js', 'schema/adr.schema.ts', 'packages/ci/src/index.ts']) {

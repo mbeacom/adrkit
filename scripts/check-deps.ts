@@ -151,10 +151,14 @@ function allowedDependenciesFor(packageName: string): Record<DependencySection, 
   }
 
   if (packageName === CI_SURFACE_PACKAGE) {
-    // The first-party CI surface may depend on core and the public GitHub Action
-    // toolkit only — never an adapter (enforced separately below).
+    // The first-party CI surface may depend on core, the public GitHub Action toolkit,
+    // and the private portal generator only — never an adapter (enforced separately
+    // below). `@adrkit/portal` is admitted for the nested portal Action
+    // (`packages/ci/portal`, ADR-0054 clause 2 and item 4), which bundles the generator.
+    // The SDK is deliberately *not* admitted directly: it reaches this bundle only
+    // through the portal, whose own entry above confines it to the SDK alone.
     return {
-      dependencies: new Set(['@adrkit/core', '@actions/core', '@actions/github']),
+      dependencies: new Set(['@adrkit/core', '@adrkit/portal', '@actions/core', '@actions/github']),
       devDependencies: new Set(['@types/bun']),
       peerDependencies: new Set(),
       optionalDependencies: new Set(),

@@ -48,6 +48,7 @@
         "@actions/core": "^3.0.1",
         "@actions/github": "^9.1.1",
         "@adrkit/core": "workspace:*",
+        "@adrkit/portal": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "latest",
