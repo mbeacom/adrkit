@@ -44,7 +44,7 @@ review:
 
 # ADR-0054: Publish a static decision portal for GitHub Pages, built outside the CLI from the SDK
 
-> **Status: proposed.** Agent-drafted and not ratified. This record amends no
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-10. This record amends no
 > record and supersedes none. It places an HTML renderer where
 > [ADR-0033](./0033-select-interactive-graph-presentation-at-the-cli-boundary-while-preserving-piped-dot.md)
 > decision 11 leaves room for one: that clause keeps native SVG/HTML out of

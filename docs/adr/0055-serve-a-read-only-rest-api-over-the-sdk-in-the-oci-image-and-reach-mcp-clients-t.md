@@ -46,7 +46,7 @@ review:
 
 # ADR-0055: Serve a read-only REST API over the SDK in the OCI image, and reach MCP clients through it
 
-> **Status: proposed.** Agent-drafted and not ratified. It depends on
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-10. It depends on
 > [ADR-0053](./0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md)
 > (an implemented `@adrkit/sdk`) and pairs with
 > [ADR-0054](./0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)

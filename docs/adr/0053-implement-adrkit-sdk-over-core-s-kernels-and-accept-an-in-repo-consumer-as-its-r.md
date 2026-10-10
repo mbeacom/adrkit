@@ -37,7 +37,7 @@ review:
 
 # ADR-0053: Implement @adrkit/sdk over core's kernels and accept an in-repo consumer as its real consumer
 
-> **Status: proposed.** Agent-drafted and not ratified. This record implements
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-10. This record implements
 > [ADR-0031](./0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
 > and interprets its clause 8; it supersedes nothing. It authorizes building
 > the SDK's runtime, **not** publishing it. Publication stays a later record's
