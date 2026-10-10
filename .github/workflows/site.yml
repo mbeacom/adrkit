@@ -30,6 +30,11 @@ on:
       # The docs pin the released CLI version; a release bump must re-run that
       # guard in the same push rather than failing the next unrelated change.
       - 'package.json'
+      # The decision portal at /decisions/ is built by the committed Action
+      # bundle and checked by this script; a change to either must re-run it.
+      - 'packages/ci/portal/**'
+      - 'packages/ci/dist/portal-action.js'
+      - 'scripts/check-portal-bundle.ts'
   workflow_dispatch:
 
 # Least-privilege baseline. Pages deploy privileges are scoped to the deploy job.
@@ -44,6 +49,17 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Read by the deploy job, which turns the run red after deploying when a
+    # step that is non-blocking on `main` failed (see the portal and rendered
+    # steps below). On pull requests those steps fail this job directly.
+    outputs:
+      portal_failed: >-
+        ${{ steps.portal_route.outcome == 'failure' ||
+            steps.portal.outcome == 'failure' ||
+            steps.portal_check.outcome == 'failure' }}
+      rendered_failed: >-
+        ${{ steps.rendered.outcome == 'failure' ||
+            steps.rendered_self_test.outcome == 'failure' }}
     # This job now drives a browser, which is the first step here that can hang
     # rather than error. The concurrency group never cancels, so an unbounded
     # hang would freeze every later deploy invisibly.
@@ -119,6 +135,62 @@ jobs:
       - name: Build site
         run: bun run build
 
+      # This repository's own decision portal, served at adrkit.dev/decisions/
+      # as ADR-0054's rung-2 dogfood (its action item 8). It is built by the
+      # nested Action from this checkout, so it runs the committed
+      # `packages/ci/dist/portal-action.js` exactly as a consumer pinning a
+      # release does. `uses:` ignores the job's `working-directory`; the Action
+      # resolves `dir` and `out` against the workspace.
+      #
+      # It writes into `site/dist` after `astro build`, not into `site/public`
+      # before it. Astro empties `dist` when it builds, so nothing stale
+      # survives; the portal is a directory the Action replaces whole and no
+      # site page reads, unlike the badge files, which `astro dev` must serve;
+      # and Astro has finished, so the guard below can prove no Starlight route
+      # already owns `/decisions/` before the Action replaces it. No `base-url`:
+      # the page needs none, and building without one is what shows the bundle
+      # works at a subpath unchanged (ADR-0054 clause 8).
+      #
+      # The visibility gate passes on `push` and `workflow_dispatch` because
+      # this repository is public and both payloads carry `repository` with
+      # `private: false`. Never set `publish-private` here.
+      #
+      # Exit 1 (corpus errors) succeeds with a warning and publishes, as the
+      # badge step does (clause 9). A refusal or exit 2 writes nothing and fails
+      # the step; on `main` that is non-blocking for the reason stated above the
+      # rendered checks: a missing portal must not withhold the canonical schema
+      # at its `$id` (ADR-0011). The site then deploys without `/decisions/`
+      # (or with an unchecked one), and the deploy job turns the run red after
+      # deploying.
+      - name: Guard — no site route owns /decisions/
+        id: portal_route
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        run: |
+          if [ -e dist/decisions ]; then
+            echo "::error::site/dist/decisions exists after astro build; a site page claims /decisions/, which the portal would replace"
+            exit 1
+          fi
+
+      - name: Build the decision portal
+        id: portal
+        if: steps.portal_route.outcome == 'success'
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        uses: ./packages/ci/portal
+        with:
+          dir: docs/adr
+          out: site/dist/decisions
+
+      # The Action exiting 0 says it wrote something. This checks what: the page
+      # files, `portal-data.json` at `version: "1"`, as many records as
+      # `adr lint` checked in the badge step above, and no asset reference that
+      # would break at a subpath. Its unit test sabotages each assertion.
+      - name: Check the decision portal bundle
+        id: portal_check
+        if: steps.portal.outcome == 'success'
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        working-directory: .
+        run: bun run scripts/check-portal-bundle.ts --bundle site/dist/decisions --lint site/public/lint.json
+
       # `astro build` exiting 0 says the pages compile; it says nothing about how
       # they render. Every defect fixed in #150 — a rule that silently lost a
       # specificity contest, a badge at 1.1:1, a page title ~180px out of line —
@@ -140,8 +212,10 @@ jobs:
       # the canonical schema at its `$id` (ADR-0011). Withholding the artifact
       # would leave adrkit.dev serving the *previous* schema bytes to every
       # `$ref` consumer because a colour moved. The run still goes red and
-      # annotates, so the signal survives; only the veto over the schema is
-      # removed.
+      # annotates, from the deploy job after `deploy-pages`, so the signal
+      # survives; only the veto over the schema is removed. A failing step in
+      # this job would fail the job, skip the upload, and through
+      # `needs: build` skip the deploy, which is exactly the veto.
       - name: Guard — the rendered checks can still fail
         id: rendered_self_test
         continue-on-error: ${{ github.event_name != 'pull_request' }}
@@ -151,15 +225,6 @@ jobs:
         id: rendered
         continue-on-error: ${{ github.event_name != 'pull_request' }}
         run: bun run check:rendered
-
-      - name: Annotate a rendered failure that did not block the deploy
-        if: >-
-          github.event_name != 'pull_request' &&
-          (steps.rendered.outcome == 'failure' ||
-           steps.rendered_self_test.outcome == 'failure')
-        run: |
-          echo "::error title=Rendered check failed on main::The site deployed anyway so the canonical schema at its \$id stays current (ADR-0011). Fix the rendered regression, or revert — see site/DEPLOYMENT.md."
-          exit 1
 
       # Only publish an artifact for real deployments (push to main / manual run).
       - name: Upload Pages artifact
@@ -186,3 +251,20 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
+
+      # After the deploy, not in the build job: a failing step there fails the
+      # job, and `needs: build` would then withhold the deploy, schema included.
+      # The second step uses `always()` (still only after a successful
+      # deploy) so that a rendered failure, which fails this job first, does
+      # not hide a portal failure.
+      - name: Annotate a rendered failure that did not block the deploy
+        if: needs.build.outputs.rendered_failed == 'true'
+        run: |
+          echo "::error title=Rendered check failed on main::The site deployed anyway so the canonical schema at its \$id stays current (ADR-0011). Fix the rendered regression, or revert — see site/DEPLOYMENT.md."
+          exit 1
+
+      - name: Annotate a portal failure that did not block the deploy
+        if: always() && needs.build.outputs.portal_failed == 'true' && steps.deployment.outcome == 'success'
+        run: |
+          echo "::error title=Decision portal failed on main::The site deployed anyway so the canonical schema at its \$id stays current (ADR-0011); /decisions/ is missing or unchecked. Fix it, or revert — see site/DEPLOYMENT.md."
+          exit 1

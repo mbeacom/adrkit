@@ -22,6 +22,18 @@ Until `1.0.0`, minor releases may include breaking changes
   Starlight 0.42's reworked mobile menu, which is meant to open without
   JavaScript.
 
+### Added
+
+- adrkit.dev serves this repository's own decision portal at
+  [`/decisions/`](https://adrkit.dev/decisions/), built on every site deploy by
+  the nested portal Action from the same checkout, and linked from the
+  decision-records index and the CI guide. A new check fails the site build
+  when the bundle is missing a page file, `portal-data.json` is not version
+  `"1"`, its record count differs from `adr lint`'s, or an asset reference
+  would break under a subpath
+  ([ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
+  action item 8, #294).
+
 ## [0.19.0] - 2026-10-10
 
 This release ships the decision portal: a third, build-only nested Action,

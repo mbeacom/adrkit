@@ -344,7 +344,7 @@ function renderIndex(docs: AdrDoc[]): string {
     .join('\n');
 
   const yaml = stringifyYaml(frontmatter).trimEnd();
-  return `---\n${yaml}\n---\n\nadrkit dogfoods its own format: every decision in this project is a typed\ndecision record in [\`docs/adr/\`](${GITHUB_TREE}).\nThese pages are generated from those source files — the records themselves are\nnever edited to fit this site.\n\n| # | Decision | Status |\n| --- | --- | --- |\n${rows}\n\nSee the [ADR template](/adr/0000-template/) for the copy-ready starting point.\n`;
+  return `---\n${yaml}\n---\n\nadrkit dogfoods its own format: every decision in this project is a typed\ndecision record in [\`docs/adr/\`](${GITHUB_TREE}).\nThese pages are generated from those source files — the records themselves are\nnever edited to fit this site.\n\nThe same corpus is also served as a [decision portal](/decisions/): the\nsupersession graph, the review queue, and which decisions govern each path,\nbuilt by adrkit's own portal Action on every deploy.\n\n| # | Decision | Status |\n| --- | --- | --- |\n${rows}\n\nSee the [ADR template](/adr/0000-template/) for the copy-ready starting point.\n`;
 }
 
 function main(): void {

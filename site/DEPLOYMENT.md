@@ -37,6 +37,25 @@ committed under `schema/versions/` (ADR-0011 action item 6).
   When `SCHEMA_VERSION` moves, copy the outgoing `schema/adr.schema.json` into
   `schema/versions/v<old>/` in the same change; the planner refuses a canonical
   version that would repoint a retained one.
+- **Decision portal:** after `astro build`, the nested portal Action
+  (`uses: ./packages/ci/portal`, so the committed
+  `packages/ci/dist/portal-action.js` runs exactly as a consumer's pinned copy
+  does) builds this repository's `docs/adr` into `dist/decisions/`, served at
+  `https://adrkit.dev/decisions/`
+  ([ADR-0054](../docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md),
+  action item 8). It goes into `dist` after the build rather than `public`
+  before it because Astro empties `dist` when it builds, and a guard step fails
+  if a site page already produced `dist/decisions/`, which the Action would
+  replace. Assets are relative and routes are hash routes (`#/adr/0054`), so no
+  `base-url` is passed. `scripts/check-portal-bundle.ts` then checks the page
+  files, `portal-data.json` at `version: "1"`, its record count against the
+  `checked` count in `lint.json`, and that no asset reference is absolute. A
+  corpus with error findings (exit 1) still publishes, with a banner. On pull
+  requests a portal failure fails the build; on `main` it does not withhold the
+  schema deploy: the site deploys without (or with an unchecked) `/decisions/`
+  and the deploy job turns the run red afterwards. Because that step runs in
+  the `github-pages` environment's job, the Deployments page then shows the
+  deployment as failed even though the site is live.
 - **Custom domain persistence:** [`public/CNAME`](./public/CNAME) contains
   `adrkit.dev`, so the custom domain survives every deploy.
 
@@ -120,6 +139,10 @@ curl -s https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json | head -3
 curl -s https://adrkit.dev/schema/adr/v0.2.0/adr.schema.json \
   | grep '"$id"'
 
+# The decision portal loads its data file from its own subpath
+curl -s https://adrkit.dev/decisions/portal-data.json \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["version"], d["commit"], len(d["records"]))'
+
 # A retained prior version still serves its published bytes
 curl -s https://adrkit.dev/schema/adr/v0.1.0/adr.schema.json | shasum -a 256
 # 1e1841151174cc5a8ed22dadae070f087477e5068bd928d5292c3acd2e2681cc
@@ -147,8 +170,14 @@ git push origin HEAD:refs/heads/main   # if you have push access to main
 required status checks, bypassable by repository role), so if a direct push is
 rejected, open the revert as a pull request and merge it normally. Note that the
 site `build` job is **not** in `main`'s required-checks list, so a red rendered
-check does not block the merge — but `deploy` needs `build`, so it does hold the
-publish.
+check does not block the merge. On `main` a failed rendered check (or portal
+step) does not hold the publish either: those steps are `continue-on-error`
+there, the build job passes their outcomes to the deploy job as outputs, and the
+deploy job reports them with an `exit 1` only after `deploy-pages` has
+published. The run is red and the `github-pages` deployment shows as failed
+while the new site, schema included, is live. A failure in any other build step
+(install, schema sync, `astro build`) still fails `build`, and `deploy` needs
+`build`, so that does hold the publish.
 
 Two things the timing depends on, neither obvious:
 
@@ -162,7 +191,8 @@ Two things the timing depends on, neither obvious:
 
 If the build job itself is red for an environment reason — no browser on the
 runner, a `playwright-core` or Chrome bump — the rendered steps are already
-non-blocking on `main` and annotate instead, so the deploy proceeds. Do not
+non-blocking on `main`: the deploy proceeds and the deploy job annotates
+afterwards. On pull requests they fail the build directly. Do not
 delete the steps to unblock a release; that removes the check silently and
 nothing records it.
 
@@ -175,6 +205,8 @@ on the ref it ran on*. Deploying an older ref therefore also republishes:
 - an **older schema** at the `$id` that other tools fetch over HTTP, and
 - **stale badge projections**, which degrade to plausible-but-wrong numbers
   rather than to an error.
+- a **stale decision portal** at `/decisions/`, built from the older corpus
+  and by the older portal Action.
 
 Neither failure announces itself. `check:schema` compares the served copy against
 the canonical file *within the deployed ref*, so it passes on an old ref by

@@ -252,6 +252,11 @@ So a corpus with error findings still publishes, and says so on every page,
 while a corpus that cannot be read publishes nothing and leaves the last
 deployed site in place.
 
+adrkit builds its own corpus this way on every deploy of this site, from the
+committed Action in the same checkout, and serves it at
+[adrkit.dev/decisions/](/decisions/). The bundle needs no `base-url` to work
+under a subpath: its assets are relative and its routes are hash routes.
+
 <Aside type="note" title="Pinning the portal Action">
 	The portal Action is available beginning with `v0.19.0`; replace `vX.Y.Z`
 	with that release or a later one. Pin an immutable release

@@ -1126,7 +1126,9 @@ nothing else: no token, no API call, `contents: read`. The consumer workflow
 deploys with `upload-pages-artifact` and `deploy-pages` in a separate job; the
 documented workflow is in `site/src/content/docs/ci.mdx`. **Rung 1**: unit,
 contract, and mutation tests, and a Node run of the committed bundle against a
-git fixture. Load-bearing:
+git fixture. `site.yml` builds this repository's corpus with it into
+`/decisions/` on adrkit.dev and checks the bundle (`scripts/check-portal-bundle.ts`);
+that is rung 2 only once a deploy has been observed serving it. Load-bearing:
 
 - **Logic is `src/portal-action.ts`, wiring is the entrypoint.** Only
   `portal-action-entrypoint.ts` imports `@actions/*`, as for the queue Action,
