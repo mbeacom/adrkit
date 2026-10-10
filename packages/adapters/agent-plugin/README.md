@@ -457,7 +457,8 @@ theme is still the app's: every colour reads the app's own token first, and
 the built-in fallbacks follow the system's light or dark setting when the app
 supplies none. Status is never shown by colour alone; each badge also has a
 symbol and its word. Motion is limited to a spinner and short transitions, and
-both stop under reduced motion. Below about 520 px the panes stack. A test
+both stop under reduced motion. Below 720 px the board's graph and detail
+panes stack, and so do a queue row's facts and controls. A test
 checks that every text colour in the fallbacks meets 4.5:1 in both themes.
 
 The pages still set no inline style, take no external font or library, and

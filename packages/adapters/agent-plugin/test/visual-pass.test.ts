@@ -416,6 +416,14 @@ describe('decision-board view and highlight', () => {
     root.fire('pointermove', { clientX: 60, clientY: 10 });
     root.fire('pointerup', {});
     expect(root.attrs['viewBox']).not.toBe(start);
+    // A plain wheel is the panel's scroll, not the graph's: untouched, not prevented.
+    const panned = root.attrs['viewBox'];
+    let prevented = false;
+    root.fire('wheel', { deltaY: 120, clientX: 5, clientY: 5, preventDefault: () => void (prevented = true) });
+    expect({ viewBox: root.attrs['viewBox'], prevented }).toEqual({ viewBox: panned, prevented: false });
+    root.fire('wheel', { deltaY: -120, ctrlKey: true, clientX: 5, clientY: 5, preventDefault: () => void (prevented = true) });
+    expect(prevented).toBe(true);
+    expect(root.attrs['viewBox']).not.toBe(panned);
     (records(nodes)[0] as FakeNode).fire('click');
     expect((nodes.get('detail') as FakeNode).allText()).not.toContain('Neighbors');
     (records(nodes)[0] as FakeNode).fire('click');

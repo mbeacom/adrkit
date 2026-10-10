@@ -326,6 +326,7 @@ ${VIEW_HELPERS_SRC}
 
   function resetView() {
     if (!drawn) return;
+    touched = false;
     view = fitView(drawn.width, drawn.height, viewport.width, viewport.height);
     applyView();
   }
@@ -375,17 +376,15 @@ ${VIEW_HELPERS_SRC}
     }
     root.addEventListener('pointerup', end);
     root.addEventListener('pointercancel', end);
+    // Only Ctrl or Cmd with the wheel (a trackpad pinch) belongs to the graph;
+    // a plain wheel scrolls the panel, so the graph is never a scroll trap.
     root.addEventListener('wheel', function (event) {
-      if (!event) return;
+      if (!event || !(event.ctrlKey || event.metaKey)) return;
       if (event.preventDefault) event.preventDefault();
-      if (event.ctrlKey || event.metaKey) {
-        var rect = typeof root.getBoundingClientRect === 'function' ? root.getBoundingClientRect() : null;
-        var fx = rect && rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5;
-        var fy = rect && rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
-        zoomBy(event.deltaY < 0 ? 1.1 : 1 / 1.1, fx, fy);
-      } else {
-        panBy(-(event.deltaX || 0), -(event.deltaY || 0));
-      }
+      var rect = typeof root.getBoundingClientRect === 'function' ? root.getBoundingClientRect() : null;
+      var fx = rect && rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5;
+      var fy = rect && rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
+      zoomBy(event.deltaY < 0 ? 1.1 : 1 / 1.1, fx, fy);
     }, { passive: false });
   }
 
@@ -779,7 +778,7 @@ ${VIEW_HELPERS_SRC}
     if (items.length > 0 && !info.enabled) {
       var off = el('div', 'callout tone-neutral review-off');
       off.setAttribute('role', 'note');
-      off.appendChild(el('p', 'callout-title glyph-info', 'Recording review is off'));
+      off.appendChild(el('p', 'callout-title glyph-info', 'Review controls are disabled'));
       off.appendChild(el('p', null, info.note));
       node.appendChild(off);
     }

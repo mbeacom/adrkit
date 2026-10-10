@@ -1352,7 +1352,7 @@ stylesheet (`canvas-theme.mjs`), light and dark fallbacks, badges with a
 symbol and a word, and pan and zoom on the board graph (`board-view.mjs`).
 Routes, actions, the payload, and the Content-Security-Policy are unchanged.
 
-### Headless renders (Copilot CLI 1.0.93 SDK host, Chrome headless, no model calls)
+### Headless renders (Copilot CLI 1.0.93 SDK host, Chrome 154 headless, no model calls)
 
 Each canvas was opened through `createSession({ pluginDirectories,
 requestCanvasRenderer: true, requestExtensions: true })` with no prompt sent and
@@ -1376,6 +1376,7 @@ corpus (past the 300-record budget), and a copy of the `adrkit-demo` corpus.
 | V9 | board | queue row selected | Approvals as dots (2 of 3), `1 unresolved` and `1 resolved` badges, SLA badge and deadline |
 | V10 | board | recording off (headless host has no elicitation) | All three controls disabled; one note above the list; each control carries it as its description |
 | V11 | both | dark vs light | Every pair differs (before 0.11.0 every pair was byte-identical) |
+| V12 | board | viewport changed after load (900 to 420 px, through the chrome-devtools MCP) | The untouched graph re-opened for the new width: `viewBox` `0 -106.84 776 377.69` at 489 px, then `0 -116.33 588.33 396.67` at 353 px (0.6 scale). Before the fix, a change after load left a stale 0.39 scale |
 
 The finished review (verdicts `consistent` and `conflicts`), the enabled review
 controls, and the confirm step cannot be reached in the headless host, which
@@ -1393,8 +1394,9 @@ the repository.
 
 - **Any of this in the Copilot app.** The app injects its own theme tokens,
   which replace the fallback colours, so the app's contrast is the app's.
-- Pan and zoom with a real trackpad pinch, and the wheel's pan direction, in
-  the app's webview.
+- Pan and zoom with a real trackpad pinch in the app's webview. A plain wheel
+  is left to scroll the panel, by design and by test; only Ctrl or Cmd with
+  the wheel zooms.
 - The enabled review controls and the confirm step outside the stub server.
 
 ## Verdict
