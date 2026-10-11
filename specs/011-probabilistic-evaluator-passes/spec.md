@@ -1158,6 +1158,14 @@ to prevent. Q7 was resolved during scoping and is recorded under
   with its own determinism obligations (`compareCodeUnits` ordering, byte-reproducibility) and its
   own record. Both specs therefore carry this as an open question with **no owner**, which is the
   accurate state. **Owner: unassigned — needs a decision on whether it is scoped at all.**
+  **Candidate owner proposed by
+  [ADR-0060](../../docs/adr/0060-drive-the-probabilistic-evaluator-passes-through-the-harness-with-typed-question.md)
+  clause 9:** relevance for retrieval category (a) as harness-supplied evidence, one `yes-no`
+  question per candidate, with no ranker in adrkit and categories (b) and (c) unchanged (FR-006).
+  The record defines the question's shape but has **no Pass 1 bundle emit it**: admitting a
+  candidate on a `true` answer would reinstate 012's withdrawn floor at 0.5. Whether harness
+  relevance counts as a ranking function, and with what floor, is 012's to decide by its own
+  record. Until then category (a) stays empty and `novel-no-precedent` stays `evidence-absent`.
 
 <a id="q4"></a>
 
@@ -1183,12 +1191,17 @@ to prevent. Q7 was resolved during scoping and is recorded under
 <a id="q6"></a>
 
 - **Q6 — `[NEEDS CLARIFICATION]` What is the prompt-bundle / structured-response contract with
-  the harness?** The harness-driven architecture is settled (see
-  [§ Architecture](#architecture-the-model-produces-evidence-deterministic-code-does-the-deciding)),
-  but its wire contract is not: the bundle format, the response schema, how a malformed or
-  refused response degrades (presumably to `PassAbsence` per A3), and whether the contract is
-  versioned independently like the schema. This is the main design surface the architecture ADR
-  should settle or explicitly defer. **Owner: 011, pending the architecture ADR.**
+  the harness?** **Proposed answer, pending ratification:**
+  [ADR-0060](../../docs/adr/0060-drive-the-probabilistic-evaluator-passes-through-the-harness-with-typed-question.md)
+  (**proposed**) ratifies the harness-driven architecture and settles the wire: versioned
+  `adrkit.evaluator.bundle/v1` and `adrkit.evaluator.response/v1` envelopes, one bundle per pass,
+  a `bundleId` the response must echo, typed questions (`yes-no`, `one-of`, `level`, `cite`,
+  `text`) whose wording comes from a committed catalog and never from record text, citations as
+  ids into spans cut deterministically before the call, unknown-key rejection, and a malformed
+  response as a typed contract error (exit `2`) rather than `PassAbsence`. It places the
+  fresh-context obligation (FR-014) on the harness. Until that record is **accepted**, T003 stays
+  open and this question is not resolved. If the record is rejected or revised, this entry changes
+  with it. **Owner: maintainer, by accepting or rejecting ADR-0060.**
 
 ## Decisions recorded during scoping
 
