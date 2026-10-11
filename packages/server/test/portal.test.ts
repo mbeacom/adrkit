@@ -39,7 +39,7 @@ describe('the portal', () => {
 
   test('serves the bundle files verbatim, with their content types', async () => {
     const { url } = await serve();
-    const types: Record<string, string> = { 'index.html': 'text/html', 'app.css': 'text/css' };
+    const types: Record<string, string> = { 'index.html': 'text/html', 'app.css': 'text/css', 'page/icon.svg': 'image/svg+xml' };
     for (const asset of PORTAL_ASSETS) {
       const response = await fetch(`${url}/portal/demo/${asset.path === 'index.html' ? '' : asset.path}`);
       expect(await response.text()).toBe(asset.contents);
@@ -47,6 +47,9 @@ describe('the portal', () => {
     }
   });
 
+  // ADR-0016 clause 2: observed failing with the `pathLookup` option removed from the
+  // buildPortalData call in src/server.ts, and with its route starting `../api` (one step
+  // short). The retained input is the route as written there.
   test('portal-data.json is built at the sidecar commit with an absent path table', async () => {
     const { url } = await serve();
     const { body, headers } = await getJson(`${url}/portal/demo/portal-data.json`);
@@ -56,6 +59,11 @@ describe('the portal', () => {
     expect(body.dir).toBe('docs/adr');
     expect(body.asOf).toBe('2026-10-10');
     expect(body.pathTable).toEqual({ state: 'absent' });
+    // Clause 9: the page points at this server's own governing route, relative to the page.
+    expect(body.pathLookup).toEqual({ route: '../../api/v1/corpora/demo/governing' });
+    const resolved = new URL(`${body.pathLookup.route}?path=src/index.ts`, `${url}/portal/demo/`);
+    expect(resolved.pathname).toBe('/api/v1/corpora/demo/governing');
+    expect((await fetch(resolved)).status).toBe(200);
     expect(body.records.map((record: { id: string }) => record.id)).toEqual(['0001', '0002', '0003']);
     const records = await getJson(`${url}/api/v1/corpora/demo/records`);
     expect(records.body.commit).toBe(body.commit);

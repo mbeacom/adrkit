@@ -70,7 +70,24 @@ export const PATH_TEXT = {
     'Resolution was withheld because the corpus has errors. The errors are listed above; fix them and rebuild the portal to look paths up.',
   absent:
     'This host has no path table, so it cannot say which decisions reach a path. Build the portal from a git work tree to get one, or run adr explain on the path.',
+  /** The absent state on a host that sets `pathLookup` (ADR-0055's server), in place of `absent`. */
+  absentServed:
+    'This host has no path table: it holds the decision records, not the source tree, so this page cannot say which decisions reach a path.',
+  /** The lines naming that host's own route. Text only: the page never requests it. */
+  lookupRoute: (route) => [
+    'This server answers for one path at a time, matching affects only and reading no file, at',
+    route + '?path=<repository-relative path>',
+    'relative to this page. For example:',
+    route + '?path=src/index.ts',
+  ],
 };
+
+/** The host's `pathLookup` route, when the data file carries a usable one; else `null`. */
+export function lookupRouteOf(data) {
+  const lookup = data && data.pathLookup;
+  const route = lookup && typeof lookup === 'object' ? lookup.route : null;
+  return typeof route === 'string' && route.length > 0 && route.length <= 512 ? route : null;
+}
 
 /* ------------------------------------------------------------------ *
  * Small pure helpers (exported for the tests)
@@ -1015,7 +1032,23 @@ export function startPortal(env) {
       return;
     }
     if (table.state !== 'available') {
-      main.appendChild(callout('neutral', 'info', 'No path table', [PATH_TEXT.absent]));
+      const route = lookupRouteOf(data);
+      if (route === null) {
+        main.appendChild(callout('neutral', 'info', 'No path table', [PATH_TEXT.absent]));
+        return;
+      }
+      // ADR-0055 clause 9: point at the server's own route, as text. No link and no request,
+      // so the renderer keeps one network path (its data file) and one CSP on both hosts.
+      const [lead, template, between, example] = PATH_TEXT.lookupRoute(route);
+      main.appendChild(
+        callout('neutral', 'info', 'No path table', [
+          PATH_TEXT.absentServed,
+          el('p', null, lead),
+          el('p', 'mono path-route', template),
+          el('p', null, between),
+          el('p', 'mono path-route', example),
+        ]),
+      );
       return;
     }
     const entries = list(table.entries);

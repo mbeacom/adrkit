@@ -16,6 +16,7 @@
  * index.html                 src/page/index.html, with the meta CSP of clause 7
  * app.css                    THEME_CSS, then src/page/page.css
  * page/app.mjs               src/page/app.mjs
+ * page/icon.svg              src/page/icon.svg, the tab icon (no script, no external reference)
  * vendor/board-layout.mjs    src/vendor/board-layout.mjs, the generated copy
  * vendor/board-view.mjs      src/vendor/board-view.mjs, the generated copy
  * portal-data.json           written by generate.ts
@@ -32,6 +33,7 @@ import * as layoutText from '../vendor/board-layout.mjs' with { type: 'text' };
 import * as viewText from '../vendor/board-view.mjs' with { type: 'text' };
 import * as appText from './app.mjs' with { type: 'text' };
 import * as htmlText from './index.html' with { type: 'text' };
+import * as iconText from './icon.svg' with { type: 'text' };
 import * as cssText from './page.css' with { type: 'text' };
 
 /** One file of the page bundle. `path` is relative to the output directory, POSIX separators. */
@@ -55,6 +57,7 @@ export const PORTAL_ASSETS: readonly PortalAsset[] = Object.freeze([
   { path: 'index.html', contents: textOf(htmlText, 'index.html') },
   { path: 'app.css', contents: `${THEME_CSS}\n${PAGE_CSS}` },
   { path: 'page/app.mjs', contents: textOf(appText, 'app.mjs') },
+  { path: 'page/icon.svg', contents: textOf(iconText, 'icon.svg') },
   { path: 'vendor/board-layout.mjs', contents: textOf(layoutText, 'board-layout.mjs') },
   { path: 'vendor/board-view.mjs', contents: textOf(viewText, 'board-view.mjs') },
 ]);

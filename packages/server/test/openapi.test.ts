@@ -34,6 +34,7 @@ const STABLE_IDS = [
   'getPortalApp',
   'getPortalBoardLayout',
   'getPortalBoardView',
+  'getPortalIcon',
 ];
 
 type Doc = ReturnType<typeof buildOpenApi>;

@@ -34,6 +34,8 @@ import { join } from 'node:path';
 /** Files the page needs to load; a bundle missing any of them renders nothing. */
 // page/app.mjs imports the two vendor modules statically (packages/portal/src/page/app.mjs);
 // if either is missing the browser aborts the page module and the portal renders nothing.
+// `page/icon.svg` (#309) is deliberately not listed: without it the tab shows no icon and the
+// browser logs one 404, and the page still renders.
 export const REQUIRED_FILES = [
   'index.html',
   'app.css',

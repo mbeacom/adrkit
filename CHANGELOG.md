@@ -80,6 +80,16 @@ Until `1.0.0`, minor releases may include breaking changes
   `governing` matches `affects` only: it never reads the file at the path, so
   it has no `@adr` marker evidence.
 
+- **The server-hosted decision portal points at the server's own
+  `governing?path=` route** ([#315](https://github.com/mbeacom/adrkit/issues/315),
+  ADR-0055 clause 9). The governance-by-path view still says this host has no
+  path table, and now names the route, relative to the page, with an example
+  such as `../../api/v1/corpora/demo/governing?path=src/index.ts`. The page
+  shows it as text and never requests it, so the renderer, its CSP, and the
+  GitHub Pages host are unchanged. `portal-data.json` grows one additive
+  top-level field, `pathLookup` (`{ route }` or `null`); `version` stays `"1"`,
+  and a Pages bundle carries `"pathLookup": null`.
+
 ### Fixed
 
 - **A `repo`-qualified `affects` matcher no longer vanishes silently
@@ -99,6 +109,16 @@ Until `1.0.0`, minor releases may include breaking changes
   is replaced by an explicit `member: { log, repo }` identity, and
   `matcherAppliesToMember` applies a qualified matcher when it equals either
   name. No surface passes a member yet; that is ADR-0059's federation work.
+
+- **The decision portal ships its own tab icon**
+  ([#309](https://github.com/mbeacom/adrkit/issues/309)). Without one, every
+  load also requested `/favicon.ico` at the host root and logged a 404 on a
+  Pages project path, at adrkit.dev's `/decisions/`, or behind the REST
+  server. The bundle now writes `page/icon.svg` and `index.html` names it
+  relatively, so it works at any path; the CSP is unchanged (`img-src 'self'`
+  already covers it). The REST server serves it at
+  `/portal/{corpus}/page/icon.svg` as `image/svg+xml` (operation
+  `getPortalIcon`).
 
 ### Added
 

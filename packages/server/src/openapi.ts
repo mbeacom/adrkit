@@ -16,6 +16,7 @@ const MEDIA_TYPES: Readonly<Record<RouteKind, string>> = Object.freeze({
   html: 'text/html',
   css: 'text/css',
   javascript: 'text/javascript',
+  svg: 'image/svg+xml',
 });
 
 const ERROR_SCHEMA = {

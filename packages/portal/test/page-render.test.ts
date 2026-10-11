@@ -25,11 +25,15 @@
  * - against the code before the fix (the checkbox's `change` handler called `render()`): "a
  *   kind toggle redraws only the lines: same checkbox, same frame, same view" failed, the
  *   view's nodes and checkbox replaced and the zoom reset.
+ * - the `pathLookup` branch in `renderPaths` bypassed (`if (true)`), the example rendered as
+ *   an `<a>` through `link(...)`, and an `env.fetch(route)` added to it: "an absent table with
+ *   a pathLookup shows the route and an example as text, and requests nothing" failed each
+ *   time (the fetch also failed page-static's "it sends nothing and builds no form").
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { NODE_LIMIT } from '../src/vendor/board-layout.mjs';
-import { clipText, DEFAULT_KINDS, lookupPath, normalizeLookup, parseRoute, PATH_TEXT, recordHref, safeExternalHref } from '../src/page/app.mjs';
+import { clipText, DEFAULT_KINDS, lookupPath, lookupRouteOf, normalizeLookup, parseRoute, PATH_TEXT, recordHref, safeExternalHref } from '../src/page/app.mjs';
 import { FakeNode, runPortal, SVG_NS } from './fake-dom.ts';
 import { brokenData, COMMIT, HOSTILE_TITLE, pathTable, portalData, records, SCRIPT_BODY } from './page-fixture.ts';
 import { fakeRecord } from './fake-handle.ts';
@@ -472,6 +476,36 @@ describe('path view (clause 6): every table state has its own wording', () => {
     expect(PATH_TEXT.absent).toContain('This host has no path table');
   });
 
+  test('an absent table with no pathLookup keeps the generic wording and names no route', async () => {
+    const page = await lookUp(portalData({ pathTable: { state: 'absent' } }), 'src/a.ts');
+    expect(page.app.allText()).toContain(PATH_TEXT.absent);
+    expect(page.app.allText()).not.toContain(PATH_TEXT.absentServed);
+    expect(page.app.allText()).not.toContain('?path=');
+  });
+
+  // ADR-0055 clause 9: the server-hosted page points at its own governing route, as text.
+  test('an absent table with a pathLookup shows the route and an example as text, and requests nothing', async () => {
+    const route = '../../api/v1/corpora/demo/governing';
+    const page = await lookUp(portalData({ pathTable: { state: 'absent' }, pathLookup: { route } }), 'src/a.ts');
+    const text = page.app.allText();
+    expect(text).toContain(PATH_TEXT.absentServed);
+    expect(text).not.toContain(PATH_TEXT.absent);
+    expect(text).toContain(`${route}?path=<repository-relative path>`);
+    expect(text).toContain(`${route}?path=src/index.ts`);
+    expect(text).toContain('matching affects only and reading no file');
+    expect(page.app.all().filter((node) => node.tag === 'a')).toEqual([]);
+    expect(page.app.all().some((node) => node.tag === 'input')).toBe(false);
+    expect(page.fetched).toEqual(['./portal-data.json']);
+  });
+
+  test('a pathLookup is read only when it carries a usable route string', () => {
+    expect(lookupRouteOf({ pathLookup: { route: 'governing' } })).toBe('governing');
+    for (const pathLookup of [null, undefined, 'governing', { route: '' }, { route: 42 }, { route: 'x'.repeat(513) }]) {
+      expect(lookupRouteOf({ pathLookup })).toBeNull();
+    }
+    expect(lookupRouteOf(undefined)).toBeNull();
+  });
+
   test('no state ever calls a path ungoverned or shows an empty result', async () => {
     for (const data of [portalData(), portalData({ commit: null }), brokenData(), portalData({ pathTable: { state: 'absent' } }), portalData({ pathTable: pathTable({ capped: true } as never) })]) {
       const page = await lookUp(data, 'nowhere/at/all.ts');
@@ -479,5 +513,7 @@ describe('path view (clause 6): every table state has its own wording', () => {
       expect(page.app.allText()).not.toMatch(/\bnot governed\b/i);
     }
     for (const message of Object.values(PATH_TEXT)) expect(String(typeof message === 'function' ? message(COMMIT) : message)).not.toMatch(/ungoverned/i);
+    const served = await lookUp(portalData({ pathTable: { state: 'absent' }, pathLookup: { route: 'governing' } }), 'nowhere/at/all.ts');
+    expect(served.app.allText()).not.toMatch(/ungoverned|\bnot governed\b/i);
   });
 });

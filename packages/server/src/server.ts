@@ -41,6 +41,7 @@ const CONTENT_TYPES = Object.freeze({
   html: 'text/html; charset=utf-8',
   css: 'text/css; charset=utf-8',
   javascript: 'text/javascript; charset=utf-8',
+  svg: 'image/svg+xml; charset=utf-8',
 });
 
 export interface ServerOptions {
@@ -206,7 +207,15 @@ export function createRequestHandler(options: ServerOptions): (request: Incoming
         let body = corpus.portal.get(asOf);
         if (body === undefined) {
           body = serializePortalData(
-            buildPortalData(corpus.handle, { dir: corpus.adrDir, commit: corpus.commit, asOf, pathTable: { state: 'absent' } }),
+            buildPortalData(corpus.handle, {
+              dir: corpus.adrDir,
+              commit: corpus.commit,
+              asOf,
+              pathTable: { state: 'absent' },
+              // Clause 9: the page names this server's own governing route, as text. Relative to
+              // /portal/{corpus}/, so a gateway base path survives; the key is CORPUS_KEY-checked.
+              pathLookup: { route: `../../api/v1/corpora/${corpus.key}/governing` },
+            }),
           );
           corpus.portal.clear();
           corpus.portal.set(asOf, body);

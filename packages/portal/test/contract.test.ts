@@ -49,7 +49,8 @@ describe('portal-data.json v1', () => {
   });
 
   test('top-level keys', () => {
-    expect(keys(json)).toEqual(['asOf', 'commit', 'dir', 'graph', 'issues', 'pathTable', 'queue', 'records', 'version']);
+    expect(keys(json)).toEqual(['asOf', 'commit', 'dir', 'graph', 'issues', 'pathLookup', 'pathTable', 'queue', 'records', 'version']);
+    expect(json.pathLookup).toBeNull();
     expect(json.commit).toBeNull();
     expect('generatedAt' in json).toBe(false);
   });

@@ -16,7 +16,7 @@
 import { CORPUS_KEY } from './config.ts';
 import { RECORD_ID } from './validate.ts';
 
-export type RouteKind = 'json' | 'html' | 'css' | 'javascript';
+export type RouteKind = 'json' | 'html' | 'css' | 'javascript' | 'svg';
 
 export interface RouteParameter {
   readonly name: string;
@@ -56,6 +56,7 @@ const CORPUS_ERRORS = {
 export const PORTAL_ASSET_ROUTES: Readonly<Record<string, { operationId: string; kind: RouteKind; summary: string }>> = Object.freeze({
   'app.css': { operationId: 'getPortalStylesheet', kind: 'css', summary: "The decision portal's stylesheet." },
   'page/app.mjs': { operationId: 'getPortalApp', kind: 'javascript', summary: "The decision portal's page module." },
+  'page/icon.svg': { operationId: 'getPortalIcon', kind: 'svg', summary: "The decision portal's tab icon." },
   'vendor/board-layout.mjs': { operationId: 'getPortalBoardLayout', kind: 'javascript', summary: "The decision portal's graph layout module." },
   'vendor/board-view.mjs': { operationId: 'getPortalBoardView', kind: 'javascript', summary: "The decision portal's graph view module." },
 });

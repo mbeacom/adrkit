@@ -174,7 +174,7 @@ describe('exit 2 leaves out untouched', () => {
     const result = await generatePortal({ cwd: inner, out: 'site-replaced', asOf: AS_OF });
     expect(result.exitCode).toBe(0);
     expect(existsSync(join(out, 'stale.txt'))).toBe(false);
-    expect(Object.keys(await snapshot(out)).sort()).toEqual(['app.css', 'index.html', 'page/app.mjs', 'portal-data.json', 'vendor/board-layout.mjs', 'vendor/board-view.mjs']);
+    expect(Object.keys(await snapshot(out)).sort()).toEqual(['app.css', 'index.html', 'page/app.mjs', 'page/icon.svg', 'portal-data.json', 'vendor/board-layout.mjs', 'vendor/board-view.mjs']);
     const siblings = await readdir(inner);
     expect(siblings.filter((name) => name.includes('staging') || name.includes('.old-'))).toEqual([]);
   });

@@ -6,7 +6,7 @@
 
 import type { CorpusIssue, DecisionRecord } from '@adrkit/sdk/src/index.ts';
 import { buildPortalData } from '../src/data/build.ts';
-import type { PortalData, PortalPathTable } from '../src/data/contract.ts';
+import type { PortalData, PortalPathLookup, PortalPathTable } from '../src/data/contract.ts';
 import { fakeHandle, fakeQueueEntry, fakeRecord } from './fake-handle.ts';
 
 export const COMMIT = 'a'.repeat(40);
@@ -65,6 +65,7 @@ export interface FixtureOptions {
   readonly issues?: CorpusIssue[];
   readonly pathTable?: PortalPathTable;
   readonly commit?: string | null;
+  readonly pathLookup?: PortalPathLookup | null;
 }
 
 export function portalData(options: FixtureOptions = {}): PortalData {
@@ -96,6 +97,7 @@ export function portalData(options: FixtureOptions = {}): PortalData {
     commit: options.commit === undefined ? COMMIT : options.commit,
     asOf: '2026-10-10',
     pathTable: options.pathTable ?? pathTable(),
+    pathLookup: options.pathLookup ?? null,
   });
 }
 

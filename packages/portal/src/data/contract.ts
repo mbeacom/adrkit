@@ -95,6 +95,27 @@ export interface PortalData {
   readonly queue: readonly PortalQueueEntry[];
   /** Governance by path (clause 6). */
   readonly pathTable: PortalPathTable;
+  /**
+   * Where this host answers governance for one path at a time, or `null` (the Pages host).
+   * Added within version 1. Only ADR-0055's server sets it, alongside an `absent` path table
+   * (clause 12; ADR-0055 clause 9); see {@link PortalPathLookup}.
+   */
+  readonly pathLookup: PortalPathLookup | null;
+}
+
+/**
+ * A hint, set by a host that has no path table but can answer one path per request
+ * (ADR-0055's `governing?path=` route). The page shows it as **text** and never fetches it:
+ * ADR-0054 keeps the renderer free of network calls beyond its own data file, under the
+ * same CSP on both hosts. Never set beside an `available` or `unavailable` table.
+ */
+export interface PortalPathLookup {
+  /**
+   * The route, relative to the page (e.g. `../../api/v1/corpora/demo/governing`), without a
+   * query: a caller appends `?path=<repository-relative path>`. Built by the host from its
+   * own configuration, not from repository text. Relative so a gateway base path survives.
+   */
+  readonly route: string;
 }
 
 /* ------------------------------------------------------------------ *

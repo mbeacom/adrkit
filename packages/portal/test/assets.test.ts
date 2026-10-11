@@ -69,7 +69,7 @@ describe('the page bundle', () => {
       ...[...app.matchAll(/^\s*import\b[^;]*?from\s+['"]([^'"]+)['"]/gm)].map((match) => new URL(match[1]!, 'https://x.invalid/page/app.mjs').pathname.slice(1)),
       ...[...html.matchAll(/\b(?:href|src)="(\.\/[^"]+)"/g)].map((match) => new URL(match[1]!, 'https://x.invalid/index.html').pathname.slice(1)),
     ];
-    expect(wanted.length).toBe(4);
+    expect(wanted.length).toBe(5);
     for (const path of wanted) expect({ path, written: written.has(path) }).toEqual({ path, written: true });
   });
 

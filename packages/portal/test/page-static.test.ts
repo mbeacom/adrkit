@@ -22,6 +22,11 @@
  *   letting lines show through): "it loads nothing and dims the box, never the label" failed.
  * - the queue lede changed to end "no verdict to them, ready or not.": "no ratifying or review
  *   command, and no readiness word" failed.
+ * - the icon link in `src/page/index.html` changed to `href="/page/icon.svg"`: "every
+ *   reference is relative and every link a hash route" failed; `img-src 'self' data:` in the
+ *   meta CSP: "the CSP meta is exactly the decided policy" failed; `<script>alert(1)</script>`
+ *   added to `src/page/icon.svg`: "it is the source file, shipped verbatim, and loads or runs
+ *   nothing" failed.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -81,7 +86,10 @@ describe('index.html (clauses 7 and 8)', () => {
     // for a second, inline script however it is closed.
     expect(HTML.match(/<script/gi) ?? []).toHaveLength(1);
     expect(HTML).toContain('<script type="module" src="./page/app.mjs"></script>');
-    expect([...HTML.matchAll(/<link\b[^>]*>/gi)].map((match) => match[0])).toEqual(['<link rel="stylesheet" href="./app.css">']);
+    expect([...HTML.matchAll(/<link\b[^>]*>/gi)].map((match) => match[0])).toEqual([
+      '<link rel="icon" href="./page/icon.svg" type="image/svg+xml">',
+      '<link rel="stylesheet" href="./app.css">',
+    ]);
     expect(HTML).not.toMatch(/<style\b/i);
     expect(HTML).not.toMatch(/\sstyle\s*=/i);
     expect(HTML).not.toMatch(/\son[a-z]+\s*=/i);
@@ -153,6 +161,25 @@ describe('the page module (clause 7)', () => {
   });
 });
 
+describe('the tab icon (#309; clauses 7 and 8)', () => {
+  const ICON = asset('page/icon.svg');
+
+  test('index.html names it relatively, and the CSP is unchanged: no data: source', () => {
+    expect(HTML).toContain('<link rel="icon" href="./page/icon.svg" type="image/svg+xml">');
+    expect(HTML).not.toMatch(/data:/i);
+  });
+
+  test('it is the source file, shipped verbatim, and loads or runs nothing', () => {
+    expect(ICON).toBe(readFileSync(join(PAGE_DIR, 'icon.svg'), 'utf8'));
+    expect(ICON.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true);
+    for (const sink of [/<script/i, /\son[a-z]+\s*=/i, /\bhref\s*=/i, /<style/i, /\sstyle\s*=/i, /url\s*\(/i, /data:/i, /<foreignObject/i, /<!ENTITY/i, /<\?xml-stylesheet/i]) {
+      expect({ sink: String(sink), found: sink.test(ICON) }).toEqual({ sink: String(sink), found: false });
+    }
+    // The namespace is the only URL in the file.
+    expect([...ICON.matchAll(/https?:\/\/[^"\s]+/g)].map((match) => match[0])).toEqual(['http://www.w3.org/2000/svg']);
+  });
+});
+
 describe('the stylesheet', () => {
   test('app.css is the shared theme followed by the page rules', () => {
     expect(CSS).toBe(`${THEME_CSS}\n${PAGE_CSS}`);
@@ -172,12 +199,12 @@ describe('the stylesheet', () => {
 
 describe('the bundle as a whole', () => {
   test('every path is relative, inside the output directory', () => {
-    expect(PORTAL_ASSETS.map((file) => file.path)).toEqual(['index.html', 'app.css', 'page/app.mjs', 'vendor/board-layout.mjs', 'vendor/board-view.mjs']);
+    expect(PORTAL_ASSETS.map((file) => file.path)).toEqual(['index.html', 'app.css', 'page/app.mjs', 'page/icon.svg', 'vendor/board-layout.mjs', 'vendor/board-view.mjs']);
     for (const { path } of PORTAL_ASSETS) expect({ path, ok: /^[a-z0-9-]+(\/[a-z0-9-]+)*\.[a-z]+$/.test(path) && !path.split('/').includes('..') }).toEqual({ path, ok: true });
   });
 
   test('every page source file is either shipped or a build-only declaration', () => {
-    expect(readdirSync(PAGE_DIR).sort()).toEqual(['app.mjs', 'assets.ts', 'index.html', 'page.css', 'text-imports.d.ts']);
+    expect(readdirSync(PAGE_DIR).sort()).toEqual(['app.mjs', 'assets.ts', 'icon.svg', 'index.html', 'page.css', 'text-imports.d.ts']);
   });
 
   test('no ratifying or review command, and no readiness word, in the portal\'s own page strings (clause 5)', () => {

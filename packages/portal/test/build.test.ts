@@ -16,6 +16,10 @@
  *   fit" failed.
  * - the graph called with no `kinds`: "maps a real SDK handle" (missing `relatesTo` and
  *   `conflictsWith` edges) and "asks the handle for all three edge kinds" failed.
+ * - `pathLookup` written as `options.pathLookup` (not rebuilt from `route`): "the pathLookup
+ *   hint is rebuilt from its route" failed on the leaked key; the `absent`-only guard
+ *   removed: "a pathLookup hint is refused beside a table" failed; the route check removed:
+ *   "a pathLookup route must be page-relative" failed.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -176,6 +180,48 @@ describe('buildPortalData', () => {
     expect(() => buildPortalData(healthy, { ...OPTIONS, asOf: '2026-02-30' })).toThrow(RangeError);
     expect(buildPortalData(fakeHandle(), { ...OPTIONS, commit: null }).commit).toBeNull();
     expect(buildPortalData(fakeHandle(), { ...OPTIONS, commit: 'b'.repeat(64) }).commit).toBe('b'.repeat(64));
+  });
+});
+
+describe('the pathLookup hint (ADR-0055 clause 9)', () => {
+  const LOOKUP = { route: '../../api/v1/corpora/demo/governing' };
+
+  test('is null unless a host passes one', () => {
+    expect(buildPortalData(fakeHandle(), OPTIONS).pathLookup).toBeNull();
+    expect(buildPortalData(fakeHandle(), { ...OPTIONS, pathLookup: null }).pathLookup).toBeNull();
+    expect(serializePortalData(buildPortalData(fakeHandle(), OPTIONS))).toContain('"pathLookup":null,"pathTable":');
+  });
+
+  test('the pathLookup hint is rebuilt from its route', () => {
+    const data = buildPortalData(fakeHandle(), { ...OPTIONS, pathLookup: { ...LOOKUP, extra: 'x' } as never });
+    expect(data.pathLookup).toEqual(LOOKUP);
+    expect(serializePortalData(data)).not.toContain('"extra"');
+  });
+
+  test('a pathLookup hint is refused beside a table', () => {
+    const table = buildPathTable([governance('src/a.ts', { governing: ['0001'] })]);
+    expect(() => buildPortalData(healthy, { ...OPTIONS, pathTable: table, pathLookup: LOOKUP })).toThrow(TypeError);
+    expect(() => buildPortalData(broken, { ...OPTIONS, pathTable: { state: 'unavailable', reason: 'corpus-errors' }, pathLookup: LOOKUP })).toThrow(TypeError);
+    // The server always passes `absent`, so a corpus with errors still carries the hint.
+    expect(buildPortalData(broken, { ...OPTIONS, pathLookup: LOOKUP }).pathLookup).toEqual(LOOKUP);
+  });
+
+  test('a pathLookup route must be page-relative', () => {
+    for (const route of ['./governing', 'governing', '../../api/v1/corpora/a.b_c-d/governing']) {
+      expect({ route, kept: buildPortalData(fakeHandle(), { ...OPTIONS, pathLookup: { route } }).pathLookup?.route }).toEqual({ route, kept: route });
+    }
+    for (const route of ['', '/api/v1/governing', '//evil.invalid/x', 'https://evil.invalid/x', 'javascript:alert(1)', 'governing?path=a', 'governing#x', '../a/../b', 'a b', 'a/<b>', `a/${'x'.repeat(512)}`, 42]) {
+      expect({ route, threw: (() => { try { buildPortalData(fakeHandle(), { ...OPTIONS, pathLookup: { route } as never }); return false; } catch (error) { return error instanceof TypeError; } })() }).toEqual({ route, threw: true });
+    }
+    expect(() => buildPortalData(fakeHandle(), { ...OPTIONS, pathLookup: 'governing' as never })).toThrow(TypeError);
+  });
+
+  test('is byte-identical across calls, with and without the hint', () => {
+    const without = serializePortalData(buildPortalData(healthy, OPTIONS));
+    expect(serializePortalData(buildPortalData(healthy, { ...OPTIONS, pathLookup: null }))).toBe(without);
+    const withHint = serializePortalData(buildPortalData(healthy, { ...OPTIONS, pathLookup: LOOKUP }));
+    expect(serializePortalData(buildPortalData(healthy, { ...OPTIONS, pathLookup: { ...LOOKUP } }))).toBe(withHint);
+    expect(withHint).toBe(without.replace('"pathLookup":null', `"pathLookup":{"route":"${LOOKUP.route}"}`));
   });
 });
 

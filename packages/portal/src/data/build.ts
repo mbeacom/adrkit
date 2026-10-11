@@ -26,6 +26,7 @@ import {
   type PortalIssue,
   type PortalPathDecision,
   type PortalPathEntry,
+  type PortalPathLookup,
   type PortalPathTable,
   type PortalPathTableAvailable,
   type PortalPathTableCaps,
@@ -50,18 +51,31 @@ export interface BuildPortalDataOptions {
   readonly asOf: string;
   /** The resolved path table (see `buildPathTable`), `{ state: 'unavailable', … }`, or `{ state: 'absent' }`. */
   readonly pathTable: PortalPathTable;
+  /**
+   * Where this host answers one path per request, or `null` (the default). Only ADR-0055's
+   * server passes one, and only beside an `absent` path table. Written as `pathLookup`.
+   */
+  readonly pathLookup?: PortalPathLookup | null;
 }
 
 const ALL_EDGE_KINDS = ['supersedes', 'relatesTo', 'conflictsWith'] as const;
 const COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * A page-relative route with no query, fragment, scheme, or root: `./` or `../` steps, then
+ * plain segments. The page shows it as text, but a host still cannot publish something that
+ * reads as an absolute URL or carries markup-looking characters.
+ */
+const LOOKUP_ROUTE = /^(?:\.\.?\/)*(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
+const LOOKUP_ROUTE_MAX = 512;
 
 /**
  * Build `portal-data.json` v1 from an SDK handle. Same inputs, byte-identical
  * {@link serializePortalData} output.
  *
- * Throws `TypeError` for malformed options, and for one inconsistent combination: an
- * `available` path table over a corpus with an error-severity issue. With corpus errors the
+ * Throws `TypeError` for malformed options (a `pathLookup` beside a table that is not
+ * `absent` among them), and for one inconsistent combination: an `available` path table
+ * over a corpus with an error-severity issue. With corpus errors the
  * SDK's `governing` answers every path with empty groups, so such a table would present a
  * confident "nothing governs this" for every file (clause 6). The caller must pass
  * `unavailable` (or `absent`) instead. Any `RangeError` from `handle.queue` (a malformed
@@ -69,6 +83,7 @@ const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export function buildPortalData(handle: PortalDataSource, options: BuildPortalDataOptions): PortalData {
   const { dir, commit, asOf, pathTable } = options;
+  const pathLookup = pathLookupOf(options.pathLookup ?? null);
   if (typeof dir !== 'string' || dir.length === 0) throw new TypeError('dir must be a non-empty string');
   if (commit !== null && (typeof commit !== 'string' || !COMMIT.test(commit))) {
     throw new TypeError('commit must be a 40- or 64-character lowercase hex string, or null');
@@ -80,6 +95,9 @@ export function buildPortalData(handle: PortalDataSource, options: BuildPortalDa
   const table = pathTableOf(pathTable);
   if (hasCorpusError && table.state === 'available') {
     throw new TypeError("an available path table is inconsistent with a corpus that has errors; pass state 'unavailable'");
+  }
+  if (pathLookup !== null && table.state !== 'absent') {
+    throw new TypeError("a pathLookup hint is only for a host with no path table; pass pathTable state 'absent'");
   }
 
   const recordPaths = new Map<string, string>();
@@ -100,7 +118,18 @@ export function buildPortalData(handle: PortalDataSource, options: BuildPortalDa
     },
     queue: queue.entries.map(queueEntryOf),
     pathTable: table,
+    pathLookup,
   };
+}
+
+/** Rebuild the lookup hint from its known field only, after checking the route's shape. */
+function pathLookupOf(lookup: PortalPathLookup | null): PortalPathLookup | null {
+  if (lookup === null) return null;
+  const route = (lookup as { route?: unknown } | undefined)?.route;
+  if (typeof route !== 'string' || route.length > LOOKUP_ROUTE_MAX || !LOOKUP_ROUTE.test(route)) {
+    throw new TypeError('pathLookup.route must be a page-relative path with no query, fragment, or scheme');
+  }
+  return { route };
 }
 
 function recordOf(record: DecisionRecord, recordPaths: ReadonlyMap<string, string>): PortalRecord {
