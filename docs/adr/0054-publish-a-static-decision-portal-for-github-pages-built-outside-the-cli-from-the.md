@@ -333,16 +333,21 @@ workflow deploys to GitHub Pages:
 
 ## Evidence rung
 
-**Rung 2** of ADR-0014, as this record defines it. Rung 1 landed with action
-items 1 to 7 ([#292](https://github.com/mbeacom/adrkit/pull/292) and
+**Rung 1** of ADR-0014. Rung 1 landed with action items 1 to 7
+([#292](https://github.com/mbeacom/adrkit/pull/292) and
 [#302](https://github.com/mbeacom/adrkit/pull/302)): unit, contract, and purity tests, each observed failing
-first (ADR-0016), and a byte-identity check on the copies. Rung 2 is item 8:
-since [#310](https://github.com/mbeacom/adrkit/pull/310) (2026-10-10),
+first (ADR-0016), and a byte-identity check on the copies. Item 8 is done as
+written: since [#310](https://github.com/mbeacom/adrkit/pull/310) (2026-10-10),
 `site.yml` builds this repository's own corpus with the shipped portal Action
-and publishes it at <https://adrkit.dev/decisions/>. That is a
-maintainer-owned run on this repository, not on an isolated reference
-repository, and no external party has run the portal, so rung 3 is not
-claimed.
+and publishes it at <https://adrkit.dev/decisions/>. That is supplemental,
+maintainer-owned dogfood evidence, **not rung 2**: ADR-0014 defines rung 2 as a
+run in a separate, isolated reference repository with reproducible,
+self-verifying, fail-closed evidence, and ADR-0053 records that an
+in-repository consumer stays at rung 1. Item 8's own wording ("the rung-2
+dogfood") predates that reading and overstates it. Rung 2 needs the portal
+Action run in an isolated reference repository such as
+[`adrkit-t018-dogfood`](https://github.com/mbeacom/adrkit-t018-dogfood); rung 3
+(an external party) is not claimed.
 
 ## Action items
 

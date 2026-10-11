@@ -1077,13 +1077,13 @@ alone; it is the SDK's first consumer under
 [ADR-0053](./docs/adr/0053-implement-adrkit-sdk-over-core-s-kernels-and-accept-an-in-repo-consumer-as-its-r.md).
 The nested build-only Action (`packages/ci/portal`, `dist/portal-action.js`)
 is described below.
-**Rung 2**: unit, contract, purity, and mutation tests, a Node run of the
-bundled generator, and a maintainer browser check on this repository's corpus
-(rung 1); and, since #310, `site.yml` builds this repository's corpus with the
-shipped portal Action and publishes it at <https://adrkit.dev/decisions/>, the
-maintainer-owned dogfood ADR-0054 names as rung 2. It runs on this repository,
-not an isolated reference repository, and no external party has run it, so
-rung 3 is not claimed. Load-bearing:
+**Rung 1**: unit, contract, purity, and mutation tests, a Node run of the
+bundled generator, and a maintainer browser check on this repository's corpus.
+Since #310, `site.yml` also builds this repository's corpus with the shipped
+portal Action and publishes it at <https://adrkit.dev/decisions/>. That is
+supplemental dogfood, not rung 2: ADR-0014's rung 2 needs a run in a separate,
+isolated reference repository, and an in-repository consumer stays at rung 1
+(ADR-0053). Load-bearing:
 
 - **It lives outside the CLI.** ADR-0033 decision 11 keeps HTML out of
   `@adrkit/cli`; do not add an `adr site` or `--format html`.
@@ -1132,7 +1132,8 @@ documented workflow is in `site/src/content/docs/ci.mdx`. **Rung 1**: unit,
 contract, and mutation tests, and a Node run of the committed bundle against a
 git fixture. `site.yml` builds this repository's corpus with it into
 `/decisions/` on adrkit.dev and checks the bundle (`scripts/check-portal-bundle.ts`);
-that is rung 2 only once a deploy has been observed serving it. Load-bearing:
+that deploy is supplemental dogfood; rung 2 needs a run in an isolated reference
+repository (ADR-0014). Load-bearing:
 
 - **Logic is `src/portal-action.ts`, wiring is the entrypoint.** Only
   `portal-action-entrypoint.ts` imports `@actions/*`, as for the queue Action,
