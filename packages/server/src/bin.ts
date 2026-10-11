@@ -1,6 +1,6 @@
 /**
  * `adrkit-server`: the entry point of the image's `server` selector
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clauses 12 to 14).
  *
  * **This server authenticates no one.** It binds `127.0.0.1` unless `ADRKIT_SERVER_HOST`

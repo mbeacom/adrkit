@@ -1,6 +1,6 @@
 /**
  * The route table: every path this server answers, as data
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clauses 1, 2, 9, and 11).
  *
  * The dispatcher matches against this table and nothing else, and `/openapi.json` is generated

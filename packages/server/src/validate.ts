@@ -1,6 +1,6 @@
 /**
  * Validation of everything a request carries, before any SDK call
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clauses 7 and 8). Pure: no clock (the caller passes `now`), file, or environment.
  */
 

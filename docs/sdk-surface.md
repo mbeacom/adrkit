@@ -352,15 +352,19 @@ Decisions this left open, and how they were settled:
   ADR-0054) calls `openDecisions` and five of the six handle members (`records`, `issues`,
   `queue`, `graph`, `governing`; not `get`), and takes its default `asOf` from `queue()`'s echo.
   `bun test` runs it in CI over fixture corpora, and the portal Action's bundle is tested the
-  same way. That consumer is build-time only: it opens a corpus once per build, so the handle's
-  long-lived use is not exercised (ADR-0053 decision 8), and whether it satisfies ADR-0053
-  action item 9 is for the publication record to decide. The consumer the surface was designed
-  for, a Backstage backend, does not exist yet. ADR-0031's own trade-off — *"the risk is that the guess hardens before the
-  Backstage plugin tests it"* — is not mitigated by this work, only made concrete enough to
-  criticize.
-- **Implemented, not exercised.** The eight-call `explain` assembly the surface claims to absorb
-  is now written and tested equal to `adr explain --json`; its fitness for a long-lived server
-  consumer is still argued, not observed.
+  same way. That consumer is build-time only: it opens a corpus once per build. A second,
+  long-lived consumer now exists: the REST server (`packages/server`, ADR-0055) holds one
+  handle per corpus, serves `records`, `get`, `queue`, `graph`, `issues`, and `governing` from
+  it, and opens a fresh handle when a corpus's synced commit changes (clause 5), with its
+  tests and a CI container smoke over the built image. Together they exercise every handle
+  member, at build time and in a running process; whether that satisfies ADR-0053 action
+  item 9 is for the publication record to decide. The consumer the surface was first designed
+  for, a Backstage backend, exists only as a spike (`mbeacom/adrkit-backstage`), which used the
+  published CLI JSON, because an unpublished SDK consumed from source loads a stale prebuilt
+  core.
+- **Implemented and exercised in a server.** The eight-call `explain` assembly the surface
+  claims to absorb is written and tested equal to `adr explain --json`, and the REST server's
+  `governing` route runs it per request.
 - **No release, and none prepared.** ADR-0031 clause 7 specifies `versioning: 'independent'`
   *when* released; wiring that into `scripts/release-pack.ts` now would prepare an act clause 8
   does not authorize, so it is deliberately absent — and asserted absent by test, so its absence

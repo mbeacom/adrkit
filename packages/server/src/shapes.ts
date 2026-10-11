@@ -1,6 +1,6 @@
 /**
  * The response shapes of `/api/v1`, projected field by field from the SDK's
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clauses 1, 3, and 7).
  *
  * Projected rather than passed through, for two reasons. The canonical serializer refuses

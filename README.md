@@ -166,7 +166,7 @@ corpus it serves, private repositories included.
 
 The `server` selector serves a read-only REST API and the decision portal over
 one or more corpora
-([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)).
+([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)).
 It answers `GET` and `HEAD` only, and every other method gets `405`. Every data
 response is `{ corpus, commit, data }`. It runs no `git`, spawns no process, and
 opens no outbound connection. It binds `127.0.0.1` unless `ADRKIT_SERVER_HOST`

@@ -333,11 +333,16 @@ workflow deploys to GitHub Pages:
 
 ## Evidence rung
 
-Nothing here exists yet. The surface enters **rung 1** of ADR-0014 at best
-when action items 1 to 7 land: unit, contract, and purity tests, each
-observed failing first (ADR-0016), and a byte-identity check on the copies.
-A dogfood build of this repository's own corpus from `site.yml` (item 8)
-would be rung 2. No external party has run it, so rung 3 is absent.
+**Rung 2** of ADR-0014, as this record defines it. Rung 1 landed with action
+items 1 to 7 ([#292](https://github.com/mbeacom/adrkit/pull/292) and
+[#302](https://github.com/mbeacom/adrkit/pull/302)): unit, contract, and purity tests, each observed failing
+first (ADR-0016), and a byte-identity check on the copies. Rung 2 is item 8:
+since [#310](https://github.com/mbeacom/adrkit/pull/310) (2026-10-10),
+`site.yml` builds this repository's own corpus with the shipped portal Action
+and publishes it at <https://adrkit.dev/decisions/>. That is a
+maintainer-owned run on this repository, not on an isolated reference
+repository, and no external party has run the portal, so rung 3 is not
+claimed.
 
 ## Action items
 
@@ -358,6 +363,12 @@ would be rung 2. No external party has run it, so rung 3 is absent.
    nested bundle.
 7. [x] Add a test that the portal's shipped strings contain no ratifying or
    review command and no readiness word.
-8. [ ] Build this repository's corpus from `site.yml` and publish it under
-   adrkit.dev as the rung-2 dogfood.
+8. [x] Build this repository's corpus from `site.yml` and publish it under
+   adrkit.dev as the rung-2 dogfood. **Done 2026-10-10 in
+   [#310](https://github.com/mbeacom/adrkit/pull/310): `site.yml` runs
+   `uses: ./packages/ci/portal`. Checked 2026-10-10: `/decisions/` and
+   `/decisions/page/app.mjs` answer 200 as `text/html` and `text/javascript`,
+   and `/decisions/portal-data.json` has `version: "1"`, 59 records (the count
+   `adr lint` checks), and commit e491a78 of `main`. Recorded in
+   [#294](https://github.com/mbeacom/adrkit/issues/294#issuecomment-6103512935).**
 9. [x] Ratify or reject this record.

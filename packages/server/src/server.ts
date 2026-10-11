@@ -1,6 +1,6 @@
 /**
  * The read-only HTTP server
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)).
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)).
  *
  * `node:http` and nothing else (clause 10). The handler:
  *

@@ -1,6 +1,6 @@
 /**
  * Every error the server answers with, as fixed text looked up by code
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clause 8). No stderr, exception message, stack, or file system path reaches a response:
  * an error body is built from this table and nothing else.
  */

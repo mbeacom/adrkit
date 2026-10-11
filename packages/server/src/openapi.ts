@@ -1,6 +1,6 @@
 /**
  * `/openapi.json`, generated from the route table
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clause 11). Pure. Every operation is a `get`; there is no other method to describe.
  *
  * OpenAPI 3.0.3 rather than 3.1, because 3.0 is the version APIM's importer documents fully.

@@ -1,6 +1,6 @@
 /**
  * One configured corpus: its sidecar, its loaded handle, and the swap between handles
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clauses 4 and 5).
  *
  * **The sidecar contract, worded as in ADR-0055 clause 4 and ADR-0056 clause 4:**

@@ -69,7 +69,7 @@ Until `1.0.0`, minor releases may include breaking changes
   `/api/v1/corpora/{corpus}`: `records`, `records/{id}`, `graph?kinds=`,
   `queue?asOf=`, `issues`, and `governing?path=`, plus `/api/v1/corpora`,
   `/openapi.json`, `/healthz`, and the decision portal at `/`
-  ([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)).
+  ([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)).
   Every answer is `{ corpus, commit, data }`, with the commit read from the
   `.adrkit-corpus.json` file the populator writes next to the records; a corpus
   without one is not served. Configure it with `ADRKIT_SERVER_CORPORA`

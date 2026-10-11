@@ -352,30 +352,53 @@ non-Azure deployment needs it.
 
 ## Evidence rung
 
-**None yet; rung 1 at best when built** under ADR-0014. Nothing in this record
-is implemented, and it depends on ADR-0053's SDK. Rung 1 would be the unit,
+**Rung 1** under ADR-0014, since
+[#314](https://github.com/mbeacom/adrkit/pull/314) (2026-10-10). The unit,
 contract, method-guard, verb-guard, error-text, side-effect-denial, and
-OpenAPI-agreement tests above, each observed failing first (ADR-0016), plus a
-local container smoke. The APIM path (clause 15) is unmeasured, and a
-reference-repository or external run does not exist.
+OpenAPI-agreement tests in `packages/server/test/` were each observed failing
+against a planted break first (ADR-0016), as #314 lists; the side-effect-denial
+test runs under Bun on the source and under Node on the bundle. A local Podman
+smoke ran the all-in-one image read-only with a `:ro` corpus, and the CI
+container smoke ("Smoke test the read-only server through the all-in-one
+image") runs the `server` selector under `--read-only` with a `:ro` mount and
+passed on `main`. The APIM path (clause 15, action item 8) is unmeasured, and
+no reference-repository or external run exists, so neither rung 2 nor rung 3
+is claimed.
 
 ## Action items
 
-1. [ ] Create `packages/server` (private) on `node:http` over `@adrkit/sdk`,
+1. [x] Create `packages/server` (private) on `node:http` over `@adrkit/sdk`,
    with the routes, envelope, sidecar read, and swap of clauses 1 to 7, and
    its `check-deps` entry (`@adrkit/sdk` and `@adrkit/portal` only) with a
-   negative case.
-2. [ ] Add the method guard, the verb and transition guard, the error-text
+   negative case. **Done 2026-10-10 in [#314](https://github.com/mbeacom/adrkit/pull/314): `scripts/check-deps.ts` admits
+   exactly the two, and `scripts/check-deps.test.ts` rejects a third
+   workspace package and an HTTP framework.**
+2. [x] Add the method guard, the verb and transition guard, the error-text
    sentinel test, and the side-effect-denial variant, each observed failing.
-3. [ ] Serve `/openapi.json` and test it against the route table.
-4. [ ] Serve ADR-0054's bundle and its data file from the loaded handle, with
-   the headers of clause 9.
-5. [ ] Add the `server` selector and local target to the `Containerfile` and
+   **Done 2026-10-10 in [#314](https://github.com/mbeacom/adrkit/pull/314): `methods`, `writing-verbs`, `error-text`, and
+   `side-effect-denial` tests, observed failing against a planted POST route,
+   writing verb, `String(error)` in a 500, and `execSync` (under both
+   runtimes).**
+3. [x] Serve `/openapi.json` and test it against the route table. **Done
+   2026-10-10 in [#314](https://github.com/mbeacom/adrkit/pull/314): generated from `src/routes.ts`; `openapi.test.ts` was
+   observed failing on planted drift.**
+4. [x] Serve ADR-0054's bundle and its data file from the loaded handle, with
+   the headers of clause 9. **Done 2026-10-10 in [#314](https://github.com/mbeacom/adrkit/pull/314): the data file is built
+   per request by `buildPortalData` from the loaded handle at the sidecar's
+   commit, served with the clause 9 CSP (`frame-ancestors 'none'` observed
+   failing when dropped), `nosniff`, `no-referrer`, and no CORS header.**
+5. [x] Add the `server` selector and local target to the `Containerfile` and
    `scripts/container-entrypoint.sh`, and a CI smoke under
-   `--read-only` with `:ro` mounts.
-6. [ ] Agree the `.adrkit-corpus.json` sidecar with ADR-0056.
-7. [ ] Document the selector in the README, leading with "this server
-   authenticates no one".
+   `--read-only` with `:ro` mounts. **Done 2026-10-10 in [#314](https://github.com/mbeacom/adrkit/pull/314): the
+   `server` target and selector, and a CI step that builds the target and
+   smokes `adrkit:ci server` under `--read-only` with a `:ro` corpus mount,
+   green on `main` at a5b0646 and e491a78.**
+6. [x] Agree the `.adrkit-corpus.json` sidecar with ADR-0056. **Done
+   2026-10-10: clause 4 here and ADR-0056 decision 4 carry the same contract
+   sentence, identical after whitespace and emphasis are normalized.**
+7. [x] Document the selector in the README, leading with "this server
+   authenticates no one". **Done 2026-10-10 in [#314](https://github.com/mbeacom/adrkit/pull/314): the README's "The
+   read-only REST server" section opens with that sentence.**
 8. [ ] Measure APIM's "REST API as MCP server" over these routes with a
    2025-era and a `2026-07-28` client (ADR-0056).
-9. [ ] Ratify or reject this record.
+9. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-10-10.**

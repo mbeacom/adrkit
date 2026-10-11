@@ -1,6 +1,6 @@
 /**
  * The server's configuration
- * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-th.md)
+ * ([ADR-0055](../../../docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)
  * clauses 6 and 14), read from the environment once at start.
  *
  * | Variable                | Default      | Meaning                                                            |
