@@ -465,7 +465,7 @@ answer where the next decision is actually being made.
 It never approves anything. It routes, and humans decide.
 
 The root Marketplace entry point has shipped with every release since
-`v0.13.0`. Pin its immutable root reference — currently `v0.19.0` — for the
+`v0.13.0`. Pin its immutable root reference — currently `v0.20.0` — for the
 complete governing-decisions workflow (see
 [Use in CI](https://adrkit.dev/ci/)):
 
@@ -484,7 +484,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: mbeacom/adrkit@v0.19.0
+      - uses: mbeacom/adrkit@v0.20.0
 ```
 
 Existing consumers of the nested form can stay on
@@ -531,10 +531,11 @@ table is the short version:
 | Available now | `@adrkit/core`, `@adrkit/cli`, `@adrkit/evaluator`, `@adrkit/mcp` | Published on npm for Node 22+ |
 | Available now | `@adrkit/spec-kit` | Published separately for current Spec Kit releases |
 | Available now | `adr queue`, `adr approve`, `adr object`, `adr resolve`, `adr accept`, and the governing-decisions GitHub Action | Queue reporting, recorded review state, ratification from the queue, and PR comments are part of the shipped workflow |
-| Available now | Decision portal Action (`packages/ci/portal`) | Builds a static, read-only portal for GitHub Pages, beginning with `v0.19.0`; the private `@adrkit/portal` generator ships only inside it |
+| Available now | Decision portal Action (`packages/ci/portal`) | Builds a static, read-only portal for GitHub Pages, beginning with `v0.19.0`; its `as-of` accepts an ISO datetime with an explicit timezone beginning with `v0.20.0`; the private `@adrkit/portal` generator ships only inside it |
+| Available now | Read-only REST server in the OCI image (`adrkit-container server`, the `server` selector) | Serves a read-only REST API and the decision portal over one or more corpora, beginning with `v0.20.0`; it authenticates no one, so run it on localhost or behind an authenticating gateway; the private `@adrkit/server` ships only inside the image |
 | Available now | `adrkit` agent plugin | Install from this repository or marketplace; shells out to `adr` |
 | In development | Later evaluator passes | Passes 1–3 and calibration remain design targets; Pass 0 is the implemented evaluator surface |
-| In development | `@adrkit/sdk` | Implemented over `@adrkit/core` and used by the portal, but unpublished at `0.0.0`; there is no npm package |
+| In development | `@adrkit/sdk` | Implemented over `@adrkit/core` and used by the portal and the REST server, but unpublished at `0.0.0`; there is no npm package |
 | In development | Catalog packages | `@adrkit/catalog-envelope` and `@adrkit/catalog-backstage` exist in the workspace at `0.0.0` and are not released |
 | Planned | Additional downstream integrations | Future integrations will build on the current typed corpus and read-only retrieval model |
 

@@ -9,59 +9,51 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
-### Changed
+## [0.20.0] - 2026-10-10
 
-- **The adrkit.dev site builds on Starlight 0.42.** Every 0.42 bump had failed
-  `astro build` with `Cannot find native binding`: under the site's isolated
-  linker (ADR-0010) Vite could not resolve Starlight's `satteri` from the site
-  root, so it inlined the napi loader into the prerender bundle, where the
-  platform binding could not be found. The site now lists `satteri` as a direct
-  dependency so Vite keeps it external, with no hoisting and no linker change,
-  and Dependabot updates it together with Starlight
-  ([#224](https://github.com/mbeacom/adrkit/issues/224)). The site also picks up
-  Starlight 0.42's reworked mobile menu, which is meant to open without
-  JavaScript.
+This release adds a read-only REST server to the OCI image:
+`adrkit-container server` (the image's `server` selector) serves the records,
+graph, review queue, issues, and path governance of one or more corpora, and the
+decision portal, over `GET` and `HEAD` only
+([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)).
+It authenticates no one: run it on localhost or behind a gateway that
+authenticates every request. adrkit.dev now serves this repository's own
+decision portal at [`/decisions/`](https://adrkit.dev/decisions/), and the
+decision-portal Action, `mbeacom/adrkit/packages/ci/portal@v0.20.0`, accepts an
+ISO datetime with an explicit timezone as `as-of`. The portal page ships its own
+tab icon and, when the REST server hosts it, names the server's
+`governing?path=` route. On
+npm, `@adrkit/core`, `@adrkit/evaluator`, `@adrkit/cli`, and `@adrkit/mcp` move
+to 0.20.0.
+
+**One CLI JSON contract change is not additive, and it can change an exit code.** `adr lint` now
+reports a log-qualified `relatesTo` or `conflictsWith` (such as
+`payments:0012`) as `federated-ref-unresolved` at `info` instead of
+`dangling-relatesTo` (`error`) or `dangling-conflictsWith` (`warn`), so a corpus
+whose only error was a qualified `relatesTo` moves from exit `1` to `0` under
+`adr lint` and `adr explain`. That is
+[ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
+clause 5, which amends
+[ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+clause 5's additive-only CLI JSON contract for exactly this case; a
+log-qualified `supersedes` or `supersededBy` stays an error, and `adr evaluate`
+now fails a qualified `supersedes` too. Separately, a `repo`-qualified `affects` matcher that cannot
+apply in a single-repository corpus is reported as an `info` finding,
+`affects-repo-not-applicable`, instead of being skipped silently
+([#300](https://github.com/mbeacom/adrkit/issues/300)); it changes no exit code.
+
+`@adrkit/core` gains public exports: `todayUtcDate()`, the `--as-of` default
+the CLI, the queue Action, and the SDK now share; the `adr explain`, `adr lint`,
+and `adr new` JSON builders and formatters, whose output is byte-identical to
+the CLI's before; and the repository-qualifier validator. Its unused `log` input on `resolveAffects` and `checkChanges` is
+replaced by `member: { log, repo }`. `@adrkit/sdk` closes the publication
+gates this release could close (ADR-0031 action items 4, 5, 6, and 8; ADR-0053
+action items 3, 5, and 8), and it is still not published: there is no npm
+package, and ADR-0053 action item 9 and a publication record come first.
+Dependency bumps that touch only the documentation site (#313) and
+maintainer-only publishing notes (#306) are not listed.
 
 ### Added
-
-- adrkit.dev serves this repository's own decision portal at
-  [`/decisions/`](https://adrkit.dev/decisions/), built on every site deploy by
-  the nested portal Action from the same checkout, and linked from the
-  decision-records index and the CI guide. A new check fails the site build
-  when the bundle is missing a page file, `portal-data.json` is not version
-  `"1"`, its record count differs from `adr lint`'s, or an asset reference
-  would break under a subpath
-  ([ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
-  action item 8, #294).
-
-- **Behavior change: `adr lint` no longer fails on a log-qualified `relatesTo`
-  or `conflictsWith`.** A reference such as `relatesTo: ["payments:0012"]` names
-  a record in another decision log. The schema has always accepted it, but the
-  corpus gate reported it as `dangling-relatesTo` (`error`, exit `1`) or
-  `dangling-conflictsWith` (`warn`), while the evaluator, the marker resolver,
-  and the MCP server already treated it as inert. `adr lint` and `adr lint
-  --json` now report it as `federated-ref-unresolved` at `info`, so the
-  surfaces agree ([#299](https://github.com/mbeacom/adrkit/issues/299)). This is
-  the one non-additive change
-  [ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
-  clause 5 makes, and it amends
-  [ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
-  clause 5's additive-only CLI JSON contract for exactly this case: the finding
-  is renamed and its severity lowered. Only the `relatesTo` case lowers an exit
-  code, from `1` to `0`; a dangling `conflictsWith` was already a warning.
-  Measured on a one-record fixture, that moves `adr lint` and `adr explain`
-  from exit `1` to `0`; `adr check` and `adr queue` already exited `0` there.
-  Everything that reads lint findings, the Actions included, sees the new code.
-  A qualified reference never resolves
-  against a local record with the same bare id. An unqualified dangling
-  reference is unchanged, and a log-qualified `supersedes` or `supersededBy`
-  stays a `dangling-*` error, now with a message saying cross-repository
-  supersession is not supported (ADR-0059 clause 4). `adr evaluate` now agrees:
-  a log-qualified `supersedes` fails `no-orphan-refs` as
-  `no-orphan-refs.dangling-supersedes` even when a snapshot of that log is
-  supplied (before, it was inert without a snapshot and passed when the snapshot
-  listed the id), and a log-qualified `supersededBy` names clause 4 in its
-  existing failure.
 
 - **A read-only REST server in the OCI image, `adrkit-container server`.**
   This server authenticates no one: run it on localhost or behind a gateway
@@ -79,7 +71,6 @@ Until `1.0.0`, minor releases may include breaking changes
   It runs no `git`, spawns no process, and opens no outbound connection.
   `governing` matches `affects` only: it never reads the file at the path, so
   it has no `@adr` marker evidence.
-
 - **The server-hosted decision portal points at the server's own
   `governing?path=` route** ([#315](https://github.com/mbeacom/adrkit/issues/315),
   ADR-0055 clause 9). The governance-by-path view still says this host has no
@@ -89,39 +80,15 @@ Until `1.0.0`, minor releases may include breaking changes
   GitHub Pages host are unchanged. `portal-data.json` grows one additive
   top-level field, `pathLookup` (`{ route }` or `null`); `version` stays `"1"`,
   and a Pages bundle carries `"pathLookup": null`.
-
-### Fixed
-
-- **A `repo`-qualified `affects` matcher no longer vanishes silently
-  ([#300](https://github.com/mbeacom/adrkit/issues/300)).** A matcher such as
-  `{ type: path, pattern: "src/**", repo: "payments" }` names another
-  repository, so in a single-repository corpus it still never matches. Until
-  now it was also skipped with no finding, so `adr check src/a.ts` returned
-  nothing and said nothing. `adr check` and `adr explain` now report each
-  skipped matcher as an `info` finding, `affects-repo-not-applicable`, and
-  `adr lint` reports one per record, so a corpus-wide run surfaces it without
-  a path. This repository's ADR-0056, whose `resource` matchers name
-  `mbeacom/adrkit-azure`, is the live example. The finding is `info`, as
-  [ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
-  clause 11 names it, and changes no exit code; `adr lint --json` and
-  `adr check --json` output grow additively. In `@adrkit/core`, the unused
-  `log` input on `resolveAffects` and `checkChanges`, which no caller set,
-  is replaced by an explicit `member: { log, repo }` identity, and
-  `matcherAppliesToMember` applies a qualified matcher when it equals either
-  name. No surface passes a member yet; that is ADR-0059's federation work.
-
-- **The decision portal ships its own tab icon**
-  ([#309](https://github.com/mbeacom/adrkit/issues/309)). Without one, every
-  load also requested `/favicon.ico` at the host root and logged a 404 on a
-  Pages project path, at adrkit.dev's `/decisions/`, or behind the REST
-  server. The bundle now writes `page/icon.svg` and `index.html` names it
-  relatively, so it works at any path; the CSP is unchanged (`img-src 'self'`
-  already covers it). The REST server serves it at
-  `/portal/{corpus}/page/icon.svg` as `image/svg+xml` (operation
-  `getPortalIcon`).
-
-### Added
-
+- adrkit.dev serves this repository's own decision portal at
+  [`/decisions/`](https://adrkit.dev/decisions/), built on every site deploy by
+  the nested portal Action from the same checkout, and linked from the
+  decision-records index and the CI guide. A new check fails the site build
+  when the bundle is missing a page file, `portal-data.json` is not version
+  `"1"`, its record count differs from `adr lint`'s, or an asset reference
+  would break under a subpath
+  ([ADR-0054](docs/adr/0054-publish-a-static-decision-portal-for-github-pages-built-outside-the-cli-from-the.md)
+  action item 8, #294).
 - **`@adrkit/core` exports `todayUtcDate()`, the `--as-of` default.** When
   `--as-of` is absent, `adr queue`, the queue Action, and `adr new` now take
   today's UTC date from this one function instead of three inline copies. So
@@ -152,6 +119,76 @@ Until `1.0.0`, minor releases may include breaking changes
 - **`docs/RELEASING.md` documents the two consumer contracts**: the
   `@adrkit/sdk` surface (still unpublished) and the CLI JSON, each with the
   additive-only obligation stated (ADR-0031 action item 5).
+
+### Changed
+
+- **Behavior change: `adr lint` no longer fails on a log-qualified `relatesTo`
+  or `conflictsWith`.** A reference such as `relatesTo: ["payments:0012"]` names
+  a record in another decision log. The schema has always accepted it, but the
+  corpus gate reported it as `dangling-relatesTo` (`error`, exit `1`) or
+  `dangling-conflictsWith` (`warn`), while the evaluator, the marker resolver,
+  and the MCP server already treated it as inert. `adr lint` and `adr lint
+  --json` now report it as `federated-ref-unresolved` at `info`, so the
+  surfaces agree ([#299](https://github.com/mbeacom/adrkit/issues/299)). This is
+  the one non-additive change
+  [ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
+  clause 5 makes, and it amends
+  [ADR-0031](docs/adr/0031-publish-a-narrow-consumer-sdk-as-the-contract-and-document-the-cli-json-as-its-s.md)
+  clause 5's additive-only CLI JSON contract for exactly this case: the finding
+  is renamed and its severity lowered. Only the `relatesTo` case lowers an exit
+  code, from `1` to `0`; a dangling `conflictsWith` was already a warning.
+  Measured on a one-record fixture, that moves `adr lint` and `adr explain`
+  from exit `1` to `0`; `adr check` and `adr queue` already exited `0` there.
+  Everything that reads lint findings, the Actions included, sees the new code.
+  A qualified reference never resolves
+  against a local record with the same bare id. An unqualified dangling
+  reference is unchanged, and a log-qualified `supersedes` or `supersededBy`
+  stays a `dangling-*` error, now with a message saying cross-repository
+  supersession is not supported (ADR-0059 clause 4). `adr evaluate` now agrees:
+  a log-qualified `supersedes` fails `no-orphan-refs` as
+  `no-orphan-refs.dangling-supersedes` even when a snapshot of that log is
+  supplied (before, it was inert without a snapshot and passed when the snapshot
+  listed the id), and a log-qualified `supersededBy` names clause 4 in its
+  existing failure.
+- **The adrkit.dev site builds on Starlight 0.42.** Every 0.42 bump had failed
+  `astro build` with `Cannot find native binding`: under the site's isolated
+  linker (ADR-0010) Vite could not resolve Starlight's `satteri` from the site
+  root, so it inlined the napi loader into the prerender bundle, where the
+  platform binding could not be found. The site now lists `satteri` as a direct
+  dependency so Vite keeps it external, with no hoisting and no linker change,
+  and Dependabot updates it together with Starlight
+  ([#224](https://github.com/mbeacom/adrkit/issues/224)). The site also picks up
+  Starlight 0.42's reworked mobile menu, which is meant to open without
+  JavaScript.
+
+### Fixed
+
+- **A `repo`-qualified `affects` matcher no longer vanishes silently
+  ([#300](https://github.com/mbeacom/adrkit/issues/300)).** A matcher such as
+  `{ type: path, pattern: "src/**", repo: "payments" }` names another
+  repository, so in a single-repository corpus it still never matches. Until
+  now it was also skipped with no finding, so `adr check src/a.ts` returned
+  nothing and said nothing. `adr check` and `adr explain` now report each
+  skipped matcher as an `info` finding, `affects-repo-not-applicable`, and
+  `adr lint` reports one per record, so a corpus-wide run surfaces it without
+  a path. This repository's ADR-0056, whose `resource` matchers name
+  `mbeacom/adrkit-azure`, is the live example. The finding is `info`, as
+  [ADR-0059](docs/adr/0059-aggregate-decision-corpora-across-an-organization-s-repositories-as-a-pinned-rea.md)
+  clause 11 names it, and changes no exit code; `adr lint --json` and
+  `adr check --json` output grow additively. In `@adrkit/core`, the unused
+  `log` input on `resolveAffects` and `checkChanges`, which no caller set,
+  is replaced by an explicit `member: { log, repo }` identity, and
+  `matcherAppliesToMember` applies a qualified matcher when it equals either
+  name. No surface passes a member yet; that is ADR-0059's federation work.
+- **The decision portal ships its own tab icon**
+  ([#309](https://github.com/mbeacom/adrkit/issues/309)). Without one, every
+  load also requested `/favicon.ico` at the host root and logged a 404 on a
+  Pages project path, at adrkit.dev's `/decisions/`, or behind the REST
+  server. The bundle now writes `page/icon.svg` and `index.html` names it
+  relatively, so it works at any path; the CSP is unchanged (`img-src 'self'`
+  already covers it). The REST server serves it at
+  `/portal/{corpus}/page/icon.svg` as `image/svg+xml` (operation
+  `getPortalIcon`).
 
 ## [0.19.0] - 2026-10-10
 
@@ -2430,7 +2467,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/mbeacom/adrkit/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/mbeacom/adrkit/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/mbeacom/adrkit/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mbeacom/adrkit/compare/v0.16.0...v0.17.0

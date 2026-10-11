@@ -254,5 +254,6 @@ no end condition. The measurement that closes the question now exists.
 5. [ ] Build the conformance fixture named in clause 5, so the accepted drift cost has the
    mitigation this record claims for it. Without it, clause 5 is an intention rather than a
    control.
-6. [ ] When the downstream repository is created, record its location here so this record
-   names where the surface actually lives.
+6. [x] When the downstream repository is created, record its location here so this record
+   names where the surface actually lives. **Done 2026-10-10:
+   <https://github.com/mbeacom/adrkit-backstage>**
