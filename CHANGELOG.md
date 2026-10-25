@@ -9,6 +9,18 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+### Fixed
+
+- **The agent plugin syncs into Claude without warnings (`adrkit` 0.11.1).**
+  Claude's plugin sync reported two problems with the plugin: it stripped the
+  unrecognized `$schema` key from `plugin.json`, and it rejected the
+  marketplace entry's description, which was 550 characters against a limit of
+  500. The key is gone, which also clears APM's `Unrecognized plugin manifest
+  $schema` warning, and the description now names both Copilot canvases in 434
+  characters. A test holds each description to 500 characters and keeps
+  `$schema` out of both manifests. The plugin ships on merge to `main` and is
+  versioned independently of this repository.
+
 ## [0.20.0] - 2026-10-10
 
 This release adds a read-only REST server to the OCI image:

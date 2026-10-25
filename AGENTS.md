@@ -423,8 +423,8 @@ workflow, `adr-review` (`extensions/adrkit/`), authorized by
 [ADR-0045](./docs/adr/0045-ship-an-advisory-adr-review-dynamic-workflow-in-the-portable-agent-plugin.md)
 (**accepted**). `claude plugin validate` passes with it present; APM 0.33.0
 installs it into `apm_modules` and deploys it to no target (its one warning,
-`Unrecognized plugin manifest $schema`, predates the workflow); a
-native opencode load is unmeasured. Independently versioned per ADR-0007, not
+`Unrecognized plugin manifest $schema`, predated the workflow and is gone since
+0.11.1); a native opencode load is unmeasured. Independently versioned per ADR-0007, not
 published to npm, and catalogued from the repository root's
 `.claude-plugin/marketplace.json`. Authorized by
 [ADR-0028](./docs/adr/0028-ship-decision-memory-as-a-portable-agent-plugin-and-omit-the-mcp-wiring-hosts-cannot-honor.md)
@@ -468,6 +468,11 @@ will usually be a regression:
   rejects the string form outright (`commands: Invalid input`). Both hosts
   discover the conventional directories without them. `category` belongs to the
   marketplace entry, not the plugin manifest.
+- **The manifest carries no `$schema`, and no description exceeds 500
+  characters.** Claude's plugin sync strips `$schema` from `plugin.json` with a
+  warning (APM 0.33 warned too), and rejects a plugin description over 500
+  characters; the marketplace entry's copy was 550 through 0.11.0. Both are
+  tested in `test/manifest.test.ts`.
 - **The manifest declares no `extensions` key either.** Measured on Copilot CLI
   1.0.93: a non-string `extensions` value (three objects and an array were tried, not
   `null`, booleans or numbers; the string form loads) in `.claude-plugin/plugin.json`
@@ -776,7 +781,7 @@ will usually be a regression:
   including a variable whose name ends in `_SECRET_TOKEN`. Its arrival in the
   app, and hook firing in the app, an interactive CLI session, and subagent
   child sessions, are unmeasured.
-- `copilot plugin install` prints only a skill count. Version 0.11.0 should report
+- `copilot plugin install` prints only a skill count. Version 0.11.1 should report
   two skills; that does not inventory the agent or commands — verify them in a
   fresh session.
 
