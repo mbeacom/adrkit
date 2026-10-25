@@ -151,6 +151,30 @@ describe('manifest shape the hosts actually accept', () => {
     expect(existsSync(join(packageRoot, '.mcp.json'))).toBe(false);
   });
 
+  test('carries no `$schema` key', () => {
+    // Claude's plugin sync reports `unrecognized key in plugin.json: '$schema'`
+    // and strips it, and APM 0.33 warns `Unrecognized plugin manifest $schema`.
+    // No host reads it, and Copilot selects an Agent Plugins 1.0 manifest by
+    // its `$schema`, so a wrong value here is a classification risk too.
+    expect(Object.keys(plugin)).not.toContain('$schema');
+    expect(Object.keys(marketplace)).not.toContain('$schema');
+  });
+
+  test('every description fits the 500-character limit', () => {
+    // Claude's plugin sync rejects a plugin description over 500 characters
+    // ("Plugin description must be at most 500 characters"). The marketplace
+    // entry's copy is the one it reads, and it is the longer of the two.
+    const plugins = marketplace['plugins'] as Array<Record<string, unknown>>;
+    for (const [label, description] of [
+      ['plugin.json', plugin['description']],
+      ['marketplace metadata', (marketplace['metadata'] as Record<string, unknown>)['description']],
+      ...plugins.map((entry) => [`marketplace entry ${entry['name']}`, entry['description']] as const),
+    ] as const) {
+      expect(typeof description).toBe('string');
+      expect({ label, over: (description as string).length > 500 }).toEqual({ label, over: false });
+    }
+  });
+
   test('carries no JSON comment keys', () => {
     // JSON has no comments. `"//"` keys survive Copilot's loader but Claude
     // Code's validator reports them as unknown fields, so the reasoning goes in

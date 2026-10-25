@@ -73,7 +73,9 @@ confirmation before executing a CLI resolved inside that worktree.
 
 ### Updating
 
-Version 0.11.0 is a visual pass on both canvases (a shared stylesheet, light
+Version 0.11.1 fixes the manifests for Claude's plugin sync (no `$schema`
+key, and a marketplace description within 500 characters); nothing else
+changes. 0.11.0 is a visual pass on both canvases (a shared stylesheet, light
 and dark fallbacks, and pan and zoom on the board graph); 0.10.0 added approve,
 object, and resolve controls to the `decision-board` canvas (they need
 `@adrkit/cli` 0.18.0 or later, `ADRKIT_REVIEWER`, and a host that can ask you
@@ -205,9 +207,10 @@ CLI dynamic workflow (`extensions/adrkit/`), authorized by
 Outside Copilot CLI: `claude plugin validate` passes with the directory present,
 and Agent Package Manager 0.33.0 (`apm install --target claude|copilot|opencode`)
 leaves `extensions/` in `apm_modules` without deploying it to any target
-(measured 2026-10-08). APM prints one warning, `Unrecognized plugin manifest
-$schema`, and classifies the plugin by structure; it comes from the manifest's
-`$schema` field, which predates this release, and not from `extensions/`. A native opencode load is unmeasured.
+(measured 2026-10-08). Through 0.11.0 APM printed one warning, `Unrecognized
+plugin manifest $schema`, from the manifest's `$schema` field and not from
+`extensions/`; 0.11.1 removed the field, and APM 0.35.0 installs it with no
+warning. A native opencode load is unmeasured.
 
 The workflow was measured on Copilot CLI 1.0.92, and run again through the
 published GitHub install on 1.0.93. Earlier versions are unmeasured, and a CLI that loads plugin extensions but predates dynamic

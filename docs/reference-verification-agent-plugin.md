@@ -1411,3 +1411,25 @@ That remains **rung 1** after release. Publishing through `main` changes the
 distribution state, not the evidence state. Rung 2 requires a persistent,
 CI-attached reference repository and a run against the public marketplace
 source; rung 3 requires an adopter who is not the maintainer. Both remain open.
+
+## v0.11.1 manifest sync fix (2026-10-25)
+
+Claude's plugin sync, against `main` at `d94698c`, reported two warnings for
+`adrkit` 0.11.0:
+
+- `Plugin 'adrkit' has unrecognized key in plugin.json: '$schema' (stripped — the SDK ignores unknown top-level fields)`
+- `Plugin description must be at most 500 characters.` The marketplace entry's
+  description was 550 characters; `plugin.json`'s was 330.
+
+0.11.1 removes `$schema` from `.claude-plugin/plugin.json` and shortens the
+marketplace entry's description to 434 characters. Measured on the fix:
+
+| Host or check | Command | Result |
+| --- | --- | --- |
+| Claude Code | `claude plugin validate packages/adapters/agent-plugin` | PASS (one plugin-directory warning, `ICON_MISSING`, from the directory's submission checks, not the sync) |
+| Claude Code | `claude plugin validate .claude-plugin/marketplace.json` | PASS |
+| Agent Package Manager 0.35.0 | `apm install --target claude`, `--target copilot`, `--target opencode` | no `$schema` warning; on `main` the same install printed `Unrecognized plugin manifest $schema`. The `bin/ executables skipped` note appears on both and predates this change |
+| Unit and contract | `bun test` in `packages/adapters/agent-plugin` | 765 pass; the two new manifest tests fail against the 0.11.0 manifests |
+
+A fresh sync through Claude was not re-run, because it reads `main`; it is
+expected to clear once this change merges.
