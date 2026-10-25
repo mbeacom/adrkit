@@ -78,6 +78,14 @@ jobs:
         with:
           bun-version: 1.4.2
 
+      # `astro build` runs under Node, not Bun, and Astro 7.4 requires
+      # >=22.23.4. Pin it rather than inherit the runner image's Node, whose
+      # 22.23.3 failed the build. 24 matches the portal Action's runtime.
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 24
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
