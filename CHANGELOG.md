@@ -21,6 +21,16 @@ Until `1.0.0`, minor releases may include breaking changes
   `$schema` out of both manifests. The plugin ships on merge to `main` and is
   versioned independently of this repository.
 
+### Security
+
+- **`@adrkit/core` and `@adrkit/mcp` now require `zod` `^4.6.6`**, up from
+  `^4.6.5`, so an install can no longer resolve a zod release affected by
+  [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
+  (validating oversized constrained collections can exhaust memory). This
+  repository's lockfile already moved to 4.6.7 in #329; this raises the floor
+  that published installs see. The documentation site's lockfile moves to zod
+  4.6.7 as well.
+
 ## [0.20.0] - 2026-10-10
 
 This release adds a read-only REST server to the OCI image:

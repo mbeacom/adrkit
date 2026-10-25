@@ -7,7 +7,7 @@
       "devDependencies": {
         "@types/bun": "latest",
         "typescript": "^6",
-        "zod": "^4.6.5",
+        "zod": "^4.6.6",
       },
     },
     "packages/adapters/agent-plugin": {
@@ -76,7 +76,7 @@
         "picomatch": "^4",
         "semver": "^7",
         "yaml": "^2.9.1",
-        "zod": "^4.6.5",
+        "zod": "^4.6.6",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -104,7 +104,7 @@
       "dependencies": {
         "@adrkit/core": "workspace:*",
         "@modelcontextprotocol/server": "2.3.1",
-        "zod": "^4.6.5",
+        "zod": "^4.6.6",
       },
       "devDependencies": {
         "@modelcontextprotocol/client": "2.3.1",
