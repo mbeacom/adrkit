@@ -35,6 +35,16 @@ adrkit_resolve_cli() {
 		return 0
 	fi
 
+	_adrkit_project_cli='./.specify/bin/adr'
+	if [ -f "$_adrkit_project_cli" ] && [ -x "$_adrkit_project_cli" ]; then
+		_adrkit_cli_resolved="$_adrkit_project_cli"
+		return 0
+	fi
+
+	if [ -e ./.specify/native-lock.json ] || [ -L ./.specify/native-lock.json ]; then
+		adrkit_fail "managed native lock at './.specify/native-lock.json' requires executable project wrapper '$_adrkit_project_cli' — restore the locked runtime through this project's reviewed offline setup; local and PATH alternatives are disabled"
+	fi
+
 	if [ -x ./node_modules/.bin/adr ]; then
 		_adrkit_cli_resolved='./node_modules/.bin/adr'
 		return 0
@@ -45,7 +55,7 @@ adrkit_resolve_cli() {
 		return 0
 	fi
 
-	adrkit_fail "adrkit's CLI is not installed — install it with 'npm install -g @adrkit/cli', add @adrkit/cli to this project, or set ADRKIT_CLI to its entry point"
+	adrkit_fail "adrkit's CLI is not installed — supply a reviewed fork artifact of @adrkit/cli with 'pnpm add --offline /path/to/reviewed-fork-cli.tgz', or set ADRKIT_CLI to its entry point; no package is acquired automatically"
 }
 
 # Run the resolved CLI, propagating its exit code verbatim. `adr` uses 1 for

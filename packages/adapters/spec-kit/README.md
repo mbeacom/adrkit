@@ -3,6 +3,11 @@
 The [Spec Kit](https://github.com/github/spec-kit) extension for
 [adrkit](https://adrkit.dev) — decision memory for the spec-driven plan loop.
 
+This checkout is the `3pepe3/adrkit` compatibility fork of upstream
+`d94698cf4142133a166d4af4d33d06a660c2579f` (v0.20.0). It retains the upstream
+adapter/package version 0.1.5 and Apache-2.0 notices; the fork commit identifies
+the compatibility patch. No replacement npm or upstream release is claimed.
+
 Spec Kit takes you from `specify` to `plan` to `tasks` to `implement`. What it
 does not do is check the plan it just produced against the decisions your
 organization already made, or record the new decisions the plan contains. Every
@@ -23,13 +28,32 @@ Plus one hook: `after_plan` offers to run `/speckit.adrkit.check`. It is
 
 ## Requirements
 
-- Spec Kit `>=0.13.0,<1.2.0`. Compatibility is tested against 0.13.0, 0.14.4,
+- Spec Kit `>=0.13.0,<1.3.0`. Upstream compatibility was tested against 0.13.0, 0.14.4,
   0.15.1, 0.16.5, 1.0.0, 1.0.4–1.0.6, 1.0.13, and 1.1.0–1.1.3.
-- The `adr` CLI (`npm install -g @adrkit/cli`), a project-local installation,
-  or `ADRKIT_CLI` pointing at its entry point.
+- This fork additionally verifies 1.2.1 with Codex native skills, feature-pointer
+  selection and @adrkit/cli 0.20.0. Other 1.2 integrations and native Windows
+  execution have not been measured. See the dated verification addendum.
+- A reviewed fork `adr` runtime at the project's executable `.specify/bin/adr`,
+  a standalone project-local/PATH installation, or `ADRKIT_CLI` pointing at its
+  entry point. For an offline standalone installation, use an already reviewed
+  local fork artifact: `pnpm add --offline /path/to/reviewed-fork-cli.tgz`.
 - An ADR corpus. Defaults to `docs/adr`.
 
 ## Install
+
+For Spec Kit 1.2.1, install this fork's adapter from a checkout pinned to the
+reviewed compatibility commit:
+
+```sh
+specify extension add --dev /path/to/adrkit/packages/adapters/spec-kit
+```
+
+Use a real CLI entrypoint from the fixture's current directory when verifying
+another project. A repository wrapper that changes directories always targets
+that repository, regardless of the caller's working directory.
+
+The upstream release below remains the unpatched 0.1.5 artifact and deliberately
+rejects Spec Kit 1.2. It is suitable only for the upstream-supported range.
 
 Install from the release archive, which carries the version in its URL:
 
@@ -102,9 +126,19 @@ with environment variables when needed.
 | `ADRKIT_SNAPSHOT` | unset | Snapshot bundle enabling the deterministic evaluator |
 | `ADRKIT_AS_OF` | today, UTC | Evaluation date |
 
-The CLI is resolved in a fixed order: `ADRKIT_CLI`, then
-`./node_modules/.bin/adr`, then `adr` on `PATH`. No branch of that reaches the
-network — a missing CLI is reported, never fetched.
+The CLI is resolved from the project working directory in a fixed order:
+
+1. Explicit `ADRKIT_CLI`, retaining the existing JavaScript-entrypoint support.
+2. Executable project wrapper `./.specify/bin/adr`.
+3. Only for a standalone project without `.specify/native-lock.json`,
+   `./node_modules/.bin/adr`, then `adr` on `PATH`.
+
+A managed project whose wrapper is missing or not executable stops before either
+fallback. Restore its locked runtime through the project's reviewed offline setup;
+an unrelated local or PATH executable cannot replace it. An explicit `ADRKIT_CLI`
+still takes precedence. No resolution branch downloads or installs a package, and
+the missing-CLI diagnostic recommends only a reviewed local fork artifact with
+`pnpm --offline`, never an automatic or upstream installation.
 
 ## Runtime guarantees
 
@@ -131,6 +165,21 @@ compatibility issues in the
 [adrkit issue tracker](https://github.com/mbeacom/adrkit/issues). Maintainers can
 find the detailed verification record in
 [`docs/reference-verification-spec-kit-extension.md`](../../../docs/reference-verification-spec-kit-extension.md).
+
+Run the explicit, isolated compatibility check with already-installed tools:
+
+```sh
+bun run packages/adapters/spec-kit/test/verify-live.ts /path/to/specify /path/to/adr [extension.zip]
+```
+
+It initializes only a temporary project, installs this adapter, requires all
+three `.agents/skills/speckit-adrkit-*/SKILL.md` commands, resolves the selected
+feature through `.specify/feature.json`, proves context/check leave the fixture
+unchanged, and proves draft creates exactly one ADR. The optional archive mode
+serves the supplied archive over ephemeral loopback HTTP to exercise the real
+URL installer, then stops the server. It installs no tools and needs no public
+release or external endpoint. The supplied CLI executables retain responsibility
+for their own behavior.
 
 ## License
 

@@ -1,5 +1,126 @@
 import { describe, expect, test } from 'bun:test';
+import { chmodSync, existsSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { makeSandbox, runScript, snapshotTree, withCorpus, withFeature } from './harness.ts';
+
+function managedProject(sandbox: ReturnType<typeof makeSandbox>, wrapper = true): void {
+  withCorpus(sandbox);
+  const feature = withFeature(sandbox, { plan: true });
+  const bin = join(sandbox.project, '.specify/bin');
+  const scripts = join(sandbox.project, '.specify/scripts/bash');
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(scripts, { recursive: true });
+  writeFileSync(join(sandbox.project, '.specify/native-lock.json'), '{"schema_version":1}\n');
+  const prerequisite = join(scripts, 'check-prerequisites.sh');
+  writeFileSync(prerequisite, `#!/bin/sh\nprintf 'FEATURE_DIR: %s\\n' ${JSON.stringify(feature)}\n`);
+  chmodSync(prerequisite, 0o755);
+  if (wrapper) symlinkSync(sandbox.fakeCli, join(bin, 'adr'));
+}
+
+function hostileAlternatives(sandbox: ReturnType<typeof makeSandbox>): string {
+  const marker = join(sandbox.binDir, 'unexpected-adr-execution');
+  const local = join(sandbox.project, 'node_modules/.bin');
+  mkdirSync(local, { recursive: true });
+  for (const path of [join(local, 'adr'), join(sandbox.binDir, 'adr')]) {
+    writeFileSync(path, `#!/bin/sh\nprintf 'UNEXPECTED\\n' >> ${JSON.stringify(marker)}\nexit 93\n`);
+    chmodSync(path, 0o755);
+  }
+  return marker;
+}
+
+describe('managed project CLI resolution', () => {
+  for (const script of ['context.sh', 'check.sh']) {
+    test(`${script} uses the bundled wrapper without CLI or feature overrides`, async () => {
+      const sandbox = makeSandbox();
+      managedProject(sandbox);
+      const before = snapshotTree(sandbox.project);
+      const result = await runScript(sandbox, script);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('"fake":"adr"');
+      expect(result.argv[0]).toBe(script === 'context.sh' ? 'queue' : 'check');
+      expect(snapshotTree(sandbox.project)).toEqual(before);
+    });
+
+    test(`${script} prefers the bundled wrapper over hostile local and PATH CLIs`, async () => {
+      const sandbox = makeSandbox();
+      managedProject(sandbox);
+      const marker = hostileAlternatives(sandbox);
+      const result = await runScript(sandbox, script);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('"fake":"adr"');
+      expect(existsSync(marker)).toBe(false);
+    });
+
+    test(`${script} blocks missing managed wrappers before hostile alternatives`, async () => {
+      const sandbox = makeSandbox();
+      managedProject(sandbox, false);
+      const marker = hostileAlternatives(sandbox);
+      const result = await runScript(sandbox, script);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain("requires executable project wrapper './.specify/bin/adr'");
+      expect(result.argv).toEqual([]);
+      expect(existsSync(marker)).toBe(false);
+    });
+  }
+
+  test('a nonexecutable managed wrapper also blocks fallback', async () => {
+    const sandbox = makeSandbox();
+    managedProject(sandbox, false);
+    writeFileSync(join(sandbox.project, '.specify/bin/adr'), '#!/bin/sh\nexit 0\n', { mode: 0o644 });
+    const marker = hostileAlternatives(sandbox);
+    const result = await runScript(sandbox, 'context.sh');
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('requires executable project wrapper');
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  test('explicit entrypoints override both existing and missing managed wrappers', async () => {
+    for (const wrapper of [true, false]) {
+      const sandbox = makeSandbox();
+      managedProject(sandbox, wrapper);
+      const marker = hostileAlternatives(sandbox);
+      const result = await runScript(sandbox, 'context.sh', [], { ADRKIT_CLI: sandbox.fakeCliJs });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('"fake":"adr-js"');
+      expect(existsSync(marker)).toBe(false);
+    }
+  });
+
+  test('standalone projects retain project-local and PATH compatibility', async () => {
+    for (const local of [true, false]) {
+      const sandbox = makeSandbox();
+      withCorpus(sandbox);
+      const directory = local ? join(sandbox.project, 'node_modules/.bin') : sandbox.binDir;
+      mkdirSync(directory, { recursive: true });
+      symlinkSync(sandbox.fakeCli, join(directory, 'adr'));
+      const result = await runScript(sandbox, 'context.sh');
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('"fake":"adr"');
+    }
+  });
+
+  test('a project wrapper wins even without a managed lock', async () => {
+    const sandbox = makeSandbox();
+    withCorpus(sandbox);
+    const bin = join(sandbox.project, '.specify/bin');
+    mkdirSync(bin, { recursive: true });
+    symlinkSync(sandbox.fakeCli, join(bin, 'adr'));
+    const marker = hostileAlternatives(sandbox);
+    const result = await runScript(sandbox, 'context.sh');
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  test('draft uses the same managed wrapper resolution', async () => {
+    const sandbox = makeSandbox();
+    managedProject(sandbox);
+    const marker = hostileAlternatives(sandbox);
+    const result = await runScript(sandbox, 'draft.sh', ['Reviewed', 'decision']);
+    expect(result.exitCode).toBe(0);
+    expect(result.argv.slice(0, 2)).toEqual(['new', 'Reviewed decision']);
+    expect(existsSync(marker)).toBe(false);
+  });
+});
 
 /**
  * Behavior of the three command scripts, exercised end to end against a fake
@@ -31,6 +152,8 @@ describe('context.sh', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("adrkit's CLI is not installed");
     expect(result.stderr).toContain('@adrkit/cli');
+    expect(result.stderr).toContain('pnpm add --offline');
+    expect(result.stderr).not.toContain('npm install');
     expect(result.stdout).toBe('');
   });
 
