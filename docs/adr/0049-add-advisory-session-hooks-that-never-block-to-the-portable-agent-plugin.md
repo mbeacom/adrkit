@@ -37,7 +37,7 @@ review:
 
 # ADR-0049: Add advisory session hooks that never block to the portable agent plugin
 
-> **Status: proposed.** Agent-drafted and not ratified. This record amends the
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-30. This record amends the
 > component inventory of ADR-0028, ADR-0045, and ADR-0046, and the join retry
 > ladder of ADR-0048; it supersedes none of them. Their portability, read-only, advisory, and independent-versioning
 > constraints remain binding.
@@ -503,4 +503,4 @@ external validation.
    direct child only).
 8. [x] Add reciprocal "Amended by ADR-0049 (proposed)" notes to ADR-0028,
    ADR-0045, ADR-0046, ADR-0047, and ADR-0048, drafted with this record.
-9. [ ] Ratify or reject this record before the plugin publishes the hooks.
+9. [x] Ratify or reject this record before the plugin publishes the hooks. **Ratified by `@mbeacom` on 2026-10-30.**

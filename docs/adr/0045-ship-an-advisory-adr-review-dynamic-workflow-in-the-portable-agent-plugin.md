@@ -46,7 +46,7 @@ review:
 > the component inventory; this record's advisory, read-only, CLI-trust, and
 > exit-status contracts are unchanged.
 
-> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md).**
 > The same `joinSession` would also register two advisory session hooks, in
 > their own guarded `try`, and the join fallback drops them before it drops
 > the canvas, so the workflow always registers. The hooks never start

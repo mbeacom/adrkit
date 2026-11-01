@@ -40,20 +40,20 @@ review:
 > them. Their portability, read-only, advisory, and independent-versioning
 > constraints remain binding.
 
-> **Amended by [ADR-0047](./0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md) (proposed).**
+> **Amended by [ADR-0047](./0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md).**
 > The canvas would also show each governing decision's provenance, the number of
 > `decision-checker` calls a review would make, and a read-only, corpus-wide list
 > of open proposals. No action, route, registration, or extension directory is
 > added; this record's read-only, advisory, and security boundaries are unchanged.
 
-> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md).**
 > A post-edit hook would refresh any open panel through a new in-process
 > `refreshOpen()` (Collect, Check, and the free queue read; debounced, single-flight, under a
 > 15 s abort signal). It never starts a review and adds no action, route, or
 > extension directory; this record's read-only, advisory, and security
 > boundaries are unchanged.
 
-> **Amended by [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (proposed).**
+> **Amended by [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md).**
 > A second, corpus-wide canvas, `decision-board`, would render `adr graph` and
 > `adr queue` read-only, with no readiness verdict and no control that writes.
 > It shares this canvas's HTTP hardening, now in `panel-http.mjs`, and

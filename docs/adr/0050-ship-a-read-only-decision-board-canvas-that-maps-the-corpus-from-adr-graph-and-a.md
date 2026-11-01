@@ -39,12 +39,20 @@ review:
 
 # ADR-0050: Ship a read-only decision-board canvas that maps the corpus from adr graph and adr queue
 
-> **Status: proposed.** Agent-drafted and not ratified. This record amends
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-30. This record amends
 > [ADR-0046](./0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md)
 > and
 > [ADR-0047](./0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md);
 > it supersedes neither. Their read-only, advisory, security, and
 > process-count boundaries remain binding and apply to the new canvas as well.
+
+> **Amended by [ADR-0052](./0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md).**
+> The board's page can record review: approve, object, and resolve controls on
+> open-proposal rows run `adr approve`, `adr object`, and `adr resolve`, and
+> each write waits for the host's own confirmation dialog. The factory now
+> takes a session getter for that confirmation, the agent mode, and the log.
+> The board's actions stay read-only, there is still no ratify control and no
+> readiness verdict, and the allowlists and budgets here remain binding.
 
 ## Context
 
@@ -123,6 +131,12 @@ in `board.mjs` (server and actions), `board-page.mjs` (page), and
    no prompt, and spends no credits. Its factory takes no session at all. There
    is no approve, object, or ratify control; review state lives in record
    frontmatter, and ratifying stays a human-only CLI step (ADR-0044).
+
+   > **Amended by [ADR-0052](./0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md) (clause 1).**
+   > The page may write review state through the approve, object, and resolve
+   > controls, only after the host's confirmation, and the factory takes a
+   > session getter. The actions still write nothing, and there is no ratify
+   > control.
 2. **No readiness verdict.** A queue row shows its raw facts only:
    approvals against quorum, unresolved and resolved objection counts, SLA
    state, deadline, routing targets, and how many findings it carries. The board
@@ -275,4 +289,4 @@ and no external validation.
    recorded in `docs/reference-verification-agent-plugin.md`.
 5. [ ] Render the board in a Copilot app session and record it with the app
    version.
-6. [ ] Ratify or reject this record.
+6. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-10-30.**

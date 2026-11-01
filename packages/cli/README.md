@@ -105,7 +105,7 @@ required and is never inferred, and identities compare case-insensitively, so
 `@Bob` after `@bob` is the same approval and quorum counts distinct people. Exit codes match `adr accept`: `0` written or
 unchanged, `1` refused, `2` usage error; `--json` is available on all three.
 `adr queue`'s approval and objection counts follow these writes
-([ADR-0051](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md), proposed).
+([ADR-0051](https://github.com/mbeacom/adrkit/blob/main/docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md), accepted).
 
 ## Decision graph
 

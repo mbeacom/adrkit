@@ -76,7 +76,14 @@ also its own marketplace.
 > GitHub Copilot app canvas (`decision-review`) to that same extension. Each
 > amends only the inventory; every other constraint here remains binding.
 
-> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> **Amended by [ADR-0048](./0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md).**
+> The plugin's Copilot extension also supplies three read-only tools
+> (`adr_check`, `adr_explain`, and `adr_lint`) through `joinSession({ tools })`.
+> They run the `adr` CLI, never write, and are chosen by the environment
+> rather than by a tool argument. It amends only the inventory; the plugin
+> still ships no `.mcp.json`, and every other constraint here remains binding.
+
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md).**
 > The plugin's Copilot extension would also register two advisory session
 > hooks (`onSessionStart` and `onPostToolUse`) in the same `joinSession`. They
 > return only `additionalContext` and never block a tool. It amends only the

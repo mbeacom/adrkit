@@ -312,7 +312,7 @@ not change the exit code and do not fail the managed-issue Action.
 <text>`, and `adr resolve <id> --objection <n> --by <identity>` record review
 state on a `proposed` record, under
 [ADR-0051](./docs/adr/0051-record-review-state-with-adr-approve-adr-object-and-adr-resolve.md)
-(**proposed**). They follow `adr accept`'s design, and `adr queue`'s approval
+(**accepted**). They follow `adr accept`'s design, and `adr queue`'s approval
 and objection counts change with them.
 
 - **They share accept's splice-and-verify kernel; do not fork it.**
@@ -371,7 +371,7 @@ and objection counts change with them.
   extension (plus its `adrkit_cli` wrapper) and the MCP server (plus any import
   of a writing transition) have the same guard. The canvas's `actions` are
   model-callable, so they stay guarded. The one exception is the decision
-  board's page-POST module, `board-review-write.mjs` (ADR-0052, **proposed**),
+  board's page-POST module, `board-review-write.mjs` (ADR-0052, **accepted**),
   which takes the identity from `ADRKIT_REVIEWER` and writes only after the
   host's confirmation, because the model can reach its routes over HTTP; see
   "Recording review from the board" below.
@@ -635,7 +635,7 @@ will usually be a regression:
   canvas as available in the CLI.
 - **Canvas provenance shows only what `adr check` reports**
   ([ADR-0047](./docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md),
-  **proposed**). Measured on a fixture: `declaredBy` names the changed file and
+  **accepted**). Measured on a fixture: `declaredBy` names the changed file and
   line of an inbound marker, but an `affects` match carries only
   `{ type, pattern }`, with no file. The page says so instead of matching
   globs itself; the extension cannot import core, and a homemade matcher could
@@ -667,7 +667,7 @@ will usually be a regression:
   256 KiB (UTF-8 bytes) serialized budget, before every broadcast.
 - **The extension also registers two advisory session hooks**
   (`hooks.mjs`, [ADR-0049](./docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md),
-  **proposed**): `onSessionStart` adds a governing-decisions summary;
+  **accepted**): `onSessionStart` adds a governing-decisions summary;
   `onPostToolUse`, after an edit, names the accepted decision(s) governing the
   file just edited and refreshes open `decision-review` panels. Their
   registration is guarded like the other two, and `ADRKIT_HOOKS=0` makes the
@@ -790,7 +790,7 @@ will usually be a regression:
 The same extension registers three read-only tools through
 `joinSession({ tools })`, proposed in
 [ADR-0048](./docs/adr/0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md)
-(**proposed**). They amend ADR-0028's inventory without reversing it: the plugin
+(**accepted**). They amend ADR-0028's inventory without reversing it: the plugin
 still ships no `.mcp.json`. **Rung 1**: unit and contract tests plus headless
 Copilot CLI 1.0.93 measurements with no model calls; unmeasured in the Copilot
 app. Measured, and easy to break:
@@ -869,7 +869,7 @@ app. Measured, and easy to break:
 
 A second canvas in the same extension maps the whole corpus from
 `adr graph --format json` and `adr queue --format json`, proposed in
-[ADR-0050](./docs/adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**; amends 0046 and 0047). Code in
+[ADR-0050](./docs/adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**accepted**; amends 0046 and 0047). Code in
 `board.mjs`, `board-page.mjs`, and `board-layout.mjs`; the HTTP hardening both
 canvases share is in `panel-http.mjs`. **Rung 1**: unit and contract tests plus
 a headless Copilot CLI 1.0.93 SDK-host smoke with no model calls; unmeasured
@@ -944,7 +944,7 @@ in the Copilot app. Load-bearing:
 
 Each open-proposal row has approve, object, and resolve controls, proposed in
 [ADR-0052](./docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
-(**proposed**; amends ADR-0050, implements the plugin half of ADR-0051). They
+(**accepted**; amends ADR-0050, implements the plugin half of ADR-0051). They
 run `adr approve`, `adr object`, and `adr resolve` and **need `@adrkit/cli`
 0.18.0 or later**. **Rung 1**: unit, contract, and mutation tests, an
 end-to-end test against the built CLI, and headless SDK-host measurements with
@@ -1279,7 +1279,7 @@ Both guards are repo-local scripts, not CLI surface: `adr graph --format json`
 already emits every node's `status` and every `supersedes` edge, and the public
 CLI is a semver commitment (ADR-0031) whose write surface is deliberately
 small: `new`, `migrate`, `accept` (ADR-0044, **accepted**), and the review
-commands `approve`, `object`, and `resolve` (ADR-0051, **proposed**). A public
+commands `approve`, `object`, and `resolve` (ADR-0051, **accepted**). A public
 Markdown inventory formatter waits for adopter demand.
 
 ## Toolchain

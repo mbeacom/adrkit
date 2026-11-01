@@ -422,7 +422,7 @@ the app's theme and a `Run review` started from the panel came back as
 
 Proposed in
 [ADR-0047](../../../docs/adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
-(**proposed**, amends ADR-0046). Three additions, with no new action or route:
+(**accepted**, amends ADR-0046). Three additions, with no new action or route:
 
 - **Why each decision governs.** A decision's card names what tied it to the
   change. An inbound marker shows the changed file and line that
@@ -476,7 +476,7 @@ the app's own tokens replace the fallback colours.
 The same `extensions/adrkit/` extension registers three read-only tools that
 Copilot's model can call directly. They are proposed in
 [ADR-0048](../../../docs/adr/0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md)
-(**proposed**, not yet ratified).
+(**accepted**).
 
 | Tool | Runs | Arguments |
 | --- | --- | --- |
@@ -522,7 +522,7 @@ session; they are **unmeasured in the Copilot app**. Details are in the
 
 The same extension registers two session hooks, proposed in
 [ADR-0049](../../../docs/adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
-(**proposed**). They add context for the agent and never block anything.
+(**accepted**). They add context for the agent and never block anything.
 
 | Hook | When | What it adds | Cost |
 | --- | --- | --- | --- |
@@ -586,7 +586,7 @@ and in subagent child sessions. Details are in the
 
 A second canvas in the same extension shows the **whole corpus** rather than
 one change: how the decisions relate and what is waiting for review. Proposed
-in [ADR-0050](../../../docs/adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**, amends ADR-0046 and
+in [ADR-0050](../../../docs/adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**accepted**, amends ADR-0046 and
 ADR-0047). It renders what the CLI computed and derives nothing of its own:
 
 - **The graph** comes from `adr graph --format json`: each record with its id,
@@ -636,7 +636,7 @@ board is **unmeasured in the Copilot app**. Details are in the
 
 Each open proposal on the board has three controls, proposed in
 [ADR-0052](../../../docs/adr/0052-record-review-from-the-decision-board-only-after-the-host-s-own-confirmation.md)
-(**proposed**):
+(**accepted**):
 
 - **Approve as `<you>`** runs `adr approve <id> --by=<you>`.
 - **Raise objection** runs `adr object <id> --by=<you> --summary=<text>`
@@ -828,17 +828,17 @@ the panel, ran a review from it, and recorded two defects fixed before release.
 Other app versions, Copilot CLI versions before 1.0.92, and a native opencode
 load of `extensions/` are unverified.
 
-The `decision-board` canvas (ADR-0050, **proposed**) is rung 1: unit and
+The `decision-board` canvas (ADR-0050, **accepted**) is rung 1: unit and
 contract tests plus a headless Copilot CLI 1.0.93 SDK-host smoke with no model
 calls. It is unmeasured in the Copilot app. Its review controls (ADR-0052,
-**proposed**) are rung 1 too: unit, contract, and mutation tests, an
+**accepted**) are rung 1 too: unit, contract, and mutation tests, an
 end-to-end test against the built CLI, and headless SDK-host measurements with
 no model calls. In the Copilot app, the maintainer exercised Approve with the
 host's dialog (decline and accept). Object, Resolve, and the app's autonomous
 modes are unmeasured there.
 
 The extension tools (`adr_check`, `adr_explain`, `adr_lint`; ADR-0048,
-**proposed**) are rung 1: unit and contract tests plus a headless Copilot CLI
+**accepted**) are rung 1: unit and contract tests plus a headless Copilot CLI
 1.0.93 measurement with no model calls. They are unmeasured in the Copilot app.
 
 Authorized by
