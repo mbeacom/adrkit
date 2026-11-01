@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0051"
 title: "Record review state with adr approve, adr object, and adr resolve"
-status: proposed
+status: accepted
 date: 2026-10-09
 deciders:
   - "@mbeacom"
@@ -40,11 +40,14 @@ affects:
     pattern: "packages/cli/src/command-registry.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:49:48Z
 ---
 
 # ADR-0051: Record review state with adr approve, adr object, and adr resolve
 
-> **Status: proposed.** Agent-drafted and not ratified. This record grows the
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-30. This record grows the
 > public write surface that ADR-0044 set at three commands. It supersedes
 > nothing; ADR-0044's design for `adr accept` stays binding and is reused here.
 > It amends one ADR-0044 semantic: approvals toward `review.quorum` now count
@@ -292,4 +295,4 @@ No reference-repository or external run.
 5. [x] Update `AGENTS.md`, the CLI README, `site/src/content/docs/commands.mdx`,
        and `CHANGELOG.md`, including every statement of the write surface.
 6. [x] Extend the extension tools' writing-command scrub to the three verbs.
-7. [ ] Ratify this record with `adr accept 0051 --by <maintainer>`.
+7. [x] Ratify this record with `adr accept 0051 --by <maintainer>`. **Ratified by `@mbeacom` on 2026-10-30.**

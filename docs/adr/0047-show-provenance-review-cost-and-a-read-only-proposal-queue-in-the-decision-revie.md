@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0047"
 title: "Show provenance, review cost, and a read-only proposal queue in the decision-review canvas"
-status: proposed
+status: accepted
 date: 2026-10-08
 deciders:
   - "@mbeacom"
@@ -27,16 +27,19 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:48:44Z
 ---
 
 # ADR-0047: Show provenance, review cost, and a read-only proposal queue in the decision-review canvas
 
-> **Status: proposed.** Agent-drafted and not ratified. This record amends
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-30. This record amends
 > [ADR-0046](./0046-ship-a-read-only-decision-review-canvas-for-the-github-copilot-app-in-the-portab.md);
 > it supersedes nothing. ADR-0046's read-only, advisory, security, and
 > process-count boundaries remain binding and are unchanged here.
 
-> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md).**
 > One more caller waits for the queue: the advisory hooks' background refresh
 > (`refreshOpen`), so that its single-flight covers the `adr queue` process
 > too. It is not a page route or a tool result, so no person or agent waits on
@@ -45,7 +48,7 @@ provenance:
 > governing result and queue, each with a fixed "automatic refresh timed out"
 > note, and never shows the abort's exception text.
 
-> **Amended by [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (proposed).**
+> **Amended by [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md).**
 > A second, corpus-wide canvas, `decision-board`, would render `adr graph` and
 > `adr queue` read-only, with no readiness verdict and no control that writes.
 > It shares this canvas's HTTP hardening, now in `panel-http.mjs`, and
@@ -318,4 +321,4 @@ run and no external validation.
    recorded in `docs/reference-verification-agent-plugin.md`.
 6. [ ] Render the new UI in a Copilot app session and record it with the app
    version.
-7. [ ] Ratify or reject this record.
+7. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-10-30.**

@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0048"
 title: "Supply read-only adrkit tools to GitHub Copilot through the plugin extension instead of MCP wiring"
-status: proposed
+status: accepted
 date: 2026-10-08
 deciders:
   - "@mbeacom"
@@ -28,11 +28,14 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:48:53Z
 ---
 
 # ADR-0048: Supply read-only adrkit tools to GitHub Copilot through the plugin extension instead of MCP wiring
 
-> **Status: proposed.** Agent-drafted and not ratified. This record amends
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-30. This record amends
 > ADR-0028's component inventory and the consequence it named ("revisit when a
 > host exposes the workspace to a plugin-spawned server"). It does **not**
 > reverse ADR-0028's decision to omit the MCP wiring: the plugin still ships no
@@ -175,7 +178,7 @@ joins. The runtime's refusal does not say which piece it objected to, so the
 log names what the successful join left out and quotes each refusal, rather
 than blaming one piece.
 
-> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md) (proposed).**
+> **Amended by [ADR-0049](./0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md).**
 > The tools and the advisory hooks share one ladder: without the hooks, without
 > the tools, without both, without the canvas alone (keeping the tools), then
 > the workflow alone. Without hooks that is at most four joins, not three, a
@@ -352,9 +355,10 @@ GitHub; and any external validation.
    plugin directory, with no model calls.
 5. [ ] Measure the tools in the Copilot app: registration, one invocation, and
    the directory they report.
-6. [ ] Bump the plugin version on every version-bearing surface in
+6. [x] Bump the plugin version on every version-bearing surface in
    `docs/RELEASING.md`, and add a reciprocal note to ADR-0028's amendment block,
-   when this record is ratified.
+   when this record is ratified. The version moved to 0.7.0 when the tools
+   shipped (#270); the note on ADR-0028 was added on ratification.
 7. [x] Decide separately whether the `adr-review` workflow should follow
    `session.context_changed` too. It does, since plugin 0.8.1, through the
    shared `session-dir.mjs` tracker.

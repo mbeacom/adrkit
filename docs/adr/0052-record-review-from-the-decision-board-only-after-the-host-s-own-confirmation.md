@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0052"
 title: "Record review from the decision board only after the host's own confirmation"
-status: proposed
+status: accepted
 date: 2026-10-09
 deciders:
   - "@mbeacom"
@@ -35,11 +35,14 @@ affects:
     pattern: "packages/adapters/agent-plugin/test/wiring.test.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:49:54Z
 ---
 
 # ADR-0052: Record review from the decision board only after the host's own confirmation
 
-> **Status: proposed.** Agent-drafted and not ratified. This record amends
+> **Status: accepted.** Agent-drafted, ratified by `@mbeacom` on 2026-10-30. This record amends
 > [ADR-0050](./0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md)
 > (the board is no longer write-free: its page can record review) and
 > implements the plugin half that
@@ -354,4 +357,4 @@ reference-repository run and no external validation.
 6. [ ] Measure in the app that it never answers the dialog on its own,
    autopilot included; exercise Object and Resolve there; and record the app
    version.
-7. [ ] Ratify or reject this record.
+7. [x] Ratify or reject this record. **Ratified by `@mbeacom` on 2026-10-30.**

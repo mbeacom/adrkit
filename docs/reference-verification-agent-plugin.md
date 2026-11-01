@@ -668,7 +668,7 @@ without a measured gain.
 
 Measured on 2026-10-08 at **rung 1** of ADR-0014 (shipping as plugin 0.6.0), for the additions proposed in
 [ADR-0047](adr/0047-show-provenance-review-cost-and-a-read-only-proposal-queue-in-the-decision-revie.md)
-(**proposed**). Rows are numbered C1 onward so they do not collide with other
+(**accepted**). Rows are numbered C1 onward so they do not collide with other
 sections.
 
 ### CLI output shapes (fixture repository)
@@ -735,7 +735,7 @@ provoked in the SDK host.
 Measured on 2026-10-08 at **rung 1** of ADR-0014, before any release. The tools
 are proposed in
 [ADR-0048](adr/0048-supply-read-only-adrkit-tools-to-github-copilot-through-the-plugin-extension-ins.md)
-(**proposed**, not ratified). They are registered by the same `joinSession` as
+(**accepted**). They are registered by the same `joinSession` as
 the workflow and the canvas. Every row was measured on Copilot CLI 1.0.93
 through a headless SDK host (`CopilotClient`,
 `createSession({ pluginDirectories, requestExtensions: true, workingDirectory })`)
@@ -799,7 +799,7 @@ results; `base: "no-such-ref"` now returns `git-base-unresolved`.
 
 Measured on 2026-10-08 at **rung 1** of ADR-0014. The hooks are proposed in
 [ADR-0049](adr/0049-add-advisory-session-hooks-that-never-block-to-the-portable-agent-plugin.md)
-(**proposed**): `onSessionStart` and `onPostToolUse`, registered by the same
+(**accepted**): `onSessionStart` and `onPostToolUse`, registered by the same
 `joinSession` as the workflow and the canvas, returning nothing but
 `additionalContext`. A first design also had an `onPreToolUse` note; rows H12
 to H17 are why it was removed.
@@ -938,7 +938,7 @@ live.
 ## `decision-board` canvas (2026-10-09)
 
 Measured on 2026-10-09 at **rung 1** of ADR-0014 (shipped as plugin 0.9.0), for the
-canvas proposed in [ADR-0050](adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**proposed**). Rows are numbered B1
+canvas proposed in [ADR-0050](adr/0050-ship-a-read-only-decision-board-canvas-that-maps-the-corpus-from-adr-graph-and-a.md) (**accepted**). Rows are numbered B1
 onward so they do not collide with other sections.
 
 ### CLI output shapes (this repository)
