@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0051"
 title: "Record review state with adr approve, adr object, and adr resolve"
-status: proposed
+status: accepted
 date: 2026-10-09
 deciders:
   - "@mbeacom"
@@ -40,6 +40,9 @@ affects:
     pattern: "packages/cli/src/command-registry.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:49:48Z
 ---
 
 # ADR-0051: Record review state with adr approve, adr object, and adr resolve

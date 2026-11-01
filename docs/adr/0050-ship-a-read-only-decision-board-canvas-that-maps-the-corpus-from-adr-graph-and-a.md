@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0050"
 title: "Ship a read-only decision-board canvas that maps the corpus from adr graph and adr queue"
-status: proposed
+status: accepted
 date: 2026-10-09
 deciders:
   - "@mbeacom"
@@ -32,6 +32,9 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:49:43Z
 ---
 
 # ADR-0050: Ship a read-only decision-board canvas that maps the corpus from adr graph and adr queue

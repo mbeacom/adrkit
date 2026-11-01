@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0052"
 title: "Record review from the decision board only after the host's own confirmation"
-status: proposed
+status: accepted
 date: 2026-10-09
 deciders:
   - "@mbeacom"
@@ -35,6 +35,9 @@ affects:
     pattern: "packages/adapters/agent-plugin/test/wiring.test.ts"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:49:54Z
 ---
 
 # ADR-0052: Record review from the decision board only after the host's own confirmation

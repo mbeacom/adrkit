@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0048"
 title: "Supply read-only adrkit tools to GitHub Copilot through the plugin extension instead of MCP wiring"
-status: proposed
+status: accepted
 date: 2026-10-08
 deciders:
   - "@mbeacom"
@@ -28,6 +28,9 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:48:53Z
 ---
 
 # ADR-0048: Supply read-only adrkit tools to GitHub Copilot through the plugin extension instead of MCP wiring

@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0047"
 title: "Show provenance, review cost, and a read-only proposal queue in the decision-review canvas"
-status: proposed
+status: accepted
 date: 2026-10-08
 deciders:
   - "@mbeacom"
@@ -27,6 +27,9 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:48:44Z
 ---
 
 # ADR-0047: Show provenance, review cost, and a read-only proposal queue in the decision-review canvas

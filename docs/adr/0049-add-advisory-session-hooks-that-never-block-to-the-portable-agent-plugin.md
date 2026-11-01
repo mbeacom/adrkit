@@ -2,7 +2,7 @@
 schemaVersion: 0.2.0
 id: "0049"
 title: "Add advisory session hooks that never block to the portable agent plugin"
-status: proposed
+status: accepted
 date: 2026-10-08
 deciders:
   - "@mbeacom"
@@ -30,6 +30,9 @@ affects:
     pattern: "docs/reference-verification-agent-plugin.md"
 provenance:
   authoredBy: agent-drafted
+  ratifiedBy: "@mbeacom"
+review:
+  decidedAt: 2026-10-30T13:48:57Z
 ---
 
 # ADR-0049: Add advisory session hooks that never block to the portable agent plugin
