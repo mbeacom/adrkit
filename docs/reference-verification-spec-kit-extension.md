@@ -333,3 +333,61 @@ pushed. Merge and tag together.
 `0.13.0`/`0.14.4`/`0.15.1`. No live agent session drove `/speckit-plan` on
 1.1.x to watch the hook offer render; that rests on the generated instruction
 and the recorded hook, as on 1.0.x.
+
+## 2026-10-16: downstream Codex 1.2.1 compatibility verification
+
+Owner: `3pepe3/adrkit` compatibility fork, based on upstream
+`d94698cf4142133a166d4af4d33d06a660c2579f` (v0.20.0). This addendum is
+first-party fork verification, not upstream acceptance, a published adapter
+release, or an independent audit. The original evidence and its tested range
+above remain unchanged.
+
+Focused question: can the unchanged adapter runtime register native Codex skills
+and resolve the selected feature on Spec Kit 1.2.1, without weakening its read-only
+checks or making a draft automatic? Primary sources inspected were the upstream
+adapter scripts and command templates at that pinned revision, the official
+Spec Kit CLI and bundled Bash resolver at
+`9dca9bf42a031765ee5e5f2371137f2f26967e11`, and adrkit's `adr new --json` contract
+(the output is `{id, path}`, with a bare four-digit ID). Context7 search for
+`adrkit` returned unrelated Apple ARKit libraries, so it supplied no applicable
+API contract. No third-party snippets were used.
+
+Environment: Debian, Bun 1.3.14, Node 22.23.3, @adrkit/cli 0.20.0 and official
+Spec Kit 1.2.1. The fixture uses the real CLI entrypoint, not a repository wrapper
+that changes to its owning checkout. Only temporary fixture projects are governed
+or drafted by these checks.
+
+| Check | Observed result |
+|---|---|
+| Unmodified 0.1.5 install on 1.2.1 | Exit 1: `Compatibility Error`, required `>=0.13.0,<1.2.0`; the original bound fails loudly. |
+| Adapter package tests before the patch | 50 pass, 0 fail, 177 expectations. |
+| `extension add --dev` after widening to `>=0.13.0,<1.3.0` | Exit 0; `extension info adrkit --json` identifies the adapter. All three native `.agents/skills/speckit-adrkit-{context,check,draft}/SKILL.md` files exist and contain resolved executable script paths. |
+| ZIP installed through official URL installer | Exit 0 using a temporary loopback-only HTTP server, with the expected trust confirmation supplied. Same three Codex skills and command behavior as the dev route. |
+| Packaging | Installed tree excludes test/, package.json, tsconfig.json and node_modules; upstream Apache-2.0 LICENSE and NOTICE remain present. |
+| Hook registration | Exactly one after_plan binding targeting the read-only check; optional remains true. Draft is unreachable from hooks. |
+| Native feature selection | `.specify/feature.json` selects `specs/900-selected-by-pointer`; neither ADRKIT_FEATURE_DIR nor SPECIFY environment overrides are supplied. The official prerequisite resolver selects its plan. |
+| Real CLI context/check | Exit 0, byte-identical fixture tree before/after; zero writes, including no feature-pointer rewrite. No snapshot configured, so deterministic routing is explicitly unavailable. |
+| Real CLI draft | Exit 0; exactly one new draft ADR, ID 0002, correct title; all existing files unchanged. The feature pointer remains byte-identical. |
+| Explicit live verifier typecheck | Pass with TypeScript 7.0.2, Bun 1.3.14 types, strict mode and noUncheckedIndexedAccess; scoped to the verifier and its manifest fixture, without a whole-monorepo build. |
+
+Reproduce with already-installed executables:
+
+```sh
+bun test packages/adapters/spec-kit/test
+bun run packages/adapters/spec-kit/test/verify-live.ts /path/to/specify /path/to/adr
+bun run packages/adapters/spec-kit/test/verify-live.ts /path/to/specify /path/to/adr /path/to/adrkit.zip
+```
+
+The final optional argument must be a ZIP with extension.yml, README.md, LICENSE,
+NOTICE, commands/ and scripts/ at its root. A GitHub source archive of this whole
+monorepo is not that extension artifact. `--from` accepts a URL, not a local file
+path; the verification script serves the exact ZIP only on loopback and closes
+its server afterward. Pin the fork commit when producing this archive; the
+upstream v0.1.5 release ZIP remains unpatched and still refuses 1.2.1.
+
+Scope limits: this adds a tested 1.2.1 Codex sample to the upstream historical
+matrix. It does not rerun older versions, establish all 1.2 patches/integrations,
+verify native Windows behavior, validate a deterministic evaluator snapshot,
+ratify any real decision, or prove any host product's acceptance. No shell
+runtime rewrite was needed. Adapter/package 0.1.5 is retained; the fork revision
+identifies the downstream patch and no replacement npm release is claimed.

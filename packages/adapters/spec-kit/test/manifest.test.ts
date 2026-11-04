@@ -78,7 +78,7 @@ describe('extension manifest', () => {
 
   test('required identity fields are populated', () => {
     expect(manifest.extension.author).toContain('mbeacom');
-    expect(manifest.extension.repository).toBe('https://github.com/mbeacom/adrkit');
+    expect(manifest.extension.repository).toBe('https://github.com/3pepe3/adrkit');
     expect(manifest.extension.license).toBe('Apache-2.0');
   });
 
@@ -91,7 +91,9 @@ describe('extension manifest', () => {
     // removed behavior this extension uses. Raising it means re-verifying
     // against the new minor first — breaking loudly on an unverified one is
     // ADR-0007's intended adapter behavior.
-    expect(manifest.requires.speckit_version).toBe('>=0.13.0,<1.2.0');
+    // Downstream widening is backed by the explicit live Codex 1.2.1 check;
+    // retain the upstream historical verification record above.
+    expect(manifest.requires.speckit_version).toBe('>=0.13.0,<1.3.0');
   });
 
   test('declares the adr CLI as a required tool', () => {

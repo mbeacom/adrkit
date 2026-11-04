@@ -9,3 +9,8 @@ License at http://www.apache.org/licenses/LICENSE-2.0
 
 EXCEPTION: The contents of the schema/ directory are additionally made available
 under CC0 1.0 Universal. See schema/LICENSE.
+
+Downstream compatibility modifications by 3pepe3, 2026-10-16:
+Spec Kit 1.2.1 / Codex verification, bounded compatibility declaration,
+fork provenance and integration-check documentation. Upstream attribution and
+license are retained; this is not an upstream release.
