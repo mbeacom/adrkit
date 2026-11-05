@@ -18,11 +18,11 @@
     "gen:adr": "bun run scripts/gen-adr-pages.ts"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.5",
+    "@astrojs/starlight": "^0.42.7",
     "@fontsource-variable/anybody": "^5.3.0",
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
     "astro": "^7.3.7",
-    "satteri": "^0.10.5",
+    "satteri": "^0.11.5",
     "sharp": "^0.35.5"
   },
   "devDependencies": {
