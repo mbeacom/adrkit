@@ -80,8 +80,9 @@ externalRefs:
 > and binds its first model-backed pass to
 > [ADR-0027](./0027-ratify-the-deterministic-evaluator-and-bind-calibration-reporting-to-the-first-probabilistic-pass.md)'s
 > calibration ordering. Facts 1–7 are a local `gh aw compile` against gh-aw
-> v1.0.1 or a source read at that tag; fact 8 is a staged spike on GitHub in
-> `mbeacom/adrkit-demo` (2026-11-05, PRs #9–#14). Nothing has run unstaged.
+> v1.0.1 or a source read at that tag; facts 8 and 9 are staged spike runs on
+> GitHub in `mbeacom/adrkit-demo` (2026-11-05, PRs #9–#14; 2026-11-14, PRs
+> #15–#19). Nothing has run unstaged.
 
 ## Context
 
@@ -174,6 +175,27 @@ What was measured (gh-aw v1.0.1, 2026-10-27, commit `0627fdbe`; adrkit 0.20.0):
    - Agent AI credits per governed run: 7.52, 8.43, 14.83, 7.80 (median 8.11);
      detection about 0.54 each. The firewall blocked nothing; only
      `api.github.com` and `api.githubcopilot.com` were reached.
+9. **A second staged run on the default capability set matched, but was not
+   cheaper.** The spike was rebuilt without the MCP server or the plugin, with
+   the prompt resolving each record to its real file, clause 6's `partial`
+   summary in the gate, and `max-ai-credits: 30` (mbeacom/adrkit-demo#9 at
+   `cf93946`, compiled with gh-aw v1.0.1 `--strict`, 0 warnings). The same five
+   fixture changes ran again, on 2026-11-14:
+   - The gate again skipped the README-only PR and ran the four governed PRs.
+   - All four verdicts matched the first run and the labels: 0002
+     `consistent`; 0002 `conflicts` at `amount.ts:59` and `:64`; 0006
+     `conflicts` at `events.ts:34`, judging 0006 alone; 0007 `conflicts`.
+   - Every record citation used the real filename, such as
+     `docs/adr/0002-represent-money-as-integer-minor-units.md:35`; none used a
+     glob.
+   - Nothing was posted. The one comment on each PR came from the demo's own
+     governing-decisions Action, not from this workflow.
+   - Agent AI credits per governed run: 13.50, 8.77, 7.93, 7.35 (median
+     8.35, against 8.11 with MCP and the plugin loaded). Removing the unused
+     context did not lower cost; per-run variance (7.52 then 13.50 on the same
+     change) is larger than the difference. The demo corpus has no `package`
+     or `entity` matcher and no capped scan, so the `partial` path did not
+     fire.
 
 This is a decision rather than a preference because it adds a public surface
 (ADR-0031's semver concern), a workflow source that runs a model on other
@@ -232,8 +254,10 @@ this record is revised before ratification, not superseded after it. No
    `args: ["--read-only", "--network", "none", "-w", "/workspace"]`, the `:ro`
    workspace mount including `.git`) and the plugin via `plugins:` are
    **opt-in, off by default**: in the spike the agent reached every expected
-   verdict without calling either (fact 8), and they cost a container start, a
-   deprecated install path, and an experimental key. They are re-enabled by
+   verdict without calling either (fact 8), and reached the same verdicts with
+   both removed (fact 9). Removing them saved no measurable credits; they are
+   off because they add a container start, a deprecated install path, an
+   experimental key, and a compile warning for no observed gain. They are re-enabled by
    default only if calibration shows misses that their context would fix. The
    APM import route is not used. *Test:* the default compiled lock has no
    `mcp-servers.adrkit` and no plugin install step, and has the permissions
@@ -324,10 +348,10 @@ this record is revised before ratification, not superseded after it. No
      **0.75**;
    - cost: median AI credits per accepted outcome (a posted judgment that
      matches the holdout label) ≤ **2×** the median per-run agent credits
-     measured on governed PRs in the staged spike. That median is **8.11**
-     (fact 8, n = 4, with the plugin and MCP loaded), so the threshold is
-     **16.2 credits**; it is re-measured on the default capability set of
-     clause 3 before calibration, and `max-ai-credits` is set to **30**;
+     measured on governed PRs in the staged spike on clause 3's default
+     capability set. That median is **8.35** (fact 9, n = 4), so the threshold
+     is **16.7 credits**. The highest single run across both spike rounds was
+     14.83, so `max-ai-credits` is set to **30**;
    - usefulness: across the calibration run, at least **half** of posted
      `conflicts` comments are judged actionable by the labeler. A calibrated
      but useless reviewer is grounds to drop the surface, not unstage it;
@@ -473,21 +497,23 @@ plugin's `extensions/` to no target.
   comparison against the holdout.
 - Whether `create-pull-request` can be restricted to adding one new file under
   `docs/adr/`; the draft workflow waits on it.
-- That the agent is equally accurate and cheaper with the MCP container and
-  plugin absent (the spike ran with both loaded, though unused).
-- That the prompt change in clause 3 produces real record filenames.
+- Whether the `partial` summary renders as specified on a corpus with a
+  `package` or `entity` matcher; the demo corpus has neither (fact 9).
 - Measured in the spike and no longer open: `args` reach `docker run` intact;
   the image starts under `--read-only` with the worktree mounted `:ro`; the
-  plugin's skills and agent load in the sandbox (fact 8).
+  plugin's skills and agent load in the sandbox (fact 8). The default set
+  reaches the same four verdicts with MCP and the plugin absent, at no lower
+  cost, and the prompt produces real record filenames (fact 9).
 - The calibration thresholds in clause 7 are proposals; the cost threshold
-  rests on four spike runs.
+  rests on four spike runs, and the same change cost 7.52 and 13.50 credits
+  in two runs.
 
 ## Evidence rung
 
 **Rung 1, plus a partial rung-2 smoke** (ADR-0014): local `gh aw compile`
-against v1.0.1, source reads at that tag, and one staged run of five PRs in the
-maintainer-owned reference repository `mbeacom/adrkit-demo` (fact 8). That run
-measured mechanics, not accuracy: four maintainer-written PRs are a smoke test,
+against v1.0.1, source reads at that tag, and two staged runs of the same five
+PRs in the maintainer-owned reference repository `mbeacom/adrkit-demo` (facts 8
+and 9). Those runs measured mechanics, not accuracy: four maintainer-written PRs are a smoke test,
 not a holdout. The calibration run would complete rung 2, limited by its
 holdout's provenance. No external run exists.
 
@@ -500,9 +526,10 @@ holdout's provenance. No external run exists.
    baseline in a staged run there; revise this record if any fails. Two items
    and the baseline measured (fact 8); remote subpath `imports:` and unstaged
    `gh aw logs --outcomes` remain.
-3. [ ] Rebuild the spike on clause 3's default capability set (no MCP, no
+3. [x] Rebuild the spike on clause 3's default capability set (no MCP, no
    plugin, real record filenames), add clause 6's `partial` summary to its
-   gate, and re-measure cost on it.
+   gate, and re-measure cost on it (fact 9; mbeacom/adrkit-demo#9 at
+   `cf93946`).
 4. [ ] Label and commit the holdout before the pass's first score.
 5. [ ] Tune clause 7, then ratify or reject this record. No `gh-aw-v*` tag
    before this item.
