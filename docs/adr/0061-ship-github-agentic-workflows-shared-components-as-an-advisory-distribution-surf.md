@@ -273,7 +273,20 @@ this record is revised before ratification, not superseded after it. No
    `governs=true` only when lint exits `0`, check exits `0` or `1`, and
    `.governing | length > 0`; otherwise `governs=false`. When lint or check
    cannot complete, the step writes `unverified` with the exit code to the job
-   summary instead of skipping silently (ADR-0038). The agent job runs only on
+   summary instead of skipping silently (ADR-0038). A check that completes can
+   still be **partial**: `adr check` passes no dependency or catalog snapshot,
+   so `package`, `entity` and the always-inert matcher types report
+   `affects-unresolvable` and match nothing, and a capped marker scan or
+   declaration list (`marker-scan-capped`, `marker-declarations-capped`) omits
+   inputs; none of these changes the exit code or `ok`. The gate keys on those
+   three rule ids, never on severity (`info` findings are always present), and
+   when any is present it writes `partial` to the job summary with the record
+   ids whose matchers were inert and the cap counts. `governs` still follows
+   `.governing | length`, so a PR whose only possible governor is an inert
+   matcher is skipped **visibly as partial**, not silently. The exit-code
+   contract is unchanged (ADR-0031); `affects-repo-not-applicable` is not
+   partial, because a matcher for another repository cannot govern this one.
+   The agent job runs only on
    `governs == 'true'`, so an erroring gate spends nothing. The prompt judges
    each `governing` record `consistent`, `conflicts`, or `unclear` with record
    and line citations, and treats `history` hits as context, never judged.
@@ -282,7 +295,10 @@ this record is revised before ratification, not superseded after it. No
    wraps it with its own repo-id and stack checks), observed failing against a
    planted `!= '0'` / `|| true` variant (ADR-0016). *Test, in the spike
    (passed, fact 8):* on a PR touching only ungoverned paths the agent job is
-   skipped and zero credits are recorded. The `unverified` summary is visible only in the run's job summary,
+   skipped and zero credits are recorded. *Test, to land:* gate fixtures for a
+   corpus with a `package` matcher, an `entity` matcher, and a capped marker
+   scan each produce `partial` in the summary, observed failing against a gate
+   that reads only `.governing`. The `unverified` summary is visible only in the run's job summary,
    because the pre-activation job has no write token; that is an accepted limit
    (see Trade-offs), not a silent skip.
 7. **Staged by default, and the exit criterion.** The shipped component sets
@@ -324,9 +340,18 @@ this record is revised before ratification, not superseded after it. No
 8. **Trust posture on `pull_request`.** The workflow triggers on
    `pull_request` only, never `pull_request_target`; `forks:` is not set, so
    fork PRs get no review (an accepted limit); gh-aw's membership check is kept.
-   It is advisory under ADR-0035: never a required check, so a same-repo PR that
-   edits its own workflow (fact 7) can at most change advisory output on its own
-   PR. The governing-decisions Action remains the CI authority (ADR-0045), and
+   It is advisory under ADR-0035: never a required check. That does **not**
+   confine a same-repo PR that edits its own workflow (fact 7). The custom
+   check job holds `checks: write`, and a modified job can publish a check run
+   under any name, a required context included; required checks match by name
+   (ADR-0035, "The half a trusted workflow does not close"). Checking the
+   advisory name cannot stop this. The residual risk is accepted, and it is
+   no larger than any workflow a writer can add: the real control is
+   protection of `.github/workflows/**`. In this repository that is ADR-0042's
+   `gate-change-acknowledged`; the consumer docs **require** an equivalent
+   (a ruleset or code-owner review on workflow paths) and say plainly that
+   without it a writer can forge a required check with this workflow or
+   without it. The governing-decisions Action remains the CI authority (ADR-0045), and
    markers keep no exit-code authority (ADR-0022). Any change under
    `.github/workflows/**` in this repository needs `gate-change-acknowledged`
    from an admin or maintainer (ADR-0042). *Test:* a contract test fails on
@@ -403,6 +428,15 @@ plugin's `extensions/` to no target.
   runtime warned so in the spike, and gh-aw's skill inventory omitted the
   plugin's skills. The opt-in path may stop working on a gh-aw upgrade without
   failing the compile.
+- **A partial gate still skips.** Running the agent whenever a matcher is
+  inert would spend credits on every PR in a corpus with any `package` or
+  `entity` matcher. Reporting `partial` instead keeps the cost bounded and
+  the gap visible, at the price of no review on a change that only an inert
+  matcher would govern.
+- **The check job's `checks: write` is forgeable by a PR that edits it.**
+  Being advisory limits what the legitimate job means, not what a modified one
+  can publish; consumers without workflow-path protection carry that risk with
+  or without this workflow.
 - **Fork PRs get nothing.** The safe posture costs the contributors who most
   need context.
 - **Each gh-aw upgrade is a gate change.** The compiler pin, recompiled locks,
@@ -467,7 +501,8 @@ holdout's provenance. No external run exists.
    and the baseline measured (fact 8); remote subpath `imports:` and unstaged
    `gh aw logs --outcomes` remain.
 3. [ ] Rebuild the spike on clause 3's default capability set (no MCP, no
-   plugin, real record filenames) and re-measure cost on it.
+   plugin, real record filenames), add clause 6's `partial` summary to its
+   gate, and re-measure cost on it.
 4. [ ] Label and commit the holdout before the pass's first score.
 5. [ ] Tune clause 7, then ratify or reject this record. No `gh-aw-v*` tag
    before this item.
