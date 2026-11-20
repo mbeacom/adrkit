@@ -38,27 +38,6 @@ because it lives in the repository:
 payments-ledger repository with these pull requests open, a managed ARB queue
 issue, and recordings of every command.
 
-## Decision governance, not generated documentation
-
-Generated knowledge systems answer *"how does the system work now?"* adrkit
-answers *"what did people decide, what alternatives were rejected, and which
-decisions govern this change?"*
-[ADR-0037](docs/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities.md)
-sets that boundary: generated knowledge systems are downstream read models of
-adrkit's human-reviewed decision corpus, never decision authorities.
-
-Tools such as [OpenWiki](https://github.com/langchain-ai/openwiki) can consume
-ADRs as evidence and turn them into browsable current-state documentation. That
-is complementary to adrkit: the generated wiki is a downstream read model, while
-the reviewed records in git retain authority over decision lifecycle and typed
-relationships. Machine verification of generated content is not human
-ratification of a decision.
-
-See the provisional
-[generated-knowledge guide](https://adrkit.dev/generated-knowledge/) for the
-OpenWiki setup being evaluated and the ownership boundary ADR-0037 sets between
-the two tools.
-
 ## Quickstart
 
 The CLI is published as [`@adrkit/cli`](https://www.npmjs.com/package/@adrkit/cli)
@@ -96,117 +75,35 @@ See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 | Add decision memory to Spec Kit | [`@adrkit/spec-kit`](packages/adapters/spec-kit/README.md) | Published separately for Spec Kit `>=0.13.0,<1.2.0` |
 | Add decision memory to Copilot, Claude Code, or opencode | [`adrkit` agent plugin](packages/adapters/agent-plugin/README.md) | Install from this repository or marketplace |
 
-## Container usage
+## The problem
 
-Beginning with the first lockstep release containing
-[ADR-0032](docs/adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md),
-releases are published as a multi-architecture OCI image at
-`ghcr.io/mbeacom/adrkit`. Pin an immutable `vX.Y.Z` tag in automation; `vX`
-and `latest` move only after that lockstep release has completed:
+Your organization decides something. Six months later nobody remembers, the
+decision gets re-litigated, and the code drifts from what was agreed. Now agents
+write plans too — faster than anyone can review them, with no memory of what was
+already decided and rejected.
 
-```sh
-docker run --rm --read-only --network none \
-  -v "$PWD:/workspace:ro" \
-  ghcr.io/mbeacom/adrkit:vX.Y.Z lint
+## The idea
 
-docker run --rm --read-only --network none -i \
-  -v "$PWD:/workspace:ro" \
-  ghcr.io/mbeacom/adrkit:vX.Y.Z mcp
+Treat a decision record as **typed data with a markdown body**, and give it one
+field that changes everything — `affects`, declaring what the decision governs:
+
+```yaml
+---
+id: "0042"
+title: Use server-side rendering for authenticated routes
+status: accepted
+reversibility: one-way-door
+blastRadius: cross-team
+affects:
+  - type: path
+    pattern: "apps/web/app/\\(authed\\)/**"   # ( and ) are glob syntax — escape them
+  - type: package
+    pattern: "next@>=16"
+---
 ```
 
-The MCP command keeps stdin open because MCP uses stdio. Its repository mount is
-read-only, matching the server contract; use an absolute host path in MCP client
-configuration. For CLI commands that intentionally write (`new`, `accept`,
-`approve`, `object`, `resolve`, or `migrate` without `--dry-run`), omit
-`--read-only` and the mount's `:ro` suffix. The image runs as the non-root
-`node` user; on a host with a different UID/GID, add
-`--user "$(id -u):$(id -g)"`. On SELinux hosts, add the appropriate
-bind-mount label (for example, `:Z`).
-
-The default image treats an unrecognized selector as an `adr` subcommand.
-Explicit selectors are `cli`/`adr`/`adrkit`, `mcp`/`adrkit-mcp`,
-`server`/`adrkit-server`, `ci`/`adrkit-ci`, and
-`queue-action`/`adrkit-queue-action`. The default
-`--help` describes these selectors; `cli --help` opens the CLI command
-reference. The container also reserves `-h`, `container-help`, and
-`--container-help`; CLI help subcommands such as `help lint` otherwise pass
-through unchanged.
-
-Build the same source locally with Docker or Podman. Purpose-specific `cli`,
-`mcp`, `server`, `ci`, and `queue-action` targets are isolated for local policy
-and SBOM inspection; the registry publishes only the all-in-one `adrkit` target:
-
-```sh
-docker build -f Containerfile -t adrkit:local .
-docker build -f Containerfile --target mcp -t adrkit-mcp:local .
-docker run --rm --read-only --network none -i \
-  -v "$PWD:/workspace:ro" \
-  adrkit-mcp:local
-```
-
-The two CI entry points preserve the existing GitHub Actions runtime contract:
-they expect `GITHUB_WORKSPACE`, the event payload and repository environment,
-`INPUT_*` values, and a token. For hosted GitHub Actions, the repository-backed
-Actions remain the simpler interface:
-`mbeacom/adrkit/packages/ci@v0` and
-`mbeacom/adrkit/packages/ci/queue@v0`. Container publication and recovery are
-documented in [`docs/RELEASING.md`](docs/RELEASING.md#oci-container-image).
-
-The governing-decisions Action also has a repository-root entry point for its
-GitHub Marketplace listing. That root form is available beginning with
-`v0.13.0`; the existing `packages/ci` form remains supported.
-GitHub lists only root Action metadata, so the queue Action stays at its nested
-path.
-
-### The read-only REST server
-
-**This server authenticates no one.** Run it on localhost, or behind a gateway
-that authenticates every request. Anyone who can reach its port can read every
-corpus it serves, private repositories included.
-
-The `server` selector serves a read-only REST API and the decision portal over
-one or more corpora
-([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)).
-It answers `GET` and `HEAD` only, and every other method gets `405`. Every data
-response is `{ corpus, commit, data }`. It runs no `git`, spawns no process, and
-opens no outbound connection. It binds `127.0.0.1` unless `ADRKIT_SERVER_HOST`
-says otherwise; inside a container that address cannot be reached from outside,
-so publishing a port also takes `ADRKIT_SERVER_HOST=0.0.0.0`, and the server
-then logs a warning. Routes, under `/api/v1/corpora/{corpus}`: `records`,
-`records/{id}`, `graph?kinds=`, `queue?asOf=`, `issues`, and `governing?path=`.
-`governing` matches a path against `affects` only and never reads the file, so
-it has no `@adr` marker evidence. Also served: `/api/v1/corpora`,
-`/openapi.json`, `/healthz`, and the portal at `/` (one corpus) or
-`/portal/{corpus}/`.
-
-Each corpus is a directory something else writes: the repository's records under
-`docs/adr` (or another `adrDir`) and, at its top, `.adrkit-corpus.json`, a JSON
-object holding at least `{ "commit": "<40 hex>" }`. A corpus without a valid
-sidecar is not served (`503`). When the sidecar's commit changes, the server
-loads the new tree and swaps to it. Configure the corpora with environment
-variables:
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `ADRKIT_SERVER_CORPORA` | (required) | `key[=dir],...`, or a JSON object such as `{"adrkit":"adrkit","platform":{"dir":"repos/platform","adrDir":"decisions"}}`. A bare `key` means `<root>/<key>`. Keys match `^[a-z0-9][a-z0-9-]{0,63}$` and are the `{corpus}` path segment. |
-| `ADRKIT_SERVER_ROOT` | working directory | Every corpus directory must resolve inside it, symbolic links included. |
-| `ADRKIT_SERVER_HOST` | `127.0.0.1` | Address to bind. |
-| `ADRKIT_SERVER_PORT` | `8080` | Port to bind. |
-
-To serve a checkout of your own repository on your machine only, write the
-sidecar, then mount the checkout read-only:
-
-```sh
-printf '{"commit":"%s"}\n' "$(git rev-parse HEAD)" > .adrkit-corpus.json
-docker run --rm --read-only -p 127.0.0.1:8080:8080 \
-  -v "$PWD:/workspace:ro" \
-  -e ADRKIT_SERVER_HOST=0.0.0.0 -e ADRKIT_SERVER_CORPORA=adrkit=. \
-  ghcr.io/mbeacom/adrkit:vX.Y.Z server
-```
-
-The `-p 127.0.0.1:` prefix keeps the published port on the host's loopback.
-This server has no `--network none` mode, because it listens for requests, but
-it never needs a writable mount.
+Now a tool can answer *"which decisions govern this pull request?"* — and put the
+answer where the next decision is actually being made.
 
 ## What it looks like
 
@@ -377,36 +274,6 @@ Copilot synthetic-consumer run proving candidate reconciliation and no writes.
 No persistent reference-repository run or external validation exists for the
 plugin.
 
-## The problem
-
-Your organization decides something. Six months later nobody remembers, the
-decision gets re-litigated, and the code drifts from what was agreed. Now agents
-write plans too — faster than anyone can review them, with no memory of what was
-already decided and rejected.
-
-## The idea
-
-Treat a decision record as **typed data with a markdown body**, and give it one
-field that changes everything — `affects`, declaring what the decision governs:
-
-```yaml
----
-id: "0042"
-title: Use server-side rendering for authenticated routes
-status: accepted
-reversibility: one-way-door
-blastRadius: cross-team
-affects:
-  - type: path
-    pattern: "apps/web/app/\\(authed\\)/**"   # ( and ) are glob syntax — escape them
-  - type: package
-    pattern: "next@>=16"
----
-```
-
-Now a tool can answer *"which decisions govern this pull request?"* — and put the
-answer where the next decision is actually being made.
-
 ## What it does
 
 - **`adr lint`** — validate records, catch supersession cycles, find decisions
@@ -520,6 +387,139 @@ A **template** — including a more structured MADR variant — standardizes how
 
 A schema you can hand to a linter, a resolver, an agent, and a CI job is a
 different artifact from a heading convention. That is the whole thesis.
+
+## Decision governance, not generated documentation
+
+Generated knowledge systems answer *"how does the system work now?"* adrkit
+answers *"what did people decide, what alternatives were rejected, and which
+decisions govern this change?"*
+[ADR-0037](docs/adr/0037-treat-generated-knowledge-systems-as-downstream-read-models-not-decision-authorities.md)
+sets that boundary: generated knowledge systems are downstream read models of
+adrkit's human-reviewed decision corpus, never decision authorities.
+
+Tools such as [OpenWiki](https://github.com/langchain-ai/openwiki) can consume
+ADRs as evidence and turn them into browsable current-state documentation. That
+is complementary to adrkit: the generated wiki is a downstream read model, while
+the reviewed records in git retain authority over decision lifecycle and typed
+relationships. Machine verification of generated content is not human
+ratification of a decision.
+
+See the provisional
+[generated-knowledge guide](https://adrkit.dev/generated-knowledge/) for the
+OpenWiki setup being evaluated and the ownership boundary ADR-0037 sets between
+the two tools.
+
+## Container usage
+
+Beginning with the first lockstep release containing
+[ADR-0032](docs/adr/0032-publish-one-lockstep-oci-image-after-the-coordinated-release-succeeds.md),
+releases are published as a multi-architecture OCI image at
+`ghcr.io/mbeacom/adrkit`. Pin an immutable `vX.Y.Z` tag in automation; `vX`
+and `latest` move only after that lockstep release has completed:
+
+```sh
+docker run --rm --read-only --network none \
+  -v "$PWD:/workspace:ro" \
+  ghcr.io/mbeacom/adrkit:vX.Y.Z lint
+
+docker run --rm --read-only --network none -i \
+  -v "$PWD:/workspace:ro" \
+  ghcr.io/mbeacom/adrkit:vX.Y.Z mcp
+```
+
+The MCP command keeps stdin open because MCP uses stdio. Its repository mount is
+read-only, matching the server contract; use an absolute host path in MCP client
+configuration. For CLI commands that intentionally write (`new`, `accept`,
+`approve`, `object`, `resolve`, or `migrate` without `--dry-run`), omit
+`--read-only` and the mount's `:ro` suffix. The image runs as the non-root
+`node` user; on a host with a different UID/GID, add
+`--user "$(id -u):$(id -g)"`. On SELinux hosts, add the appropriate
+bind-mount label (for example, `:Z`).
+
+The default image treats an unrecognized selector as an `adr` subcommand.
+Explicit selectors are `cli`/`adr`/`adrkit`, `mcp`/`adrkit-mcp`,
+`server`/`adrkit-server`, `ci`/`adrkit-ci`, and
+`queue-action`/`adrkit-queue-action`. The default
+`--help` describes these selectors; `cli --help` opens the CLI command
+reference. The container also reserves `-h`, `container-help`, and
+`--container-help`; CLI help subcommands such as `help lint` otherwise pass
+through unchanged.
+
+Build the same source locally with Docker or Podman. Purpose-specific `cli`,
+`mcp`, `server`, `ci`, and `queue-action` targets are isolated for local policy
+and SBOM inspection; the registry publishes only the all-in-one `adrkit` target:
+
+```sh
+docker build -f Containerfile -t adrkit:local .
+docker build -f Containerfile --target mcp -t adrkit-mcp:local .
+docker run --rm --read-only --network none -i \
+  -v "$PWD:/workspace:ro" \
+  adrkit-mcp:local
+```
+
+The two CI entry points preserve the existing GitHub Actions runtime contract:
+they expect `GITHUB_WORKSPACE`, the event payload and repository environment,
+`INPUT_*` values, and a token. For hosted GitHub Actions, the repository-backed
+Actions remain the simpler interface:
+`mbeacom/adrkit/packages/ci@v0` and
+`mbeacom/adrkit/packages/ci/queue@v0`. Container publication and recovery are
+documented in [`docs/RELEASING.md`](docs/RELEASING.md#oci-container-image).
+
+The governing-decisions Action also has a repository-root entry point for its
+GitHub Marketplace listing. That root form is available beginning with
+`v0.13.0`; the existing `packages/ci` form remains supported.
+GitHub lists only root Action metadata, so the queue Action stays at its nested
+path.
+
+### The read-only REST server
+
+**This server authenticates no one.** Run it on localhost, or behind a gateway
+that authenticates every request. Anyone who can reach its port can read every
+corpus it serves, private repositories included.
+
+The `server` selector serves a read-only REST API and the decision portal over
+one or more corpora
+([ADR-0055](docs/adr/0055-serve-a-read-only-rest-api-over-the-sdk-in-the-oci-image-and-reach-mcp-clients-t.md)).
+It answers `GET` and `HEAD` only, and every other method gets `405`. Every data
+response is `{ corpus, commit, data }`. It runs no `git`, spawns no process, and
+opens no outbound connection. It binds `127.0.0.1` unless `ADRKIT_SERVER_HOST`
+says otherwise; inside a container that address cannot be reached from outside,
+so publishing a port also takes `ADRKIT_SERVER_HOST=0.0.0.0`, and the server
+then logs a warning. Routes, under `/api/v1/corpora/{corpus}`: `records`,
+`records/{id}`, `graph?kinds=`, `queue?asOf=`, `issues`, and `governing?path=`.
+`governing` matches a path against `affects` only and never reads the file, so
+it has no `@adr` marker evidence. Also served: `/api/v1/corpora`,
+`/openapi.json`, `/healthz`, and the portal at `/` (one corpus) or
+`/portal/{corpus}/`.
+
+Each corpus is a directory something else writes: the repository's records under
+`docs/adr` (or another `adrDir`) and, at its top, `.adrkit-corpus.json`, a JSON
+object holding at least `{ "commit": "<40 hex>" }`. A corpus without a valid
+sidecar is not served (`503`). When the sidecar's commit changes, the server
+loads the new tree and swaps to it. Configure the corpora with environment
+variables:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ADRKIT_SERVER_CORPORA` | (required) | `key[=dir],...`, or a JSON object such as `{"adrkit":"adrkit","platform":{"dir":"repos/platform","adrDir":"decisions"}}`. A bare `key` means `<root>/<key>`. Keys match `^[a-z0-9][a-z0-9-]{0,63}$` and are the `{corpus}` path segment. |
+| `ADRKIT_SERVER_ROOT` | working directory | Every corpus directory must resolve inside it, symbolic links included. |
+| `ADRKIT_SERVER_HOST` | `127.0.0.1` | Address to bind. |
+| `ADRKIT_SERVER_PORT` | `8080` | Port to bind. |
+
+To serve a checkout of your own repository on your machine only, write the
+sidecar, then mount the checkout read-only:
+
+```sh
+printf '{"commit":"%s"}\n' "$(git rev-parse HEAD)" > .adrkit-corpus.json
+docker run --rm --read-only -p 127.0.0.1:8080:8080 \
+  -v "$PWD:/workspace:ro" \
+  -e ADRKIT_SERVER_HOST=0.0.0.0 -e ADRKIT_SERVER_CORPORA=adrkit=. \
+  ghcr.io/mbeacom/adrkit:vX.Y.Z server
+```
+
+The `-p 127.0.0.1:` prefix keeps the published port on the host's loopback.
+This server has no `--network none` mode, because it listens for requests, but
+it never needs a writable mount.
 
 ## Project status
 
