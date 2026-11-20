@@ -2,9 +2,10 @@
 
 > Decision memory for human- and agent-authored plans. adrkit turns architecture
 > decision records into typed, machine-readable data that is enforceable in CI and
-> legible to agents — without leaving git. Published as `@adrkit/core`,
-> `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp` (v0.2.1 on npm), plus a
-> GitHub Action at `mbeacom/adrkit/packages/ci@v0`.
+> legible to agents — without leaving git. Published on npm as `@adrkit/core`,
+> `@adrkit/cli`, `@adrkit/evaluator`, and `@adrkit/mcp` (one shared version; see
+> the CHANGELOG for the current release), plus a GitHub Action used as
+> `mbeacom/adrkit@<release tag>`.
 
 Key facts an agent should know:
 
@@ -30,4 +31,5 @@ Key facts an agent should know:
 
 - [Repository](https://github.com/mbeacom/adrkit): the code, and the decision corpus that governs it.
 - [README](https://github.com/mbeacom/adrkit/blob/main/README.md): the authoritative overview.
+- [CHANGELOG](https://github.com/mbeacom/adrkit/blob/main/CHANGELOG.md): every release, newest first.
 - [MCP server contract](https://github.com/mbeacom/adrkit/blob/main/packages/mcp/README.md): full tool contracts and limits.
