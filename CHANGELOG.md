@@ -9,6 +9,14 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-11-20
+
+A security patch release. On npm, `@adrkit/core`, `@adrkit/evaluator`,
+`@adrkit/cli`, and `@adrkit/mcp` move to 0.20.1 so that the raised `zod` floor
+below reaches published installs; 0.20.0 still allows a `zod` release affected
+by [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+There are no CLI, JSON, exit-code, or export changes.
+
 ### Fixed
 
 - **The agent plugin syncs into Claude without warnings (`adrkit` 0.11.1).**
@@ -2489,7 +2497,8 @@ against live Spec Kit, rather than reasoning about it:
 - Node-targeted published distribution of all packages, smoke-tested under Node
   22 and 24.
 
-[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/mbeacom/adrkit/compare/v0.20.1...HEAD
+[0.20.1]: https://github.com/mbeacom/adrkit/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/mbeacom/adrkit/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/mbeacom/adrkit/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/mbeacom/adrkit/compare/v0.17.0...v0.18.0

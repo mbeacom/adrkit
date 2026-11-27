@@ -349,7 +349,7 @@ plugin.
 It never approves anything. It routes, and humans decide.
 
 The root Marketplace entry point has shipped with every release since
-`v0.13.0`. Pin its immutable root reference — currently `v0.20.0` — for the
+`v0.13.0`. Pin its immutable root reference — currently `v0.20.1` — for the
 complete governing-decisions workflow (see
 [Use in CI](https://adrkit.dev/ci/)):
 
@@ -368,7 +368,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: mbeacom/adrkit@v0.20.0
+      - uses: mbeacom/adrkit@v0.20.1
 ```
 
 Existing consumers of the nested form can stay on
