@@ -57,6 +57,23 @@ npm i -D @adrkit/cli
 The pure library surfaces install independently:
 `npm i @adrkit/core @adrkit/evaluator`.
 
+### Try it on the demo repository
+
+No corpus of your own yet? [`mbeacom/adrkit-demo`](https://github.com/mbeacom/adrkit-demo)
+is a tiny payments-ledger API with nine records, including a superseded decision and
+an open proposal, so every command has something real to show:
+
+```sh
+git clone --depth 1 https://github.com/mbeacom/adrkit-demo && cd adrkit-demo
+npx @adrkit/cli lint                                    # 9 records, 0 errors
+npx @adrkit/cli explain src/money/amount.ts             # one governing decision
+npx @adrkit/cli explain src/ledger/legacy-balance-row.ts   # governing, proposed, and historical
+npx @adrkit/cli explain src/ledger/events.ts --as-of 2025-09-01   # what governed it then
+```
+
+In your own repository, `adr lint` exits `2` until a `docs/adr/` directory
+exists; `adr new` creates it along with the first record.
+
 See the [Quickstart guide](https://adrkit.dev/quickstart/) and the full
 [command reference](https://adrkit.dev/commands/).
 
