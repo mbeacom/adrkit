@@ -9,7 +9,7 @@ Until `1.0.0`, minor releases may include breaking changes
 
 ## [Unreleased]
 
-## [0.20.1] - 2026-11-20
+## [0.20.1] - 2026-11-27
 
 A security patch release. On npm, `@adrkit/core`, `@adrkit/evaluator`,
 `@adrkit/cli`, and `@adrkit/mcp` move to 0.20.1 so that the raised `zod` floor
