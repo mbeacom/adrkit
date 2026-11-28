@@ -21,12 +21,12 @@
     "@astrojs/starlight": "^0.43.1",
     "@fontsource-variable/anybody": "^5.3.0",
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
-    "astro": "^7.3.7",
+    "astro": "^7.4.13",
     "satteri": "^0.11.7",
     "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "playwright-core": "^1.63.0",
+    "playwright-core": "^1.65.1",
     "yaml": "^2.9.1"
   },
   "overrides": {
